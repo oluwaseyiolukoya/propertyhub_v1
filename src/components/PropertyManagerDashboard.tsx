@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -15,6 +15,7 @@ import { PropertyManagerSettings } from './PropertyManagerSettings';
 import PropertyManagerDocuments from './PropertyManagerDocuments';
 import { ManagerDashboardOverview } from './ManagerDashboardOverview';
 import { getManagerDashboardOverview, getProperties } from '../lib/api';
+import { getAccountInfo } from '../lib/api/auth';
 
 interface PropertyManagerDashboardProps {
   user: any;
@@ -31,36 +32,87 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [properties, setProperties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [accountInfo, setAccountInfo] = useState<any>(null);
+  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch dashboard data
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const [dashResponse, propertiesResponse] = await Promise.all([
-          getManagerDashboardOverview(),
-          getProperties()
-        ]);
+  // Fetch dashboard data and account info
+  const fetchDashboardData = async (silent = false) => {
+    try {
+      if (!silent) setLoading(true);
+      
+      const [dashResponse, propertiesResponse, accountResponse] = await Promise.all([
+        getManagerDashboardOverview(),
+        getProperties(),
+        getAccountInfo()
+      ]);
 
-        if (dashResponse.error) {
-          toast.error(dashResponse.error.error || 'Failed to load dashboard');
-        } else if (dashResponse.data) {
-          setDashboardData(dashResponse.data);
-        }
-
-        if (propertiesResponse.error) {
-          toast.error(propertiesResponse.error.error || 'Failed to load properties');
-        } else if (propertiesResponse.data) {
-          setProperties(propertiesResponse.data);
-        }
-      } catch (error) {
-        toast.error('Failed to load dashboard data');
-      } finally {
-        setLoading(false);
+      if (dashResponse.error) {
+        if (!silent) toast.error(dashResponse.error.error || 'Failed to load dashboard');
+      } else if (dashResponse.data) {
+        setDashboardData(dashResponse.data);
       }
-    };
 
+      if (propertiesResponse.error) {
+        if (!silent) toast.error(propertiesResponse.error.error || 'Failed to load properties');
+      } else if (propertiesResponse.data) {
+        setProperties(propertiesResponse.data);
+      }
+
+      // Update account info (plan, limits, etc.)
+      if (accountResponse.error) {
+        console.error('Failed to fetch account info:', accountResponse.error);
+      } else if (accountResponse.data) {
+        setAccountInfo(accountResponse.data);
+        
+        // Show notification if plan/limits were updated (only on silent refresh)
+        if (silent && accountInfo && accountResponse.data.customer) {
+          const oldCustomer = accountInfo.customer;
+          const newCustomer = accountResponse.data.customer;
+          
+          if (oldCustomer && newCustomer) {
+            if (oldCustomer.plan?.name !== newCustomer.plan?.name) {
+              toast.success(`Your organization's plan has been updated to ${newCustomer.plan?.name}!`);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      if (!silent) toast.error('Failed to load dashboard data');
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  };
+
+  // Initial data fetch
+  useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  // Set up periodic refresh (every 30 seconds)
+  useEffect(() => {
+    refreshIntervalRef.current = setInterval(() => {
+      fetchDashboardData(true); // Silent refresh
+    }, 30000); // 30 seconds
+
+    return () => {
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+      }
+    };
+  }, [accountInfo]);
+
+  // Refresh data when window regains focus
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchDashboardData(true); // Silent refresh
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [accountInfo]);
 
   // Get notification count from dashboard data
   const notificationCount = dashboardData?.notifications?.unread || 0;

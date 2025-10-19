@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -15,6 +15,7 @@ import { Footer } from './Footer';
 import PropertyOwnerDocuments from './PropertyOwnerDocuments';
 import { DashboardOverview } from './DashboardOverview';
 import { getOwnerDashboardOverview, getProperties } from '../lib/api';
+import { getAccountInfo } from '../lib/api/auth';
 
 interface PropertyOwnerDashboardProps {
   user: any;
@@ -45,36 +46,93 @@ export function PropertyOwnerDashboard({
   const [properties, setProperties] = useState<any[]>([]);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [accountInfo, setAccountInfo] = useState<any>(null);
+  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch dashboard data and properties
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [dashResponse, propertiesResponse] = await Promise.all([
-          getOwnerDashboardOverview(),
-          getProperties()
-        ]);
+  // Fetch dashboard data, properties, and account info
+  const fetchData = async (silent = false) => {
+    try {
+      if (!silent) setLoading(true);
+      
+      const [dashResponse, propertiesResponse, accountResponse] = await Promise.all([
+        getOwnerDashboardOverview(),
+        getProperties(),
+        getAccountInfo()
+      ]);
 
-        if (dashResponse.error) {
-          toast.error(dashResponse.error.error || 'Failed to load dashboard');
-        } else if (dashResponse.data) {
-          setDashboardData(dashResponse.data);
-        }
-
-        if (propertiesResponse.error) {
-          toast.error(propertiesResponse.error.error || 'Failed to load properties');
-        } else if (propertiesResponse.data) {
-          setProperties(propertiesResponse.data);
-        }
-      } catch (error) {
-        toast.error('Failed to load data');
-      } finally {
-        setLoading(false);
+      if (dashResponse.error) {
+        if (!silent) toast.error(dashResponse.error.error || 'Failed to load dashboard');
+      } else if (dashResponse.data) {
+        setDashboardData(dashResponse.data);
       }
-    };
 
+      if (propertiesResponse.error) {
+        if (!silent) toast.error(propertiesResponse.error.error || 'Failed to load properties');
+      } else if (propertiesResponse.data) {
+        setProperties(propertiesResponse.data);
+      }
+
+      // Update account info (plan, limits, etc.)
+      if (accountResponse.error) {
+        console.error('Failed to fetch account info:', accountResponse.error);
+      } else if (accountResponse.data) {
+        setAccountInfo(accountResponse.data);
+        
+        // Show notification if plan/limits were updated (only on silent refresh)
+        if (silent && accountInfo && accountResponse.data.customer) {
+          const oldCustomer = accountInfo.customer;
+          const newCustomer = accountResponse.data.customer;
+          
+          if (oldCustomer && newCustomer) {
+            if (oldCustomer.plan?.name !== newCustomer.plan?.name) {
+              toast.success(`Your plan has been updated to ${newCustomer.plan?.name}!`);
+            }
+            if (oldCustomer.propertyLimit !== newCustomer.propertyLimit) {
+              toast.info(`Property limit updated to ${newCustomer.propertyLimit}`);
+            }
+            if (oldCustomer.userLimit !== newCustomer.userLimit) {
+              toast.info(`User limit updated to ${newCustomer.userLimit}`);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      if (!silent) toast.error('Failed to load data');
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  };
+
+  // Initial data fetch
+  useEffect(() => {
     fetchData();
   }, []);
+
+  // Set up periodic refresh (every 30 seconds)
+  useEffect(() => {
+    refreshIntervalRef.current = setInterval(() => {
+      fetchData(true); // Silent refresh
+    }, 30000); // 30 seconds
+
+    return () => {
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+      }
+    };
+  }, [accountInfo]);
+
+  // Refresh data when window regains focus
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchData(true); // Silent refresh
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [accountInfo]);
 
   // Mock properties data for backwards compatibility
   const mockProperties = [

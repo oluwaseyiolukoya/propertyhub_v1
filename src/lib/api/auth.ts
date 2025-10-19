@@ -77,6 +77,46 @@ export const verifyToken = async () => {
 };
 
 /**
+ * Get current user's account information (includes updated customer/plan data)
+ */
+export const getAccountInfo = async () => {
+  return apiClient.get<{
+    user: {
+      id: string;
+      name: string;
+      email: string;
+      role: string;
+      status: string;
+    };
+    customer: {
+      id: string;
+      company: string;
+      owner: string;
+      email: string;
+      phone: string;
+      website: string;
+      status: string;
+      billingCycle: string;
+      propertyLimit: number;
+      userLimit: number;
+      storageLimit: number;
+      propertiesCount: number;
+      unitsCount: number;
+      subscriptionStartDate: string | null;
+      trialEndsAt: string | null;
+      plan: {
+        name: string;
+        description: string;
+        monthlyPrice: number;
+        annualPrice: number;
+        currency: string;
+        features: string[];
+      } | null;
+    } | null;
+  }>(API_ENDPOINTS.AUTH.ACCOUNT);
+};
+
+/**
  * Logout user (client-side only)
  */
 export const logout = () => {

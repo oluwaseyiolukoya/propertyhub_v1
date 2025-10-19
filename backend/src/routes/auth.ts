@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/db';
+import { authMiddleware, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -225,6 +226,73 @@ router.get('/verify', async (req: Request, res: Response) => {
 
   } catch (error) {
     return res.status(401).json({ error: 'Invalid token' });
+  }
+});
+
+// Get current user's account/customer info (for owners/managers to see updated limits and plan)
+router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Fetch user with customer details
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        customer: {
+          include: {
+            plan: true
+          }
+        }
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Return relevant account information
+    res.json({
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        status: user.status
+      },
+      customer: user.customer ? {
+        id: user.customer.id,
+        company: user.customer.company,
+        owner: user.customer.owner,
+        email: user.customer.email,
+        phone: user.customer.phone,
+        website: user.customer.website,
+        status: user.customer.status,
+        billingCycle: user.customer.billingCycle,
+        propertyLimit: user.customer.propertyLimit,
+        userLimit: user.customer.userLimit,
+        storageLimit: user.customer.storageLimit,
+        propertiesCount: user.customer.propertiesCount,
+        unitsCount: user.customer.unitsCount,
+        subscriptionStartDate: user.customer.subscriptionStartDate,
+        trialEndsAt: user.customer.trialEndsAt,
+        plan: user.customer.plan ? {
+          name: user.customer.plan.name,
+          description: user.customer.plan.description,
+          monthlyPrice: user.customer.plan.monthlyPrice,
+          annualPrice: user.customer.plan.annualPrice,
+          currency: user.customer.plan.currency,
+          features: user.customer.plan.features
+        } : null
+      } : null
+    });
+
+  } catch (error: any) {
+    console.error('Get account error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });
 

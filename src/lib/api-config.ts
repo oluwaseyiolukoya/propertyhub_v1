@@ -13,6 +13,7 @@ export const API_ENDPOINTS = {
     LOGIN: '/api/auth/login',
     VERIFY: '/api/auth/verify',
     SETUP_PASSWORD: '/api/auth/setup-password',
+    ACCOUNT: '/api/auth/account',
   },
   
   // Dashboard
