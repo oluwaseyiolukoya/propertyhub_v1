@@ -44,6 +44,7 @@ export const authMiddleware = async (
           where: { id: decoded.id },
           select: {
             id: true,
+            customerId: true, // Need this to check if internal admin
             updatedAt: true,
             role: true,
             permissions: true
@@ -52,11 +53,16 @@ export const authMiddleware = async (
       }
 
       if (userRecord) {
-        // Only check permissions updates for internal users (not Super Admins from admins table)
-        // Super Admins have static permissions and don't need this check
-        const isFromUsersTable = !admin; // If admin is null, user is from users table
+        // Only check permissions updates for CUSTOMER USERS
+        // Skip check for:
+        // 1. Super Admins from admins table (admin is not null)
+        // 2. Internal admin users from users table (customerId is null)
+        const isFromUsersTable = !admin;
+        const isInternalAdmin = isFromUsersTable && userRecord.customerId === null;
+        const isCustomerUser = isFromUsersTable && userRecord.customerId !== null;
         
-        if (isFromUsersTable) {
+        // Only apply permissions update check for customer users
+        if (isCustomerUser) {
           // Check if the user record was updated after the token was issued
           const tokenIssuedAt = decoded.iat ? new Date(decoded.iat * 1000) : new Date();
           const userUpdatedAt = userRecord.updatedAt;
@@ -75,6 +81,10 @@ export const authMiddleware = async (
               code: 'PERMISSIONS_UPDATED'
             });
           }
+        } else if (isInternalAdmin) {
+          console.log('✅ Internal admin - skipping permissions update check');
+        } else {
+          console.log('✅ Super admin - skipping permissions update check');
         }
       }
     } catch (dbError) {
