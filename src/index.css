@@ -76,4 +76,41 @@
     max-width: 100%;
     height: auto;
   }
+  
+  /* Enable text selection globally */
+  * {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+  }
+  
+  /* Disable selection only for interactive elements */
+  button,
+  [role="button"],
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"],
+  .no-select {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+  
+  /* Allow selection in input fields and textareas */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="number"],
+  textarea,
+  [contenteditable="true"] {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+  }
 }
