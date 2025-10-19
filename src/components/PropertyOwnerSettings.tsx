@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -77,9 +77,12 @@ import {
   TrendingUp,
   PieChart,
   Plus,
-  Copy
+  Copy,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getAccountInfo } from '../lib/api/auth';
+import { updateCustomer } from '../lib/api/customers';
 
 interface PropertyOwnerSettingsProps {
   user: {
@@ -102,13 +105,17 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [accountInfo, setAccountInfo] = useState<any>(null);
+  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Profile state
   const [profileData, setProfileData] = useState({
     name: user.name,
     email: user.email,
-    phone: user.phone || '(555) 123-4567',
-    address: '123 Business Center Dr, Metro City, CA 90001',
+    phone: user.phone || '',
+    address: '',
     timezone: 'America/Los_Angeles',
     language: 'en',
     dateFormat: 'MM/DD/YYYY',
@@ -117,22 +124,24 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
 
   // Company state
   const [companyData, setCompanyData] = useState({
-    companyName: user.company || 'Urban Living Properties',
-    businessType: 'LLC',
-    taxId: '12-3456789',
-    website: 'www.urbanlivingproperties.com',
-    businessAddress: '123 Business Center Dr, Metro City, CA 90001',
-    businessPhone: '(555) 888-9999',
-    businessEmail: 'info@urbanlivingproperties.com',
-    yearEstablished: '2018',
-    licenseNumber: 'RE-123456',
-    insuranceProvider: 'Property Insurance Co.',
-    insurancePolicy: 'PI-789012',
-    insuranceExpiration: '2024-12-31'
+    companyName: user.company || '',
+    businessType: '',
+    taxId: '',
+    website: '',
+    businessAddress: '',
+    businessPhone: '',
+    businessEmail: '',
+    yearEstablished: '',
+    licenseNumber: '',
+    insuranceProvider: '',
+    insurancePolicy: '',
+    insuranceExpiration: '',
+    industry: '',
+    companySize: ''
   });
 
   // Subscription state
-  const [subscriptionData] = useState({
+  const [subscriptionData, setSubscriptionData] = useState({
     plan: 'Professional',
     status: 'active',
     billingCycle: 'monthly',
@@ -149,6 +158,129 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
       storageLimit: 50
     }
   });
+
+  // Fetch account data from database
+  const fetchAccountData = async (silent = false) => {
+    try {
+      if (!silent) setIsLoading(true);
+      
+      const response = await getAccountInfo();
+      
+      if (response.error) {
+        if (!silent) toast.error('Failed to load account data');
+        return;
+      }
+
+      if (response.data) {
+        const { user: userData, customer } = response.data;
+        setAccountInfo(response.data);
+
+        // Update profile data
+        setProfileData({
+          name: userData.name || user.name,
+          email: userData.email || user.email,
+          phone: customer?.phone || '',
+          address: customer ? `${customer.street || ''}, ${customer.city || ''}, ${customer.state || ''} ${customer.zipCode || ''}`.trim() : '',
+          timezone: 'America/Los_Angeles',
+          language: 'en',
+          dateFormat: 'MM/DD/YYYY',
+          avatar: user.avatar || null
+        });
+
+        // Update company data
+        if (customer) {
+          setCompanyData({
+            companyName: customer.company || '',
+            businessType: '',
+            taxId: customer.taxId || '',
+            website: customer.website || '',
+            businessAddress: `${customer.street || ''}, ${customer.city || ''}, ${customer.state || ''} ${customer.zipCode || ''}`.trim(),
+            businessPhone: customer.phone || '',
+            businessEmail: customer.email || '',
+            yearEstablished: '',
+            licenseNumber: '',
+            insuranceProvider: '',
+            insurancePolicy: '',
+            insuranceExpiration: '',
+            industry: customer.industry || '',
+            companySize: customer.companySize || ''
+          });
+
+          // Update subscription data
+          setSubscriptionData({
+            plan: customer.plan?.name || 'Professional',
+            status: customer.status || 'active',
+            billingCycle: customer.billingCycle || 'monthly',
+            nextBillingDate: '2024-04-01',
+            amount: customer.billingCycle === 'annual' 
+              ? customer.plan?.annualPrice || 0 
+              : customer.plan?.monthlyPrice || 0,
+            properties: customer.propertyLimit || 0,
+            units: customer.unitsCount || 0,
+            managers: customer.userLimit || 0,
+            usageStats: {
+              propertiesUsed: customer.propertiesCount || 0,
+              unitsUsed: customer.unitsCount || 0,
+              managersUsed: 0,
+              storageUsed: 0,
+              storageLimit: customer.storageLimit || 0
+            }
+          });
+
+          // Show notification if data was updated (only on silent refresh)
+          if (silent && accountInfo && customer) {
+            const oldCustomer = accountInfo.customer;
+            if (oldCustomer) {
+              if (oldCustomer.company !== customer.company) {
+                toast.info('Company information has been updated');
+              }
+              if (oldCustomer.plan?.name !== customer.plan?.name) {
+                toast.success(`Your plan has been updated to ${customer.plan?.name}!`);
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      if (!silent) {
+        console.error('Error fetching account data:', error);
+        toast.error('Failed to load account data');
+      }
+    } finally {
+      if (!silent) setIsLoading(false);
+    }
+  };
+
+  // Initial data fetch
+  useEffect(() => {
+    fetchAccountData();
+  }, []);
+
+  // Set up periodic refresh (every 30 seconds)
+  useEffect(() => {
+    refreshIntervalRef.current = setInterval(() => {
+      fetchAccountData(true); // Silent refresh
+    }, 30000); // 30 seconds
+
+    return () => {
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+      }
+    };
+  }, [accountInfo]);
+
+  // Refresh data when window regains focus
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchAccountData(true); // Silent refresh
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [accountInfo]);
 
   // Security settings
   const [securitySettings, setSecuritySettings] = useState({
@@ -314,26 +446,125 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
   ]);
 
   // Handler functions
-  const handleSaveProfile = () => {
-    onSave(profileData);
-    setIsEditing(false);
-    setHasUnsavedChanges(false);
-    toast.success('Profile updated successfully');
+  const handleSaveProfile = async () => {
+    if (!accountInfo?.customer?.id) {
+      toast.error('Customer information not found');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+
+      // Parse address if changed
+      let addressParts = { street: '', city: '', state: '', zipCode: '' };
+      if (profileData.address) {
+        const parts = profileData.address.split(',').map(p => p.trim());
+        addressParts.street = parts[0] || '';
+        addressParts.city = parts[1] || '';
+        const stateZip = parts[2]?.split(' ') || [];
+        addressParts.state = stateZip[0] || '';
+        addressParts.zipCode = stateZip[1] || '';
+      }
+
+      // Prepare update data based on current tab
+      let updateData: any = {};
+      
+      if (activeTab === 'profile') {
+        updateData = {
+          owner: profileData.name,
+          phone: profileData.phone,
+          street: addressParts.street || accountInfo.customer.street,
+          city: addressParts.city || accountInfo.customer.city,
+          state: addressParts.state || accountInfo.customer.state,
+          zipCode: addressParts.zipCode || accountInfo.customer.zipCode,
+          country: accountInfo.customer.country || 'Nigeria'
+        };
+      } else if (activeTab === 'company') {
+        // Parse company address if changed
+        let companyAddressParts = { street: '', city: '', state: '', zipCode: '' };
+        if (companyData.businessAddress) {
+          const parts = companyData.businessAddress.split(',').map(p => p.trim());
+          companyAddressParts.street = parts[0] || '';
+          companyAddressParts.city = parts[1] || '';
+          const stateZip = parts[2]?.split(' ') || [];
+          companyAddressParts.state = stateZip[0] || '';
+          companyAddressParts.zipCode = stateZip[1] || '';
+        }
+
+        updateData = {
+          company: companyData.companyName,
+          taxId: companyData.taxId,
+          website: companyData.website,
+          industry: companyData.industry,
+          companySize: companyData.companySize,
+          phone: companyData.businessPhone,
+          email: companyData.businessEmail,
+          street: companyAddressParts.street || accountInfo.customer.street,
+          city: companyAddressParts.city || accountInfo.customer.city,
+          state: companyAddressParts.state || accountInfo.customer.state,
+          zipCode: companyAddressParts.zipCode || accountInfo.customer.zipCode,
+          country: accountInfo.customer.country || 'Nigeria'
+        };
+      }
+
+      // Call API to update customer
+      const response = await updateCustomer(accountInfo.customer.id, updateData);
+
+      if (response.error) {
+        throw new Error(response.error.error || 'Failed to update information');
+      }
+
+      // Update was successful
+      setIsEditing(false);
+      setHasUnsavedChanges(false);
+      toast.success(activeTab === 'profile' ? 'Profile updated successfully' : 'Company information updated successfully');
+      
+      // Refresh data from server
+      await fetchAccountData(true);
+      
+      // Also notify parent component
+      onSave(activeTab === 'profile' ? profileData : companyData);
+    } catch (error: any) {
+      console.error('Error updating customer:', error);
+      toast.error(error.message || 'Failed to update information');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancelEdit = () => {
     setIsEditing(false);
     setHasUnsavedChanges(false);
-    setProfileData({
-      name: user.name,
-      email: user.email,
-      phone: user.phone || '(555) 123-4567',
-      address: '123 Business Center Dr, Metro City, CA 90001',
-      timezone: 'America/Los_Angeles',
-      language: 'en',
-      dateFormat: 'MM/DD/YYYY',
-      avatar: user.avatar || null
-    });
+    // Restore original data from accountInfo
+    if (accountInfo?.customer) {
+      const customer = accountInfo.customer;
+      setProfileData({
+        name: accountInfo.user?.name || user.name,
+        email: accountInfo.user?.email || user.email,
+        phone: customer.phone || '',
+        address: `${customer.street || ''}, ${customer.city || ''}, ${customer.state || ''} ${customer.zipCode || ''}`.trim(),
+        timezone: 'America/Los_Angeles',
+        language: 'en',
+        dateFormat: 'MM/DD/YYYY',
+        avatar: user.avatar || null
+      });
+      setCompanyData({
+        companyName: customer.company || '',
+        businessType: '',
+        taxId: customer.taxId || '',
+        website: customer.website || '',
+        businessAddress: `${customer.street || ''}, ${customer.city || ''}, ${customer.state || ''} ${customer.zipCode || ''}`.trim(),
+        businessPhone: customer.phone || '',
+        businessEmail: customer.email || '',
+        yearEstablished: '',
+        licenseNumber: '',
+        insuranceProvider: '',
+        insurancePolicy: '',
+        insuranceExpiration: '',
+        industry: customer.industry || '',
+        companySize: customer.companySize || ''
+      });
+    }
     toast.info('Changes discarded');
   };
 
@@ -405,13 +636,22 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
             {/* Right: Save/Cancel */}
             {isEditing && (
               <div className="flex items-center space-x-2">
-                <Button variant="outline" onClick={handleCancelEdit}>
+                <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving}>
                   <X className="h-4 w-4 mr-2" />
                   Cancel
                 </Button>
-                <Button onClick={handleSaveProfile}>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Changes
+                <Button onClick={handleSaveProfile} disabled={isSaving}>
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Changes
+                    </>
+                  )}
                 </Button>
               </div>
             )}
@@ -421,7 +661,15 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto p-6">
-        <div className="grid lg:grid-cols-4 gap-6">
+        {isLoading ? (
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-gray-400" />
+              <p className="text-gray-500">Loading account information...</p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid lg:grid-cols-4 gap-6">
           {/* Sidebar Navigation */}
           <aside className="lg:col-span-1">
             <Card>
@@ -661,6 +909,7 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
             {activeTab === 'help' && <HelpSection />}
           </div>
         </div>
+        )}
       </main>
 
       {/* Password Change Dialog */}
