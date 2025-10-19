@@ -9,29 +9,31 @@ const router = express.Router();
 router.use(authMiddleware);
 router.use(adminOnly);
 
-// Mock data for development
+// Mock data for development (INTERNAL ADMIN USERS ONLY)
 const mockUsers = [
   {
-    id: 'owner-1',
-    name: 'John Smith',
-    email: 'john@metro-properties.com',
-    role: 'owner',
+    id: 'admin-1',
+    name: 'Admin User',
+    email: 'admin@propertyhub.com',
+    role: 'admin',
     status: 'active',
-    customerId: 'customer-1',
-    customer: { id: 'customer-1', company: 'Metro Properties LLC', status: 'active' },
+    customerId: null, // Internal admin user, not associated with a customer
+    customer: null,
+    department: 'Administration',
     lastLogin: new Date(),
-    createdAt: new Date('2024-01-15')
+    createdAt: new Date('2024-01-01')
   },
   {
-    id: 'manager-1',
-    name: 'Sarah Johnson',
-    email: 'sarah@propertyhub.com',
-    role: 'manager',
+    id: 'admin-2',
+    name: 'Support Staff',
+    email: 'support@propertyhub.com',
+    role: 'admin',
     status: 'active',
-    customerId: 'customer-1',
-    customer: { id: 'customer-1', company: 'Metro Properties LLC', status: 'active' },
+    customerId: null, // Internal admin user
+    customer: null,
+    department: 'Customer Support',
     lastLogin: new Date(),
-    createdAt: new Date('2024-01-20')
+    createdAt: new Date('2024-01-05')
   }
 ];
 
@@ -42,13 +44,16 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
     // Try database first
     try {
-      const where: any = {};
+      const where: any = {
+        customerId: null // ONLY internal admin users (not associated with customers)
+      };
 
       if (search) {
         where.OR = [
           { name: { contains: search as string, mode: 'insensitive' } },
           { email: { contains: search as string, mode: 'insensitive' } },
-          { company: { contains: search as string, mode: 'insensitive' } }
+          { company: { contains: search as string, mode: 'insensitive' } },
+          { department: { contains: search as string, mode: 'insensitive' } }
         ];
       }
 
@@ -60,31 +65,20 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         where.role = role;
       }
 
-      if (customerId) {
-        where.customerId = customerId;
-      }
-
       const users = await prisma.user.findMany({
         where,
-        include: {
-          customer: {
-            select: {
-              id: true,
-              company: true,
-              status: true
-            }
-          }
-        },
         orderBy: { createdAt: 'desc' }
       });
 
       // Remove passwords from response
       const usersWithoutPassword = users.map(({ password, ...user }) => user);
 
+      console.log('✅ Internal admin users fetched:', usersWithoutPassword.length);
+
       return res.json(usersWithoutPassword);
-    } catch (dbError) {
+    } catch (dbError: any) {
       // Database not available, return mock data
-      console.log('📝 Using mock users data');
+      console.log('📝 Using mock internal admin users data');
       return res.json(mockUsers);
     }
 
@@ -128,11 +122,10 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// Create user
+// Create user (INTERNAL ADMIN USER ONLY - for User Management)
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
     const {
-      customerId,
       name,
       email,
       phone,
@@ -145,8 +138,8 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     } = req.body;
 
     // Validate required fields
-    if (!customerId || !name || !email || !role) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    if (!name || !email || !role) {
+      return res.status(400).json({ error: 'Missing required fields: name, email, role' });
     }
 
     // Check if email already exists
@@ -159,40 +152,29 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     }
 
     // Generate temporary password if not sending invite
-    const tempPassword = Math.random().toString(36).slice(-8);
+    const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-2).toUpperCase();
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
     const user = await prisma.user.create({
       data: {
-        customerId,
+        customerId: null, // INTERNAL ADMIN USER - not associated with any customer
         name,
         email,
         password: sendInvite ? null : hashedPassword,
         phone,
-        role,
+        role: role || 'admin', // Default to admin role for internal users
         department,
-        company,
+        company: company || 'PropertyHub Admin', // Internal admin company
         permissions,
         isActive: isActive !== undefined ? isActive : true,
         status: sendInvite ? 'pending' : 'active',
         invitedAt: sendInvite ? new Date() : null
-      },
-      include: {
-        customer: true
       }
     });
 
-    // Log activity
-    await prisma.activityLog.create({
-      data: {
-        customerId,
-        userId: req.user?.id,
-        action: 'create',
-        entity: 'user',
-        entityId: user.id,
-        description: `User ${name} created by admin`
-      }
-    });
+    console.log('✅ Internal admin user created:', user.email);
+
+    // Note: No activity log for internal users since they don't belong to a customer
 
     // TODO: Send invitation email if sendInvite is true
 
@@ -209,7 +191,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// Update user
+// Update user (INTERNAL ADMIN USER ONLY)
 router.put('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
@@ -237,23 +219,12 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         permissions,
         isActive,
         status
-      },
-      include: {
-        customer: true
       }
     });
 
-    // Log activity
-    await prisma.activityLog.create({
-      data: {
-        customerId: user.customerId,
-        userId: req.user?.id,
-        action: 'update',
-        entity: 'user',
-        entityId: user.id,
-        description: `User ${name} updated by admin`
-      }
-    });
+    console.log('✅ Internal admin user updated:', user.email);
+
+    // Note: No activity log for internal users since they don't belong to a customer
 
     const { password, ...userWithoutPassword } = user;
 
@@ -265,7 +236,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// Delete user
+// Delete user (INTERNAL ADMIN USER ONLY)
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
@@ -280,17 +251,9 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
 
     await prisma.user.delete({ where: { id } });
 
-    // Log activity
-    await prisma.activityLog.create({
-      data: {
-        customerId: user.customerId,
-        userId: req.user?.id,
-        action: 'delete',
-        entity: 'user',
-        entityId: id,
-        description: `User ${user.name} deleted by admin`
-      }
-    });
+    console.log('✅ Internal admin user deleted:', user.email);
+
+    // Note: No activity log for internal users since they don't belong to a customer
 
     return res.json({ message: 'User deleted successfully' });
 
