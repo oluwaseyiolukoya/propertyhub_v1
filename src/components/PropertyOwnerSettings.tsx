@@ -177,8 +177,8 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
 
         // Update profile data
         setProfileData({
-          name: userData.name || user.name,
-          email: userData.email || user.email,
+          name: customer?.owner || userData.name || user.name, // Use customer.owner as the Full Name
+          email: customer?.email || userData.email || user.email, // Use customer.email
           phone: customer?.phone || '',
           address: customer ? `${customer.street || ''}, ${customer.city || ''}, ${customer.state || ''} ${customer.zipCode || ''}`.trim() : '',
           timezone: 'America/Los_Angeles',
