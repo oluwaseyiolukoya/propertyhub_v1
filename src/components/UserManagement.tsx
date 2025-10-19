@@ -128,6 +128,15 @@ export function UserManagement({
     return matchesSearch && matchesStatus && matchesRole;
   });
 
+  // Filter roles to show only internal admin roles (exclude customer roles like 'owner', 'manager', 'tenant')
+  const internalRoleNames = internalStaffRoles.map(r => r.value.toLowerCase());
+  const filteredRoles = roles.filter(role => 
+    internalRoleNames.includes(role.name.toLowerCase()) || 
+    role.name.toLowerCase().includes('admin') ||
+    role.name.toLowerCase().includes('support') ||
+    role.name.toLowerCase().includes('staff')
+  );
+
   const handleAddUser = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -464,7 +473,7 @@ export function UserManagement({
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-gray-600">
-                    {roles.length} role{roles.length !== 1 ? 's' : ''} available
+                    {filteredRoles.length} role{filteredRoles.length !== 1 ? 's' : ''} available
                   </div>
                   <div className="flex items-center space-x-2">
                     <Button
@@ -491,7 +500,7 @@ export function UserManagement({
             {/* Grid View */}
             {roleViewMode === 'grid' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {roles.map((role) => (
+                {filteredRoles.map((role) => (
                   <Card key={role.id}>
                     <CardHeader>
                       <div className="flex justify-between items-start">
@@ -589,7 +598,7 @@ export function UserManagement({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {roles.map((role) => (
+                      {filteredRoles.map((role) => (
                         <TableRow key={role.id}>
                           <TableCell>
                             <div className="flex items-center space-x-2">
