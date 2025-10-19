@@ -1,0 +1,402 @@
+// This is your Prisma schema file
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// SUPER ADMIN MODELS
+// ============================================
+
+model Admin {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password      String
+  name          String
+  role          String   @default("super_admin")
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("admins")
+}
+
+model Customer {
+  id              String    @id @default(uuid())
+  company         String
+  owner           String
+  email           String    @unique
+  phone           String?
+  website         String?
+  taxId           String?
+  industry        String?
+  companySize     String?
+  
+  // Subscription
+  planId          String?
+  plan            Plan?     @relation(fields: [planId], references: [id])
+  billingCycle    String    @default("monthly") // monthly, annual
+  mrr             Float     @default(0)
+  trialEndsAt     DateTime?
+  subscriptionStartDate DateTime?
+  
+  // Status
+  status          String    @default("trial") // trial, active, suspended, cancelled
+  lastLogin       DateTime?
+  
+  // Limits
+  propertyLimit   Int       @default(5)
+  userLimit       Int       @default(3)
+  storageLimit    Int       @default(1000) // in MB
+  
+  // Stats (can be updated from frontend or calculated)
+  propertiesCount Int       @default(0) // Current number of properties
+  unitsCount      Int       @default(0) // Current number of units
+  
+  // Address
+  street          String?
+  city            String?
+  state           String?
+  zipCode         String?
+  country         String    @default("Nigeria")
+  
+  // Additional Info
+  notes           String?
+  
+  // Metadata
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  users           User[]
+  properties      Property[]
+  invoices        Invoice[]
+  supportTickets  SupportTicket[]
+  activityLogs    ActivityLog[]
+  
+  @@map("customers")
+}
+
+model User {
+  id          String    @id @default(uuid())
+  customerId  String
+  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  name        String
+  email       String    @unique
+  password    String?
+  phone       String?
+  role        String    // owner, manager, tenant, admin
+  department  String?
+  company     String?
+  
+  // Status
+  isActive    Boolean   @default(true)
+  status      String    @default("pending") // pending, active, inactive, suspended
+  lastLogin   DateTime?
+  invitedAt   DateTime?
+  acceptedAt  DateTime?
+  
+  // Permissions
+  permissions Json?
+  
+  // Metadata
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relations
+  properties  Property[]
+  tenantLeases Lease[]  @relation("TenantLeases")
+  managerAssignments PropertyManager[]
+  activityLogs ActivityLog[]
+  
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  permissions Json     // Array of permission strings
+  isActive    Boolean  @default(true)
+  isSystem    Boolean  @default(false) // System roles can't be deleted
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("roles")
+}
+
+model Plan {
+  id              String   @id @default(uuid())
+  name            String   @unique
+  description     String?
+  
+  // Pricing
+  monthlyPrice    Float
+  annualPrice     Float
+  currency        String   @default("NGN")
+  
+  // Limits
+  propertyLimit   Int
+  userLimit       Int
+  storageLimit    Int      // in MB
+  
+  // Features
+  features        Json     // Array of feature strings
+  
+  // Status
+  isActive        Boolean  @default(true)
+  isPopular       Boolean  @default(false)
+  
+  // Metadata
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  customers       Customer[]
+  
+  @@map("plans")
+}
+
+model Invoice {
+  id              String   @id @default(uuid())
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  invoiceNumber   String   @unique
+  amount          Float
+  currency        String   @default("NGN")
+  status          String   @default("pending") // pending, paid, overdue, cancelled
+  
+  dueDate         DateTime
+  paidAt          DateTime?
+  
+  billingPeriod   String
+  description     String?
+  items           Json     // Array of invoice items
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("invoices")
+}
+
+model SupportTicket {
+  id          String   @id @default(uuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  ticketNumber String  @unique
+  subject     String
+  description String
+  category    String   // technical, billing, feature_request, bug_report, other
+  priority    String   @default("medium") // low, medium, high, urgent
+  status      String   @default("open") // open, in_progress, waiting, resolved, closed
+  
+  assignedTo  String?
+  resolution  String?
+  resolvedAt  DateTime?
+  
+  attachments Json?    // Array of attachment URLs
+  tags        String[] @default([])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("support_tickets")
+}
+
+model ActivityLog {
+  id          String   @id @default(uuid())
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  action      String   // login, logout, create, update, delete, etc.
+  entity      String   // customer, user, property, etc.
+  entityId    String?
+  description String
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  
+  createdAt   DateTime @default(now())
+  
+  @@map("activity_logs")
+}
+
+model SystemSetting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       Json
+  category    String   // system, email, security, features, etc.
+  description String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("system_settings")
+}
+
+// ============================================
+// PROPERTY MANAGEMENT MODELS
+// ============================================
+
+model Property {
+  id              String   @id @default(uuid())
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  ownerId         String
+  owner           User     @relation(fields: [ownerId], references: [id])
+  
+  name            String
+  propertyType    String
+  
+  // Address
+  address         String
+  city            String
+  state           String
+  zipCode         String
+  country         String   @default("Nigeria")
+  
+  // Details
+  yearBuilt       Int?
+  totalUnits      Int
+  floors          Int?
+  totalArea       Float?
+  lotSize         Float?
+  parking         Int?
+  
+  // Financial
+  currency        String   @default("NGN")
+  purchasePrice   Float?
+  marketValue     Float?
+  avgRent         Float?
+  
+  // Status
+  status          String   @default("active") // active, inactive, maintenance
+  
+  // Features
+  features        Json?
+  unitFeatures    Json?
+  
+  // Insurance
+  insuranceProvider String?
+  insurancePolicyNumber String?
+  insurancePremium Float?
+  insuranceExpiration DateTime?
+  propertyTaxes   Float?
+  
+  // Media
+  coverImage      String?
+  images          Json?
+  
+  description     String?
+  notes           String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  units           Unit[]
+  managers        PropertyManager[]
+  leases          Lease[]
+  
+  @@map("properties")
+}
+
+model Unit {
+  id          String   @id @default(uuid())
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  
+  unitNumber  String
+  type        String   // studio, 1br, 2br, 3br, etc.
+  floor       Int?
+  
+  // Details
+  bedrooms    Int
+  bathrooms   Float
+  size        Float?   // in sq ft
+  
+  // Financial
+  monthlyRent Float
+  securityDeposit Float?
+  
+  // Status
+  status      String   @default("vacant") // vacant, occupied, maintenance
+  
+  // Features
+  features    Json?
+  
+  // Media
+  images      Json?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  leases      Lease[]
+  
+  @@unique([propertyId, unitNumber])
+  @@map("units")
+}
+
+model PropertyManager {
+  id          String   @id @default(uuid())
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  managerId   String
+  manager     User     @relation(fields: [managerId], references: [id])
+  
+  permissions Json?
+  isActive    Boolean  @default(true)
+  
+  assignedAt  DateTime @default(now())
+  
+  @@unique([propertyId, managerId])
+  @@map("property_managers")
+}
+
+model Lease {
+  id              String   @id @default(uuid())
+  propertyId      String
+  property        Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId          String
+  unit            Unit     @relation(fields: [unitId], references: [id])
+  tenantId        String
+  tenant          User     @relation("TenantLeases", fields: [tenantId], references: [id])
+  
+  leaseNumber     String   @unique
+  
+  startDate       DateTime
+  endDate         DateTime
+  
+  monthlyRent     Float
+  securityDeposit Float
+  currency        String   @default("NGN")
+  
+  status          String   @default("active") // draft, active, expired, terminated
+  
+  terms           String?
+  specialClauses  Json?
+  
+  signedAt        DateTime?
+  terminatedAt    DateTime?
+  terminationReason String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("leases")
+}
+
+
