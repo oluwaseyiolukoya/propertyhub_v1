@@ -76,3 +76,10 @@ export const sendUserInvitation = async (data: {
   return apiClient.post<{ message: string }>(API_ENDPOINTS.USERS.SEND_INVITATION, data);
 };
 
+/**
+ * Reset user password
+ */
+export const resetUserPassword = async (userId: string) => {
+  return apiClient.post<{ message: string; tempPassword: string }>(`/api/users/${userId}/reset-password`, {});
+};
+

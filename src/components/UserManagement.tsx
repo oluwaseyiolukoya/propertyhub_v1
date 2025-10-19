@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Textarea } from "./ui/textarea";
 import { Switch } from "./ui/switch";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
+import { resetUserPassword as resetUserPasswordAPI } from '../lib/api/users';
 import { 
   Users, 
   UserPlus, 
@@ -29,7 +30,7 @@ import {
   Mail,
   Phone,
   Building,
-  Copy
+  Clipboard
 } from 'lucide-react';
 
 interface UserManagementProps {
@@ -160,22 +161,11 @@ export function UserManagement({
   const resetUserPassword = async (userId: string, userName: string) => {
     if (confirm(`Are you sure you want to reset password for ${userName}? A new temporary password will be generated.`)) {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/users/${userId}/reset-password`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to reset password');
-        }
-
-        const data = await response.json();
+        const data = await resetUserPasswordAPI(userId);
         setGeneratedPassword(data.tempPassword);
         setShowResetPassword(true);
       } catch (error) {
+        console.error('Reset password error:', error);
         alert('Failed to reset password. Please try again.');
       }
     }
@@ -1027,7 +1017,7 @@ export function UserManagement({
                     alert('Password copied to clipboard!');
                   }}
                 >
-                  <Copy className="h-4 w-4" />
+                  <Clipboard className="h-4 w-4" />
                 </Button>
               </div>
             </div>
