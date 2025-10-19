@@ -85,67 +85,48 @@ export function SuperAdminDashboard({
   // Users data from API
   const [users, setUsers] = useState<any[]>([]);
 
-  // Mock roles for now (roles could come from backend later)
+  // Internal admin roles only (customer roles like owner, manager, tenant are managed separately)
   const [roles, setRoles] = useState([
     {
-      id: 'admin',
+      id: 'super-admin',
       name: 'Super Admin',
       description: 'Full system access with all permissions',
       permissions: [
+        'customer_management',
+        'customer_create',
+        'customer_edit',
+        'customer_delete',
+        'customer_view',
         'user_management',
-        'property_management',
-        'tenant_management',
-        'financial_reports',
-        'maintenance_management',
-        'access_control',
-        'analytics_view',
+        'user_create',
+        'user_edit',
+        'user_delete',
+        'user_view',
+        'role_management',
+        'role_create',
+        'role_edit',
+        'role_delete',
         'billing_management',
+        'plan_management',
+        'invoice_management',
+        'payment_view',
+        'analytics_view',
+        'analytics_reports',
+        'analytics_export',
+        'system_health',
         'system_settings',
-        'support_tickets'
+        'platform_settings',
+        'system_logs',
+        'support_tickets',
+        'support_view',
+        'support_respond',
+        'support_close',
+        'activity_logs',
+        'audit_reports'
       ],
-      userCount: 2,
+      userCount: 1,
       isActive: true,
-      createdAt: '2023-01-01T00:00:00Z'
-    },
-    {
-      id: 'owner',
-      name: 'Property Owner',
-      description: 'Manage owned properties and view reports',
-      permissions: [
-        'property_management',
-        'tenant_management',
-        'financial_reports',
-        'maintenance_management',
-        'access_control',
-        'analytics_view'
-      ],
-      userCount: 4,
-      isActive: true,
-      createdAt: '2023-01-01T00:00:00Z'
-    },
-    {
-      id: 'manager',
-      name: 'Property Manager',
-      description: 'Day-to-day property operations and tenant management',
-      permissions: [
-        'tenant_management',
-        'maintenance_management',
-        'access_control'
-      ],
-      userCount: 2,
-      isActive: true,
-      createdAt: '2023-01-01T00:00:00Z'
-    },
-    {
-      id: 'tenant',
-      name: 'Tenant',
-      description: 'Access to tenant portal and payment features',
-      permissions: [
-        'maintenance_management'
-      ],
-      userCount: 0,
-      isActive: true,
-      createdAt: '2023-01-01T00:00:00Z'
+      createdAt: new Date().toISOString()
     }
   ]);
 
