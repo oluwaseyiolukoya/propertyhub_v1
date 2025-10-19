@@ -838,7 +838,7 @@ export function UserManagement({
                 id="roleName"
                 value={newRole.name}
                 onChange={(e) => setNewRole(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="e.g., Property Manager, Support Staff"
+                placeholder="e.g., Support Staff, Business Analyst, Developer"
                 required
               />
             </div>
