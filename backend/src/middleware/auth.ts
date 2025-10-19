@@ -87,10 +87,40 @@ export const adminOnly = async (
   res: Response,
   next: NextFunction
 ) => {
-  if (req.user?.role !== 'super_admin' && req.user?.role !== 'admin') {
+  try {
+    const userId = req.user?.id;
+    
+    if (!userId) {
+      return res.status(403).json({ error: 'Access denied. Admin only.' });
+    }
+
+    // Check if user is a Super Admin (from admins table)
+    const admin = await prisma.admin.findUnique({
+      where: { id: userId }
+    });
+
+    if (admin) {
+      // Super Admin has access
+      return next();
+    }
+
+    // Check if user is an Internal Admin User (from users table with customerId = null)
+    const internalUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { customerId: true }
+    });
+
+    if (internalUser && internalUser.customerId === null) {
+      // Internal Admin User has access
+      return next();
+    }
+
+    // Not an admin
+    return res.status(403).json({ error: 'Access denied. Admin only.' });
+  } catch (error) {
+    console.error('Admin check error:', error);
     return res.status(403).json({ error: 'Access denied. Admin only.' });
   }
-  next();
 };
 
 
