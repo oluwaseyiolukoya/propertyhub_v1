@@ -85,8 +85,8 @@ model Customer {
 
 model User {
   id          String    @id @default(uuid())
-  customerId  String
-  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId  String?   // Optional for internal admin users
+  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
   
   name        String
   email       String    @unique
