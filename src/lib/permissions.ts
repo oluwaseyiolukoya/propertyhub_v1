@@ -125,25 +125,13 @@ function getDefaultPermissionsForRole(roleName?: string): string[] {
   const role = roleName.toLowerCase();
   
   // Super Admin - all permissions
-  if (role === 'super admin' || role === 'superadmin') {
+  if (role === 'super admin' || role === 'superadmin' || role === 'super_admin') {
     return Object.values(PERMISSIONS);
   }
   
-  // Admin - most internal permissions
+  // Admin - most internal permissions (also gets all permissions)
   if (role === 'admin') {
-    return [
-      PERMISSIONS.CUSTOMER_MANAGEMENT,
-      PERMISSIONS.CUSTOMER_VIEW,
-      PERMISSIONS.CUSTOMER_CREATE,
-      PERMISSIONS.CUSTOMER_EDIT,
-      PERMISSIONS.USER_MANAGEMENT,
-      PERMISSIONS.USER_VIEW,
-      PERMISSIONS.SUPPORT_TICKETS,
-      PERMISSIONS.SUPPORT_VIEW,
-      PERMISSIONS.SUPPORT_RESPOND,
-      PERMISSIONS.ANALYTICS_VIEW,
-      PERMISSIONS.SYSTEM_HEALTH,
-    ];
+    return Object.values(PERMISSIONS); // Give admin full access like super admin
   }
   
   // Support Staff
@@ -240,8 +228,10 @@ export function filterMenuByPermissions(
  * Check if user is Super Admin (has all permissions)
  */
 export function isSuperAdmin(user: any): boolean {
-  return user?.role?.toLowerCase() === 'super admin' || 
-         user?.role?.toLowerCase() === 'superadmin' ||
+  const role = user?.role?.toLowerCase();
+  return role === 'super admin' || 
+         role === 'superadmin' ||
+         role === 'super_admin' ||
          user?.isSuperAdmin === true;
 }
 
@@ -249,7 +239,8 @@ export function isSuperAdmin(user: any): boolean {
  * Check if user is Admin (internal admin, not super admin)
  */
 export function isAdmin(user: any): boolean {
-  return user?.role?.toLowerCase() === 'admin' || isSuperAdmin(user);
+  const role = user?.role?.toLowerCase();
+  return role === 'admin' || isSuperAdmin(user);
 }
 
 /**
