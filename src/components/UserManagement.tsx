@@ -28,7 +28,8 @@ import {
   CheckCircle,
   Mail,
   Phone,
-  Building
+  Building,
+  Copy
 } from 'lucide-react';
 
 interface UserManagementProps {
@@ -64,6 +65,9 @@ export function UserManagement({
   const [showAddRole, setShowAddRole] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [showUserDetails, setShowUserDetails] = useState(false);
+  const [showEditUser, setShowEditUser] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [generatedPassword, setGeneratedPassword] = useState('');
   const [roleViewMode, setRoleViewMode] = useState<'grid' | 'list'>('grid');
 
   const [newUser, setNewUser] = useState({
@@ -153,9 +157,27 @@ export function UserManagement({
     onUpdateUser(userId, { status: newStatus });
   };
 
-  const resetUserPassword = (userId: string) => {
-    if (confirm('Are you sure you want to reset this user\'s password? They will receive an email with instructions.')) {
-      onUpdateUser(userId, { passwordResetSent: new Date().toISOString() });
+  const resetUserPassword = async (userId: string, userName: string) => {
+    if (confirm(`Are you sure you want to reset password for ${userName}? A new temporary password will be generated.`)) {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/users/${userId}/reset-password`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to reset password');
+        }
+
+        const data = await response.json();
+        setGeneratedPassword(data.tempPassword);
+        setShowResetPassword(true);
+      } catch (error) {
+        alert('Failed to reset password. Please try again.');
+      }
     }
   };
 
@@ -344,12 +366,15 @@ export function UserManagement({
                                   <Eye className="h-4 w-4 mr-2" />
                                   View Details
                                 </DropdownMenuItem>
-                                <DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => {
+                                  setSelectedUser(userItem);
+                                  setShowEditUser(true);
+                                }}>
                                   <Edit className="h-4 w-4 mr-2" />
                                   Edit User
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => resetUserPassword(userItem.id)}>
+                                <DropdownMenuItem onClick={() => resetUserPassword(userItem.id, userItem.name)}>
                                   <Lock className="h-4 w-4 mr-2" />
                                   Reset Password
                                 </DropdownMenuItem>
@@ -863,6 +888,163 @@ export function UserManagement({
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={showEditUser} onOpenChange={setShowEditUser}>
+        <DialogContent className="max-w-md">
+          {selectedUser && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Edit Internal User</DialogTitle>
+                <DialogDescription>
+                  Update internal admin user information
+                </DialogDescription>
+              </DialogHeader>
+              
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                onUpdateUser(selectedUser.id, selectedUser);
+                setShowEditUser(false);
+              }} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-name">Full Name *</Label>
+                    <Input
+                      id="edit-name"
+                      value={selectedUser.name}
+                      onChange={(e) => setSelectedUser({ ...selectedUser, name: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-email">Email *</Label>
+                    <Input
+                      id="edit-email"
+                      type="email"
+                      value={selectedUser.email}
+                      onChange={(e) => setSelectedUser({ ...selectedUser, email: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-phone">Phone</Label>
+                    <Input
+                      id="edit-phone"
+                      value={selectedUser.phone || ''}
+                      onChange={(e) => setSelectedUser({ ...selectedUser, phone: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-role">Role *</Label>
+                    <Select value={selectedUser.role} onValueChange={(value) => setSelectedUser({ ...selectedUser, role: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="support">Support Staff</SelectItem>
+                        <SelectItem value="analyst">Business Analyst</SelectItem>
+                        <SelectItem value="developer">Developer</SelectItem>
+                        <SelectItem value="finance">Finance Manager</SelectItem>
+                        <SelectItem value="operations">Operations Manager</SelectItem>
+                        <SelectItem value="marketing">Marketing Manager</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-company">Company</Label>
+                    <Input
+                      id="edit-company"
+                      value={selectedUser.company || ''}
+                      onChange={(e) => setSelectedUser({ ...selectedUser, company: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-department">Department</Label>
+                    <Input
+                      id="edit-department"
+                      value={selectedUser.department || ''}
+                      onChange={(e) => setSelectedUser({ ...selectedUser, department: e.target.value })}
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <Label htmlFor="edit-status">Status</Label>
+                  <Select value={selectedUser.status} onValueChange={(value) => setSelectedUser({ ...selectedUser, status: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex space-x-2">
+                  <Button type="button" variant="outline" className="flex-1" onClick={() => setShowEditUser(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" className="flex-1">
+                    Update User
+                  </Button>
+                </div>
+              </form>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={showResetPassword} onOpenChange={setShowResetPassword}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Password Reset Successful</DialogTitle>
+            <DialogDescription>
+              A new temporary password has been generated for this user
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm font-medium text-blue-900 mb-2">Temporary Password:</p>
+              <div className="flex items-center justify-between bg-white px-3 py-2 rounded border border-blue-300">
+                <code className="text-lg font-mono text-blue-600">{generatedPassword}</code>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    navigator.clipboard.writeText(generatedPassword);
+                    alert('Password copied to clipboard!');
+                  }}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <p className="text-sm text-yellow-800">
+                <strong>Important:</strong> Copy this password now and share it securely with the user. 
+                They should change it after their first login.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={() => setShowResetPassword(false)}>
+              Close
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

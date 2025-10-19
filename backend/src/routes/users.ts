@@ -236,6 +236,48 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// Reset password for internal user
+router.post('/:id/reset-password', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Find the user
+    const user = await prisma.user.findUnique({
+      where: { id }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Generate a new temporary password
+    const tempPassword = Math.random().toString(36).slice(-10) + Math.random().toString(36).slice(-10).toUpperCase();
+    
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+    // Update user's password in the database
+    await prisma.user.update({
+      where: { id },
+      data: {
+        password: hashedPassword
+      }
+    });
+
+    console.log('✅ Password reset for internal user:', user.email);
+
+    // Return the temporary password (for admin to give to user)
+    return res.json({
+      message: 'Password reset successfully',
+      tempPassword: tempPassword
+    });
+
+  } catch (error: any) {
+    console.error('Reset password error:', error);
+    return res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
 // Delete user (INTERNAL ADMIN USER ONLY)
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
