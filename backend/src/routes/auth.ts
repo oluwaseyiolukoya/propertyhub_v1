@@ -6,61 +6,7 @@ import { authMiddleware, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 
-// Mock users for development (when database is not connected)
-const mockUsers = {
-  admin: {
-    id: 'admin-1',
-    email: 'admin@propertyhub.com',
-    password: 'admin123',
-    name: 'Super Admin',
-    role: 'admin',
-    userType: 'admin'
-  },
-  owner: {
-    id: 'owner-1',
-    email: 'john@metro-properties.com',
-    password: 'owner123',
-    name: 'John Smith',
-    role: 'owner',
-    userType: 'owner',
-    customerId: 'customer-1',
-    customer: {
-      id: 'customer-1',
-      company: 'Metro Properties LLC',
-      owner: 'John Smith'
-    }
-  },
-  manager: {
-    id: 'manager-1',
-    email: 'sarah@propertyhub.com',
-    password: 'manager123',
-    name: 'Sarah Johnson',
-    role: 'manager',
-    userType: 'manager',
-    customerId: 'customer-1',
-    customer: {
-      id: 'customer-1',
-      company: 'Metro Properties LLC',
-      owner: 'John Smith'
-    }
-  },
-  tenant: {
-    id: 'tenant-1',
-    email: 'mike@email.com',
-    password: 'tenant123',
-    name: 'Mike Wilson',
-    role: 'tenant',
-    userType: 'tenant',
-    customerId: 'customer-1',
-    customer: {
-      id: 'customer-1',
-      company: 'Metro Properties LLC',
-      owner: 'John Smith'
-    }
-  }
-};
-
-// Login
+// Login - DATABASE ONLY (No mock authentication)
 router.post('/login', async (req: Request, res: Response) => {
   try {
     const { email, password, userType } = req.body;
@@ -69,26 +15,7 @@ router.post('/login', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Try mock authentication first (for development)
-    const mockUser = Object.values(mockUsers).find(u => u.email === email && u.userType === userType);
-    if (mockUser && mockUser.password === password) {
-      console.log('✅ Mock authentication successful for:', email);
-      
-      const token = jwt.sign(
-        { id: mockUser.id, email: mockUser.email, role: mockUser.role, customerId: mockUser.customerId },
-        process.env.JWT_SECRET || 'secret',
-        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-      );
-
-      const { password: _, ...userWithoutPassword } = mockUser;
-      
-      return res.json({
-        token,
-        user: userWithoutPassword
-      });
-    }
-
-    // Try database authentication
+    // Database authentication ONLY
     try {
       // For admin (checks both Super Admin and Internal Admin Users)
       if (userType === 'admin') {
@@ -212,13 +139,13 @@ router.post('/login', async (req: Request, res: Response) => {
         }
       });
     } catch (dbError) {
-      // Database not available, already tried mock auth
-      console.error('Database error (falling back to mock failed):', dbError);
-      return res.status(401).json({ error: 'Invalid credentials' });
+      // Database error - log and return generic error
+      console.error('❌ Database authentication error:', dbError);
+      return res.status(500).json({ error: 'Authentication service unavailable. Please try again later.' });
     }
 
   } catch (error: any) {
-    console.error('Login error:', error);
+    console.error('❌ Login error:', error);
     return res.status(500).json({ error: 'Login failed' });
   }
 });

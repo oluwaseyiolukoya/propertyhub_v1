@@ -89,53 +89,47 @@ export const adminOnly = async (
 ) => {
   try {
     const userId = req.user?.id;
-    const userRole = req.user?.role;
     
     if (!userId) {
+      console.log('❌ Admin check failed: No user ID in request');
       return res.status(403).json({ error: 'Access denied. Admin only.' });
     }
 
-    // First, check if this is a mock/dev admin based on role in JWT
-    // (for development/testing before database is fully set up)
-    if (userRole === 'super_admin' || userRole === 'admin') {
+    // DATABASE CHECK ONLY - No mock/JWT fallbacks
+    // Check if user is a Super Admin (from admins table)
+    const admin = await prisma.admin.findUnique({
+      where: { id: userId }
+    });
+
+    if (admin) {
+      // Super Admin has access
+      console.log('✅ Admin access granted: Super Admin -', admin.email);
       return next();
     }
 
-    // Then check database for actual admins
-    try {
-      // Check if user is a Super Admin (from admins table)
-      const admin = await prisma.admin.findUnique({
-        where: { id: userId }
-      });
-
-      if (admin) {
-        // Super Admin has access
-        return next();
+    // Check if user is an Internal Admin User (from users table with customerId = null)
+    const internalUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { 
+        id: true,
+        customerId: true,
+        email: true,
+        role: true
       }
+    });
 
-      // Check if user is an Internal Admin User (from users table with customerId = null)
-      const internalUser = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { customerId: true }
-      });
-
-      if (internalUser && internalUser.customerId === null) {
-        // Internal Admin User has access
-        return next();
-      }
-    } catch (dbError) {
-      // If database check fails, rely on JWT role (fail open for availability)
-      console.log('⚠️ Database check failed in adminOnly, relying on JWT role');
-      if (userRole === 'super_admin' || userRole === 'admin') {
-        return next();
-      }
+    if (internalUser && internalUser.customerId === null) {
+      // Internal Admin User has access
+      console.log('✅ Admin access granted: Internal Admin -', internalUser.email, '(Role:', internalUser.role + ')');
+      return next();
     }
 
     // Not an admin
+    console.log('❌ Admin access denied: User ID', userId, 'is not an admin');
     return res.status(403).json({ error: 'Access denied. Admin only.' });
   } catch (error) {
-    console.error('Admin check error:', error);
-    return res.status(403).json({ error: 'Access denied. Admin only.' });
+    console.error('❌ Admin check error:', error);
+    return res.status(500).json({ error: 'Authorization check failed. Please try again.' });
   }
 };
 
