@@ -4,7 +4,8 @@ import { PropertyOwnerDashboard } from './components/PropertyOwnerDashboard';
 import { SuperAdminDashboard } from './components/SuperAdminDashboard';
 import { PropertyManagerDashboard } from './components/PropertyManagerDashboard';
 import TenantDashboard from './components/TenantDashboard';
-import { Toaster, toast } from './components/ui/sonner';
+import { Toaster } from './components/ui/sonner';
+import { toast } from 'sonner';
 import { getUserData, getUserType, removeAuthToken, verifyToken } from './lib/api';
 
 function App() {
