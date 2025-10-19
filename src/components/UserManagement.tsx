@@ -70,8 +70,8 @@ export function UserManagement({
     name: '',
     email: '',
     phone: '',
-    role: '',
-    company: '',
+    role: 'admin', // Default to admin role for internal users
+    company: 'PropertyHub Admin', // Internal admin company
     department: '',
     isActive: true,
     sendInvite: true
@@ -111,21 +111,17 @@ export function UserManagement({
 
   const handleAddUser = (e: React.FormEvent) => {
     e.preventDefault();
-    const userData = {
-      ...newUser,
-      id: `USR${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      lastLogin: null,
-      status: 'active'
-    };
     
-    onAddUser(userData);
+    // Send data to backend API
+    onAddUser(newUser);
+    
+    // Reset form
     setNewUser({
       name: '',
       email: '',
       phone: '',
-      role: '',
-      company: '',
+      role: 'admin', // Default to admin role for internal users
+      company: 'PropertyHub Admin', // Internal admin company
       department: '',
       isActive: true,
       sendInvite: true
@@ -198,8 +194,8 @@ export function UserManagement({
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">User & Role Management</h2>
-          <p className="text-gray-600">Manage users and roles across the platform</p>
+          <h2 className="text-2xl font-bold text-gray-900">Internal User Management</h2>
+          <p className="text-gray-600">Manage internal admin users (staff, support team, etc.). Customer users are managed in Customer Management.</p>
         </div>
         
         <div className="flex items-center space-x-3">
@@ -210,7 +206,7 @@ export function UserManagement({
           
           <Button onClick={() => setShowAddUser(true)}>
             <UserPlus className="h-4 w-4 mr-2" />
-            Add User
+            Add Internal User
           </Button>
         </div>
       </div>
@@ -279,9 +275,9 @@ export function UserManagement({
             {/* Users Table */}
             <Card>
               <CardHeader>
-                <CardTitle>Users</CardTitle>
+                <CardTitle>Internal Admin Users</CardTitle>
                 <CardDescription>
-                  Manage all users across the platform
+                  Internal staff, support team, and platform administrators
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -608,9 +604,9 @@ export function UserManagement({
       <Dialog open={showAddUser} onOpenChange={setShowAddUser}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Add New User</DialogTitle>
+            <DialogTitle>Add Internal Admin User</DialogTitle>
             <DialogDescription>
-              Create a new user account and assign a role
+              Create a new internal admin user (staff, support team, etc.). This is NOT for customer users.
             </DialogDescription>
           </DialogHeader>
           
@@ -644,6 +640,7 @@ export function UserManagement({
                   id="phone"
                   value={newUser.phone}
                   onChange={(e) => setNewUser(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="+234 xxx xxx xxxx"
                 />
               </div>
               <div>
@@ -653,6 +650,10 @@ export function UserManagement({
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="support">Support Staff</SelectItem>
+                    <SelectItem value="analyst">Analyst</SelectItem>
+                    <SelectItem value="developer">Developer</SelectItem>
                     {roles.map((role) => (
                       <SelectItem key={role.id} value={role.name}>
                         {role.name}
@@ -670,6 +671,7 @@ export function UserManagement({
                   id="company"
                   value={newUser.company}
                   onChange={(e) => setNewUser(prev => ({ ...prev, company: e.target.value }))}
+                  placeholder="PropertyHub Admin"
                 />
               </div>
               <div>
@@ -678,6 +680,7 @@ export function UserManagement({
                   id="department"
                   value={newUser.department}
                   onChange={(e) => setNewUser(prev => ({ ...prev, department: e.target.value }))}
+                  placeholder="e.g., Customer Support, IT, etc."
                 />
               </div>
             </div>
