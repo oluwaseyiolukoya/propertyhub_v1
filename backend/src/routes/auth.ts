@@ -92,14 +92,19 @@ router.post('/login', async (req: Request, res: Response) => {
     try {
       // For super admin
       if (userType === 'admin') {
+        console.log('🔍 Admin login attempt:', { email, userType });
         const admin = await prisma.admin.findUnique({ where: { email } });
+        console.log('🔍 Admin found:', admin ? `Yes (${admin.email})` : 'No');
         
         if (!admin) {
+          console.log('❌ Admin not found in database');
           return res.status(401).json({ error: 'Invalid credentials' });
         }
 
         const isValidPassword = await bcrypt.compare(password, admin.password);
+        console.log('🔍 Password valid:', isValidPassword);
         if (!isValidPassword) {
+          console.log('❌ Invalid password for admin');
           return res.status(401).json({ error: 'Invalid credentials' });
         }
 
