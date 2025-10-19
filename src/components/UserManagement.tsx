@@ -327,7 +327,7 @@ export function UserManagement({
             </TabsTrigger>
             <TabsTrigger value="roles" className="flex items-center space-x-2">
               <Shield className="h-4 w-4" />
-              <span>Roles ({roles.length})</span>
+              <span>Roles ({filteredRoles.length})</span>
             </TabsTrigger>
           </TabsList>
 
