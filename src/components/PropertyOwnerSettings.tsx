@@ -189,6 +189,12 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
 
         // Update company data
         if (customer) {
+          console.log('🔍 DEBUG - Customer data from API:', {
+            taxId: customer.taxId,
+            industry: customer.industry,
+            company: customer.company
+          });
+          
           setCompanyData({
             companyName: customer.company || '',
             businessType: customer.industry || '', // Map to industry from customer database
@@ -204,6 +210,11 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
             insuranceExpiration: '',
             industry: customer.industry || '',
             companySize: customer.companySize || ''
+          });
+          
+          console.log('✅ DEBUG - Company data set to:', {
+            businessType: customer.industry || '',
+            taxId: customer.taxId || ''
           });
 
           // Update subscription data
