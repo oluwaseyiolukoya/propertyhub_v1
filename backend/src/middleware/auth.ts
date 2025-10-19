@@ -52,23 +52,29 @@ export const authMiddleware = async (
       }
 
       if (userRecord) {
-        // Check if the user record was updated after the token was issued
-        const tokenIssuedAt = decoded.iat ? new Date(decoded.iat * 1000) : new Date();
-        const userUpdatedAt = userRecord.updatedAt;
+        // Only check permissions updates for internal users (not Super Admins from admins table)
+        // Super Admins have static permissions and don't need this check
+        const isFromUsersTable = !admin; // If admin is null, user is from users table
+        
+        if (isFromUsersTable) {
+          // Check if the user record was updated after the token was issued
+          const tokenIssuedAt = decoded.iat ? new Date(decoded.iat * 1000) : new Date();
+          const userUpdatedAt = userRecord.updatedAt;
 
-        // Add a grace period of 30 seconds to avoid triggering on lastLogin updates
-        // during the login process itself
-        const GRACE_PERIOD_MS = 30 * 1000; // 30 seconds
-        const timeSinceTokenIssued = Date.now() - tokenIssuedAt.getTime();
+          // Add a grace period of 30 seconds to avoid triggering on lastLogin updates
+          // during the login process itself
+          const GRACE_PERIOD_MS = 30 * 1000; // 30 seconds
+          const timeSinceTokenIssued = Date.now() - tokenIssuedAt.getTime();
 
-        if (userUpdatedAt && 
-            userUpdatedAt > tokenIssuedAt && 
-            timeSinceTokenIssued > GRACE_PERIOD_MS) {
-          console.log('⚠️ User permissions updated. Forcing re-authentication.');
-          return res.status(401).json({ 
-            error: 'Your permissions have been updated. Please log in again.',
-            code: 'PERMISSIONS_UPDATED'
-          });
+          if (userUpdatedAt && 
+              userUpdatedAt > tokenIssuedAt && 
+              timeSinceTokenIssued > GRACE_PERIOD_MS) {
+            console.log('⚠️ User permissions updated. Forcing re-authentication.');
+            return res.status(401).json({ 
+              error: 'Your permissions have been updated. Please log in again.',
+              code: 'PERMISSIONS_UPDATED'
+            });
+          }
         }
       }
     } catch (dbError) {
