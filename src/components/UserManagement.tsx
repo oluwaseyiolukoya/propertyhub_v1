@@ -68,6 +68,8 @@ export function UserManagement({
   const [showUserDetails, setShowUserDetails] = useState(false);
   const [showEditUser, setShowEditUser] = useState(false);
   const [showResetPassword, setShowResetPassword] = useState(false);
+  const [showResetConfirmation, setShowResetConfirmation] = useState(false);
+  const [userToReset, setUserToReset] = useState<any>(null);
   const [generatedPassword, setGeneratedPassword] = useState('');
   const [roleViewMode, setRoleViewMode] = useState<'grid' | 'list'>('grid');
 
@@ -158,16 +160,23 @@ export function UserManagement({
     onUpdateUser(userId, { status: newStatus });
   };
 
-  const resetUserPassword = async (userId: string, userName: string) => {
-    if (confirm(`Are you sure you want to reset password for ${userName}? A new temporary password will be generated.`)) {
-      try {
-        const data = await resetUserPasswordAPI(userId);
-        setGeneratedPassword(data.tempPassword);
-        setShowResetPassword(true);
-      } catch (error) {
-        console.error('Reset password error:', error);
-        alert('Failed to reset password. Please try again.');
-      }
+  const openResetConfirmation = (userId: string, userName: string, userEmail: string) => {
+    setUserToReset({ id: userId, name: userName, email: userEmail });
+    setShowResetConfirmation(true);
+  };
+
+  const confirmResetPassword = async () => {
+    if (!userToReset) return;
+    
+    try {
+      const data = await resetUserPasswordAPI(userToReset.id);
+      setGeneratedPassword(data.tempPassword);
+      setShowResetConfirmation(false);
+      setShowResetPassword(true);
+    } catch (error) {
+      console.error('Reset password error:', error);
+      alert('Failed to reset password. Please try again.');
+      setShowResetConfirmation(false);
     }
   };
 
@@ -364,7 +373,7 @@ export function UserManagement({
                                   Edit User
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => resetUserPassword(userItem.id, userItem.name)}>
+                                <DropdownMenuItem onClick={() => openResetConfirmation(userItem.id, userItem.name, userItem.email)}>
                                   <Lock className="h-4 w-4 mr-2" />
                                   Reset Password
                                 </DropdownMenuItem>
@@ -991,6 +1000,54 @@ export function UserManagement({
               </form>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Confirmation Dialog */}
+      <Dialog open={showResetConfirmation} onOpenChange={setShowResetConfirmation}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-orange-600" />
+              Confirm Password Reset
+            </DialogTitle>
+            <DialogDescription>
+              This action will generate a new temporary password for the user.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <p className="text-sm text-orange-900 mb-2">
+                Are you sure you want to reset password for <strong className="font-semibold">{userToReset?.name}</strong>?
+              </p>
+              <p className="text-xs text-orange-700">
+                Email: {userToReset?.email}
+              </p>
+            </div>
+            
+            <p className="text-sm text-gray-600">
+              A new temporary password will be generated and you'll need to share it with the user securely.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowResetConfirmation(false);
+                setUserToReset(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={confirmResetPassword}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              Yes, Reset Password
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
