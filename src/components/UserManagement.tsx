@@ -72,6 +72,9 @@ export function UserManagement({
   const [userToReset, setUserToReset] = useState<any>(null);
   const [generatedPassword, setGeneratedPassword] = useState('');
   const [roleViewMode, setRoleViewMode] = useState<'grid' | 'list'>('grid');
+  const [selectedRole, setSelectedRole] = useState<any>(null);
+  const [showRoleDetails, setShowRoleDetails] = useState(false);
+  const [showEditRole, setShowEditRole] = useState(false);
 
   const [newUser, setNewUser] = useState({
     name: '',
@@ -551,21 +554,36 @@ export function UserManagement({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              setSelectedRole(role);
+                              setShowRoleDetails(true);
+                            }}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              setSelectedRole(role);
+                              setShowEditRole(true);
+                            }}>
                               <Edit className="h-4 w-4 mr-2" />
                               Edit Role
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              className="text-red-600"
-                              onClick={() => {
-                                if (confirm('Are you sure you want to delete this role?')) {
-                                  onDeleteRole(role.id);
-                                }
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete Role
-                            </DropdownMenuItem>
+                            {!role.isSystem && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  className="text-red-600"
+                                  onClick={() => {
+                                    if (confirm(`Are you sure you want to delete the "${role.name}" role?`)) {
+                                      onDeleteRole(role.id);
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete Role
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -675,26 +693,36 @@ export function UserManagement({
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => {
+                                  setSelectedRole(role);
+                                  setShowRoleDetails(true);
+                                }}>
                                   <Eye className="h-4 w-4 mr-2" />
                                   View Details
                                 </DropdownMenuItem>
-                                <DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => {
+                                  setSelectedRole(role);
+                                  setShowEditRole(true);
+                                }}>
                                   <Edit className="h-4 w-4 mr-2" />
                                   Edit Role
                                 </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem 
-                                  className="text-red-600"
-                                  onClick={() => {
-                                    if (confirm('Are you sure you want to delete this role?')) {
-                                      onDeleteRole(role.id);
-                                    }
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete Role
-                                </DropdownMenuItem>
+                                {!role.isSystem && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem 
+                                      className="text-red-600"
+                                      onClick={() => {
+                                        if (confirm(`Are you sure you want to delete the "${role.name}" role?`)) {
+                                          onDeleteRole(role.id);
+                                        }
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete Role
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -1195,6 +1223,219 @@ export function UserManagement({
               Close
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Role Details Dialog */}
+      <Dialog open={showRoleDetails} onOpenChange={setShowRoleDetails}>
+        <DialogContent className="max-w-2xl">
+          {selectedRole && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center space-x-2">
+                  <Shield className="h-5 w-5" />
+                  <span>{selectedRole.name}</span>
+                </DialogTitle>
+                <DialogDescription>
+                  {selectedRole.description}
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700">Status</Label>
+                    <div className="mt-1">
+                      {selectedRole.isActive ? (
+                        <Badge className="bg-green-100 text-green-800">Active</Badge>
+                      ) : (
+                        <Badge variant="secondary">Inactive</Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700">Users Assigned</Label>
+                    <div className="mt-1">
+                      <Badge variant="secondary">{selectedRole.userCount || 0} users</Badge>
+                    </div>
+                  </div>
+                </div>
+
+                {selectedRole.isSystem && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-sm text-blue-800">
+                      <strong>System Role:</strong> This is a protected role and cannot be deleted.
+                    </p>
+                  </div>
+                )}
+
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 mb-3 block">Permissions ({selectedRole.permissions.length})</Label>
+                  <div className="max-h-96 overflow-y-auto border rounded-lg p-4">
+                    <div className="space-y-4">
+                      {Array.from(new Set(availablePermissions.map(p => p.category))).map((category) => {
+                        const categoryPermissions = selectedRole.permissions.filter((pId: string) => 
+                          availablePermissions.find(p => p.id === pId && p.category === category)
+                        );
+                        
+                        if (categoryPermissions.length === 0) return null;
+                        
+                        return (
+                          <div key={category}>
+                            <div className="font-semibold text-sm text-gray-700 mb-2 flex items-center">
+                              <Shield className="h-4 w-4 mr-2" />
+                              {category}
+                            </div>
+                            <div className="space-y-1 ml-6">
+                              {categoryPermissions.map((permissionId: string) => (
+                                <div key={permissionId} className="flex items-center space-x-2 text-sm text-gray-700">
+                                  <CheckCircle className="h-3 w-3 text-green-600" />
+                                  <span>{getPermissionLabel(permissionId)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-xs text-gray-500">
+                  Created: {new Date(selectedRole.createdAt).toLocaleDateString()}
+                  {selectedRole.updatedAt && ` • Last updated: ${new Date(selectedRole.updatedAt).toLocaleDateString()}`}
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setShowRoleDetails(false)}>
+                  Close
+                </Button>
+                {!selectedRole.isSystem && (
+                  <Button onClick={() => {
+                    setShowRoleDetails(false);
+                    setShowEditRole(true);
+                  }}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit Role
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Role Dialog */}
+      <Dialog open={showEditRole} onOpenChange={setShowEditRole}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          {selectedRole && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Edit Role</DialogTitle>
+                <DialogDescription>
+                  Update role information and permissions
+                </DialogDescription>
+              </DialogHeader>
+              
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                onUpdateRole(selectedRole.id, selectedRole);
+                setShowEditRole(false);
+              }} className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-role-name">Role Name *</Label>
+                    <Input
+                      id="edit-role-name"
+                      value={selectedRole.name}
+                      onChange={(e) => setSelectedRole({ ...selectedRole, name: e.target.value })}
+                      required
+                      disabled={selectedRole.isSystem}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-role-status">Status</Label>
+                    <Select 
+                      value={selectedRole.isActive ? 'active' : 'inactive'} 
+                      onValueChange={(value) => setSelectedRole({ ...selectedRole, isActive: value === 'active' })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="edit-role-description">Description</Label>
+                  <Input
+                    id="edit-role-description"
+                    value={selectedRole.description || ''}
+                    onChange={(e) => setSelectedRole({ ...selectedRole, description: e.target.value })}
+                    placeholder="Brief description of this role"
+                  />
+                </div>
+
+                <div>
+                  <Label>Permissions *</Label>
+                  <div className="mt-2 space-y-4 max-h-96 overflow-y-auto border rounded-md p-4">
+                    {Array.from(new Set(availablePermissions.map(p => p.category))).map((category) => (
+                      <div key={category}>
+                        <div className="font-semibold text-sm text-gray-700 mb-2 flex items-center">
+                          <Shield className="h-4 w-4 mr-2" />
+                          {category}
+                        </div>
+                        <div className="space-y-2 ml-6">
+                          {availablePermissions
+                            .filter(p => p.category === category)
+                            .map((permission) => (
+                              <div key={permission.id} className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  id={`edit-perm-${permission.id}`}
+                                  checked={selectedRole.permissions.includes(permission.id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedRole({
+                                        ...selectedRole,
+                                        permissions: [...selectedRole.permissions, permission.id]
+                                      });
+                                    } else {
+                                      setSelectedRole({
+                                        ...selectedRole,
+                                        permissions: selectedRole.permissions.filter((p: string) => p !== permission.id)
+                                      });
+                                    }
+                                  }}
+                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <Label htmlFor={`edit-perm-${permission.id}`} className="text-sm text-gray-700 cursor-pointer">
+                                  {permission.label}
+                                </Label>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={() => setShowEditRole(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">
+                    Save Changes
+                  </Button>
+                </div>
+              </form>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
