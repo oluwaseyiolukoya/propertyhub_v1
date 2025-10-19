@@ -136,6 +136,15 @@ export const API_ENDPOINTS = {
     UPDATE: (id: string) => `/api/plans/${id}`,
     DELETE: (id: string) => `/api/plans/${id}`,
   },
+  
+  // Roles (Admin)
+  ROLES: {
+    LIST: '/api/roles',
+    GET: (id: string) => `/api/roles/${id}`,
+    CREATE: '/api/roles',
+    UPDATE: (id: string) => `/api/roles/${id}`,
+    DELETE: (id: string) => `/api/roles/${id}`,
+  },
 };
 
 // Request timeout (30 seconds)

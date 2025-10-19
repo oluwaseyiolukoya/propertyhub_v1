@@ -148,6 +148,29 @@ async function main() {
   console.log('✅ Created Owner User:', owner.email);
 
   // Create Roles
+  // Internal Admin Role
+  await prisma.role.upsert({
+    where: { name: 'Super Admin' },
+    update: {},
+    create: {
+      name: 'Super Admin',
+      description: 'Full system access with all permissions for internal admin users',
+      permissions: [
+        'customer_management', 'customer_create', 'customer_edit', 'customer_delete', 'customer_view',
+        'user_management', 'user_create', 'user_edit', 'user_delete', 'user_view',
+        'role_management', 'role_create', 'role_edit', 'role_delete',
+        'billing_management', 'plan_management', 'invoice_management', 'payment_view',
+        'analytics_view', 'analytics_reports', 'analytics_export',
+        'system_health', 'system_settings', 'platform_settings', 'system_logs',
+        'support_tickets', 'support_view', 'support_respond', 'support_close',
+        'activity_logs', 'audit_reports'
+      ],
+      isActive: true,
+      isSystem: true // System roles cannot be deleted
+    }
+  });
+
+  // Customer-Facing Roles (for customers' users)
   await prisma.role.upsert({
     where: { name: 'Property Owner' },
     update: {},
@@ -200,7 +223,7 @@ async function main() {
     }
   });
 
-  console.log('✅ Created Roles');
+  console.log('✅ Created Roles (1 Internal Admin + 3 Customer-Facing)');
 
   // Create System Settings
   await prisma.systemSetting.upsert({

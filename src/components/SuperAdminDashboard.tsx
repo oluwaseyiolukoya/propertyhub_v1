@@ -29,6 +29,13 @@ import {
   deleteUser,
   type Customer 
 } from '../lib/api';
+import { 
+  getRoles, 
+  createRole, 
+  updateRole, 
+  deleteRole,
+  type Role 
+} from '../lib/api/roles';
 import { apiClient } from '../lib/api-client';
 import { 
   Users, 
@@ -85,55 +92,14 @@ export function SuperAdminDashboard({
   // Users data from API
   const [users, setUsers] = useState<any[]>([]);
 
-  // Internal admin roles only (customer roles like owner, manager, tenant are managed separately)
-  const [roles, setRoles] = useState([
-    {
-      id: 'super-admin',
-      name: 'Super Admin',
-      description: 'Full system access with all permissions',
-      permissions: [
-        'customer_management',
-        'customer_create',
-        'customer_edit',
-        'customer_delete',
-        'customer_view',
-        'user_management',
-        'user_create',
-        'user_edit',
-        'user_delete',
-        'user_view',
-        'role_management',
-        'role_create',
-        'role_edit',
-        'role_delete',
-        'billing_management',
-        'plan_management',
-        'invoice_management',
-        'payment_view',
-        'analytics_view',
-        'analytics_reports',
-        'analytics_export',
-        'system_health',
-        'system_settings',
-        'platform_settings',
-        'system_logs',
-        'support_tickets',
-        'support_view',
-        'support_respond',
-        'support_close',
-        'activity_logs',
-        'audit_reports'
-      ],
-      userCount: 1,
-      isActive: true,
-      createdAt: new Date().toISOString()
-    }
-  ]);
+  // Roles data from API (Internal admin roles only - customer roles like owner, manager, tenant are managed separately)
+  const [roles, setRoles] = useState<Role[]>([]);
 
-  // Fetch customers and users on component mount
+  // Fetch customers, users, and roles on component mount
   useEffect(() => {
     fetchCustomersData();
     fetchUsersData();
+    fetchRolesData();
   }, []);
 
   // Fetch customers with current filters
@@ -173,6 +139,24 @@ export function SuperAdminDashboard({
       }
     } catch (error) {
       console.error('Failed to load users:', error);
+    }
+  };
+
+  // Fetch roles
+  const fetchRolesData = async () => {
+    try {
+      const response = await getRoles();
+      
+      if (response.error) {
+        console.error('Failed to load roles:', response.error);
+        toast.error('Failed to load roles');
+      } else if (response.data) {
+        console.log('✅ Roles fetched from database:', response.data);
+        setRoles(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to load roles:', error);
+      toast.error('Failed to load roles');
     }
   };
 
@@ -946,17 +930,56 @@ export function SuperAdminDashboard({
                 onAddUser={handleAddUser}
                 onUpdateUser={handleUpdateUser}
                 onDeleteUser={handleDeleteUser}
-                onAddRole={(roleData) => {
-                  setRoles(prev => [...prev, roleData]);
-                  toast.success('Role added successfully!');
+                onAddRole={async (roleData) => {
+                  try {
+                    const response = await createRole(roleData);
+                    
+                    if (response.error) {
+                      toast.error(response.error.error || 'Failed to create role');
+                    } else if (response.data) {
+                      console.log('✅ Role created:', response.data);
+                      // Refresh roles from database
+                      await fetchRolesData();
+                      toast.success('Role added successfully!');
+                    }
+                  } catch (error) {
+                    console.error('Error creating role:', error);
+                    toast.error('Failed to create role');
+                  }
                 }}
-                onUpdateRole={(roleId, updates) => {
-                  setRoles(prev => prev.map(r => r.id === roleId ? { ...r, ...updates } : r));
-                  toast.success('Role updated successfully!');
+                onUpdateRole={async (roleId, updates) => {
+                  try {
+                    const response = await updateRole(roleId, updates);
+                    
+                    if (response.error) {
+                      toast.error(response.error.error || 'Failed to update role');
+                    } else if (response.data) {
+                      console.log('✅ Role updated:', response.data);
+                      // Refresh roles from database
+                      await fetchRolesData();
+                      toast.success('Role updated successfully!');
+                    }
+                  } catch (error) {
+                    console.error('Error updating role:', error);
+                    toast.error('Failed to update role');
+                  }
                 }}
-                onDeleteRole={(roleId) => {
-                  setRoles(prev => prev.filter(r => r.id !== roleId));
-                  toast.success('Role deleted successfully!');
+                onDeleteRole={async (roleId) => {
+                  try {
+                    const response = await deleteRole(roleId);
+                    
+                    if (response.error) {
+                      toast.error(response.error.error || 'Failed to delete role');
+                    } else {
+                      console.log('✅ Role deleted');
+                      // Refresh roles from database
+                      await fetchRolesData();
+                      toast.success('Role deleted successfully!');
+                    }
+                  } catch (error) {
+                    console.error('Error deleting role:', error);
+                    toast.error('Failed to delete role');
+                  }
                 }}
                 onBack={() => setActiveTab('overview')}
               />
