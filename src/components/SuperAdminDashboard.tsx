@@ -38,6 +38,12 @@ import {
 } from '../lib/api/roles';
 import { apiClient } from '../lib/api-client';
 import { 
+  PERMISSIONS, 
+  getUserPermissions, 
+  hasPermission,
+  hasAnyPermission 
+} from '../lib/permissions';
+import { 
   Users, 
   Building, 
   DollarSign, 
@@ -407,16 +413,28 @@ export function SuperAdminDashboard({
     { month: "Jun", revenue: 245000, customers: 148 }
   ];
 
-  const navigation = [
-    { id: 'overview', name: 'Overview' },
-    { id: 'customers', name: 'Customers' },
-    { id: 'users', name: 'User Management' },
-    { id: 'billing', name: 'Billing & Plans' },
-    { id: 'analytics', name: 'Analytics' },
-    { id: 'system', name: 'System Health' },
-    { id: 'support', name: 'Support Tickets' },
-    { id: 'settings', name: 'Platform Settings' },
+  // Get user permissions
+  const userPermissions = getUserPermissions(user);
+
+  // Define navigation with permissions
+  const allNavigation = [
+    { id: 'overview', name: 'Overview', permission: null }, // No permission required for overview
+    { id: 'customers', name: 'Customers', permission: PERMISSIONS.CUSTOMER_VIEW },
+    { id: 'users', name: 'User Management', permission: PERMISSIONS.USER_VIEW },
+    { id: 'billing', name: 'Billing & Plans', permission: PERMISSIONS.BILLING_MANAGEMENT },
+    { id: 'analytics', name: 'Analytics', permission: PERMISSIONS.ANALYTICS_VIEW },
+    { id: 'system', name: 'System Health', permission: PERMISSIONS.SYSTEM_HEALTH },
+    { id: 'support', name: 'Support Tickets', permission: PERMISSIONS.SUPPORT_VIEW },
+    { id: 'settings', name: 'Platform Settings', permission: PERMISSIONS.PLATFORM_SETTINGS },
   ];
+
+  // Filter navigation based on user permissions
+  const navigation = allNavigation.filter(item => {
+    // If no permission required, show item
+    if (!item.permission) return true;
+    // Check if user has permission
+    return hasPermission(userPermissions, item.permission);
+  });
 
   const handleSaveCustomer = async (customerData: any) => {
     try {
