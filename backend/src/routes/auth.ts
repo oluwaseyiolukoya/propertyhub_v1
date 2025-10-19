@@ -107,11 +107,6 @@ router.post('/login', async (req: Request, res: Response) => {
             return res.status(401).json({ error: 'Invalid credentials' });
           }
 
-          // Fetch Super Admin role permissions
-          const superAdminRole = await prisma.role.findUnique({
-            where: { name: 'Super Admin' }
-          });
-
           const token = jwt.sign(
             { id: admin.id, email: admin.email, role: admin.role },
             process.env.JWT_SECRET || 'secret',
@@ -126,10 +121,7 @@ router.post('/login', async (req: Request, res: Response) => {
               email: admin.email,
               name: admin.name,
               role: admin.role,
-              userType: 'admin',
-              permissions: superAdminRole?.permissions || [],
-              rolePermissions: superAdminRole?.permissions || [],
-              isSuperAdmin: true
+              userType: 'admin'
             }
           });
         }
@@ -156,16 +148,11 @@ router.post('/login', async (req: Request, res: Response) => {
             data: { lastLogin: new Date() }
           });
 
-          // Fetch role permissions for internal admin user
-          const userRole = await prisma.role.findUnique({
-            where: { name: internalUser.role }
-          });
-
           const token = jwt.sign(
             { id: internalUser.id, email: internalUser.email, role: internalUser.role },
             process.env.JWT_SECRET || 'secret',
             { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-          });
+          );
 
           console.log('✅ Internal Admin User login successful');
           return res.json({
@@ -175,11 +162,7 @@ router.post('/login', async (req: Request, res: Response) => {
               email: internalUser.email,
               name: internalUser.name,
               role: internalUser.role,
-              userType: 'admin',
-              permissions: internalUser.permissions || userRole?.permissions || [],
-              rolePermissions: userRole?.permissions || [],
-              department: internalUser.department,
-              company: internalUser.company
+              userType: 'admin'
             }
           });
         }
@@ -210,11 +193,6 @@ router.post('/login', async (req: Request, res: Response) => {
         data: { lastLogin: new Date() }
       });
 
-      // Fetch role permissions
-      const userRole = await prisma.role.findUnique({
-        where: { name: user.role === 'owner' ? 'Property Owner' : user.role === 'manager' ? 'Property Manager' : 'Tenant' }
-      });
-
       const token = jwt.sign(
         { id: user.id, email: user.email, role: user.role, customerId: user.customerId },
         process.env.JWT_SECRET || 'secret',
@@ -230,9 +208,7 @@ router.post('/login', async (req: Request, res: Response) => {
           role: user.role,
           userType: userType,
           customerId: user.customerId,
-          customer: user.customer,
-          permissions: user.permissions || userRole?.permissions || [],
-          rolePermissions: userRole?.permissions || []
+          customer: user.customer
         }
       });
     } catch (dbError) {

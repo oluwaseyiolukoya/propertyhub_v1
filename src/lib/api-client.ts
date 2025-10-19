@@ -103,14 +103,31 @@ async function request<T>(
 
     clearTimeout(timeoutId);
 
-    // Handle 401 Unauthorized - clear auth and redirect to login
-    if (response.status === 401) {
-      removeAuthToken();
-      window.location.href = '/';
-      throw new Error('Unauthorized');
-    }
-
     const data = await response.json();
+
+    // Handle 401 Unauthorized - check for permissions update
+    if (response.status === 401) {
+      if (data.code === 'PERMISSIONS_UPDATED') {
+        // Show a toast notification before redirecting
+        const event = new CustomEvent('permissionsUpdated', {
+          detail: { message: data.error || 'Your permissions have been updated. Please log in again.' }
+        });
+        window.dispatchEvent(event);
+        
+        // Wait a moment for the toast to show, then clear auth and redirect
+        setTimeout(() => {
+          removeAuthToken();
+          window.location.href = '/';
+        }, 2000);
+        
+        throw new Error('Permissions updated');
+      } else {
+        // Regular unauthorized error
+        removeAuthToken();
+        window.location.href = '/';
+        throw new Error('Unauthorized');
+      }
+    }
 
     if (!response.ok) {
       return {

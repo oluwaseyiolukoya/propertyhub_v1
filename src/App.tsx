@@ -4,7 +4,7 @@ import { PropertyOwnerDashboard } from './components/PropertyOwnerDashboard';
 import { SuperAdminDashboard } from './components/SuperAdminDashboard';
 import { PropertyManagerDashboard } from './components/PropertyManagerDashboard';
 import TenantDashboard from './components/TenantDashboard';
-import { Toaster } from './components/ui/sonner';
+import { Toaster, toast } from './components/ui/sonner';
 import { getUserData, getUserType, removeAuthToken, verifyToken } from './lib/api';
 
 function App() {
@@ -37,6 +37,23 @@ function App() {
     };
 
     checkAuth();
+  }, []);
+
+  // Listen for permissions update events
+  useEffect(() => {
+    const handlePermissionsUpdated = (event: any) => {
+      const message = event.detail?.message || 'Your permissions have been updated. Please log in again.';
+      toast.warning(message, {
+        duration: 5000,
+        description: 'You will be redirected to the login page shortly.',
+      });
+    };
+
+    window.addEventListener('permissionsUpdated', handlePermissionsUpdated);
+
+    return () => {
+      window.removeEventListener('permissionsUpdated', handlePermissionsUpdated);
+    };
   }, []);
 
   const handleLogin = (type: string, userData: any) => {
