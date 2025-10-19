@@ -191,8 +191,8 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
         if (customer) {
           setCompanyData({
             companyName: customer.company || '',
-            businessType: '',
-            taxId: customer.taxId || '',
+            businessType: customer.industry || '', // Map to industry from customer database
+            taxId: customer.taxId || '', // Already correctly mapped
             website: customer.website || '',
             businessAddress: `${customer.street || ''}, ${customer.city || ''}, ${customer.state || ''} ${customer.zipCode || ''}`.trim(),
             businessPhone: customer.phone || '',
