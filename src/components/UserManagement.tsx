@@ -103,17 +103,54 @@ export function UserManagement({
     isActive: true
   });
 
+  // Internal admin permissions (for PropertyHub platform management)
   const availablePermissions = [
-    'user_management',
-    'property_management', 
-    'tenant_management',
-    'financial_reports',
-    'maintenance_management',
-    'access_control',
-    'analytics_view',
-    'billing_management',
-    'system_settings',
-    'support_tickets'
+    // Customer & User Management
+    { id: 'customer_management', label: 'Customer Management', category: 'Customers' },
+    { id: 'customer_create', label: 'Create Customers', category: 'Customers' },
+    { id: 'customer_edit', label: 'Edit Customers', category: 'Customers' },
+    { id: 'customer_delete', label: 'Delete Customers', category: 'Customers' },
+    { id: 'customer_view', label: 'View Customers', category: 'Customers' },
+    
+    // Internal User Management
+    { id: 'user_management', label: 'User Management', category: 'Internal Users' },
+    { id: 'user_create', label: 'Create Internal Users', category: 'Internal Users' },
+    { id: 'user_edit', label: 'Edit Internal Users', category: 'Internal Users' },
+    { id: 'user_delete', label: 'Delete Internal Users', category: 'Internal Users' },
+    { id: 'user_view', label: 'View Internal Users', category: 'Internal Users' },
+    
+    // Role Management
+    { id: 'role_management', label: 'Role Management', category: 'Roles & Permissions' },
+    { id: 'role_create', label: 'Create Roles', category: 'Roles & Permissions' },
+    { id: 'role_edit', label: 'Edit Roles', category: 'Roles & Permissions' },
+    { id: 'role_delete', label: 'Delete Roles', category: 'Roles & Permissions' },
+    
+    // Billing & Plans
+    { id: 'billing_management', label: 'Billing Management', category: 'Billing & Plans' },
+    { id: 'plan_management', label: 'Plan Management', category: 'Billing & Plans' },
+    { id: 'invoice_management', label: 'Invoice Management', category: 'Billing & Plans' },
+    { id: 'payment_view', label: 'View Payments', category: 'Billing & Plans' },
+    
+    // Analytics
+    { id: 'analytics_view', label: 'View Analytics Dashboard', category: 'Analytics' },
+    { id: 'analytics_reports', label: 'Generate Reports', category: 'Analytics' },
+    { id: 'analytics_export', label: 'Export Analytics Data', category: 'Analytics' },
+    
+    // System & Platform
+    { id: 'system_health', label: 'View System Health', category: 'System & Platform' },
+    { id: 'system_settings', label: 'Manage System Settings', category: 'System & Platform' },
+    { id: 'platform_settings', label: 'Manage Platform Settings', category: 'System & Platform' },
+    { id: 'system_logs', label: 'View System Logs', category: 'System & Platform' },
+    
+    // Support
+    { id: 'support_tickets', label: 'Manage Support Tickets', category: 'Support' },
+    { id: 'support_view', label: 'View Support Tickets', category: 'Support' },
+    { id: 'support_respond', label: 'Respond to Tickets', category: 'Support' },
+    { id: 'support_close', label: 'Close Support Tickets', category: 'Support' },
+    
+    // Activity & Audit
+    { id: 'activity_logs', label: 'View Activity Logs', category: 'Audit & Logs' },
+    { id: 'audit_reports', label: 'Generate Audit Reports', category: 'Audit & Logs' }
   ];
 
   // Filter users based on search and filters
@@ -136,6 +173,12 @@ export function UserManagement({
     role.name.toLowerCase().includes('support') ||
     role.name.toLowerCase().includes('staff')
   );
+
+  // Helper function to get permission label from ID
+  const getPermissionLabel = (permissionId: string) => {
+    const permission = availablePermissions.find(p => p.id === permissionId);
+    return permission ? permission.label : permissionId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
 
   const handleAddUser = (e: React.FormEvent) => {
     e.preventDefault();
@@ -559,7 +602,7 @@ export function UserManagement({
                           <div className="flex flex-wrap gap-1">
                             {role.permissions.slice(0, 3).map((permission: string) => (
                               <Badge key={permission} variant="outline" className="text-xs">
-                                {permission.replace(/_/g, ' ')}
+                                {getPermissionLabel(permission)}
                               </Badge>
                             ))}
                             {role.permissions.length > 3 && (
@@ -616,7 +659,7 @@ export function UserManagement({
                             <div className="flex flex-wrap gap-1 max-w-xs">
                               {role.permissions.slice(0, 2).map((permission: string) => (
                                 <Badge key={permission} variant="outline" className="text-xs">
-                                  {permission.replace(/_/g, ' ')}
+                                  {getPermissionLabel(permission)}
                                 </Badge>
                               ))}
                               {role.permissions.length > 2 && (
@@ -813,31 +856,44 @@ export function UserManagement({
 
             <div>
               <Label>Permissions</Label>
-              <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
-                {availablePermissions.map((permission) => (
-                  <div key={permission} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id={`perm-${permission}`}
-                      checked={newRole.permissions.includes(permission)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setNewRole(prev => ({
-                            ...prev,
-                            permissions: [...prev.permissions, permission]
-                          }));
-                        } else {
-                          setNewRole(prev => ({
-                            ...prev,
-                            permissions: prev.permissions.filter(p => p !== permission)
-                          }));
-                        }
-                      }}
-                      className="rounded border-gray-300"
-                    />
-                    <Label htmlFor={`perm-${permission}`} className="text-sm">
-                      {permission.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                    </Label>
+              <div className="mt-2 space-y-4 max-h-96 overflow-y-auto border rounded-md p-4">
+                {/* Group permissions by category */}
+                {Array.from(new Set(availablePermissions.map(p => p.category))).map((category) => (
+                  <div key={category}>
+                    <div className="font-semibold text-sm text-gray-700 mb-2 flex items-center">
+                      <Shield className="h-4 w-4 mr-2" />
+                      {category}
+                    </div>
+                    <div className="space-y-2 ml-6">
+                      {availablePermissions
+                        .filter(p => p.category === category)
+                        .map((permission) => (
+                          <div key={permission.id} className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id={`perm-${permission.id}`}
+                              checked={newRole.permissions.includes(permission.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setNewRole(prev => ({
+                                    ...prev,
+                                    permissions: [...prev.permissions, permission.id]
+                                  }));
+                                } else {
+                                  setNewRole(prev => ({
+                                    ...prev,
+                                    permissions: prev.permissions.filter(p => p !== permission.id)
+                                  }));
+                                }
+                              }}
+                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <Label htmlFor={`perm-${permission.id}`} className="text-sm text-gray-700 cursor-pointer">
+                              {permission.label}
+                            </Label>
+                          </div>
+                        ))}
+                    </div>
                   </div>
                 ))}
               </div>
