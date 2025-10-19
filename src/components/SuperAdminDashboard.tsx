@@ -94,13 +94,7 @@ export function SuperAdminDashboard({
 
   // Roles data from API (Internal admin roles only - customer roles like owner, manager, tenant are managed separately)
   const [roles, setRoles] = useState<Role[]>([]);
-
-  // Fetch customers, users, and roles on component mount
-  useEffect(() => {
-    fetchCustomersData();
-    fetchUsersData();
-    fetchRolesData();
-  }, []);
+  const [rolesLoading, setRolesLoading] = useState(false);
 
   // Fetch customers with current filters
   const fetchCustomersData = async () => {
@@ -145,20 +139,32 @@ export function SuperAdminDashboard({
   // Fetch roles
   const fetchRolesData = async () => {
     try {
+      setRolesLoading(true);
+      console.log('🔄 Fetching roles from database...');
       const response = await getRoles();
       
       if (response.error) {
-        console.error('Failed to load roles:', response.error);
+        console.error('❌ Failed to load roles:', response.error);
         toast.error('Failed to load roles');
       } else if (response.data) {
         console.log('✅ Roles fetched from database:', response.data);
+        console.log('📊 Number of roles:', response.data.length);
         setRoles(response.data);
       }
     } catch (error) {
-      console.error('Failed to load roles:', error);
+      console.error('❌ Error fetching roles:', error);
       toast.error('Failed to load roles');
+    } finally {
+      setRolesLoading(false);
     }
   };
+
+  // Fetch customers, users, and roles on component mount
+  useEffect(() => {
+    fetchCustomersData();
+    fetchUsersData();
+    fetchRolesData();
+  }, []);
 
   // Re-fetch customers when search term changes
   useEffect(() => {

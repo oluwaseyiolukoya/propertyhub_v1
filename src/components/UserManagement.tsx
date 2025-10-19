@@ -175,7 +175,12 @@ export function UserManagement({
   );
 
   // Helper function to get permission label from ID
-  const getPermissionLabel = (permissionId: string) => {
+  const getPermissionLabel = (permissionId: string | any) => {
+    // Ensure permissionId is a string
+    if (!permissionId || typeof permissionId !== 'string') {
+      return 'Unknown Permission';
+    }
+    
     const permission = availablePermissions.find(p => p.id === permissionId);
     return permission ? permission.label : permissionId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
