@@ -169,12 +169,26 @@ export function UserManagement({
     if (!userToReset) return;
     
     try {
-      const data = await resetUserPasswordAPI(userToReset.id);
-      console.log('🔐 Password reset API response:', data);
-      console.log('🔑 Temp password:', data.tempPassword);
-      setGeneratedPassword(data.tempPassword);
-      setShowResetConfirmation(false);
-      setShowResetPassword(true);
+      const response = await resetUserPasswordAPI(userToReset.id);
+      console.log('🔐 Password reset API response:', response);
+      
+      if (response.error) {
+        console.error('Password reset error:', response.error);
+        alert(`Failed to reset password: ${response.error.message || response.error.error}`);
+        setShowResetConfirmation(false);
+        return;
+      }
+      
+      if (response.data?.tempPassword) {
+        console.log('🔑 Temp password:', response.data.tempPassword);
+        setGeneratedPassword(response.data.tempPassword);
+        setShowResetConfirmation(false);
+        setShowResetPassword(true);
+      } else {
+        console.error('No temp password in response:', response);
+        alert('Failed to generate password. Please try again.');
+        setShowResetConfirmation(false);
+      }
     } catch (error) {
       console.error('Reset password error:', error);
       alert('Failed to reset password. Please try again.');
