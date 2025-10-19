@@ -89,30 +89,46 @@ export const adminOnly = async (
 ) => {
   try {
     const userId = req.user?.id;
+    const userRole = req.user?.role;
     
     if (!userId) {
       return res.status(403).json({ error: 'Access denied. Admin only.' });
     }
 
-    // Check if user is a Super Admin (from admins table)
-    const admin = await prisma.admin.findUnique({
-      where: { id: userId }
-    });
-
-    if (admin) {
-      // Super Admin has access
+    // First, check if this is a mock/dev admin based on role in JWT
+    // (for development/testing before database is fully set up)
+    if (userRole === 'super_admin' || userRole === 'admin') {
       return next();
     }
 
-    // Check if user is an Internal Admin User (from users table with customerId = null)
-    const internalUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { customerId: true }
-    });
+    // Then check database for actual admins
+    try {
+      // Check if user is a Super Admin (from admins table)
+      const admin = await prisma.admin.findUnique({
+        where: { id: userId }
+      });
 
-    if (internalUser && internalUser.customerId === null) {
-      // Internal Admin User has access
-      return next();
+      if (admin) {
+        // Super Admin has access
+        return next();
+      }
+
+      // Check if user is an Internal Admin User (from users table with customerId = null)
+      const internalUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { customerId: true }
+      });
+
+      if (internalUser && internalUser.customerId === null) {
+        // Internal Admin User has access
+        return next();
+      }
+    } catch (dbError) {
+      // If database check fails, rely on JWT role (fail open for availability)
+      console.log('⚠️ Database check failed in adminOnly, relying on JWT role');
+      if (userRole === 'super_admin' || userRole === 'admin') {
+        return next();
+      }
     }
 
     // Not an admin
