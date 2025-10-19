@@ -652,13 +652,11 @@ export function UserManagement({
                   <SelectContent>
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="support">Support Staff</SelectItem>
-                    <SelectItem value="analyst">Analyst</SelectItem>
+                    <SelectItem value="analyst">Business Analyst</SelectItem>
                     <SelectItem value="developer">Developer</SelectItem>
-                    {roles.map((role) => (
-                      <SelectItem key={role.id} value={role.name}>
-                        {role.name}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="finance">Finance Manager</SelectItem>
+                    <SelectItem value="operations">Operations Manager</SelectItem>
+                    <SelectItem value="marketing">Marketing Manager</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
