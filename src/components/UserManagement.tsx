@@ -73,18 +73,6 @@ export function UserManagement({
   const [generatedPassword, setGeneratedPassword] = useState('');
   const [roleViewMode, setRoleViewMode] = useState<'grid' | 'list'>('grid');
 
-  // Internal staff roles only (not customer roles)
-  const internalStaffRoles = [
-    { value: 'Super Admin', label: 'Super Admin' },
-    { value: 'admin', label: 'Admin' },
-    { value: 'support', label: 'Support Staff' },
-    { value: 'analyst', label: 'Business Analyst' },
-    { value: 'developer', label: 'Developer' },
-    { value: 'finance', label: 'Finance Manager' },
-    { value: 'operations', label: 'Operations Manager' },
-    { value: 'marketing', label: 'Marketing Manager' }
-  ];
-
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
@@ -165,13 +153,10 @@ export function UserManagement({
     return matchesSearch && matchesStatus && matchesRole;
   });
 
-  // Filter roles to show only internal admin roles (exclude customer roles like 'owner', 'manager', 'tenant')
-  const internalRoleNames = internalStaffRoles.map(r => r.value.toLowerCase());
+  // Filter roles to show only internal admin roles (exclude customer-facing roles)
+  const customerRoleNames = ['owner', 'manager', 'tenant', 'property owner', 'property manager'];
   const filteredRoles = roles.filter(role => 
-    internalRoleNames.includes(role.name.toLowerCase()) || 
-    role.name.toLowerCase().includes('admin') ||
-    role.name.toLowerCase().includes('support') ||
-    role.name.toLowerCase().includes('staff')
+    !customerRoleNames.includes(role.name.toLowerCase())
   );
 
   // Helper function to get permission label from ID
@@ -367,9 +352,9 @@ export function UserManagement({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Roles</SelectItem>
-                      {internalStaffRoles.map((role) => (
-                        <SelectItem key={role.value} value={role.value}>
-                          {role.label}
+                      {filteredRoles.map((role) => (
+                        <SelectItem key={role.id} value={role.name}>
+                          {role.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -774,9 +759,9 @@ export function UserManagement({
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
-                    {internalStaffRoles.map((role) => (
-                      <SelectItem key={role.value} value={role.value}>
-                        {role.label}
+                    {filteredRoles.map((role) => (
+                      <SelectItem key={role.id} value={role.name}>
+                        {role.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1056,9 +1041,9 @@ export function UserManagement({
                         <SelectValue placeholder="Select role" />
                       </SelectTrigger>
                       <SelectContent>
-                        {internalStaffRoles.map((role) => (
-                          <SelectItem key={role.value} value={role.value}>
-                            {role.label}
+                        {filteredRoles.map((role) => (
+                          <SelectItem key={role.id} value={role.name}>
+                            {role.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
