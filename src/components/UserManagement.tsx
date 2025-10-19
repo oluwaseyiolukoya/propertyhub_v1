@@ -170,6 +170,8 @@ export function UserManagement({
     
     try {
       const data = await resetUserPasswordAPI(userToReset.id);
+      console.log('🔐 Password reset API response:', data);
+      console.log('🔑 Temp password:', data.tempPassword);
       setGeneratedPassword(data.tempPassword);
       setShowResetConfirmation(false);
       setShowResetPassword(true);
@@ -1065,18 +1067,27 @@ export function UserManagement({
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm font-medium text-blue-900 mb-2">Temporary Password:</p>
               <div className="flex items-center justify-between bg-white px-3 py-2 rounded border border-blue-300">
-                <code className="text-lg font-mono text-blue-600">{generatedPassword}</code>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    navigator.clipboard.writeText(generatedPassword);
-                    alert('Password copied to clipboard!');
-                  }}
-                >
-                  <Clipboard className="h-4 w-4" />
-                </Button>
+                <code className="text-lg font-mono text-blue-600">
+                  {generatedPassword || 'Loading...'}
+                </code>
+                {generatedPassword && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      navigator.clipboard.writeText(generatedPassword);
+                      alert('Password copied to clipboard!');
+                    }}
+                  >
+                    <Clipboard className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
+              {!generatedPassword && (
+                <p className="text-xs text-red-600 mt-2">
+                  ⚠️ Password not generated. Check console for errors.
+                </p>
+              )}
             </div>
 
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
