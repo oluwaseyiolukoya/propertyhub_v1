@@ -73,6 +73,18 @@ export function UserManagement({
   const [generatedPassword, setGeneratedPassword] = useState('');
   const [roleViewMode, setRoleViewMode] = useState<'grid' | 'list'>('grid');
 
+  // Internal staff roles only (not customer roles)
+  const internalStaffRoles = [
+    { value: 'Super Admin', label: 'Super Admin' },
+    { value: 'admin', label: 'Admin' },
+    { value: 'support', label: 'Support Staff' },
+    { value: 'analyst', label: 'Business Analyst' },
+    { value: 'developer', label: 'Developer' },
+    { value: 'finance', label: 'Finance Manager' },
+    { value: 'operations', label: 'Operations Manager' },
+    { value: 'marketing', label: 'Marketing Manager' }
+  ];
+
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
@@ -298,9 +310,9 @@ export function UserManagement({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Roles</SelectItem>
-                      {roles.map((role) => (
-                        <SelectItem key={role.id} value={role.name}>
-                          {role.name}
+                      {internalStaffRoles.map((role) => (
+                        <SelectItem key={role.value} value={role.value}>
+                          {role.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -705,13 +717,11 @@ export function UserManagement({
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="support">Support Staff</SelectItem>
-                    <SelectItem value="analyst">Business Analyst</SelectItem>
-                    <SelectItem value="developer">Developer</SelectItem>
-                    <SelectItem value="finance">Finance Manager</SelectItem>
-                    <SelectItem value="operations">Operations Manager</SelectItem>
-                    <SelectItem value="marketing">Marketing Manager</SelectItem>
+                    {internalStaffRoles.map((role) => (
+                      <SelectItem key={role.value} value={role.value}>
+                        {role.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -976,13 +986,11 @@ export function UserManagement({
                         <SelectValue placeholder="Select role" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="admin">Admin</SelectItem>
-                        <SelectItem value="support">Support Staff</SelectItem>
-                        <SelectItem value="analyst">Business Analyst</SelectItem>
-                        <SelectItem value="developer">Developer</SelectItem>
-                        <SelectItem value="finance">Finance Manager</SelectItem>
-                        <SelectItem value="operations">Operations Manager</SelectItem>
-                        <SelectItem value="marketing">Marketing Manager</SelectItem>
+                        {internalStaffRoles.map((role) => (
+                          <SelectItem key={role.value} value={role.value}>
+                            {role.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

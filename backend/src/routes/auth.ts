@@ -90,40 +90,86 @@ router.post('/login', async (req: Request, res: Response) => {
 
     // Try database authentication
     try {
-      // For super admin
+      // For admin (checks both Super Admin and Internal Admin Users)
       if (userType === 'admin') {
         console.log('🔍 Admin login attempt:', { email, userType });
-        const admin = await prisma.admin.findUnique({ where: { email } });
-        console.log('🔍 Admin found:', admin ? `Yes (${admin.email})` : 'No');
         
-        if (!admin) {
-          console.log('❌ Admin not found in database');
-          return res.status(401).json({ error: 'Invalid credentials' });
-        }
-
-        const isValidPassword = await bcrypt.compare(password, admin.password);
-        console.log('🔍 Password valid:', isValidPassword);
-        if (!isValidPassword) {
-          console.log('❌ Invalid password for admin');
-          return res.status(401).json({ error: 'Invalid credentials' });
-        }
-
-        const token = jwt.sign(
-          { id: admin.id, email: admin.email, role: admin.role },
-          process.env.JWT_SECRET || 'secret',
-          { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-        );
-
-        return res.json({
-          token,
-          user: {
-            id: admin.id,
-            email: admin.email,
-            name: admin.name,
-            role: admin.role,
-            userType: 'admin'
+        // First, try Super Admin table
+        const admin = await prisma.admin.findUnique({ where: { email } });
+        console.log('🔍 Super Admin found:', admin ? `Yes (${admin.email})` : 'No');
+        
+        if (admin) {
+          const isValidPassword = await bcrypt.compare(password, admin.password);
+          console.log('🔍 Super Admin password valid:', isValidPassword);
+          
+          if (!isValidPassword) {
+            console.log('❌ Invalid password for Super Admin');
+            return res.status(401).json({ error: 'Invalid credentials' });
           }
+
+          const token = jwt.sign(
+            { id: admin.id, email: admin.email, role: admin.role },
+            process.env.JWT_SECRET || 'secret',
+            { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+          );
+
+          console.log('✅ Super Admin login successful');
+          return res.json({
+            token,
+            user: {
+              id: admin.id,
+              email: admin.email,
+              name: admin.name,
+              role: admin.role,
+              userType: 'admin'
+            }
+          });
+        }
+
+        // If not Super Admin, try Internal Admin Users (customerId = null)
+        console.log('🔍 Checking Internal Admin Users table...');
+        const internalUser = await prisma.user.findUnique({ 
+          where: { email }
         });
+        console.log('🔍 Internal Admin User found:', internalUser ? `Yes (${internalUser.email})` : 'No');
+        
+        if (internalUser && internalUser.customerId === null) {
+          const isValidPassword = await bcrypt.compare(password, internalUser.password);
+          console.log('🔍 Internal Admin password valid:', isValidPassword);
+          
+          if (!isValidPassword) {
+            console.log('❌ Invalid password for Internal Admin User');
+            return res.status(401).json({ error: 'Invalid credentials' });
+          }
+
+          // Update last login
+          await prisma.user.update({
+            where: { id: internalUser.id },
+            data: { lastLogin: new Date() }
+          });
+
+          const token = jwt.sign(
+            { id: internalUser.id, email: internalUser.email, role: internalUser.role },
+            process.env.JWT_SECRET || 'secret',
+            { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+          );
+
+          console.log('✅ Internal Admin User login successful');
+          return res.json({
+            token,
+            user: {
+              id: internalUser.id,
+              email: internalUser.email,
+              name: internalUser.name,
+              role: internalUser.role,
+              userType: 'admin'
+            }
+          });
+        }
+
+        // Neither Super Admin nor Internal Admin User found
+        console.log('❌ Admin not found in any table');
+        return res.status(401).json({ error: 'Invalid credentials' });
       }
 
       // For other user types (owner, manager, tenant)
