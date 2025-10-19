@@ -56,7 +56,14 @@ export const authMiddleware = async (
         const tokenIssuedAt = decoded.iat ? new Date(decoded.iat * 1000) : new Date();
         const userUpdatedAt = userRecord.updatedAt;
 
-        if (userUpdatedAt && userUpdatedAt > tokenIssuedAt) {
+        // Add a grace period of 30 seconds to avoid triggering on lastLogin updates
+        // during the login process itself
+        const GRACE_PERIOD_MS = 30 * 1000; // 30 seconds
+        const timeSinceTokenIssued = Date.now() - tokenIssuedAt.getTime();
+
+        if (userUpdatedAt && 
+            userUpdatedAt > tokenIssuedAt && 
+            timeSinceTokenIssued > GRACE_PERIOD_MS) {
           console.log('⚠️ User permissions updated. Forcing re-authentication.');
           return res.status(401).json({ 
             error: 'Your permissions have been updated. Please log in again.',
