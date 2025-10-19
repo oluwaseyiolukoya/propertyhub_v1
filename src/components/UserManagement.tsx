@@ -381,43 +381,58 @@ export function UserManagement({
                                   <Eye className="h-4 w-4 mr-2" />
                                   View Details
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => {
-                                  setSelectedUser(userItem);
-                                  setShowEditUser(true);
-                                }}>
-                                  <Edit className="h-4 w-4 mr-2" />
-                                  Edit User
-                                </DropdownMenuItem>
+                                
+                                {/* Disable edit for Super Admins */}
+                                {!(userItem as any).isSuperAdmin && (
+                                  <DropdownMenuItem onClick={() => {
+                                    setSelectedUser(userItem);
+                                    setShowEditUser(true);
+                                  }}>
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Edit User
+                                  </DropdownMenuItem>
+                                )}
+                                
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => openResetConfirmation(userItem.id, userItem.name, userItem.email)}>
                                   <Lock className="h-4 w-4 mr-2" />
                                   Reset Password
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => toggleUserStatus(userItem.id, userItem.status)}>
-                                  {userItem.status === 'active' ? (
-                                    <>
-                                      <XCircle className="h-4 w-4 mr-2" />
-                                      Deactivate
-                                    </>
-                                  ) : (
-                                    <>
-                                      <CheckCircle className="h-4 w-4 mr-2" />
-                                      Activate
-                                    </>
-                                  )}
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem 
-                                  className="text-red-600"
-                                  onClick={() => {
-                                    if (confirm('Are you sure you want to delete this user?')) {
-                                      onDeleteUser(userItem.id);
-                                    }
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete User
-                                </DropdownMenuItem>
+                                
+                                {/* Disable deactivate for Super Admins */}
+                                {!(userItem as any).isSuperAdmin && (
+                                  <DropdownMenuItem onClick={() => toggleUserStatus(userItem.id, userItem.status)}>
+                                    {userItem.status === 'active' ? (
+                                      <>
+                                        <XCircle className="h-4 w-4 mr-2" />
+                                        Deactivate
+                                      </>
+                                    ) : (
+                                      <>
+                                        <CheckCircle className="h-4 w-4 mr-2" />
+                                        Activate
+                                      </>
+                                    )}
+                                  </DropdownMenuItem>
+                                )}
+                                
+                                {/* Disable delete for Super Admins */}
+                                {!(userItem as any).isSuperAdmin && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem 
+                                      className="text-red-600"
+                                      onClick={() => {
+                                        if (confirm('Are you sure you want to delete this user?')) {
+                                          onDeleteUser(userItem.id);
+                                        }
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete User
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>

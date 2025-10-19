@@ -37,13 +37,19 @@ const mockUsers = [
   }
 ];
 
-// Get all users
+// Get all users (combines Super Admins from admins table and internal users from users table)
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
     const { search, status, role, customerId } = req.query;
 
     // Try database first
     try {
+      // Fetch Super Admins from admins table
+      const admins = await prisma.admin.findMany({
+        orderBy: { createdAt: 'desc' }
+      });
+
+      // Fetch internal users from users table (where customerId is null)
       const where: any = {
         customerId: null // ONLY internal admin users (not associated with customers)
       };
@@ -65,17 +71,60 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         where.role = role;
       }
 
-      const users = await prisma.user.findMany({
+      const internalUsers = await prisma.user.findMany({
         where,
         orderBy: { createdAt: 'desc' }
       });
 
-      // Remove passwords from response
-      const usersWithoutPassword = users.map(({ password, ...user }) => user);
+      // Transform admins to match user structure
+      const transformedAdmins = admins.map(admin => ({
+        id: admin.id,
+        customerId: null,
+        name: admin.name,
+        email: admin.email,
+        phone: admin.phone || '',
+        role: 'Super Admin', // Distinguish from regular admin users
+        department: 'Administration',
+        company: 'PropertyHub Admin',
+        isActive: true,
+        status: 'active',
+        lastLogin: admin.lastLogin,
+        invitedAt: null,
+        acceptedAt: null,
+        permissions: [],
+        createdAt: admin.createdAt,
+        updatedAt: admin.updatedAt,
+        isSuperAdmin: true // Flag to identify super admins
+      }));
 
-      console.log('✅ Internal admin users fetched:', usersWithoutPassword.length);
+      // Remove passwords from internal users
+      const usersWithoutPassword = internalUsers.map(({ password, ...user }) => ({
+        ...user,
+        isSuperAdmin: false
+      }));
 
-      return res.json(usersWithoutPassword);
+      // Combine both lists
+      const allUsers = [...transformedAdmins, ...usersWithoutPassword];
+
+      // Apply search filter to super admins if needed
+      let filteredUsers = allUsers;
+      if (search) {
+        const searchLower = (search as string).toLowerCase();
+        filteredUsers = allUsers.filter(user => 
+          user.name.toLowerCase().includes(searchLower) ||
+          user.email.toLowerCase().includes(searchLower) ||
+          (user.department && user.department.toLowerCase().includes(searchLower)) ||
+          (user.company && user.company.toLowerCase().includes(searchLower))
+        );
+      }
+
+      console.log('✅ Users fetched:', {
+        superAdmins: transformedAdmins.length,
+        internalUsers: usersWithoutPassword.length,
+        total: filteredUsers.length
+      });
+
+      return res.json(filteredUsers);
     } catch (dbError: any) {
       // Database not available, return mock data
       console.log('📝 Using mock internal admin users data');
