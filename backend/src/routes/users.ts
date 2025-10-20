@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { authMiddleware, adminOnly, AuthRequest } from '../middleware/auth';
 import prisma from '../lib/db';
-import { emitToAdmins } from '../lib/socket';
+import { emitToAdmins, forceUserReauth } from '../lib/socket';
 
 const router = express.Router();
 
@@ -262,6 +262,15 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       status
     } = req.body;
 
+    // Get existing user to check if role/permissions changed
+    const existingUser = await prisma.user.findUnique({
+      where: { id }
+    });
+
+    if (!existingUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
     const user = await prisma.user.update({
       where: { id },
       data: {
@@ -278,6 +287,26 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     });
 
     console.log('✅ Internal admin user updated:', user.email);
+
+    // Check if role or permissions changed - if so, force re-authentication
+    const roleChanged = role && role !== existingUser.role;
+    const permissionsChanged = permissions && JSON.stringify(permissions) !== JSON.stringify(existingUser.permissions);
+    const statusChanged = isActive !== undefined && isActive !== existingUser.isActive;
+
+    if (roleChanged || permissionsChanged || statusChanged) {
+      let reason = 'Your account settings have been updated';
+      if (roleChanged) {
+        reason = `Your role has been changed from ${existingUser.role} to ${role}`;
+      } else if (statusChanged && !isActive) {
+        reason = 'Your account has been deactivated';
+      } else if (permissionsChanged) {
+        reason = 'Your permissions have been updated';
+      }
+      
+      // Force user to re-authenticate
+      forceUserReauth(id, reason);
+      console.log(`🔐 Forcing re-auth for user ${user.email} - ${reason}`);
+    }
 
     // Note: No activity log for internal users since they don't belong to a customer
 

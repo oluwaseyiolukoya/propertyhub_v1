@@ -24,7 +24,9 @@ import {
   subscribeToCustomerEvents, 
   unsubscribeFromCustomerEvents,
   subscribeToUserEvents,
-  unsubscribeFromUserEvents
+  unsubscribeFromUserEvents,
+  subscribeToForceReauth,
+  unsubscribeFromForceReauth
 } from '../lib/socket';
 import { 
   getCustomers,
@@ -231,12 +233,40 @@ export function SuperAdminDashboard({
           setUsers((prev) => prev.filter((u) => u.id !== data.userId));
         }
       });
+
+      // Subscribe to force re-authentication events
+      subscribeToForceReauth((data) => {
+        console.log('🔐 Force re-authentication received:', data);
+        
+        // Show warning message to user
+        toast.warning(
+          <div className="space-y-2">
+            <p className="font-semibold">Account Update Required</p>
+            <p className="text-sm">{data.reason}</p>
+            <p className="text-xs text-gray-500">Please log in again to continue.</p>
+          </div>,
+          {
+            duration: 10000, // Show for 10 seconds
+            action: {
+              label: 'Log Out Now',
+              onClick: () => onLogout()
+            }
+          }
+        );
+
+        // Auto-logout after 15 seconds
+        setTimeout(() => {
+          toast.info('Logging out due to account changes...');
+          onLogout();
+        }, 15000);
+      });
     }
 
     // Cleanup on unmount
     return () => {
       unsubscribeFromCustomerEvents();
       unsubscribeFromUserEvents();
+      unsubscribeFromForceReauth();
       disconnectSocket();
     };
   }, []);

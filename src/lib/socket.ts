@@ -354,3 +354,17 @@ export const unsubscribeFromNotificationEvents = () => {
   off('notification');
 };
 
+/**
+ * Subscribe to force re-authentication events
+ */
+export const subscribeToForceReauth = (callback: (data: { reason: string; timestamp: string }) => void) => {
+  on('force:reauth', callback);
+};
+
+/**
+ * Unsubscribe from force re-authentication events
+ */
+export const unsubscribeFromForceReauth = () => {
+  off('force:reauth');
+};
+

@@ -186,6 +186,17 @@ export const emitToUser = (userId: string, event: string, data: any) => {
 };
 
 /**
+ * Force user to re-authenticate (for role/permission changes)
+ */
+export const forceUserReauth = (userId: string, reason: string) => {
+  emitToUser(userId, 'force:reauth', { 
+    reason,
+    timestamp: new Date().toISOString()
+  });
+  console.log(`🔐 Forcing re-authentication for user ${userId}: ${reason}`);
+};
+
+/**
  * Emit event to all admins
  */
 export const emitToAdmins = (event: string, data: any) => {
