@@ -47,6 +47,11 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
     // Try database first
     try {
+      // Best practice: prevent caching to avoid UI 304 flicker on admin tables
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
+
       const where: any = {};
 
       if (search) {

@@ -104,6 +104,7 @@ export function SuperAdminDashboard({
   // Customer data from API
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Users data from API
@@ -114,9 +115,17 @@ export function SuperAdminDashboard({
   const [rolesLoading, setRolesLoading] = useState(false);
 
   // Fetch customers with current filters
-  const fetchCustomersData = async () => {
+  const fetchCustomersData = async (options?: { isInitial?: boolean; silent?: boolean }) => {
     try {
-      setLoading(true);
+      const isInitial = options?.isInitial === true;
+      const silent = options?.silent === true;
+      if (!silent) {
+        if (isInitial) {
+          setLoading(true);
+        } else {
+          setRefreshing(true);
+        }
+      }
       const response = await getCustomers({ search: searchTerm });
       
       if (response.error) {
@@ -134,7 +143,9 @@ export function SuperAdminDashboard({
       console.error('❌ Error fetching customers:', error);
       toast.error('Failed to load customers');
     } finally {
+      // Always clear loading flags, even for silent fetches
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -178,7 +189,8 @@ export function SuperAdminDashboard({
 
   // Fetch customers, users, and roles on component mount
   useEffect(() => {
-    fetchCustomersData();
+    // Load customers silently to populate Overview metrics without UI changes
+    fetchCustomersData({ silent: true });
     fetchUsersData();
     fetchRolesData();
 
@@ -235,31 +247,11 @@ export function SuperAdminDashboard({
         }
       });
 
-      // Subscribe to force re-authentication events
+      // Subscribe to force re-authentication events (immediate logout)
       subscribeToForceReauth((data) => {
         console.log('🔐 Force re-authentication received:', data);
-        
-        // Show warning message to user
-        toast.warning(
-          <div className="space-y-2">
-            <p className="font-semibold">Account Update Required</p>
-            <p className="text-sm">{data.reason}</p>
-            <p className="text-xs text-gray-500">Please log in again to continue.</p>
-          </div>,
-          {
-            duration: 10000, // Show for 10 seconds
-            action: {
-              label: 'Log Out Now',
-              onClick: () => onLogout()
-            }
-          }
-        );
-
-        // Auto-logout after 15 seconds
-        setTimeout(() => {
-          toast.info('Logging out due to account changes...');
-          onLogout();
-        }, 15000);
+        toast.error(data.reason || 'Your session has been terminated');
+        onLogout();
       });
     }
 
@@ -299,7 +291,14 @@ export function SuperAdminDashboard({
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm, activeTab]);
+  }, [searchTerm]);
+
+  // When switching to Customers tab, fetch if we have no data yet
+  useEffect(() => {
+    if (activeTab === 'customers' && customers.length === 0) {
+      fetchCustomersData({ isInitial: true });
+    }
+  }, [activeTab]);
 
   // Calculate platform stats
   const platformStats = {
@@ -731,7 +730,7 @@ export function SuperAdminDashboard({
         {/* Main Content */}
         <main className="flex-1 lg:ml-0 p-4 lg:p-8">
           <div className="max-w-7xl mx-auto">
-            {/* Loading Spinner */}
+            {/* Loading Spinner (first load only) */}
             {loading && activeTab === 'customers' && (
               <div className="flex items-center justify-center py-12">
                 <div className="text-center">
@@ -740,6 +739,7 @@ export function SuperAdminDashboard({
                 </div>
               </div>
             )}
+            {/* No visible refresh indicator to avoid UI flicker during refetch */}
 
             {/* Overview Tab */}
             {activeTab === 'overview' && (

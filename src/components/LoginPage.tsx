@@ -89,19 +89,33 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
       });
 
       if (response.error) {
-        setError(response.error.error || 'Login failed');
-        toast.error(response.error.error || 'Login failed');
+        const code = response.error.statusCode;
+        let message = response.error.error || 'Login failed';
+        if (code === 401) {
+          message = 'Invalid email or password.';
+        } else if (code === 403) {
+          message = 'Your account has been deactivated. Please contact your administrator.';
+        } else if (code === 400) {
+          message = 'Please select your role and fill all fields.';
+        } else if (code && code >= 500) {
+          message = 'Server error. Please try again shortly.';
+        }
+        setError(message);
+        toast.error(message);
         setIsLoading(false);
         return;
       }
 
       if (response.data) {
         toast.success('Login successful!');
-        // Pass user data to parent component (use backend user type from response)
-        onLogin(backendUserType, response.data.user);
+        // Use userType returned by backend (derived from role/customerId)
+        const resolvedUserType = response.data.user.userType || backendUserType;
+        onLogin(resolvedUserType, response.data.user);
       }
     } catch (err: any) {
-      const errorMessage = err.message || 'An unexpected error occurred';
+      const errorMessage = err?.message === 'Failed to connect to the server'
+        ? 'Network error. Please check your connection and try again.'
+        : (err?.message || 'An unexpected error occurred');
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
