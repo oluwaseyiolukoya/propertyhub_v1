@@ -19,6 +19,12 @@ import { AddCustomerPage } from './AddCustomerPage';
 import { Footer } from './Footer';
 import { toast } from "sonner";
 import { 
+  initializeSocket, 
+  disconnectSocket, 
+  subscribeToCustomerEvents, 
+  unsubscribeFromCustomerEvents 
+} from '../lib/socket';
+import { 
   getCustomers,
   createCustomer,
   updateCustomer, 
@@ -170,6 +176,42 @@ export function SuperAdminDashboard({
     fetchCustomersData();
     fetchUsersData();
     fetchRolesData();
+
+    // Initialize Socket.io for real-time updates
+    const token = localStorage.getItem('token');
+    if (token) {
+      initializeSocket(token);
+
+      // Subscribe to customer events
+      subscribeToCustomerEvents({
+        onCreated: (data) => {
+          console.log('📡 Real-time: Customer created', data);
+          toast.success(`New customer ${data.customer.company} was added`);
+          // Add new customer to the list
+          setCustomers((prev) => [data.customer, ...prev]);
+        },
+        onUpdated: (data) => {
+          console.log('📡 Real-time: Customer updated', data);
+          toast.info(`Customer ${data.customer.company} was updated`);
+          // Update customer in the list
+          setCustomers((prev) =>
+            prev.map((c) => (c.id === data.customer.id ? data.customer : c))
+          );
+        },
+        onDeleted: (data) => {
+          console.log('📡 Real-time: Customer deleted', data);
+          toast.info('A customer was deleted');
+          // Remove customer from the list
+          setCustomers((prev) => prev.filter((c) => c.id !== data.customerId));
+        }
+      });
+    }
+
+    // Cleanup on unmount
+    return () => {
+      unsubscribeFromCustomerEvents();
+      disconnectSocket();
+    };
   }, []);
 
   // Re-fetch customers when search term changes
