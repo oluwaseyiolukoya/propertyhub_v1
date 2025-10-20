@@ -34,6 +34,22 @@ router.post('/login', async (req: Request, res: Response) => {
             return res.status(401).json({ error: 'Invalid credentials' });
           }
 
+          // Block inactive super admins
+          if (admin.isActive === false) {
+            console.log('❌ Super Admin account inactive');
+            return res.status(403).json({ error: 'Account is inactive' });
+          }
+
+          // Update last login for Super Admin
+          try {
+            await prisma.admin.update({
+              where: { id: admin.id },
+              data: { lastLogin: new Date() }
+            });
+          } catch (e) {
+            console.warn('⚠️ Failed to update Super Admin lastLogin:', e);
+          }
+
           const token = jwt.sign(
             { id: admin.id, email: admin.email, role: admin.role },
             process.env.JWT_SECRET || 'secret',
@@ -67,6 +83,12 @@ router.post('/login', async (req: Request, res: Response) => {
           if (!isValidPassword) {
             console.log('❌ Invalid password for Internal Admin User');
             return res.status(401).json({ error: 'Invalid credentials' });
+          }
+
+          // Block inactive or non-active internal admin users
+          if (internalUser.isActive === false || (internalUser.status && internalUser.status !== 'active')) {
+            console.log('❌ Internal Admin account inactive');
+            return res.status(403).json({ error: 'Account is inactive' });
           }
 
           // Update last login
@@ -114,11 +136,27 @@ router.post('/login', async (req: Request, res: Response) => {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
+      // Block inactive or non-active customer users
+      if (user.isActive === false || (user.status && user.status !== 'active')) {
+        return res.status(403).json({ error: 'Account is inactive' });
+      }
+
       // Update last login
       await prisma.user.update({
         where: { id: user.id },
         data: { lastLogin: new Date() }
       });
+
+      // Derive userType from database, not from request
+      // Internal admins are handled above; here customerId is not null
+      const roleLower = (user.role || '').toLowerCase();
+      const derivedUserType = roleLower === 'owner' || roleLower === 'property-owner' 
+        ? 'owner'
+        : roleLower === 'manager' || roleLower === 'property-manager'
+          ? 'manager'
+          : roleLower === 'tenant'
+            ? 'tenant'
+            : 'owner'; // default to owner for customer users
 
       const token = jwt.sign(
         { id: user.id, email: user.email, role: user.role, customerId: user.customerId },
@@ -133,7 +171,7 @@ router.post('/login', async (req: Request, res: Response) => {
           email: user.email,
           name: user.name,
           role: user.role,
-          userType: userType,
+          userType: derivedUserType,
           customerId: user.customerId,
           customer: user.customer
         }
@@ -204,6 +242,101 @@ router.get('/verify', async (req: Request, res: Response) => {
 
   } catch (error) {
     return res.status(401).json({ error: 'Invalid token' });
+  }
+});
+
+// Validate session - check if user's account is still valid and role hasn't changed
+router.get('/validate-session', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    // Prevent any caching for session validation
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+
+    const tokenUser = req.user;
+
+    if (!tokenUser) {
+      return res.status(401).json({ 
+        valid: false,
+        reason: 'Not authenticated',
+        forceLogout: true 
+      });
+    }
+
+    // 1) Check Super Admins table
+    const admin = await prisma.admin.findUnique({
+      where: { id: tokenUser.id },
+      select: { isActive: true }
+    });
+
+    if (admin) {
+      if (!admin.isActive) {
+        return res.status(403).json({
+          valid: false,
+          reason: 'Your account has been deactivated',
+          forceLogout: true
+        });
+      }
+      // Super admins are valid if active
+      return res.json({ valid: true });
+    }
+
+    // 2) Check Users table (internal admins and customer users)
+    const dbUser = await prisma.user.findUnique({
+      where: { id: tokenUser.id },
+      select: { 
+        role: true,
+        isActive: true,
+        status: true,
+        customerId: true
+      }
+    });
+
+    if (!dbUser) {
+      return res.status(401).json({ 
+        valid: false,
+        reason: 'User not found',
+        forceLogout: true 
+      });
+    }
+
+    // Internal admin user (customerId is null)
+    if (dbUser.customerId === null) {
+      if (!dbUser.isActive) {
+        return res.status(403).json({ 
+          valid: false,
+          reason: 'Your account has been deactivated',
+          forceLogout: true 
+        });
+      }
+      // Internal admins: treat as valid if active (no role/permissions compare)
+      return res.json({ valid: true });
+    }
+
+    // Customer user (owner/manager/tenant)
+    if (!dbUser.isActive || dbUser.status !== 'active') {
+      return res.status(403).json({ 
+        valid: false,
+        reason: 'Your account has been deactivated',
+        forceLogout: true 
+      });
+    }
+
+    // Check role mismatch for customer users only
+    if (dbUser.role !== tokenUser.role) {
+      console.log(`⚠️ Role mismatch for user ${tokenUser.id}: Token=${tokenUser.role}, DB=${dbUser.role}`);
+      return res.status(403).json({ 
+        valid: false,
+        reason: `Your role has been changed to ${dbUser.role}. Please log in again.`,
+        forceLogout: true 
+      });
+    }
+
+    return res.json({ valid: true });
+
+  } catch (error: any) {
+    console.error('Session validation error:', error);
+    return res.status(500).json({ error: 'Failed to validate session' });
   }
 });
 

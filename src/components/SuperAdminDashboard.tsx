@@ -19,6 +19,17 @@ import { AddCustomerPage } from './AddCustomerPage';
 import { Footer } from './Footer';
 import { toast } from "sonner";
 import { 
+  initializeSocket, 
+  disconnectSocket, 
+  subscribeToCustomerEvents, 
+  unsubscribeFromCustomerEvents,
+  subscribeToUserEvents,
+  unsubscribeFromUserEvents,
+  subscribeToForceReauth,
+  unsubscribeFromForceReauth
+} from '../lib/socket';
+import { setupActiveSessionValidation } from '../lib/sessionValidator';
+import { 
   getCustomers,
   createCustomer,
   updateCustomer, 
@@ -93,6 +104,7 @@ export function SuperAdminDashboard({
   // Customer data from API
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Users data from API
@@ -103,9 +115,17 @@ export function SuperAdminDashboard({
   const [rolesLoading, setRolesLoading] = useState(false);
 
   // Fetch customers with current filters
-  const fetchCustomersData = async () => {
+  const fetchCustomersData = async (options?: { isInitial?: boolean; silent?: boolean }) => {
     try {
-      setLoading(true);
+      const isInitial = options?.isInitial === true;
+      const silent = options?.silent === true;
+      if (!silent) {
+        if (isInitial) {
+          setLoading(true);
+        } else {
+          setRefreshing(true);
+        }
+      }
       const response = await getCustomers({ search: searchTerm });
       
       if (response.error) {
@@ -123,7 +143,9 @@ export function SuperAdminDashboard({
       console.error('❌ Error fetching customers:', error);
       toast.error('Failed to load customers');
     } finally {
+      // Always clear loading flags, even for silent fetches
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -167,9 +189,97 @@ export function SuperAdminDashboard({
 
   // Fetch customers, users, and roles on component mount
   useEffect(() => {
-    fetchCustomersData();
+    // Load customers silently to populate Overview metrics without UI changes
+    fetchCustomersData({ silent: true });
     fetchUsersData();
     fetchRolesData();
+
+    // Initialize Socket.io for real-time updates
+    const token = localStorage.getItem('token');
+    if (token) {
+      initializeSocket(token);
+
+      // Subscribe to customer events
+      subscribeToCustomerEvents({
+        onCreated: (data) => {
+          console.log('📡 Real-time: Customer created', data);
+          toast.success(`New customer ${data.customer.company} was added`);
+          // Add new customer to the list
+          setCustomers((prev) => [data.customer, ...prev]);
+        },
+        onUpdated: (data) => {
+          console.log('📡 Real-time: Customer updated', data);
+          toast.info(`Customer ${data.customer.company} was updated`);
+          // Update customer in the list
+          setCustomers((prev) =>
+            prev.map((c) => (c.id === data.customer.id ? data.customer : c))
+          );
+        },
+        onDeleted: (data) => {
+          console.log('📡 Real-time: Customer deleted', data);
+          toast.info('A customer was deleted');
+          // Remove customer from the list
+          setCustomers((prev) => prev.filter((c) => c.id !== data.customerId));
+        }
+      });
+
+      // Subscribe to user events
+      subscribeToUserEvents({
+        onCreated: (data) => {
+          console.log('📡 Real-time: User created', data);
+          toast.success(`New user ${data.user.name} was added`);
+          // Refresh users list
+          fetchUsersData();
+        },
+        onUpdated: (data) => {
+          console.log('📡 Real-time: User updated', data);
+          toast.info(`User ${data.user.name} was updated`);
+          // Update user in the list
+          setUsers((prev) =>
+            prev.map((u) => (u.id === data.user.id ? data.user : u))
+          );
+        },
+        onDeleted: (data) => {
+          console.log('📡 Real-time: User deleted', data);
+          toast.info('A user was deleted');
+          // Remove user from the list
+          setUsers((prev) => prev.filter((u) => u.id !== data.userId));
+        }
+      });
+
+      // Subscribe to force re-authentication events (immediate logout)
+      subscribeToForceReauth((data) => {
+        console.log('🔐 Force re-authentication received:', data);
+        toast.error(data.reason || 'Your session has been terminated');
+        onLogout();
+      });
+    }
+
+    // Setup active session validation on click
+    const cleanupSessionValidation = setupActiveSessionValidation((reason) => {
+      // User's session is invalid - log them out immediately
+      toast.error(
+        <div className="space-y-2">
+          <p className="font-semibold">Session Expired</p>
+          <p className="text-sm">{reason}</p>
+        </div>,
+        { duration: 5000 }
+      );
+      
+      // Logout after showing message
+      setTimeout(() => {
+        onLogout();
+      }, 1000);
+    });
+
+    // Cleanup on unmount
+    return () => {
+      unsubscribeFromCustomerEvents();
+      unsubscribeFromUserEvents();
+      unsubscribeFromForceReauth();
+      disconnectSocket();
+      cleanupSessionValidation();
+    };
   }, []);
 
   // Re-fetch customers when search term changes
@@ -181,7 +291,14 @@ export function SuperAdminDashboard({
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm, activeTab]);
+  }, [searchTerm]);
+
+  // When switching to Customers tab, fetch if we have no data yet
+  useEffect(() => {
+    if (activeTab === 'customers' && customers.length === 0) {
+      fetchCustomersData({ isInitial: true });
+    }
+  }, [activeTab]);
 
   // Calculate platform stats
   const platformStats = {
@@ -613,7 +730,7 @@ export function SuperAdminDashboard({
         {/* Main Content */}
         <main className="flex-1 lg:ml-0 p-4 lg:p-8">
           <div className="max-w-7xl mx-auto">
-            {/* Loading Spinner */}
+            {/* Loading Spinner (first load only) */}
             {loading && activeTab === 'customers' && (
               <div className="flex items-center justify-center py-12">
                 <div className="text-center">
@@ -622,6 +739,7 @@ export function SuperAdminDashboard({
                 </div>
               </div>
             )}
+            {/* No visible refresh indicator to avoid UI flicker during refetch */}
 
             {/* Overview Tab */}
             {activeTab === 'overview' && (

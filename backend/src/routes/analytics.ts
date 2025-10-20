@@ -7,6 +7,135 @@ const router = express.Router();
 router.use(authMiddleware);
 router.use(adminOnly);
 
+// Get analytics overview (supports period parameter)
+router.get('/overview', async (req: AuthRequest, res: Response) => {
+  try {
+    const period = req.query.period as string || '30d';
+    
+    // Calculate date range based on period
+    let startDate = new Date();
+    if (period === '7d') {
+      startDate.setDate(startDate.getDate() - 7);
+    } else if (period === '30d') {
+      startDate.setDate(startDate.getDate() - 30);
+    } else if (period === '90d') {
+      startDate.setDate(startDate.getDate() - 90);
+    } else if (period === '1y') {
+      startDate.setFullYear(startDate.getFullYear() - 1);
+    }
+
+    // Get counts
+    const totalCustomers = await prisma.customer.count();
+    const activeCustomers = await prisma.customer.count({ where: { status: 'active' } });
+    const trialCustomers = await prisma.customer.count({ where: { status: 'trial' } });
+    
+    // Get customers in period
+    const customersInPeriod = await prisma.customer.count({
+      where: { createdAt: { gte: startDate } }
+    });
+    
+    // Get previous period for comparison
+    const previousStartDate = new Date(startDate);
+    const daysDiff = Math.floor((Date.now() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    previousStartDate.setDate(previousStartDate.getDate() - daysDiff);
+    
+    const customersInPreviousPeriod = await prisma.customer.count({
+      where: { 
+        createdAt: { 
+          gte: previousStartDate,
+          lt: startDate
+        }
+      }
+    });
+
+    // Calculate growth percentage
+    const customerGrowth = customersInPreviousPeriod > 0 
+      ? ((customersInPeriod - customersInPreviousPeriod) / customersInPreviousPeriod) * 100
+      : 0;
+
+    // Get revenue
+    const monthlyRecurringRevenue = await prisma.customer.aggregate({
+      where: { status: 'active' },
+      _sum: { mrr: true }
+    });
+
+    const totalRevenue = await prisma.invoice.aggregate({
+      where: { 
+        status: 'paid',
+        createdAt: { gte: startDate }
+      },
+      _sum: { amount: true }
+    });
+
+    const previousRevenue = await prisma.invoice.aggregate({
+      where: { 
+        status: 'paid',
+        createdAt: { 
+          gte: previousStartDate,
+          lt: startDate
+        }
+      },
+      _sum: { amount: true }
+    });
+
+    const revenueGrowth = previousRevenue._sum.amount && previousRevenue._sum.amount > 0
+      ? ((totalRevenue._sum.amount || 0) - previousRevenue._sum.amount) / previousRevenue._sum.amount * 100
+      : 0;
+
+    // Get user stats
+    const totalUsers = await prisma.user.count();
+    const totalProperties = await prisma.property.count();
+
+    // Get recent data for charts
+    const recentCustomers = await prisma.customer.findMany({
+      where: { createdAt: { gte: startDate } },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      select: {
+        id: true,
+        company: true,
+        owner: true,
+        status: true,
+        createdAt: true,
+        mrr: true
+      }
+    });
+
+    // Get daily stats for charts
+    const dailyStats = await prisma.$queryRaw`
+      SELECT 
+        DATE("createdAt") as date,
+        COUNT(*) as customers,
+        SUM(mrr) as revenue
+      FROM customers
+      WHERE "createdAt" >= ${startDate}
+      GROUP BY DATE("createdAt")
+      ORDER BY date ASC
+    `;
+
+    return res.json({
+      period,
+      overview: {
+        totalCustomers,
+        activeCustomers,
+        trialCustomers,
+        totalUsers,
+        totalProperties,
+        mrr: monthlyRecurringRevenue._sum.mrr || 0,
+        revenue: totalRevenue._sum.amount || 0,
+        customerGrowth: Math.round(customerGrowth * 100) / 100,
+        revenueGrowth: Math.round(revenueGrowth * 100) / 100
+      },
+      recentCustomers,
+      dailyStats
+    });
+
+  } catch (error: any) {
+    console.error('Analytics overview error:', error);
+    return res.status(500).json({ error: 'Failed to fetch analytics overview' });
+  }
+});
+
 // Get dashboard analytics
 router.get('/dashboard', async (req: AuthRequest, res: Response) => {
   try {

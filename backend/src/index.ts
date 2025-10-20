@@ -1,9 +1,11 @@
 import express, { Express, Request, Response } from 'express';
+import { createServer } from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
 import dotenv from 'dotenv';
+import { initializeSocket, cleanupSocket } from './lib/socket';
 
 // Load environment variables
 dotenv.config();
@@ -97,11 +99,39 @@ app.use((err: any, req: Request, res: Response, next: any) => {
   });
 });
 
+// Create HTTP server
+const httpServer = createServer(app);
+
+// Initialize Socket.io
+initializeSocket(httpServer).catch(error => {
+  console.error('❌ Failed to initialize Socket.io:', error);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, shutting down gracefully...');
+  await cleanupSocket();
+  httpServer.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', async () => {
+  console.log('SIGINT received, shutting down gracefully...');
+  await cleanupSocket();
+  httpServer.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
+
 // Start server
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🌐 CORS enabled for: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
+  console.log(`🔌 Socket.io real-time updates enabled`);
 });
 
 export default app;

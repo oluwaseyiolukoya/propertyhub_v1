@@ -114,10 +114,21 @@ export const adminOnly = async (
     // DATABASE CHECK ONLY - No mock/JWT fallbacks
     // Check if user is a Super Admin (from admins table)
     const admin = await prisma.admin.findUnique({
-      where: { id: userId }
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        isActive: true,
+        role: true
+      }
     });
 
     if (admin) {
+      // Enforce active status for Super Admins
+      if (admin.isActive === false) {
+        console.log('❌ Admin access denied: Super Admin inactive -', admin.email);
+        return res.status(403).json({ error: 'Account is inactive' });
+      }
       // Super Admin has access
       console.log('✅ Admin access granted: Super Admin -', admin.email);
       return next();
@@ -130,11 +141,18 @@ export const adminOnly = async (
         id: true,
         customerId: true,
         email: true,
-        role: true
+        role: true,
+        isActive: true,
+        status: true
       }
     });
 
     if (internalUser && internalUser.customerId === null) {
+      // Enforce active status for internal admin
+      if (internalUser.isActive === false || (internalUser.status && internalUser.status !== 'active')) {
+        console.log('❌ Admin access denied: Internal Admin inactive -', internalUser.email);
+        return res.status(403).json({ error: 'Account is inactive' });
+      }
       // Internal Admin User has access
       console.log('✅ Admin access granted: Internal Admin -', internalUser.email, '(Role:', internalUser.role + ')');
       return next();

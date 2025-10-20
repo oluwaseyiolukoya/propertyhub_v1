@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { authMiddleware, adminOnly, AuthRequest } from '../middleware/auth';
 import prisma from '../lib/db';
+import { emitToAdmins, emitToCustomer } from '../lib/socket';
 
 const router = express.Router();
 
@@ -46,6 +47,11 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
     // Try database first
     try {
+      // Best practice: prevent caching to avoid UI 304 flicker on admin tables
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
+
       const where: any = {};
 
       if (search) {
@@ -376,6 +382,14 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
     // TODO: Send invitation email if sendInvitation is true
 
+    // Emit real-time event to all admins
+    emitToAdmins('customer:created', {
+      customer: {
+        ...customer,
+        _count: { properties: 0, users: 1 }
+      }
+    });
+
     return res.status(201).json({
       customer,
       owner: ownerUser,
@@ -539,6 +553,12 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       // Continue anyway - don't fail customer update
     }
 
+    // Emit real-time event to admins
+    emitToAdmins('customer:updated', { customer });
+
+    // Emit to customer's users (so owner sees changes immediately)
+    emitToCustomer(customer.id, 'account:updated', { customer });
+
     return res.json(customer);
 
   } catch (error: any) {
@@ -589,6 +609,9 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
 
     // Now delete the customer (cascade will delete all related records)
     await prisma.customer.delete({ where: { id } });
+
+    // Emit real-time event to admins
+    emitToAdmins('customer:deleted', { customerId: id });
 
     return res.json({ message: 'Customer deleted successfully' });
 

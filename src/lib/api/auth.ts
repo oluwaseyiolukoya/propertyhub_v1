@@ -19,6 +19,7 @@ export interface LoginResponse {
     name: string;
     role: string;
     userType: string;
+    permissions?: string[];
     customerId?: string;
     customer?: any;
   };
@@ -44,9 +45,11 @@ export interface VerifyTokenResponse {
  * Login user
  */
 export const login = async (credentials: LoginRequest) => {
+  // Suppress auth redirect so the login form can show 401 inline
   const response = await apiClient.post<LoginResponse>(
     API_ENDPOINTS.AUTH.LOGIN,
-    credentials
+    credentials,
+    { suppressAuthRedirect: true }
   );
 
   if (response.data) {
