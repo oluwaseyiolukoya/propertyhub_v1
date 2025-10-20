@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { authMiddleware, adminOnly, AuthRequest } from '../middleware/auth';
 import prisma from '../lib/db';
+import { emitToAdmins } from '../lib/socket';
 
 const router = express.Router();
 
@@ -229,6 +230,11 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
     const { password, ...userWithoutPassword } = user;
 
+    // Emit real-time event to all admins
+    emitToAdmins('user:created', {
+      user: userWithoutPassword
+    });
+
     return res.status(201).json({
       ...userWithoutPassword,
       ...(!sendInvite && { tempPassword })
@@ -276,6 +282,11 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     // Note: No activity log for internal users since they don't belong to a customer
 
     const { password, ...userWithoutPassword } = user;
+
+    // Emit real-time event to all admins
+    emitToAdmins('user:updated', {
+      user: userWithoutPassword
+    });
 
     return res.json(userWithoutPassword);
 
@@ -345,6 +356,11 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
     console.log('✅ Internal admin user deleted:', user.email);
 
     // Note: No activity log for internal users since they don't belong to a customer
+
+    // Emit real-time event to all admins
+    emitToAdmins('user:deleted', {
+      userId: id
+    });
 
     return res.json({ message: 'User deleted successfully' });
 

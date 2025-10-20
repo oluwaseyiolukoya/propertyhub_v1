@@ -22,7 +22,9 @@ import {
   initializeSocket, 
   disconnectSocket, 
   subscribeToCustomerEvents, 
-  unsubscribeFromCustomerEvents 
+  unsubscribeFromCustomerEvents,
+  subscribeToUserEvents,
+  unsubscribeFromUserEvents
 } from '../lib/socket';
 import { 
   getCustomers,
@@ -205,11 +207,36 @@ export function SuperAdminDashboard({
           setCustomers((prev) => prev.filter((c) => c.id !== data.customerId));
         }
       });
+
+      // Subscribe to user events
+      subscribeToUserEvents({
+        onCreated: (data) => {
+          console.log('📡 Real-time: User created', data);
+          toast.success(`New user ${data.user.name} was added`);
+          // Refresh users list
+          fetchUsersData();
+        },
+        onUpdated: (data) => {
+          console.log('📡 Real-time: User updated', data);
+          toast.info(`User ${data.user.name} was updated`);
+          // Update user in the list
+          setUsers((prev) =>
+            prev.map((u) => (u.id === data.user.id ? data.user : u))
+          );
+        },
+        onDeleted: (data) => {
+          console.log('📡 Real-time: User deleted', data);
+          toast.info('A user was deleted');
+          // Remove user from the list
+          setUsers((prev) => prev.filter((u) => u.id !== data.userId));
+        }
+      });
     }
 
     // Cleanup on unmount
     return () => {
       unsubscribeFromCustomerEvents();
+      unsubscribeFromUserEvents();
       disconnectSocket();
     };
   }, []);
