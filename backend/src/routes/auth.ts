@@ -207,6 +207,132 @@ router.get('/verify', async (req: Request, res: Response) => {
   }
 });
 
+// Validate session - check if user's role/permissions still match database
+router.get('/validate-session', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const tokenUser = req.user;
+
+    if (!tokenUser) {
+      return res.status(401).json({ 
+        valid: false,
+        reason: 'Not authenticated',
+        forceLogout: true 
+      });
+    }
+
+    // Skip validation for super admins (they're in admins table, not users)
+    if (tokenUser.userType === 'admin') {
+      // Check if super admin is still active
+      const admin = await prisma.admin.findUnique({
+        where: { id: tokenUser.id },
+        select: { isActive: true }
+      });
+
+      if (!admin || !admin.isActive) {
+        return res.status(403).json({
+          valid: false,
+          reason: 'Your account has been deactivated',
+          forceLogout: true
+        });
+      }
+
+      return res.json({ valid: true });
+    }
+
+    // For internal admin users and customers
+    if (tokenUser.userType === 'internal') {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: tokenUser.id },
+        select: { 
+          role: true, 
+          isActive: true, 
+          permissions: true,
+          updatedAt: true
+        }
+      });
+
+      if (!dbUser) {
+        return res.status(401).json({ 
+          valid: false,
+          reason: 'User not found',
+          forceLogout: true 
+        });
+      }
+
+      if (!dbUser.isActive) {
+        return res.status(403).json({ 
+          valid: false,
+          reason: 'Your account has been deactivated',
+          forceLogout: true 
+        });
+      }
+
+      // Check if role changed
+      if (dbUser.role !== tokenUser.role) {
+        console.log(`⚠️ Role mismatch for user ${tokenUser.id}: Token=${tokenUser.role}, DB=${dbUser.role}`);
+        return res.status(403).json({ 
+          valid: false,
+          reason: `Your role has been changed to ${dbUser.role}. Please log in again.`,
+          forceLogout: true 
+        });
+      }
+
+      // Check if permissions changed
+      if (JSON.stringify(dbUser.permissions) !== JSON.stringify(tokenUser.permissions)) {
+        console.log(`⚠️ Permissions mismatch for user ${tokenUser.id}`);
+        return res.status(403).json({ 
+          valid: false,
+          reason: 'Your permissions have been updated. Please log in again.',
+          forceLogout: true 
+        });
+      }
+
+      return res.json({ valid: true });
+    }
+
+    // For customer users (owner, manager, tenant)
+    if (tokenUser.userType === 'owner' || tokenUser.userType === 'manager' || tokenUser.userType === 'tenant') {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: tokenUser.id },
+        select: { 
+          role: true, 
+          isActive: true,
+          status: true
+        }
+      });
+
+      if (!dbUser) {
+        return res.status(401).json({ 
+          valid: false,
+          reason: 'User not found',
+          forceLogout: true 
+        });
+      }
+
+      if (!dbUser.isActive || dbUser.status !== 'active') {
+        return res.status(403).json({ 
+          valid: false,
+          reason: 'Your account has been deactivated',
+          forceLogout: true 
+        });
+      }
+
+      return res.json({ valid: true });
+    }
+
+    // Unknown user type - fail safe
+    return res.status(401).json({ 
+      valid: false,
+      reason: 'Invalid session',
+      forceLogout: true 
+    });
+
+  } catch (error: any) {
+    console.error('Session validation error:', error);
+    return res.status(500).json({ error: 'Failed to validate session' });
+  }
+});
+
 // Get current user's account/customer info (for owners/managers to see updated limits and plan)
 router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {

@@ -28,6 +28,7 @@ import {
   subscribeToForceReauth,
   unsubscribeFromForceReauth
 } from '../lib/socket';
+import { setupActiveSessionValidation } from '../lib/sessionValidator';
 import { 
   getCustomers,
   createCustomer,
@@ -262,12 +263,30 @@ export function SuperAdminDashboard({
       });
     }
 
+    // Setup active session validation on click
+    const cleanupSessionValidation = setupActiveSessionValidation((reason) => {
+      // User's session is invalid - log them out immediately
+      toast.error(
+        <div className="space-y-2">
+          <p className="font-semibold">Session Expired</p>
+          <p className="text-sm">{reason}</p>
+        </div>,
+        { duration: 5000 }
+      );
+      
+      // Logout after showing message
+      setTimeout(() => {
+        onLogout();
+      }, 1000);
+    });
+
     // Cleanup on unmount
     return () => {
       unsubscribeFromCustomerEvents();
       unsubscribeFromUserEvents();
       unsubscribeFromForceReauth();
       disconnectSocket();
+      cleanupSessionValidation();
     };
   }, []);
 
