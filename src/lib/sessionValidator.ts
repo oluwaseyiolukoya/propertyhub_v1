@@ -7,7 +7,7 @@
  * Best Practice: Combines with Socket.io real-time notifications for 100% coverage
  */
 
-import { apiClient } from './api';
+import { apiClient } from './api-client';
 
 interface ValidationResponse {
   valid: boolean;
@@ -39,13 +39,24 @@ export const validateSession = async (): Promise<ValidationResponse> => {
     isValidating = true;
     lastValidationTime = now;
 
-    const response = await apiClient<ValidationResponse>('/auth/validate-session', {
-      method: 'GET'
-    });
+    const { data, error } = await apiClient.get<ValidationResponse>('/api/auth/validate-session');
 
     isValidating = false;
 
-    return response;
+    if (error) {
+      if (error.statusCode === 401 || error.statusCode === 403) {
+        return {
+          valid: false,
+          reason: error.error || 'Session expired',
+          forceLogout: true
+        };
+      }
+      console.error('Session validation error (response):', error);
+      return { valid: true };
+    }
+
+    // Default to valid if no data
+    return data || { valid: true };
   } catch (error: any) {
     isValidating = false;
     
