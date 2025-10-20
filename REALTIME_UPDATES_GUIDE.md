@@ -163,6 +163,89 @@ subscribeToCustomerEvents({
 
 ---
 
+### User Events (Admin Dashboard)
+
+#### 1. `user:created`
+**Triggered when:** A new internal admin user is added
+**Emitted to:** All admins
+**Payload:**
+```typescript
+{
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    department?: string;
+    company?: string;
+    permissions?: string[];
+    isActive: boolean;
+    status: string;
+    // ... other user fields (no password)
+  }
+}
+```
+
+**Frontend Handler:**
+```typescript
+subscribeToUserEvents({
+  onCreated: (data) => {
+    toast.success(`New user ${data.user.name} was added`);
+    fetchUsersData(); // Refresh users list
+  }
+});
+```
+
+---
+
+#### 2. `user:updated`
+**Triggered when:** An internal admin user is modified (role change, status change, etc.)
+**Emitted to:** All admins
+**Payload:**
+```typescript
+{
+  user: {
+    // Updated user object with all fields (no password)
+  }
+}
+```
+
+**Frontend Handler:**
+```typescript
+subscribeToUserEvents({
+  onUpdated: (data) => {
+    toast.info(`User ${data.user.name} was updated`);
+    setUsers((prev) =>
+      prev.map((u) => (u.id === data.user.id ? data.user : u))
+    );
+  }
+});
+```
+
+---
+
+#### 3. `user:deleted`
+**Triggered when:** An internal admin user is deleted
+**Emitted to:** All admins
+**Payload:**
+```typescript
+{
+  userId: string;
+}
+```
+
+**Frontend Handler:**
+```typescript
+subscribeToUserEvents({
+  onDeleted: (data) => {
+    toast.info('A user was deleted');
+    setUsers((prev) => prev.filter((u) => u.id !== data.userId));
+  }
+});
+```
+
+---
+
 ### Account Events (Owner/Manager Dashboard)
 
 #### `account:updated`
@@ -340,6 +423,26 @@ useEffect(() => {
 
 ---
 
+### Test Scenario 4: Admin Changes User Role
+
+1. **Open two admin dashboard tabs**
+   - Both tabs showing User Management page
+
+2. **In Admin Dashboard (Tab 1):**
+   - Find an internal admin user
+   - Edit the user
+   - Change role from "Super Admin" to "Support"
+   - Click "Save"
+
+3. **Expected Results:**
+   - ✅ **Tab 1:** User list updates with new role immediately
+   - ✅ **Tab 2:** User list updates with new role immediately
+   - ✅ **Toast notification appears** in both tabs
+   - ✅ **No page refresh required**
+   - ✅ **User count remains the same** (only role changed)
+
+---
+
 ## 🔍 Debugging
 
 ### Enable Socket.io Debug Logs
@@ -508,8 +611,9 @@ Examples:
 - Room-based authorization
 - Customer events (create, update, delete)
 - Account events (update)
+- User events (create, update, delete)
 - Frontend Socket.io client
-- Admin Dashboard integration
+- Admin Dashboard integration (Customer & User Management)
 - Owner Dashboard integration
 - Toast notifications for real-time updates
 - Automatic reconnection
@@ -519,9 +623,8 @@ Examples:
 - Property events
 - Payment events
 - Maintenance events
-- User events
-- Manager Dashboard integration
-- Tenant Dashboard integration
+- Manager Dashboard integration (real-time)
+- Tenant Dashboard integration (real-time)
 - Notification center integration
 
 ---
