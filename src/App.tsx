@@ -7,6 +7,8 @@ import TenantDashboard from './components/TenantDashboard';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
 import { getUserData, getUserType, removeAuthToken, verifyToken } from './lib/api';
+import { setupActiveSessionValidation } from './lib/sessionValidator';
+import { getAccountInfo } from './lib/api/auth';
 
 function App() {
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -27,8 +29,16 @@ function App() {
         // Verify token is still valid
         const response = await verifyToken();
         if (response.data && response.data.valid) {
-          setCurrentUser(storedUser);
-          setUserType(storedUserType);
+          // Hydrate latest user info and correct userType from backend if needed
+          try {
+            const acct = await getAccountInfo();
+            const refreshedUser = acct.data?.user ? { ...storedUser, ...acct.data.user } : storedUser;
+            setCurrentUser(refreshedUser);
+            setUserType(storedUserType);
+          } catch {
+            setCurrentUser(storedUser);
+            setUserType(storedUserType);
+          }
         } else {
           // Token invalid, clear auth
           removeAuthToken();
@@ -40,7 +50,7 @@ function App() {
     checkAuth();
   }, []);
 
-  // Listen for permissions update events
+  // Listen for permissions update and account blocked events
   useEffect(() => {
     const handlePermissionsUpdated = (event: any) => {
       const message = event.detail?.message || 'Your permissions have been updated. Please log in again.';
@@ -49,11 +59,23 @@ function App() {
         description: 'You will be redirected to the login page shortly.',
       });
     };
+    const handleAccountBlocked = (event: any) => {
+      const message = event.detail?.message || 'Your account has been deactivated.';
+      toast.error(message, {
+        duration: 4000,
+      });
+      // Force logout immediately
+      removeAuthToken();
+      setCurrentUser(null);
+      setUserType('');
+    };
 
     window.addEventListener('permissionsUpdated', handlePermissionsUpdated);
+    window.addEventListener('accountBlocked', handleAccountBlocked);
 
     return () => {
       window.removeEventListener('permissionsUpdated', handlePermissionsUpdated);
+      window.removeEventListener('accountBlocked', handleAccountBlocked);
     };
   }, []);
 
@@ -74,6 +96,18 @@ function App() {
     setCurrentUser(null);
     setUserType('');
   };
+
+  // Global active-session validation on any user interaction
+  useEffect(() => {
+    if (!currentUser) return;
+    const cleanup = setupActiveSessionValidation((reason) => {
+      toast.error(reason || 'Your account has been deactivated');
+      removeAuthToken();
+      setCurrentUser(null);
+      setUserType('');
+    });
+    return cleanup;
+  }, [currentUser]);
 
   // Manager management functions
   const addManager = (managerData: any, ownerId: string) => {

@@ -73,7 +73,8 @@ export const setUserType = (userType: string): void => {
  */
 async function request<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  extra?: { suppressAuthRedirect?: boolean }
 ): Promise<ApiResponse<T>> {
   const token = getAuthToken();
   
@@ -90,6 +91,7 @@ async function request<T>(
   const config: RequestInit = {
     ...options,
     headers,
+    cache: 'no-store',
   };
 
   const controller = new AbortController();
@@ -105,8 +107,8 @@ async function request<T>(
 
     const data = await response.json();
 
-    // Handle 401 Unauthorized - check for permissions update
-    if (response.status === 401) {
+    // Handle 401 Unauthorized - check for permissions update (unless suppressed)
+    if (response.status === 401 && !extra?.suppressAuthRedirect) {
       if (data.code === 'PERMISSIONS_UPDATED') {
         // Show a toast notification before redirecting
         const event = new CustomEvent('permissionsUpdated', {
@@ -128,8 +130,25 @@ async function request<T>(
         throw new Error('Unauthorized');
       }
     }
+    // If suppressed, return error object to caller without redirecting
+    if (response.status === 401 && extra?.suppressAuthRedirect) {
+      return {
+        error: {
+          error: data.error || 'Unauthorized',
+          message: data.message,
+          statusCode: response.status,
+        },
+      };
+    }
 
     if (!response.ok) {
+      // Broadcast account blocked event on 403 to centralize handling
+      if (response.status === 403) {
+        const event = new CustomEvent('accountBlocked', {
+          detail: { message: data.error || 'Your account has been deactivated' }
+        });
+        window.dispatchEvent(event);
+      }
       return {
         error: {
           error: data.error || 'Request failed',
@@ -168,52 +187,57 @@ export const apiClient = {
   /**
    * GET request
    */
-  get: <T>(endpoint: string, params?: Record<string, any>): Promise<ApiResponse<T>> => {
+  get: <T>(endpoint: string, params?: Record<string, any>, extra?: { suppressAuthRedirect?: boolean }): Promise<ApiResponse<T>> => {
     const queryString = params
       ? '?' + new URLSearchParams(params).toString()
       : '';
     return request<T>(`${endpoint}${queryString}`, {
       method: 'GET',
-    });
+      headers: {
+        // Bypass HTTP cache at the browser and any intermediaries
+        'Cache-Control': 'no-store',
+        'Pragma': 'no-cache',
+      },
+    }, extra);
   },
 
   /**
    * POST request
    */
-  post: <T>(endpoint: string, body?: any): Promise<ApiResponse<T>> => {
+  post: <T>(endpoint: string, body?: any, extra?: { suppressAuthRedirect?: boolean }): Promise<ApiResponse<T>> => {
     return request<T>(endpoint, {
       method: 'POST',
       body: JSON.stringify(body),
-    });
+    }, extra);
   },
 
   /**
    * PUT request
    */
-  put: <T>(endpoint: string, body?: any): Promise<ApiResponse<T>> => {
+  put: <T>(endpoint: string, body?: any, extra?: { suppressAuthRedirect?: boolean }): Promise<ApiResponse<T>> => {
     return request<T>(endpoint, {
       method: 'PUT',
       body: JSON.stringify(body),
-    });
+    }, extra);
   },
 
   /**
    * PATCH request
    */
-  patch: <T>(endpoint: string, body?: any): Promise<ApiResponse<T>> => {
+  patch: <T>(endpoint: string, body?: any, extra?: { suppressAuthRedirect?: boolean }): Promise<ApiResponse<T>> => {
     return request<T>(endpoint, {
       method: 'PATCH',
       body: JSON.stringify(body),
-    });
+    }, extra);
   },
 
   /**
    * DELETE request
    */
-  delete: <T>(endpoint: string): Promise<ApiResponse<T>> => {
+  delete: <T>(endpoint: string, extra?: { suppressAuthRedirect?: boolean }): Promise<ApiResponse<T>> => {
     return request<T>(endpoint, {
       method: 'DELETE',
-    });
+    }, extra);
   },
 };
 

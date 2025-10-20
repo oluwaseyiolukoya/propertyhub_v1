@@ -83,6 +83,11 @@ import {
 import { toast } from 'sonner';
 import { getAccountInfo } from '../lib/api/auth';
 import { updateCustomer } from '../lib/api/customers';
+import { 
+  initializeSocket, 
+  subscribeToAccountEvents, 
+  unsubscribeFromAccountEvents 
+} from '../lib/socket';
 
 interface PropertyOwnerSettingsProps {
   user: {
@@ -262,9 +267,30 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
     }
   };
 
-  // Initial data fetch
+  // Initial data fetch and socket setup
   useEffect(() => {
     fetchAccountData();
+
+    // Initialize Socket.io for real-time updates
+    const token = localStorage.getItem('token');
+    if (token) {
+      initializeSocket(token);
+
+      // Subscribe to account updates
+      subscribeToAccountEvents({
+        onUpdated: (data) => {
+          console.log('📡 Real-time: Account updated', data);
+          toast.info('Your account information was updated');
+          // Update account info immediately
+          setAccountInfo(data.customer);
+        }
+      });
+    }
+
+    // Cleanup on unmount
+    return () => {
+      unsubscribeFromAccountEvents();
+    };
   }, []);
 
   // Set up periodic refresh (every 30 seconds)
