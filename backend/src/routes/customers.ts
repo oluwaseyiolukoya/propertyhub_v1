@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
 import { authMiddleware, adminOnly, AuthRequest } from '../middleware/auth';
 import prisma from '../lib/db';
 import { emitToAdmins, emitToCustomer } from '../lib/socket';
@@ -70,10 +71,10 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         where.planId = plan;
       }
 
-      const customers = await prisma.customer.findMany({
+      const customersRaw = await prisma.customers.findMany({
         where,
         include: {
-          plan: true,
+          plans: true,
           users: {
             select: {
               id: true,
@@ -93,6 +94,8 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         },
         orderBy: { createdAt: 'desc' }
       });
+
+      const customers = customersRaw.map((c: any) => ({ ...c, plan: c.plans || null }));
 
       console.log('✅ Customers fetched from database:', customers.length);
       if (customers.length > 0) {
@@ -117,10 +120,10 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
-    const customer = await prisma.customer.findUnique({
+    const customerRaw = await prisma.customers.findUnique({
       where: { id },
       include: {
-        plan: true,
+        plans: true,
         users: {
           select: {
             id: true,
@@ -144,17 +147,18 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
           orderBy: { createdAt: 'desc' },
           take: 10
         },
-        supportTickets: {
+        support_tickets: {
           orderBy: { createdAt: 'desc' },
           take: 10
         }
       }
     });
 
-    if (!customer) {
+    if (!customerRaw) {
       return res.status(404).json({ error: 'Customer not found' });
     }
 
+    const customer = { ...customerRaw, plan: (customerRaw as any).plans || null };
     return res.json(customer);
 
   } catch (error: any) {
@@ -181,7 +185,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       street,
       city,
       state,
-      zipCode,
+      postalCode,
       country,
       propertyLimit,
       userLimit,
@@ -199,9 +203,9 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     }
 
     // Check if email already exists
-    const existingCustomer = await prisma.customer.findUnique({
+    const existingCustomer = await prisma.customers.findUnique({
       where: { email },
-      include: { plan: true }
+      include: { plans: true }
     });
 
     if (existingCustomer) {
@@ -213,19 +217,19 @@ router.post('/', async (req: AuthRequest, res: Response) => {
           owner: existingCustomer.owner,
           email: existingCustomer.email,
           status: existingCustomer.status,
-          plan: existingCustomer.plan?.name
+          plan: (existingCustomer as any).plans?.name
         }
       });
     }
 
     // Get plan limits - lookup by planId or planName
-    let plan = null;
+    let plan = null as any;
     let finalPlanId = planId;
     
     if (planName && !planId) {
       // Look up plan by name
       console.log('Looking up plan by name:', planName);
-      plan = await prisma.plan.findFirst({ 
+      plan = await prisma.plans.findFirst({ 
         where: { name: planName } 
       });
       if (plan) {
@@ -239,7 +243,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         });
       }
     } else if (planId) {
-      plan = await prisma.plan.findUnique({ where: { id: planId } });
+      plan = await prisma.plans.findUnique({ where: { id: planId } });
       if (!plan) {
         return res.status(400).json({ 
           error: `Plan with ID "${planId}" not found.` 
@@ -264,8 +268,9 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     console.log('Calculated MRR:', calculatedMRR);
 
     // Create customer
-    const customer = await prisma.customer.create({
+    const customer = await prisma.customers.create({
       data: {
+        id: randomUUID(),
         company,
         owner,
         email,
@@ -280,7 +285,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         street,
         city,
         state,
-        zipCode,
+        postalCode: (postalCode || (req.body as any).zipCode) || null,
         country: country || 'Nigeria',
         propertyLimit: propertyLimit || plan?.propertyLimit || 5,
         userLimit: userLimit || plan?.userLimit || 3,
@@ -290,10 +295,11 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         notes: notes || null, // Add notes field
         status: status || 'trial',
         subscriptionStartDate: status === 'active' ? new Date() : null,
-        trialEndsAt: status === 'trial' ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) : null // 14 days trial
+        trialEndsAt: status === 'trial' ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) : null, // 14 days trial
+        updatedAt: new Date()
       },
       include: {
-        plan: true
+        plans: true
       }
     });
 
@@ -301,8 +307,9 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     const tempPassword = Math.random().toString(36).slice(-8);
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
-    const ownerUser = await prisma.user.create({
+    const ownerUser = await prisma.users.create({
       data: {
+        id: randomUUID(),
         customerId: customer.id,
         name: owner,
         email,
@@ -310,7 +317,8 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         phone,
         role: 'owner',
         status: sendInvitation ? 'pending' : 'active',
-        invitedAt: sendInvitation ? new Date() : null
+        invitedAt: sendInvitation ? new Date() : null,
+        updatedAt: new Date()
       }
     });
 
@@ -319,8 +327,9 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     if (plan && status === 'trial') {
       // Create invoice for trial period (due when trial ends)
       const trialEndDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-      invoice = await prisma.invoice.create({
+      invoice = await prisma.invoices.create({
         data: {
+          id: randomUUID(),
           customerId: customer.id,
           invoiceNumber: `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
           dueDate: trialEndDate,
@@ -336,13 +345,15 @@ router.post('/', async (req: AuthRequest, res: Response) => {
               unitPrice: billingCycle === 'annual' ? plan.annualPrice : plan.monthlyPrice,
               amount: billingCycle === 'annual' ? plan.annualPrice : plan.monthlyPrice
             }
-          ]
+          ],
+          updatedAt: new Date()
         }
       });
     } else if (plan && status === 'active') {
       // Create invoice for active subscription (due immediately)
-      invoice = await prisma.invoice.create({
+      invoice = await prisma.invoices.create({
         data: {
+          id: randomUUID(),
           customerId: customer.id,
           invoiceNumber: `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
           dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Due in 7 days
@@ -358,15 +369,17 @@ router.post('/', async (req: AuthRequest, res: Response) => {
               unitPrice: billingCycle === 'annual' ? plan.annualPrice : plan.monthlyPrice,
               amount: billingCycle === 'annual' ? plan.annualPrice : plan.monthlyPrice
             }
-          ]
+          ],
+          updatedAt: new Date()
         }
       });
     }
 
     // Log activity using the new owner's ID (don't fail customer creation if logging fails)
     try {
-      await prisma.activityLog.create({
+      await prisma.activity_logs.create({
         data: {
+          id: randomUUID(),
           customerId: customer.id,
           userId: ownerUser.id, // Use the newly created owner's ID instead of admin's ID
           action: 'CUSTOMER_CREATED',
@@ -423,7 +436,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       street,
       city,
       state,
-      zipCode,
+      postalCode,
       country,
       propertyLimit,
       userLimit,
@@ -439,7 +452,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     
     if (planName && !planId) {
       // Look up plan by name
-      plan = await prisma.plan.findFirst({ 
+      plan = await prisma.plans.findFirst({ 
         where: { name: planName } 
       });
       if (plan) {
@@ -447,13 +460,13 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       }
     } else if (finalPlanId) {
       // Fetch plan for MRR calculation
-      plan = await prisma.plan.findUnique({
+      plan = await prisma.plans.findUnique({
         where: { id: finalPlanId }
       });
     }
 
     // Get existing customer to check status change
-    const existingCustomer = await prisma.customer.findUnique({
+    const existingCustomer = await prisma.customers.findUnique({
       where: { id }
     });
 
@@ -492,7 +505,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 days trial
     }
 
-    const customer = await prisma.customer.update({
+    const customer = await prisma.customers.update({
       where: { id },
       data: {
         company,
@@ -512,7 +525,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         street,
         city,
         state,
-        zipCode,
+        postalCode: (postalCode || (req.body as any).zipCode) || null,
         country,
         propertyLimit,
         userLimit,
@@ -522,14 +535,30 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         notes: notes // Add notes field
       },
       include: {
-        plan: true
+        plans: true
       }
     });
+
+  // Also keep owner's user record in sync if name/email/phone changed
+  try {
+    if (owner || email || phone) {
+      await prisma.users.updateMany({
+        where: { customerId: id, role: 'owner' },
+        data: {
+          ...(owner && { name: owner }),
+          ...(email && { email }),
+          ...(phone && { phone })
+        }
+      });
+    }
+  } catch (syncError) {
+    console.warn('⚠️ Failed to sync owner user with customer changes:', syncError);
+  }
 
     // Log activity (don't fail customer update if logging fails)
     try {
       // Get customer's owner user for activity log
-      const ownerUser = await prisma.user.findFirst({
+      const ownerUser = await prisma.users.findFirst({
         where: {
           customerId: customer.id,
           role: 'owner'
@@ -537,7 +566,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       });
 
       if (ownerUser) {
-        await prisma.activityLog.create({
+        await prisma.activity_logs.create({
           data: {
             customerId: customer.id,
             userId: ownerUser.id, // Use customer's owner ID
@@ -572,7 +601,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
-    const customer = await prisma.customer.findUnique({
+    const customer = await prisma.customers.findUnique({
       where: { id }
     });
 
@@ -581,7 +610,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
     }
 
     // Get owner user BEFORE deleting (for activity log)
-    const ownerUser = await prisma.user.findFirst({
+    const ownerUser = await prisma.users.findFirst({
       where: {
         customerId: id,
         role: 'owner'
@@ -591,12 +620,12 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
     // Log activity BEFORE deleting (so user references still exist)
     try {
       if (ownerUser) {
-        await prisma.activityLog.create({
+        await prisma.activity_logs.create({
           data: {
             customerId: id,
             userId: ownerUser.id, // Use customer's owner ID
-            action: 'delete',
-            entity: 'customer',
+            action: 'CUSTOMER_DELETED',
+            entity: 'Customer',
             entityId: id,
             description: `Customer ${customer.company} deleted by ${req.user?.email || 'admin'}`
           }
@@ -608,7 +637,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
     }
 
     // Now delete the customer (cascade will delete all related records)
-    await prisma.customer.delete({ where: { id } });
+    await prisma.customers.delete({ where: { id } });
 
     // Emit real-time event to admins
     emitToAdmins('customer:deleted', { customerId: id });
@@ -627,7 +656,7 @@ router.post('/:id/action', async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const { action } = req.body;
 
-    const customer = await prisma.customer.findUnique({ where: { id } });
+    const customer = await prisma.customers.findUnique({ where: { id } });
 
     if (!customer) {
       return res.status(404).json({ error: 'Customer not found' });
@@ -659,7 +688,7 @@ router.post('/:id/action', async (req: AuthRequest, res: Response) => {
 
       case 'reset-password':
         // Find owner user
-        const owner = await prisma.user.findFirst({
+        const owner = await prisma.users.findFirst({
           where: { customerId: id, role: 'owner' }
         });
 
@@ -669,11 +698,12 @@ router.post('/:id/action', async (req: AuthRequest, res: Response) => {
           const hashedPassword = await bcrypt.hash(newPassword, 10);
           
           // Update user password
-          await prisma.user.update({
+          await prisma.users.update({
             where: { id: owner.id },
             data: { 
               password: hashedPassword,
-              status: 'active' // Set to active so they can log in
+              status: 'active', // Set to active so they can log in
+              updatedAt: new Date()
             }
           });
           
@@ -715,10 +745,10 @@ router.post('/:id/action', async (req: AuthRequest, res: Response) => {
       });
 
       if (ownerUser) {
-        await prisma.activityLog.create({
+      await prisma.activity_logs.create({
           data: {
             customerId: id,
-            userId: ownerUser.id, // Use customer's owner ID
+          userId: ownerUser.id, // Use customer's owner ID
             action: action,
             entity: 'customer',
             entityId: id,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -25,6 +25,8 @@ import {
   Percent
 } from 'lucide-react';
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell, ComposedChart, Area, AreaChart } from 'recharts';
+import { getFinancialOverview, getMonthlyRevenue, getPropertyPerformance, FinancialOverview, MonthlyRevenueData, PropertyPerformance } from '../lib/api/financial';
+import { toast } from 'sonner';
 
 interface FinancialReportsProps {
   properties: any[];
@@ -35,9 +37,46 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
   const [selectedPeriod, setSelectedPeriod] = useState('12months');
   const [selectedProperty, setSelectedProperty] = useState('all');
   const [reportView, setReportView] = useState('overview');
+  const [financialData, setFinancialData] = useState<FinancialOverview | null>(null);
+  const [monthlyData, setMonthlyData] = useState<MonthlyRevenueData[]>([]);
+  const [propertyPerformanceData, setPropertyPerformanceData] = useState<PropertyPerformance[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock financial data
-  const monthlyRevenueData = [
+  // Load financial data
+  useEffect(() => {
+    const loadFinancialData = async () => {
+      try {
+        setLoading(true);
+        const [overviewRes, monthlyRes, performanceRes] = await Promise.all([
+          getFinancialOverview(),
+          getMonthlyRevenue(12),
+          getPropertyPerformance()
+        ]);
+
+        if (!overviewRes.error && overviewRes.data) {
+          setFinancialData(overviewRes.data);
+        }
+
+        if (!monthlyRes.error && Array.isArray(monthlyRes.data)) {
+          setMonthlyData(monthlyRes.data);
+        }
+
+        if (!performanceRes.error && Array.isArray(performanceRes.data)) {
+          setPropertyPerformanceData(performanceRes.data);
+        }
+      } catch (error: any) {
+        console.error('Failed to load financial data:', error);
+        toast.error('Failed to load financial data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadFinancialData();
+  }, []);
+
+  // Mock financial data (fallback)
+  const monthlyRevenueData = monthlyData.length > 0 ? monthlyData : [
     { month: 'Jan', revenue: 85000, expenses: 25000, netIncome: 60000 },
     { month: 'Feb', revenue: 87000, expenses: 28000, netIncome: 59000 },
     { month: 'Mar', revenue: 89000, expenses: 26000, netIncome: 63000 },
@@ -60,23 +99,59 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
     { name: 'Management Fees', value: 10, amount: 30000, color: '#00ff7f' }
   ];
 
-  const propertyPerformance = properties.map(property => ({
-    ...property,
-    revenue: property.monthlyRevenue,
-    expenses: property.monthlyRevenue * 0.3,
-    netIncome: property.monthlyRevenue * 0.7,
-    roi: ((property.monthlyRevenue * 12 * 0.7) / (property.monthlyRevenue * 12 * 15)) * 100,
-    capRate: property.financials?.capRate || 6.5,
-    cashFlow: property.financials?.cashFlow || property.monthlyRevenue * 0.6
-  }));
+  // Use real property performance data if available, otherwise calculate from properties prop
+  const propertyPerformance = propertyPerformanceData.length > 0 
+    ? propertyPerformanceData.map(p => ({
+        id: p.id,
+        name: p.name,
+        propertyType: p.propertyType,
+        address: p.address,
+        city: p.city,
+        state: p.state,
+        revenue: p.monthlyRevenue,
+        expenses: p.monthlyExpenses,
+        netIncome: p.monthlyNOI,
+        roi: p.roi,
+        capRate: p.capRate,
+        cashFlow: p.cashFlow,
+        units: p.totalUnits,
+        occupancyRate: p.occupancyRate,
+        occupiedUnits: p.occupiedUnits,
+        vacantUnits: p.vacantUnits,
+        propertyValue: p.propertyValue,
+        purchasePrice: p.purchasePrice,
+        currentValue: p.currentValue
+      }))
+    : properties.map(property => {
+        // Fallback calculation from properties prop
+        const monthlyRevenue = property.avgRent || property.monthlyRevenue || 0;
+        return {
+          ...property,
+          revenue: monthlyRevenue,
+          expenses: monthlyRevenue * 0.3,
+          netIncome: monthlyRevenue * 0.7,
+          roi: monthlyRevenue > 0 ? ((monthlyRevenue * 12 * 0.7) / (monthlyRevenue * 12 * 15)) * 100 : 0,
+          capRate: property.financials?.capRate || 6.5,
+          cashFlow: property.financials?.cashFlow || monthlyRevenue * 0.6,
+          units: property.totalUnits || property._count?.units || 0
+        };
+      });
 
   const currentYear = new Date().getFullYear();
-  const totalRevenue = monthlyRevenueData.reduce((sum, month) => sum + month.revenue, 0);
-  const totalExpenses = monthlyRevenueData.reduce((sum, month) => sum + month.expenses, 0);
-  const totalNetIncome = totalRevenue - totalExpenses;
-  const averageOccupancy = properties.reduce((sum, p) => sum + p.occupancyRate, 0) / properties.length;
-  const portfolioCapRate = propertyPerformance.reduce((sum, p) => sum + p.capRate, 0) / propertyPerformance.length;
+  
+  // Use real data if available, otherwise calculate from mock data
+  const totalRevenue = Number(financialData?.totalRevenue || monthlyRevenueData.reduce((sum, month) => sum + month.revenue, 0)) || 0;
+  const totalExpenses = Number(financialData?.estimatedExpenses || monthlyRevenueData.reduce((sum, month) => sum + month.expenses, 0)) || 0;
+  const totalNetIncome = Number(financialData?.netOperatingIncome || (totalRevenue - totalExpenses)) || 0;
+  const averageOccupancy = Number(financialData?.occupancyRate || (properties.length > 0 
+    ? properties.reduce((sum, p) => sum + (p.occupancyRate || 0), 0) / properties.length 
+    : 0)) || 0;
+  const portfolioCapRate = Number(financialData?.portfolioCapRate || (propertyPerformance.length > 0
+    ? propertyPerformance.reduce((sum, p) => sum + (p.capRate || 0), 0) / propertyPerformance.length
+    : 0)) || 0;
 
+  const operatingMargin = Number(financialData?.operatingMargin || (totalRevenue > 0 ? (totalNetIncome / totalRevenue) * 100 : 0)) || 0;
+  
   const yearOverYearGrowth = 12.5; // Mock data
   const revenueGrowth = 8.3;
   const expenseGrowth = 4.1;
@@ -89,6 +164,18 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
     // Mock export functionality
     console.log(`Exporting ${type} report...`);
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading financial data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -185,7 +272,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{((totalNetIncome / totalRevenue) * 100).toFixed(1)}%</div>
+            <div className="text-2xl font-bold">{operatingMargin.toFixed(1)}%</div>
             <div className="flex items-center text-xs text-green-600 mt-1">
               <ArrowUpRight className="h-3 w-3 mr-1" />
               Healthy margin
@@ -256,7 +343,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
             </Card>
           </div>
 
-          {/* Quick Stats */}
+          {/* Quick Stats - Using Real Database Data */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <CardContent className="p-6">
@@ -264,6 +351,9 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                   <div>
                     <p className="text-sm font-medium text-gray-600">Average Occupancy</p>
                     <p className="text-2xl font-bold">{averageOccupancy.toFixed(1)}%</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {financialData?.occupiedUnits || 0} of {financialData?.totalUnits || 0} units occupied
+                    </p>
                   </div>
                   <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
                     <Building className="h-6 w-6 text-blue-600" />
@@ -277,7 +367,10 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">Total Properties</p>
-                    <p className="text-2xl font-bold">{properties.length}</p>
+                    <p className="text-2xl font-bold">{financialData?.totalProperties || propertyPerformanceData.length || properties.length}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Active properties in portfolio
+                    </p>
                   </div>
                   <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
                     <Eye className="h-6 w-6 text-green-600" />
@@ -291,7 +384,10 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">Total Units</p>
-                    <p className="text-2xl font-bold">{properties.reduce((sum, p) => sum + p.units, 0)}</p>
+                    <p className="text-2xl font-bold">{financialData?.totalUnits || propertyPerformance.reduce((sum, p) => sum + (p.units || 0), 0)}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {financialData?.vacantUnits || 0} vacant units
+                    </p>
                   </div>
                   <div className="h-12 w-12 bg-purple-100 rounded-full flex items-center justify-center">
                     <BarChart3 className="h-6 w-6 text-purple-600" />
@@ -329,23 +425,27 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {filteredProperties.map((property) => (
-                    <div key={property.id} className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <p className="font-medium">{property.name}</p>
-                        <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                          <div
-                            className="bg-blue-600 h-2 rounded-full"
-                            style={{ width: `${(property.revenue / Math.max(...filteredProperties.map(p => p.revenue))) * 100}%` }}
-                          />
+                  {filteredProperties.map((property) => {
+                    const maxRevenue = Math.max(...filteredProperties.map(p => p.revenue || 0), 1);
+                    const revenuePercent = maxRevenue > 0 ? ((property.revenue || 0) / maxRevenue) * 100 : 0;
+                    return (
+                      <div key={property.id} className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="font-medium">{property.name}</p>
+                          <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                            <div
+                              className="bg-blue-600 h-2 rounded-full"
+                              style={{ width: `${revenuePercent}%` }}
+                            />
+                          </div>
+                        </div>
+                        <div className="ml-4 text-right">
+                          <p className="font-medium">${(property.revenue || 0).toLocaleString()}</p>
+                          <p className="text-sm text-gray-500">{property.units || 0} units</p>
                         </div>
                       </div>
-                      <div className="ml-4 text-right">
-                        <p className="font-medium">${property.revenue.toLocaleString()}</p>
-                        <p className="text-sm text-gray-500">{property.units} units</p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
@@ -446,7 +546,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                   <p className="text-sm text-gray-600">Expense per Unit</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold">{((totalExpenses / totalRevenue) * 100).toFixed(1)}%</p>
+                  <p className="text-2xl font-bold">{totalRevenue > 0 ? ((totalExpenses / totalRevenue) * 100).toFixed(1) : '0.0'}%</p>
                   <p className="text-sm text-gray-600">Expense Ratio</p>
                 </div>
               </div>

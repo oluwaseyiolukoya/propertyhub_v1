@@ -74,6 +74,7 @@ export const API_ENDPOINTS = {
   
   // Tenant
   TENANT: {
+    BASE: '/api/tenant',
     DASHBOARD: '/api/tenant/dashboard/overview',
     PROFILE: '/api/tenant/profile',
     UPDATE_PROFILE: '/api/tenant/profile',
@@ -126,6 +127,9 @@ export const API_ENDPOINTS = {
     OVERVIEW: '/api/analytics/overview',
     REVENUE: '/api/analytics/revenue',
     OCCUPANCY: '/api/analytics/occupancy',
+    DASHBOARD: '/api/analytics/dashboard',
+    SYSTEM_HEALTH: '/api/analytics/system-health',
+    ACTIVITY_LOGS: '/api/analytics/activity-logs',
   },
   
   // Plans (Admin)

@@ -117,7 +117,7 @@ async function main() {
       street: '123 Lagos Street',
       city: 'Lagos',
       state: 'Lagos',
-      zipCode: '100001',
+      postalCode: '100001',
       country: 'Nigeria',
       propertyLimit: 20,
       userLimit: 10,
@@ -224,6 +224,76 @@ async function main() {
   });
 
   console.log('✅ Created Roles (1 Internal Admin + 3 Customer-Facing)');
+  
+  // Additional Internal Roles
+  await prisma.role.upsert({
+    where: { name: 'Admin' },
+    update: {},
+    create: {
+      name: 'Admin',
+      description: 'Internal admin with broad platform access',
+      permissions: [
+        'customer_management', 'customer_create', 'customer_edit', 'customer_delete', 'customer_view',
+        'user_management', 'user_create', 'user_edit', 'user_delete', 'user_view',
+        'role_management', 'role_create', 'role_edit', 'role_delete',
+        'billing_management', 'plan_management', 'invoice_management', 'payment_view',
+        'analytics_view', 'analytics_reports', 'analytics_export',
+        'system_health', 'platform_settings',
+        'support_tickets', 'support_view', 'support_respond', 'support_close',
+        'activity_logs', 'audit_reports'
+      ],
+      isActive: true,
+      isSystem: true
+    }
+  });
+
+  await prisma.role.upsert({
+    where: { name: 'Billing' },
+    update: {},
+    create: {
+      name: 'Billing',
+      description: 'Finance team with billing and plan management access',
+      permissions: [
+        'billing_management', 'plan_management', 'invoice_management', 'payment_view',
+        'customer_view',
+        'analytics_view'
+      ],
+      isActive: true,
+      isSystem: true
+    }
+  });
+
+  await prisma.role.upsert({
+    where: { name: 'Support' },
+    update: {},
+    create: {
+      name: 'Support',
+      description: 'Support staff for handling support tickets and customer view',
+      permissions: [
+        'support_tickets', 'support_view', 'support_respond', 'support_close',
+        'customer_view'
+      ],
+      isActive: true,
+      isSystem: true
+    }
+  });
+
+  await prisma.role.upsert({
+    where: { name: 'Analyst' },
+    update: {},
+    create: {
+      name: 'Analyst',
+      description: 'Read-only analytics and reporting',
+      permissions: [
+        'analytics_view', 'analytics_reports', 'analytics_export',
+        'customer_view'
+      ],
+      isActive: true,
+      isSystem: true
+    }
+  });
+
+  console.log('✅ Upserted Internal Roles: Admin, Billing, Support, Analyst');
 
   // Create System Settings
   await prisma.systemSetting.upsert({
@@ -253,7 +323,7 @@ async function main() {
     update: {},
     create: {
       key: 'default_currency',
-      value: 'NGN',
+      value: 'USD',
       category: 'system',
       description: 'Default platform currency'
     }

@@ -38,3 +38,15 @@ export const getOccupancyAnalytics = async (params?: {
   return apiClient.get<any>(API_ENDPOINTS.ANALYTICS.OCCUPANCY, params);
 };
 
+export const getAnalyticsDashboard = async () => {
+  return apiClient.get<any>('/api/analytics/dashboard');
+};
+
+export const getSystemHealth = async () => {
+  return apiClient.get<any>('/api/analytics/system-health');
+};
+
+export const getActivityLogs = async (params?: { limit?: number; customerId?: string; userId?: string; entity?: string; action?: string; }) => {
+  return apiClient.get<any[]>('/api/analytics/activity-logs', params);
+};
+

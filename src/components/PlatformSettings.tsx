@@ -1571,75 +1571,7 @@ export function PlatformSettings() {
             </CardContent>
           </Card>
 
-          {/* Subscription Plans */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Subscription Plans</CardTitle>
-              <CardDescription>Manage available subscription plans and pricing</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-3 gap-6">
-                <div className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium">Starter Plan</h4>
-                    <Button variant="outline" size="sm">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-2xl font-bold">$299<span className="text-sm font-normal">/month</span></p>
-                    <p className="text-sm text-gray-600">Up to 5 properties</p>
-                    <p className="text-sm text-gray-600">100 units max</p>
-                    <p className="text-sm text-gray-600">Basic support</p>
-                    <Badge variant="default">45 subscribers</Badge>
-                  </div>
-                </div>
-                
-                <div className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium">Professional Plan</h4>
-                    <Button variant="outline" size="sm">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-2xl font-bold">$750<span className="text-sm font-normal">/month</span></p>
-                    <p className="text-sm text-gray-600">Up to 25 properties</p>
-                    <p className="text-sm text-gray-600">500 units max</p>
-                    <p className="text-sm text-gray-600">Priority support</p>
-                    <Badge variant="default">78 subscribers</Badge>
-                  </div>
-                </div>
-                
-                <div className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium">Enterprise Plan</h4>
-                    <Button variant="outline" size="sm">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-2xl font-bold">$2500<span className="text-sm font-normal">/month</span></p>
-                    <p className="text-sm text-gray-600">Unlimited properties</p>
-                    <p className="text-sm text-gray-600">Unlimited units</p>
-                    <p className="text-sm text-gray-600">24/7 support</p>
-                    <Badge variant="default">25 subscribers</Badge>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="flex justify-between items-center mt-6">
-                <Button variant="outline">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Plan
-                </Button>
-                <Button variant="outline">
-                  <Calculator className="h-4 w-4 mr-2" />
-                  Pricing Calculator
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Subscription Plans section removed; manage plans in Billing & Plans */}
 
           {/* Payment Methods */}
           <Card>

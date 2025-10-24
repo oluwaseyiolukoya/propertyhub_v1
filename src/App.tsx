@@ -9,13 +9,22 @@ import { toast } from 'sonner';
 import { getUserData, getUserType, removeAuthToken, verifyToken } from './lib/api';
 import { setupActiveSessionValidation } from './lib/sessionValidator';
 import { getAccountInfo } from './lib/api/auth';
+import { sessionManager } from './lib/sessionManager';
+import {
+  getManagers as apiGetManagers,
+  createManager as apiCreateManager,
+  assignManagerToProperty as apiAssignManagerToProperty,
+  removeManagerFromProperty as apiRemoveManagerFromProperty,
+  updateManager as apiUpdateManager,
+  deactivateManager as apiDeactivateManager,
+} from './lib/api/property-managers';
 
 function App() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userType, setUserType] = useState<string>('');
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   
-  // Mock managers and property assignments
+  // Managers and assignments loaded from backend
   const [managers, setManagers] = useState<any[]>([]);
   const [propertyAssignments, setPropertyAssignments] = useState<any[]>([]);
 
@@ -34,10 +43,19 @@ function App() {
             const acct = await getAccountInfo();
             const refreshedUser = acct.data?.user ? { ...storedUser, ...acct.data.user } : storedUser;
             setCurrentUser(refreshedUser);
-            setUserType(storedUserType);
+            // Prefer backend-provided userType, then fall back to derived
+            const backendUserType = (acct.data?.user as any)?.userType;
+            const derivedType = deriveUserTypeFromUser(refreshedUser);
+            const finalType = backendUserType || derivedType || storedUserType || '';
+            setUserType(finalType);
+            // Load managers if owner
+            if (finalType === 'owner' || finalType === 'property-owner') {
+              await loadManagers();
+            }
           } catch {
             setCurrentUser(storedUser);
-            setUserType(storedUserType);
+            const derivedType = deriveUserTypeFromUser(storedUser);
+            setUserType(derivedType || storedUserType);
           }
         } else {
           // Token invalid, clear auth
@@ -48,6 +66,13 @@ function App() {
     };
 
     checkAuth();
+  }, []);
+
+  // Initialize session manager
+  useEffect(() => {
+    // Session manager is automatically initialized
+    // Sessions will persist across page refreshes using localStorage
+    console.log('🔐 Session manager initialized - sessions will persist across page refreshes');
   }, []);
 
   // Listen for permissions update and account blocked events
@@ -65,7 +90,7 @@ function App() {
         duration: 4000,
       });
       // Force logout immediately
-      removeAuthToken();
+      sessionManager.clearSessionManually();
       setCurrentUser(null);
       setUserType('');
     };
@@ -80,13 +105,24 @@ function App() {
   }, []);
 
   const handleLogin = (type: string, userData: any) => {
-    console.log('Login - User Type:', type, 'User Data:', userData);
+    console.log('🔐 Login - Initial Type:', type);
+    console.log('👤 User Data:', userData);
+    console.log('📋 User Role:', userData?.role);
+    console.log('🏢 Customer ID:', userData?.customerId);
+    console.log('🎯 UserType from backend:', userData?.userType);
+    
     setCurrentUser(userData);
-    setUserType(type);
+    const derivedType = deriveUserTypeFromUser(userData);
+    const finalType = userData?.userType || derivedType || type;
+    
+    console.log('🔍 Derived Type:', derivedType);
+    console.log('✅ Final UserType:', finalType);
+    
+    setUserType(finalType);
   };
 
   const handleLogout = () => {
-    removeAuthToken();
+    sessionManager.clearSessionManually();
     setCurrentUser(null);
     setUserType('');
   };
@@ -102,60 +138,85 @@ function App() {
     if (!currentUser) return;
     const cleanup = setupActiveSessionValidation((reason) => {
       toast.error(reason || 'Your account has been deactivated');
-      removeAuthToken();
+      sessionManager.clearSessionManually();
       setCurrentUser(null);
       setUserType('');
     });
     return cleanup;
   }, [currentUser]);
 
-  // Manager management functions
-  const addManager = (managerData: any, ownerId: string) => {
-    const newManager = {
-      id: `MGR${String(managers.length + 1).padStart(3, '0')}`,
-      ...managerData,
-      createdBy: ownerId,
-      createdAt: new Date().toISOString().split('T')[0],
-      isActive: true,
-    };
-    setManagers(prev => [...prev, newManager]);
-    return newManager;
+  // Helpers to map assignments from API managers into a flat list the UI can use
+  const rebuildAssignmentsFromManagers = (mgrs: any[]) => {
+    const flat = [] as any[];
+    for (const m of mgrs) {
+      const assignments = Array.isArray(m.property_managers) ? m.property_managers : [];
+      for (const a of assignments) {
+        flat.push({
+          id: a.id || `${m.id}-${a.properties?.id}`,
+          managerId: m.id,
+          propertyId: a.properties?.id,
+          ownerId: undefined, // not provided by API; UI should not rely on this
+          isActive: a.isActive !== false,
+          assignedAt: a.assignedAt,
+        });
+      }
+    }
+    setPropertyAssignments(flat);
   };
 
-  const assignManager = (managerId: string, propertyId: string, ownerId: string) => {
-    const newAssignment = {
-      id: `ASSIGN${Date.now()}`,
-      managerId,
-      propertyId,
-      ownerId,
-      assignedAt: new Date().toISOString().split('T')[0],
-      isActive: true,
-    };
-    setPropertyAssignments(prev => [...prev, newAssignment]);
+  // Load managers from backend
+  const loadManagers = async () => {
+    try {
+      console.log('🔄 Loading managers...');
+      const res = await apiGetManagers();
+      console.log('📦 Managers response:', res);
+      if (res.data) {
+        console.log(`✅ Loaded ${res.data.length} managers`);
+        setManagers(res.data);
+        rebuildAssignmentsFromManagers(res.data);
+      } else if (res.error) {
+        console.error('❌ Error loading managers:', res.error);
+      }
+    } catch (error) {
+      console.error('❌ Exception loading managers:', error);
+    }
   };
 
-  const removeManager = (managerId: string, propertyId: string, ownerId: string) => {
-    setPropertyAssignments(prev =>
-      prev.map(assignment =>
-        assignment.managerId === managerId &&
-        assignment.propertyId === propertyId &&
-        assignment.ownerId === ownerId
-          ? { ...assignment, isActive: false }
-          : assignment
-      )
-    );
+  // Manager management functions (now backed by API)
+  const addManager = async (managerData: any) => {
+    const res = await apiCreateManager(managerData);
+    if (res.error) throw new Error(res.error.error || 'Failed to create manager');
+    const created = res.data as any;
+    // Preserve credentials shape expected by child component
+    const username = managerData.credentials?.username || (managerData.email?.split('@')[0] || 'user');
+    const tempPassword = managerData.credentials?.tempPassword || (created as any).tempPassword;
+    const managerWithCreds = { ...created, credentials: { username, tempPassword } };
+    await loadManagers();
+    return managerWithCreds;
   };
 
-  const updateManager = (managerId: string, updates: any) => {
-    setManagers(prev =>
-      prev.map(manager =>
-        manager.id === managerId ? { ...manager, ...updates } : manager
-      )
-    );
+  const assignManager = async (managerId: string, propertyId: string) => {
+    const res = await apiAssignManagerToProperty(managerId, propertyId);
+    if (res.error) throw new Error(res.error.error || 'Failed to assign manager');
+    await loadManagers();
   };
 
-  const deactivateManager = (managerId: string) => {
-    updateManager(managerId, { isActive: false });
+  const removeManager = async (managerId: string, propertyId: string) => {
+    const res = await apiRemoveManagerFromProperty(managerId, propertyId);
+    if (res.error) throw new Error(res.error.error || 'Failed to remove manager');
+    await loadManagers();
+  };
+
+  const updateManager = async (managerId: string, updates: any) => {
+    const res = await apiUpdateManager(managerId, updates);
+    if (res.error) throw new Error(res.error.error || 'Failed to update manager');
+    await loadManagers();
+  };
+
+  const deactivateManager = async (managerId: string) => {
+    const res = await apiDeactivateManager(managerId);
+    if (res.error) throw new Error(res.error.error || 'Failed to deactivate manager');
+    await loadManagers();
   };
 
   // Debug: Log current state
@@ -263,4 +324,47 @@ function App() {
 }
 
 export default App;
+
+// Helpers
+function deriveUserTypeFromUser(user: any): string {
+  if (!user) {
+    console.log('⚠️ deriveUserTypeFromUser: No user provided');
+    return '';
+  }
+  
+  const role = (user.role || '').toString().toLowerCase();
+  const isInternal = !user.customerId; // internal users have no customerId
+
+  console.log('🔍 deriveUserTypeFromUser:');
+  console.log('   - Original role:', user.role);
+  console.log('   - Normalized role:', role);
+  console.log('   - customerId:', user.customerId);
+  console.log('   - isInternal:', isInternal);
+
+  if (isInternal) {
+    console.log('   → Internal user detected');
+    if (role === 'super_admin' || role === 'super admin' || role === 'superadmin') return 'super-admin';
+    if (role === 'admin') return 'admin';
+    if (role === 'billing' || role === 'support' || role === 'analyst') return 'admin'; // internal dashboards
+    return 'admin';
+  }
+
+  console.log('   → Customer user (has customerId)');
+  
+  if (role === 'owner' || role === 'property owner') {
+    console.log('   → Matched: owner');
+    return 'owner';
+  }
+  if (role === 'manager' || role === 'property manager') {
+    console.log('   → Matched: property-manager');
+    return 'property-manager';
+  }
+  if (role === 'tenant') {
+    console.log('   → Matched: tenant');
+    return 'tenant';
+  }
+
+  console.log('   → No match! Returning empty string');
+  return '';
+}
 
