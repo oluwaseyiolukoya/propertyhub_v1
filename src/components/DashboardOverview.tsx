@@ -167,25 +167,42 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <CardContent>
             <div className="space-y-4">
               {metrics.expiringLeases > 0 && (
-                <div key={activity.id} className="flex items-start space-x-3">
-                  <div className={`p-1 rounded-full ${
-                    activity.status === 'success' ? 'bg-green-100' :
-                    activity.status === 'warning' ? 'bg-yellow-100' : 'bg-blue-100'
-                  }`}>
-                    {activity.status === 'success' ? (
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                    ) : activity.status === 'warning' ? (
-                      <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                    ) : (
-                      <Clock className="h-4 w-4 text-blue-600" />
-                    )}
+                <div className="flex items-start space-x-3">
+                  <div className="p-1 rounded-full bg-yellow-100">
+                    <AlertTriangle className="h-4 w-4 text-yellow-600" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900">{activity.message}</p>
-                    <p className="text-xs text-gray-500">{activity.time}</p>
+                    <p className="text-sm text-gray-900">
+                      {metrics.expiringLeases} lease(s) expiring soon
+                    </p>
+                    <p className="text-xs text-gray-500">Requires attention</p>
                   </div>
                 </div>
-              ))}
+              )}
+              {metrics.maintenanceTickets > 0 && (
+                <div className="flex items-start space-x-3">
+                  <div className="p-1 rounded-full bg-red-100">
+                    <AlertTriangle className="h-4 w-4 text-red-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-900">
+                      {metrics.maintenanceTickets} pending maintenance request(s)
+                    </p>
+                    <p className="text-xs text-gray-500">Requires action</p>
+                  </div>
+                </div>
+              )}
+              {metrics.expiringLeases === 0 && metrics.maintenanceTickets === 0 && (
+                <div className="flex items-start space-x-3">
+                  <div className="p-1 rounded-full bg-green-100">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-900">All clear!</p>
+                    <p className="text-xs text-gray-500">No urgent items</p>
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
