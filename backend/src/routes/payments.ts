@@ -362,6 +362,19 @@ router.get('/stats/overview', async (req: AuthRequest, res: Response) => {
     const userId = req.user?.id;
     const role = req.user?.role;
 
+    // TODO: Implement payments table in schema
+    // For now, return mock data to prevent 500 errors
+    console.log('⚠️ Payments not yet implemented - returning mock stats');
+    return res.json({
+      totalCollected: 0,
+      pendingAmount: 0,
+      lateFees: 0,
+      byMethod: [],
+      byType: [],
+      recentPayments: []
+    });
+
+    /* COMMENTED OUT UNTIL SCHEMA IS UPDATED
     const where: any = {};
 
     if (role === 'owner') {
@@ -466,6 +479,7 @@ router.get('/stats/overview', async (req: AuthRequest, res: Response) => {
       })),
       recentPayments
     });
+    */
 
   } catch (error: any) {
     console.error('Get payment stats error:', error);

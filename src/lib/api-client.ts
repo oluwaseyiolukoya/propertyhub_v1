@@ -17,14 +17,14 @@ export interface ApiResponse<T> {
 }
 
 /**
- * Get auth token from localStorage
+ * Get auth token from localStorage (persists across page refreshes)
  */
 export const getAuthToken = (): string | null => {
   return localStorage.getItem(STORAGE_KEYS.TOKEN);
 };
 
 /**
- * Set auth token in localStorage
+ * Set auth token in localStorage (persists across page refreshes)
  */
 export const setAuthToken = (token: string): void => {
   localStorage.setItem(STORAGE_KEYS.TOKEN, token);
@@ -40,7 +40,7 @@ export const removeAuthToken = (): void => {
 };
 
 /**
- * Get user data from localStorage
+ * Get user data from localStorage (persists across page refreshes)
  */
 export const getUserData = (): any | null => {
   const userData = localStorage.getItem(STORAGE_KEYS.USER);
@@ -48,21 +48,21 @@ export const getUserData = (): any | null => {
 };
 
 /**
- * Set user data in localStorage
+ * Set user data in localStorage (persists across page refreshes)
  */
 export const setUserData = (user: any): void => {
   localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
 };
 
 /**
- * Get user type from localStorage
+ * Get user type from localStorage (persists across page refreshes)
  */
 export const getUserType = (): string | null => {
   return localStorage.getItem(STORAGE_KEYS.USER_TYPE);
 };
 
 /**
- * Set user type in localStorage
+ * Set user type in localStorage (persists across page refreshes)
  */
 export const setUserType = (userType: string): void => {
   localStorage.setItem(STORAGE_KEYS.USER_TYPE, userType);
@@ -86,6 +86,9 @@ async function request<T>(
   // Add authorization header if token exists
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+    console.log('🔑 Adding auth header for request to:', endpoint);
+  } else {
+    console.log('⚠️ No auth token found for request to:', endpoint);
   }
 
   const config: RequestInit = {

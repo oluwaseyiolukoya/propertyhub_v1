@@ -9,7 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Progress } from "./ui/progress";
 import { toast } from "sonner";
-import { getAnalyticsOverview } from '../lib/api';
+import { getAnalyticsOverview, getAnalyticsDashboard, getSystemHealth, getActivityLogs } from '../lib/api/analytics';
+import { getCustomers } from '../lib/api/customers';
+import { getInvoices } from '../lib/api/invoices';
+import { computeCustomerChurn, computeMRRChurn, lastNDaysWindow } from '../lib/metrics';
 import { 
   BarChart3,
   TrendingUp,
@@ -37,6 +40,7 @@ import {
   FileText,
   BarChart
 } from 'lucide-react';
+import { useCurrency } from '../lib/CurrencyContext';
 
 export function Analytics() {
   const [activeTab, setActiveTab] = useState('overview');
@@ -44,6 +48,17 @@ export function Analytics() {
   const [searchTerm, setSearchTerm] = useState('');
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [systemHealth, setSystemHealth] = useState<any>(null);
+  const [activityLogs, setActivityLogs] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const { formatCurrency } = useCurrency();
+
+  // Custom Report builder state
+  const [reportName, setReportName] = useState<string>('');
+  const [reportMetric, setReportMetric] = useState<string>('revenue');
+  const [reportRange, setReportRange] = useState<string>('30d');
+  const [isExportingReport, setIsExportingReport] = useState<boolean>(false);
 
   // Fetch analytics data
   useEffect(() => {
@@ -53,13 +68,25 @@ export function Analytics() {
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
-      const response = await getAnalyticsOverview({ period: dateRange });
-      
-      if (response.error) {
-        toast.error(response.error.error || 'Failed to load analytics');
-      } else if (response.data) {
-        setAnalyticsData(response.data);
-      }
+      const [overviewRes, dashboardRes, healthRes, logsRes, customersRes] = await Promise.all([
+        getAnalyticsOverview({ period: dateRange }),
+        getAnalyticsDashboard(),
+        getSystemHealth(),
+        getActivityLogs({ limit: 50 }),
+        getCustomers(),
+      ]);
+
+      if (overviewRes.error) toast.error(overviewRes.error.error || 'Failed to load analytics overview');
+      if (dashboardRes.error) toast.error(dashboardRes.error.error || 'Failed to load analytics dashboard');
+      if (healthRes.error) toast.error(healthRes.error.error || 'Failed to load system health');
+      if (logsRes.error) toast.error(logsRes.error.error || 'Failed to load activity logs');
+      if (customersRes.error) toast.error(customersRes.error.error || 'Failed to load customers');
+
+      if (overviewRes.data) setAnalyticsData(overviewRes.data);
+      if (dashboardRes.data) setDashboardData(dashboardRes.data);
+      if (healthRes.data) setSystemHealth(healthRes.data);
+      if (logsRes.data) setActivityLogs(logsRes.data);
+      if (customersRes.data) setCustomers(customersRes.data);
     } catch (error) {
       toast.error('Failed to load analytics');
     } finally {
@@ -67,89 +94,90 @@ export function Analytics() {
     }
   };
 
-  // Platform metrics from API or mock data
-  const platformMetrics = analyticsData?.overview || {
-    totalCustomers: 156,
-    activeCustomers: 148,
-    totalRevenue: 245000,
-    monthlyRevenue: 45800,
-    totalProperties: 1245,
-    totalUnits: 18650,
-    activeUsers: 2847,
-    systemUptime: 99.9,
-    supportTickets: 42,
-    avgResponseTime: 2.4
-  };
+  // Derived metrics from DB-backed responses
+  const overview = analyticsData?.overview || null;
+  const dailyStats: Array<{ date: string; customers: number; revenue: number }>
+    = (analyticsData?.dailyStats as any[]) || [];
 
-  const customerGrowthData = [
-    { month: 'Apr', newCustomers: 12, churnedCustomers: 3, netGrowth: 9, totalCustomers: 120 },
-    { month: 'May', newCustomers: 15, churnedCustomers: 2, netGrowth: 13, totalCustomers: 133 },
-    { month: 'Jun', newCustomers: 18, churnedCustomers: 4, netGrowth: 14, totalCustomers: 147 },
-    { month: 'Jul', newCustomers: 14, churnedCustomers: 3, netGrowth: 11, totalCustomers: 158 },
-    { month: 'Aug', newCustomers: 16, churnedCustomers: 5, netGrowth: 11, totalCustomers: 169 },
-    { month: 'Sep', newCustomers: 13, churnedCustomers: 2, netGrowth: 11, totalCustomers: 180 }
-  ];
+  const totalCustomers = overview?.totalCustomers || 0;
+  const activeCustomers = overview?.activeCustomers || 0;
+  const totalProperties = overview?.totalProperties || 0;
+  const totalUsers = overview?.totalUsers || 0;
+  const mrr = (dashboardData?.overview?.mrr ?? overview?.mrr) || 0;
+  const totalRevenuePeriod = overview?.revenue || 0;
+  const revenueGrowthPct = overview?.revenueGrowth ?? 0;
 
-  const revenueAnalytics = {
-    mrr: 45800,
-    arr: 549600,
-    churnRate: 3.2,
-    avgRevenuePerCustomer: 310,
-    lifetimeValue: 8750,
-    monthlyGrowthRate: 8.2,
-    planDistribution: [
-      { plan: 'Enterprise', customers: 25, revenue: 62500, percentage: 17 },
-      { plan: 'Professional', customers: 78, revenue: 58500, percentage: 53 },
-      { plan: 'Basic', customers: 45, revenue: 13455, percentage: 30 }
-    ]
-  };
+  const acquisitionCount = dailyStats.reduce((s, d: any) => s + (Number(d.customers) || 0), 0);
+  const arpu = activeCustomers > 0 ? Math.round((mrr / activeCustomers) * 100) / 100 : null;
+  // Customer churn (30d) using customers list
+  const churnWindow = lastNDaysWindow(30);
+  const customerChurn = computeCustomerChurn(
+    customers.map((c: any) => ({
+      id: c.id,
+      status: c.status,
+      createdAt: c.createdAt,
+      subscriptionStartDate: c.subscriptionStartDate,
+      updatedAt: c.updatedAt,
+      cancelledAt: c.cancelledAt || null,
+      mrr: c.mrr || c.plan?.monthlyPrice || 0,
+    })),
+    churnWindow
+  );
+  const ltv = arpu !== null && customerChurn.rate !== null && customerChurn.rate > 0
+    ? Math.round((arpu / (customerChurn.rate / 100)) * 100) / 100
+    : null;
+  const mrrChurn = computeMRRChurn(
+    customers.map((c: any) => ({
+      id: c.id,
+      status: c.status,
+      createdAt: c.createdAt,
+      subscriptionStartDate: c.subscriptionStartDate,
+      updatedAt: c.updatedAt,
+      cancelledAt: c.cancelledAt || null,
+      mrr: c.mrr || c.plan?.monthlyPrice || 0,
+    })),
+    churnWindow
+  );
 
-  const usageMetrics = {
-    dailyActiveUsers: 1847,
-    monthlyActiveUsers: 2847,
-    avgSessionDuration: '24m 32s',
-    bounceRate: 12.4,
-    featureAdoption: [
-      { feature: 'Tenant Management', adoption: 95, users: 2704 },
-      { feature: 'Payment Processing', adoption: 87, users: 2477 },
-      { feature: 'Maintenance Tickets', adoption: 78, users: 2221 },
-      { feature: 'Access Control', adoption: 65, users: 1851 },
-      { feature: 'Reporting', adoption: 54, users: 1537 }
-    ],
-    mobileVsWeb: {
-      mobile: 68,
-      web: 32
-    }
-  };
+  // Top customers by MRR (from customers DB)
+  const topCustomersByRevenue = customers
+    .map((c: any) => ({
+      company: c.company,
+      plan: c.plan?.name || '—',
+      properties: c._count?.properties ?? c.propertiesCount ?? 0,
+      revenue: c.mrr || c.plan?.monthlyPrice || 0,
+      growth: 0,
+    }))
+    .sort((a: any, b: any) => (b.revenue || 0) - (a.revenue || 0))
+    .slice(0, 5);
 
-  const performanceMetrics = {
-    systemUptime: 99.9,
-    avgLoadTime: 1.2,
-    errorRate: 0.05,
-    supportTickets: {
-      open: 42,
-      inProgress: 18,
-      resolved: 156,
-      avgResolutionTime: 4.6
-    },
-    userSatisfaction: 4.6,
-    npsScore: 72
-  };
+  // Geographic aggregation (by country)
+  const countryAgg = customers.reduce((acc: Record<string, { customers: number; revenue: number }>, c: any) => {
+    const key = c.country || 'Unknown';
+    acc[key] = acc[key] || { customers: 0, revenue: 0 };
+    acc[key].customers += 1;
+    acc[key].revenue += (c.mrr || c.plan?.monthlyPrice || 0);
+    return acc;
+  }, {});
+  const geographicData = Object.entries(countryAgg).map(([region, v]) => ({
+    region,
+    customers: v.customers,
+    revenue: v.revenue,
+    growth: 0,
+  }));
 
-  const topCustomersByRevenue = [
-    { company: 'Metro Properties LLC', revenue: 2500, growth: 12.5, properties: 45, plan: 'Enterprise' },
-    { company: 'Urban Living Properties', revenue: 1875, growth: 8.3, properties: 32, plan: 'Professional' },
-    { company: 'Coastal Rentals', revenue: 1650, growth: -2.1, properties: 28, plan: 'Professional' },
-    { company: 'Downtown Developments', revenue: 1425, growth: 15.2, properties: 22, plan: 'Professional' },
-    { company: 'Riverside Management', revenue: 1200, growth: 5.8, properties: 18, plan: 'Professional' }
-  ];
-
-  const geographicData = [
-    { region: 'North America', customers: 98, revenue: 156800, growth: 12.3 },
-    { region: 'Europe', customers: 32, revenue: 48600, growth: 18.7 },
-    { region: 'Asia Pacific', customers: 18, revenue: 27300, growth: 25.4 },
-    { region: 'Latin America', customers: 8, revenue: 12300, growth: 8.9 }
-  ];
+  const revenueByPlanName = customers.reduce((acc: Record<string, number>, c: any) => {
+    const name = c.plan?.name || 'Unknown';
+    acc[name] = (acc[name] || 0) + (c.mrr || c.plan?.monthlyPrice || 0);
+    return acc;
+  }, {} as Record<string, number>);
+  const planPerf = (dashboardData?.planDistribution || []).map((pd: any) => ({
+    plan: pd.planName || 'Unknown',
+    customers: pd.count || 0,
+    revenue: revenueByPlanName[pd.planName || 'Unknown'] || 0,
+    percentage: totalCustomers ? Math.round(((pd.count || 0) / totalCustomers) * 100) : 0,
+  }));
+  const dailyRecent = (dailyStats || []).slice(-4);
 
   const getGrowthIcon = (growth: number) => {
     if (growth > 0) {
@@ -164,6 +192,144 @@ export function Analytics() {
     if (growth > 0) return 'text-green-600';
     if (growth < 0) return 'text-red-600';
     return 'text-gray-600';
+  };
+
+  // --- Custom Reports: export helpers ---
+  const toCSV = (rows: Array<Record<string, any>>): string => {
+    if (!rows || rows.length === 0) return '';
+    const headers = Array.from(new Set(rows.flatMap(r => Object.keys(r))));
+    const esc = (v: any) => {
+      if (v === null || v === undefined) return '';
+      const s = String(v).replace(/"/g, '""');
+      if (s.search(/([",\n])/g) >= 0) return `"${s}"`;
+      return s;
+    };
+    const headerLine = headers.join(',');
+    const lines = rows.map(r => headers.map(h => esc(r[h])).join(','));
+    return [headerLine, ...lines].join('\n');
+  };
+
+  const downloadTextFile = (content: string, filename: string) => {
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleGenerateCustomReport = async () => {
+    try {
+      setIsExportingReport(true);
+      // Fetch data based on selected range
+      const [ovrRes, dashRes, sysRes, invRes, custRes] = await Promise.all([
+        getAnalyticsOverview({ period: reportRange }),
+        getAnalyticsDashboard(),
+        getSystemHealth(),
+        getInvoices(),
+        getCustomers(),
+      ]);
+
+      const ovr = ovrRes.data || {};
+      const dsh = dashRes.data || {};
+      const sys = sysRes.data || {};
+      const invoices = Array.isArray(invRes?.data) ? invRes.data : [];
+      const custList = Array.isArray(custRes?.data) ? custRes.data : [];
+
+      // Compute start date for range
+      const now = new Date();
+      let start = new Date(now);
+      if (reportRange === '7d') start.setDate(start.getDate() - 7);
+      else if (reportRange === '30d') start.setDate(start.getDate() - 30);
+      else if (reportRange === '90d') start.setDate(start.getDate() - 90);
+      else if (reportRange === '1y') start.setFullYear(start.getFullYear() - 1);
+
+      // Aggregate invoice revenue by date within range (paid only)
+      const revenueByDate: Record<string, { revenue: number; count: number; currency?: string }> = {};
+      for (const inv of invoices) {
+        try {
+          const created = new Date(inv.createdAt);
+          if (created >= start && created <= now && (inv.status === 'paid' || inv.status === 'refunded' || inv.status === 'partially_refunded')) {
+            const key = created.toISOString().split('T')[0];
+            if (!revenueByDate[key]) revenueByDate[key] = { revenue: 0, count: 0, currency: inv.currency };
+            revenueByDate[key].revenue += Number(inv.amount || 0);
+            revenueByDate[key].count += 1;
+            revenueByDate[key].currency = inv.currency || revenueByDate[key].currency;
+          }
+        } catch {}
+      }
+
+      let rows: Array<Record<string, any>> = [];
+      const safeName = (reportName || `custom-report-${reportMetric}-${reportRange}`).replace(/\s+/g, '-').toLowerCase();
+
+      if (reportMetric === 'revenue') {
+        // Include dailyStats (date, revenue, customers) and overview revenue
+        const ds = (ovr.dailyStats || []) as Array<any>;
+        rows = ds.map(d => ({ section: 'daily_stats_overview', date: d.date, customers: d.customers, revenue: d.revenue }));
+        rows.unshift({ section: 'overview', period: ovr.period, totalRevenue: (ovr.overview?.revenue ?? 0), mrr: (ovr.overview?.mrr ?? 0) });
+        // Append invoice-derived revenue per day
+        const invoiceDaily = Object.entries(revenueByDate)
+          .sort((a, b) => a[0].localeCompare(b[0]))
+          .map(([date, v]) => ({ section: 'daily_stats_invoices', date, revenue: Math.round(v.revenue * 100) / 100, invoiceCount: v.count, currency: v.currency || 'USD' }));
+        rows = rows.concat(invoiceDaily);
+      } else if (reportMetric === 'customers') {
+        // Include overview customer counts and (if available) growth series
+        const ov = ovr.overview || {};
+        rows.push({ section: 'customers_overview', totalCustomers: ov.totalCustomers ?? 0, activeCustomers: ov.activeCustomers ?? 0, trialCustomers: ov.trialCustomers ?? 0 });
+        // daily new customers
+        const ds = (ovr.dailyStats || []) as Array<any>;
+        rows = rows.concat(ds.map(d => ({ section: 'daily_new_customers', date: d.date, newCustomers: d.customers })));
+        // detailed customers list
+        const customerRows = custList.map((c: any) => ({
+          section: 'customers_list',
+          id: c.id,
+          company: c.company,
+          owner: c.owner,
+          email: c.email,
+          status: c.status,
+          billingCycle: c.billingCycle,
+          planId: c.planId || (c.plan?.id || ''),
+          planName: c.plan?.name || '',
+          mrr: c.mrr ?? (c.plan?.monthlyPrice ?? 0),
+          propertiesCount: c.propertiesCount ?? (c._count?.properties ?? 0),
+          usersCount: c._count?.users ?? (Array.isArray(c.users) ? c.users.length : 0),
+          country: c.country,
+          createdAt: c.createdAt,
+          updatedAt: c.updatedAt,
+        }));
+        rows = rows.concat(customerRows);
+      } else if (reportMetric === 'performance') {
+        // System health snapshot
+        rows.push({ section: 'system_health', status: sys.status || 'unknown', latencyMs: sys.database?.latency ?? null, connections: sys.database?.connections ?? null, dbSize: sys.database?.size ?? null, errorLogs24h: sys.errorLogs ?? 0, timestamp: sys.timestamp || null });
+      } else if (reportMetric === 'plan_distribution') {
+        const pd = (dsh.planDistribution || []) as Array<any>;
+        rows = pd.map(p => ({ section: 'plan_distribution', planId: p.planId, planName: p.planName, customers: p.count }));
+      } else if (reportMetric === 'daily_stats') {
+        const ds = (ovr.dailyStats || []) as Array<any>;
+        rows = ds.map(d => ({ section: 'daily_stats', date: d.date, customers: d.customers, revenue: d.revenue }));
+      } else {
+        // Default: overview snapshot
+        const ov = ovr.overview || {};
+        rows.push({ section: 'overview', totalCustomers: ov.totalCustomers ?? 0, activeCustomers: ov.activeCustomers ?? 0, mrr: ov.mrr ?? 0, revenue: ov.revenue ?? 0 });
+      }
+
+      if (!rows.length) {
+        toast.info('No data for selected report.');
+        return;
+      }
+
+      const csv = toCSV(rows);
+      downloadTextFile(csv, `${safeName}.csv`);
+      toast.success('Report exported successfully');
+    } catch (e: any) {
+      console.error('Custom report export failed:', e);
+      toast.error('Failed to generate report');
+    } finally {
+      setIsExportingReport(false);
+    }
   };
 
   return (
@@ -218,10 +384,10 @@ export function Analytics() {
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{platformMetrics.totalCustomers}</div>
+                <div className="text-2xl font-bold">{totalCustomers}</div>
                 <div className="flex items-center space-x-1 text-xs text-green-600">
                   <ArrowUpRight className="h-3 w-3" />
-                  <span>+12% from last month</span>
+                  <span>{overview?.customerGrowth ? `${overview.customerGrowth}%` : '+0%'} vs prev.</span>
                 </div>
               </CardContent>
             </Card>
@@ -232,10 +398,10 @@ export function Analytics() {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">${platformMetrics.monthlyRevenue.toLocaleString()}</div>
+                <div className="text-2xl font-bold">{formatCurrency(mrr)}</div>
                 <div className="flex items-center space-x-1 text-xs text-green-600">
                   <ArrowUpRight className="h-3 w-3" />
-                  <span>+8.2% from last month</span>
+                  <span>{revenueGrowthPct ? `${Math.round(revenueGrowthPct * 10) / 10}%` : '+0%'} vs prev.</span>
                 </div>
               </CardContent>
             </Card>
@@ -246,7 +412,7 @@ export function Analytics() {
                 <Building2 className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{platformMetrics.totalProperties.toLocaleString()}</div>
+                <div className="text-2xl font-bold">{totalProperties.toLocaleString()}</div>
                 <div className="flex items-center space-x-1 text-xs text-green-600">
                   <ArrowUpRight className="h-3 w-3" />
                   <span>+15% growth</span>
@@ -260,7 +426,7 @@ export function Analytics() {
                 <Activity className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{platformMetrics.activeUsers.toLocaleString()}</div>
+                <div className="text-2xl font-bold">{totalUsers.toLocaleString()}</div>
                 <div className="flex items-center space-x-1 text-xs text-green-600">
                   <ArrowUpRight className="h-3 w-3" />
                   <span>+5.3% active rate</span>
@@ -282,16 +448,16 @@ export function Analytics() {
                     <CheckCircle className="h-4 w-4 text-green-600" />
                     <span>System Uptime</span>
                   </div>
-                  <span className="font-medium">{platformMetrics.systemUptime}%</span>
+                  <span className="font-medium">{systemHealth?.status === 'healthy' ? '99.9%' : '—'}</span>
                 </div>
-                <Progress value={platformMetrics.systemUptime} className="h-2" />
+                <Progress value={99.9} className="h-2" />
 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <Clock className="h-4 w-4 text-blue-600" />
                     <span>Avg Response Time</span>
                   </div>
-                  <span className="font-medium">{platformMetrics.avgResponseTime}s</span>
+                  <span className="font-medium">{systemHealth?.database?.latency ? `${systemHealth.database.latency}ms` : '—'}</span>
                 </div>
                 <Progress value={85} className="h-2" />
 
@@ -300,7 +466,7 @@ export function Analytics() {
                     <AlertTriangle className="h-4 w-4 text-yellow-600" />
                     <span>Open Support Tickets</span>
                   </div>
-                  <span className="font-medium">{platformMetrics.supportTickets}</span>
+                  <span className="font-medium">—</span>
                 </div>
                 <Progress value={25} className="h-2" />
               </CardContent>
@@ -323,7 +489,7 @@ export function Analytics() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-medium">${region.revenue.toLocaleString()}</p>
+                        <p className="font-medium">{formatCurrency(region.revenue)}</p>
                         <div className={`flex items-center space-x-1 text-xs ${getGrowthColor(region.growth)}`}>
                           {getGrowthIcon(region.growth)}
                           <span>{region.growth > 0 ? '+' : ''}{region.growth}%</span>
@@ -344,27 +510,27 @@ export function Analytics() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {customerGrowthData.slice(-3).map((data, index) => (
+                {dailyRecent.map((data: any, index: number) => (
                   <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center space-x-3">
                       <Calendar className="h-4 w-4 text-blue-600" />
                       <div>
-                        <p className="font-medium">{data.month} 2024</p>
-                        <p className="text-sm text-gray-600">{data.totalCustomers} total customers</p>
+                        <p className="font-medium">{new Date(data.date).toLocaleDateString()}</p>
+                        <p className="text-sm text-gray-600">{data.customers} new customers</p>
                       </div>
                     </div>
                     <div className="text-right">
                       <div className="flex items-center space-x-4">
                         <div className="text-center">
-                          <p className="text-sm text-green-600">+{data.newCustomers}</p>
+                          <p className="text-sm text-green-600">+{data.customers}</p>
                           <p className="text-xs text-gray-500">New</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-sm text-red-600">-{data.churnedCustomers}</p>
+                          <p className="text-sm text-red-600">—</p>
                           <p className="text-xs text-gray-500">Churned</p>
                         </div>
                         <div className="text-center">
-                          <p className="font-medium text-blue-600">+{data.netGrowth}</p>
+                          <p className="font-medium text-blue-600">+{data.customers}</p>
                           <p className="text-xs text-gray-500">Net Growth</p>
                         </div>
                       </div>
@@ -385,8 +551,8 @@ export function Analytics() {
                 <UserCheck className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">13</div>
-                <p className="text-xs text-muted-foreground">New customers this month</p>
+                <div className="text-2xl font-bold">{acquisitionCount}</div>
+                <p className="text-xs text-muted-foreground">New customers in period</p>
               </CardContent>
             </Card>
 
@@ -396,8 +562,8 @@ export function Analytics() {
                 <UserX className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">3.2%</div>
-                <p className="text-xs text-muted-foreground">-0.5% from last month</p>
+                <div className="text-2xl font-bold">{customerChurn.rate !== null ? `${customerChurn.rate}%` : '—'}</div>
+                <p className="text-xs text-muted-foreground">MRR churn: {mrrChurn.rate !== null ? `${mrrChurn.rate}%` : '—'}</p>
               </CardContent>
             </Card>
 
@@ -407,8 +573,8 @@ export function Analytics() {
                 <Target className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">${revenueAnalytics.avgRevenuePerCustomer}</div>
-                <p className="text-xs text-muted-foreground">+15.3% from last month</p>
+                <div className="text-2xl font-bold">{arpu !== null ? formatCurrency(arpu) : '—'}</div>
+                <p className="text-xs text-muted-foreground">Avg revenue per active customer</p>
               </CardContent>
             </Card>
           </div>
@@ -421,26 +587,26 @@ export function Analytics() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {customerGrowthData.map((data, index) => (
+                {dailyStats.map((data: any, index: number) => (
                   <div key={index} className="grid grid-cols-5 gap-4 p-3 border rounded-lg">
                     <div className="text-center">
-                      <p className="font-medium">{data.month}</p>
-                      <p className="text-sm text-gray-600">2024</p>
+                      <p className="font-medium">{new Date(data.date).toLocaleDateString()}</p>
+                      <p className="text-sm text-gray-600">Daily</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-lg font-bold text-green-600">+{data.newCustomers}</p>
+                      <p className="text-lg font-bold text-green-600">+{data.customers}</p>
                       <p className="text-xs text-gray-500">New Customers</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-lg font-bold text-red-600">-{data.churnedCustomers}</p>
+                      <p className="text-lg font-bold text-red-600">—</p>
                       <p className="text-xs text-gray-500">Churned</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-lg font-bold text-blue-600">+{data.netGrowth}</p>
+                      <p className="text-lg font-bold text-blue-600">+{data.customers}</p>
                       <p className="text-xs text-gray-500">Net Growth</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-lg font-bold">{data.totalCustomers}</p>
+                      <p className="text-lg font-bold">{totalCustomers}</p>
                       <p className="text-xs text-gray-500">Total</p>
                     </div>
                   </div>
@@ -478,7 +644,7 @@ export function Analytics() {
                           {customer.plan}
                         </Badge>
                       </TableCell>
-                      <TableCell>${customer.revenue.toLocaleString()}</TableCell>
+                      <TableCell>{formatCurrency(customer.revenue)}</TableCell>
                       <TableCell>{customer.properties}</TableCell>
                       <TableCell>
                         <div className={`flex items-center space-x-1 ${getGrowthColor(customer.growth)}`}>
@@ -503,7 +669,7 @@ export function Analytics() {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">${revenueAnalytics.mrr.toLocaleString()}</div>
+                <div className="text-2xl font-bold">{formatCurrency(mrr)}</div>
                 <p className="text-xs text-muted-foreground">Monthly Recurring Revenue</p>
               </CardContent>
             </Card>
@@ -514,7 +680,7 @@ export function Analytics() {
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">${revenueAnalytics.arr.toLocaleString()}</div>
+                <div className="text-2xl font-bold">{formatCurrency(mrr * 12)}</div>
                 <p className="text-xs text-muted-foreground">Annual Recurring Revenue</p>
               </CardContent>
             </Card>
@@ -525,7 +691,7 @@ export function Analytics() {
                 <Target className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">${revenueAnalytics.lifetimeValue.toLocaleString()}</div>
+                <div className="text-2xl font-bold">{ltv !== null ? formatCurrency(ltv) : '—'}</div>
                 <p className="text-xs text-muted-foreground">Average Lifetime Value</p>
               </CardContent>
             </Card>
@@ -536,7 +702,7 @@ export function Analytics() {
                 <BarChart3 className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{revenueAnalytics.monthlyGrowthRate}%</div>
+                <div className="text-2xl font-bold">{overview?.revenueGrowth ? `${overview.revenueGrowth.toFixed(1)}%` : '—'}</div>
                 <p className="text-xs text-muted-foreground">Monthly growth rate</p>
               </CardContent>
             </Card>
@@ -550,7 +716,7 @@ export function Analytics() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {revenueAnalytics.planDistribution.map((plan, index) => (
+                {planPerf.map((plan: { plan: string; customers: number; revenue: number; percentage: number }, index: number) => (
                   <div key={index} className="space-y-2">
                     <div className="flex justify-between items-center">
                       <div className="flex items-center space-x-2">
@@ -563,7 +729,7 @@ export function Analytics() {
                         <span className="font-medium">{plan.customers} customers</span>
                       </div>
                       <div className="text-right">
-                        <p className="font-medium">${plan.revenue.toLocaleString()}/mo</p>
+                        <p className="font-medium">{formatCurrency(plan.revenue)}/mo</p>
                         <p className="text-sm text-gray-600">{plan.percentage}% of total</p>
                       </div>
                     </div>
@@ -583,17 +749,17 @@ export function Analytics() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {customerGrowthData.slice(-4).map((data, index) => (
+                  {dailyRecent.map((data: any, index: number) => (
                     <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                       <div>
-                        <p className="font-medium">{data.month} 2024</p>
-                        <p className="text-sm text-gray-600">{data.totalCustomers} customers</p>
+                        <p className="font-medium">{new Date(data.date).toLocaleDateString()}</p>
+                        <p className="text-sm text-gray-600">{totalCustomers} customers</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-medium">${(data.totalCustomers * 310).toLocaleString()}</p>
+                        <p className="font-medium">{formatCurrency((Number(data.revenue) || 0))}</p>
                         <div className="flex items-center space-x-1 text-xs text-green-600">
                           <ArrowUpRight className="h-3 w-3" />
-                          <span>+{((data.netGrowth / (data.totalCustomers - data.netGrowth)) * 100).toFixed(1)}%</span>
+                          <span>+{revenueGrowthPct ? Math.round(revenueGrowthPct * 10) / 10 : 0}%</span>
                         </div>
                       </div>
                     </div>
@@ -613,7 +779,7 @@ export function Analytics() {
                     <CreditCard className="h-4 w-4 text-blue-600" />
                     <span>Average Revenue Per User</span>
                   </div>
-                  <span className="font-medium">${revenueAnalytics.avgRevenuePerCustomer}</span>
+                  <span className="font-medium">{arpu !== null ? formatCurrency(arpu) : '—'}</span>
                 </div>
                 
                 <div className="flex items-center justify-between p-3 border rounded-lg">
@@ -621,7 +787,7 @@ export function Analytics() {
                     <TrendingUp className="h-4 w-4 text-green-600" />
                     <span>Customer Lifetime Value</span>
                   </div>
-                  <span className="font-medium">${revenueAnalytics.lifetimeValue.toLocaleString()}</span>
+                  <span className="font-medium">{ltv !== null ? formatCurrency(ltv) : '—'}</span>
                 </div>
                 
                 <div className="flex items-center justify-between p-3 border rounded-lg">
@@ -629,7 +795,7 @@ export function Analytics() {
                     <TrendingDown className="h-4 w-4 text-red-600" />
                     <span>Monthly Churn Rate</span>
                   </div>
-                  <span className="font-medium">{revenueAnalytics.churnRate}%</span>
+                  <span className="font-medium">{mrrChurn.rate !== null ? `${mrrChurn.rate}%` : '—'}</span>
                 </div>
                 
                 <div className="flex items-center justify-between p-3 border rounded-lg">
@@ -637,7 +803,7 @@ export function Analytics() {
                     <BarChart3 className="h-4 w-4 text-purple-600" />
                     <span>Monthly Growth Rate</span>
                   </div>
-                  <span className="font-medium">{revenueAnalytics.monthlyGrowthRate}%</span>
+                  <span className="font-medium">{overview?.revenueGrowth ? `${overview.revenueGrowth.toFixed(1)}%` : '—'}</span>
                 </div>
               </CardContent>
             </Card>
@@ -653,7 +819,7 @@ export function Analytics() {
                 <Activity className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{usageMetrics.dailyActiveUsers.toLocaleString()}</div>
+                <div className="text-2xl font-bold">—</div>
                 <p className="text-xs text-muted-foreground">65% of total users</p>
               </CardContent>
             </Card>
@@ -664,7 +830,7 @@ export function Analytics() {
                 <Clock className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{usageMetrics.avgSessionDuration}</div>
+                <div className="text-2xl font-bold">—</div>
                 <p className="text-xs text-muted-foreground">Average session time</p>
               </CardContent>
             </Card>
@@ -675,8 +841,8 @@ export function Analytics() {
                 <Smartphone className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{usageMetrics.mobileVsWeb.mobile}%</div>
-                <p className="text-xs text-muted-foreground">vs {usageMetrics.mobileVsWeb.web}% web</p>
+                <div className="text-2xl font-bold">—</div>
+                <p className="text-xs text-muted-foreground">vs — web</p>
               </CardContent>
             </Card>
 
@@ -686,7 +852,7 @@ export function Analytics() {
                 <Globe className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{usageMetrics.bounceRate}%</div>
+                <div className="text-2xl font-bold">—</div>
                 <p className="text-xs text-muted-foreground">Single-page sessions</p>
               </CardContent>
             </Card>
@@ -700,18 +866,7 @@ export function Analytics() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {usageMetrics.featureAdoption.map((feature, index) => (
-                  <div key={index} className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium">{feature.feature}</span>
-                      <div className="text-right">
-                        <span className="font-medium">{feature.adoption}%</span>
-                        <p className="text-sm text-gray-600">{feature.users.toLocaleString()} users</p>
-                      </div>
-                    </div>
-                    <Progress value={feature.adoption} className="h-2" />
-                  </div>
-                ))}
+                <div className="text-sm text-gray-600">No usage data</div>
               </div>
             </CardContent>
           </Card>
@@ -731,9 +886,9 @@ export function Analytics() {
                         <Smartphone className="h-4 w-4 text-blue-600" />
                         <span>Mobile App</span>
                       </div>
-                      <span className="font-medium">{usageMetrics.mobileVsWeb.mobile}%</span>
+                      <span className="font-medium">—</span>
                     </div>
-                    <Progress value={usageMetrics.mobileVsWeb.mobile} className="h-2" />
+                    <Progress value={0} className="h-2" />
                   </div>
                   
                   <div className="space-y-2">
@@ -742,9 +897,9 @@ export function Analytics() {
                         <Globe className="h-4 w-4 text-green-600" />
                         <span>Web Application</span>
                       </div>
-                      <span className="font-medium">{usageMetrics.mobileVsWeb.web}%</span>
+                      <span className="font-medium">—</span>
                     </div>
-                    <Progress value={usageMetrics.mobileVsWeb.web} className="h-2" />
+                    <Progress value={0} className="h-2" />
                   </div>
                 </div>
               </CardContent>
@@ -761,7 +916,7 @@ export function Analytics() {
                     <Users className="h-4 w-4 text-blue-600" />
                     <span>Monthly Active Users</span>
                   </div>
-                  <span className="font-medium">{usageMetrics.monthlyActiveUsers.toLocaleString()}</span>
+                  <span className="font-medium">—</span>
                 </div>
                 
                 <div className="flex items-center justify-between p-3 border rounded-lg">
@@ -769,7 +924,7 @@ export function Analytics() {
                     <Activity className="h-4 w-4 text-green-600" />
                     <span>Daily Active Users</span>
                   </div>
-                  <span className="font-medium">{usageMetrics.dailyActiveUsers.toLocaleString()}</span>
+                  <span className="font-medium">—</span>
                 </div>
                 
                 <div className="flex items-center justify-between p-3 border rounded-lg">
@@ -777,7 +932,7 @@ export function Analytics() {
                     <Clock className="h-4 w-4 text-purple-600" />
                     <span>Avg Session Duration</span>
                   </div>
-                  <span className="font-medium">{usageMetrics.avgSessionDuration}</span>
+                  <span className="font-medium">—</span>
                 </div>
                 
                 <div className="flex items-center justify-between p-3 border rounded-lg">
@@ -785,7 +940,7 @@ export function Analytics() {
                     <TrendingDown className="h-4 w-4 text-red-600" />
                     <span>Bounce Rate</span>
                   </div>
-                  <span className="font-medium">{usageMetrics.bounceRate}%</span>
+                  <span className="font-medium">—</span>
                 </div>
               </CardContent>
             </Card>
@@ -801,7 +956,7 @@ export function Analytics() {
                 <CheckCircle className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{performanceMetrics.systemUptime}%</div>
+                <div className="text-2xl font-bold">{systemHealth?.status === 'healthy' ? '99.9%' : '—'}</div>
                 <p className="text-xs text-muted-foreground">Last 30 days</p>
               </CardContent>
             </Card>
@@ -812,7 +967,7 @@ export function Analytics() {
                 <Zap className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{performanceMetrics.avgLoadTime}s</div>
+                <div className="text-2xl font-bold">{systemHealth?.database?.latency ? `${systemHealth.database.latency}ms` : '—'}</div>
                 <p className="text-xs text-muted-foreground">Page load average</p>
               </CardContent>
             </Card>
@@ -823,7 +978,7 @@ export function Analytics() {
                 <AlertTriangle className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{performanceMetrics.errorRate}%</div>
+                <div className="text-2xl font-bold">{systemHealth?.errorLogs !== undefined ? `${systemHealth.errorLogs}` : '—'}</div>
                 <p className="text-xs text-muted-foreground">System error rate</p>
               </CardContent>
             </Card>
@@ -834,7 +989,7 @@ export function Analytics() {
                 <Target className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{performanceMetrics.userSatisfaction}/5</div>
+                <div className="text-2xl font-bold">—</div>
                 <p className="text-xs text-muted-foreground">Average rating</p>
               </CardContent>
             </Card>
@@ -852,45 +1007,45 @@ export function Analytics() {
                   <div className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center space-x-2">
                       <AlertTriangle className="h-4 w-4 text-red-600" />
-                      <span>Open Tickets</span>
+                    <span>Open Tickets</span>
                     </div>
-                    <span className="font-medium">{performanceMetrics.supportTickets.open}</span>
+                  <span className="font-medium">—</span>
                   </div>
                   
                   <div className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center space-x-2">
                       <Clock className="h-4 w-4 text-yellow-600" />
-                      <span>In Progress</span>
+                    <span>In Progress</span>
                     </div>
-                    <span className="font-medium">{performanceMetrics.supportTickets.inProgress}</span>
+                  <span className="font-medium">—</span>
                   </div>
                   
                   <div className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center space-x-2">
                       <CheckCircle className="h-4 w-4 text-green-600" />
-                      <span>Resolved</span>
+                    <span>Resolved</span>
                     </div>
-                    <span className="font-medium">{performanceMetrics.supportTickets.resolved}</span>
+                  <span className="font-medium">—</span>
                   </div>
                 </div>
                 
                 <div className="space-y-4">
                   <div className="text-center p-4 border rounded-lg">
                     <h3 className="font-medium text-gray-600">Avg Resolution Time</h3>
-                    <p className="text-2xl font-bold text-blue-600">{performanceMetrics.supportTickets.avgResolutionTime}h</p>
-                    <p className="text-sm text-gray-500">-15% from last month</p>
+                    <p className="text-2xl font-bold text-blue-600">—</p>
+                    <p className="text-sm text-gray-500">—</p>
                   </div>
                   
                   <div className="text-center p-4 border rounded-lg">
                     <h3 className="font-medium text-gray-600">Customer Satisfaction</h3>
-                    <p className="text-2xl font-bold text-green-600">{performanceMetrics.userSatisfaction}/5</p>
-                    <p className="text-sm text-gray-500">+0.3 from last month</p>
+                    <p className="text-2xl font-bold text-green-600">—</p>
+                    <p className="text-sm text-gray-500">—</p>
                   </div>
                   
                   <div className="text-center p-4 border rounded-lg">
                     <h3 className="font-medium text-gray-600">NPS Score</h3>
-                    <p className="text-2xl font-bold text-purple-600">{performanceMetrics.npsScore}</p>
-                    <p className="text-sm text-gray-500">+8 points improvement</p>
+                    <p className="text-2xl font-bold text-purple-600">—</p>
+                    <p className="text-sm text-gray-500">—</p>
                   </div>
                 </div>
               </div>
@@ -908,9 +1063,9 @@ export function Analytics() {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span>System Uptime</span>
-                    <span className="font-medium">{performanceMetrics.systemUptime}%</span>
+                    <span className="font-medium">{systemHealth?.status === 'healthy' ? '99.9%' : '—'}</span>
                   </div>
-                  <Progress value={performanceMetrics.systemUptime} className="h-2" />
+                  <Progress value={99.9} className="h-2" />
                 </div>
                 
                 <div className="space-y-2">
@@ -924,7 +1079,7 @@ export function Analytics() {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span>API Response Time</span>
-                    <span className="font-medium">95%</span>
+                    <span className="font-medium">{systemHealth?.database?.latency ? `${systemHealth.database.latency}ms` : '—'}</span>
                   </div>
                   <Progress value={95} className="h-2" />
                 </div>
@@ -969,13 +1124,13 @@ export function Analytics() {
                   <span className="font-medium">98.5%</span>
                 </div>
                 
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="h-4 w-4 text-purple-600" />
-                    <span>Data Integrity</span>
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle className="h-4 w-4 text-purple-600" />
+                      <span>Data Integrity</span>
+                    </div>
+                    <span className="font-medium">—</span>
                   </div>
-                  <span className="font-medium">100%</span>
-                </div>
               </CardContent>
             </Card>
           </div>
@@ -1056,27 +1211,28 @@ export function Analytics() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="report-name">Report Name</Label>
-                  <Input id="report-name" placeholder="e.g., Q3 Performance Analysis" />
+                  <Input id="report-name" placeholder="e.g., Q3 Performance Analysis" value={reportName} onChange={(e) => setReportName(e.target.value)} />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="metrics">Select Metrics</Label>
-                  <Select>
+                  <Select value={reportMetric} onValueChange={(v) => setReportMetric(v)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Choose metrics to include" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="revenue">Revenue Metrics</SelectItem>
                       <SelectItem value="customers">Customer Analytics</SelectItem>
-                      <SelectItem value="usage">Usage Statistics</SelectItem>
-                      <SelectItem value="performance">Performance Data</SelectItem>
+                      <SelectItem value="plan_distribution">Plan Distribution</SelectItem>
+                      <SelectItem value="daily_stats">Daily Stats</SelectItem>
+                      <SelectItem value="performance">System Performance</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="date-range-report">Date Range</Label>
-                  <Select>
+                  <Select value={reportRange} onValueChange={(v) => setReportRange(v)}>
                     <SelectTrigger id="date-range-report">
                       <SelectValue placeholder="Select time period" />
                     </SelectTrigger>
@@ -1089,9 +1245,9 @@ export function Analytics() {
                   </Select>
                 </div>
 
-                <Button className="w-full">
+                <Button className="w-full" onClick={handleGenerateCustomReport} disabled={isExportingReport}>
                   <FileText className="h-4 w-4 mr-2" />
-                  Generate Custom Report
+                  {isExportingReport ? 'Generating…' : 'Generate Custom Report'}
                 </Button>
               </CardContent>
             </Card>

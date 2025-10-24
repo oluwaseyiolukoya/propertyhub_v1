@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/db';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { emitToCustomer } from '../lib/socket';
 
 const router = express.Router();
 
@@ -22,7 +23,7 @@ router.post('/login', async (req: Request, res: Response) => {
         console.log('🔍 Admin login attempt:', { email, userType });
         
         // First, try Super Admin table
-        const admin = await prisma.admin.findUnique({ where: { email } });
+        const admin = await prisma.admins.findUnique({ where: { email } });
         console.log('🔍 Super Admin found:', admin ? `Yes (${admin.email})` : 'No');
         
         if (admin) {
@@ -42,7 +43,7 @@ router.post('/login', async (req: Request, res: Response) => {
 
           // Update last login for Super Admin
           try {
-            await prisma.admin.update({
+            await prisma.admins.update({
               where: { id: admin.id },
               data: { lastLogin: new Date() }
             });
@@ -53,7 +54,7 @@ router.post('/login', async (req: Request, res: Response) => {
           const token = jwt.sign(
             { id: admin.id, email: admin.email, role: admin.role },
             process.env.JWT_SECRET || 'secret',
-            { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+            { expiresIn: process.env.JWT_EXPIRES_IN || '24h' } // Session-based: expires in 24 hours or when browser closes
           );
 
           console.log('✅ Super Admin login successful');
@@ -71,7 +72,7 @@ router.post('/login', async (req: Request, res: Response) => {
 
         // If not Super Admin, try Internal Admin Users (customerId = null)
         console.log('🔍 Checking Internal Admin Users table...');
-        const internalUser = await prisma.user.findUnique({ 
+        const internalUser = await prisma.users.findUnique({ 
           where: { email }
         });
         console.log('🔍 Internal Admin User found:', internalUser ? `Yes (${internalUser.email})` : 'No');
@@ -92,7 +93,7 @@ router.post('/login', async (req: Request, res: Response) => {
           }
 
           // Update last login
-          await prisma.user.update({
+          await prisma.users.update({
             where: { id: internalUser.id },
             data: { lastLogin: new Date() }
           });
@@ -100,7 +101,7 @@ router.post('/login', async (req: Request, res: Response) => {
           const token = jwt.sign(
             { id: internalUser.id, email: internalUser.email, role: internalUser.role },
             process.env.JWT_SECRET || 'secret',
-            { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+            { expiresIn: process.env.JWT_EXPIRES_IN || '24h' } // Session-based: expires in 24 hours or when browser closes
           );
 
           console.log('✅ Internal Admin User login successful');
@@ -122,9 +123,9 @@ router.post('/login', async (req: Request, res: Response) => {
       }
 
       // For other user types (owner, manager, tenant)
-      const user = await prisma.user.findUnique({
+      const user = await prisma.users.findUnique({
         where: { email },
-        include: { customer: true }
+        include: { customers: true }
       });
 
       if (!user || !user.password) {
@@ -142,7 +143,7 @@ router.post('/login', async (req: Request, res: Response) => {
       }
 
       // Update last login
-      await prisma.user.update({
+      await prisma.users.update({
         where: { id: user.id },
         data: { lastLogin: new Date() }
       });
@@ -161,7 +162,7 @@ router.post('/login', async (req: Request, res: Response) => {
       const token = jwt.sign(
         { id: user.id, email: user.email, role: user.role, customerId: user.customerId },
         process.env.JWT_SECRET || 'secret',
-        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+        { expiresIn: process.env.JWT_EXPIRES_IN || '24h' } // Session-based: expires in 24 hours or when browser closes
       );
 
       return res.json({
@@ -173,7 +174,7 @@ router.post('/login', async (req: Request, res: Response) => {
           role: user.role,
           userType: derivedUserType,
           customerId: user.customerId,
-          customer: user.customer
+          customer: user.customers
         }
       });
     } catch (dbError) {
@@ -198,7 +199,7 @@ router.post('/setup-password', async (req: Request, res: Response) => {
     }
 
     // Verify invitation token (simplified for now)
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.users.findUnique({ where: { email } });
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -210,7 +211,7 @@ router.post('/setup-password', async (req: Request, res: Response) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    await prisma.user.update({
+    await prisma.users.update({
       where: { id: user.id },
       data: {
         password: hashedPassword,
@@ -264,7 +265,7 @@ router.get('/validate-session', authMiddleware, async (req: AuthRequest, res: Re
     }
 
     // 1) Check Super Admins table
-    const admin = await prisma.admin.findUnique({
+    const admin = await prisma.admins.findUnique({
       where: { id: tokenUser.id },
       select: { isActive: true }
     });
@@ -282,7 +283,7 @@ router.get('/validate-session', authMiddleware, async (req: AuthRequest, res: Re
     }
 
     // 2) Check Users table (internal admins and customer users)
-    const dbUser = await prisma.user.findUnique({
+    const dbUser = await prisma.users.findUnique({
       where: { id: tokenUser.id },
       select: { 
         role: true,
@@ -349,13 +350,28 @@ router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) =
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // Fetch user with customer details
-    const user = await prisma.user.findUnique({
+    // If token belongs to Super Admin, return admin account info
+    const admin = await prisma.admins.findUnique({ where: { id: userId } });
+    if (admin) {
+      return res.json({
+        user: {
+          id: admin.id,
+          name: admin.name,
+          email: admin.email,
+          role: admin.role,
+          status: admin.isActive ? 'active' : 'inactive'
+        },
+        customer: null
+      });
+    }
+
+    // Fetch user with customer details (internal admin users and customer users)
+    const user = await prisma.users.findUnique({
       where: { id: userId },
       include: {
-        customer: {
+        customers: {
           include: {
-            plan: true
+            plans: true
           }
         }
       }
@@ -366,37 +382,60 @@ router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) =
     }
 
     // Return relevant account information
+    const customer = (user as any).customers || null;
+    const plan = customer?.plans || null;
+
+    // Derive userType from role (same logic as login)
+    const roleLower = (user.role || '').toLowerCase();
+    const derivedUserType = roleLower === 'owner' || roleLower === 'property-owner' || roleLower === 'property owner'
+      ? 'owner'
+      : roleLower === 'manager' || roleLower === 'property-manager' || roleLower === 'property manager'
+        ? 'manager'
+        : roleLower === 'tenant'
+          ? 'tenant'
+          : user.customerId ? 'owner' : 'admin'; // default to owner for customer users, admin for internal
+
     res.json({
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
-        status: user.status
+        status: user.status,
+        customerId: user.customerId, // Add customerId so frontend can determine internal vs customer user
+        userType: derivedUserType // Add userType so frontend knows which dashboard to show
       },
-      customer: user.customer ? {
-        id: user.customer.id,
-        company: user.customer.company,
-        owner: user.customer.owner,
-        email: user.customer.email,
-        phone: user.customer.phone,
-        website: user.customer.website,
-        status: user.customer.status,
-        billingCycle: user.customer.billingCycle,
-        propertyLimit: user.customer.propertyLimit,
-        userLimit: user.customer.userLimit,
-        storageLimit: user.customer.storageLimit,
-        propertiesCount: user.customer.propertiesCount,
-        unitsCount: user.customer.unitsCount,
-        subscriptionStartDate: user.customer.subscriptionStartDate,
-        trialEndsAt: user.customer.trialEndsAt,
-        plan: user.customer.plan ? {
-          name: user.customer.plan.name,
-          description: user.customer.plan.description,
-          monthlyPrice: user.customer.plan.monthlyPrice,
-          annualPrice: user.customer.plan.annualPrice,
-          currency: user.customer.plan.currency,
-          features: user.customer.plan.features
+      customer: customer ? {
+        id: customer.id,
+        company: customer.company,
+        owner: customer.owner,
+        email: customer.email,
+        phone: customer.phone,
+        website: customer.website,
+        // Address fields for owner profile autofill
+        street: customer.street,
+        city: customer.city,
+        state: customer.state,
+        postalCode: customer.postalCode,
+        country: customer.country,
+        // Alias for frontend code expecting zipCode
+        zipCode: customer.postalCode,
+        status: customer.status,
+        billingCycle: customer.billingCycle,
+        propertyLimit: customer.propertyLimit,
+        userLimit: customer.userLimit,
+        storageLimit: customer.storageLimit,
+        propertiesCount: customer.propertiesCount,
+        unitsCount: customer.unitsCount,
+        subscriptionStartDate: customer.subscriptionStartDate,
+        trialEndsAt: customer.trialEndsAt,
+        plan: plan ? {
+          name: plan.name,
+          description: plan.description,
+          monthlyPrice: plan.monthlyPrice,
+          annualPrice: plan.annualPrice,
+          currency: plan.currency,
+          features: plan.features
         } : null
       } : null
     });
@@ -404,6 +443,88 @@ router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) =
   } catch (error: any) {
     console.error('Get account error:', error);
     res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
+// Owner/Manager self-service account update (no admin required)
+router.put('/account', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const tokenCustomerId = (req.user as any)?.customerId || null;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const user = await prisma.users.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const customerId = tokenCustomerId || user.customerId;
+    if (!customerId) {
+      return res.status(403).json({ error: 'Access denied. Admin only.' });
+    }
+
+    const {
+      owner,
+      phone,
+      street,
+      city,
+      state,
+      zipCode,
+      postalCode,
+      country,
+      company,
+      taxId,
+      website,
+      industry,
+      companySize
+    } = req.body || {};
+
+    const customerData: any = {};
+    if (typeof owner === 'string') customerData.owner = owner;
+    if (typeof phone === 'string') customerData.phone = phone;
+    if (typeof street === 'string') customerData.street = street;
+    if (typeof city === 'string') customerData.city = city;
+    if (typeof state === 'string') customerData.state = state;
+    const resolvedPostal = (postalCode ?? zipCode);
+    if (typeof resolvedPostal === 'string') customerData.postalCode = resolvedPostal;
+    if (typeof country === 'string') customerData.country = country;
+    if (typeof company === 'string') customerData.company = company;
+    if (typeof taxId === 'string') customerData.taxId = taxId;
+    if (typeof website === 'string') customerData.website = website;
+    if (typeof industry === 'string') customerData.industry = industry;
+    if (typeof companySize === 'string') customerData.companySize = companySize;
+
+    const updatedCustomer = await prisma.customers.update({
+      where: { id: customerId },
+      data: customerData,
+      include: { plans: true }
+    });
+
+    try {
+      if (owner || phone) {
+        await prisma.users.updateMany({
+          where: { customerId, role: 'owner' },
+          data: {
+            ...(owner && { name: owner }),
+            ...(phone && { phone })
+          }
+        });
+      }
+    } catch (e) {
+      console.warn('Owner sync warn:', e);
+    }
+
+    try {
+      emitToCustomer(customerId, 'account:updated', { customer: updatedCustomer });
+    } catch {}
+
+    return res.json({ success: true, customer: updatedCustomer });
+  } catch (error: any) {
+    console.error('Update account error:', error);
+    return res.status(500).json({ error: 'Failed to update account' });
   }
 });
 

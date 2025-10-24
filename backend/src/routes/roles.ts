@@ -10,7 +10,7 @@ router.use(adminOnly);
 // Get all roles
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const roles = await prisma.role.findMany({
+    const roles = await prisma.roles.findMany({
       orderBy: { createdAt: 'desc' }
     });
     return res.json(roles);
@@ -28,7 +28,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Name is required' });
     }
 
-    const role = await prisma.role.create({
+    const role = await prisma.roles.create({
       data: {
         name,
         description,
@@ -49,7 +49,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const { name, description, permissions, isActive } = req.body;
 
-    const role = await prisma.role.update({
+    const role = await prisma.roles.update({
       where: { id },
       data: { name, description, permissions, isActive }
     });
@@ -65,13 +65,13 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
-    const role = await prisma.role.findUnique({ where: { id } });
+    const role = await prisma.roles.findUnique({ where: { id } });
 
     if (role?.isSystem) {
       return res.status(400).json({ error: 'Cannot delete system role' });
     }
 
-    await prisma.role.delete({ where: { id } });
+    await prisma.roles.delete({ where: { id } });
 
     return res.json({ message: 'Role deleted successfully' });
   } catch (error: any) {

@@ -9,8 +9,8 @@ export interface BillingPlan {
   id: string;
   name: string;
   description?: string;
-  priceMonthly: number;
-  priceYearly?: number;
+  monthlyPrice: number;
+  annualPrice?: number;
   currency: string;
   propertyLimit: number;
   userLimit: number;

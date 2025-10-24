@@ -46,7 +46,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     // Try database first
     try {
       // Fetch Super Admins from admins table
-      const admins = await prisma.admin.findMany({
+      const admins = await prisma.admins.findMany({
         orderBy: { createdAt: 'desc' }
       });
 
@@ -72,7 +72,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         where.role = role;
       }
 
-      const internalUsers = await prisma.user.findMany({
+      const internalUsers = await prisma.users.findMany({
         where,
         orderBy: { createdAt: 'desc' }
       });
@@ -143,10 +143,10 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id },
       include: {
-        customer: true,
+        customers: true,
         properties: {
           select: {
             id: true,
@@ -193,7 +193,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     }
 
     // Check if email already exists
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prisma.users.findUnique({
       where: { email }
     });
 
@@ -205,7 +205,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-2).toUpperCase();
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
-    const user = await prisma.user.create({
+    const user = await prisma.users.create({
       data: {
         customerId: null, // INTERNAL ADMIN USER - not associated with any customer
         name,
@@ -263,7 +263,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     } = req.body;
 
     // Get existing user to check if role/permissions changed
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prisma.users.findUnique({
       where: { id }
     });
 
@@ -271,7 +271,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const user = await prisma.user.update({
+    const user = await prisma.users.update({
       where: { id },
       data: {
         name,
@@ -331,7 +331,7 @@ router.post('/:id/reset-password', async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
 
     // Find the user
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id }
     });
 
@@ -346,7 +346,7 @@ router.post('/:id/reset-password', async (req: AuthRequest, res: Response) => {
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
     // Update user's password in the database
-    await prisma.user.update({
+    await prisma.users.update({
       where: { id },
       data: {
         password: hashedPassword
@@ -372,7 +372,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id }
     });
 
@@ -380,7 +380,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    await prisma.user.delete({ where: { id } });
+    await prisma.users.delete({ where: { id } });
 
     console.log('✅ Internal admin user deleted:', user.email);
 

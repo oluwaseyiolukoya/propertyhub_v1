@@ -1,6 +1,7 @@
 import express, { Response } from 'express';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import prisma from '../lib/db';
+import { emitToAdmins, emitToCustomer } from '../lib/socket';
 
 const router = express.Router();
 
@@ -22,7 +23,7 @@ router.get('/manager/overview', async (req: AuthRequest, res: Response) => {
     if (role === 'owner') {
       where.ownerId = userId;
     } else if (role === 'manager') {
-      where.managers = {
+      where.property_managers = {
         some: {
           managerId: userId,
           isActive: true
@@ -35,7 +36,7 @@ router.get('/manager/overview', async (req: AuthRequest, res: Response) => {
     }
 
     // Get properties
-    const properties = await prisma.property.findMany({
+    const properties = await prisma.properties.findMany({
       where,
       include: {
         _count: {
@@ -51,15 +52,15 @@ router.get('/manager/overview', async (req: AuthRequest, res: Response) => {
 
     // Get total units and occupancy
     const [totalUnits, occupiedUnits, vacantUnits] = await Promise.all([
-      prisma.unit.count({ where: { propertyId: { in: propertyIds } } }),
-      prisma.unit.count({ where: { propertyId: { in: propertyIds }, status: 'occupied' } }),
-      prisma.unit.count({ where: { propertyId: { in: propertyIds }, status: 'vacant' } })
+      prisma.units.count({ where: { propertyId: { in: propertyIds } } }),
+      prisma.units.count({ where: { propertyId: { in: propertyIds }, status: 'occupied' } }),
+      prisma.units.count({ where: { propertyId: { in: propertyIds }, status: 'vacant' } })
     ]);
 
     const occupancyRate = totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0;
 
     // Get active leases
-    const activeLeases = await prisma.lease.count({
+    const activeLeases = await prisma.leases.count({
       where: {
         propertyId: { in: propertyIds },
         status: 'active'
@@ -67,7 +68,7 @@ router.get('/manager/overview', async (req: AuthRequest, res: Response) => {
     });
 
     // Get expiring leases (next 30 days)
-    const expiringLeases = await prisma.lease.count({
+    const expiringLeases = await prisma.leases.count({
       where: {
         propertyId: { in: propertyIds },
         status: 'active',
@@ -78,60 +79,13 @@ router.get('/manager/overview', async (req: AuthRequest, res: Response) => {
       }
     });
 
-    // Get monthly revenue (current month)
-    const currentMonthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    const monthlyRevenue = await prisma.payment.aggregate({
-      where: {
-        lease: {
-          propertyId: { in: propertyIds }
-        },
-        status: 'completed',
-        paymentDate: { gte: currentMonthStart }
-      },
-      _sum: { amount: true }
-    });
-
-    // Get pending maintenance
-    const [openMaintenance, urgentMaintenance] = await Promise.all([
-      prisma.maintenanceRequest.count({
-        where: {
-          propertyId: { in: propertyIds },
-          status: { in: ['open', 'in_progress'] }
-        }
-      }),
-      prisma.maintenanceRequest.count({
-        where: {
-          propertyId: { in: propertyIds },
-          status: { in: ['open', 'in_progress'] },
-          priority: { in: ['high', 'urgent'] }
-        }
-      })
-    ]);
-
-    // Get recent activities
-    const recentActivities = await prisma.activityLog.findMany({
-      where: {
-        userId,
-        entity: { in: ['property', 'unit', 'lease', 'maintenance_request', 'payment'] }
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 10
-    });
-
-    // Get upcoming tasks (lease renewals, scheduled maintenance)
-    const upcomingTasks = {
-      leaseRenewals: expiringLeases,
-      scheduledMaintenance: await prisma.maintenanceRequest.count({
-        where: {
-          propertyId: { in: propertyIds },
-          status: 'scheduled',
-          scheduledDate: {
-            gte: new Date(),
-            lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // Next 7 days
-          }
-        }
-      })
-    };
+    // TODO: payments and maintenance_requests tables don't exist yet
+    // These will be added in future migrations
+    const monthlyRevenue = { _sum: { amount: 0 } };
+    const openMaintenance = 0;
+    const urgentMaintenance = 0;
+    const recentActivities: any[] = [];
+    const scheduledMaintenanceCount = 0;
 
     return res.json({
       properties: {
@@ -161,12 +115,23 @@ router.get('/manager/overview', async (req: AuthRequest, res: Response) => {
         urgent: urgentMaintenance
       },
       recentActivities,
-      upcomingTasks
+      upcomingTasks: {
+        leaseRenewals: expiringLeases,
+        scheduledMaintenance: scheduledMaintenanceCount
+      }
     });
 
   } catch (error: any) {
-    console.error('Get manager dashboard overview error:', error);
-    return res.status(500).json({ error: 'Failed to fetch dashboard overview' });
+    console.error('❌ Get manager dashboard overview error:', error);
+    console.error('❌ Error details:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code
+    });
+    return res.status(500).json({ 
+      error: 'Failed to fetch dashboard overview',
+      details: error.message 
+    });
   }
 });
 
@@ -311,90 +276,53 @@ router.get('/owner/overview', async (req: AuthRequest, res: Response) => {
     // Try database first
     try {
       // Get all properties
-      const properties = await prisma.property.findMany({
-      where: { ownerId: userId },
-      include: {
-        _count: {
-          select: {
-            units: true,
-            leases: true
+      const properties = await prisma.properties.findMany({
+        where: { ownerId: userId },
+        include: {
+          _count: {
+            select: {
+              units: true,
+              leases: true
+            }
           }
         }
-      }
-    });
+      });
 
-    const propertyIds = properties.map(p => p.id);
+      const propertyIds = properties.map(p => p.id);
 
-    // Get portfolio value
-    const portfolioValue = properties.reduce((sum, p) => sum + (p.marketValue || 0), 0);
+      // Portfolio value (not modeled) → 0 for now
+      const portfolioValue = 0;
 
-    // Get total units and occupancy
-    const [totalUnits, occupiedUnits] = await Promise.all([
-      prisma.unit.count({ where: { propertyId: { in: propertyIds } } }),
-      prisma.unit.count({ where: { propertyId: { in: propertyIds }, status: 'occupied' } })
-    ]);
+      // Total units and occupancy
+      const [totalUnits, occupiedUnits] = await Promise.all([
+        prisma.units.count({ where: { propertyId: { in: propertyIds } } }),
+        prisma.units.count({ where: { propertyId: { in: propertyIds }, status: 'occupied' } })
+      ]);
 
-    const occupancyRate = totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0;
+      const occupancyRate = totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0;
 
-    // Get monthly revenue
-    const currentMonthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    const [currentMonthRevenue, lastMonthRevenue, yearToDateRevenue] = await Promise.all([
-      prisma.payment.aggregate({
+      // Monthly revenue from occupied units' monthlyRent
+      const monthlyIncome = await prisma.units.aggregate({
+        where: { propertyId: { in: propertyIds }, status: 'occupied' },
+        _sum: { monthlyRent: true }
+      });
+
+      // Active managers via property_managers
+      const activeManagers = await prisma.property_managers.count({
+        where: { propertyId: { in: propertyIds }, isActive: true }
+      });
+
+      // Pending maintenance not modeled → 0
+      const pendingMaintenance = 0;
+
+      // Expiring leases (next 60 days)
+      const expiringLeases = await prisma.leases.count({
         where: {
-          lease: { propertyId: { in: propertyIds } },
-          status: 'completed',
-          paymentDate: { gte: currentMonthStart }
-        },
-        _sum: { amount: true }
-      }),
-      prisma.payment.aggregate({
-        where: {
-          lease: { propertyId: { in: propertyIds } },
-          status: 'completed',
-          paymentDate: {
-            gte: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1),
-            lt: currentMonthStart
-          }
-        },
-        _sum: { amount: true }
-      }),
-      prisma.payment.aggregate({
-        where: {
-          lease: { propertyId: { in: propertyIds } },
-          status: 'completed',
-          paymentDate: { gte: new Date(new Date().getFullYear(), 0, 1) }
-        },
-        _sum: { amount: true }
-      })
-    ]);
-
-    // Get active managers count
-    const activeManagers = await prisma.propertyManager.count({
-      where: {
-        propertyId: { in: propertyIds },
-        isActive: true
-      }
-    });
-
-    // Get pending maintenance
-    const pendingMaintenance = await prisma.maintenanceRequest.count({
-      where: {
-        propertyId: { in: propertyIds },
-        status: { in: ['open', 'in_progress'] }
-      }
-    });
-
-    // Get expiring leases (next 60 days)
-    const expiringLeases = await prisma.lease.count({
-      where: {
-        propertyId: { in: propertyIds },
-        status: 'active',
-        endDate: {
-          lte: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
-          gte: new Date()
+          propertyId: { in: propertyIds },
+          status: 'active',
+          endDate: { lte: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), gte: new Date() }
         }
-      }
-    });
+      });
 
     return res.json({
       portfolio: {
@@ -405,13 +333,42 @@ router.get('/owner/overview', async (req: AuthRequest, res: Response) => {
         occupancyRate: Math.round(occupancyRate * 10) / 10
       },
       revenue: {
-        currentMonth: currentMonthRevenue._sum.amount || 0,
-        lastMonth: lastMonthRevenue._sum.amount || 0,
-        yearToDate: yearToDateRevenue._sum.amount || 0,
-        monthOverMonth: lastMonthRevenue._sum.amount 
-          ? ((currentMonthRevenue._sum.amount || 0) - (lastMonthRevenue._sum.amount || 0)) / (lastMonthRevenue._sum.amount || 1) * 100
-          : 0
+        currentMonth: monthlyIncome._sum.monthlyRent || 0
       },
+      collection: await (async () => {
+        // Approximate collection rate from units rent: occupied vs all
+        const [collectedUnits, allUnits] = await Promise.all([
+          prisma.units.aggregate({
+            where: { propertyId: { in: propertyIds }, status: 'occupied' },
+            _sum: { monthlyRent: true }
+          }),
+          prisma.units.aggregate({
+            where: { propertyId: { in: propertyIds } },
+            _sum: { monthlyRent: true }
+          })
+        ]);
+        const collectedAmt = collectedUnits._sum.monthlyRent || 0;
+        const expectedAmt = allUnits._sum.monthlyRent || 0;
+        const rate = expectedAmt > 0 ? (collectedAmt / expectedAmt) * 100 : 0;
+        return { collected: collectedAmt, expected: expectedAmt, rate: Math.round(rate * 10) / 10 };
+      })(),
+      recentActivity: await (async () => {
+        // Pull last 10 activities for this owner's properties
+        const logs = await prisma.activity_logs.findMany({
+          where: {
+            OR: [
+              { entity: 'property', entityId: { in: propertyIds } },
+              { entity: 'unit' },
+              { entity: 'lease' },
+              { entity: 'maintenance_request' },
+              { entity: 'payment' }
+            ]
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 10
+        });
+        return logs;
+      })(),
       operations: {
         activeManagers,
         pendingMaintenance,
@@ -420,38 +377,14 @@ router.get('/owner/overview', async (req: AuthRequest, res: Response) => {
       properties: properties.map(p => ({
         id: p.id,
         name: p.name,
-        value: p.marketValue,
+        value: 0,
         units: p._count.units,
         activeLeases: p._count.leases
       }))
     });
     } catch (dbError) {
-      // Database not available, return mock data
-      console.log('📝 Using mock owner dashboard data');
-      return res.json({
-        portfolio: {
-          totalProperties: 2,
-          totalValue: 5000000,
-          totalUnits: 36,
-          occupiedUnits: 34,
-          occupancyRate: 94.4
-        },
-        revenue: {
-          currentMonth: 61000,
-          lastMonth: 58000,
-          yearToDate: 350000,
-          monthOverMonth: 5.2
-        },
-        operations: {
-          activeManagers: 1,
-          pendingMaintenance: 3,
-          expiringLeases: 2
-        },
-        properties: [
-          { id: 'prop-1', name: 'Sunset Apartments', value: 3200000, units: 24, activeLeases: 22 },
-          { id: 'prop-2', name: 'Downtown Plaza', value: 1800000, units: 12, activeLeases: 12 }
-        ]
-      });
+      // Database not available
+      return res.status(500).json({ error: 'Failed to fetch dashboard overview' });
     }
 
   } catch (error: any) {
@@ -461,5 +394,38 @@ router.get('/owner/overview', async (req: AuthRequest, res: Response) => {
 });
 
 export default router;
+
+// Owner: Cancel subscription (best-practice: owner-scoped endpoint)
+router.post('/owner/subscription/cancel', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const role = (req.user?.role || '').toLowerCase();
+
+    if (role !== 'owner' && role !== 'property owner' && role !== 'property_owner') {
+      return res.status(403).json({ error: 'Access denied. Owner only.' });
+    }
+
+    // Resolve owner's customerId
+    const user = await prisma.user.findUnique({ where: { id: userId || '' } });
+    if (!user || !user.customerId) {
+      return res.status(404).json({ error: 'Owner account not linked to a customer' });
+    }
+
+    // Update customer status to cancelled
+    const customer = await prisma.customer.update({
+      where: { id: user.customerId },
+      data: { status: 'cancelled' }
+    });
+
+    // Emit realtime updates
+    try { emitToAdmins('customer:updated', { customer }); } catch {}
+    try { emitToCustomer(customer.id, 'account:updated', { customer }); } catch {}
+
+    return res.json({ message: 'Subscription cancelled', customer });
+  } catch (error: any) {
+    console.error('Owner cancel subscription error:', error);
+    return res.status(500).json({ error: 'Failed to cancel subscription' });
+  }
+});
 
 

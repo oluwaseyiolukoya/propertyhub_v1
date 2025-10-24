@@ -15,10 +15,10 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     const role = req.user?.role;
 
     const where: any = {
-      property: {
+      properties: {
         OR: [
           { ownerId: userId },
-          { managers: { some: { managerId: userId, isActive: true } } }
+          { property_managers: { some: { managerId: userId, isActive: true } } }
         ]
       }
     };
@@ -40,10 +40,10 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       };
     }
 
-    const leases = await prisma.lease.findMany({
+    const leases = await prisma.leases.findMany({
       where,
       include: {
-        property: {
+        properties: {
           select: {
             id: true,
             name: true,
@@ -52,7 +52,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
             state: true
           }
         },
-        unit: {
+        units: {
           select: {
             id: true,
             unitNumber: true,
@@ -61,7 +61,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
             bathrooms: true
           }
         },
-        tenant: {
+        users: {
           select: {
             id: true,
             name: true,
@@ -79,7 +79,11 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
   } catch (error: any) {
     console.error('Get leases error:', error);
-    return res.status(500).json({ error: 'Failed to fetch leases' });
+    console.error('Error details:', error.message, error.stack);
+    return res.status(500).json({ 
+      error: 'Failed to fetch leases',
+      details: error.message 
+    });
   }
 });
 
@@ -89,20 +93,20 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const userId = req.user?.id;
 
-    const lease = await prisma.lease.findFirst({
+    const lease = await prisma.leases.findFirst({
       where: {
         id,
-        property: {
+        properties: {
           OR: [
             { ownerId: userId },
-            { managers: { some: { managerId: userId, isActive: true } } }
+            { property_managers: { some: { managerId: userId, isActive: true } } }
           ]
         }
       },
       include: {
-        property: true,
-        unit: true,
-        tenant: {
+        properties: true,
+        units: true,
+        users: {
           select: {
             id: true,
             name: true,
@@ -158,12 +162,12 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     }
 
     // Check property access
-    const property = await prisma.property.findFirst({
+    const property = await prisma.properties.findFirst({
       where: {
         id: propertyId,
         OR: [
           { ownerId: userId },
-          { managers: { some: { managerId: userId, isActive: true } } }
+          { property_managers: { some: { managerId: userId, isActive: true } } }
         ]
       }
     });
@@ -173,7 +177,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     }
 
     // Check unit availability
-    const unit = await prisma.unit.findFirst({
+    const unit = await prisma.units.findFirst({
       where: {
         id: unitId,
         propertyId,
@@ -186,7 +190,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     }
 
     // Check for overlapping leases
-    const overlappingLease = await prisma.lease.findFirst({
+    const overlappingLease = await prisma.leases.findFirst({
       where: {
         unitId,
         status: 'active',
@@ -214,38 +218,49 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     }
 
     // Create or find tenant
-    let tenant = await prisma.user.findFirst({
+    let tenant = await prisma.users.findFirst({
       where: {
         customerId,
         email: tenantEmail
       }
     });
 
+    let tempPassword: string | null = null; // Store password to return in response
+
     if (!tenant) {
       // Create new tenant user
-      const tempPassword = Math.random().toString(36).slice(-8);
+      tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase();
       const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
-      tenant = await prisma.user.create({
+      tenant = await prisma.users.create({
         data: {
+          id: require('crypto').randomUUID(),
           customerId,
           name: tenantName,
           email: tenantEmail,
-          password: sendInvitation ? null : hashedPassword,
+          password: hashedPassword, // Always set password, no invitation system for tenants
           phone: tenantPhone,
           role: 'tenant',
-          status: sendInvitation ? 'pending' : 'active',
-          invitedAt: sendInvitation ? new Date() : null
+          status: 'active', // Always set to active so tenants can log in immediately
+          isActive: true, // Explicitly set isActive to true
+          invitedAt: null,
+          updatedAt: new Date()
         }
       });
+
+      console.log('✅ New tenant created with email:', tenantEmail);
+      console.log('🔐 Generated password for tenant:', tempPassword);
+    } else {
+      console.log('ℹ️  Existing tenant found:', tenantEmail);
     }
 
     // Generate lease number
     const leaseNumber = `LSE-${Date.now()}`;
 
     // Create lease
-    const lease = await prisma.lease.create({
+    const lease = await prisma.leases.create({
       data: {
+        id: require('crypto').randomUUID(),
         propertyId,
         unitId,
         tenantId: tenant.id,
@@ -258,10 +273,11 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         status: 'active',
         terms,
         specialClauses,
-        signedAt: new Date()
+        signedAt: new Date(),
+        updatedAt: new Date()
       },
       include: {
-        tenant: {
+        users: {
           select: {
             id: true,
             name: true,
@@ -269,13 +285,13 @@ router.post('/', async (req: AuthRequest, res: Response) => {
             phone: true
           }
         },
-        property: {
+        properties: {
           select: {
             id: true,
             name: true
           }
         },
-        unit: {
+        units: {
           select: {
             id: true,
             unitNumber: true
@@ -285,18 +301,22 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     });
 
     // Update unit status
-    await prisma.unit.update({
+    await prisma.units.update({
       where: { id: unitId },
-      data: { status: 'occupied' }
+      data: { 
+        status: 'occupied',
+        updatedAt: new Date()
+      }
     });
 
     // Log activity
-    await prisma.activityLog.create({
+    await prisma.activity_logs.create({
       data: {
+        id: require('crypto').randomUUID(),
         customerId,
         userId,
-        action: 'create',
-        entity: 'lease',
+        action: 'LEASE_CREATED',
+        entity: 'Lease',
         entityId: lease.id,
         description: `Lease ${leaseNumber} created for ${tenantName}`
       }
@@ -307,12 +327,16 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     return res.status(201).json({
       lease,
       tenant,
-      ...(!sendInvitation && { tempPassword: 'tenant123' })
+      ...(tempPassword && { tempPassword }) // Return actual generated password if tenant was newly created
     });
 
   } catch (error: any) {
     console.error('Create lease error:', error);
-    return res.status(500).json({ error: 'Failed to create lease' });
+    console.error('Error details:', error.message, error.stack);
+    return res.status(500).json({ 
+      error: 'Failed to create lease',
+      details: error.message 
+    });
   }
 });
 
@@ -323,17 +347,17 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     const userId = req.user?.id;
 
     // Check access
-    const existingLease = await prisma.lease.findFirst({
+    const existingLease = await prisma.leases.findFirst({
       where: {
         id,
-        property: {
+        properties: {
           OR: [
             { ownerId: userId },
-            { managers: { some: { managerId: userId, isActive: true } } }
+            { property_managers: { some: { managerId: userId, isActive: true } } }
           ]
         }
       },
-      include: { property: true }
+      include: { properties: true }
     });
 
     if (!existingLease) {
@@ -351,7 +375,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       terminationReason
     } = req.body;
 
-    const lease = await prisma.lease.update({
+    const lease = await prisma.leases.update({
       where: { id },
       data: {
         startDate: startDate ? new Date(startDate) : undefined,
@@ -362,25 +386,30 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         terms,
         specialClauses,
         terminationReason,
-        terminatedAt: status === 'terminated' ? new Date() : undefined
+        terminatedAt: status === 'terminated' ? new Date() : undefined,
+        updatedAt: new Date()
       }
     });
 
     // If lease is terminated, update unit status
     if (status === 'terminated' || status === 'expired') {
-      await prisma.unit.update({
+      await prisma.units.update({
         where: { id: existingLease.unitId },
-        data: { status: 'vacant' }
+        data: { 
+          status: 'vacant',
+          updatedAt: new Date()
+        }
       });
     }
 
     // Log activity
-    await prisma.activityLog.create({
+    await prisma.activity_logs.create({
       data: {
-        customerId: existingLease.property.customerId,
+        id: require('crypto').randomUUID(),
+        customerId: existingLease.properties.customerId,
         userId,
-        action: 'update',
-        entity: 'lease',
+        action: 'LEASE_UPDATED',
+        entity: 'Lease',
         entityId: lease.id,
         description: `Lease ${lease.leaseNumber} updated`
       }
@@ -401,45 +430,50 @@ router.post('/:id/terminate', async (req: AuthRequest, res: Response) => {
     const { reason } = req.body;
     const userId = req.user?.id;
 
-    const lease = await prisma.lease.findFirst({
+    const lease = await prisma.leases.findFirst({
       where: {
         id,
-        property: {
+        properties: {
           OR: [
             { ownerId: userId },
-            { managers: { some: { managerId: userId, isActive: true } } }
+            { property_managers: { some: { managerId: userId, isActive: true } } }
           ]
         }
       },
-      include: { property: true }
+      include: { properties: true }
     });
 
     if (!lease) {
       return res.status(404).json({ error: 'Lease not found or access denied' });
     }
 
-    const updatedLease = await prisma.lease.update({
+    const updatedLease = await prisma.leases.update({
       where: { id },
       data: {
         status: 'terminated',
         terminatedAt: new Date(),
-        terminationReason: reason
+        terminationReason: reason,
+        updatedAt: new Date()
       }
     });
 
     // Update unit status
-    await prisma.unit.update({
+    await prisma.units.update({
       where: { id: lease.unitId },
-      data: { status: 'vacant' }
+      data: { 
+        status: 'vacant',
+        updatedAt: new Date()
+      }
     });
 
     // Log activity
-    await prisma.activityLog.create({
+    await prisma.activity_logs.create({
       data: {
-        customerId: lease.property.customerId,
+        id: require('crypto').randomUUID(),
+        customerId: lease.properties.customerId,
         userId,
-        action: 'terminate',
-        entity: 'lease',
+        action: 'LEASE_TERMINATED',
+        entity: 'Lease',
         entityId: lease.id,
         description: `Lease ${lease.leaseNumber} terminated`
       }
@@ -476,7 +510,7 @@ router.get('/tenants/list', async (req: AuthRequest, res: Response) => {
       where.status = status;
     }
 
-    const tenants = await prisma.user.findMany({
+    const tenants = await prisma.users.findMany({
       where,
       select: {
         id: true,

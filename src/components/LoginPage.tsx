@@ -110,6 +110,14 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
         toast.success('Login successful!');
         // Use userType returned by backend (derived from role/customerId)
         const resolvedUserType = response.data.user.userType || backendUserType;
+        
+        console.log('📡 LoginPage - Backend Response:');
+        console.log('   - backendUserType:', backendUserType);
+        console.log('   - response.data.user.userType:', response.data.user.userType);
+        console.log('   - resolvedUserType:', resolvedUserType);
+        console.log('   - user.role:', response.data.user.role);
+        console.log('   - Calling onLogin with:', { type: resolvedUserType, user: response.data.user });
+        
         onLogin(resolvedUserType, response.data.user);
       }
     } catch (err: any) {

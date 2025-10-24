@@ -1,4 +1,6 @@
 import express, { Express, Request, Response } from 'express';
+import path from 'path';
+import fs from 'fs';
 import { createServer } from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -31,15 +33,22 @@ import paymentRoutes from './routes/payments';
 import accessControlRoutes from './routes/access-control';
 import notificationRoutes from './routes/notifications';
 import dashboardRoutes from './routes/dashboard';
+// Cache management routes
+import cacheRoutes from './routes/cache';
 // Tenant routes
 import tenantRoutes from './routes/tenant';
+// Financial routes
+import financialRoutes from './routes/financial';
 
 // Create Express app
 const app: Express = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(helmet()); // Security headers
+// Security headers (allow cross-origin resource policy for images like logo)
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 app.use(compression()); // Compress responses
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
@@ -48,6 +57,22 @@ app.use(cors({
 app.use(morgan('dev')); // Logging
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Static uploads directory (ensure exists)
+const uploadsDir = path.resolve(__dirname, '../uploads');
+const logosDir = path.resolve(uploadsDir, 'logos');
+try {
+  fs.mkdirSync(logosDir, { recursive: true });
+} catch {}
+// Set permissive headers for static assets to load across origins
+app.use('/uploads', (req, res, next) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  if (process.env.FRONTEND_URL) {
+    res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  next();
+}, express.static(uploadsDir));
 
 // Health check
 app.get('/health', (req: Request, res: Response) => {
@@ -79,8 +104,12 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/access-control', accessControlRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+// Cache management
+app.use('/api/cache', cacheRoutes);
 // Tenant routes
 app.use('/api/tenant', tenantRoutes);
+// Financial routes
+app.use('/api/financial', financialRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

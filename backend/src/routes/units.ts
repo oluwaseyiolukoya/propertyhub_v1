@@ -1,10 +1,92 @@
 import express, { Response } from 'express';
+import { randomUUID } from 'crypto';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import prisma from '../lib/db';
 
 const router = express.Router();
 
 router.use(authMiddleware);
+
+// Get all units across user's accessible properties
+router.get('/', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const role = req.user?.role;
+    const { status, type, propertyId } = req.query as { status?: string; type?: string; propertyId?: string };
+
+    const where: any = {};
+    if (status) where.status = status;
+    if (type) where.type = type;
+
+    // Scope by access - need to filter via property relation
+    let accessiblePropertyIds: string[] = [];
+    
+    if (role === 'owner') {
+      const props = await prisma.properties.findMany({
+        where: { ownerId: userId },
+        select: { id: true }
+      });
+      accessiblePropertyIds = props.map(p => p.id);
+    } else if (role === 'manager') {
+      const props = await prisma.properties.findMany({
+        where: {
+          property_managers: {
+            some: {
+              managerId: userId,
+              isActive: true
+            }
+          }
+        },
+        select: { id: true }
+      });
+      accessiblePropertyIds = props.map(p => p.id);
+    } else {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    if (accessiblePropertyIds.length === 0) {
+      return res.json([]);
+    }
+
+    // If specific propertyId requested, ensure it's in accessible list
+    if (propertyId) {
+      if (accessiblePropertyIds.includes(propertyId)) {
+        where.propertyId = propertyId;
+      } else {
+        return res.status(403).json({ error: 'Access denied to this property' });
+      }
+    } else {
+      where.propertyId = { in: accessiblePropertyIds };
+    }
+
+    const units = await prisma.units.findMany({
+      where,
+      include: {
+        leases: {
+          where: { status: 'active' },
+          include: {
+            users: {
+              select: { id: true, name: true, email: true, phone: true }
+            }
+          }
+        },
+        properties: {
+          select: { id: true, name: true, address: true, city: true, state: true }
+        }
+      },
+      orderBy: { unitNumber: 'asc' }
+    });
+
+    return res.json(units);
+  } catch (error: any) {
+    console.error('List units error:', error);
+    console.error('Error details:', error.message, error.stack);
+    return res.status(500).json({ 
+      error: 'Failed to fetch units',
+      details: error.message 
+    });
+  }
+});
 
 // Get all units for a property
 router.get('/property/:propertyId', async (req: AuthRequest, res: Response) => {
@@ -14,12 +96,12 @@ router.get('/property/:propertyId', async (req: AuthRequest, res: Response) => {
     const userId = req.user?.id;
 
     // Check property access
-    const property = await prisma.property.findFirst({
+    const property = await prisma.properties.findFirst({
       where: {
         id: propertyId,
         OR: [
           { ownerId: userId },
-          { managers: { some: { managerId: userId, isActive: true } } }
+          { property_managers: { some: { managerId: userId, isActive: true } } }
         ]
       }
     });
@@ -32,19 +114,14 @@ router.get('/property/:propertyId', async (req: AuthRequest, res: Response) => {
     if (status) where.status = status;
     if (type) where.type = type;
 
-    const units = await prisma.unit.findMany({
+    const units = await prisma.units.findMany({
       where,
       include: {
         leases: {
           where: { status: 'active' },
           include: {
-            tenant: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                phone: true
-              }
+            users: {
+              select: { id: true, name: true, email: true, phone: true }
             }
           }
         }
@@ -66,18 +143,18 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const userId = req.user?.id;
 
-    const unit = await prisma.unit.findFirst({
+    const unit = await prisma.units.findFirst({
       where: {
         id,
-        property: {
+        properties: {
           OR: [
             { ownerId: userId },
-            { managers: { some: { managerId: userId, isActive: true } } }
+            { property_managers: { some: { managerId: userId, isActive: true } } }
           ]
         }
       },
       include: {
-        property: {
+        properties: {
           select: {
             id: true,
             name: true,
@@ -88,13 +165,8 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
         },
         leases: {
           include: {
-            tenant: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                phone: true
-              }
+            users: {
+              select: { id: true, name: true, email: true, phone: true }
             }
           },
           orderBy: { createdAt: 'desc' }
@@ -140,12 +212,12 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     }
 
     // Check property ownership
-    const property = await prisma.property.findFirst({
+    const property = await prisma.properties.findFirst({
       where: {
         id: propertyId,
         OR: [
           { ownerId: userId },
-          { managers: { some: { managerId: userId, isActive: true } } }
+          { property_managers: { some: { managerId: userId, isActive: true } } }
         ]
       }
     });
@@ -155,7 +227,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     }
 
     // Check if unit number already exists
-    const existingUnit = await prisma.unit.findFirst({
+    const existingUnit = await prisma.units.findFirst({
       where: {
         propertyId,
         unitNumber
@@ -166,8 +238,9 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Unit number already exists for this property' });
     }
 
-    const unit = await prisma.unit.create({
+    const unit = await prisma.units.create({
       data: {
+        id: randomUUID(),
         propertyId,
         unitNumber,
         type,
@@ -179,13 +252,15 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         securityDeposit,
         status: status || 'vacant',
         features,
-        images
+        images,
+        updatedAt: new Date()
       }
     });
 
     // Log activity
-    await prisma.activityLog.create({
+    await prisma.activity_logs.create({
       data: {
+        id: require('crypto').randomUUID(),
         customerId: property.customerId,
         userId,
         action: 'create',
@@ -199,7 +274,11 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
   } catch (error: any) {
     console.error('Create unit error:', error);
-    return res.status(500).json({ error: 'Failed to create unit' });
+    console.error('Error details:', error.message, error.stack);
+    return res.status(500).json({ 
+      error: 'Failed to create unit',
+      details: error.message 
+    });
   }
 });
 
@@ -210,17 +289,17 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     const userId = req.user?.id;
 
     // Check access
-    const existingUnit = await prisma.unit.findFirst({
+    const existingUnit = await prisma.units.findFirst({
       where: {
         id,
-        property: {
+        properties: {
           OR: [
             { ownerId: userId },
-            { managers: { some: { managerId: userId, isActive: true } } }
+            { property_managers: { some: { managerId: userId, isActive: true } } }
           ]
         }
       },
-      include: { property: true }
+      include: { properties: true }
     });
 
     if (!existingUnit) {
@@ -241,7 +320,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       images
     } = req.body;
 
-    const unit = await prisma.unit.update({
+    const unit = await prisma.units.update({
       where: { id },
       data: {
         unitNumber,
@@ -254,14 +333,16 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         securityDeposit,
         status,
         features,
-        images
+        images,
+        updatedAt: new Date()
       }
     });
 
     // Log activity
-    await prisma.activityLog.create({
+    await prisma.activity_logs.create({
       data: {
-        customerId: existingUnit.property.customerId,
+        id: require('crypto').randomUUID(),
+        customerId: (existingUnit as any).properties.customerId,
         userId,
         action: 'update',
         entity: 'unit',
@@ -289,12 +370,12 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ error: 'Only property owners can delete units' });
     }
 
-    const unit = await prisma.unit.findFirst({
+    const unit: any = await prisma.units.findFirst({
       where: {
         id,
-        property: { ownerId: userId }
+        properties: { ownerId: userId }
       },
-      include: { property: true }
+      include: { properties: true }
     });
 
     if (!unit) {
@@ -302,7 +383,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
     }
 
     // Check for active leases
-    const activeLeases = await prisma.lease.count({
+    const activeLeases = await prisma.leases.count({
       where: {
         unitId: id,
         status: 'active'
@@ -315,12 +396,13 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    await prisma.unit.delete({ where: { id } });
+    await prisma.units.delete({ where: { id } });
 
     // Log activity
-    await prisma.activityLog.create({
+    await prisma.activity_logs.create({
       data: {
-        customerId: unit.property.customerId,
+        id: require('crypto').randomUUID(),
+        customerId: unit.properties.customerId,
         userId,
         action: 'delete',
         entity: 'unit',

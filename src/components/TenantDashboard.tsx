@@ -19,6 +19,7 @@ import TenantPaymentsPage from './TenantPaymentsPage';
 import TenantMaintenanceRequests from './TenantMaintenanceRequests';
 import TenantDocuments from './TenantDocuments';
 import TenantSettings from './TenantSettings';
+import { Footer } from './Footer';
 import { getTenantDashboardOverview, getUserData, removeAuthToken } from '../lib/api';
 
 const TenantDashboard: React.FC = () => {
@@ -231,11 +232,12 @@ const TenantDashboard: React.FC = () => {
         </div>
 
         {/* Page Content */}
-        <div className="p-4 lg:p-8">
-          <div className="max-w-7xl mx-auto">
-            {renderContent()}
-          </div>
+        <div className="p-4 lg:p-8 max-w-7xl">
+          {renderContent()}
         </div>
+
+        {/* Footer */}
+        <Footer />
       </div>
     </div>
   );

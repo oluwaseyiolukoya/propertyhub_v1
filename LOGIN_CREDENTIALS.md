@@ -64,6 +64,46 @@ Backend API will run on: http://localhost:5000
 
 ---
 
+## 🔵 PROPERTY MANAGERS (Real Database Accounts)
+
+All property managers below have been created in the real PostgreSQL database and can log in with the test password:
+
+### Password for ALL managers: `password123`
+
+1. **Oluwaseyi**
+   - **Email:** `demo@example.com`
+   - **Password:** `password123`
+   - **User Type:** Property Manager
+   - **Status:** ✅ Active
+
+2. **Johnson**
+   - **Email:** `johnson@gmail.com`
+   - **Password:** `password123`
+   - **User Type:** Property Manager
+   - **Status:** ✅ Active
+
+3. **Oluwaseyi**
+   - **Email:** `demo_manager@gmail.com`
+   - **Password:** `password123`
+   - **User Type:** Property Manager
+   - **Status:** ✅ Active
+
+4. **John Adeleke**
+   - **Email:** `demojohn@example.com`
+   - **Password:** `password123`
+   - **User Type:** Property Manager
+   - **Status:** ✅ Active
+
+5. **Tola Adebanjo**
+   - **Email:** `tolaadebanjo@gmail.com`
+   - **Password:** `password123`
+   - **User Type:** Property Manager
+   - **Status:** ✅ Active
+
+**Note:** These managers are stored in the real database. You can assign them to properties in the Owner Dashboard!
+
+---
+
 ## 🗄️ Database Status
 
 **Current Setup:** ✅ **PostgreSQL Connected & Operational!**

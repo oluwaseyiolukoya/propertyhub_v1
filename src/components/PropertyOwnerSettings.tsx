@@ -83,6 +83,7 @@ import {
 import { toast } from 'sonner';
 import { getAccountInfo } from '../lib/api/auth';
 import { updateCustomer } from '../lib/api/customers';
+import { apiClient } from '../lib/api-client';
 import { 
   initializeSocket, 
   subscribeToAccountEvents, 
@@ -114,6 +115,7 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
   const [isSaving, setIsSaving] = useState(false);
   const [accountInfo, setAccountInfo] = useState<any>(null);
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   // Profile state
   const [profileData, setProfileData] = useState({
@@ -483,6 +485,27 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
   ]);
 
   // Handler functions
+  const handleCancelSubscription = async () => {
+    if (!accountInfo?.customer?.id) {
+      toast.error('Customer information not found');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      // Call owner-scoped endpoint to avoid admin-only restriction
+      const response = await apiClient.post('/api/dashboard/owner/subscription/cancel', {});
+      if (response.error) {
+        throw new Error(response.error.error || 'Failed to cancel subscription');
+      }
+      toast.success('Subscription cancelled');
+      setShowCancelDialog(false);
+      await fetchAccountData(true);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to cancel subscription');
+    } finally {
+      setIsSaving(false);
+    }
+  };
   const handleSaveProfile = async () => {
     if (!accountInfo?.customer?.id) {
       toast.error('Customer information not found');
@@ -535,7 +558,6 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
           industry: companyData.industry,
           companySize: companyData.companySize,
           phone: companyData.businessPhone,
-          email: companyData.businessEmail,
           street: companyAddressParts.street || accountInfo.customer.street,
           city: companyAddressParts.city || accountInfo.customer.city,
           state: companyAddressParts.state || accountInfo.customer.state,
@@ -544,11 +566,11 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
         };
       }
 
-      // Call API to update customer
-      const response = await updateCustomer(accountInfo.customer.id, updateData);
+      // Call owner self-service endpoint instead of admin-only customers route
+      const response = await apiClient.put('/api/auth/account', updateData);
 
-      if (response.error) {
-        throw new Error(response.error.error || 'Failed to update information');
+      if ((response as any).error) {
+        throw new Error((response as any).error.error || 'Failed to update information');
       }
 
       // Update was successful
@@ -882,6 +904,7 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
                 setIsEditing={setIsEditing}
                 setHasUnsavedChanges={setHasUnsavedChanges}
                 user={user}
+                onSaveClick={handleSaveProfile}
               />
             )}
 
@@ -892,11 +915,12 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
                 isEditing={isEditing}
                 setIsEditing={setIsEditing}
                 setHasUnsavedChanges={setHasUnsavedChanges}
+                onSaveClick={handleSaveProfile}
               />
             )}
 
             {activeTab === 'subscription' && (
-              <SubscriptionSection subscriptionData={subscriptionData} />
+              <SubscriptionSection subscriptionData={subscriptionData} onCancelClick={() => setShowCancelDialog(true)} />
             )}
 
             {activeTab === 'billing' && (
@@ -1094,12 +1118,32 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Cancel Subscription Dialog */}
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Cancel Subscription</DialogTitle>
+            <DialogDescription>
+              This will set your subscription status to cancelled. You will lose access at the end of your current period.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCancelDialog(false)} disabled={isSaving}>
+              Keep Subscription
+            </Button>
+            <Button variant="destructive" onClick={handleCancelSubscription} disabled={isSaving}>
+              {isSaving ? 'Cancelling...' : 'Cancel Subscription'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
 // Profile Section Component
-function ProfileSection({ profileData, setProfileData, isEditing, setIsEditing, setHasUnsavedChanges, user }: any) {
+function ProfileSection({ profileData, setProfileData, isEditing, setIsEditing, setHasUnsavedChanges, user, onSaveClick }: any) {
   const updateFormData = (field: string, value: any) => {
     setProfileData((prev: any) => ({ ...prev, [field]: value }));
     setHasUnsavedChanges(true);
@@ -1173,8 +1217,8 @@ function ProfileSection({ profileData, setProfileData, isEditing, setIsEditing, 
                   id="email"
                   type="email"
                   value={profileData.email}
-                  onChange={(e) => updateFormData('email', e.target.value)}
-                  disabled={!isEditing}
+                  onChange={() => { /* Email is read-only for owners */ }}
+                  disabled={true}
                   className="pl-10"
                 />
               </div>
@@ -1271,12 +1315,19 @@ function ProfileSection({ profileData, setProfileData, isEditing, setIsEditing, 
           </div>
         </CardContent>
       </Card>
+      {/* Inline actions for this section */}
+      <div className="flex justify-end">
+        <Button onClick={onSaveClick} disabled={!isEditing}>
+          <Save className="h-4 w-4 mr-2" />
+          Save Changes
+        </Button>
+      </div>
     </div>
   );
 }
 
 // Company Section Component
-function CompanySection({ companyData, setCompanyData, isEditing, setIsEditing, setHasUnsavedChanges }: any) {
+function CompanySection({ companyData, setCompanyData, isEditing, setIsEditing, setHasUnsavedChanges, onSaveClick }: any) {
   const updateFormData = (field: string, value: any) => {
     setCompanyData((prev: any) => ({ ...prev, [field]: value }));
     setHasUnsavedChanges(true);
@@ -1401,11 +1452,11 @@ function CompanySection({ companyData, setCompanyData, isEditing, setIsEditing, 
                 <Label htmlFor="businessEmail">Business Email</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
+                <Input
                     id="businessEmail"
                     value={companyData.businessEmail}
-                    onChange={(e) => updateFormData('businessEmail', e.target.value)}
-                    disabled={!isEditing}
+                    onChange={() => { /* Business email is read-only for owners */ }}
+                    disabled={true}
                     className="pl-10"
                   />
                 </div>
@@ -1467,12 +1518,19 @@ function CompanySection({ companyData, setCompanyData, isEditing, setIsEditing, 
           </div>
         </CardContent>
       </Card>
+      {/* Inline actions for this section */}
+      <div className="flex justify-end">
+        <Button onClick={onSaveClick} disabled={!isEditing}>
+          <Save className="h-4 w-4 mr-2" />
+          Save Changes
+        </Button>
+      </div>
     </div>
   );
 }
 
 // Subscription Section Component
-function SubscriptionSection({ subscriptionData }: any) {
+function SubscriptionSection({ subscriptionData, onCancelClick }: any) {
   return (
     <div className="space-y-6">
       {/* Current Plan */}
@@ -1488,7 +1546,9 @@ function SubscriptionSection({ subscriptionData }: any) {
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
                 <h3 className="text-xl font-semibold text-gray-900">{subscriptionData.plan} Plan</h3>
-                <Badge className="bg-green-100 text-green-700">Active</Badge>
+                <Badge className={subscriptionData.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}>
+                  {subscriptionData.status === 'cancelled' ? 'Cancelled' : 'Active'}
+                </Badge>
               </div>
               <p className="text-gray-600 text-sm mb-4">
                 ${subscriptionData.amount}/month • Billed {subscriptionData.billingCycle}
@@ -1501,6 +1561,9 @@ function SubscriptionSection({ subscriptionData }: any) {
             <div className="flex flex-col gap-2">
               <Button>Upgrade Plan</Button>
               <Button variant="outline">Change Billing</Button>
+              {subscriptionData.status !== 'cancelled' && (
+                <Button variant="destructive" onClick={onCancelClick}>Cancel Subscription</Button>
+              )}
             </div>
           </div>
 

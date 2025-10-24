@@ -403,8 +403,8 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
                 <SelectContent>
                   <SelectItem value="all">All Properties</SelectItem>
                   {uniqueProperties.map((property) => (
-                    <SelectItem key={property} value={property}>
-                      {property}
+                    <SelectItem key={property.id || property} value={property.id || property.name || property}>
+                      {property.name || property}
                     </SelectItem>
                   ))}
                 </SelectContent>

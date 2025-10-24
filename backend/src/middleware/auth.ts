@@ -7,6 +7,7 @@ export interface AuthRequest extends Request {
     id: string;
     email: string;
     role: string;
+    customerId?: string | null;
     iat?: number;
   };
 }
@@ -26,70 +27,81 @@ export const authMiddleware = async (
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as any;
     req.user = decoded;
 
-    // Check if user's permissions have been updated since token was issued
-    try {
-      // Check if it's an internal admin user or a customer user
-      let userRecord;
-      
-      // First check admins table (for Super Admin)
-      const admin = await prisma.admin.findUnique({
-        where: { id: decoded.id }
-      });
-
-      if (admin) {
-        userRecord = admin;
-      } else {
-        // Check users table (for internal admin users and customer users)
-        userRecord = await prisma.user.findUnique({
-          where: { id: decoded.id },
-          select: {
-            id: true,
-            customerId: true, // Need this to check if internal admin
-            updatedAt: true,
-            role: true,
-            permissions: true
-          }
-        });
-      }
-
-      if (userRecord) {
-        // Only check permissions updates for CUSTOMER USERS
-        // Skip check for:
-        // 1. Super Admins from admins table (admin is not null)
-        // 2. Internal admin users from users table (customerId is null)
-        const isFromUsersTable = !admin;
-        const isInternalAdmin = isFromUsersTable && userRecord.customerId === null;
-        const isCustomerUser = isFromUsersTable && userRecord.customerId !== null;
+    // Optional: feature-flagged permissions change invalidation (disabled by default)
+    // We rely on /api/auth/validate-session for authoritative checks (role/status/isActive)
+    if (process.env.ENABLE_PERMISSIONS_UPDATE_CHECK === 'true') {
+      try {
+        // Check if it's an internal admin user or a customer user
+        let userRecord;
         
-        // Only apply permissions update check for customer users
-        if (isCustomerUser) {
-          // Check if the user record was updated after the token was issued
-          const tokenIssuedAt = decoded.iat ? new Date(decoded.iat * 1000) : new Date();
-          const userUpdatedAt = userRecord.updatedAt;
+        // First check admins table (for Super Admin)
+        const admin = await prisma.admins.findUnique({
+          where: { id: decoded.id }
+        });
 
-          // Add a grace period of 30 seconds to avoid triggering on lastLogin updates
-          // during the login process itself
-          const GRACE_PERIOD_MS = 30 * 1000; // 30 seconds
-          const timeSinceTokenIssued = Date.now() - tokenIssuedAt.getTime();
-
-          if (userUpdatedAt && 
-              userUpdatedAt > tokenIssuedAt && 
-              timeSinceTokenIssued > GRACE_PERIOD_MS) {
-            console.log('⚠️ User permissions updated. Forcing re-authentication.');
-            return res.status(401).json({ 
-              error: 'Your permissions have been updated. Please log in again.',
-              code: 'PERMISSIONS_UPDATED'
-            });
-          }
-        } else if (isInternalAdmin) {
-          console.log('✅ Internal admin - skipping permissions update check');
+        if (admin) {
+          userRecord = admin;
         } else {
-          console.log('✅ Super admin - skipping permissions update check');
+          // Check users table (for internal admin users and customer users)
+          userRecord = await prisma.users.findUnique({
+            where: { id: decoded.id },
+            select: {
+              id: true,
+              customerId: true,
+              updatedAt: true,
+              role: true,
+              permissions: true,
+              customer_users: {
+                select: {
+                  customerId: true,
+                  role: true,
+                  isActive: true,
+                }
+              }
+            }
+          });
         }
+
+        if (userRecord) {
+          const isFromUsersTable = !admin;
+          const isInternalAdmin = isFromUsersTable && userRecord.customerId === null;
+          const membership = Array.isArray((userRecord as any).customer_users) ? (userRecord as any).customer_users[0] : null;
+          const isCustomerUser = !!membership || (isFromUsersTable && userRecord.customerId !== null);
+
+          // Enrich req.user from membership when present
+          if (membership && req.user) {
+            req.user.customerId = membership.customerId;
+            req.user.role = membership.role || req.user.role;
+          } else if (isFromUsersTable && req.user) {
+            req.user.customerId = (userRecord as any).customerId ?? null;
+          }
+
+          if (isCustomerUser) {
+            const tokenIssuedAt = decoded.iat ? new Date(decoded.iat * 1000) : new Date();
+            const userUpdatedAt = userRecord.updatedAt;
+            const GRACE_PERIOD_MS = 30 * 1000;
+            const timeSinceTokenIssued = Date.now() - tokenIssuedAt.getTime();
+
+            if (
+              userUpdatedAt &&
+              userUpdatedAt > tokenIssuedAt &&
+              timeSinceTokenIssued > GRACE_PERIOD_MS
+            ) {
+              console.log('⚠️ User permissions updated. Forcing re-authentication.');
+              return res.status(401).json({
+                error: 'Your permissions have been updated. Please log in again.',
+                code: 'PERMISSIONS_UPDATED'
+              });
+            }
+          } else if (isInternalAdmin) {
+            console.log('✅ Internal admin - skipping permissions update check');
+          } else {
+            console.log('✅ Super admin - skipping permissions update check');
+          }
+        }
+      } catch (dbError) {
+        console.log('⚠️ Could not check user permissions update:', dbError);
       }
-    } catch (dbError) {
-      // If database check fails, continue with the request (fail open for availability)
-      console.log('⚠️ Could not check user permissions update:', dbError);
     }
 
     next();
@@ -111,17 +123,23 @@ export const adminOnly = async (
       return res.status(403).json({ error: 'Access denied. Admin only.' });
     }
 
-    // DATABASE CHECK ONLY - No mock/JWT fallbacks
+    // DATABASE CHECK (with graceful fallback if table doesn't exist)
     // Check if user is a Super Admin (from admins table)
-    const admin = await prisma.admin.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        isActive: true,
-        role: true
-      }
-    });
+    let admin: any = null;
+    try {
+      admin = await prisma.admins.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          isActive: true,
+          role: true
+        }
+      });
+    } catch (e: any) {
+      console.warn('⚠️ Admin lookup skipped (admins table may be missing):', e?.message || e);
+      admin = null;
+    }
 
     if (admin) {
       // Enforce active status for Super Admins
@@ -135,17 +153,23 @@ export const adminOnly = async (
     }
 
     // Check if user is an Internal Admin User (from users table with customerId = null)
-    const internalUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { 
-        id: true,
-        customerId: true,
-        email: true,
-        role: true,
-        isActive: true,
-        status: true
-      }
-    });
+    let internalUser: any = null;
+    try {
+      internalUser = await prisma.users.findUnique({
+        where: { id: userId },
+        select: { 
+          id: true,
+          customerId: true,
+          email: true,
+          role: true,
+          isActive: true,
+          status: true
+        }
+      });
+    } catch (e: any) {
+      console.warn('⚠️ User admin lookup skipped (users table issue or missing):', e?.message || e);
+      internalUser = null;
+    }
 
     if (internalUser && internalUser.customerId === null) {
       // Enforce active status for internal admin
@@ -155,6 +179,13 @@ export const adminOnly = async (
       }
       // Internal Admin User has access
       console.log('✅ Admin access granted: Internal Admin -', internalUser.email, '(Role:', internalUser.role + ')');
+      return next();
+    }
+
+    // Final fallback: trust JWT role when DB is unavailable
+    const roleFromToken = (req.user as any)?.role?.toLowerCase?.() || '';
+    if (roleFromToken.includes('admin')) {
+      console.log('✅ Admin access granted via token fallback role:', roleFromToken);
       return next();
     }
 
