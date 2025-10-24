@@ -11,10 +11,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { toast } from "sonner";
 import { getUnits, createUnit, deleteUnit } from '../lib/api/units';
+import { archiveProperty, deleteProperty } from '../lib/api/properties';
 import { Switch } from "./ui/switch";
 import { getMaintenanceRequests } from '../lib/api/maintenance';
 import { getOwnerDashboardOverview } from '../lib/api';
 import { getPaymentStats } from '../lib/api/payments';
+import { formatCurrency } from '../lib/currency';
 import { 
   Building2,
   Users,
@@ -104,6 +106,8 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [unitToDelete, setUnitToDelete] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showPropertyDeleteDialog, setShowPropertyDeleteDialog] = useState(false);
+  const [propertyToDelete, setPropertyToDelete] = useState<any>(null);
 
   useEffect(() => {
     (async () => {
@@ -287,9 +291,25 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
           break;
         }
         case 'archive': {
+          // Call backend API to archive property
+          const response = await archiveProperty(propertyId);
+          if ((response as any).error) {
+            throw new Error((response as any).error);
+          }
+          toast.success('Property archived successfully');
+          
+          // Refresh properties list if callback provided
           if (onUpdateProperty) {
             onUpdateProperty(propertyId as any, { status: 'archived' });
-            toast.success('Property archived');
+          }
+          break;
+        }
+        case 'delete': {
+          // Show confirmation dialog
+          const property = properties.find(p => p.id === propertyId);
+          if (property) {
+            setPropertyToDelete(property);
+            setShowPropertyDeleteDialog(true);
           }
           break;
         }
@@ -298,6 +318,33 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
       }
     } catch (e: any) {
       toast.error(e?.message || 'Action failed');
+    }
+  };
+
+  const handleConfirmDeleteProperty = async () => {
+    if (!propertyToDelete) return;
+    
+    try {
+      setIsDeleting(true);
+      const response = await deleteProperty(propertyToDelete.id);
+      
+      if ((response as any).error) {
+        throw new Error((response as any).error);
+      }
+      
+      toast.success('Property deleted successfully');
+      setShowPropertyDeleteDialog(false);
+      setPropertyToDelete(null);
+      
+      // Refresh the properties list by removing the deleted property
+      if (onUpdateProperty) {
+        // Trigger a refresh by calling parent's update callback
+        window.location.reload(); // Or better: call a refresh function from parent
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to delete property');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -375,8 +422,11 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     <DollarSign className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">${(Number(portfolioMetrics.totalRevenue) || 0).toLocaleString()}</div>
+                    <div className="text-2xl font-bold">{formatCurrency(Number(portfolioMetrics.totalRevenue) || 0, user?.baseCurrency || 'USD')}</div>
                     <p className="text-xs text-muted-foreground">
+                      {properties.length > 1 && properties.some(p => p.currency !== (user?.baseCurrency || 'USD')) && 
+                        <span className="text-orange-600 mr-2">Multi-currency · </span>
+                      }
                       +8.2% from last month
                     </p>
                   </CardContent>
@@ -417,7 +467,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-medium">${(Number(property.totalMonthlyIncome) || 0).toLocaleString()}</p>
+                            <p className="font-medium">{formatCurrency(Number(property.totalMonthlyIncome) || 0, property.currency || 'NGN')}</p>
                             <p className="text-sm text-gray-600">{(((property.occupiedUnits ?? 0) / ((property._count?.units ?? property.totalUnits ?? 1))) * 100).toFixed(1)}% occupied</p>
                           </div>
                         </div>
@@ -585,6 +635,14 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                                 <Archive className="mr-2 h-4 w-4" />
                                 Archive
                               </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => handlePropertyAction('delete', property.id)}
+                                className="text-red-600 focus:text-red-600"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete Property
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -604,7 +662,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           </div>
                           <div className="flex justify-between text-sm">
                             <span>Monthly Revenue:</span>
-                            <span className="font-medium text-green-600">${(Number(property.totalMonthlyIncome) || 0).toLocaleString()}</span>
+                            <span className="font-medium text-green-600">{formatCurrency(Number(property.totalMonthlyIncome) || 0, property.currency || 'NGN')}</span>
                           </div>
                           <div className="flex justify-between text-sm">
                             <span>Manager:</span>
@@ -693,7 +751,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                               </div>
                             </TableCell>
                             <TableCell className="font-medium text-green-600">
-                              ${(Number(property.totalMonthlyIncome) || 0).toLocaleString()}
+                              {formatCurrency(Number(property.totalMonthlyIncome) || 0, property.currency || 'NGN')}
                             </TableCell>
                             <TableCell>
                               <div>
@@ -731,6 +789,14 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                                     <DropdownMenuItem onClick={() => handlePropertyAction('archive', property.id)}>
                                       <Archive className="mr-2 h-4 w-4" />
                                       Archive
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem 
+                                      onClick={() => handlePropertyAction('delete', property.id)}
+                                      className="text-red-600 focus:text-red-600"
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Delete Property
                                     </DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
@@ -1134,7 +1200,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     <TrendingUp className="h-4 w-4 text-green-600" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">${(Number(financialStats.gross) || 0).toLocaleString()}</div>
+                    <div className="text-2xl font-bold">{formatCurrency(Number(financialStats.gross) || 0, user?.baseCurrency || 'USD')}</div>
                     <p className="text-xs text-muted-foreground">Live collected this period</p>
                   </CardContent>
                 </Card>
@@ -1145,7 +1211,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     <DollarSign className="h-4 w-4 text-green-600" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">${(Number(financialStats.net) || 0).toLocaleString()}</div>
+                    <div className="text-2xl font-bold">{formatCurrency(Number(financialStats.net) || 0, user?.baseCurrency || 'USD')}</div>
                     <p className="text-xs text-muted-foreground">Gross minus operating expenses</p>
                   </CardContent>
                 </Card>
@@ -1156,7 +1222,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     <TrendingDown className="h-4 w-4 text-red-600" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">${(Number(financialStats.expenses) || 0).toLocaleString()}</div>
+                    <div className="text-2xl font-bold">{formatCurrency(Number(financialStats.expenses) || 0, user?.baseCurrency || 'USD')}</div>
                     <p className="text-xs text-muted-foreground">Sum of expense-type payments</p>
                   </CardContent>
                 </Card>
@@ -1202,13 +1268,13 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                             </div>
                           </TableCell>
                           <TableCell className="font-medium text-green-600">
-                            ${(Number(property.totalMonthlyIncome) || 0).toLocaleString()}
+                            {formatCurrency(Number(property.totalMonthlyIncome) || 0, property.currency || 'NGN')}
                           </TableCell>
                           <TableCell className="text-red-600">
-                            $0
+                            {formatCurrency(0, property.currency || 'NGN')}
                           </TableCell>
                           <TableCell className="font-medium">
-                            {(Number(property.totalMonthlyIncome) || 0).toLocaleString()}
+                            {formatCurrency(Number(property.totalMonthlyIncome) || 0, property.currency || 'NGN')}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center space-x-2">
@@ -1924,6 +1990,91 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                 <>
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete Unit
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Property Confirmation Dialog */}
+      <Dialog open={showPropertyDeleteDialog} onOpenChange={setShowPropertyDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Property</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to permanently delete this property? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {propertyToDelete && (
+            <div className="space-y-4">
+              <div className="bg-gray-50 border rounded-lg p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-500">Property Name</span>
+                  <span className="font-medium">{propertyToDelete.name}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-500">Location</span>
+                  <span className="font-medium">{propertyToDelete.city}, {propertyToDelete.state}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-500">Total Units</span>
+                  <span className="font-medium">{propertyToDelete.totalUnits}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-500">Status</span>
+                  <Badge variant={propertyToDelete.status === 'active' ? 'default' : 'secondary'}>
+                    {propertyToDelete.status}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-start">
+                  <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
+                  <div className="text-sm text-red-800">
+                    <p className="font-medium mb-1">Warning:</p>
+                    <ul className="list-disc list-inside space-y-1 text-xs">
+                      <li>All units associated with this property will be deleted</li>
+                      <li>All lease records will be removed</li>
+                      <li>All maintenance requests will be deleted</li>
+                      <li>This action is permanent and cannot be reversed</li>
+                    </ul>
+                    <p className="mt-2 text-xs font-medium">
+                      Note: Properties with active leases cannot be deleted. Please end all active leases first.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowPropertyDeleteDialog(false);
+                setPropertyToDelete(null);
+              }}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDeleteProperty}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Property
                 </>
               )}
             </Button>

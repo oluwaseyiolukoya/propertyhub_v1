@@ -27,6 +27,7 @@ import {
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell, ComposedChart, Area, AreaChart } from 'recharts';
 import { getFinancialOverview, getMonthlyRevenue, getPropertyPerformance, FinancialOverview, MonthlyRevenueData, PropertyPerformance } from '../lib/api/financial';
 import { toast } from 'sonner';
+import { formatCurrency } from '../lib/currency';
 
 interface FinancialReportsProps {
   properties: any[];
@@ -160,10 +161,34 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
     ? propertyPerformance 
     : propertyPerformance.filter(p => p.id.toString() === selectedProperty);
 
+  // Base currency for portfolio view (when viewing all properties)
+  const baseCurrency = user?.baseCurrency || 'USD'; // Default to USD as base currency
+
+  // Get the currency to use for display
+  const displayCurrency = selectedProperty === 'all'
+    ? baseCurrency // Use base currency for "all properties" view
+    : (filteredProperties[0]?.currency || properties.find(p => p.id.toString() === selectedProperty)?.currency || 'NGN');
+
+  // Calculate filtered totals based on selected property
+  const filteredTotalRevenue = selectedProperty === 'all'
+    ? totalRevenue
+    : filteredProperties.reduce((sum, p) => sum + (p.monthlyRevenue || 0), 0);
+
+  const filteredTotalExpenses = selectedProperty === 'all'
+    ? totalExpenses
+    : filteredProperties.reduce((sum, p) => sum + (p.monthlyExpenses || 0), 0);
+
+  const filteredTotalNetIncome = selectedProperty === 'all'
+    ? totalNetIncome
+    : (filteredTotalRevenue - filteredTotalExpenses);
+
   const exportReport = (type: string) => {
     // Mock export functionality
     console.log(`Exporting ${type} report...`);
   };
+
+  // Currency formatter for tooltips
+  const currencyFormatter = (value: any) => formatCurrency(Number(value), displayCurrency);
 
   // Show loading state
   if (loading) {
@@ -231,7 +256,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalRevenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{formatCurrency(filteredTotalRevenue, displayCurrency)}</div>
             <div className="flex items-center text-xs text-green-600 mt-1">
               <ArrowUpRight className="h-3 w-3 mr-1" />
               +{revenueGrowth}% vs last year
@@ -245,7 +270,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalNetIncome.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{formatCurrency(filteredTotalNetIncome, displayCurrency)}</div>
             <div className="flex items-center text-xs text-green-600 mt-1">
               <ArrowUpRight className="h-3 w-3 mr-1" />
               +{yearOverYearGrowth}% vs last year
@@ -306,7 +331,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
                     <YAxis />
-                    <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, '']} />
+                    <Tooltip formatter={(value) => [currencyFormatter(value), '']} />
                     <Bar dataKey="revenue" fill="#8884d8" name="Revenue" />
                     <Bar dataKey="expenses" fill="#82ca9d" name="Expenses" />
                     <Line type="monotone" dataKey="netIncome" stroke="#ff7300" strokeWidth={3} name="Net Income" />
@@ -411,7 +436,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
                   <YAxis />
-                  <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Revenue']} />
+                  <Tooltip formatter={(value) => [currencyFormatter(value), 'Revenue']} />
                   <Area type="monotone" dataKey="revenue" stroke="#8884d8" fill="#8884d8" fillOpacity={0.3} />
                 </AreaChart>
               </ResponsiveContainer>
@@ -426,8 +451,9 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
               <CardContent>
                 <div className="space-y-4">
                   {filteredProperties.map((property) => {
-                    const maxRevenue = Math.max(...filteredProperties.map(p => p.revenue || 0), 1);
-                    const revenuePercent = maxRevenue > 0 ? ((property.revenue || 0) / maxRevenue) * 100 : 0;
+                    const revenue = property.monthlyRevenue || property.revenue || 0;
+                    const maxRevenue = Math.max(...filteredProperties.map(p => p.monthlyRevenue || p.revenue || 0), 1);
+                    const revenuePercent = maxRevenue > 0 ? (revenue / maxRevenue) * 100 : 0;
                     return (
                       <div key={property.id} className="flex items-center justify-between">
                         <div className="flex-1">
@@ -440,7 +466,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                           </div>
                         </div>
                         <div className="ml-4 text-right">
-                          <p className="font-medium">${(property.revenue || 0).toLocaleString()}</p>
+                          <p className="font-medium">{formatCurrency(revenue, property.currency || displayCurrency)}</p>
                           <p className="text-sm text-gray-500">{property.units || 0} units</p>
                         </div>
                       </div>
@@ -458,17 +484,17 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium">Annual Revenue</span>
-                    <span className="font-bold">${(totalRevenue).toLocaleString()}</span>
+                    <span className="font-bold">{formatCurrency(filteredTotalRevenue, displayCurrency)}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium">Average Monthly</span>
-                    <span className="font-bold">${(totalRevenue / 12).toLocaleString()}</span>
+                    <span className="font-bold">{formatCurrency(filteredTotalRevenue / 12, displayCurrency)}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium">Revenue per Unit</span>
-                    <span className="font-bold">${Math.round(totalRevenue / properties.reduce((sum, p) => sum + p.units, 0))}</span>
+                    <span className="font-bold">{formatCurrency(Math.round(filteredTotalRevenue / (selectedProperty === 'all' ? properties.reduce((sum, p) => sum + (p.units || p.totalUnits || 0), 0) : filteredProperties.reduce((sum, p) => sum + (p.totalUnits || 0), 0))), displayCurrency)}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between items-center">
@@ -494,7 +520,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
                     <YAxis />
-                    <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Expenses']} />
+                    <Tooltip formatter={(value) => [currencyFormatter(value), 'Expenses']} />
                     <Line type="monotone" dataKey="expenses" stroke="#ff7300" strokeWidth={2} />
                   </RechartsLineChart>
                 </ResponsiveContainer>
@@ -517,7 +543,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                         <span className="font-medium">{expense.name}</span>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold">${expense.amount.toLocaleString()}</p>
+                        <p className="font-bold">{formatCurrency(expense.amount, displayCurrency)}</p>
                         <p className="text-sm text-gray-500">{expense.value}%</p>
                       </div>
                     </div>
@@ -534,7 +560,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="text-center">
-                  <p className="text-2xl font-bold">${totalExpenses.toLocaleString()}</p>
+                  <p className="text-2xl font-bold">{formatCurrency(filteredTotalExpenses, displayCurrency)}</p>
                   <p className="text-sm text-gray-600">Total Annual Expenses</p>
                   <div className="flex items-center justify-center text-red-600 mt-1">
                     <ArrowUpRight className="h-3 w-3 mr-1" />
@@ -542,11 +568,11 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                   </div>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold">${Math.round(totalExpenses / properties.reduce((sum, p) => sum + p.units, 0))}</p>
+                  <p className="text-2xl font-bold">{formatCurrency(Math.round(filteredTotalExpenses / (selectedProperty === 'all' ? properties.reduce((sum, p) => sum + (p.units || p.totalUnits || 0), 0) : filteredProperties.reduce((sum, p) => sum + (p.totalUnits || 0), 0))), displayCurrency)}</p>
                   <p className="text-sm text-gray-600">Expense per Unit</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold">{totalRevenue > 0 ? ((totalExpenses / totalRevenue) * 100).toFixed(1) : '0.0'}%</p>
+                  <p className="text-2xl font-bold">{filteredTotalRevenue > 0 ? ((filteredTotalExpenses / filteredTotalRevenue) * 100).toFixed(1) : '0.0'}%</p>
                   <p className="text-sm text-gray-600">Expense Ratio</p>
                 </div>
               </div>
@@ -585,7 +611,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <p className="font-medium">${property.revenue.toLocaleString()}</p>
+                          <p className="font-medium">{formatCurrency(property.monthlyRevenue || property.revenue || 0, property.currency || displayCurrency)}</p>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
@@ -595,16 +621,16 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                                 style={{ width: `${property.occupancyRate}%` }}
                               />
                             </div>
-                            <span className="text-sm">{property.occupancyRate}%</span>
+                            <span className="text-sm">{property.occupancyRate || 0}%</span>
                           </div>
                         </TableCell>
                         <TableCell>
                           <Badge variant={property.capRate > 7 ? 'default' : 'secondary'}>
-                            {property.capRate.toFixed(1)}%
+                            {(property.capRate || 0).toFixed(1)}%
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <p className="font-medium">${property.cashFlow.toLocaleString()}</p>
+                          <p className="font-medium">{formatCurrency(property.cashFlow || 0, property.currency || displayCurrency)}</p>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center">
@@ -724,12 +750,12 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <p className="text-lg font-bold text-green-600">${(totalRevenue * 1.08).toLocaleString()}</p>
+                  <p className="text-lg font-bold text-green-600">{formatCurrency(filteredTotalRevenue * 1.08, displayCurrency)}</p>
                   <p className="text-sm text-gray-600">Projected Annual Revenue</p>
                   <p className="text-xs text-green-600">+8% growth</p>
                 </div>
                 <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <p className="text-lg font-bold text-blue-600">${(totalNetIncome * 1.12).toLocaleString()}</p>
+                  <p className="text-lg font-bold text-blue-600">{formatCurrency(filteredTotalNetIncome * 1.12, displayCurrency)}</p>
                   <p className="text-sm text-gray-600">Projected Net Income</p>
                   <p className="text-xs text-blue-600">+12% growth</p>
                 </div>

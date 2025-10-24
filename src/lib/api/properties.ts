@@ -71,7 +71,14 @@ export const updateProperty = async (id: string, data: Partial<Property>) => {
 };
 
 /**
- * Delete property
+ * Archive property (soft delete)
+ */
+export const archiveProperty = async (id: string) => {
+  return apiClient.put<Property>(API_ENDPOINTS.PROPERTIES.UPDATE(id), { status: 'archived' });
+};
+
+/**
+ * Delete property (hard delete)
  */
 export const deleteProperty = async (id: string) => {
   return apiClient.delete<{ message: string }>(API_ENDPOINTS.PROPERTIES.DELETE(id));

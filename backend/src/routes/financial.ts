@@ -69,6 +69,25 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
       }
     });
 
+    // If no properties, return empty data
+    if (properties.length === 0) {
+      return res.json({
+        totalRevenue: 0,
+        netOperatingIncome: 0,
+        portfolioCapRate: 0,
+        operatingMargin: 0,
+        occupancyRate: 0,
+        totalProperties: 0,
+        totalUnits: 0,
+        occupiedUnits: 0,
+        vacantUnits: 0,
+        estimatedExpenses: 0,
+        annualRevenue: 0,
+        annualNOI: 0,
+        totalPropertyValue: 0
+      });
+    }
+
     // Calculate total revenue (sum of all occupied unit rents)
     let totalRevenue = 0;
     let totalOccupiedUnits = 0;
@@ -76,20 +95,23 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
     let totalPropertyValue = 0;
 
     properties.forEach(property => {
-      property.units.forEach(unit => {
-        totalUnits++;
-        if (unit.status === 'occupied') {
-          totalRevenue += unit.monthlyRent || 0;
-          totalOccupiedUnits++;
-        }
-      });
+      // Handle properties without units
+      if (property.units && property.units.length > 0) {
+        property.units.forEach(unit => {
+          totalUnits++;
+          if (unit.status === 'occupied') {
+            totalRevenue += unit.monthlyRent || 0;
+            totalOccupiedUnits++;
+          }
+        });
+      }
 
       // Use currentValue if available, otherwise purchasePrice, otherwise estimate
       if (property.currentValue) {
         totalPropertyValue += property.currentValue;
       } else if (property.purchasePrice) {
         totalPropertyValue += property.purchasePrice;
-      } else {
+      } else if (property.units && property.units.length > 0) {
         // Fallback: estimate at 15x annual rent for this property
         const propertyRevenue = property.units
           .filter(u => u.status === 'occupied')
@@ -172,8 +194,13 @@ router.get('/monthly-revenue', async (req: AuthRequest, res: Response) => {
       }
     });
 
+    // If no properties, return empty array
+    if (properties.length === 0) {
+      return res.json([]);
+    }
+
     const currentRevenue = properties.reduce((sum, prop) => 
-      sum + prop.units.reduce((unitSum, unit) => unitSum + (unit.monthlyRent || 0), 0), 0
+      sum + (prop.units || []).reduce((unitSum, unit) => unitSum + (unit.monthlyRent || 0), 0), 0
     );
 
     const monthlyData = [];
@@ -250,10 +277,15 @@ router.get('/property-performance', async (req: AuthRequest, res: Response) => {
       }
     });
 
+    // If no properties, return empty array
+    if (properties.length === 0) {
+      return res.json([]);
+    }
+
     // Calculate performance metrics for each property
     const performanceData = properties.map(property => {
       // Calculate revenue (sum of occupied unit rents)
-      const monthlyRevenue = property.units
+      const monthlyRevenue = (property.units || [])
         .filter(u => u.status === 'occupied')
         .reduce((sum, u) => sum + (u.monthlyRent || 0), 0);
 
@@ -268,8 +300,8 @@ router.get('/property-performance', async (req: AuthRequest, res: Response) => {
       const annualNOI = monthlyNOI * 12;
 
       // Calculate occupancy rate
-      const totalUnits = property.units.length;
-      const occupiedUnits = property.units.filter(u => u.status === 'occupied').length;
+      const totalUnits = (property.units || []).length;
+      const occupiedUnits = (property.units || []).filter(u => u.status === 'occupied').length;
       const occupancyRate = totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0;
 
       // Calculate Cap Rate
