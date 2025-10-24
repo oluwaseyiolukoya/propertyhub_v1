@@ -28,6 +28,7 @@ import {
   subscribeToForceReauth,
   unsubscribeFromForceReauth
 } from '../lib/socket';
+import { clearCache } from '../lib/api/cache';
 import { setupActiveSessionValidation } from '../lib/sessionValidator';
 import { 
   getCustomers,
@@ -47,6 +48,7 @@ import {
   deleteRole,
   type Role 
 } from '../lib/api/roles';
+import { getBillingPlans } from '../lib/api/plans';
 import { apiClient } from '../lib/api-client';
 import { 
   PERMISSIONS, 
@@ -77,6 +79,8 @@ import {
   Key
 } from 'lucide-react';
 import { Textarea } from './ui/textarea';
+import { useCurrency } from '../lib/CurrencyContext';
+import { computeCustomerChurn, computeMRRChurn, lastNDaysWindow } from '../lib/metrics';
 
 interface SuperAdminDashboardProps {
   user: any;
@@ -87,7 +91,14 @@ export function SuperAdminDashboard({
   user, 
   onLogout
 }: SuperAdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState('overview');
+  const { currency, formatCurrency, convertAmount } = useCurrency();
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    try {
+      return localStorage.getItem('admin_active_tab') || 'overview';
+    } catch {
+      return 'overview';
+    }
+  });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentView, setCurrentView] = useState<'dashboard' | 'add-customer'>('dashboard');
@@ -99,6 +110,7 @@ export function SuperAdminDashboard({
   const [editCustomerDialog, setEditCustomerDialog] = useState<any>(null);
   const [editFormData, setEditFormData] = useState<any>({});
   const [generatedPasswordDialog, setGeneratedPasswordDialog] = useState<any>(null); // For showing generated password
+  const [isClearingCache, setIsClearingCache] = useState(false);
   const [copiedPassword, setCopiedPassword] = useState(false); // For copy button feedback
 
   // Customer data from API
@@ -113,6 +125,32 @@ export function SuperAdminDashboard({
   // Roles data from API (Internal admin roles only - customer roles like owner, manager, tenant are managed separately)
   const [roles, setRoles] = useState<Role[]>([]);
   const [rolesLoading, setRolesLoading] = useState(false);
+
+  // Plans data from API
+  const [plans, setPlans] = useState<any[]>([]);
+  const [plansLoading, setPlansLoading] = useState(false);
+
+  // Customer filters (Admin → Customer Management)
+  const [showFilters, setShowFilters] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'trial' | 'active' | 'suspended' | 'cancelled'>('all');
+  const [planFilter, setPlanFilter] = useState<string>('all'); // planId or 'all'
+  const [billingCycleFilter, setBillingCycleFilter] = useState<'all' | 'monthly' | 'annual'>('all');
+  const [hasPlanFilter, setHasPlanFilter] = useState<'all' | 'with' | 'without'>('all');
+  const [minProperties, setMinProperties] = useState<string>('');
+  const [maxProperties, setMaxProperties] = useState<string>('');
+  const [minMRR, setMinMRR] = useState<string>('');
+  const [maxMRR, setMaxMRR] = useState<string>('');
+
+  const clearAllFilters = () => {
+    setStatusFilter('all');
+    setPlanFilter('all');
+    setBillingCycleFilter('all');
+    setHasPlanFilter('all');
+    setMinProperties('');
+    setMaxProperties('');
+    setMinMRR('');
+    setMaxMRR('');
+  };
 
   // Fetch customers with current filters
   const fetchCustomersData = async (options?: { isInitial?: boolean; silent?: boolean }) => {
@@ -187,12 +225,98 @@ export function SuperAdminDashboard({
     }
   };
 
-  // Fetch customers, users, and roles on component mount
+  // Fetch plans
+  const fetchPlansData = async () => {
+    try {
+      setPlansLoading(true);
+      console.log('🔄 Fetching plans from database...');
+      const response = await getBillingPlans();
+      
+      if (response.error) {
+        console.error('❌ Failed to load plans:', response.error);
+        toast.error('Failed to load plans');
+      } else if (response.data) {
+        console.log('✅ Plans fetched from database:', response.data);
+        // Filter only active plans for customer assignment
+        setPlans(response.data.filter((p: any) => p.isActive));
+      }
+    } catch (error) {
+      console.error('❌ Error fetching plans:', error);
+      toast.error('Failed to load plans');
+    } finally {
+      setPlansLoading(false);
+    }
+  };
+
+  // Handle cache clearing
+  const handleClearCache = async () => {
+    try {
+      setIsClearingCache(true);
+      console.log('🧹 Clearing cache for all user types...');
+      
+      // Debug: Check if we have a token
+      const token = localStorage.getItem('auth_token');
+      console.log('🔑 Auth token exists:', !!token);
+      console.log('🔑 Token preview:', token ? `${token.substring(0, 20)}...` : 'No token');
+      
+      const response = await clearCache();
+      
+      if (response.error) {
+        console.error('❌ Failed to clear cache:', response.error);
+        toast.error('Failed to clear cache');
+      } else if (response.data) {
+        console.log('✅ Cache cleared successfully:', response.data);
+        toast.success(`Cache cleared successfully! Cleared ${response.data.details.clearedTypes.length} cache types.`);
+        
+        // Optionally refresh data after cache clear
+        setTimeout(() => {
+          fetchCustomersData({ silent: true });
+          fetchUsersData();
+          fetchRolesData();
+          fetchPlansData();
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('❌ Error clearing cache:', error);
+      toast.error('Failed to clear cache');
+    } finally {
+      setIsClearingCache(false);
+    }
+  };
+
+  // Subscribe to real-time plan events to keep UI in sync
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const handlePlanCreated = () => fetchPlansData();
+    const handlePlanUpdated = () => fetchPlansData();
+    const handlePlanDeleted = () => fetchPlansData();
+
+    // Reuse socket helper
+    const { on: onEvent, off: offEvent } = require('../lib/socket');
+    try {
+      onEvent('plan:created', handlePlanCreated);
+      onEvent('plan:updated', handlePlanUpdated);
+      onEvent('plan:deleted', handlePlanDeleted);
+    } catch {}
+
+    return () => {
+      try {
+        offEvent('plan:created', handlePlanCreated);
+        offEvent('plan:updated', handlePlanUpdated);
+        offEvent('plan:deleted', handlePlanDeleted);
+      } catch {}
+    };
+  }, []);
+
+  // Fetch customers, users, roles, and plans on component mount
   useEffect(() => {
     // Load customers silently to populate Overview metrics without UI changes
     fetchCustomersData({ silent: true });
     fetchUsersData();
     fetchRolesData();
+    fetchPlansData();
 
     // Initialize Socket.io for real-time updates
     const token = localStorage.getItem('token');
@@ -301,25 +425,45 @@ export function SuperAdminDashboard({
   }, [activeTab]);
 
   // Calculate platform stats
+  const totalActiveSubscriptions = customers.filter((c: any) => c.status === 'active' || c.status === 'trial').length;
+  const totalMonthlyRevenue = customers.reduce((sum: number, c: any) => sum + (c.mrr || c.plan?.monthlyPrice || 0), 0);
   const platformStats = {
     totalCustomers: customers.length,
     totalProperties: customers.reduce((sum: number, customer: any) => sum + (customer._count?.properties || 0), 0),
     totalUnits: 0, // Would need separate API call to calculate total units across all properties
-    totalRevenue: customers.reduce((sum: number, customer: any) => {
-      const plan = customer.plan;
-      const mrr = customer.mrr || plan?.monthlyPrice || 0;
-      return sum + (mrr * 12);
-    }, 0),
-    activeSubscriptions: customers.filter((customer: any) => customer.status === 'active').length,
-    churnRate: 2.3,
-    avgRevenuePer: customers.length > 0 
-      ? Math.round(customers.reduce((sum: number, customer: any) => {
-          const mrr = customer.mrr || customer.plan?.monthlyPrice || 0;
-          return sum + mrr;
-        }, 0) / customers.length)
-      : 0,
+    totalRevenue: totalMonthlyRevenue * 12,
+    activeSubscriptions: totalActiveSubscriptions,
+    churnRate: null as number | null,
+    avgRevenuePer: totalActiveSubscriptions > 0 ? Math.round((totalMonthlyRevenue / totalActiveSubscriptions) * 100) / 100 : null,
     supportTickets: 23
   };
+
+  // Compute 30-day churn metrics
+  const churnWindow = lastNDaysWindow(30);
+  const customerChurn = computeCustomerChurn(
+    customers.map((c: any) => ({
+      id: c.id,
+      status: c.status,
+      createdAt: c.createdAt,
+      subscriptionStartDate: c.subscriptionStartDate,
+      updatedAt: c.updatedAt,
+      cancelledAt: null,
+      mrr: c.mrr || c.plan?.monthlyPrice || 0,
+    })),
+    churnWindow
+  );
+  const mrrChurn = computeMRRChurn(
+    customers.map((c: any) => ({
+      id: c.id,
+      status: c.status,
+      createdAt: c.createdAt,
+      subscriptionStartDate: c.subscriptionStartDate,
+      updatedAt: c.updatedAt,
+      cancelledAt: null,
+      mrr: c.mrr || c.plan?.monthlyPrice || 0,
+    })),
+    churnWindow
+  );
 
   // Customer action handlers
   const handleViewCustomer = (customer: any) => {
@@ -337,7 +481,7 @@ export function SuperAdminDashboard({
       taxId: customer.taxId || '',
       industry: customer.industry || '',
       companySize: customer.companySize || '',
-      plan: customer.plan?.name || '', // Get plan name from plan object
+      planId: customer.planId || '', // Use planId instead of plan name
       status: customer.status,
       billingCycle: customer.billingCycle || 'monthly',
       street: customer.street || '',
@@ -350,6 +494,26 @@ export function SuperAdminDashboard({
       storageLimit: customer.storageLimit,
       notes: customer.notes || '' // Add notes to form data
     });
+  };
+
+  // Handle plan change in edit form - auto-fill limits
+  const handlePlanChangeInEdit = (planId: string) => {
+    const selectedPlan = plans.find(p => p.id === planId);
+    if (selectedPlan) {
+      setEditFormData({
+        ...editFormData,
+        planId,
+        propertyLimit: selectedPlan.propertyLimit,
+        userLimit: selectedPlan.userLimit,
+        storageLimit: selectedPlan.storageLimit
+      });
+    } else {
+      // No plan selected
+      setEditFormData({
+        ...editFormData,
+        planId: ''
+      });
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -491,8 +655,40 @@ export function SuperAdminDashboard({
     }
   };
 
-  // Customers are already filtered by the API, but we can apply additional client-side filtering
-  const filteredCustomers = customers;
+  // Customers are already filtered by the API via `search`, apply additional client-side filters
+  const filteredCustomers = customers.filter((c: any) => {
+    // Status
+    if (statusFilter !== 'all' && c.status !== statusFilter) return false;
+
+    // Billing cycle
+    if (billingCycleFilter !== 'all' && (c.billingCycle || 'monthly') !== billingCycleFilter) return false;
+
+    // Has plan
+    if (hasPlanFilter === 'with' && !c.planId) return false;
+    if (hasPlanFilter === 'without' && !!c.planId) return false;
+
+    // Plan match (by id)
+    if (planFilter !== 'all') {
+      const customerPlanId = c.planId || c.plan?.id || '';
+      if (customerPlanId !== planFilter) return false;
+    }
+
+    // Properties count range
+    const propertiesCount = c.propertiesCount ?? c._count?.properties ?? 0;
+    const minProps = minProperties ? parseInt(minProperties) : undefined;
+    const maxProps = maxProperties ? parseInt(maxProperties) : undefined;
+    if (minProps !== undefined && propertiesCount < minProps) return false;
+    if (maxProps !== undefined && propertiesCount > maxProps) return false;
+
+    // MRR range (fallback to plan monthly price if MRR missing)
+    const mrr = c.mrr ?? c.plan?.monthlyPrice ?? 0;
+    const minM = minMRR ? parseFloat(minMRR) : undefined;
+    const maxM = maxMRR ? parseFloat(maxMRR) : undefined;
+    if (minM !== undefined && mrr < minM) return false;
+    if (maxM !== undefined && mrr > maxM) return false;
+
+    return true;
+  });
 
   const systemAlerts = [
     {
@@ -668,6 +864,27 @@ export function SuperAdminDashboard({
             </div>
             
             <div className="flex items-center space-x-2 sm:space-x-4">
+              {/* Clear Cache Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleClearCache}
+                disabled={isClearingCache}
+                className="text-xs sm:text-sm"
+              >
+                {isClearingCache ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-600 mr-2"></div>
+                    Clearing...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-3 w-3 mr-2" />
+                    Clear Cache
+                  </>
+                )}
+              </Button>
+              
               <div className="flex items-center space-x-2">
                 <div className="h-8 w-8 rounded-full bg-red-600 flex items-center justify-center">
                   <span className="text-white text-xs sm:text-sm font-medium">
@@ -696,6 +913,7 @@ export function SuperAdminDashboard({
                     className="w-full justify-start text-sm md:text-base"
                     onClick={() => {
                       setActiveTab(item.id);
+                      try { localStorage.setItem('admin_active_tab', item.id); } catch {}
                       setSidebarOpen(false);
                     }}
                   >
@@ -770,7 +988,7 @@ export function SuperAdminDashboard({
                       <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">₦{(platformStats.totalRevenue / 12).toLocaleString()}</div>
+                      <div className="text-2xl font-bold">{formatCurrency(platformStats.totalRevenue / 12)}</div>
                       <p className="text-xs text-muted-foreground">
                         +15.2% from last month
                       </p>
@@ -796,10 +1014,8 @@ export function SuperAdminDashboard({
                       <TrendingUp className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">{platformStats.churnRate}%</div>
-                      <p className="text-xs text-muted-foreground">
-                        -0.8% from last month
-                      </p>
+                      <div className="text-2xl font-bold">{customerChurn.rate !== null ? `${customerChurn.rate}%` : '—'}</div>
+                      <p className="text-xs text-muted-foreground">{mrrChurn.rate !== null ? `MRR churn: ${mrrChurn.rate}%` : 'MRR churn: —'}</p>
                     </CardContent>
                   </Card>
                 </div>
@@ -864,7 +1080,7 @@ export function SuperAdminDashboard({
                           })
                           .slice(0, 5)
                           .map((customer: any) => {
-                            const mrr = customer.mrr || customer.plan?.monthlyPrice || 0; // Fixed: use monthlyPrice
+                            const mrr = customer.mrr || customer.plan?.monthlyPrice || 0;
                             const totalUnits = customer.unitsCount || 0; // Use unitsCount from DB
                             return (
                               <div key={customer.id} className="flex items-center justify-between">
@@ -873,7 +1089,7 @@ export function SuperAdminDashboard({
                                   <p className="text-sm text-gray-600">{customer.owner}</p>
                                 </div>
                                 <div className="text-right">
-                                  <p className="font-medium">₦{mrr}/mo</p>
+                                  <p className="font-medium">{formatCurrency(convertAmount(mrr, customer.plan?.currency || 'USD'))}/mo</p>
                                   <p className="text-sm text-gray-600">{totalUnits} units</p>
                                 </div>
                               </div>
@@ -896,7 +1112,7 @@ export function SuperAdminDashboard({
                           <div key={index} className="flex justify-between items-center">
                             <span className="text-sm text-gray-600">{data.month} 2025</span>
                             <div className="text-right">
-                              <div className="font-medium">₦{(data.revenue / 1000).toFixed(0)}k</div>
+                              <div className="font-medium">{formatCurrency(data.revenue)}</div>
                               <div className="text-sm text-gray-500">{data.customers} customers</div>
                             </div>
                           </div>
@@ -935,11 +1151,102 @@ export function SuperAdminDashboard({
                       className="pl-10"
                     />
                   </div>
-                  <Button variant="outline">
+                  <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
                     <Filter className="h-4 w-4 mr-2" />
-                    Filter
+                    {showFilters ? 'Hide Filters' : 'Filter'}
                   </Button>
                 </div>
+
+                {showFilters && (
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="space-y-2">
+                          <Label>Status</Label>
+                          <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All</SelectItem>
+                              <SelectItem value="trial">Trial</SelectItem>
+                              <SelectItem value="active">Active</SelectItem>
+                              <SelectItem value="suspended">Suspended</SelectItem>
+                              <SelectItem value="cancelled">Cancelled</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Plan</Label>
+                          <Select value={planFilter} onValueChange={(v: any) => setPlanFilter(v)}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Plans</SelectItem>
+                              {plans.map((p: any) => (
+                                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Billing Cycle</Label>
+                          <Select value={billingCycleFilter} onValueChange={(v: any) => setBillingCycleFilter(v)}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All</SelectItem>
+                              <SelectItem value="monthly">Monthly</SelectItem>
+                              <SelectItem value="annual">Annual</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Has Plan</Label>
+                          <Select value={hasPlanFilter} onValueChange={(v: any) => setHasPlanFilter(v)}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All</SelectItem>
+                              <SelectItem value="with">With Plan</SelectItem>
+                              <SelectItem value="without">Without Plan</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                        <div className="space-y-2">
+                          <Label>Min Properties</Label>
+                          <Input value={minProperties} onChange={(e) => setMinProperties(e.target.value)} placeholder="e.g. 1" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Max Properties</Label>
+                          <Input value={maxProperties} onChange={(e) => setMaxProperties(e.target.value)} placeholder="e.g. 50" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Min MRR</Label>
+                          <Input value={minMRR} onChange={(e) => setMinMRR(e.target.value)} placeholder="e.g. 500" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Max MRR</Label>
+                          <Input value={maxMRR} onChange={(e) => setMaxMRR(e.target.value)} placeholder="e.g. 5000" />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 mt-4">
+                        <Button variant="ghost" onClick={clearAllFilters}>Clear</Button>
+                        <Button variant="outline" onClick={() => setShowFilters(false)}>Apply</Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
                 <Card>
                   <div className="overflow-x-auto">
@@ -959,9 +1266,11 @@ export function SuperAdminDashboard({
                     <TableBody>
                       {filteredCustomers.map((customer: any) => {
                         const propertiesCount = customer.propertiesCount || customer._count?.properties || 0; // Use propertiesCount from DB or fall back to _count
-                        const totalUnits = customer.unitsCount || 0; // Use unitsCount from DB
+                        const usersCount = customer._count?.users || (Array.isArray(customer.users) ? customer.users.length : 0);
                         const mrr = customer.mrr || customer.plan?.monthlyPrice || 0; // Fixed: use monthlyPrice, not priceMonthly
                         const planName = customer.plan?.name || 'No Plan';
+                        const propLimit = customer.plan?.propertyLimit;
+                        const userLimit = customer.plan?.userLimit;
                         const lastLogin = customer.users?.find((u: any) => u.lastLogin)?
                           new Date(customer.users.find((u: any) => u.lastLogin).lastLogin).toLocaleDateString() : 
                           'Never';
@@ -985,11 +1294,15 @@ export function SuperAdminDashboard({
                             </TableCell>
                             <TableCell>
                               <div>
-                                <div>{propertiesCount} properties</div>
-                                <div className="text-sm text-gray-600">{totalUnits} units</div>
+                                <div>
+                                  {propertiesCount} {propLimit ? `/ ${propLimit}` : ''} properties
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                  {usersCount} {userLimit ? `/ ${userLimit}` : ''} users
+                                </div>
                               </div>
                             </TableCell>
-                            <TableCell>₦{mrr}</TableCell>
+                            <TableCell>{formatCurrency(convertAmount(mrr, customer.plan?.currency || 'USD'))}</TableCell>
                             <TableCell>
                               <Badge variant={
                                 customer.status === 'active' ? 'default' :
@@ -1407,7 +1720,7 @@ export function SuperAdminDashboard({
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">MRR</p>
-                    <p className="font-medium">₦{viewCustomerDialog.mrr?.toLocaleString() || '0'}</p>
+                    <p className="font-medium">{formatCurrency(convertAmount(viewCustomerDialog.mrr || 0, viewCustomerDialog.plan?.currency || 'USD'))}</p>
                   </div>
                 </div>
               </div>
@@ -1590,22 +1903,30 @@ export function SuperAdminDashboard({
               <div className="border-t pt-4">
                 <h3 className="text-sm font-semibold mb-3 text-gray-900">Account Status & Billing</h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
+      <div className="space-y-2">
                     <Label htmlFor="edit-plan">Subscription Plan</Label>
                     <Select
-                      value={editFormData.plan || 'none'}
-                      onValueChange={(value) => setEditFormData({ ...editFormData, plan: value === 'none' ? '' : value })}
+                      value={editFormData.planId || 'none'}
+                      onValueChange={(value) => handlePlanChangeInEdit(value === 'none' ? '' : value)}
+                      disabled={plansLoading}
                     >
                       <SelectTrigger id="edit-plan">
-                        <SelectValue placeholder="Select a plan" />
+                        <SelectValue placeholder={plansLoading ? "Loading plans..." : "Select a plan"} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">No Plan</SelectItem>
-                        <SelectItem value="Starter">Starter - ₦500/mo</SelectItem>
-                        <SelectItem value="Professional">Professional - ₦1,200/mo</SelectItem>
-                        <SelectItem value="Enterprise">Enterprise - ₦2,500/mo</SelectItem>
+            <SelectItem value="none">No Plan</SelectItem>
+            {plans.filter((p: any) => p.isActive).map((plan) => (
+                          <SelectItem key={plan.id} value={plan.id}>
+                            {plan.name} - {formatCurrency(convertAmount(plan.monthlyPrice, plan.currency || 'USD'))}/mo
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
+                    {editFormData.planId && plans.find(p => p.id === editFormData.planId) && (
+                      <p className="text-xs text-gray-500">
+                        Limits will be set to: {plans.find(p => p.id === editFormData.planId)?.propertyLimit} properties, {plans.find(p => p.id === editFormData.planId)?.userLimit} users, {plans.find(p => p.id === editFormData.planId)?.storageLimit}MB storage
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="edit-status">Status</Label>

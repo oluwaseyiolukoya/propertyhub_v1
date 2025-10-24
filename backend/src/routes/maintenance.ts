@@ -14,6 +14,12 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     const role = req.user?.role;
     const customerId = req.user?.customerId;
 
+    // TODO: Implement maintenance_requests table in schema
+    // For now, return empty array to prevent 500 errors
+    console.log('⚠️ Maintenance requests not yet implemented - returning empty array');
+    return res.json([]);
+
+    /* COMMENTED OUT UNTIL SCHEMA IS UPDATED
     const where: any = {};
 
     // Filter by role access
@@ -101,6 +107,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     });
 
     return res.json(requests);
+    */
 
   } catch (error: any) {
     console.error('Get maintenance requests error:', error);

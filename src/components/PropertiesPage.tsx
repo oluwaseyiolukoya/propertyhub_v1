@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -8,7 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Progress } from "./ui/progress";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { toast } from "sonner";
+import { getUnits, createUnit, deleteUnit } from '../lib/api/units';
+import { Switch } from "./ui/switch";
+import { getMaintenanceRequests } from '../lib/api/maintenance';
+import { getOwnerDashboardOverview } from '../lib/api';
+import { getPaymentStats } from '../lib/api/payments';
 import { 
   Building2,
   Users,
@@ -31,6 +37,7 @@ import {
   FileText,
   Download,
   BarChart3,
+  Trash2,
   PieChart,
   LineChart,
   Activity,
@@ -55,121 +62,139 @@ interface PropertiesPageProps {
   onNavigateToAddProperty?: () => void;
   properties: any[];
   onUpdateProperty?: (propertyId: number, updates: any) => void;
+  onViewProperty?: (propertyId: string) => void;
+  onEditProperty?: (propertyId: string) => void;
 }
 
-export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddProperty, properties, onUpdateProperty }: PropertiesPageProps) {
+export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddProperty, properties, onUpdateProperty, onViewProperty, onEditProperty }: PropertiesPageProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [unitsData, setUnitsData] = useState<any[]>([]);
+  const [unitView, setUnitView] = useState<'list' | 'add'>('list');
+  const [unitSaving, setUnitSaving] = useState(false);
+  const [unitForm, setUnitForm] = useState<any>({
+    propertyId: '',
+    unitNumber: '',
+    type: '',
+    floor: '',
+    bedrooms: '',
+    bathrooms: '',
+    size: '',
+    monthlyRent: '',
+    securityDeposit: '',
+    status: 'vacant',
+    rentFrequency: 'monthly',
+    serviceCharge: '',
+    cautionFee: '',
+    legalFee: '',
+    agentCommission: '',
+    agreementFee: '',
+    electricityMeter: '',
+    prepaidMeter: false,
+    wasteFee: '',
+    estateDues: '',
+    waterSource: 'public',
+    parkingAvailable: true
+  });
+  const [maintenanceData, setMaintenanceData] = useState<any[]>([]);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [financialStats, setFinancialStats] = useState<{ gross?: number; net?: number; expenses?: number; capRate?: number }>({});
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [unitToDelete, setUnitToDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [uRes, mRes, dRes, pStats] = await Promise.all([
+          getUnits(),
+          getMaintenanceRequests(),
+          getOwnerDashboardOverview(),
+          getPaymentStats()
+        ]);
+        if (!uRes.error && Array.isArray(uRes.data)) setUnitsData(uRes.data);
+        if (!mRes.error && Array.isArray(mRes.data)) setMaintenanceData(mRes.data);
+        if (!dRes.error && dRes.data?.recentActivity) setRecentActivity(dRes.data.recentActivity);
+        if (!pStats.error && pStats.data) {
+          const gross = Number(pStats.data.totalCollected || 0);
+          const expenses = Number(pStats.data.byType?.find((t: any) => t.type === 'expense')?._sum?.amount || 0) || 0;
+          const net = gross - expenses;
+          // Approximate cap rate: (annualized net) / sum of property market values (not modeled) → fallback to occupancy-based proxy
+          const capRate = properties.length > 0 ? Math.round(((net * 12) / Math.max(1, properties.length)) * 10) / 10 : 0;
+          setFinancialStats({ gross, net, expenses, capRate });
+        }
+      } catch (e: any) {
+        // Non-blocking: show a toast once
+        toast.error('Failed to load units or maintenance data');
+      }
+    })();
+  }, [properties.length]);
+
+  // Handle delete unit
+  const handleDeleteUnit = async () => {
+    if (!unitToDelete) return;
+    
+    try {
+      setIsDeleting(true);
+      const res = await deleteUnit(unitToDelete.id);
+      
+      if ((res as any).error) {
+        throw new Error((res as any).error.error || 'Failed to delete unit');
+      }
+      
+      toast.success('Unit deleted successfully');
+      setShowDeleteDialog(false);
+      setUnitToDelete(null);
+      
+      // Refresh units list
+      const uRes = await getUnits();
+      if (!uRes.error && Array.isArray(uRes.data)) {
+        setUnitsData(uRes.data);
+      }
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to delete unit');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Calculate portfolio metrics from properties
   const portfolioMetrics = {
     totalProperties: properties.length,
-    totalUnits: properties.reduce((sum, p) => sum + (p.totalUnits || p.units || 0), 0),
-    occupiedUnits: properties.reduce((sum, p) => sum + (p.occupiedUnits || p.occupied || 0), 0),
-    vacantUnits: properties.reduce((sum, p) => sum + (p.vacantUnits || (p.units - p.occupied) || 0), 0),
-    totalRevenue: properties.reduce((sum, p) => sum + (p.monthlyRevenue || 0), 0),
+    totalUnits: properties.reduce((sum, p) => sum + (p._count?.units || p.totalUnits || 0), 0),
+    occupiedUnits: properties.reduce((sum, p) => sum + (p.occupiedUnits || 0), 0),
+    vacantUnits: properties.reduce((sum, p) => {
+      const total = p._count?.units || p.totalUnits || 0;
+      const occ = p.occupiedUnits || 0;
+      return sum + Math.max(total - occ, 0);
+    }, 0),
+    totalRevenue: properties.reduce((sum, p) => sum + (p.totalMonthlyIncome || 0), 0),
     avgOccupancy: properties.length > 0 ? 
-      properties.reduce((sum, p) => sum + (p.occupancyRate || ((p.occupied || 0) / (p.units || 1) * 100)), 0) / properties.length : 0,
-    maintenanceRequests: properties.reduce((sum, p) => sum + (p.maintenanceRequests || 0), 0)
+      properties.reduce((sum, p) => sum + (p.occupancyRate ?? (((p.occupiedUnits || 0) / ((p._count?.units || p.totalUnits || 1))) * 100)), 0) / properties.length : 0,
+    maintenanceRequests: maintenanceData.length
   };
 
-  const maintenanceRequests = [
-    {
-      id: 1,
-      propertyId: 1,
-      propertyName: "Sunset Apartments",
-      unit: "4B",
-      tenant: "John Smith",
-      issue: "Leaking faucet in kitchen",
-      priority: "medium",
-      status: "in-progress",
-      requestDate: "2024-03-20",
-      assignedTo: "Plumbing Pro Services",
-      estimatedCost: 125
-    },
-    {
-      id: 2,
-      propertyId: 2,
-      propertyName: "Riverside Complex",
-      unit: "12A",
-      tenant: "Maria Garcia",
-      issue: "Air conditioning not working",
-      priority: "high",
-      status: "pending",
-      requestDate: "2024-03-21",
-      assignedTo: null,
-      estimatedCost: 450
-    },
-    {
-      id: 3,
-      propertyId: 1,
-      propertyName: "Sunset Apartments",
-      unit: "7C",
-      tenant: "Robert Johnson",
-      issue: "Garbage disposal replacement",
-      priority: "low",
-      status: "scheduled",
-      requestDate: "2024-03-19",
-      assignedTo: "Fix-It Fast",
-      estimatedCost: 280
-    }
-  ];
+  const maintenanceRequests = maintenanceData;
 
-  const units = [
-    {
-      id: 1,
-      propertyId: 1,
-      unit: "1A",
-      bedrooms: 2,
-      bathrooms: 1,
-      sqft: 850,
-      rent: 875,
-      deposit: 1750,
-      status: "occupied",
-      tenant: "Alice Johnson",
-      leaseStart: "2024-01-01",
-      leaseEnd: "2024-12-31",
-      moveInDate: "2024-01-01",
-      phoneNumber: "(555) 111-2222",
-      email: "alice@email.com"
-    },
-    {
-      id: 2,
-      propertyId: 1,
-      unit: "1B",
-      bedrooms: 1,
-      bathrooms: 1,
-      sqft: 650,
-      rent: 725,
-      deposit: 1450,
-      status: "vacant",
-      tenant: null,
-      leaseStart: null,
-      leaseEnd: null,
-      moveInDate: null,
-      phoneNumber: null,
-      email: null
-    },
-    {
-      id: 3,
-      propertyId: 1,
-      unit: "2A",
-      bedrooms: 2,
-      bathrooms: 2,
-      sqft: 950,
-      rent: 950,
-      deposit: 1900,
-      status: "occupied",
-      tenant: "Bob Wilson",
-      leaseStart: "2023-08-15",
-      leaseEnd: "2024-08-14",
-      moveInDate: "2023-08-15",
-      phoneNumber: "(555) 333-4444",
-      email: "bob@email.com"
-    }
-  ];
+  const units = unitsData.map(u => ({
+    id: u.id,
+    propertyId: u.propertyId,
+    unit: u.unitNumber,
+    bedrooms: u.bedrooms,
+    bathrooms: u.bathrooms,
+    sqft: u.size,
+    rent: u.monthlyRent,
+    deposit: u.securityDeposit,
+    status: u.status,
+    tenant: u.leases?.[0]?.users?.name || null,
+    leaseStart: u.leases?.[0]?.startDate ? new Date(u.leases[0].startDate).toISOString().split('T')[0] : null,
+    leaseEnd: u.leases?.[0]?.endDate ? new Date(u.leases[0].endDate).toISOString().split('T')[0] : null,
+    moveInDate: u.leases?.[0]?.signedAt ? new Date(u.leases[0].signedAt).toISOString().split('T')[0] : null,
+    phoneNumber: u.leases?.[0]?.users?.phone || null,
+    email: u.leases?.[0]?.users?.email || null
+  }));
 
   const filteredProperties = properties.filter(property => {
     const matchesSearch = property.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -230,38 +255,49 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
     }
   };
 
-  const handlePropertyAction = (action: string, propertyId: number) => {
-    const property = properties.find(p => p.id === propertyId);
-    
-    switch (action) {
-      case 'view':
-        toast.info('View property details - coming soon');
-        break;
-      case 'edit':
-        toast.info('Edit property - coming soon');
-        break;
-      case 'duplicate':
-        if (property && onAddProperty) {
-          const duplicatedProperty = {
-            ...property,
-            id: Date.now(),
-            name: `${property.name} (Copy)`,
-            occupiedUnits: 0,
-            monthlyRevenue: 0,
-            occupancyRate: 0
-          };
-          onAddProperty(duplicatedProperty);
-          toast.success('Property duplicated successfully');
+  const handlePropertyAction = async (action: string, propertyId: string) => {
+    try {
+      switch (action) {
+        case 'view': {
+          if (onViewProperty) {
+            onViewProperty(propertyId);
+          }
+          break;
         }
-        break;
-      case 'archive':
-        if (onUpdateProperty) {
-          onUpdateProperty(propertyId, { status: 'archived' });
-          toast.success('Property archived');
+        case 'edit': {
+          if (onEditProperty) {
+            onEditProperty(propertyId);
+          }
+          break;
         }
-        break;
-      default:
-        break;
+        case 'duplicate': {
+          const property = properties.find(p => p.id === propertyId);
+          if (property && onAddProperty) {
+            const duplicatedProperty = {
+              ...property,
+              id: Date.now(),
+              name: `${property.name} (Copy)`,
+              occupiedUnits: 0,
+              monthlyRevenue: 0,
+              occupancyRate: 0
+            } as any;
+            onAddProperty(duplicatedProperty);
+            toast.success('Property duplicated successfully');
+          }
+          break;
+        }
+        case 'archive': {
+          if (onUpdateProperty) {
+            onUpdateProperty(propertyId as any, { status: 'archived' });
+            toast.success('Property archived');
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Action failed');
     }
   };
 
@@ -339,7 +375,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     <DollarSign className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">${portfolioMetrics.totalRevenue.toLocaleString()}</div>
+                    <div className="text-2xl font-bold">${(Number(portfolioMetrics.totalRevenue) || 0).toLocaleString()}</div>
                     <p className="text-xs text-muted-foreground">
                       +8.2% from last month
                     </p>
@@ -377,12 +413,12 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                             </div>
                             <div>
                               <h4 className="font-medium">{property.name}</h4>
-                              <p className="text-sm text-gray-600">{property.occupied}/{property.units} units</p>
+                              <p className="text-sm text-gray-600">{property.occupiedUnits ?? 0}/{property._count?.units ?? property.totalUnits ?? 0} units</p>
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-medium">${property.monthlyRevenue.toLocaleString()}</p>
-                            <p className="text-sm text-gray-600">{((property.occupied / property.units) * 100).toFixed(1)}% occupied</p>
+                            <p className="font-medium">${(Number(property.totalMonthlyIncome) || 0).toLocaleString()}</p>
+                            <p className="text-sm text-gray-600">{(((property.occupiedUnits ?? 0) / ((property._count?.units ?? property.totalUnits ?? 1))) * 100).toFixed(1)}% occupied</p>
                           </div>
                         </div>
                       ))}
@@ -397,41 +433,18 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <div className="flex items-start space-x-3 p-3 border rounded-lg">
-                        <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium">Lease renewed at Park View Towers</p>
-                          <p className="text-xs text-gray-600">Unit 12A - 1 year extension</p>
-                          <p className="text-xs text-gray-400">2 hours ago</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-start space-x-3 p-3 border rounded-lg">
-                        <Wrench className="h-5 w-5 text-yellow-600 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium">Maintenance request at Sunset Apartments</p>
-                          <p className="text-xs text-gray-600">Unit 4B - Leaking faucet</p>
-                          <p className="text-xs text-gray-400">4 hours ago</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-start space-x-3 p-3 border rounded-lg">
-                        <DollarSign className="h-5 w-5 text-green-600 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium">Rent payment received</p>
-                          <p className="text-xs text-gray-600">Riverside Complex - Unit 8C</p>
-                          <p className="text-xs text-gray-400">1 day ago</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-start space-x-3 p-3 border rounded-lg">
-                        <Home className="h-5 w-5 text-blue-600 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium">Unit became available</p>
-                          <p className="text-xs text-gray-600">Garden Homes - Unit 3A</p>
-                          <p className="text-xs text-gray-400">2 days ago</p>
-                        </div>
-                      </div>
+                      {recentActivity.length === 0 ? (
+                        <div className="text-sm text-gray-500">No recent activity.</div>
+                      ) : (
+                        recentActivity.map((log: any) => (
+                          <div key={log.id} className="flex items-start space-x-3 p-3 border rounded-lg">
+                            <div className="flex-1">
+                              <p className="text-sm">[{log.entity}] {log.action}: {log.description}</p>
+                              <p className="text-xs text-gray-400 mt-1">{new Date(log.createdAt).toLocaleString()}</p>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -521,11 +534,17 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                   {filteredProperties.map((property) => (
                     <Card key={property.id} className="overflow-hidden">
                       <div className="h-48 bg-gray-200 relative">
-                        <img 
-                          src={property.images[0]} 
-                          alt={property.name}
-                          className="w-full h-full object-cover"
-                        />
+                        {Array.isArray(property.images) && property.images.length > 0 ? (
+                          <img 
+                            src={property.images[0]} 
+                            alt={property.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
+                            No image
+                          </div>
+                        )}
                         <div className="absolute top-2 right-2">
                           <Badge variant={getStatusBadge(property.status)}>
                             {property.status}
@@ -573,31 +592,35 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm">
                             <span>Units:</span>
-                            <span>{property.occupied}/{property.units}</span>
+                            <span>{property.occupiedUnits ?? 0}/{property._count?.units ?? property.totalUnits ?? 0}</span>
                           </div>
                           <div className="flex justify-between text-sm">
                             <span>Occupancy:</span>
-                            <span className="font-medium">{((property.occupied / property.units) * 100).toFixed(1)}%</span>
+                            <span className="font-medium">{(
+                              property.occupancyRate ?? (
+                                ((property.occupiedUnits ?? 0) / ((property._count?.units ?? property.totalUnits ?? 0) || 1)) * 100
+                              )
+                            ).toFixed(1)}%</span>
                           </div>
                           <div className="flex justify-between text-sm">
                             <span>Monthly Revenue:</span>
-                            <span className="font-medium text-green-600">${property.monthlyRevenue.toLocaleString()}</span>
+                            <span className="font-medium text-green-600">${(Number(property.totalMonthlyIncome) || 0).toLocaleString()}</span>
                           </div>
                           <div className="flex justify-between text-sm">
                             <span>Manager:</span>
-                            <span>{property.manager}</span>
+                            <span>{property.property_managers?.[0]?.users?.name ?? 'Unassigned'}</span>
                           </div>
                         </div>
                         
                         <div className="mt-4 flex items-center space-x-2">
-                          {property.features.slice(0, 3).map((feature: string, index: number) => (
+                          {(Array.isArray(property.features) ? property.features : []).slice(0, 3).map((feature: string, index: number) => (
                             <Badge key={index} variant="outline" className="text-xs">
                               {feature}
                             </Badge>
                           ))}
-                          {property.features.length > 3 && (
+                          {(Array.isArray(property.features) ? property.features : []).length > 3 && (
                             <Badge variant="outline" className="text-xs">
-                              +{property.features.length - 3} more
+                              +{(property.features as any[]).length - 3} more
                             </Badge>
                           )}
                         </div>
@@ -638,11 +661,17 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                             <TableCell>
                               <div className="flex items-center space-x-3">
                                 <div className="h-10 w-10 rounded-lg bg-gray-200 overflow-hidden">
-                                  <img 
-                                    src={property.images[0]} 
-                                    alt={property.name}
-                                    className="w-full h-full object-cover"
-                                  />
+                                  {Array.isArray(property.images) && property.images.length > 0 ? (
+                                    <img 
+                                      src={property.images[0]} 
+                                      alt={property.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
+                                      No image
+                                    </div>
+                                  )}
                                 </div>
                                 <div>
                                   <p className="font-medium">{property.name}</p>
@@ -656,15 +685,15 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                                 <p className="text-xs text-gray-600">{property.city}, {property.state}</p>
                               </div>
                             </TableCell>
-                            <TableCell>{property.occupied}/{property.units}</TableCell>
+                            <TableCell>{property.occupiedUnits ?? 0}/{property._count?.units ?? property.totalUnits ?? 0}</TableCell>
                             <TableCell>
                               <div className="flex items-center space-x-2">
-                                <span>{((property.occupied / property.units) * 100).toFixed(1)}%</span>
-                                <Progress value={(property.occupied / property.units) * 100} className="w-16 h-2" />
+                                <span>{(((property.occupiedUnits ?? 0) / ((property._count?.units ?? property.totalUnits ?? 1))) * 100).toFixed(1)}%</span>
+                                <Progress value={(((property.occupiedUnits ?? 0) / ((property._count?.units ?? property.totalUnits ?? 1))) * 100)} className="w-16 h-2" />
                               </div>
                             </TableCell>
                             <TableCell className="font-medium text-green-600">
-                              ${property.monthlyRevenue.toLocaleString()}
+                              ${(Number(property.totalMonthlyIncome) || 0).toLocaleString()}
                             </TableCell>
                             <TableCell>
                               <div>
@@ -788,12 +817,13 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           </SelectContent>
                         </Select>
                       </div>
-                      <Button>
+                      <Button onClick={() => setUnitView('add')}>
                         <Plus className="h-4 w-4 mr-2" />
                         Add Unit
                       </Button>
                     </div>
 
+                    {unitView === 'list' && (
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -857,11 +887,22 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center space-x-2">
-                                  <Button variant="outline" size="sm">
+                                  <Button variant="outline" size="sm" title="View unit">
                                     <Eye className="h-4 w-4" />
                                   </Button>
-                                  <Button variant="outline" size="sm">
+                                  <Button variant="outline" size="sm" title="Edit unit">
                                     <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => {
+                                      setUnitToDelete(unit);
+                                      setShowDeleteDialog(true);
+                                    }}
+                                    title="Delete unit"
+                                  >
+                                    <Trash2 className="h-4 w-4 text-red-500" />
                                   </Button>
                                 </div>
                               </TableCell>
@@ -870,9 +911,218 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         })}
                       </TableBody>
                     </Table>
+                    )}
                   </div>
                 </CardContent>
               </Card>
+              {unitView === 'add' && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Add New Unit</CardTitle>
+                    <CardDescription>Create a unit under one of your properties.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                  <div className="grid gap-4">
+                    <div className="grid gap-2">
+                      <label className="text-sm font-medium" htmlFor="propertyId">Property</label>
+                      <Select value={unitForm.propertyId} onValueChange={(v) => setUnitForm({ ...unitForm, propertyId: v })}>
+                        <SelectTrigger id="propertyId">
+                          <SelectValue placeholder="Select property" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {properties.map((p: any) => (
+                            <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="grid gap-2">
+                        <label className="text-sm font-medium" htmlFor="unitNumber">Unit Number</label>
+                        <Input id="unitNumber" value={unitForm.unitNumber} onChange={(e) => setUnitForm({ ...unitForm, unitNumber: e.target.value })} placeholder="A101" />
+                      </div>
+                      <div className="grid gap-2">
+                        <label className="text-sm font-medium" htmlFor="type">Type</label>
+                        <Input id="type" value={unitForm.type} onChange={(e) => setUnitForm({ ...unitForm, type: e.target.value })} placeholder="2-bedroom" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="grid gap-2">
+                        <label className="text-sm font-medium" htmlFor="bedrooms">Bedrooms</label>
+                        <Input id="bedrooms" type="number" value={unitForm.bedrooms} onChange={(e) => setUnitForm({ ...unitForm, bedrooms: e.target.value })} placeholder="2" />
+                      </div>
+                      <div className="grid gap-2">
+                        <label className="text-sm font-medium" htmlFor="bathrooms">Bathrooms</label>
+                        <Input id="bathrooms" type="number" value={unitForm.bathrooms} onChange={(e) => setUnitForm({ ...unitForm, bathrooms: e.target.value })} placeholder="1" />
+                      </div>
+                      <div className="grid gap-2">
+                        <label className="text-sm font-medium" htmlFor="floor">Floor</label>
+                        <Input id="floor" type="number" value={unitForm.floor} onChange={(e) => setUnitForm({ ...unitForm, floor: e.target.value })} placeholder="3" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="grid gap-2">
+                        <label className="text-sm font-medium" htmlFor="size">Size (sqft)</label>
+                        <Input id="size" type="number" value={unitForm.size} onChange={(e) => setUnitForm({ ...unitForm, size: e.target.value })} placeholder="900" />
+                      </div>
+                      <div className="grid gap-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm font-medium" htmlFor="monthlyRent">Rent (NGN)</label>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-600">Frequency</span>
+                            <Select value={unitForm.rentFrequency} onValueChange={(v) => setUnitForm({ ...unitForm, rentFrequency: v })}>
+                              <SelectTrigger className="h-8 w-28">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="monthly">Monthly</SelectItem>
+                                <SelectItem value="annual">Annual</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <Input id="monthlyRent" type="number" value={unitForm.monthlyRent} onChange={(e) => setUnitForm({ ...unitForm, monthlyRent: e.target.value })} placeholder="1200000" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="grid gap-2">
+                        <label className="text-sm font-medium" htmlFor="securityDeposit">Security Deposit</label>
+                        <Input id="securityDeposit" type="number" value={unitForm.securityDeposit} onChange={(e) => setUnitForm({ ...unitForm, securityDeposit: e.target.value })} placeholder="500" />
+                      </div>
+                      <div className="grid gap-2">
+                        <label className="text-sm font-medium" htmlFor="status">Status</label>
+                        <Select value={unitForm.status} onValueChange={(v) => setUnitForm({ ...unitForm, status: v })}>
+                          <SelectTrigger id="status">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="vacant">Vacant</SelectItem>
+                            <SelectItem value="occupied">Occupied</SelectItem>
+                            <SelectItem value="maintenance">Maintenance</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="grid gap-2">
+                        <label className="text-sm font-medium" htmlFor="serviceCharge">Service Charge (NGN)</label>
+                        <Input id="serviceCharge" type="number" value={unitForm.serviceCharge} onChange={(e) => setUnitForm({ ...unitForm, serviceCharge: e.target.value })} placeholder="0" />
+                      </div>
+                      <div className="grid gap-2">
+                        <label className="text-sm font-medium" htmlFor="cautionFee">Caution Fee (NGN)</label>
+                        <Input id="cautionFee" type="number" value={unitForm.cautionFee} onChange={(e) => setUnitForm({ ...unitForm, cautionFee: e.target.value })} placeholder="0" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="grid gap-2">
+                        <label className="text-sm font-medium" htmlFor="legalFee">Legal Fee (NGN)</label>
+                        <Input id="legalFee" type="number" value={unitForm.legalFee} onChange={(e) => setUnitForm({ ...unitForm, legalFee: e.target.value })} placeholder="0" />
+                      </div>
+                      <div className="grid gap-2">
+                        <label className="text-sm font-medium" htmlFor="agentCommission">Agency Fee (NGN)</label>
+                        <Input id="agentCommission" type="number" value={unitForm.agentCommission} onChange={(e) => setUnitForm({ ...unitForm, agentCommission: e.target.value })} placeholder="0" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="grid gap-2">
+                        <label className="text-sm font-medium" htmlFor="agreementFee">Agreement Fee (NGN)</label>
+                        <Input id="agreementFee" type="number" value={unitForm.agreementFee} onChange={(e) => setUnitForm({ ...unitForm, agreementFee: e.target.value })} placeholder="0" />
+                      </div>
+                      <div className="grid gap-2">
+                        <label className="text-sm font-medium" htmlFor="wasteFee">Waste Management (NGN)</label>
+                        <Input id="wasteFee" type="number" value={unitForm.wasteFee} onChange={(e) => setUnitForm({ ...unitForm, wasteFee: e.target.value })} placeholder="0" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="grid gap-2">
+                        <label className="text-sm font-medium" htmlFor="estateDues">Estate Dues (NGN)</label>
+                        <Input id="estateDues" type="number" value={unitForm.estateDues} onChange={(e) => setUnitForm({ ...unitForm, estateDues: e.target.value })} placeholder="0" />
+                      </div>
+                      <div className="grid gap-2">
+                        <label className="text-sm font-medium" htmlFor="electricityMeter">Electricity Meter No.</label>
+                        <Input id="electricityMeter" value={unitForm.electricityMeter} onChange={(e) => setUnitForm({ ...unitForm, electricityMeter: e.target.value })} placeholder="Prepaid meter no." />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium">Prepaid Meter</label>
+                        <Switch checked={unitForm.prepaidMeter} onCheckedChange={(v) => setUnitForm({ ...unitForm, prepaidMeter: v })} />
+                      </div>
+                      <div className="grid gap-2">
+                        <label className="text-sm font-medium" htmlFor="waterSource">Water Source</label>
+                        <Select value={unitForm.waterSource} onValueChange={(v) => setUnitForm({ ...unitForm, waterSource: v })}>
+                          <SelectTrigger id="waterSource">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="public">Public</SelectItem>
+                            <SelectItem value="borehole">Borehole</SelectItem>
+                            <SelectItem value="well">Well</SelectItem>
+                            <SelectItem value="tanker">Tanker Supply</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">Parking Available</label>
+                      <Switch checked={unitForm.parkingAvailable} onCheckedChange={(v) => setUnitForm({ ...unitForm, parkingAvailable: v })} />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button variant="outline" onClick={() => setUnitView('list')}>Cancel</Button>
+                    <Button disabled={unitSaving} onClick={async () => {
+                      try {
+                        if (!unitForm.propertyId || !unitForm.unitNumber || !unitForm.type || !unitForm.monthlyRent) {
+                          toast.error('Please fill required fields');
+                          return;
+                        }
+                        setUnitSaving(true);
+                        const payload: any = {
+                          propertyId: unitForm.propertyId,
+                          unitNumber: unitForm.unitNumber,
+                          type: unitForm.type,
+                          floor: unitForm.floor ? Number(unitForm.floor) : undefined,
+                          bedrooms: unitForm.bedrooms ? Number(unitForm.bedrooms) : undefined,
+                          bathrooms: unitForm.bathrooms ? Number(unitForm.bathrooms) : undefined,
+                          size: unitForm.size ? Number(unitForm.size) : undefined,
+                          monthlyRent: Number(unitForm.monthlyRent),
+                          securityDeposit: unitForm.securityDeposit ? Number(unitForm.securityDeposit) : undefined,
+                          status: unitForm.status,
+                          features: {
+                            nigeria: {
+                              rentFrequency: unitForm.rentFrequency,
+                              serviceCharge: unitForm.serviceCharge ? Number(unitForm.serviceCharge) : undefined,
+                              cautionFee: unitForm.cautionFee ? Number(unitForm.cautionFee) : undefined,
+                              legalFee: unitForm.legalFee ? Number(unitForm.legalFee) : undefined,
+                              agentCommission: unitForm.agentCommission ? Number(unitForm.agentCommission) : undefined,
+                              agreementFee: unitForm.agreementFee ? Number(unitForm.agreementFee) : undefined,
+                              electricityMeter: unitForm.electricityMeter || undefined,
+                              prepaidMeter: unitForm.prepaidMeter,
+                              wasteFee: unitForm.wasteFee ? Number(unitForm.wasteFee) : undefined,
+                              estateDues: unitForm.estateDues ? Number(unitForm.estateDues) : undefined,
+                              waterSource: unitForm.waterSource,
+                              parkingAvailable: unitForm.parkingAvailable
+                            }
+                          }
+                        };
+                        const res = await createUnit(payload);
+                        if ((res as any).error) throw new Error((res as any).error.error || 'Failed to create unit');
+                        toast.success('Unit created');
+                        setUnitView('list');
+                        setUnitForm({ propertyId: '', unitNumber: '', type: '', floor: '', bedrooms: '', bathrooms: '', size: '', monthlyRent: '', securityDeposit: '', status: 'vacant' });
+                        const uRes = await getUnits();
+                        if (!uRes.error && Array.isArray(uRes.data)) setUnitsData(uRes.data);
+                      } catch (e: any) {
+                        toast.error(e?.message || 'Failed to create unit');
+                      } finally {
+                        setUnitSaving(false);
+                      }
+                    }}>Save Unit</Button>
+                  </div>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             <TabsContent value="financials" className="space-y-6">
@@ -884,8 +1134,8 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     <TrendingUp className="h-4 w-4 text-green-600" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">$125,960</div>
-                    <p className="text-xs text-muted-foreground">+8.2% from last month</p>
+                    <div className="text-2xl font-bold">${(Number(financialStats.gross) || 0).toLocaleString()}</div>
+                    <p className="text-xs text-muted-foreground">Live collected this period</p>
                   </CardContent>
                 </Card>
 
@@ -895,8 +1145,8 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     <DollarSign className="h-4 w-4 text-green-600" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">$90,810</div>
-                    <p className="text-xs text-muted-foreground">After expenses</p>
+                    <div className="text-2xl font-bold">${(Number(financialStats.net) || 0).toLocaleString()}</div>
+                    <p className="text-xs text-muted-foreground">Gross minus operating expenses</p>
                   </CardContent>
                 </Card>
 
@@ -906,8 +1156,8 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     <TrendingDown className="h-4 w-4 text-red-600" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">$25,100</div>
-                    <p className="text-xs text-muted-foreground">19.9% of gross income</p>
+                    <div className="text-2xl font-bold">${(Number(financialStats.expenses) || 0).toLocaleString()}</div>
+                    <p className="text-xs text-muted-foreground">Sum of expense-type payments</p>
                   </CardContent>
                 </Card>
 
@@ -917,8 +1167,8 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     <Percent className="h-4 w-4 text-blue-600" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">6.9%</div>
-                    <p className="text-xs text-muted-foreground">Portfolio average</p>
+                    <div className="text-2xl font-bold">{(Number(financialStats.capRate) || 0).toLocaleString()}%</div>
+                    <p className="text-xs text-muted-foreground">Approximation</p>
                   </CardContent>
                 </Card>
               </div>
@@ -952,18 +1202,18 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                             </div>
                           </TableCell>
                           <TableCell className="font-medium text-green-600">
-                            ${property.financials.grossRent.toLocaleString()}
+                            ${(Number(property.totalMonthlyIncome) || 0).toLocaleString()}
                           </TableCell>
                           <TableCell className="text-red-600">
-                            ${property.financials.expenses.toLocaleString()}
+                            $0
                           </TableCell>
                           <TableCell className="font-medium">
-                            ${property.financials.netIncome.toLocaleString()}
+                            {(Number(property.totalMonthlyIncome) || 0).toLocaleString()}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center space-x-2">
-                              <span>{property.financials.capRate}%</span>
-                              {property.financials.capRate > 7 ? (
+                              <span>{0}%</span>
+                              {false ? (
                                 <ArrowUpRight className="h-4 w-4 text-green-600" />
                               ) : (
                                 <ArrowDownRight className="h-4 w-4 text-red-600" />
@@ -971,7 +1221,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                             </div>
                           </TableCell>
                           <TableCell className="font-medium text-blue-600">
-                            ${property.financials.cashFlow.toLocaleString()}
+                            {(Number(property.totalMonthlyIncome) || 0).toLocaleString()}
                           </TableCell>
                           <TableCell>
                             <Button variant="outline" size="sm">
@@ -1222,16 +1472,16 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {maintenanceRequests.map((request) => (
+                        {maintenanceRequests.map((request: any) => (
                           <TableRow key={request.id}>
                             <TableCell>
                               <div>
-                                <p className="font-medium">{request.propertyName}</p>
-                                <p className="text-sm text-gray-600">Unit {request.unit}</p>
+                                <p className="font-medium">{request.property?.name || '—'}</p>
+                                <p className="text-sm text-gray-600">Unit {request.unit?.unitNumber || '—'}</p>
                               </div>
                             </TableCell>
-                            <TableCell>{request.issue}</TableCell>
-                            <TableCell>{request.tenant}</TableCell>
+                            <TableCell>{request.title}</TableCell>
+                            <TableCell>{request.reportedBy?.name || '—'}</TableCell>
                             <TableCell>
                               <Badge variant={getPriorityBadge(request.priority)}>
                                 {request.priority}
@@ -1244,7 +1494,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                             </TableCell>
                             <TableCell>
                               {request.assignedTo ? (
-                                <span className="text-sm">{request.assignedTo}</span>
+                                <span className="text-sm">{request.assignedTo?.name}</span>
                               ) : (
                                 <span className="text-gray-500">Unassigned</span>
                               )}
@@ -1256,7 +1506,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                                 <span className="text-gray-500">TBD</span>
                               )}
                             </TableCell>
-                            <TableCell>{request.requestDate}</TableCell>
+                            <TableCell>{request.createdAt ? new Date(request.createdAt).toLocaleDateString() : '—'}</TableCell>
                             <TableCell>
                               <div className="flex items-center space-x-2">
                                 <Button variant="outline" size="sm">
@@ -1585,6 +1835,101 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
           </Tabs>
         </div>
       </div>
+
+      {/* Details modal removed per request; navigation handled by onViewProperty */}
+
+      {/* Delete Unit Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Unit</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this unit? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {unitToDelete && (
+            <div className="space-y-4">
+              <div className="bg-gray-50 border rounded-lg p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-500">Unit Number</span>
+                  <span className="font-medium">{unitToDelete.unit}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-500">Property</span>
+                  <span className="font-medium">
+                    {properties.find(p => p.id === unitToDelete.propertyId)?.name || 'N/A'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-500">Status</span>
+                  <Badge variant={unitToDelete.status === 'occupied' ? 'default' : 'secondary'}>
+                    {unitToDelete.status}
+                  </Badge>
+                </div>
+                {unitToDelete.tenant && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-500">Tenant</span>
+                    <span className="font-medium">{unitToDelete.tenant}</span>
+                  </div>
+                )}
+              </div>
+
+              {unitToDelete.status === 'occupied' && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <div className="flex items-start space-x-2">
+                    <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
+                    <div className="text-sm text-yellow-800">
+                      <p className="font-medium">Warning: Unit is occupied</p>
+                      <p className="mt-1">This unit has an active tenant. Make sure to handle the lease properly before deleting.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-start space-x-2">
+                  <Trash2 className="h-5 w-5 text-red-600 mt-0.5" />
+                  <div className="text-sm text-red-800">
+                    <p className="font-medium">This action is permanent</p>
+                    <p className="mt-1">All unit data, including history and records, will be permanently deleted.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDeleteDialog(false);
+                setUnitToDelete(null);
+              }}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteUnit}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Clock className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Unit
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -196,6 +196,17 @@ function getDefaultPermissionsForRole(roleName?: string): string[] {
       PERMISSIONS.ANALYTICS_VIEW,
     ];
   }
+
+  // Billing (alias for Finance)
+  if (role === 'billing') {
+    return [
+      PERMISSIONS.BILLING_MANAGEMENT,
+      PERMISSIONS.INVOICE_MANAGEMENT,
+      PERMISSIONS.PAYMENT_VIEW,
+      PERMISSIONS.CUSTOMER_VIEW,
+      PERMISSIONS.ANALYTICS_VIEW,
+    ];
+  }
   
   // Default: no permissions
   return [];

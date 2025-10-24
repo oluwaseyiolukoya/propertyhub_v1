@@ -5,7 +5,7 @@ import { Button } from "./ui/button";
 import { Building, Users, DollarSign, TrendingUp, Plus, Eye, Settings, LogOut, Menu, CheckCircle, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { PropertiesPage } from './PropertiesPage';
-import { TenantPayments } from './TenantPayments';
+import { TenantManagement } from './TenantManagement';
 import { FinancialReports } from './FinancialReports';
 import { PropertyManagerManagement } from './PropertyManagerManagement';
 import { AccessControl } from './AccessControl';
@@ -15,6 +15,9 @@ import { Footer } from './Footer';
 import PropertyOwnerDocuments from './PropertyOwnerDocuments';
 import { DashboardOverview } from './DashboardOverview';
 import { getOwnerDashboardOverview, getProperties } from '../lib/api';
+import { getProperty, updateProperty } from '../lib/api/properties';
+import { createProperty } from '../lib/api/properties';
+import { useCurrency } from '../lib/CurrencyContext';
 import { getAccountInfo } from '../lib/api/auth';
 
 interface PropertyOwnerDashboardProps {
@@ -22,11 +25,11 @@ interface PropertyOwnerDashboardProps {
   onLogout: () => void;
   managers: any[];
   propertyAssignments: any[];
-  onAddManager: (managerData: any, ownerId: string) => any;
-  onAssignManager: (managerId: string, propertyId: string, ownerId: string) => void;
-  onRemoveManager: (managerId: string, propertyId: string, ownerId: string) => void;
-  onUpdateManager: (managerId: string, updates: any) => void;
-  onDeactivateManager: (managerId: string) => void;
+  onAddManager: (managerData: any, ownerId: string) => Promise<any>;
+  onAssignManager: (managerId: string, propertyId: string) => Promise<void>;
+  onRemoveManager: (managerId: string, propertyId: string) => Promise<void>;
+  onUpdateManager: (managerId: string, updates: any) => Promise<void>;
+  onDeactivateManager: (managerId: string) => Promise<void>;
 }
 
 export function PropertyOwnerDashboard({ 
@@ -41,9 +44,11 @@ export function PropertyOwnerDashboard({
   onDeactivateManager
 }: PropertyOwnerDashboardProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { formatCurrency } = useCurrency();
   const [showWelcome, setShowWelcome] = useState(false);
   const [currentView, setCurrentView] = useState('dashboard');
   const [properties, setProperties] = useState<any[]>([]);
+  const [selectedProperty, setSelectedProperty] = useState<any | null>(null);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [accountInfo, setAccountInfo] = useState<any>(null);
@@ -169,7 +174,7 @@ export function PropertyOwnerDashboard({
         netIncome: 15200,
         capRate: 6.8,
         cashFlow: 12800,
-        currency: 'NGN'
+        currency: 'USD'
       },
       insurance: {
         provider: "Property Insurance Co.",
@@ -212,7 +217,7 @@ export function PropertyOwnerDashboard({
         netIncome: 20200,
         capRate: 7.2,
         cashFlow: 17500,
-        currency: 'NGN'
+        currency: 'USD'
       },
       insurance: {
         provider: "Metro Insurance",
@@ -255,7 +260,7 @@ export function PropertyOwnerDashboard({
         netIncome: 25660,
         capRate: 7.8,
         cashFlow: 22100,
-        currency: 'NGN'
+        currency: 'USD'
       },
       insurance: {
         provider: "Tower Insurance Ltd.",
@@ -298,7 +303,7 @@ export function PropertyOwnerDashboard({
         netIncome: 9750,
         capRate: 5.9,
         cashFlow: 8100,
-        currency: 'NGN'
+        currency: 'USD'
       },
       insurance: {
         provider: "Home Shield Insurance",
@@ -321,13 +326,22 @@ export function PropertyOwnerDashboard({
     }
   }, [user]);
 
-  // Calculate portfolio stats
-  const portfolioStats = {
-    totalProperties: properties.length,
-    totalUnits: properties.reduce((sum, p) => sum + p.units, 0),
-    occupancyRate: Math.round(properties.reduce((sum, p) => sum + (p.occupied / p.units * 100), 0) / properties.length),
-    monthlyRevenue: properties.reduce((sum, p) => sum + p.monthlyRevenue, 0),
-  };
+  // Use backend-provided portfolio overview when available
+  const portfolioStats = dashboardData?.portfolio
+    ? {
+        totalProperties: dashboardData.portfolio.totalProperties || 0,
+        totalUnits: dashboardData.portfolio.totalUnits || 0,
+        occupancyRate: Math.round((dashboardData.portfolio.occupancyRate || 0) * 10) / 10,
+        monthlyRevenue: (dashboardData.revenue?.currentMonth || 0),
+      }
+    : {
+        totalProperties: properties.length,
+        totalUnits: properties.reduce((sum, p) => sum + p.units, 0),
+        occupancyRate: properties.length > 0
+          ? Math.round(properties.reduce((sum, p) => sum + ((p.occupied || 0) / (p.units || 1) * 100), 0) / properties.length)
+          : 0,
+        monthlyRevenue: properties.reduce((sum, p) => sum + (p.monthlyRevenue || 0), 0),
+      };
 
   const recentActivity = [
     {
@@ -352,7 +366,7 @@ export function PropertyOwnerDashboard({
   const navigation = [
     { name: 'Portfolio Overview', key: 'dashboard' },
     { name: 'Properties', key: 'properties' },
-    { name: 'Tenant Payments', key: 'payments' },
+    { name: 'Tenant Management', key: 'tenants' },
     { name: 'Financial Reports', key: 'financial' },
     { name: 'Property Managers', key: 'managers' },
     { name: 'Access Control', key: 'access' },
@@ -476,14 +490,314 @@ export function PropertyOwnerDashboard({
               onBack={() => setCurrentView('dashboard')}
               onNavigateToAddProperty={() => setCurrentView('add-property')}
               properties={properties}
+              onViewProperty={async (propertyId: string) => {
+                try {
+                  const res = await getProperty(propertyId);
+                  if (res.error) throw new Error(res.error.error || 'Failed to fetch property');
+                  setSelectedProperty(res.data);
+                  setCurrentView('property-details');
+                } catch (e: any) {
+                  toast.error(e?.message || 'Failed to fetch property');
+                }
+              }}
+              onEditProperty={async (propertyId: string) => {
+                try {
+                  const res = await getProperty(propertyId);
+                  if (res.error) throw new Error(res.error.error || 'Failed to fetch property');
+                  setSelectedProperty(res.data);
+                  setCurrentView('property-edit');
+                } catch (e: any) {
+                  toast.error(e?.message || 'Failed to fetch property');
+                }
+              }}
             />
-          ) : currentView === 'payments' ? (
+          ) : currentView === 'property-details' ? (
+            <div className="p-4 lg:p-8">
+              <div className="max-w-5xl mx-auto">
+                <div className="mb-4">
+                  <Button variant="outline" onClick={() => setCurrentView('properties')}>← Back to Properties</Button>
+                </div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{selectedProperty?.name || 'Property Details'}</CardTitle>
+                    <CardDescription>{selectedProperty?.address}, {selectedProperty?.city}, {selectedProperty?.state}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {selectedProperty ? (
+                      <div className="space-y-6 text-sm">
+                        {(selectedProperty.coverImage || (Array.isArray(selectedProperty.images) && selectedProperty.images[0])) && (
+                          <img
+                            src={selectedProperty.coverImage || selectedProperty.images[0]}
+                            alt={selectedProperty.name}
+                            className="w-full h-64 object-cover rounded-md"
+                          />
+                        )}
+                        {/* Basic Info */}
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-gray-600">Type</p>
+                            <p className="font-medium">{selectedProperty.propertyType || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Status</p>
+                            <p className="font-medium">{selectedProperty.status || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Created</p>
+                            <p className="font-medium">{selectedProperty.createdAt ? new Date(selectedProperty.createdAt).toLocaleString() : 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Updated</p>
+                            <p className="font-medium">{selectedProperty.updatedAt ? new Date(selectedProperty.updatedAt).toLocaleString() : 'N/A'}</p>
+                          </div>
+                        </div>
+
+                        {/* Management */}
+                        <div>
+                          <p className="text-gray-600 mb-1">Management</p>
+                          {Array.isArray(selectedProperty.property_managers) && selectedProperty.property_managers.length > 0 ? (
+                            <div className="grid md:grid-cols-2 gap-4">
+                              {selectedProperty.property_managers.map((pm: any) => (
+                                <div key={pm.id} className="p-3 border rounded-md">
+                                  <p className="font-medium">{pm.users?.name || 'Manager'}</p>
+                                  <p className="text-gray-600">{pm.users?.email || '—'}</p>
+                                  {pm.users?.phone && (
+                                    <p className="text-gray-600">{pm.users.phone}</p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-gray-600">Unassigned</p>
+                          )}
+                        </div>
+
+                        {/* Location */}
+                        <div>
+                          <p className="text-gray-600 mb-1">Location</p>
+                          <div className="grid md:grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-gray-600">Address</p>
+                              <p className="font-medium">{selectedProperty.address || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">City</p>
+                              <p className="font-medium">{selectedProperty.city || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">State</p>
+                              <p className="font-medium">{selectedProperty.state || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">Postal Code</p>
+                              <p className="font-medium">{selectedProperty.postalCode || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">Country</p>
+                              <p className="font-medium">{selectedProperty.country || 'N/A'}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Property Details */}
+                        <div>
+                          <p className="text-gray-600 mb-1">Property Details</p>
+                          <div className="grid md:grid-cols-3 gap-4">
+                            <div>
+                              <p className="text-gray-600">Year Built</p>
+                              <p className="font-medium">{selectedProperty.yearBuilt ?? 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">Total Units</p>
+                              <p className="font-medium">{selectedProperty.totalUnits ?? 0}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">Floors</p>
+                              <p className="font-medium">{selectedProperty.floors ?? 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">Total Area</p>
+                              <p className="font-medium">{selectedProperty.totalArea ?? 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">Lot Size</p>
+                              <p className="font-medium">{selectedProperty.lotSize ?? 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">Parking</p>
+                              <p className="font-medium">{selectedProperty.parking ?? 'N/A'}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Financial */}
+                        <div>
+                          <p className="text-gray-600 mb-1">Financial</p>
+                          <div className="grid md:grid-cols-3 gap-4">
+                            <div>
+                              <p className="text-gray-600">Currency</p>
+                              <p className="font-medium">{selectedProperty.currency}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">Avg Rent</p>
+                              <p className="font-medium">{(Number(selectedProperty.avgRent) || 0).toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">Security Deposit</p>
+                              <p className="font-medium">{(Number(selectedProperty.securityDeposit) || 0).toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">Application Fee</p>
+                              <p className="font-medium">{(Number(selectedProperty.applicationFee) || 0).toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">Caution Fee</p>
+                              <p className="font-medium">{(Number(selectedProperty.cautionFee) || 0).toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">Legal Fee</p>
+                              <p className="font-medium">{(Number(selectedProperty.legalFee) || 0).toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">Agent Commission</p>
+                              <p className="font-medium">{(Number(selectedProperty.agentCommission) || 0).toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">Service Charge</p>
+                              <p className="font-medium">{(Number(selectedProperty.serviceCharge) || 0).toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">Agreement Fee</p>
+                              <p className="font-medium">{(Number(selectedProperty.agreementFee) || 0).toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">Property Taxes</p>
+                              <p className="font-medium">{(Number(selectedProperty.propertyTaxes) || 0).toLocaleString()}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Insurance */}
+                        <div>
+                          <p className="text-gray-600 mb-1">Insurance</p>
+                          <div className="grid md:grid-cols-3 gap-4">
+                            <div>
+                              <p className="text-gray-600">Provider</p>
+                              <p className="font-medium">{selectedProperty.insuranceProvider || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">Policy Number</p>
+                              <p className="font-medium">{selectedProperty.insurancePolicyNumber || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">Premium</p>
+                              <p className="font-medium">{(Number(selectedProperty.insurancePremium) || 0).toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">Expiration</p>
+                              <p className="font-medium">{selectedProperty.insuranceExpiration ? new Date(selectedProperty.insuranceExpiration).toLocaleDateString() : 'N/A'}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Features */}
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-gray-600 mb-1">Features</p>
+                            <div className="flex flex-wrap gap-2">
+                              {(Array.isArray(selectedProperty.features) ? selectedProperty.features : [] ).map((f: any, idx: number) => (
+                                <Badge key={idx} variant="outline">{String(f)}</Badge>
+                              ))}
+                              {!selectedProperty.features && <span className="text-gray-500">None</span>}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-gray-600 mb-1">Unit Features</p>
+                            <div className="flex flex-wrap gap-2">
+                              {(Array.isArray(selectedProperty.unitFeatures) ? selectedProperty.unitFeatures : [] ).map((f: any, idx: number) => (
+                                <Badge key={idx} variant="outline">{String(f)}</Badge>
+                              ))}
+                              {!selectedProperty.unitFeatures && <span className="text-gray-500">None</span>}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Images section removed; hero image shown at top */}
+
+                        {/* Description & Notes */}
+                        {selectedProperty.description && (
+                          <div>
+                            <p className="text-gray-600 mb-1">Description</p>
+                            <p>{selectedProperty.description}</p>
+                          </div>
+                        )}
+                        {selectedProperty.notes && (
+                          <div>
+                            <p className="text-gray-600 mb-1">Notes</p>
+                            <p>{selectedProperty.notes}</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-600">Loading...</div>
+                    )}
+                  </CardContent>
+                </Card>
+                <div className="mt-6 flex justify-end">
+                  <Button onClick={() => setCurrentView('property-edit')}>Edit Property</Button>
+                </div>
+              </div>
+            </div>
+          ) : currentView === 'property-edit' ? (
+            <AddPropertyPage
+              user={user}
+              onBack={() => setCurrentView('property-details')}
+              initialValues={selectedProperty}
+              mode="edit"
+              managers={managers}
+              onSave={async (data: any) => {
+                try {
+                  if (!selectedProperty?.id) throw new Error('Missing property id');
+                  const payload: any = {
+                    ...data,
+                    totalUnits: data.totalUnits ? Number(data.totalUnits) : undefined,
+                    floors: data.floors ? Number(data.floors) : undefined,
+                    yearBuilt: data.yearBuilt ? Number(data.yearBuilt) : undefined,
+                    totalArea: data.totalArea ? Number(data.totalArea) : undefined,
+                    lotSize: data.lotSize ? Number(data.lotSize) : undefined,
+                    parking: data.parking ? Number(data.parking) : undefined,
+                    avgRent: data.avgRent ? Number(data.avgRent) : undefined,
+                    securityDeposit: data.securityDeposit ? Number(data.securityDeposit) : undefined,
+                    applicationFee: data.applicationFee ? Number(data.applicationFee) : undefined,
+                    cautionFee: data.cautionFee ? Number(data.cautionFee) : undefined,
+                    legalFee: data.legalFee ? Number(data.legalFee) : undefined,
+                    agentCommission: data.agentCommission ? Number(data.agentCommission) : undefined,
+                    serviceCharge: data.serviceCharge ? Number(data.serviceCharge) : undefined,
+                    agreementFee: data.agreementFee ? Number(data.agreementFee) : undefined,
+                    insurancePremium: data.insurance?.premium || data.insurancePremium,
+                    insuranceExpiration: data.insurance?.expiration || data.insuranceExpiration,
+                    insuranceProvider: data.insurance?.provider || data.insuranceProvider,
+                    insurancePolicyNumber: data.insurance?.policyNumber || data.insurancePolicyNumber,
+                    propertyTaxes: data.propertyTaxes ? Number(data.propertyTaxes) : undefined,
+                    images: Array.isArray(data.images) ? data.images : [],
+                    insurance: undefined,
+                  };
+                  const res = await updateProperty(selectedProperty.id, payload);
+                  if (res.error) throw new Error(res.error.error || 'Failed to update property');
+                  toast.success('Property updated');
+                  await fetchData(true);
+                  const refreshed = await getProperty(selectedProperty.id);
+                  setSelectedProperty(refreshed.data);
+                  setCurrentView('property-details');
+                } catch (e: any) {
+                  toast.error(e?.message || 'Failed to update property');
+                }
+              }}
+            />
+          ) : currentView === 'tenants' ? (
             <div className="p-4 lg:p-8">
               <div className="max-w-7xl mx-auto">
-                <TenantPayments 
-                  properties={properties}
-                  user={user}
-                />
+                <TenantManagement properties={properties} />
               </div>
             </div>
           ) : currentView === 'financial' ? (
@@ -527,9 +841,67 @@ export function PropertyOwnerDashboard({
             <AddPropertyPage
               user={user}
               onBack={() => setCurrentView('dashboard')}
+              managers={managers}
               onSave={(propertyData) => {
-                setProperties(prev => [...prev, propertyData]);
+                // Persist to backend, then refresh list
+                (async () => {
+                  try {
+                    const payload = {
+                      ...propertyData,
+                      // Coerce numeric fields to numbers for API
+                      totalUnits: Number(propertyData.totalUnits) || 0,
+                      floors: propertyData.floors ? Number(propertyData.floors) : undefined,
+                      yearBuilt: propertyData.yearBuilt ? Number(propertyData.yearBuilt) : undefined,
+                      totalArea: propertyData.totalArea ? Number(propertyData.totalArea) : undefined,
+                      lotSize: propertyData.lotSize ? Number(propertyData.lotSize) : undefined,
+                      parking: propertyData.parking ? Number(propertyData.parking) : undefined,
+                      avgRent: propertyData.avgRent ? Number(propertyData.avgRent) : undefined,
+                      securityDeposit: propertyData.securityDeposit ? Number(propertyData.securityDeposit) : undefined,
+                      applicationFee: propertyData.applicationFee ? Number(propertyData.applicationFee) : undefined,
+                      cautionFee: propertyData.cautionFee ? Number(propertyData.cautionFee) : undefined,
+                      legalFee: propertyData.legalFee ? Number(propertyData.legalFee) : undefined,
+                      agentCommission: propertyData.agentCommission ? Number(propertyData.agentCommission) : undefined,
+                      serviceCharge: propertyData.serviceCharge ? Number(propertyData.serviceCharge) : undefined,
+                      agreementFee: propertyData.agreementFee ? Number(propertyData.agreementFee) : undefined,
+                      insurancePremium: propertyData.insurance?.premium || propertyData.insurancePremium,
+                      insuranceExpiration: propertyData.insurance?.expiration || propertyData.insuranceExpiration,
+                      insuranceProvider: propertyData.insurance?.provider || propertyData.insuranceProvider,
+                      insurancePolicyNumber: propertyData.insurance?.policyNumber || propertyData.insurancePolicyNumber,
+                      propertyTaxes: propertyData.propertyTaxes ? Number(propertyData.propertyTaxes) : undefined,
+                      images: Array.isArray(propertyData.images) ? propertyData.images : [],
+                      // Remove the nested insurance object to avoid confusion
+                      insurance: undefined,
+                      // Remove fields that aren't in the API
+                      id: undefined,
+                      status: undefined,
+                      occupiedUnits: undefined,
+                      vacantUnits: undefined,
+                      monthlyRevenue: undefined,
+                      occupancyRate: undefined,
+                      maintenanceRequests: undefined,
+                      expiredLeases: undefined,
+                      lastInspection: undefined,
+                      nextInspection: undefined,
+                      financials: undefined
+                    } as any;
+
+                    const res = await createProperty(payload);
+                    if (res.error) throw new Error(res.error.error || 'Failed to create property');
+                    toast.success('Property created');
+                    // Auto-assign selected manager if provided
+                    if ((propertyData as any).managerId) {
+                      try {
+                        await onAssignManager?.((propertyData as any).managerId, res.data.id);
+                      } catch (e) {
+                        // non-blocking
+                      }
+                    }
+                    await fetchData(true);
                 setCurrentView('properties');
+                  } catch (e: any) {
+                    toast.error(e?.message || 'Failed to create property');
+                  }
+                })();
               }}
             />
           ) : currentView === 'settings' ? (
@@ -585,7 +957,7 @@ export function PropertyOwnerDashboard({
                     <DollarSign className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">₦{(portfolioStats.monthlyRevenue || 0).toLocaleString()}</div>
+                    <div className="text-2xl font-bold">{formatCurrency(portfolioStats.monthlyRevenue || 0)}</div>
                     <p className="text-xs text-muted-foreground">
                       +12.5% from last month
                     </p>
@@ -598,9 +970,9 @@ export function PropertyOwnerDashboard({
                     <TrendingUp className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">94.2%</div>
+                    <div className="text-2xl font-bold">{typeof dashboardData?.collection?.rate === 'number' ? `${dashboardData.collection.rate}%` : '0%'}</div>
                     <p className="text-xs text-muted-foreground">
-                      2 overdue payments
+                      Collected {formatCurrency(dashboardData?.collection?.collected || 0)} of {formatCurrency(dashboardData?.collection?.expected || 0)} this month
                     </p>
                   </CardContent>
                 </Card>
@@ -621,7 +993,7 @@ export function PropertyOwnerDashboard({
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {properties.map((property) => (
+                      {properties.map((property: any) => (
                         <div key={property.id} className="flex items-center justify-between p-4 border rounded-lg hover:border-blue-300 transition-colors">
                           <div className="flex-1">
                             <div className="flex items-center space-x-2">
@@ -632,16 +1004,33 @@ export function PropertyOwnerDashboard({
                             </div>
                             <p className="text-sm text-gray-600">{property.address}</p>
                             <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                              <span>{property.occupied || 0}/{property.units || 0} units occupied</span>
-                              <span>₦{(property.monthlyRevenue || 0).toLocaleString()}/mo</span>
+                              <span>{(property.occupiedUnits ?? 0)}/{(property._count?.units ?? property.totalUnits ?? 0)} units occupied</span>
                             </div>
-                            <p className="text-xs text-gray-500 mt-1">Manager: {property.manager || 'Unassigned'}</p>
+                            <p className="text-xs text-gray-500 mt-1">Manager: {property.property_managers?.[0]?.users?.name ?? 'Unassigned'}</p>
                           </div>
                           <div className="flex space-x-2">
-                            <Button variant="outline" size="sm">
+                            <Button variant="outline" size="sm" onClick={async () => {
+                              try {
+                                const res = await getProperty(property.id);
+                                if (res.error) throw new Error(res.error.error || 'Failed to fetch property');
+                                setSelectedProperty(res.data);
+                                setCurrentView('property-details');
+                              } catch (e: any) {
+                                toast.error(e?.message || 'Failed to open property');
+                              }
+                            }}>
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button variant="outline" size="sm">
+                            <Button variant="outline" size="sm" onClick={async () => {
+                              try {
+                                const res = await getProperty(property.id);
+                                if (res.error) throw new Error(res.error.error || 'Failed to fetch property');
+                                setSelectedProperty(res.data);
+                                setCurrentView('property-edit');
+                              } catch (e: any) {
+                                toast.error(e?.message || 'Failed to open editor');
+                              }
+                            }}>
                               <Settings className="h-4 w-4" />
                             </Button>
                           </div>
@@ -659,14 +1048,11 @@ export function PropertyOwnerDashboard({
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {recentActivity.map((activity) => (
-                        <div key={activity.id} className="flex items-start space-x-3 p-3 border rounded-lg">
+                      {(dashboardData?.recentActivity || []).map((log: any) => (
+                        <div key={log.id} className="flex items-start space-x-3 p-3 border rounded-lg">
                           <div className="flex-1">
-                            <p className="text-sm">{activity.description}</p>
-                            {activity.amount && (
-                              <p className="text-sm font-medium text-green-600">{activity.amount}</p>
-                            )}
-                            <p className="text-xs text-gray-400 mt-1">{activity.time}</p>
+                            <p className="text-sm">[{log.entity}] {log.action}: {log.description}</p>
+                            <p className="text-xs text-gray-400 mt-1">{new Date(log.createdAt).toLocaleString()}</p>
                           </div>
                         </div>
                       ))}
@@ -695,9 +1081,9 @@ export function PropertyOwnerDashboard({
                       <DollarSign className="h-5 w-5 md:h-6 md:w-6 mb-2" />
                       <span>View Reports</span>
                     </Button>
-                    <Button variant="outline" className="h-20 flex-col text-xs sm:text-sm" onClick={() => setCurrentView('payments')}>
-                      <DollarSign className="h-5 w-5 md:h-6 md:w-6 mb-2" />
-                      <span>Payments</span>
+                    <Button variant="outline" className="h-20 flex-col text-xs sm:text-sm" onClick={() => setCurrentView('tenants')}>
+                      <Users className="h-5 w-5 md:h-6 md:w-6 mb-2" />
+                      <span>Tenants</span>
                     </Button>
                     <Button variant="outline" className="h-20 flex-col text-xs sm:text-sm" onClick={() => setCurrentView('access')}>
                       <Shield className="h-5 w-5 md:h-6 md:w-6 mb-2" />

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -9,7 +9,9 @@ import { Textarea } from "./ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
 import { toast } from "sonner";
-import { createCustomer } from '../lib/api';
+import { createCustomer, getBillingPlans } from '../lib/api';
+import { useCurrency } from '../lib/CurrencyContext';
+import { on as onSocketEvent, off as offSocketEvent } from '../lib/socket';
 import { 
   ArrowLeft, 
   Building, 
@@ -37,6 +39,7 @@ interface AddCustomerPageProps {
 }
 
 export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCustomerPageProps) {
+  const { formatCurrency } = useCurrency();
   const [currentTab, setCurrentTab] = useState<'information' | 'invitation' | 'confirmation'>('information');
   const [emailSent, setEmailSent] = useState(false);
   const [copiedPassword, setCopiedPassword] = useState(false);
@@ -46,6 +49,8 @@ export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCus
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
   const [existingCustomerInfo, setExistingCustomerInfo] = useState<any>(null);
+  const [subscriptionPlans, setSubscriptionPlans] = useState<any[]>([]);
+  const [loadingPlans, setLoadingPlans] = useState(true);
   
   const [newCustomer, setNewCustomer] = useState({
     company: '',
@@ -71,26 +76,61 @@ export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCus
     notes: ''
   });
 
-  const subscriptionPlans = [
-    {
-      name: 'Starter',
-      price: 500,
-      features: ['Up to 5 properties', 'Up to 100 units', 'Basic tenant management', 'Payment processing', 'Email support'],
-      popular: false
-    },
-    {
-      name: 'Professional',
-      price: 1200,
-      features: ['Up to 15 properties', 'Up to 300 units', 'Advanced analytics', 'Maintenance ticketing', 'Access control integration', 'Priority support'],
-      popular: true
-    },
-    {
-      name: 'Enterprise',
-      price: 2500,
-      features: ['Unlimited properties', 'Unlimited units', 'Custom integrations', 'White-label options', 'Dedicated account manager', '24/7 priority support'],
-      popular: false
+  // Fetch available plans from API
+  const refreshPlans = async () => {
+    try {
+      setLoadingPlans(true);
+      const response = await getBillingPlans();
+      
+      if (response.error) {
+        toast.error('Failed to load subscription plans');
+      } else if (response.data) {
+        // Show all plans; inactive ones can still be selected if needed
+        const transformedPlans = response.data
+          .map((plan: any) => ({
+            id: plan.id,
+            name: plan.name,
+            price: plan.monthlyPrice,
+            annualPrice: plan.annualPrice,
+            currency: plan.currency || 'USD',
+            features: Array.isArray(plan.features) ? plan.features : [],
+            popular: plan.isPopular || false,
+            isActive: plan.isActive !== false,
+            propertyLimit: plan.propertyLimit,
+            userLimit: plan.userLimit,
+            storageLimit: plan.storageLimit
+          }));
+        setSubscriptionPlans(transformedPlans);
+      }
+    } catch (error) {
+      console.error('Error fetching plans:', error);
+      toast.error('Failed to load subscription plans');
+    } finally {
+      setLoadingPlans(false);
     }
-  ];
+  };
+
+  useEffect(() => {
+    refreshPlans();
+  }, []);
+
+  // Real-time update: refresh plans when plans change
+  useEffect(() => {
+    const handlePlanChange = () => refreshPlans();
+    try {
+      onSocketEvent('plan:created', handlePlanChange);
+      onSocketEvent('plan:updated', handlePlanChange);
+      onSocketEvent('plan:deleted', handlePlanChange);
+    } catch {}
+
+    return () => {
+      try {
+        offSocketEvent('plan:created', handlePlanChange);
+        offSocketEvent('plan:updated', handlePlanChange);
+        offSocketEvent('plan:deleted', handlePlanChange);
+      } catch {}
+    };
+  }, []);
 
   const selectedPlan = subscriptionPlans.find(plan => plan.name === newCustomer.plan);
 
@@ -439,7 +479,7 @@ This is an automated message. Please do not reply to this email.
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
-                            <Label htmlFor="zipCode">ZIP Code</Label>
+                        <Label htmlFor="zipCode">Postal Code</Label>
                             <Input
                               id="zipCode"
                               placeholder="100001"
@@ -449,12 +489,36 @@ This is an automated message. Please do not reply to this email.
                           </div>
                           <div>
                             <Label htmlFor="country">Country</Label>
-                            <Input
-                              id="country"
-                              placeholder="Nigeria"
+                            <Select
                               value={newCustomer.country}
-                              onChange={(e) => setNewCustomer({...newCustomer, country: e.target.value})}
-                            />
+                              onValueChange={(value) => setNewCustomer({ ...newCustomer, country: value })}
+                            >
+                              <SelectTrigger id="country">
+                                <SelectValue placeholder="Select country" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Nigeria">Nigeria</SelectItem>
+                                <SelectItem value="Ghana">Ghana</SelectItem>
+                                <SelectItem value="Kenya">Kenya</SelectItem>
+                                <SelectItem value="South Africa">South Africa</SelectItem>
+                                <SelectItem value="United States">United States</SelectItem>
+                                <SelectItem value="United Kingdom">United Kingdom</SelectItem>
+                                <SelectItem value="Canada">Canada</SelectItem>
+                                <SelectItem value="Germany">Germany</SelectItem>
+                                <SelectItem value="France">France</SelectItem>
+                                <SelectItem value="India">India</SelectItem>
+                                <SelectItem value="China">China</SelectItem>
+                                <SelectItem value="Brazil">Brazil</SelectItem>
+                                <SelectItem value="Mexico">Mexico</SelectItem>
+                                <SelectItem value="United Arab Emirates">United Arab Emirates</SelectItem>
+                                <SelectItem value="Saudi Arabia">Saudi Arabia</SelectItem>
+                                <SelectItem value="Egypt">Egypt</SelectItem>
+                                <SelectItem value="Turkey">Turkey</SelectItem>
+                                <SelectItem value="Spain">Spain</SelectItem>
+                                <SelectItem value="Italy">Italy</SelectItem>
+                                <SelectItem value="Netherlands">Netherlands</SelectItem>
+                              </SelectContent>
+                            </Select>
                           </div>
                         </div>
                       </div>
@@ -466,9 +530,9 @@ This is an automated message. Please do not reply to this email.
                         <Input
                           id="properties"
                           type="number"
-                          placeholder="e.g., 5"
+                          placeholder="Auto-filled from plan"
                           value={newCustomer.properties}
-                          onChange={(e) => setNewCustomer({...newCustomer, properties: e.target.value})}
+                          readOnly
                         />
                       </div>
                       <div>
@@ -514,16 +578,35 @@ This is an automated message. Please do not reply to this email.
                       <Label htmlFor="plan">Select Plan *</Label>
                       <Select
                         value={newCustomer.plan}
-                        onValueChange={(value) => setNewCustomer({...newCustomer, plan: value})}
+                        onValueChange={(value) => {
+                          const plan = subscriptionPlans.find(p => p.name === value);
+                          if (plan) {
+                            setNewCustomer({
+                              ...newCustomer, 
+                              plan: value,
+                              propertyLimit: plan.propertyLimit?.toString() || '5',
+                              userLimit: plan.userLimit?.toString() || '3',
+                              storageLimit: plan.storageLimit?.toString() || '1000',
+                              properties: plan.propertyLimit?.toString() || ''
+                            });
+                          } else {
+                            setNewCustomer({...newCustomer, plan: value});
+                          }
+                        }}
                         required
+                        disabled={loadingPlans}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Choose a subscription plan" />
+                          <SelectValue placeholder={loadingPlans ? "Loading plans..." : "Choose a subscription plan"} />
                         </SelectTrigger>
                         <SelectContent>
                           {subscriptionPlans.map((plan) => (
-                            <SelectItem key={plan.name} value={plan.name}>
-                              {plan.name} - ₦{plan.price}/mo
+                            <SelectItem key={plan.id || plan.name} value={plan.name}>
+                              <div className="flex items-center gap-2">
+                                <span>{plan.name}</span>
+                                <span className="text-sm text-gray-500">{formatCurrency(plan.price, plan.currency)}/mo</span>
+                                {plan.popular && <Badge variant="secondary" className="text-xs">Popular</Badge>}
+                              </div>
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -556,9 +639,9 @@ This is an automated message. Please do not reply to this email.
                               id="propertyLimit"
                               type="number"
                               min="1"
-                              placeholder="5"
+                              placeholder="Auto-filled from plan"
                               value={newCustomer.propertyLimit}
-                              onChange={(e) => setNewCustomer({...newCustomer, propertyLimit: e.target.value})}
+                              readOnly
                             />
                             <p className="text-xs text-gray-500 mt-1">
                               Maximum number of properties this customer can manage
@@ -570,9 +653,9 @@ This is an automated message. Please do not reply to this email.
                               id="userLimit"
                               type="number"
                               min="1"
-                              placeholder="3"
+                              placeholder="Auto-filled from plan"
                               value={newCustomer.userLimit}
-                              onChange={(e) => setNewCustomer({...newCustomer, userLimit: e.target.value})}
+                              readOnly
                             />
                             <p className="text-xs text-gray-500 mt-1">
                               Maximum number of users in this account
@@ -584,9 +667,9 @@ This is an automated message. Please do not reply to this email.
                               id="storageLimit"
                               type="number"
                               min="100"
-                              placeholder="1000"
+                              placeholder="Auto-filled from plan"
                               value={newCustomer.storageLimit}
-                              onChange={(e) => setNewCustomer({...newCustomer, storageLimit: e.target.value})}
+                              readOnly
                             />
                             <p className="text-xs text-gray-500 mt-1">
                               Storage space for documents and files (in megabytes)
@@ -604,7 +687,7 @@ This is an automated message. Please do not reply to this email.
                             <h4 className="font-medium">{selectedPlan.name} Plan</h4>
                             <div className="flex items-center space-x-2">
                               <DollarSign className="h-4 w-4 text-gray-600" />
-                              <span className="text-lg font-semibold">₦{selectedPlan.price}</span>
+                              <span className="text-lg font-semibold">{formatCurrency(selectedPlan.price, selectedPlan.currency)}</span>
                               <span className="text-sm text-gray-600">/month</span>
                             </div>
                           </div>

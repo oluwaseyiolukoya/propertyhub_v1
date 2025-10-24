@@ -50,9 +50,12 @@ interface AddPropertyPageProps {
   user: any;
   onBack: () => void;
   onSave: (propertyData: any) => void;
+  initialValues?: any;
+  mode?: 'add' | 'edit';
+  managers?: any[];
 }
 
-export function AddPropertyPage({ user, onBack, onSave }: AddPropertyPageProps) {
+export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'add', managers = [] }: AddPropertyPageProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     // Basic Information
@@ -61,7 +64,7 @@ export function AddPropertyPage({ user, onBack, onSave }: AddPropertyPageProps) 
     address: '',
     city: '',
     state: '',
-    zipCode: '',
+    postalCode: '',
     country: 'Nigeria',
     
     // Property Details
@@ -73,18 +76,20 @@ export function AddPropertyPage({ user, onBack, onSave }: AddPropertyPageProps) 
     parking: '',
     
     // Financial Information
-    currency: 'NGN',
-    purchasePrice: '',
-    currentMarketValue: '',
+    currency: 'USD',
     avgRent: '',
+    purchasePrice: '',
+    currentValue: '',
     securityDeposit: '',
-    petDeposit: '',
     applicationFee: '',
+    cautionFee: '',
+    legalFee: '',
+    agentCommission: '',
+    serviceCharge: '',
+    agreementFee: '',
     
     // Management
-    manager: '',
-    managerPhone: '',
-    managerEmail: '',
+    managerId: '',
     
     // Features & Amenities
     features: [] as string[],
@@ -106,7 +111,55 @@ export function AddPropertyPage({ user, onBack, onSave }: AddPropertyPageProps) 
     images: [] as string[]
   });
 
+  React.useEffect(() => {
+    if (initialValues) {
+      setFormData(prev => ({
+        ...prev,
+        name: initialValues.name || '',
+        propertyType: initialValues.propertyType || '',
+        address: initialValues.address || '',
+        city: initialValues.city || '',
+        state: initialValues.state || '',
+        postalCode: initialValues.postalCode || '',
+        country: initialValues.country || prev.country,
+        yearBuilt: initialValues.yearBuilt != null ? String(initialValues.yearBuilt) : '',
+        totalUnits: initialValues.totalUnits != null ? String(initialValues.totalUnits) : '',
+        floors: initialValues.floors != null ? String(initialValues.floors) : '',
+        totalArea: initialValues.totalArea != null ? String(initialValues.totalArea) : '',
+        lotSize: initialValues.lotSize != null ? String(initialValues.lotSize) : '',
+        parking: initialValues.parking != null ? String(initialValues.parking) : '',
+        currency: initialValues.currency || prev.currency,
+        avgRent: initialValues.avgRent != null ? String(initialValues.avgRent) : '',
+        purchasePrice: initialValues.purchasePrice != null ? String(initialValues.purchasePrice) : '',
+        currentValue: initialValues.currentValue != null ? String(initialValues.currentValue) : '',
+        securityDeposit: initialValues.securityDeposit != null ? String(initialValues.securityDeposit) : '',
+        applicationFee: initialValues.applicationFee != null ? String(initialValues.applicationFee) : '',
+        cautionFee: initialValues.cautionFee != null ? String(initialValues.cautionFee) : '',
+        legalFee: initialValues.legalFee != null ? String(initialValues.legalFee) : '',
+        agentCommission: initialValues.agentCommission != null ? String(initialValues.agentCommission) : '',
+        serviceCharge: initialValues.serviceCharge != null ? String(initialValues.serviceCharge) : '',
+        agreementFee: initialValues.agreementFee != null ? String(initialValues.agreementFee) : '',
+        features: Array.isArray(initialValues.features) ? initialValues.features : [],
+        unitFeatures: Array.isArray(initialValues.unitFeatures) ? initialValues.unitFeatures : [],
+        insuranceProvider: initialValues.insuranceProvider || '',
+        insurancePolicyNumber: initialValues.insurancePolicyNumber || '',
+        insurancePremium: initialValues.insurancePremium != null ? String(initialValues.insurancePremium) : '',
+        insuranceExpiration: initialValues.insuranceExpiration ? String(initialValues.insuranceExpiration).slice(0, 10) : '',
+        propertyTaxes: initialValues.propertyTaxes != null ? String(initialValues.propertyTaxes) : '',
+        description: initialValues.description || '',
+        notes: initialValues.notes || '',
+        coverImage: initialValues.coverImage || (Array.isArray(initialValues.images) && initialValues.images[0]) || '',
+        images: Array.isArray(initialValues.images) ? initialValues.images : [],
+        managerId: (initialValues.property_managers && initialValues.property_managers.find((pm: any) => pm.isActive)?.managerId) || ''
+      }));
+    }
+  }, [initialValues]);
+
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const selectedManager = React.useMemo(() => {
+    return managers.find((m: any) => m.id === (formData as any).managerId);
+  }, [managers, (formData as any).managerId]);
 
   const steps = [
     { number: 1, title: 'Basic Information', description: 'Property name and location' },
@@ -119,60 +172,70 @@ export function AddPropertyPage({ user, onBack, onSave }: AddPropertyPageProps) 
   ];
 
   const propertyTypes = [
-    'Apartment Complex',
-    'Single Family Home',
+    'Apartment Complex/Block of Flats',
+    'Detached House',
+    'Semi-Detached Duplex',
     'Duplex',
-    'Triplex',
-    'Fourplex',
-    'Townhouse',
-    'Condominium',
-    'Mixed Use',
-    'Commercial',
-    'Office Building',
-    'Retail Space',
-    'Warehouse',
-    'Mobile Home Park',
-    'Student Housing'
+    'Bungalow',
+    'Terrace/Townhouse',
+    'Penthouse',
+    'Mini Flat',
+    'Self-Contained',
+    'BQ (Boys Quarters)',
+    'Estate Housing',
+    'Serviced Apartment',
+    'Commercial Property',
+    'Office Space',
+    'Shop/Retail Space',
+    'Plaza/Shopping Complex',
+    'Warehouse/Industrial',
+    'Mixed Use Building',
+    'Hotel/Guest House',
+    'Student Hostel'
   ];
 
   const availableFeatures = [
+    { id: 'gated', label: 'Gated Estate', icon: Shield },
+    { id: '24hr-security', label: '24/7 Security', icon: Shield },
+    { id: 'generator', label: 'Generator/Power Backup', icon: Zap },
+    { id: 'borehole', label: 'Borehole/Water Supply', icon: Droplets },
+    { id: 'parking', label: 'Parking Space', icon: Car },
+    { id: 'elevator', label: 'Elevator/Lift', icon: ArrowRight },
     { id: 'pool', label: 'Swimming Pool', icon: Waves },
-    { id: 'gym', label: 'Fitness Center', icon: Dumbbell },
-    { id: 'parking', label: 'Parking', icon: Car },
-    { id: 'laundry', label: 'Laundry Facility', icon: Home },
-    { id: 'security', label: 'Security System', icon: Shield },
-    { id: 'elevator', label: 'Elevator', icon: ArrowRight },
-    { id: 'balcony', label: 'Balcony/Patio', icon: TreePine },
+    { id: 'gym', label: 'Gym/Fitness Center', icon: Dumbbell },
     { id: 'ac', label: 'Air Conditioning', icon: Thermometer },
-    { id: 'heating', label: 'Heating', icon: Thermometer },
-    { id: 'wifi', label: 'WiFi Included', icon: Wifi },
-    { id: 'utilities', label: 'Utilities Included', icon: Zap },
-    { id: 'garden', label: 'Garden/Yard', icon: TreePine },
-    { id: 'clubhouse', label: 'Clubhouse', icon: Home },
-    { id: 'playground', label: 'Playground', icon: Home },
-    { id: 'concierge', label: 'Concierge', icon: Users },
-    { id: 'rooftop', label: 'Rooftop Access', icon: Home }
+    { id: 'garden', label: 'Garden/Green Area', icon: TreePine },
+    { id: 'playground', label: 'Children Playground', icon: Home },
+    { id: 'wifi', label: 'WiFi/Internet', icon: Wifi },
+    { id: 'cctv', label: 'CCTV Surveillance', icon: Shield },
+    { id: 'interlocking', label: 'Interlocking Tiles/Paved', icon: Home },
+    { id: 'streetlight', label: 'Street Lights', icon: Zap },
+    { id: 'wastemanagement', label: 'Waste Management', icon: Home }
   ];
 
   const unitFeatures = [
-    { id: 'dishwasher', label: 'Dishwasher', icon: Utensils },
-    { id: 'microwave', label: 'Microwave', icon: Utensils },
-    { id: 'disposal', label: 'Garbage Disposal', icon: Home },
-    { id: 'walkincloset', label: 'Walk-in Closet', icon: Home },
-    { id: 'hardwood', label: 'Hardwood Floors', icon: Home },
-    { id: 'carpet', label: 'Carpet', icon: Home },
-    { id: 'tile', label: 'Tile Floors', icon: Home },
-    { id: 'fireplace', label: 'Fireplace', icon: Home },
-    { id: 'washerdryer', label: 'Washer/Dryer', icon: Home },
+    { id: 'ensuite', label: 'En-suite Bathroom', icon: Bath },
+    { id: 'kitchen', label: 'Fitted Kitchen', icon: Utensils },
+    { id: 'wardrobes', label: 'Built-in Wardrobes', icon: Home },
+    { id: 'balcony', label: 'Balcony', icon: Home },
+    { id: 'tiles', label: 'Tiled Floors', icon: Home },
+    { id: 'pop', label: 'POP Ceiling', icon: Home },
+    { id: 'cabinet', label: 'Kitchen Cabinets', icon: Utensils },
+    { id: 'water-heater', label: 'Water Heater', icon: Droplets },
+    { id: 'prepaid-meter', label: 'Prepaid Meter', icon: Zap },
+    { id: 'bq', label: 'Boys Quarters (BQ)', icon: Home },
+    { id: 'store', label: 'Store Room', icon: Home },
     { id: 'petsallowed', label: 'Pets Allowed', icon: Home }
   ];
 
-  const states = [
-    'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
-    'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
-    'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
-    'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
-    'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'
+  const nigerianStates = [
+    'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 
+    'Benue', 'Borno', 'Cross River', 'Delta', 'Ebonyi', 'Edo', 
+    'Ekiti', 'Enugu', 'Gombe', 'Imo', 'Jigawa', 'Kaduna', 
+    'Kano', 'Katsina', 'Kebbi', 'Kogi', 'Kwara', 'Lagos', 
+    'Nasarawa', 'Niger', 'Ogun', 'Ondo', 'Osun', 'Oyo', 
+    'Plateau', 'Rivers', 'Sokoto', 'Taraba', 'Yobe', 'Zamfara',
+    'FCT (Abuja)', 'Other'
   ];
 
   const countries = [
@@ -252,7 +315,7 @@ export function AddPropertyPage({ user, onBack, onSave }: AddPropertyPageProps) 
         if (!formData.address.trim()) newErrors.address = 'Address is required';
         if (!formData.city.trim()) newErrors.city = 'City is required';
         if (!formData.state) newErrors.state = 'State is required';
-        if (!formData.zipCode.trim()) newErrors.zipCode = 'ZIP code is required';
+        if (!formData.postalCode.trim()) newErrors.postalCode = 'Postal code is required';
         break;
       case 2:
         if (!formData.totalUnits.trim()) newErrors.totalUnits = 'Total units is required';
@@ -262,9 +325,7 @@ export function AddPropertyPage({ user, onBack, onSave }: AddPropertyPageProps) 
         if (!formData.avgRent.trim()) newErrors.avgRent = 'Average rent is required';
         break;
       case 4:
-        if (!formData.manager.trim()) newErrors.manager = 'Property manager name is required';
-        if (!formData.managerEmail.trim()) newErrors.managerEmail = 'Manager email is required';
-        if (!formData.managerPhone.trim()) newErrors.managerPhone = 'Manager phone is required';
+        if (!formData.managerId) newErrors.managerId = 'Please select a manager';
         break;
     }
 
@@ -334,7 +395,9 @@ export function AddPropertyPage({ user, onBack, onSave }: AddPropertyPageProps) 
       };
 
       onSave(propertyData);
-      toast.success('Property added successfully!');
+      if (mode === 'add') {
+        toast.success('Property added successfully!');
+      }
     }
   };
 
@@ -406,7 +469,7 @@ export function AddPropertyPage({ user, onBack, onSave }: AddPropertyPageProps) 
                         <SelectValue placeholder="State" />
                       </SelectTrigger>
                       <SelectContent>
-                        {states.map((state) => (
+                        {nigerianStates.map((state) => (
                           <SelectItem key={state} value={state}>{state}</SelectItem>
                         ))}
                       </SelectContent>
@@ -415,15 +478,15 @@ export function AddPropertyPage({ user, onBack, onSave }: AddPropertyPageProps) 
                   </div>
 
                   <div>
-                    <Label htmlFor="zipCode">ZIP Code *</Label>
+                    <Label htmlFor="postalCode">Postal Code *</Label>
                     <Input
-                      id="zipCode"
-                      value={formData.zipCode}
-                      onChange={(e) => handleInputChange('zipCode', e.target.value)}
-                      placeholder="ZIP code"
-                      className={errors.zipCode ? 'border-red-500' : ''}
+                      id="postalCode"
+                      value={formData.postalCode}
+                      onChange={(e) => handleInputChange('postalCode', e.target.value)}
+                      placeholder="Postal code"
+                      className={errors.postalCode ? 'border-red-500' : ''}
                     />
-                    {errors.zipCode && <p className="text-sm text-red-600">{errors.zipCode}</p>}
+                    {errors.postalCode && <p className="text-sm text-red-600">{errors.postalCode}</p>}
                   </div>
                 </div>
 
@@ -462,20 +525,21 @@ export function AddPropertyPage({ user, onBack, onSave }: AddPropertyPageProps) 
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="totalUnits">Total Units *</Label>
+                  <Label htmlFor="totalUnits">Total Units/Apartments *</Label>
                   <Input
                     id="totalUnits"
                     type="number"
                     value={formData.totalUnits}
                     onChange={(e) => handleInputChange('totalUnits', e.target.value)}
-                    placeholder="Number of units"
+                    placeholder="Number of units or apartments"
                     className={errors.totalUnits ? 'border-red-500' : ''}
                   />
                   {errors.totalUnits && <p className="text-sm text-red-600">{errors.totalUnits}</p>}
+                  <p className="text-xs text-gray-500 mt-1">Total number of rentable units in the property</p>
                 </div>
 
                 <div>
-                  <Label htmlFor="floors">Number of Floors</Label>
+                  <Label htmlFor="floors">Number of Floors/Storeys</Label>
                   <Input
                     id="floors"
                     type="number"
@@ -483,41 +547,45 @@ export function AddPropertyPage({ user, onBack, onSave }: AddPropertyPageProps) 
                     onChange={(e) => handleInputChange('floors', e.target.value)}
                     placeholder="Number of floors"
                   />
+                  <p className="text-xs text-gray-500 mt-1">G+1, G+2, etc. (Ground + additional floors)</p>
                 </div>
 
                 <div>
-                  <Label htmlFor="yearBuilt">Year Built</Label>
+                  <Label htmlFor="yearBuilt">Year Built/Completed</Label>
                   <Input
                     id="yearBuilt"
                     type="number"
                     value={formData.yearBuilt}
                     onChange={(e) => handleInputChange('yearBuilt', e.target.value)}
-                    placeholder="Year built"
+                    placeholder="e.g., 2020"
                   />
+                  <p className="text-xs text-gray-500 mt-1">Year the property was completed</p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="totalArea">Total Area (sq ft)</Label>
+                  <Label htmlFor="totalArea">Total Built Area (sq m or sq ft)</Label>
                   <Input
                     id="totalArea"
                     type="number"
                     value={formData.totalArea}
                     onChange={(e) => handleInputChange('totalArea', e.target.value)}
-                    placeholder="Total square footage"
+                    placeholder="Total built-up area"
                   />
+                  <p className="text-xs text-gray-500 mt-1">Total floor area in square meters or square feet</p>
                 </div>
 
                 <div>
-                  <Label htmlFor="lotSize">Lot Size (sq ft)</Label>
+                  <Label htmlFor="lotSize">Plot/Land Size (sq m or sq ft)</Label>
                   <Input
                     id="lotSize"
                     type="number"
                     value={formData.lotSize}
                     onChange={(e) => handleInputChange('lotSize', e.target.value)}
-                    placeholder="Lot square footage"
+                    placeholder="Plot size"
                   />
+                  <p className="text-xs text-gray-500 mt-1">Total land area (e.g., 600sqm, 1200sqm)</p>
                 </div>
 
                 <div>
@@ -529,6 +597,7 @@ export function AddPropertyPage({ user, onBack, onSave }: AddPropertyPageProps) 
                     onChange={(e) => handleInputChange('parking', e.target.value)}
                     placeholder="Number of parking spaces"
                   />
+                  <p className="text-xs text-gray-500 mt-1">Available parking slots for tenants</p>
                 </div>
               </div>
             </div>
@@ -559,51 +628,17 @@ export function AddPropertyPage({ user, onBack, onSave }: AddPropertyPageProps) 
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="avgRent">Average Rent per Unit *</Label>
+                  <Label htmlFor="avgRent">Annual Rent per Unit *</Label>
                   <Input
                     id="avgRent"
                     type="number"
                     value={formData.avgRent}
                     onChange={(e) => handleInputChange('avgRent', e.target.value)}
-                    placeholder="Average monthly rent"
+                    placeholder="Annual rent amount"
                     className={errors.avgRent ? 'border-red-500' : ''}
                   />
                   {errors.avgRent && <p className="text-sm text-red-600">{errors.avgRent}</p>}
-                </div>
-
-                <div>
-                  <Label htmlFor="securityDeposit">Security Deposit</Label>
-                  <Input
-                    id="securityDeposit"
-                    type="number"
-                    value={formData.securityDeposit}
-                    onChange={(e) => handleInputChange('securityDeposit', e.target.value)}
-                    placeholder="Security deposit amount"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="petDeposit">Pet Deposit</Label>
-                  <Input
-                    id="petDeposit"
-                    type="number"
-                    value={formData.petDeposit}
-                    onChange={(e) => handleInputChange('petDeposit', e.target.value)}
-                    placeholder="Pet deposit amount"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="applicationFee">Application Fee</Label>
-                  <Input
-                    id="applicationFee"
-                    type="number"
-                    value={formData.applicationFee}
-                    onChange={(e) => handleInputChange('applicationFee', e.target.value)}
-                    placeholder="Application fee"
-                  />
+                  <p className="text-xs text-gray-500 mt-1">Typical Nigerian rental period is annual</p>
                 </div>
 
                 <div>
@@ -613,18 +648,103 @@ export function AddPropertyPage({ user, onBack, onSave }: AddPropertyPageProps) 
                     type="number"
                     value={formData.purchasePrice}
                     onChange={(e) => handleInputChange('purchasePrice', e.target.value)}
-                    placeholder="Original purchase price"
+                    placeholder="Property purchase price"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Original purchase price of the property</p>
+                </div>
+
+                <div>
+                  <Label htmlFor="currentValue">Current Market Value</Label>
+                  <Input
+                    id="currentValue"
+                    type="number"
+                    value={formData.currentValue}
+                    onChange={(e) => handleInputChange('currentValue', e.target.value)}
+                    placeholder="Current market value"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Current estimated market value (for Cap Rate calculation)</p>
+                </div>
+
+                <div>
+                  <Label htmlFor="cautionFee">Caution Fee</Label>
+                  <Input
+                    id="cautionFee"
+                    type="number"
+                    value={formData.cautionFee}
+                    onChange={(e) => handleInputChange('cautionFee', e.target.value)}
+                    placeholder="Caution fee (refundable deposit)"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Refundable security deposit</p>
+                </div>
+
+                <div>
+                  <Label htmlFor="serviceCharge">Annual Service Charge</Label>
+                  <Input
+                    id="serviceCharge"
+                    type="number"
+                    value={formData.serviceCharge}
+                    onChange={(e) => handleInputChange('serviceCharge', e.target.value)}
+                    placeholder="Service charge amount"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Covers maintenance, security, waste management</p>
+                </div>
+
+                <div>
+                  <Label htmlFor="legalFee">Legal/Documentation Fee</Label>
+                  <Input
+                    id="legalFee"
+                    type="number"
+                    value={formData.legalFee}
+                    onChange={(e) => handleInputChange('legalFee', e.target.value)}
+                    placeholder="Legal documentation fee"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="agreementFee">Agreement Fee</Label>
+                  <Input
+                    id="agreementFee"
+                    type="number"
+                    value={formData.agreementFee}
+                    onChange={(e) => handleInputChange('agreementFee', e.target.value)}
+                    placeholder="Tenancy agreement fee"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">One-time tenancy agreement processing</p>
+                </div>
+
+                <div>
+                  <Label htmlFor="agentCommission">Agent Commission</Label>
+                  <Input
+                    id="agentCommission"
+                    type="number"
+                    value={formData.agentCommission}
+                    onChange={(e) => handleInputChange('agentCommission', e.target.value)}
+                    placeholder="Agent commission amount"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Typically 10% of annual rent</p>
+                </div>
+
+                <div>
+                  <Label htmlFor="securityDeposit">Security Deposit</Label>
+                  <Input
+                    id="securityDeposit"
+                    type="number"
+                    value={formData.securityDeposit}
+                    onChange={(e) => handleInputChange('securityDeposit', e.target.value)}
+                    placeholder="Additional security deposit"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="currentMarketValue">Current Market Value</Label>
+                  <Label htmlFor="applicationFee">Application/Inspection Fee</Label>
                   <Input
-                    id="currentMarketValue"
+                    id="applicationFee"
                     type="number"
-                    value={formData.currentMarketValue}
-                    onChange={(e) => handleInputChange('currentMarketValue', e.target.value)}
-                    placeholder="Current estimated value"
+                    value={formData.applicationFee}
+                    onChange={(e) => handleInputChange('applicationFee', e.target.value)}
+                    placeholder="Application fee"
                   />
                 </div>
               </div>
@@ -635,47 +755,20 @@ export function AddPropertyPage({ user, onBack, onSave }: AddPropertyPageProps) 
       case 4:
         return (
           <div className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="manager">Property Manager Name *</Label>
-                  <Input
-                    id="manager"
-                    value={formData.manager}
-                    onChange={(e) => handleInputChange('manager', e.target.value)}
-                    placeholder="Manager full name"
-                    className={errors.manager ? 'border-red-500' : ''}
-                  />
-                  {errors.manager && <p className="text-sm text-red-600">{errors.manager}</p>}
-                </div>
-
-                <div>
-                  <Label htmlFor="managerEmail">Manager Email *</Label>
-                  <Input
-                    id="managerEmail"
-                    type="email"
-                    value={formData.managerEmail}
-                    onChange={(e) => handleInputChange('managerEmail', e.target.value)}
-                    placeholder="manager@example.com"
-                    className={errors.managerEmail ? 'border-red-500' : ''}
-                  />
-                  {errors.managerEmail && <p className="text-sm text-red-600">{errors.managerEmail}</p>}
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="managerPhone">Manager Phone *</Label>
-                  <Input
-                    id="managerPhone"
-                    type="tel"
-                    value={formData.managerPhone}
-                    onChange={(e) => handleInputChange('managerPhone', e.target.value)}
-                    placeholder="(555) 123-4567"
-                    className={errors.managerPhone ? 'border-red-500' : ''}
-                  />
-                  {errors.managerPhone && <p className="text-sm text-red-600">{errors.managerPhone}</p>}
-                </div>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="managerId">Select Property Manager *</Label>
+                <Select value={(formData as any).managerId || ''} onValueChange={(value) => handleInputChange('managerId', value)}>
+                  <SelectTrigger className={errors.managerId ? 'border-red-500' : ''}>
+                    <SelectValue placeholder={managers.length ? 'Choose a manager' : 'No managers available'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {managers.map((m: any) => (
+                      <SelectItem key={m.id} value={m.id}>{m.name} ({m.email})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.managerId && <p className="text-sm text-red-600">{errors.managerId}</p>}
               </div>
             </div>
           </div>
@@ -877,7 +970,7 @@ export function AddPropertyPage({ user, onBack, onSave }: AddPropertyPageProps) 
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">City, State:</span>
-                    <span className="font-medium">{formData.city}, {formData.state} {formData.zipCode}</span>
+                    <span className="font-medium">{formData.city}, {formData.state} {formData.postalCode}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Country:</span>
@@ -907,6 +1000,14 @@ export function AddPropertyPage({ user, onBack, onSave }: AddPropertyPageProps) 
                     <span className="text-gray-600">Total Area:</span>
                     <span className="font-medium">{formData.totalArea ? `${formData.totalArea} sq ft` : 'N/A'}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Lot Size:</span>
+                    <span className="font-medium">{formData.lotSize ? `${formData.lotSize} sq ft` : 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Parking Spaces:</span>
+                    <span className="font-medium">{formData.parking || 'N/A'}</span>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -922,16 +1023,48 @@ export function AddPropertyPage({ user, onBack, onSave }: AddPropertyPageProps) 
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Average Rent:</span>
+                    <span className="text-gray-600">Annual Rent:</span>
                     <span className="font-medium">{currencies.find(c => c.code === formData.currency)?.symbol}{formData.avgRent}</span>
+                  </div>
+                  {formData.purchasePrice && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Purchase Price:</span>
+                      <span className="font-medium">{currencies.find(c => c.code === formData.currency)?.symbol}{formData.purchasePrice}</span>
+                    </div>
+                  )}
+                  {formData.currentValue && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Current Value:</span>
+                      <span className="font-medium">{currencies.find(c => c.code === formData.currency)?.symbol}{formData.currentValue}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Caution Fee:</span>
+                    <span className="font-medium">{currencies.find(c => c.code === formData.currency)?.symbol}{formData.cautionFee || 'N/A'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Security Deposit:</span>
                     <span className="font-medium">{currencies.find(c => c.code === formData.currency)?.symbol}{formData.securityDeposit || 'N/A'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Purchase Price:</span>
-                    <span className="font-medium">{currencies.find(c => c.code === formData.currency)?.symbol}{formData.purchasePrice || 'N/A'}</span>
+                    <span className="text-gray-600">Service Charge:</span>
+                    <span className="font-medium">{currencies.find(c => c.code === formData.currency)?.symbol}{formData.serviceCharge || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Application Fee:</span>
+                    <span className="font-medium">{currencies.find(c => c.code === formData.currency)?.symbol}{formData.applicationFee || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Legal Fee:</span>
+                    <span className="font-medium">{currencies.find(c => c.code === formData.currency)?.symbol}{formData.legalFee || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Agreement Fee:</span>
+                    <span className="font-medium">{currencies.find(c => c.code === formData.currency)?.symbol}{formData.agreementFee || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Agent Commission:</span>
+                    <span className="font-medium">{currencies.find(c => c.code === formData.currency)?.symbol}{formData.agentCommission || 'N/A'}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -943,15 +1076,15 @@ export function AddPropertyPage({ user, onBack, onSave }: AddPropertyPageProps) 
                 <CardContent className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Manager:</span>
-                    <span className="font-medium">{formData.manager}</span>
+                    <span className="font-medium">{selectedManager?.name || 'Unassigned'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Email:</span>
-                    <span className="font-medium">{formData.managerEmail}</span>
+                    <span className="font-medium">{selectedManager?.email || '—'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Phone:</span>
-                    <span className="font-medium">{formData.managerPhone}</span>
+                    <span className="font-medium">{selectedManager?.phone || '—'}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -997,6 +1130,86 @@ export function AddPropertyPage({ user, onBack, onSave }: AddPropertyPageProps) 
               </Card>
             )}
 
+            {/* Insurance & Legal Information */}
+            {(formData.insuranceProvider || formData.insurancePolicyNumber || formData.insurancePremium || formData.insuranceExpiration || formData.propertyTaxes) && (
+              <div className="grid md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Insurance Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Provider:</span>
+                      <span className="font-medium">{formData.insuranceProvider || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Policy Number:</span>
+                      <span className="font-medium">{formData.insurancePolicyNumber || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Annual Premium:</span>
+                      <span className="font-medium">
+                        {formData.insurancePremium ? `${currencies.find(c => c.code === formData.currency)?.symbol}${formData.insurancePremium}` : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Expiration:</span>
+                      <span className="font-medium">{formData.insuranceExpiration || 'N/A'}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Legal & Tax</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Annual Property Taxes:</span>
+                      <span className="font-medium">
+                        {formData.propertyTaxes ? `${currencies.find(c => c.code === formData.currency)?.symbol}${formData.propertyTaxes}` : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Legal/Documentation Fee:</span>
+                      <span className="font-medium">
+                        {formData.legalFee ? `${currencies.find(c => c.code === formData.currency)?.symbol}${formData.legalFee}` : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Agreement Fee:</span>
+                      <span className="font-medium">
+                        {formData.agreementFee ? `${currencies.find(c => c.code === formData.currency)?.symbol}${formData.agreementFee}` : 'N/A'}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Additional Information */}
+            {(formData.description || formData.notes) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Additional Information</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {formData.description && (
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-600 mb-1">Description:</h5>
+                      <p className="text-sm text-gray-900 whitespace-pre-wrap">{formData.description}</p>
+                    </div>
+                  )}
+                  {formData.notes && (
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-600 mb-1">Internal Notes:</h5>
+                      <p className="text-sm text-gray-900 whitespace-pre-wrap">{formData.notes}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Cover Image Preview */}
             {formData.coverImage && (
               <Card className="md:col-span-2">
@@ -1025,7 +1238,13 @@ export function AddPropertyPage({ user, onBack, onSave }: AddPropertyPageProps) 
                       </div>
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm text-gray-600 break-all">{formData.coverImage}</p>
+                      <p className="text-sm text-gray-600 break-all">
+                        {formData.coverImage.startsWith('data:')
+                          ? 'Uploaded image (base64)'
+                          : formData.coverImage.length > 80
+                            ? formData.coverImage.slice(0, 80) + '…'
+                            : formData.coverImage}
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -1050,7 +1269,7 @@ export function AddPropertyPage({ user, onBack, onSave }: AddPropertyPageProps) 
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Properties
               </Button>
-              <h1 className="text-xl font-semibold text-gray-900">Add New Property</h1>
+              <h1 className="text-xl font-semibold text-gray-900">{mode === 'edit' ? 'Edit Property' : 'Add New Property'}</h1>
             </div>
             
             <div className="flex items-center space-x-4">
@@ -1146,7 +1365,7 @@ export function AddPropertyPage({ user, onBack, onSave }: AddPropertyPageProps) 
                   {currentStep === steps.length ? (
                     <Button onClick={handleSubmit} className="bg-green-600 hover:bg-green-700">
                       <Save className="h-4 w-4 mr-2" />
-                      Add Property
+                      {mode === 'edit' ? 'Save Changes' : 'Add Property'}
                     </Button>
                   ) : (
                     <Button onClick={handleNext}>

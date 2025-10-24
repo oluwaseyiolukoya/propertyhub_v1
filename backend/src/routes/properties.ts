@@ -1,4 +1,5 @@
 import express, { Response } from 'express';
+import { randomUUID } from 'crypto';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import prisma from '../lib/db';
 
@@ -7,49 +8,6 @@ const router = express.Router();
 // Apply auth middleware to all routes
 router.use(authMiddleware);
 
-// Mock data for development
-const mockProperties = [
-  {
-    id: 'prop-1',
-    name: 'Sunset Apartments',
-    propertyType: 'Multi-Family',
-    address: '123 Main St',
-    city: 'Los Angeles',
-    state: 'CA',
-    zipCode: '90001',
-    totalUnits: 24,
-    units: 24,
-    occupied: 22,
-    occupancyRate: 92,
-    avgRent: 1800,
-    monthlyRevenue: 39600,
-    status: 'active',
-    manager: 'Sarah Johnson',
-    _count: { units: 24, leases: 22 },
-    managers: [],
-    createdAt: new Date('2024-01-01')
-  },
-  {
-    id: 'prop-2',
-    name: 'Downtown Plaza',
-    propertyType: 'Commercial',
-    address: '456 Business Ave',
-    city: 'Los Angeles',
-    state: 'CA',
-    zipCode: '90013',
-    totalUnits: 12,
-    units: 12,
-    occupied: 12,
-    occupancyRate: 100,
-    avgRent: 3500,
-    monthlyRevenue: 42000,
-    status: 'active',
-    manager: 'Unassigned',
-    _count: { units: 12, leases: 12 },
-    managers: [],
-    createdAt: new Date('2024-02-01')
-  }
-];
 
 // Get all properties for current user (owner or manager)
 router.get('/', async (req: AuthRequest, res: Response) => {
@@ -70,7 +28,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       if (role === 'owner') {
         where.ownerId = userId;
       } else if (role === 'manager') {
-        where.managers = {
+        where.property_managers = {
           some: {
             managerId: userId,
             isActive: true
@@ -97,7 +55,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         where.propertyType = propertyType;
       }
 
-      const properties = await prisma.property.findMany({
+      const properties = await prisma.properties.findMany({
       where,
       include: {
         _count: {
@@ -106,10 +64,10 @@ router.get('/', async (req: AuthRequest, res: Response) => {
             leases: true
           }
         },
-        managers: {
+        property_managers: {
           where: { isActive: true },
           include: {
-            manager: {
+            users: {
               select: {
                 id: true,
                 name: true,
@@ -127,7 +85,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     const propertiesWithStats = await Promise.all(
       properties.map(async (property) => {
         // Get occupied units count
-        const occupiedUnits = await prisma.unit.count({
+        const occupiedUnits = await prisma.units.count({
           where: {
             propertyId: property.id,
             status: 'occupied'
@@ -135,7 +93,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         });
 
         // Get total monthly rent
-        const totalRent = await prisma.unit.aggregate({
+        const totalRent = await prisma.units.aggregate({
           where: {
             propertyId: property.id,
             status: 'occupied'
@@ -158,9 +116,8 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
       return res.json(propertiesWithStats);
     } catch (dbError) {
-      // Database not available, return mock data
-      console.log('📝 Using mock properties data');
-      return res.json(mockProperties);
+      // Database not available
+      return res.status(500).json({ error: 'Failed to fetch properties' });
     }
 
   } catch (error: any) {
@@ -177,13 +134,13 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
     const role = req.user?.role;
 
     // Check access
-    const property = await prisma.property.findFirst({
+    const property = await prisma.properties.findFirst({
       where: {
         id,
         OR: [
           { ownerId: userId },
           {
-            managers: {
+            property_managers: {
               some: {
                 managerId: userId,
                 isActive: true
@@ -193,7 +150,7 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
         ]
       },
       include: {
-        owner: {
+        users: {
           select: {
             id: true,
             name: true,
@@ -206,7 +163,7 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
             leases: {
               where: { status: 'active' },
               include: {
-                tenant: {
+                users: {
                   select: {
                     id: true,
                     name: true,
@@ -218,10 +175,10 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
             }
           }
         },
-        managers: {
+        property_managers: {
           where: { isActive: true },
           include: {
-            manager: {
+            users: {
               select: {
                 id: true,
                 name: true,
@@ -233,14 +190,14 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
         },
         leases: {
           include: {
-            tenant: {
+            users: {
               select: {
                 id: true,
                 name: true,
                 email: true
               }
             },
-            unit: {
+            units: {
               select: {
                 id: true,
                 unitNumber: true
@@ -295,7 +252,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       address,
       city,
       state,
-      zipCode,
+      postalCode,
       country,
       yearBuilt,
       totalUnits,
@@ -304,9 +261,14 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       lotSize,
       parking,
       currency,
-      purchasePrice,
-      marketValue,
       avgRent,
+      securityDeposit,
+      applicationFee,
+      cautionFee,
+      legalFee,
+      agentCommission,
+      serviceCharge,
+      agreementFee,
       features,
       unitFeatures,
       insuranceProvider,
@@ -326,7 +288,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     }
 
     // Check customer's property limit
-    const customer = await prisma.customer.findUnique({
+    const customer = await prisma.customers.findUnique({
       where: { id: customerId },
       include: {
         _count: {
@@ -345,8 +307,9 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const property = await prisma.property.create({
+    const property = await prisma.properties.create({
       data: {
+        id: randomUUID(),
         customerId,
         ownerId: userId,
         name,
@@ -354,35 +317,43 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         address,
         city,
         state,
-        zipCode,
+        postalCode,
         country: country || 'Nigeria',
-        yearBuilt,
-        totalUnits,
-        floors,
-        totalArea,
-        lotSize,
-        parking,
+        yearBuilt: yearBuilt ? parseInt(yearBuilt) : null,
+        totalUnits: parseInt(totalUnits),
+        floors: floors ? parseInt(floors) : null,
+        totalArea: totalArea ? parseFloat(totalArea) : null,
+        lotSize: lotSize ? parseFloat(lotSize) : null,
+        parking: parking ? parseInt(parking) : null,
         currency: currency || 'NGN',
-        purchasePrice,
-        marketValue,
-        avgRent,
-        features,
-        unitFeatures,
-        insuranceProvider,
-        insurancePolicyNumber,
-        insurancePremium,
+        avgRent: avgRent ? parseFloat(avgRent) : null,
+        securityDeposit: securityDeposit ? parseFloat(securityDeposit) : null,
+        applicationFee: applicationFee ? parseFloat(applicationFee) : null,
+        cautionFee: cautionFee ? parseFloat(cautionFee) : null,
+        legalFee: legalFee ? parseFloat(legalFee) : null,
+        agentCommission: agentCommission ? parseFloat(agentCommission) : null,
+        serviceCharge: serviceCharge ? parseFloat(serviceCharge) : null,
+        agreementFee: agreementFee ? parseFloat(agreementFee) : null,
+        features: features || [],
+        unitFeatures: unitFeatures || [],
+        insuranceProvider: insuranceProvider || null,
+        insurancePolicyNumber: insurancePolicyNumber || null,
+        insurancePremium: insurancePremium ? parseFloat(insurancePremium) : null,
         insuranceExpiration: insuranceExpiration ? new Date(insuranceExpiration) : null,
-        propertyTaxes,
-        coverImage,
-        images,
-        description,
-        notes
+        propertyTaxes: propertyTaxes ? parseFloat(propertyTaxes) : null,
+        coverImage: coverImage || null,
+        images: images || [],
+        description: description || null,
+        notes: notes || null,
+        status: 'active',
+        updatedAt: new Date()
       }
     });
 
     // Log activity
-    await prisma.activityLog.create({
+    await prisma.activity_logs.create({
       data: {
+        id: randomUUID(),
         customerId,
         userId,
         action: 'create',
@@ -396,7 +367,12 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
   } catch (error: any) {
     console.error('Create property error:', error);
-    return res.status(500).json({ error: 'Failed to create property' });
+    console.error('Error details:', error.message);
+    console.error('Request body:', JSON.stringify(req.body, null, 2));
+    return res.status(500).json({ 
+      error: 'Failed to create property',
+      details: error.message 
+    });
   }
 });
 
@@ -408,7 +384,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     const role = req.user?.role;
 
     // Check ownership
-    const existingProperty = await prisma.property.findFirst({
+    const existingProperty = await prisma.properties.findFirst({
       where: {
         id,
         ownerId: userId
@@ -425,7 +401,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       address,
       city,
       state,
-      zipCode,
+      postalCode,
       country,
       yearBuilt,
       totalUnits,
@@ -434,9 +410,14 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       lotSize,
       parking,
       currency,
-      purchasePrice,
-      marketValue,
       avgRent,
+      securityDeposit,
+      applicationFee,
+      cautionFee,
+      legalFee,
+      agentCommission,
+      serviceCharge,
+      agreementFee,
       status,
       features,
       unitFeatures,
@@ -451,7 +432,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       notes
     } = req.body;
 
-    const property = await prisma.property.update({
+    const property = await prisma.properties.update({
       where: { id },
       data: {
         name,
@@ -459,7 +440,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         address,
         city,
         state,
-        zipCode,
+        postalCode,
         country,
         yearBuilt,
         totalUnits,
@@ -468,9 +449,14 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         lotSize,
         parking,
         currency,
-        purchasePrice,
-        marketValue,
         avgRent,
+        securityDeposit,
+        applicationFee,
+        cautionFee,
+        legalFee,
+        agentCommission,
+        serviceCharge,
+        agreementFee,
         status,
         features,
         unitFeatures,
@@ -487,8 +473,9 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     });
 
     // Log activity
-    await prisma.activityLog.create({
+    await prisma.activity_logs.create({
       data: {
+        id: randomUUID(),
         customerId: property.customerId,
         userId,
         action: 'update',
@@ -517,7 +504,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ error: 'Only property owners can delete properties' });
     }
 
-    const property = await prisma.property.findFirst({
+    const property = await prisma.properties.findFirst({
       where: {
         id,
         ownerId: userId
@@ -529,7 +516,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
     }
 
     // Check for active leases
-    const activeLeases = await prisma.lease.count({
+    const activeLeases = await prisma.leases.count({
       where: {
         propertyId: id,
         status: 'active'
@@ -542,11 +529,12 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    await prisma.property.delete({ where: { id } });
+    await prisma.properties.delete({ where: { id } });
 
     // Log activity
-    await prisma.activityLog.create({
+    await prisma.activity_logs.create({
       data: {
+        id: randomUUID(),
         customerId: property.customerId,
         userId,
         action: 'delete',

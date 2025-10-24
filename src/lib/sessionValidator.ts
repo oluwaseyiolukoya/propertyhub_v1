@@ -39,12 +39,18 @@ export const validateSession = async (): Promise<ValidationResponse> => {
     isValidating = true;
     lastValidationTime = now;
 
-    const { data, error } = await apiClient.get<ValidationResponse>('/api/auth/validate-session');
+    // Suppress global 401 auto-redirect so we can handle it gracefully here
+    const { data, error } = await apiClient.get<ValidationResponse>(
+      '/api/auth/validate-session',
+      undefined,
+      { suppressAuthRedirect: true }
+    );
 
     isValidating = false;
 
     if (error) {
-      if (error.statusCode === 401 || error.statusCode === 403) {
+      // Only force logout on 401 (unauthorized). Treat 403 (forbidden) as blocked action, not invalid session.
+      if (error.statusCode === 401) {
         return {
           valid: false,
           reason: error.error || 'Session expired',
@@ -61,7 +67,7 @@ export const validateSession = async (): Promise<ValidationResponse> => {
     isValidating = false;
     
     // If we get 401 or 403, session is invalid
-    if (error.status === 401 || error.status === 403) {
+    if (error.status === 401) {
       return {
         valid: false,
         reason: error.message || 'Session expired',

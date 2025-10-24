@@ -76,3 +76,26 @@ export const getTenantDocuments = async () => {
   return apiClient.get<any>(API_ENDPOINTS.TENANT.DOCUMENTS);
 };
 
+/**
+ * Reset tenant password (for property owners)
+ */
+export const resetTenantPassword = async (tenantId: string) => {
+  return apiClient.post<{
+    message: string;
+    tempPassword: string;
+    tenantEmail: string;
+    tenantName: string;
+  }>(`${API_ENDPOINTS.TENANT.BASE}/${tenantId}/reset-password`, {});
+};
+
+/**
+ * Delete tenant (for property owners/managers)
+ */
+export const deleteTenant = async (tenantId: string) => {
+  return apiClient.delete<{
+    message: string;
+    tenantEmail: string;
+    tenantName: string;
+  }>(`${API_ENDPOINTS.TENANT.BASE}/${tenantId}`);
+};
+
