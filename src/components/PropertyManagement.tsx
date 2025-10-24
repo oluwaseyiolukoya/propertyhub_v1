@@ -13,6 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Separator } from "./ui/separator";
 import { toast } from "sonner";
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { formatCurrency } from '../lib/currency';
 import { 
   Plus, Edit, Eye, MapPin, Home, Users, Search, Filter, 
   MoreHorizontal, Building2, DollarSign, TrendingUp, 
@@ -58,6 +59,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
       ownerId: 'po-001',
       image: 'https://images.unsplash.com/photo-1559329146-807aff9ff1fb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBhcGFydG1lbnQlMjBidWlsZGluZyUyMGV4dGVyaW9yfGVufDF8fHx8MTc2MDUyNTM1NHww&ixlib=rb-4.1.0&q=80&w=1080',
       monthlyRevenue: 24000,
+      currency: 'USD',
       yearBuilt: 2018,
       manager: 'Sarah Johnson',
       maintenanceRequests: 3,
@@ -78,6 +80,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
       ownerId: 'po-001',
       image: 'https://images.unsplash.com/photo-1619647787040-5583f41eb9b5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBjb25kb21pbml1bSUyMGJ1aWxkaW5nfGVufDF8fHx8MTc2MDU4NzgzNXww&ixlib=rb-4.1.0&q=80&w=1080',
       monthlyRevenue: 18000,
+      currency: 'NGN',
       yearBuilt: 2020,
       manager: 'Mike Wilson',
       maintenanceRequests: 1,
@@ -98,6 +101,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
       ownerId: 'po-001',
       image: 'https://images.unsplash.com/photo-1758936381804-586f7e4dbea1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZXNpZGVudGlhbCUyMHRvd25ob3VzZSUyMGNvbXBsZXh8ZW58MXx8fHwxNzYwNTg3ODM1fDA&ixlib=rb-4.1.0&q=80&w=1080',
       monthlyRevenue: 12000,
+      currency: 'GBP',
       yearBuilt: 2015,
       manager: 'Mike Wilson',
       maintenanceRequests: 5,
@@ -294,9 +298,12 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-semibold">₦{portfolioMetrics.totalRevenue.toLocaleString()}</div>
+                <div className="text-2xl font-semibold">{formatCurrency(portfolioMetrics.totalRevenue, 'USD')}</div>
                 <p className="text-xs text-muted-foreground flex items-center">
                   <TrendingUp className="h-3 w-3 mr-1 text-green-600" />
+                  {properties.length > 1 && properties.some(p => p.currency !== 'USD') && 
+                    <span className="text-orange-600 mr-2">Multi-currency</span>
+                  }
                   +8.2% from last month
                 </p>
               </CardContent>
@@ -341,7 +348,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-medium text-green-600">₦{property.monthlyRevenue.toLocaleString()}</p>
+                        <p className="font-medium text-green-600">{formatCurrency(property.monthlyRevenue, property.currency || 'NGN')}</p>
                         <p className="text-sm text-gray-600">{((property.occupiedUnits / property.totalUnits) * 100).toFixed(1)}%</p>
                       </div>
                     </div>
