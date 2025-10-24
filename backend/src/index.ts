@@ -57,7 +57,6 @@ const allowedOrigins = [
   'http://localhost:5174',
   'http://localhost:3000',
   process.env.FRONTEND_URL,
-  'https://propertyhub-v1.vercel.app', // Your production frontend
 ].filter(Boolean); // Remove undefined values
 
 app.use(cors({
@@ -65,6 +64,12 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps, Postman, curl, etc.)
     if (!origin) return callback(null, true);
     
+    // Allow any Vercel deployment (production and preview URLs)
+    if (origin.includes('vercel.app')) {
+      return callback(null, true);
+    }
+    
+    // Check against allowed origins list
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
