@@ -8,23 +8,26 @@ async function main() {
 
   // Create Super Admin
   const adminPassword = await bcrypt.hash('admin123', 10);
-  const admin = await prisma.admin.upsert({
+  const admin = await prisma.admins.upsert({
     where: { email: 'admin@propertyhub.com' },
     update: {},
     create: {
+      id: 'admin-1',
       email: 'admin@propertyhub.com',
       password: adminPassword,
       name: 'Super Admin',
-      role: 'super_admin'
+      role: 'super_admin',
+      updatedAt: new Date()
     }
   });
   console.log('✅ Created Super Admin:', admin.email);
 
   // Create Plans
-  const starterPlan = await prisma.plan.upsert({
+  const starterPlan = await prisma.plans.upsert({
     where: { name: 'Starter' },
     update: {},
     create: {
+      id: 'plan-starter-1',
       name: 'Starter',
       description: 'Perfect for small property owners',
       monthlyPrice: 500,
@@ -40,14 +43,16 @@ async function main() {
         'Basic reporting',
         'Email support'
       ],
-      isActive: true
+      isActive: true,
+      updatedAt: new Date()
     }
   });
 
-  const professionalPlan = await prisma.plan.upsert({
+  const professionalPlan = await prisma.plans.upsert({
     where: { name: 'Professional' },
     update: {},
     create: {
+      id: 'plan-professional-1',
       name: 'Professional',
       description: 'For growing property portfolios',
       monthlyPrice: 1200,
@@ -65,14 +70,16 @@ async function main() {
         'Custom branding'
       ],
       isActive: true,
-      isPopular: true
+      isPopular: true,
+      updatedAt: new Date()
     }
   });
 
-  const enterprisePlan = await prisma.plan.upsert({
+  const enterprisePlan = await prisma.plans.upsert({
     where: { name: 'Enterprise' },
     update: {},
     create: {
+      id: 'plan-enterprise-1',
       name: 'Enterprise',
       description: 'For large property management companies',
       monthlyPrice: 2500,
@@ -91,17 +98,19 @@ async function main() {
         'API access',
         'White-label options'
       ],
-      isActive: true
+      isActive: true,
+      updatedAt: new Date()
     }
   });
 
   console.log('✅ Created Plans');
 
   // Create Sample Customer
-  const customer = await prisma.customer.upsert({
+  const customer = await prisma.customers.upsert({
     where: { email: 'john@metro-properties.com' },
     update: {},
     create: {
+      id: 'customer-1',
       company: 'Metro Properties LLC',
       owner: 'John Smith',
       email: 'john@metro-properties.com',
@@ -122,7 +131,8 @@ async function main() {
       propertyLimit: 20,
       userLimit: 10,
       storageLimit: 5000,
-      subscriptionStartDate: new Date()
+      subscriptionStartDate: new Date(),
+      updatedAt: new Date()
     }
   });
 
@@ -130,10 +140,11 @@ async function main() {
 
   // Create Owner User
   const ownerPassword = await bcrypt.hash('owner123', 10);
-  const owner = await prisma.user.upsert({
+  const owner = await prisma.users.upsert({
     where: { email: 'john@metro-properties.com' },
     update: {},
     create: {
+      id: 'user-owner-1',
       customerId: customer.id,
       name: 'John Smith',
       email: 'john@metro-properties.com',
@@ -141,7 +152,8 @@ async function main() {
       phone: '+234-800-1234567',
       role: 'owner',
       status: 'active',
-      company: 'Metro Properties LLC'
+      company: 'Metro Properties LLC',
+      updatedAt: new Date()
     }
   });
 
@@ -149,10 +161,11 @@ async function main() {
 
   // Create Roles
   // Internal Admin Role
-  await prisma.role.upsert({
+  await prisma.roles.upsert({
     where: { name: 'Super Admin' },
     update: {},
     create: {
+      id: 'role-super-admin',
       name: 'Super Admin',
       description: 'Full system access with all permissions for internal admin users',
       permissions: [
@@ -166,15 +179,17 @@ async function main() {
         'activity_logs', 'audit_reports'
       ],
       isActive: true,
-      isSystem: true // System roles cannot be deleted
+      isSystem: true, // System roles cannot be deleted
+      updatedAt: new Date()
     }
   });
 
   // Customer-Facing Roles (for customers' users)
-  await prisma.role.upsert({
+  await prisma.roles.upsert({
     where: { name: 'Property Owner' },
     update: {},
     create: {
+      id: 'role-property-owner',
       name: 'Property Owner',
       description: 'Full access to all features',
       permissions: [
@@ -186,14 +201,16 @@ async function main() {
         'user_management'
       ],
       isActive: true,
-      isSystem: true
+      isSystem: true,
+      updatedAt: new Date()
     }
   });
 
-  await prisma.role.upsert({
+  await prisma.roles.upsert({
     where: { name: 'Property Manager' },
     update: {},
     create: {
+      id: 'role-property-manager',
       name: 'Property Manager',
       description: 'Manage assigned properties',
       permissions: [
@@ -203,14 +220,16 @@ async function main() {
         'access_control'
       ],
       isActive: true,
-      isSystem: true
+      isSystem: true,
+      updatedAt: new Date()
     }
   });
 
-  await prisma.role.upsert({
+  await prisma.roles.upsert({
     where: { name: 'Tenant' },
     update: {},
     create: {
+      id: 'role-tenant',
       name: 'Tenant',
       description: 'Tenant portal access',
       permissions: [
@@ -219,17 +238,19 @@ async function main() {
         'make_payments'
       ],
       isActive: true,
-      isSystem: true
+      isSystem: true,
+      updatedAt: new Date()
     }
   });
 
   console.log('✅ Created Roles (1 Internal Admin + 3 Customer-Facing)');
   
   // Additional Internal Roles
-  await prisma.role.upsert({
+  await prisma.roles.upsert({
     where: { name: 'Admin' },
     update: {},
     create: {
+      id: 'role-admin',
       name: 'Admin',
       description: 'Internal admin with broad platform access',
       permissions: [
@@ -243,14 +264,16 @@ async function main() {
         'activity_logs', 'audit_reports'
       ],
       isActive: true,
-      isSystem: true
+      isSystem: true,
+      updatedAt: new Date()
     }
   });
 
-  await prisma.role.upsert({
+  await prisma.roles.upsert({
     where: { name: 'Billing' },
     update: {},
     create: {
+      id: 'role-billing',
       name: 'Billing',
       description: 'Finance team with billing and plan management access',
       permissions: [
@@ -259,14 +282,16 @@ async function main() {
         'analytics_view'
       ],
       isActive: true,
-      isSystem: true
+      isSystem: true,
+      updatedAt: new Date()
     }
   });
 
-  await prisma.role.upsert({
+  await prisma.roles.upsert({
     where: { name: 'Support' },
     update: {},
     create: {
+      id: 'role-support',
       name: 'Support',
       description: 'Support staff for handling support tickets and customer view',
       permissions: [
@@ -274,14 +299,16 @@ async function main() {
         'customer_view'
       ],
       isActive: true,
-      isSystem: true
+      isSystem: true,
+      updatedAt: new Date()
     }
   });
 
-  await prisma.role.upsert({
+  await prisma.roles.upsert({
     where: { name: 'Analyst' },
     update: {},
     create: {
+      id: 'role-analyst',
       name: 'Analyst',
       description: 'Read-only analytics and reporting',
       permissions: [
@@ -289,43 +316,50 @@ async function main() {
         'customer_view'
       ],
       isActive: true,
-      isSystem: true
+      isSystem: true,
+      updatedAt: new Date()
     }
   });
 
   console.log('✅ Upserted Internal Roles: Admin, Billing, Support, Analyst');
 
   // Create System Settings
-  await prisma.systemSetting.upsert({
+  await prisma.system_settings.upsert({
     where: { key: 'site_name' },
     update: {},
     create: {
+      id: 'setting-site-name',
       key: 'site_name',
       value: 'PropertyHub',
       category: 'system',
-      description: 'Platform name'
+      description: 'Platform name',
+      updatedAt: new Date()
     }
   });
 
-  await prisma.systemSetting.upsert({
+  await prisma.system_settings.upsert({
     where: { key: 'maintenance_mode' },
     update: {},
     create: {
+      id: 'setting-maintenance-mode',
       key: 'maintenance_mode',
       value: false,
       category: 'system',
-      description: 'Enable/disable maintenance mode'
+      description: 'Enable/disable maintenance mode',
+      updatedAt: new Date()
     }
   });
 
-  await prisma.systemSetting.upsert({
+  await prisma.system_settings.upsert({
     where: { key: 'default_currency' },
     update: {},
     create: {
+      id: 'setting-default-currency',
       key: 'default_currency',
       value: 'USD',
       category: 'system',
-      description: 'Default platform currency'
+      description: 'Default platform currency',
+      updatedAt: new Date()
     }
   });
 
