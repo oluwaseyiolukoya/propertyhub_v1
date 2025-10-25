@@ -1344,7 +1344,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     <TrendingUp className="h-4 w-4 text-green-600" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{formatCurrency(Number(financialStats.gross) || 0, user?.baseCurrency || 'USD')}</div>
+                    <div className="text-2xl font-bold">{formatCurrency(Number(financialStats.gross) || 0, smartBaseCurrency)}</div>
                     <p className="text-xs text-muted-foreground">Live collected this period</p>
                   </CardContent>
                 </Card>
@@ -1355,7 +1355,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     <DollarSign className="h-4 w-4 text-green-600" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{formatCurrency(Number(financialStats.net) || 0, user?.baseCurrency || 'USD')}</div>
+                    <div className="text-2xl font-bold">{formatCurrency(Number(financialStats.net) || 0, smartBaseCurrency)}</div>
                     <p className="text-xs text-muted-foreground">Gross minus operating expenses</p>
                   </CardContent>
                 </Card>
@@ -1366,7 +1366,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     <TrendingDown className="h-4 w-4 text-red-600" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{formatCurrency(Number(financialStats.expenses) || 0, user?.baseCurrency || 'USD')}</div>
+                    <div className="text-2xl font-bold">{formatCurrency(Number(financialStats.expenses) || 0, smartBaseCurrency)}</div>
                     <p className="text-xs text-muted-foreground">Sum of expense-type payments</p>
                   </CardContent>
                 </Card>
@@ -1461,7 +1461,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           <span>Maintenance & Repairs</span>
                         </div>
                         <div className="text-right">
-                          <p className="font-medium">$8,500</p>
+                          <p className="font-medium">{formatCurrency(8500, smartBaseCurrency)}</p>
                           <p className="text-sm text-gray-600">33.9%</p>
                         </div>
                       </div>
@@ -1472,7 +1472,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           <span>Insurance</span>
                         </div>
                         <div className="text-right">
-                          <p className="font-medium">$4,200</p>
+                          <p className="font-medium">{formatCurrency(4200, smartBaseCurrency)}</p>
                           <p className="text-sm text-gray-600">16.7%</p>
                         </div>
                       </div>
@@ -1483,7 +1483,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           <span>Property Management</span>
                         </div>
                         <div className="text-right">
-                          <p className="font-medium">$3,800</p>
+                          <p className="font-medium">{formatCurrency(3800, smartBaseCurrency)}</p>
                           <p className="text-sm text-gray-600">15.1%</p>
                         </div>
                       </div>
@@ -1494,7 +1494,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           <span>Utilities</span>
                         </div>
                         <div className="text-right">
-                          <p className="font-medium">$3,200</p>
+                          <p className="font-medium">{formatCurrency(3200, smartBaseCurrency)}</p>
                           <p className="text-sm text-gray-600">12.7%</p>
                         </div>
                       </div>
@@ -1505,7 +1505,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           <span>Legal & Administrative</span>
                         </div>
                         <div className="text-right">
-                          <p className="font-medium">$2,100</p>
+                          <p className="font-medium">{formatCurrency(2100, smartBaseCurrency)}</p>
                           <p className="text-sm text-gray-600">8.4%</p>
                         </div>
                       </div>
@@ -1514,7 +1514,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                       
                       <div className="flex items-center justify-between font-medium">
                         <span>Total Monthly Expenses</span>
-                        <span>$25,100</span>
+                        <span>{formatCurrency(25100, smartBaseCurrency)}</span>
                       </div>
                     </div>
                   </CardContent>
@@ -1609,7 +1609,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     <DollarSign className="h-4 w-4 text-green-600" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">$285</div>
+                    <div className="text-2xl font-bold">{formatCurrency(285, smartBaseCurrency)}</div>
                     <p className="text-xs text-muted-foreground">Per request</p>
                   </CardContent>
                 </Card>
