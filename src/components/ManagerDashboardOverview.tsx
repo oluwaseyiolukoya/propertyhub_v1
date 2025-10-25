@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
+import { formatCurrency } from '../lib/currency';
+import { getManagerActivities } from '../lib/api/dashboard';
+import { toast } from 'sonner';
 import { 
   Building, 
   Users, 
@@ -12,7 +15,10 @@ import {
   TrendingUp, 
   Home,
   CheckCircle,
-  Clock
+  Clock,
+  ChevronLeft,
+  ChevronRight,
+  Loader2
 } from 'lucide-react';
 
 interface ManagerDashboardOverviewProps {
@@ -26,6 +32,18 @@ export const ManagerDashboardOverview: React.FC<ManagerDashboardOverviewProps> =
   properties,
   user 
 }) => {
+  // State for paginated activities
+  const [activities, setActivities] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 5,
+    total: 0,
+    totalPages: 0,
+    hasMore: false
+  });
+  const [loadingActivities, setLoadingActivities] = useState(false);
+
   // Extract metrics from API data
   const metrics = dashboardData ? {
     totalProperties: dashboardData.properties?.total || 0,
@@ -36,6 +54,9 @@ export const ManagerDashboardOverview: React.FC<ManagerDashboardOverviewProps> =
     activeLeases: dashboardData.leases?.active || 0,
     expiringLeases: dashboardData.leases?.expiringSoon || 0,
     monthlyRevenue: dashboardData.revenue?.currentMonth || 0,
+    revenueByCurrency: dashboardData.revenue?.byCurrency || {},
+    primaryCurrency: dashboardData.revenue?.primaryCurrency || user?.baseCurrency || 'USD',
+    hasMultipleCurrencies: dashboardData.revenue?.hasMultipleCurrencies || false,
     openMaintenance: dashboardData.maintenance?.open || 0,
     urgentMaintenance: dashboardData.maintenance?.urgent || 0,
   } : {
@@ -47,11 +68,71 @@ export const ManagerDashboardOverview: React.FC<ManagerDashboardOverviewProps> =
     activeLeases: 0,
     expiringLeases: 0,
     monthlyRevenue: 0,
+    revenueByCurrency: {},
+    primaryCurrency: user?.baseCurrency || 'USD',
+    hasMultipleCurrencies: false,
     openMaintenance: 0,
     urgentMaintenance: 0,
   };
 
-  const recentActivities = dashboardData?.recentActivities || [];
+  // Fetch activities when component mounts or page changes
+  useEffect(() => {
+    fetchActivities(currentPage);
+  }, [currentPage]);
+
+  const fetchActivities = async (page: number) => {
+    try {
+      setLoadingActivities(true);
+      const response = await getManagerActivities(page, 5);
+      
+      if (response.error) {
+        console.error('Failed to load activities:', response.error);
+        toast.error('Failed to load recent activities');
+      } else if (response.data) {
+        setActivities(response.data.activities || []);
+        setPagination(response.data.pagination || {
+          page: 1,
+          limit: 5,
+          total: 0,
+          totalPages: 0,
+          hasMore: false
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load activities:', error);
+      toast.error('Failed to load recent activities');
+    } finally {
+      setLoadingActivities(false);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (pagination.hasMore) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  // Debug: Log revenue data
+  React.useEffect(() => {
+    if (dashboardData) {
+      console.log('💰 Revenue Data:', {
+        currentMonth: dashboardData.revenue?.currentMonth,
+        byCurrency: dashboardData.revenue?.byCurrency,
+        primaryCurrency: dashboardData.revenue?.primaryCurrency,
+        hasMultipleCurrencies: dashboardData.revenue?.hasMultipleCurrencies,
+        userBaseCurrency: user?.baseCurrency,
+        finalPrimaryCurrency: metrics.primaryCurrency,
+        finalMonthlyRevenue: metrics.monthlyRevenue
+      });
+    }
+  }, [dashboardData, user?.baseCurrency]);
+
   const upcomingTasks = dashboardData?.upcomingTasks || {};
 
   return (
@@ -98,10 +179,23 @@ export const ManagerDashboardOverview: React.FC<ManagerDashboardOverviewProps> =
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₦{metrics.monthlyRevenue.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              This month
-            </p>
+            {metrics.hasMultipleCurrencies ? (
+              <div>
+                <div className="text-2xl font-bold">Multi-Currency</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {Object.entries(metrics.revenueByCurrency).map(([currency, amount]) => (
+                    <div key={currency}>{formatCurrency(Number(amount), currency)}</div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{formatCurrency(metrics.monthlyRevenue, metrics.primaryCurrency)}</div>
+                <p className="text-xs text-muted-foreground">
+                  This month
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -238,37 +332,90 @@ export const ManagerDashboardOverview: React.FC<ManagerDashboardOverviewProps> =
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Monthly Revenue</span>
-                <span className="text-sm font-semibold">₦{metrics.monthlyRevenue.toLocaleString()}</span>
+                {metrics.hasMultipleCurrencies ? (
+                  <span className="text-sm font-semibold">Multi-Currency</span>
+                ) : (
+                  <span className="text-sm font-semibold">{formatCurrency(metrics.monthlyRevenue, metrics.primaryCurrency)}</span>
+                )}
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Recent Activity */}
-      {recentActivities.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Latest updates and actions</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {recentActivities.slice(0, 5).map((activity: any) => (
-                <div key={activity.id} className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50">
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-900">{activity.description}</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(activity.createdAt).toLocaleString()}
-                    </p>
-                  </div>
-                  <Badge variant="outline">{activity.entity}</Badge>
-                </div>
-              ))}
+      {/* Recent Activity with Pagination */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Activity</CardTitle>
+          <CardDescription>Latest updates and actions</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loadingActivities ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+              <p className="ml-3 text-sm text-gray-500">Loading activities...</p>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          ) : activities.length > 0 ? (
+            <>
+              <div className="space-y-3">
+                {activities.map((activity: any) => (
+                  <div key={activity.id} className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-900">
+                        {activity.description || `${activity.action} ${activity.entity}`}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {new Date(activity.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="capitalize">
+                      {activity.entity}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+
+              {/* Pagination Controls */}
+              {pagination.totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                  <div className="text-sm text-gray-600">
+                    Page {pagination.page} of {pagination.totalPages} 
+                    <span className="text-gray-400 ml-1">
+                      ({pagination.total} total)
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handlePreviousPage}
+                      disabled={currentPage === 1 || loadingActivities}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleNextPage}
+                      disabled={!pagination.hasMore || loadingActivities}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-8">
+              <Clock className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-sm text-gray-500">No recent activities</p>
+              <p className="text-xs text-gray-400 mt-1">Activities will appear here as actions are performed</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

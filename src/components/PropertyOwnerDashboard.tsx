@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Building, Users, DollarSign, TrendingUp, Plus, Eye, Settings, LogOut, Menu, CheckCircle, Shield } from 'lucide-react';
+import { Building, Users, DollarSign, TrendingUp, Plus, Eye, Settings, LogOut, Menu, CheckCircle, Shield, Clock, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PropertiesPage } from './PropertiesPage';
 import { TenantManagement } from './TenantManagement';
@@ -13,12 +13,12 @@ import { PropertyOwnerSettings } from './PropertyOwnerSettings';
 import { AddPropertyPage } from './AddPropertyPage';
 import { Footer } from './Footer';
 import PropertyOwnerDocuments from './PropertyOwnerDocuments';
-import { DashboardOverview } from './DashboardOverview';
-import { getOwnerDashboardOverview, getProperties } from '../lib/api';
+import { getOwnerDashboardOverview, getProperties, getOwnerActivities } from '../lib/api';
 import { getProperty, updateProperty } from '../lib/api/properties';
 import { createProperty } from '../lib/api/properties';
 import { useCurrency } from '../lib/CurrencyContext';
 import { getAccountInfo } from '../lib/api/auth';
+import { usePersistentState } from '../lib/usePersistentState';
 
 interface PropertyOwnerDashboardProps {
   user: any;
@@ -26,12 +26,137 @@ interface PropertyOwnerDashboardProps {
   managers: any[];
   propertyAssignments: any[];
   onAddManager: (managerData: any, ownerId: string) => Promise<any>;
-  onAssignManager: (managerId: string, propertyId: string) => Promise<void>;
+  onAssignManager: (managerId: string, propertyId: string, permissions?: any) => Promise<void>;
   onRemoveManager: (managerId: string, propertyId: string) => Promise<void>;
   onUpdateManager: (managerId: string, updates: any) => Promise<void>;
   onDeactivateManager: (managerId: string) => Promise<void>;
   onRefreshManagers?: () => Promise<void>; // Callback to reload managers
 }
+
+// Recent Activity Card Component with Pagination
+const RecentActivityCard: React.FC = () => {
+  const [activities, setActivities] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 5,
+    total: 0,
+    totalPages: 0,
+    hasMore: false
+  });
+  const [loadingActivities, setLoadingActivities] = useState(false);
+
+  useEffect(() => {
+    fetchActivities(currentPage);
+  }, [currentPage]);
+
+  const fetchActivities = async (page: number) => {
+    try {
+      setLoadingActivities(true);
+      const response = await getOwnerActivities(page, 5);
+      
+      if (response.error) {
+        console.error('Failed to load activities:', response.error);
+      } else if (response.data) {
+        setActivities(response.data.activities || []);
+        setPagination(response.data.pagination || {
+          page: 1,
+          limit: 5,
+          total: 0,
+          totalPages: 0,
+          hasMore: false
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load activities:', error);
+    } finally {
+      setLoadingActivities(false);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (pagination.hasMore) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Recent Activity</CardTitle>
+        <CardDescription>Latest updates from your properties</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {loadingActivities ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            <p className="ml-3 text-sm text-gray-500">Loading activities...</p>
+          </div>
+        ) : activities.length > 0 ? (
+          <>
+            <div className="space-y-4">
+              {activities.map((log: any) => (
+                <div key={log.id} className="flex items-start space-x-3 p-3 border rounded-lg">
+                  <div className="flex-1">
+                    <p className="text-sm">{log.description || `${log.action} ${log.entity}`}</p>
+                    <p className="text-xs text-gray-400 mt-1">{new Date(log.createdAt).toLocaleString()}</p>
+                  </div>
+                  <Badge variant="outline" className="capitalize">
+                    {log.entity}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+
+            {/* Pagination Controls */}
+            {pagination.totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                <div className="text-sm text-gray-600">
+                  Page {pagination.page} of {pagination.totalPages}
+                  <span className="text-gray-400 ml-1">
+                    ({pagination.total} total)
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePreviousPage}
+                    disabled={currentPage === 1 || loadingActivities}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleNextPage}
+                    disabled={!pagination.hasMore || loadingActivities}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="text-center py-8">
+            <Clock className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-sm text-gray-500">No recent activities</p>
+            <p className="text-xs text-gray-400 mt-1">Activities will appear here as actions are performed</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
 
 export function PropertyOwnerDashboard({ 
   user, 
@@ -48,7 +173,7 @@ export function PropertyOwnerDashboard({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { formatCurrency } = useCurrency();
   const [showWelcome, setShowWelcome] = useState(false);
-  const [currentView, setCurrentView] = useState('dashboard');
+  const [currentView, setCurrentView] = usePersistentState('owner-dashboard-view', 'dashboard');
   const [properties, setProperties] = useState<any[]>([]);
   const [selectedProperty, setSelectedProperty] = useState<any | null>(null);
   const [dashboardData, setDashboardData] = useState<any>(null);
@@ -792,10 +917,27 @@ export function PropertyOwnerDashboard({
                     propertyTaxes: data.propertyTaxes ? Number(data.propertyTaxes) : undefined,
                     images: Array.isArray(data.images) ? data.images : [],
                     insurance: undefined,
+                    managerId: data.managerId || '', // Include managerId for manager assignment changes
                   };
+                  
+                  console.log('🔄 Updating property with payload:', { 
+                    propertyId: selectedProperty.id, 
+                    managerId: payload.managerId,
+                    hasManagerChange: payload.managerId !== selectedProperty.managerId 
+                  });
+                  
                   const res = await updateProperty(selectedProperty.id, payload);
                   if (res.error) throw new Error(res.error.error || 'Failed to update property');
-                  toast.success('Property updated');
+                  
+                  toast.success('Property updated successfully');
+                  
+                  // Refresh managers list to reflect new assignments
+                  if (onRefreshManagers) {
+                    console.log('🔄 Refreshing managers list...');
+                    await onRefreshManagers();
+                  }
+                  
+                  // Refresh all data to show updated property
                   await fetchData(true);
                   const refreshed = await getProperty(selectedProperty.id);
                   setSelectedProperty(refreshed.data);
@@ -833,6 +975,7 @@ export function PropertyOwnerDashboard({
                   onRemoveManager={onRemoveManager}
                   onUpdateManager={onUpdateManager}
                   onDeactivateManager={onDeactivateManager}
+                  onRefreshManagers={onRefreshManagers}
                 />
               </div>
             </div>
@@ -1052,25 +1195,8 @@ export function PropertyOwnerDashboard({
                   </CardContent>
                 </Card>
 
-                {/* Recent Activity */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Recent Activity</CardTitle>
-                    <CardDescription>Latest updates from your properties</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {(dashboardData?.recentActivity || []).map((log: any) => (
-                        <div key={log.id} className="flex items-start space-x-3 p-3 border rounded-lg">
-                          <div className="flex-1">
-                            <p className="text-sm">[{log.entity}] {log.action}: {log.description}</p>
-                            <p className="text-xs text-gray-400 mt-1">{new Date(log.createdAt).toLocaleString()}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                {/* Recent Activity with Pagination */}
+                <RecentActivityCard />
               </div>
 
               {/* Quick Actions */}

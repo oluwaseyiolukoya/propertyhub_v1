@@ -16,6 +16,7 @@ import PropertyManagerDocuments from './PropertyManagerDocuments';
 import { ManagerDashboardOverview } from './ManagerDashboardOverview';
 import { getManagerDashboardOverview, getProperties } from '../lib/api';
 import { getAccountInfo } from '../lib/api/auth';
+import { usePersistentState } from '../lib/usePersistentState';
 
 interface PropertyManagerDashboardProps {
   user: any;
@@ -26,7 +27,7 @@ interface PropertyManagerDashboardProps {
 }
 
 export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, onNavigateToSettings, onUpdateUser }: PropertyManagerDashboardProps) {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = usePersistentState('manager-dashboard-tab', 'overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(user);
   const [dashboardData, setDashboardData] = useState<any>(null);
@@ -63,6 +64,15 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
         console.error('Failed to fetch account info:', accountResponse.error);
       } else if (accountResponse.data) {
         setAccountInfo(accountResponse.data);
+        
+        // Update current user with fresh data including baseCurrency
+        if (accountResponse.data.user) {
+          setCurrentUser((prev: any) => ({
+            ...prev,
+            ...accountResponse.data.user,
+            baseCurrency: accountResponse.data.user.baseCurrency || 'USD'
+          }));
+        }
         
         // Show notification if plan/limits were updated (only on silent refresh)
         if (silent && accountInfo && accountResponse.data.customer) {
@@ -267,6 +277,7 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
                     assignedPropertyIds={assignedPropertyIds}
                     isManagerView={true}
                     properties={properties}
+                    user={currentUser}
                   />
                 )}
                 {activeTab === 'tenants' && <TenantManagement properties={properties} />}

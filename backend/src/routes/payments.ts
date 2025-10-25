@@ -16,14 +16,14 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     const where: any = {};
 
     // Filter by role access
-    if (role === 'owner') {
+    if (role === 'owner' || role === 'property owner' || role === 'property_owner') {
       where.lease = {
-        property: { ownerId: userId }
+        properties: { ownerId: userId }
       };
-    } else if (role === 'manager') {
+    } else if (role === 'manager' || role === 'property_manager') {
       where.lease = {
-        property: {
-          managers: {
+        properties: {
+          property_managers: {
             some: {
               managerId: userId,
               isActive: true
@@ -494,7 +494,7 @@ router.get('/overdue/list', async (req: AuthRequest, res: Response) => {
     const userId = req.user?.id;
     const role = req.user?.role;
 
-    if (role !== 'owner' && role !== 'manager') {
+    if (role !== 'owner' && role !== 'property owner' && role !== 'property_owner' && role !== 'manager' && role !== 'property_manager') {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -502,11 +502,11 @@ router.get('/overdue/list', async (req: AuthRequest, res: Response) => {
       status: 'active'
     };
 
-    if (role === 'owner') {
-      where.property = { ownerId: userId };
-    } else if (role === 'manager') {
-      where.property = {
-        managers: {
+    if (role === 'owner' || role === 'property owner' || role === 'property_owner') {
+      where.properties = { ownerId: userId };
+    } else if (role === 'manager' || role === 'property_manager') {
+      where.properties = {
+        property_managers: {
           some: {
             managerId: userId,
             isActive: true

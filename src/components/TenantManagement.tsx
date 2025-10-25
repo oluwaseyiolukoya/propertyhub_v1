@@ -7,11 +7,13 @@ import { Badge } from "./ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { Plus, Edit, Mail, Phone, Calendar, Copy, Search, Filter, KeyRound, UserMinus, Trash2, AlertTriangle, Check } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
+import { Plus, Edit, Mail, Phone, Calendar, Copy, Search, Filter, KeyRound, UserMinus, Trash2, AlertTriangle, Check, MoreHorizontal, Eye, Home } from 'lucide-react';
 import { toast } from "sonner";
 import { createLease, getLeases, terminateLease } from '../lib/api/leases';
 import { getUnitsByProperty } from '../lib/api/units';
-import { resetTenantPassword, deleteTenant } from '../lib/api/tenant';
+import { resetTenantPassword, deleteTenant, updateTenant } from '../lib/api/tenant';
+import { formatCurrency } from '../lib/currency';
 
 export const TenantManagement = ({ properties = [] as any[] }: { properties?: any[] }) => {
   // Search and filter state
@@ -48,16 +50,65 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
   const [newGeneratedPassword, setNewGeneratedPassword] = useState('');
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [passwordCopied, setPasswordCopied] = useState(false);
+  const [showViewDetailsDialog, setShowViewDetailsDialog] = useState(false);
+  const [showEditTenantDialog, setShowEditTenantDialog] = useState(false);
+  const [editTenantData, setEditTenantData] = useState({
+    name: '',
+    email: '',
+    phone: ''
+  });
+  const [isUpdatingTenant, setIsUpdatingTenant] = useState(false);
+  const [showAssignUnitDialog, setShowAssignUnitDialog] = useState(false);
+  const [tenantToAssign, setTenantToAssign] = useState<any>(null);
+  const [assignmentData, setAssignmentData] = useState({
+    propertyId: '',
+    unitId: '',
+    leaseStart: '',
+    leaseEnd: '',
+    rent: ''
+  });
+  const [assignmentPropertyUnits, setAssignmentPropertyUnits] = useState<any[]>([]);
+  const [isAssigning, setIsAssigning] = useState(false);
 
-  // Load units when property is selected
+  // Load units when property is selected (only vacant units) for new tenant
   React.useEffect(() => {
     (async () => {
       if (!newTenant.propertyId) { setPropertyUnits([]); return; }
       const res = await getUnitsByProperty(String(newTenant.propertyId));
-      if (!res.error && Array.isArray(res.data)) setPropertyUnits(res.data);
-      else setPropertyUnits([]);
+      if (!res.error && Array.isArray(res.data)) {
+        // Filter to show only vacant units for tenant assignment
+        const vacantUnits = res.data.filter((unit: any) => unit.status === 'vacant');
+        console.log(`📦 Loaded units for property:`, {
+          total: res.data.length,
+          vacant: vacantUnits.length,
+          propertyId: newTenant.propertyId
+        });
+        setPropertyUnits(vacantUnits);
+      } else {
+        setPropertyUnits([]);
+      }
     })();
   }, [newTenant.propertyId]);
+
+  // Load units when property is selected for assigning existing tenant
+  React.useEffect(() => {
+    (async () => {
+      if (!assignmentData.propertyId) { setAssignmentPropertyUnits([]); return; }
+      const res = await getUnitsByProperty(String(assignmentData.propertyId));
+      if (!res.error && Array.isArray(res.data)) {
+        // Filter to show only vacant units for tenant assignment
+        const vacantUnits = res.data.filter((unit: any) => unit.status === 'vacant');
+        console.log(`📦 Loaded units for assignment:`, {
+          total: res.data.length,
+          vacant: vacantUnits.length,
+          propertyId: assignmentData.propertyId
+        });
+        setAssignmentPropertyUnits(vacantUnits);
+      } else {
+        setAssignmentPropertyUnits([]);
+      }
+    })();
+  }, [assignmentData.propertyId]);
 
   const ownerProperties = useMemo(() => (Array.isArray(properties) ? properties : []), [properties]);
 
@@ -68,22 +119,68 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
       const res = await getLeases();
       if (!res.error && Array.isArray(res.data)) {
         // Transform lease data to tenant format
-        const tenantsData = res.data.map((lease: any) => ({
+        const allTenantsData = res.data.map((lease: any) => ({
           id: lease.users?.id || lease.tenantId,
           name: lease.users?.name || 'Unknown',
           email: lease.users?.email || '',
           phone: lease.users?.phone || '',
           unit: lease.units?.unitNumber || '',
           property: lease.properties?.name || '',
+          propertyId: lease.properties?.id || '',
+          currency: lease.properties?.currency || 'USD',
           leaseStart: lease.startDate,
           leaseEnd: lease.endDate,
           rent: lease.monthlyRent,
           status: lease.status === 'active' ? 'Active' : lease.status === 'terminated' ? 'Terminated' : 'Pending',
           occupancyDate: lease.startDate,
           apartmentId: lease.units?.unitNumber || '',
-          leaseId: lease.id
+          leaseId: lease.id,
+          createdAt: lease.createdAt || new Date()
         }));
-        setTenants(tenantsData);
+        
+        // Group by tenant ID and keep only the most recent lease per tenant
+        // Prioritize Active leases over Terminated ones
+        const tenantMap = new Map<string, any>();
+        
+        allTenantsData.forEach((tenant: any) => {
+          const existingTenant = tenantMap.get(tenant.id);
+          
+          if (!existingTenant) {
+            // First lease for this tenant
+            tenantMap.set(tenant.id, tenant);
+          } else {
+            // Tenant already exists, determine which lease to show
+            // Priority: Active > Pending > Terminated
+            // If same status, use most recent (by createdAt)
+            const statusPriority = { Active: 3, Pending: 2, Terminated: 1 };
+            const existingPriority = statusPriority[existingTenant.status as keyof typeof statusPriority] || 0;
+            const newPriority = statusPriority[tenant.status as keyof typeof statusPriority] || 0;
+            
+            if (newPriority > existingPriority) {
+              // New lease has higher priority status
+              tenantMap.set(tenant.id, tenant);
+            } else if (newPriority === existingPriority) {
+              // Same priority, use most recent
+              if (new Date(tenant.createdAt) > new Date(existingTenant.createdAt)) {
+                tenantMap.set(tenant.id, tenant);
+              }
+            }
+            // Otherwise, keep existing (has higher priority)
+          }
+        });
+        
+        // Convert map back to array
+        const uniqueTenantsData = Array.from(tenantMap.values());
+        
+        console.log('✅ Loaded tenants (deduplicated):', uniqueTenantsData.map(t => ({ 
+          name: t.name, 
+          status: t.status,
+          property: t.property, 
+          currency: t.currency,
+          rent: t.rent 
+        })));
+        
+        setTenants(uniqueTenantsData);
       }
     } catch (error: any) {
       console.error('Failed to load tenants:', error);
@@ -236,6 +333,89 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
       toast.error(error?.message || 'Failed to delete tenant');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleUpdateTenant = async () => {
+    if (!selectedTenant) return;
+    
+    try {
+      setIsUpdatingTenant(true);
+      console.log('✏️  Updating tenant:', selectedTenant.id, editTenantData);
+      
+      // Update the tenant information
+      const response = await updateTenant(selectedTenant.id, editTenantData);
+      
+      if (response.error) {
+        console.error('❌ Update error:', response.error);
+        throw new Error(response.error.error || response.error.message || 'Failed to update tenant');
+      }
+      
+      console.log('✅ Tenant updated successfully:', response.data);
+      toast.success('Tenant information updated successfully');
+      setShowEditTenantDialog(false);
+      setSelectedTenant(null);
+      
+      // Refresh tenants list
+      await loadTenants();
+    } catch (error: any) {
+      console.error('❌ Update tenant failed:', error);
+      toast.error(error?.message || 'Failed to update tenant');
+    } finally {
+      setIsUpdatingTenant(false);
+    }
+  };
+
+  const handleAssignUnit = async () => {
+    if (!tenantToAssign) return;
+    
+    try {
+      if (!assignmentData.propertyId) throw new Error('Please select a property');
+      if (!assignmentData.unitId) throw new Error('Please select a unit');
+      if (!assignmentData.leaseStart || !assignmentData.leaseEnd) throw new Error('Please set lease start and end dates');
+      if (!assignmentData.rent) throw new Error('Please enter monthly rent');
+
+      setIsAssigning(true);
+      console.log('🏠 Assigning tenant to unit:', tenantToAssign.id, assignmentData);
+      
+      const payload = {
+        propertyId: String(assignmentData.propertyId),
+        unitId: String(assignmentData.unitId),
+        tenantName: tenantToAssign.name,
+        tenantEmail: tenantToAssign.email,
+        tenantPhone: tenantToAssign.phone || undefined,
+        startDate: assignmentData.leaseStart,
+        endDate: assignmentData.leaseEnd,
+        monthlyRent: Number(assignmentData.rent),
+        securityDeposit: undefined,
+        currency: 'USD',
+        terms: undefined,
+        specialClauses: undefined,
+        sendInvitation: false // Don't send invitation for existing tenant
+      };
+
+      const res = await createLease(payload);
+      if ((res as any).error) throw new Error((res as any).error.error || 'Failed to assign tenant to unit');
+      
+      console.log('✅ Tenant assigned to unit successfully');
+      toast.success('Tenant assigned to unit successfully');
+      setShowAssignUnitDialog(false);
+      setTenantToAssign(null);
+      setAssignmentData({
+        propertyId: '',
+        unitId: '',
+        leaseStart: '',
+        leaseEnd: '',
+        rent: ''
+      });
+      
+      // Refresh tenants list
+      await loadTenants();
+    } catch (error: any) {
+      console.error('❌ Assign tenant failed:', error);
+      toast.error(error?.message || 'Failed to assign tenant to unit');
+    } finally {
+      setIsAssigning(false);
     }
   };
 
@@ -437,16 +617,40 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="unitId">Unit/Apartment</Label>
-                  <Select value={newTenant.unitId} onValueChange={(v) => setNewTenant({ ...newTenant, unitId: v })}>
+                  <Select 
+                    value={newTenant.unitId} 
+                    onValueChange={(v) => setNewTenant({ ...newTenant, unitId: v })}
+                    disabled={!newTenant.propertyId || propertyUnits.length === 0}
+                  >
                     <SelectTrigger id="unitId">
-                      <SelectValue placeholder="Select unit" />
+                      <SelectValue placeholder={
+                        !newTenant.propertyId 
+                          ? "Select property first" 
+                          : propertyUnits.length === 0 
+                            ? "No vacant units available" 
+                            : "Select vacant unit"
+                      } />
                     </SelectTrigger>
                     <SelectContent>
-                      {propertyUnits.map((u: any) => (
-                        <SelectItem key={u.id} value={String(u.id)}>{u.unitNumber}</SelectItem>
-                      ))}
+                      {propertyUnits.length > 0 ? (
+                        propertyUnits.map((u: any) => (
+                          <SelectItem key={u.id} value={String(u.id)}>
+                            {u.unitNumber} {u.type && `- ${u.type}`} {u.bedrooms && `(${u.bedrooms} bed)`}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="no-units" disabled>
+                          No vacant units available
+                        </SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
+                  {newTenant.propertyId && propertyUnits.length === 0 && (
+                    <p className="text-xs text-amber-600 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      All units in this property are occupied
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -625,7 +829,11 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                     <TableCell>
                       <div>
                         <p className="font-medium">{tenant.unit}</p>
-                        <p className="text-sm text-gray-500">{tenant.property}</p>
+                        <div className="flex items-center gap-1 mt-1">
+                          <Badge variant="outline" className="text-xs">
+                            {tenant.property}
+                          </Badge>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -637,7 +845,11 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                         <div className="text-gray-500">to {tenant.leaseEnd}</div>
                       </div>
                     </TableCell>
-                    <TableCell>₦{tenant.rent}</TableCell>
+                    <TableCell>
+                      <span className="font-medium">
+                        {formatCurrency(tenant.rent, tenant.currency)}
+                      </span>
+                    </TableCell>
                     <TableCell>
                       <Badge variant={getStatusColor(tenant.status)}>
                         {tenant.status}
@@ -664,49 +876,117 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex space-x-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSelectedTenant(tenant)}
-                          title="Edit tenant"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setTenantToResetPassword(tenant);
-                            setShowResetPasswordDialog(true);
-                          }}
-                          title="Reset tenant password"
-                        >
-                          <KeyRound className="h-4 w-4 text-blue-500" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setTenantToUnassign(tenant);
-                            setShowUnassignDialog(true);
-                          }}
-                          title="Unassign unit from tenant"
-                        >
-                          <UserMinus className="h-4 w-4 text-orange-500" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setTenantToDelete(tenant);
-                            setShowDeleteDialog(true);
-                          }}
-                          title="Delete tenant"
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuLabel>Tenant Actions</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedTenant(tenant);
+                              setShowViewDetailsDialog(true);
+                            }}
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Details
+                          </DropdownMenuItem>
+                          
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedTenant(tenant);
+                              setEditTenantData({
+                                name: tenant.name,
+                                email: tenant.email,
+                                phone: tenant.phone
+                              });
+                              setShowEditTenantDialog(true);
+                            }}
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit Tenant
+                          </DropdownMenuItem>
+                          
+                          <DropdownMenuSeparator />
+                          
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setTenantToResetPassword(tenant);
+                              setShowResetPasswordDialog(true);
+                            }}
+                          >
+                            <KeyRound className="h-4 w-4 mr-2 text-blue-500" />
+                            Reset Password
+                          </DropdownMenuItem>
+                          
+                          <DropdownMenuItem
+                            onClick={() => copyCredentials(tenant)}
+                          >
+                            <Copy className="h-4 w-4 mr-2" />
+                            Copy Password
+                          </DropdownMenuItem>
+                          
+                          <DropdownMenuItem
+                            onClick={() => sendCredentialsEmail(tenant)}
+                          >
+                            <Mail className="h-4 w-4 mr-2" />
+                            Email Credentials
+                          </DropdownMenuItem>
+                          
+                          <DropdownMenuSeparator />
+                          
+                          {/* Show Assign or Unassign based on tenant status */}
+                          {tenant.status === 'Active' ? (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setTenantToUnassign(tenant);
+                                setShowUnassignDialog(true);
+                              }}
+                            >
+                              <UserMinus className="h-4 w-4 mr-2 text-orange-500" />
+                              Unassign Unit
+                            </DropdownMenuItem>
+                          ) : tenant.status === 'Terminated' ? (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setTenantToAssign(tenant);
+                                setAssignmentData({
+                                  propertyId: '',
+                                  unitId: '',
+                                  leaseStart: '',
+                                  leaseEnd: '',
+                                  rent: ''
+                                });
+                                setShowAssignUnitDialog(true);
+                              }}
+                            >
+                              <Plus className="h-4 w-4 mr-2 text-green-500" />
+                              Assign Unit
+                            </DropdownMenuItem>
+                          ) : null}
+                          
+                          {(tenant.status === 'Active' || tenant.status === 'Terminated') && <DropdownMenuSeparator />}
+                          
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setTenantToDelete(tenant);
+                              setShowDeleteDialog(true);
+                            }}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete Tenant
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -1020,6 +1300,388 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                 Done
               </Button>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Details Dialog */}
+      <Dialog open={showViewDetailsDialog} onOpenChange={setShowViewDetailsDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Tenant Details</DialogTitle>
+            <DialogDescription>
+              Complete information about the tenant and their lease
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedTenant && (
+            <div className="space-y-6">
+              {/* Personal Information */}
+              <div>
+                <h3 className="text-sm font-semibold mb-3 text-gray-700">Personal Information</h3>
+                <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
+                  <div>
+                    <Label className="text-xs text-gray-500">Full Name</Label>
+                    <p className="font-medium">{selectedTenant.name}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500">Tenant ID</Label>
+                    <p className="font-medium text-sm">{selectedTenant.id}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500">Email Address</Label>
+                    <p className="font-medium flex items-center gap-1">
+                      <Mail className="h-3 w-3" />
+                      {selectedTenant.email}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500">Phone Number</Label>
+                    <p className="font-medium flex items-center gap-1">
+                      <Phone className="h-3 w-3" />
+                      {selectedTenant.phone || 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500">Status</Label>
+                    <div>
+                      <Badge variant={getStatusColor(selectedTenant.status)}>
+                        {selectedTenant.status}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Property & Unit Information */}
+              <div>
+                <h3 className="text-sm font-semibold mb-3 text-gray-700">Property & Unit</h3>
+                <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
+                  <div>
+                    <Label className="text-xs text-gray-500">Property</Label>
+                    <p className="font-medium">{selectedTenant.property}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500">Unit/Apartment</Label>
+                    <p className="font-medium">{selectedTenant.unit}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Lease Information */}
+              <div>
+                <h3 className="text-sm font-semibold mb-3 text-gray-700">Lease Information</h3>
+                <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
+                  <div>
+                    <Label className="text-xs text-gray-500">Lease Start Date</Label>
+                    <p className="font-medium flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {selectedTenant.leaseStart}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500">Lease End Date</Label>
+                    <p className="font-medium flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {selectedTenant.leaseEnd}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500">Monthly Rent</Label>
+                    <p className="font-medium text-lg">
+                      {formatCurrency(selectedTenant.rent, selectedTenant.currency)}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500">Occupancy Date</Label>
+                    <p className="font-medium flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {selectedTenant.occupancyDate}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowViewDetailsDialog(false);
+                setSelectedTenant(null);
+              }}
+            >
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                setShowViewDetailsDialog(false);
+                setEditTenantData({
+                  name: selectedTenant?.name || '',
+                  email: selectedTenant?.email || '',
+                  phone: selectedTenant?.phone || ''
+                });
+                setShowEditTenantDialog(true);
+              }}
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Edit Tenant
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Tenant Dialog */}
+      <Dialog open={showEditTenantDialog} onOpenChange={setShowEditTenantDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Tenant Information</DialogTitle>
+            <DialogDescription>
+              Update the tenant's personal information
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedTenant && (
+            <div className="space-y-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-name">Full Name</Label>
+                <Input
+                  id="edit-name"
+                  value={editTenantData.name}
+                  onChange={(e) => setEditTenantData({ ...editTenantData, name: e.target.value })}
+                  placeholder="Enter tenant's full name"
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="edit-email">Email Address</Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={editTenantData.email}
+                  onChange={(e) => setEditTenantData({ ...editTenantData, email: e.target.value })}
+                  placeholder="Enter email address"
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="edit-phone">Phone Number</Label>
+                <Input
+                  id="edit-phone"
+                  type="tel"
+                  value={editTenantData.phone}
+                  onChange={(e) => setEditTenantData({ ...editTenantData, phone: e.target.value })}
+                  placeholder="Enter phone number"
+                />
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="flex items-start space-x-2">
+                  <AlertTriangle className="h-4 w-4 text-blue-600 mt-0.5" />
+                  <div className="text-xs text-blue-800">
+                    <p className="font-medium">Note:</p>
+                    <p className="mt-1">Only personal information can be updated. To modify lease details or unit assignment, please use the respective actions.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowEditTenantDialog(false);
+                setSelectedTenant(null);
+              }}
+              disabled={isUpdatingTenant}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateTenant}
+              disabled={isUpdatingTenant || !editTenantData.name || !editTenantData.email}
+            >
+              {isUpdatingTenant ? (
+                <>
+                  <Edit className="h-4 w-4 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4 mr-2" />
+                  Save Changes
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Assign Unit Dialog */}
+      <Dialog open={showAssignUnitDialog} onOpenChange={setShowAssignUnitDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Assign Tenant to Unit</DialogTitle>
+            <DialogDescription>
+              Assign {tenantToAssign?.name} to a property unit and create a lease
+            </DialogDescription>
+          </DialogHeader>
+          
+          {tenantToAssign && (
+            <div className="space-y-4">
+              {/* Tenant Info */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 className="text-sm font-semibold mb-2 text-blue-900">Tenant Information</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-blue-700 font-medium">Name:</span> {tenantToAssign.name}
+                  </div>
+                  <div>
+                    <span className="text-blue-700 font-medium">Email:</span> {tenantToAssign.email}
+                  </div>
+                </div>
+              </div>
+
+              {/* Property and Unit Selection */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="assign-property">Property</Label>
+                  <Select 
+                    value={assignmentData.propertyId} 
+                    onValueChange={(v) => setAssignmentData({ ...assignmentData, propertyId: v, unitId: '' })}
+                  >
+                    <SelectTrigger id="assign-property">
+                      <SelectValue placeholder="Select property" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ownerProperties.map((p: any) => (
+                        <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="assign-unit">Unit/Apartment</Label>
+                  <Select 
+                    value={assignmentData.unitId} 
+                    onValueChange={(v) => setAssignmentData({ ...assignmentData, unitId: v })}
+                    disabled={!assignmentData.propertyId || assignmentPropertyUnits.length === 0}
+                  >
+                    <SelectTrigger id="assign-unit">
+                      <SelectValue placeholder={
+                        !assignmentData.propertyId 
+                          ? "Select property first" 
+                          : assignmentPropertyUnits.length === 0 
+                            ? "No vacant units available" 
+                            : "Select vacant unit"
+                      } />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {assignmentPropertyUnits.length > 0 ? (
+                        assignmentPropertyUnits.map((u: any) => (
+                          <SelectItem key={u.id} value={String(u.id)}>
+                            {u.unitNumber} {u.type && `- ${u.type}`} {u.bedrooms && `(${u.bedrooms} bed)`}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="no-units" disabled>
+                          No vacant units available
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {assignmentData.propertyId && assignmentPropertyUnits.length === 0 && (
+                    <p className="text-xs text-amber-600 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      All units in this property are occupied
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Lease Dates */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="assign-lease-start">Lease Start Date</Label>
+                  <Input
+                    id="assign-lease-start"
+                    type="date"
+                    value={assignmentData.leaseStart}
+                    onChange={(e) => setAssignmentData({ ...assignmentData, leaseStart: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="assign-lease-end">Lease End Date</Label>
+                  <Input
+                    id="assign-lease-end"
+                    type="date"
+                    value={assignmentData.leaseEnd}
+                    onChange={(e) => setAssignmentData({ ...assignmentData, leaseEnd: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Monthly Rent */}
+              <div className="grid gap-2">
+                <Label htmlFor="assign-rent">Monthly Rent</Label>
+                <Input
+                  id="assign-rent"
+                  type="number"
+                  value={assignmentData.rent}
+                  onChange={(e) => setAssignmentData({ ...assignmentData, rent: e.target.value })}
+                  placeholder="Enter monthly rent amount"
+                />
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <div className="flex items-start space-x-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5" />
+                  <div className="text-xs text-amber-800">
+                    <p className="font-medium">Note:</p>
+                    <p className="mt-1">This will create an active lease for the tenant. Make sure the unit is vacant and all details are correct.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAssignUnitDialog(false);
+                setTenantToAssign(null);
+                setAssignmentData({
+                  propertyId: '',
+                  unitId: '',
+                  leaseStart: '',
+                  leaseEnd: '',
+                  rent: ''
+                });
+              }}
+              disabled={isAssigning}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAssignUnit}
+              disabled={isAssigning || !assignmentData.propertyId || !assignmentData.unitId || !assignmentData.leaseStart || !assignmentData.leaseEnd || !assignmentData.rent}
+            >
+              {isAssigning ? (
+                <>
+                  <Home className="h-4 w-4 mr-2 animate-spin" />
+                  Assigning...
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4 mr-2" />
+                  Assign to Unit
+                </>
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

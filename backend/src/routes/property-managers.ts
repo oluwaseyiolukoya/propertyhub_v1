@@ -259,6 +259,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         permissions,
         status: 'active', // Always set to active so managers can log in immediately
         isActive: true, // Explicitly set isActive to true
+        baseCurrency: 'USD', // Set default base currency to USD like owners
         invitedAt: null,
         updatedAt: new Date()
       }
@@ -428,15 +429,8 @@ router.post('/:managerId/assign', async (req: AuthRequest, res: Response) => {
     let assignment;
 
     if (existing) {
-      // If exists and is active, return error
-      if (existing.isActive) {
-        return res.status(400).json({
-          error: 'Manager already assigned to this property'
-        });
-      }
-      
-      // If exists but inactive, reactivate it
-      console.log(`♻️ Reactivating existing assignment: ${existing.id}`);
+      // If exists (active or inactive), update it
+      console.log(`♻️ Updating existing assignment: ${existing.id}`, { permissions, isActive: existing.isActive });
       assignment = await prisma.property_managers.update({
         where: { id: existing.id },
         data: {
@@ -461,6 +455,8 @@ router.post('/:managerId/assign', async (req: AuthRequest, res: Response) => {
           }
         }
       });
+      
+      console.log(`✅ Assignment updated successfully with permissions:`, permissions);
     } else {
       // Create new assignment
       console.log(`➕ Creating new assignment for manager ${managerId} to property ${propertyId}`);

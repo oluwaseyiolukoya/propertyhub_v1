@@ -195,8 +195,8 @@ function App() {
     return managerWithCreds;
   };
 
-  const assignManager = async (managerId: string, propertyId: string) => {
-    const res = await apiAssignManagerToProperty(managerId, propertyId);
+  const assignManager = async (managerId: string, propertyId: string, permissions?: any) => {
+    const res = await apiAssignManagerToProperty(managerId, propertyId, permissions);
     if (res.error) throw new Error(res.error.error || 'Failed to assign manager');
     await loadManagers();
   };

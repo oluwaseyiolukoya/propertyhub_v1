@@ -21,9 +21,10 @@ import TenantDocuments from './TenantDocuments';
 import TenantSettings from './TenantSettings';
 import { Footer } from './Footer';
 import { getTenantDashboardOverview, getUserData, removeAuthToken } from '../lib/api';
+import { usePersistentState } from '../lib/usePersistentState';
 
 const TenantDashboard: React.FC = () => {
-  const [activeSection, setActiveSection] = useState('dashboard');
+  const [activeSection, setActiveSection] = usePersistentState('tenant-dashboard-section', 'dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);

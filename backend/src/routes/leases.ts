@@ -2,6 +2,7 @@ import express, { Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import prisma from '../lib/db';
+import { sendTenantInvitation } from '../lib/email';
 
 const router = express.Router();
 
@@ -49,7 +50,8 @@ router.get('/', async (req: AuthRequest, res: Response) => {
             name: true,
             address: true,
             city: true,
-            state: true
+            state: true,
+            currency: true
           }
         },
         units: {
@@ -322,7 +324,32 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       }
     });
 
-    // TODO: Send invitation email if sendInvitation is true
+    // Send invitation email if sendInvitation is true and tenant was newly created
+    if (sendInvitation && tempPassword) {
+      try {
+        // Get user info (owner or manager) for email
+        const invitingUser = await prisma.users.findUnique({
+          where: { id: userId },
+          select: { name: true, role: true }
+        });
+
+        await sendTenantInvitation({
+          tenantName,
+          tenantEmail,
+          tempPassword,
+          propertyName: property.name,
+          unitNumber: unit.unitNumber,
+          leaseStartDate: startDate,
+          ownerName: invitingUser?.role === 'owner' ? invitingUser.name : undefined,
+          managerName: invitingUser?.role === 'manager' || invitingUser?.role === 'property_manager' ? invitingUser.name : undefined
+        });
+
+        console.log(`✅ Invitation email sent to ${tenantEmail}`);
+      } catch (emailError: any) {
+        console.error('❌ Failed to send invitation email:', emailError);
+        // Don't fail the lease creation if email fails
+      }
+    }
 
     return res.status(201).json({
       lease,

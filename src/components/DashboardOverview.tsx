@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
-import { DollarSign, Users, Home, AlertTriangle, CheckCircle, Clock, Building, TrendingUp } from 'lucide-react';
+import { DollarSign, Users, Home, AlertTriangle, CheckCircle, Clock, Building, TrendingUp, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { getOwnerActivities } from '../lib/api/dashboard';
+import { toast } from 'sonner';
 
 interface DashboardOverviewProps {
   dashboardData: any;
@@ -18,6 +20,18 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   user,
   onViewChange 
 }) => {
+  // State for paginated activities
+  const [activities, setActivities] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 5,
+    total: 0,
+    totalPages: 0,
+    hasMore: false
+  });
+  const [loadingActivities, setLoadingActivities] = useState(false);
+
   // Use API data if available, otherwise use calculated values from properties
   const metrics = dashboardData ? {
     totalRevenue: dashboardData.revenue?.currentMonth || 0,
@@ -41,7 +55,58 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     activeManagers: 0
   };
 
-  const recentActivity: any[] = [];
+  // Fetch activities when component mounts or page changes
+  useEffect(() => {
+    fetchActivities(currentPage);
+  }, [currentPage]);
+
+  const fetchActivities = async (page: number) => {
+    try {
+      console.log('🔍 [Owner Dashboard] Fetching activities for page:', page);
+      setLoadingActivities(true);
+      const response = await getOwnerActivities(page, 5);
+      
+      console.log('📋 [Owner Dashboard] Activities response:', {
+        hasError: !!response.error,
+        hasData: !!response.data,
+        activitiesCount: response.data?.activities?.length,
+        pagination: response.data?.pagination
+      });
+      
+      if (response.error) {
+        console.error('❌ Failed to load activities:', response.error);
+        toast.error('Failed to load recent activities');
+      } else if (response.data) {
+        console.log('✅ Setting activities:', response.data.activities?.length || 0, 'items');
+        setActivities(response.data.activities || []);
+        setPagination(response.data.pagination || {
+          page: 1,
+          limit: 5,
+          total: 0,
+          totalPages: 0,
+          hasMore: false
+        });
+      }
+    } catch (error) {
+      console.error('❌ Failed to load activities (exception):', error);
+      toast.error('Failed to load recent activities');
+    } finally {
+      setLoadingActivities(false);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (pagination.hasMore) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
   const upcomingPayments: any[] = [];
 
   return (
@@ -284,6 +349,80 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Recent Activity with Pagination */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Activity</CardTitle>
+          <CardDescription>Latest updates and actions</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loadingActivities ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+              <p className="ml-3 text-sm text-gray-500">Loading activities...</p>
+            </div>
+          ) : activities.length > 0 ? (
+            <>
+              <div className="space-y-3">
+                {activities.map((activity: any) => (
+                  <div key={activity.id} className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-900">
+                        {activity.description || `${activity.action} ${activity.entity}`}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {new Date(activity.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="capitalize">
+                      {activity.entity}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+
+              {/* Pagination Controls */}
+              {pagination.totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                  <div className="text-sm text-gray-600">
+                    Page {pagination.page} of {pagination.totalPages} 
+                    <span className="text-gray-400 ml-1">
+                      ({pagination.total} total)
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handlePreviousPage}
+                      disabled={currentPage === 1 || loadingActivities}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleNextPage}
+                      disabled={!pagination.hasMore || loadingActivities}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-8">
+              <Clock className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-sm text-gray-500">No recent activities</p>
+              <p className="text-xs text-gray-400 mt-1">Activities will appear here as actions are performed</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

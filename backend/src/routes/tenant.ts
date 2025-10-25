@@ -8,6 +8,76 @@ const router = express.Router();
 
 router.use(authMiddleware);
 
+// Get all tenants for property owner/manager (including assigned and unassigned)
+router.get('/all', async (req: AuthRequest, res: Response) => {
+  try {
+    const currentUserId = req.user?.id;
+    const role = req.user?.role;
+
+    console.log('📋 Fetching all tenants for user:', { currentUserId, role });
+
+    // Check if user is owner or manager
+    if (role !== 'owner' && role !== 'manager' && role !== 'property_manager' && role !== 'admin' && role !== 'super_admin') {
+      return res.status(403).json({ error: 'Access denied. Property owners and managers only.' });
+    }
+
+    // Get all tenants with their leases
+    // For owners: tenants who have leases in their properties
+    // For managers: tenants who have leases in properties they manage
+    const leases = await prisma.leases.findMany({
+      where: {
+        properties: {
+          OR: [
+            { ownerId: currentUserId },
+            { property_managers: { some: { managerId: currentUserId, isActive: true } } }
+          ]
+        }
+      },
+      include: {
+        users: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            role: true,
+            isActive: true,
+            createdAt: true
+          }
+        },
+        properties: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            city: true,
+            state: true,
+            currency: true
+          }
+        },
+        units: {
+          select: {
+            id: true,
+            unitNumber: true,
+            type: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    console.log('✅ Found leases:', leases.length);
+    return res.json({ data: leases });
+
+  } catch (error: any) {
+    console.error('❌ Failed to get all tenants:', error);
+    return res.status(500).json({ 
+      error: 'Failed to retrieve tenants',
+      details: error.message 
+    });
+  }
+});
+
 // Get tenant dashboard overview
 router.get('/dashboard/overview', async (req: AuthRequest, res: Response) => {
   try {
@@ -459,7 +529,16 @@ router.post('/:id/reset-password', async (req: AuthRequest, res: Response) => {
           include: {
             properties: {
               select: {
-                ownerId: true
+                ownerId: true,
+                property_managers: {
+                  where: {
+                    managerId: currentUserId,
+                    isActive: true
+                  },
+                  select: {
+                    managerId: true
+                  }
+                }
               }
             }
           }
@@ -478,9 +557,17 @@ router.post('/:id/reset-password', async (req: AuthRequest, res: Response) => {
 
     // For property owners/managers (non-admins), verify they own/manage a property where this tenant has a lease
     if (!isAdmin) {
-      const hasAccess = tenant.leases.some(
-        lease => lease.properties.ownerId === currentUserId
-      );
+      const hasAccess = tenant.leases.some(lease => {
+        // Check if user is the property owner
+        if (lease.properties.ownerId === currentUserId) {
+          return true;
+        }
+        // Check if user is an assigned manager for this property
+        if (isManager && lease.properties.property_managers.length > 0) {
+          return true;
+        }
+        return false;
+      });
 
       if (!hasAccess) {
         console.log('❌ Access denied - User does not own/manage tenant properties');
@@ -662,6 +749,96 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
     });
     return res.status(500).json({ 
       error: 'Failed to delete tenant',
+      details: error.message 
+    });
+  }
+});
+
+// Update tenant information (for property owners/managers)
+router.put('/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const currentUserId = req.user?.id;
+    const role = req.user?.role;
+    const { name, email, phone } = req.body;
+
+    console.log('📝 Update tenant request:', { tenantId: id, currentUserId, role, updates: { name, email, phone } });
+
+    // Check if user is owner or manager
+    if (role !== 'owner' && role !== 'manager' && role !== 'property_manager' && role !== 'admin' && role !== 'super_admin') {
+      return res.status(403).json({ error: 'Access denied. Property owners and managers only.' });
+    }
+
+    // Get the tenant
+    const tenant = await prisma.users.findUnique({
+      where: { id }
+    });
+
+    if (!tenant) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    // Verify the tenant is actually a tenant
+    if (tenant.role !== 'tenant') {
+      return res.status(400).json({ error: 'User is not a tenant' });
+    }
+
+    // Check if the current user has access to this tenant
+    // Find tenant's active lease to verify access
+    const tenantLease = await prisma.leases.findFirst({
+      where: {
+        tenantId: id,
+        properties: {
+          OR: [
+            { ownerId: currentUserId },
+            { property_managers: { some: { managerId: currentUserId, isActive: true } } }
+          ]
+        }
+      },
+      include: {
+        properties: {
+          select: {
+            id: true,
+            name: true,
+            ownerId: true
+          }
+        }
+      }
+    });
+
+    if (!tenantLease && role !== 'admin' && role !== 'super_admin') {
+      return res.status(403).json({ 
+        error: 'You do not have permission to update this tenant. Tenant must be assigned to your property.' 
+      });
+    }
+
+    console.log('✅ Authorization passed for tenant update');
+
+    // Update tenant information
+    const updatedTenant = await prisma.users.update({
+      where: { id },
+      data: {
+        name: name || tenant.name,
+        email: email || tenant.email,
+        phone: phone || tenant.phone,
+        updatedAt: new Date()
+      }
+    });
+
+    console.log('✅ Tenant updated successfully:', updatedTenant.email);
+
+    // Remove password from response
+    const { password, ...tenantWithoutPassword } = updatedTenant;
+
+    return res.json({
+      message: 'Tenant updated successfully',
+      tenant: tenantWithoutPassword
+    });
+
+  } catch (error: any) {
+    console.error('❌ Update tenant error:', error);
+    return res.status(500).json({ 
+      error: 'Failed to update tenant',
       details: error.message 
     });
   }

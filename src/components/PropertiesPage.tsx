@@ -17,6 +17,7 @@ import { getMaintenanceRequests } from '../lib/api/maintenance';
 import { getOwnerDashboardOverview } from '../lib/api';
 import { getPaymentStats } from '../lib/api/payments';
 import { formatCurrency } from '../lib/currency';
+import { usePersistentState } from '../lib/usePersistentState';
 import { 
   Building2,
   Users,
@@ -69,7 +70,7 @@ interface PropertiesPageProps {
 }
 
 export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddProperty, properties, onUpdateProperty, onViewProperty, onEditProperty }: PropertiesPageProps) {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = usePersistentState('properties-page-tab', 'overview');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -329,7 +330,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
       const response = await deleteProperty(propertyToDelete.id);
       
       if ((response as any).error) {
-        throw new Error((response as any).error);
+        // Extract the error message from the error object
+        const errorMessage = (response as any).error.error || (response as any).error.message || 'Failed to delete property';
+        throw new Error(errorMessage);
       }
       
       toast.success('Property deleted successfully');
@@ -1033,7 +1036,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                       </div>
                       <div className="grid gap-2">
                         <div className="flex items-center justify-between">
-                          <label className="text-sm font-medium" htmlFor="monthlyRent">Rent (NGN)</label>
+                          <label className="text-sm font-medium" htmlFor="monthlyRent">Rent</label>
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-600">Frequency</span>
                             <Select value={unitForm.rentFrequency} onValueChange={(v) => setUnitForm({ ...unitForm, rentFrequency: v })}>
@@ -1072,37 +1075,37 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
 
                     <div className="grid grid-cols-2 gap-3">
                       <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="serviceCharge">Service Charge (NGN)</label>
+                        <label className="text-sm font-medium" htmlFor="serviceCharge">Service Charge</label>
                         <Input id="serviceCharge" type="number" value={unitForm.serviceCharge} onChange={(e) => setUnitForm({ ...unitForm, serviceCharge: e.target.value })} placeholder="0" />
                       </div>
                       <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="cautionFee">Caution Fee (NGN)</label>
+                        <label className="text-sm font-medium" htmlFor="cautionFee">Caution Fee</label>
                         <Input id="cautionFee" type="number" value={unitForm.cautionFee} onChange={(e) => setUnitForm({ ...unitForm, cautionFee: e.target.value })} placeholder="0" />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="legalFee">Legal Fee (NGN)</label>
+                        <label className="text-sm font-medium" htmlFor="legalFee">Legal Fee</label>
                         <Input id="legalFee" type="number" value={unitForm.legalFee} onChange={(e) => setUnitForm({ ...unitForm, legalFee: e.target.value })} placeholder="0" />
                       </div>
                       <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="agentCommission">Agency Fee (NGN)</label>
+                        <label className="text-sm font-medium" htmlFor="agentCommission">Agency Fee</label>
                         <Input id="agentCommission" type="number" value={unitForm.agentCommission} onChange={(e) => setUnitForm({ ...unitForm, agentCommission: e.target.value })} placeholder="0" />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="agreementFee">Agreement Fee (NGN)</label>
+                        <label className="text-sm font-medium" htmlFor="agreementFee">Agreement Fee</label>
                         <Input id="agreementFee" type="number" value={unitForm.agreementFee} onChange={(e) => setUnitForm({ ...unitForm, agreementFee: e.target.value })} placeholder="0" />
                       </div>
                       <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="wasteFee">Waste Management (NGN)</label>
+                        <label className="text-sm font-medium" htmlFor="wasteFee">Waste Management</label>
                         <Input id="wasteFee" type="number" value={unitForm.wasteFee} onChange={(e) => setUnitForm({ ...unitForm, wasteFee: e.target.value })} placeholder="0" />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="estateDues">Estate Dues (NGN)</label>
+                        <label className="text-sm font-medium" htmlFor="estateDues">Estate Dues</label>
                         <Input id="estateDues" type="number" value={unitForm.estateDues} onChange={(e) => setUnitForm({ ...unitForm, estateDues: e.target.value })} placeholder="0" />
                       </div>
                       <div className="grid gap-2">

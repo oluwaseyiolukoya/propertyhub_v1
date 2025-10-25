@@ -84,10 +84,13 @@ async function request<T>(
   };
 
   // Add authorization header if token exists
+  const publicEndpoints = ['/api/auth/login', '/api/auth/verify'];
+  const isPublicEndpoint = publicEndpoints.some(pe => endpoint.includes(pe));
+  
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
     console.log('🔑 Adding auth header for request to:', endpoint);
-  } else {
+  } else if (!isPublicEndpoint) {
     console.log('⚠️ No auth token found for request to:', endpoint);
   }
 

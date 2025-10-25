@@ -90,6 +90,9 @@ export const getAccountInfo = async () => {
       email: string;
       role: string;
       status: string;
+      baseCurrency: string; // Added for multi-currency support
+      customerId?: string;
+      userType?: string;
     };
     customer: {
       id: string;
