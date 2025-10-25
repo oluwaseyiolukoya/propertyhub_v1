@@ -429,7 +429,8 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       coverImage,
       images,
       description,
-      notes
+      notes,
+      managerId // Add managerId to handle manager assignment changes
     } = req.body;
 
     const property = await prisma.properties.update({
@@ -472,6 +473,80 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       }
     });
 
+    // Handle manager assignment changes if managerId is provided
+    if (managerId !== undefined) {
+      console.log(`🔄 Manager assignment update requested for property ${id}, new managerId: ${managerId || 'none'}`);
+      
+      // Get current active assignments for this property
+      const currentAssignments = await prisma.property_managers.findMany({
+        where: {
+          propertyId: id,
+          isActive: true
+        }
+      });
+
+      const currentManagerId = currentAssignments.length > 0 ? currentAssignments[0].managerId : null;
+      console.log(`📋 Current manager: ${currentManagerId || 'none'}`);
+
+      // If manager has changed
+      if (managerId !== currentManagerId) {
+        // Unassign old manager(s) if any
+        if (currentAssignments.length > 0) {
+          console.log(`➖ Unassigning ${currentAssignments.length} existing manager(s)`);
+          await prisma.property_managers.updateMany({
+            where: {
+              propertyId: id,
+              isActive: true
+            },
+            data: {
+              isActive: false
+            }
+          });
+        }
+
+        // Assign new manager if managerId is provided and not empty
+        if (managerId && managerId.trim() !== '') {
+          console.log(`➕ Assigning new manager: ${managerId}`);
+          
+          // Check if assignment already exists (but was inactive)
+          const existingAssignment = await prisma.property_managers.findFirst({
+            where: {
+              propertyId: id,
+              managerId: managerId
+            }
+          });
+
+          if (existingAssignment) {
+            // Reactivate existing assignment with default permissions
+            await prisma.property_managers.update({
+              where: { id: existingAssignment.id },
+              data: {
+                isActive: true,
+                permissions: { canEdit: false, canDelete: false }, // Default permissions
+                assignedAt: new Date()
+              }
+            });
+            console.log(`✅ Reactivated existing assignment`);
+          } else {
+            // Create new assignment with default permissions
+            await prisma.property_managers.create({
+              data: {
+                id: randomUUID(),
+                propertyId: id,
+                managerId: managerId,
+                permissions: { canEdit: false, canDelete: false }, // Default permissions
+                isActive: true,
+                assignedAt: new Date()
+              }
+            });
+            console.log(`✅ Created new manager assignment`);
+          }
+        }
+      } else {
+        console.log(`ℹ️ Manager unchanged, no assignment update needed`);
+      }
+    }
+
     // Log activity
     await prisma.activity_logs.create({
       data: {
@@ -500,19 +575,53 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
     const userId = req.user?.id;
     const role = req.user?.role;
 
-    if (role !== 'owner') {
-      return res.status(403).json({ error: 'Only property owners can delete properties' });
-    }
+    console.log(`🗑️ Delete property request - User: ${userId}, Role: ${role}, Property: ${id}`);
 
-    const property = await prisma.properties.findFirst({
-      where: {
-        id,
-        ownerId: userId
+    // First, find the property and check access
+    const property = await prisma.properties.findUnique({
+      where: { id },
+      include: {
+        property_managers: {
+          where: {
+            managerId: userId,
+            isActive: true
+          }
+        }
       }
     });
 
     if (!property) {
-      return res.status(404).json({ error: 'Property not found or access denied' });
+      return res.status(404).json({ error: 'Property not found' });
+    }
+
+    // Check authorization
+    let hasDeletePermission = false;
+
+    // 1. Property owner can always delete
+    if (role === 'owner' && property.ownerId === userId) {
+      hasDeletePermission = true;
+      console.log('✅ Delete authorized: User is property owner');
+    }
+    // 2. Check if manager has delete permission
+    else if (role === 'property_manager' || role === 'manager') {
+      const managerAssignment = property.property_managers[0];
+      if (managerAssignment && managerAssignment.permissions?.canDelete === true) {
+        hasDeletePermission = true;
+        console.log('✅ Delete authorized: Manager has delete permission');
+      } else {
+        console.log('❌ Delete denied: Manager does not have delete permission');
+      }
+    }
+    // 3. Admins can delete
+    else if (role === 'admin' || role === 'super_admin') {
+      hasDeletePermission = true;
+      console.log('✅ Delete authorized: User is admin');
+    }
+
+    if (!hasDeletePermission) {
+      return res.status(403).json({ 
+        error: 'You do not have permission to delete this property' 
+      });
     }
 
     // Check for active leases

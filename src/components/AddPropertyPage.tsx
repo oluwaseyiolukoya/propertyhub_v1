@@ -117,6 +117,17 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
 
   React.useEffect(() => {
     if (initialValues) {
+      // Extract managerId from property_managers array if available
+      const currentManagerId = initialValues.property_managers && initialValues.property_managers.length > 0 
+        ? initialValues.property_managers[0].managerId 
+        : '';
+      
+      console.log('📝 Initializing form with property data:', { 
+        propertyId: initialValues.id, 
+        managerId: currentManagerId,
+        hasPropertyManagers: !!initialValues.property_managers 
+      });
+      
       setFormData(prev => ({
         ...prev,
         name: initialValues.name || '',
@@ -143,6 +154,7 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
         agentCommission: initialValues.agentCommission != null ? String(initialValues.agentCommission) : '',
         serviceCharge: initialValues.serviceCharge != null ? String(initialValues.serviceCharge) : '',
         agreementFee: initialValues.agreementFee != null ? String(initialValues.agreementFee) : '',
+        managerId: currentManagerId, // Set the current manager ID
         features: Array.isArray(initialValues.features) ? initialValues.features : [],
         unitFeatures: Array.isArray(initialValues.unitFeatures) ? initialValues.unitFeatures : [],
         insuranceProvider: initialValues.insuranceProvider || '',

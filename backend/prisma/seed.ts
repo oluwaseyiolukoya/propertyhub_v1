@@ -153,6 +153,7 @@ async function main() {
       role: 'owner',
       status: 'active',
       company: 'Metro Properties LLC',
+      baseCurrency: 'USD', // Set default base currency to USD
       updatedAt: new Date()
     }
   });

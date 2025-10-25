@@ -20,6 +20,7 @@ export const API_ENDPOINTS = {
   DASHBOARD: {
     MANAGER_OVERVIEW: '/api/dashboard/manager/overview',
     MANAGER_PERFORMANCE: '/api/dashboard/manager/property-performance',
+    MANAGER_ANALYTICS: '/api/dashboard/manager/analytics',
     OWNER_OVERVIEW: '/api/dashboard/owner/overview',
   },
   

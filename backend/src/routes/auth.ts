@@ -402,6 +402,7 @@ router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) =
         email: user.email,
         role: user.role,
         status: user.status,
+        baseCurrency: user.baseCurrency || 'USD', // Include baseCurrency for multi-currency support
         customerId: user.customerId, // Add customerId so frontend can determine internal vs customer user
         userType: derivedUserType // Add userType so frontend knows which dashboard to show
       },

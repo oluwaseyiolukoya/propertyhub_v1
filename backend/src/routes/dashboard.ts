@@ -7,6 +7,269 @@ const router = express.Router();
 
 router.use(authMiddleware);
 
+// Get manager analytics data
+router.get('/manager/analytics', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const role = req.user?.role;
+
+    if (role !== 'manager' && role !== 'property_manager' && role !== 'owner') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    console.log('📊 Fetching manager analytics for user:', userId, 'role:', role);
+
+    // Get properties accessible to the manager/owner
+    const where: any = {};
+    if (role === 'owner') {
+      where.ownerId = userId;
+    } else if (role === 'manager' || role === 'property_manager') {
+      where.property_managers = {
+        some: {
+          managerId: userId,
+          isActive: true
+        }
+      };
+    }
+
+    const properties = await prisma.properties.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        currency: true
+      }
+    });
+
+    const propertyIds = properties.map(p => p.id);
+    console.log(`📍 Found ${properties.length} properties for analytics`);
+
+    if (propertyIds.length === 0) {
+      return res.json({
+        averageRent: 0,
+        tenantRetention: 0,
+        avgDaysVacant: 0,
+        unitDistribution: [],
+        revenueByProperty: []
+      });
+    }
+
+    // 1. Calculate Average Rent across all units
+    const allUnits = await prisma.units.findMany({
+      where: {
+        propertyId: { in: propertyIds }
+      },
+      select: {
+        monthlyRent: true,
+        bedrooms: true,
+        status: true,
+        propertyId: true
+      }
+    });
+
+    const averageRent = allUnits.length > 0
+      ? allUnits.reduce((sum, unit) => sum + unit.monthlyRent, 0) / allUnits.length
+      : 0;
+
+    console.log(`💰 Average rent calculated: ${averageRent} from ${allUnits.length} units`);
+
+    // 2. Calculate Tenant Retention Rate
+    // Retention = (number of lease renewals / total leases that ended) * 100
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+    const endedLeases = await prisma.leases.findMany({
+      where: {
+        propertyId: { in: propertyIds },
+        endDate: {
+          gte: oneYearAgo,
+          lte: new Date()
+        }
+      },
+      select: {
+        tenantId: true,
+        unitId: true,
+        endDate: true
+      }
+    });
+
+    // Count how many tenants renewed (stayed in the same or different unit)
+    let renewedCount = 0;
+    for (const lease of endedLeases) {
+      // Check if tenant has a new lease after this one ended
+      const renewalLease = await prisma.leases.findFirst({
+        where: {
+          tenantId: lease.tenantId,
+          propertyId: { in: propertyIds },
+          startDate: {
+            gte: lease.endDate,
+            lte: new Date(lease.endDate.getTime() + 60 * 24 * 60 * 60 * 1000) // Within 60 days
+          }
+        }
+      });
+      if (renewalLease) renewedCount++;
+    }
+
+    const tenantRetention = endedLeases.length > 0
+      ? Math.round((renewedCount / endedLeases.length) * 100)
+      : 0;
+
+    console.log(`👥 Tenant retention: ${tenantRetention}% (${renewedCount} renewals out of ${endedLeases.length} ended leases)`);
+
+    // 3. Calculate Average Days Vacant
+    // Get all terminated leases and find the time between termination and next lease
+    const terminatedLeases = await prisma.leases.findMany({
+      where: {
+        propertyId: { in: propertyIds },
+        status: 'terminated',
+        endDate: {
+          gte: oneYearAgo
+        }
+      },
+      select: {
+        unitId: true,
+        endDate: true
+      },
+      orderBy: {
+        endDate: 'asc'
+      }
+    });
+
+    let totalVacantDays = 0;
+    let vacancyCount = 0;
+
+    for (const terminatedLease of terminatedLeases) {
+      // Find the next lease for this unit
+      const nextLease = await prisma.leases.findFirst({
+        where: {
+          unitId: terminatedLease.unitId,
+          startDate: {
+            gt: terminatedLease.endDate
+          }
+        },
+        orderBy: {
+          startDate: 'asc'
+        }
+      });
+
+      if (nextLease) {
+        const vacantDays = Math.ceil(
+          (nextLease.startDate.getTime() - terminatedLease.endDate.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        totalVacantDays += vacantDays;
+        vacancyCount++;
+      }
+    }
+
+    // Also include currently vacant units
+    const currentlyVacantUnits = await prisma.units.findMany({
+      where: {
+        propertyId: { in: propertyIds },
+        status: 'vacant'
+      },
+      select: {
+        id: true,
+        updatedAt: true
+      }
+    });
+
+    // For currently vacant units, calculate days since last lease ended
+    for (const unit of currentlyVacantUnits) {
+      const lastLease = await prisma.leases.findFirst({
+        where: {
+          unitId: unit.id
+        },
+        orderBy: {
+          endDate: 'desc'
+        }
+      });
+
+      if (lastLease && lastLease.endDate) {
+        const vacantDays = Math.ceil(
+          (new Date().getTime() - lastLease.endDate.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        totalVacantDays += vacantDays;
+        vacancyCount++;
+      }
+    }
+
+    const avgDaysVacant = vacancyCount > 0
+      ? Math.round(totalVacantDays / vacancyCount)
+      : 0;
+
+    console.log(`📅 Average days vacant: ${avgDaysVacant} days (from ${vacancyCount} vacancy periods)`);
+
+    // 4. Unit Distribution by Bedroom Count
+    const bedroomCounts: { [key: string]: number } = {};
+    allUnits.forEach(unit => {
+      const bedrooms = unit.bedrooms?.toString() || 'Studio';
+      bedroomCounts[bedrooms] = (bedroomCounts[bedrooms] || 0) + 1;
+    });
+
+    const unitDistribution = Object.entries(bedroomCounts).map(([bedrooms, count]) => ({
+      bedrooms,
+      count,
+      percentage: allUnits.length > 0 ? Math.round((count / allUnits.length) * 100) : 0
+    })).sort((a, b) => {
+      // Sort by bedroom count (Studio first, then numeric)
+      if (a.bedrooms === 'Studio') return -1;
+      if (b.bedrooms === 'Studio') return 1;
+      return parseInt(a.bedrooms) - parseInt(b.bedrooms);
+    });
+
+    console.log(`🏘️ Unit distribution:`, unitDistribution);
+
+    // 5. Revenue by Property
+    const revenueByProperty = await Promise.all(
+      properties.map(async (property) => {
+        const occupiedUnitsForProperty = await prisma.units.findMany({
+          where: {
+            propertyId: property.id,
+            status: 'occupied'
+          },
+          select: {
+            monthlyRent: true
+          }
+        });
+
+        const revenue = occupiedUnitsForProperty.reduce(
+          (sum, unit) => sum + unit.monthlyRent,
+          0
+        );
+
+        return {
+          id: property.id,
+          name: property.name,
+          revenue,
+          currency: property.currency || 'USD'
+        };
+      })
+    );
+
+    const totalRevenue = revenueByProperty.reduce((sum, p) => sum + p.revenue, 0);
+
+    console.log(`✅ Analytics data compiled successfully`);
+
+    return res.json({
+      averageRent: Math.round(averageRent),
+      tenantRetention,
+      avgDaysVacant,
+      unitDistribution,
+      revenueByProperty: revenueByProperty.map(p => ({
+        ...p,
+        percentage: totalRevenue > 0 ? Math.round((p.revenue / totalRevenue) * 100) : 0
+      }))
+    });
+
+  } catch (error: any) {
+    console.error('❌ Error fetching manager analytics:', error);
+    return res.status(500).json({
+      error: 'Failed to fetch analytics',
+      details: error.message
+    });
+  }
+});
+
 // Get manager dashboard overview
 router.get('/manager/overview', async (req: AuthRequest, res: Response) => {
   try {
@@ -79,13 +342,71 @@ router.get('/manager/overview', async (req: AuthRequest, res: Response) => {
       }
     });
 
-    // TODO: payments and maintenance_requests tables don't exist yet
-    // These will be added in future migrations
-    const monthlyRevenue = { _sum: { amount: 0 } };
+    // Calculate monthly revenue from occupied units
+    const occupiedUnitsWithRent = await prisma.units.findMany({
+      where: {
+        propertyId: { in: propertyIds },
+        status: 'occupied'
+      },
+      select: {
+        monthlyRent: true
+      }
+    });
+
+    const monthlyRevenue = occupiedUnitsWithRent.reduce((sum, unit) => sum + unit.monthlyRent, 0);
+
+    // Get maintenance tickets (support_tickets doesn't have propertyId, so we'll use 0 for now)
+    // TODO: Create a dedicated maintenance_requests table with propertyId field
     const openMaintenance = 0;
     const urgentMaintenance = 0;
-    const recentActivities: any[] = [];
     const scheduledMaintenanceCount = 0;
+
+    // Group revenue by currency for multi-currency support
+    const revenueWithCurrency = await prisma.units.findMany({
+      where: {
+        propertyId: { in: propertyIds },
+        status: 'occupied'
+      },
+      select: {
+        monthlyRent: true,
+        properties: {
+          select: {
+            currency: true
+          }
+        }
+      }
+    });
+
+    // Get manager's base currency (default to USD)
+    const manager = await prisma.users.findUnique({
+      where: { id: userId },
+      select: { baseCurrency: true }
+    });
+    const managerBaseCurrency = manager?.baseCurrency || 'USD';
+
+    // Calculate revenue per currency
+    const revenueByCurrency: Record<string, number> = {};
+    revenueWithCurrency.forEach(unit => {
+      const currency = unit.properties.currency || managerBaseCurrency;
+      if (!revenueByCurrency[currency]) {
+        revenueByCurrency[currency] = 0;
+      }
+      revenueByCurrency[currency] += unit.monthlyRent;
+    });
+
+    // Get the primary currency (most common or first one, fallback to manager's base currency)
+    const currencies = Object.keys(revenueByCurrency);
+    const primaryCurrency = currencies.length > 0 ? currencies[0] : managerBaseCurrency;
+
+    console.log('💰 Manager Dashboard Revenue:', {
+      managerId: userId,
+      managerBaseCurrency,
+      monthlyRevenue,
+      revenueByCurrency,
+      currencies,
+      primaryCurrency,
+      hasMultipleCurrencies: currencies.length > 1
+    });
 
     return res.json({
       properties: {
@@ -93,6 +414,7 @@ router.get('/manager/overview', async (req: AuthRequest, res: Response) => {
         properties: properties.map(p => ({
           id: p.id,
           name: p.name,
+          currency: p.currency || managerBaseCurrency, // Include currency for each property (defaults to manager's base currency)
           totalUnits: p._count.units,
           activeLeases: p._count.leases
         }))
@@ -108,13 +430,15 @@ router.get('/manager/overview', async (req: AuthRequest, res: Response) => {
         expiringSoon: expiringLeases
       },
       revenue: {
-        currentMonth: monthlyRevenue._sum.amount || 0
+        currentMonth: Math.round(monthlyRevenue),
+        byCurrency: revenueByCurrency, // Revenue broken down by currency
+        primaryCurrency: primaryCurrency, // The main currency to display
+        hasMultipleCurrencies: currencies.length > 1 // Flag if manager has properties in multiple currencies
       },
       maintenance: {
         open: openMaintenance,
         urgent: urgentMaintenance
       },
-      recentActivities,
       upcomingTasks: {
         leaseRenewals: expiringLeases,
         scheduledMaintenance: scheduledMaintenanceCount
@@ -352,23 +676,6 @@ router.get('/owner/overview', async (req: AuthRequest, res: Response) => {
         const rate = expectedAmt > 0 ? (collectedAmt / expectedAmt) * 100 : 0;
         return { collected: collectedAmt, expected: expectedAmt, rate: Math.round(rate * 10) / 10 };
       })(),
-      recentActivity: await (async () => {
-        // Pull last 10 activities for this owner's properties
-        const logs = await prisma.activity_logs.findMany({
-          where: {
-            OR: [
-              { entity: 'property', entityId: { in: propertyIds } },
-              { entity: 'unit' },
-              { entity: 'lease' },
-              { entity: 'maintenance_request' },
-              { entity: 'payment' }
-            ]
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 10
-        });
-        return logs;
-      })(),
       operations: {
         activeManagers,
         pendingMaintenance,
@@ -390,6 +697,251 @@ router.get('/owner/overview', async (req: AuthRequest, res: Response) => {
   } catch (error: any) {
     console.error('Get owner dashboard overview error:', error);
     return res.status(500).json({ error: 'Failed to fetch dashboard overview' });
+  }
+});
+
+// Get paginated activity logs for manager
+router.get('/manager/activities', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const role = req.user?.role;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 5;
+    const skip = (page - 1) * limit;
+
+    console.log('📋 Fetching manager activities:', { userId, role, page, limit });
+
+    // Ensure user is a manager
+    if (role !== 'manager' && role !== 'property_manager') {
+      return res.status(403).json({ error: 'Manager access required' });
+    }
+
+    // Get manager's assigned properties
+    const assignments = await prisma.property_managers.findMany({
+      where: {
+        managerId: userId,
+        isActive: true
+      },
+      select: {
+        propertyId: true
+      }
+    });
+
+    const propertyIds = assignments.map(a => a.propertyId);
+
+    if (propertyIds.length === 0) {
+      return res.json({
+        activities: [],
+        pagination: {
+          page,
+          limit,
+          total: 0,
+          totalPages: 0,
+          hasMore: false
+        }
+      });
+    }
+
+    // Get property-related activity entityIds (units and leases)
+    const units = await prisma.units.findMany({
+      where: { propertyId: { in: propertyIds } },
+      select: { id: true }
+    });
+    const unitIds = units.map(u => u.id);
+
+    const leases = await prisma.leases.findMany({
+      where: { propertyId: { in: propertyIds } },
+      select: { id: true }
+    });
+    const leaseIds = leases.map(l => l.id);
+
+    // Combine all relevant entity IDs
+    const relevantEntityIds = [...propertyIds, ...unitIds, ...leaseIds];
+
+    // Get total count
+    const totalCount = await prisma.activity_logs.count({
+      where: {
+        entityId: { in: relevantEntityIds }
+      }
+    });
+
+    // Get paginated activities
+    const activities = await prisma.activity_logs.findMany({
+      where: {
+        entityId: { in: relevantEntityIds }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      skip,
+      take: limit,
+      select: {
+        id: true,
+        action: true,
+        entity: true,
+        description: true,
+        createdAt: true,
+        entityId: true
+      }
+    });
+
+    const totalPages = Math.ceil(totalCount / limit);
+    const hasMore = page < totalPages;
+
+    console.log('✅ Fetched activities:', { 
+      count: activities.length, 
+      total: totalCount, 
+      page, 
+      totalPages,
+      hasMore 
+    });
+
+    return res.json({
+      activities: activities.map(a => ({
+        id: a.id,
+        action: a.action,
+        entity: a.entity,
+        description: a.description,
+        createdAt: a.createdAt,
+        entityId: a.entityId
+      })),
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        totalPages,
+        hasMore
+      }
+    });
+
+  } catch (error: any) {
+    console.error('❌ Failed to fetch manager activities:', error);
+    return res.status(500).json({ 
+      error: 'Failed to fetch activities',
+      details: error.message 
+    });
+  }
+});
+
+// Get paginated activity logs for owner
+router.get('/owner/activities', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const role = req.user?.role;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 5;
+    const skip = (page - 1) * limit;
+
+    console.log('📋 Fetching owner activities:', { userId, role, page, limit });
+
+    // Ensure user is an owner
+    if (role !== 'owner' && role !== 'property owner' && role !== 'property_owner') {
+      return res.status(403).json({ error: 'Owner access required' });
+    }
+
+    // Get owner's properties
+    const properties = await prisma.properties.findMany({
+      where: {
+        ownerId: userId
+      },
+      select: {
+        id: true
+      }
+    });
+
+    const propertyIds = properties.map(p => p.id);
+
+    if (propertyIds.length === 0) {
+      return res.json({
+        activities: [],
+        pagination: {
+          page,
+          limit,
+          total: 0,
+          totalPages: 0,
+          hasMore: false
+        }
+      });
+    }
+
+    // Get property-related activity entityIds (units and leases)
+    const units = await prisma.units.findMany({
+      where: { propertyId: { in: propertyIds } },
+      select: { id: true }
+    });
+    const unitIds = units.map(u => u.id);
+
+    const leases = await prisma.leases.findMany({
+      where: { propertyId: { in: propertyIds } },
+      select: { id: true }
+    });
+    const leaseIds = leases.map(l => l.id);
+
+    // Combine all relevant entity IDs
+    const relevantEntityIds = [...propertyIds, ...unitIds, ...leaseIds];
+
+    // Get total count
+    const totalCount = await prisma.activity_logs.count({
+      where: {
+        entityId: { in: relevantEntityIds }
+      }
+    });
+
+    // Get paginated activities
+    const activities = await prisma.activity_logs.findMany({
+      where: {
+        entityId: { in: relevantEntityIds }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      skip,
+      take: limit,
+      select: {
+        id: true,
+        action: true,
+        entity: true,
+        description: true,
+        createdAt: true,
+        entityId: true
+      }
+    });
+
+    const totalPages = Math.ceil(totalCount / limit);
+    const hasMore = page < totalPages;
+
+    console.log('✅ Fetched activities:', { 
+      count: activities.length, 
+      total: totalCount, 
+      page, 
+      totalPages,
+      hasMore 
+    });
+
+    return res.json({
+      activities: activities.map(a => ({
+        id: a.id,
+        action: a.action,
+        entity: a.entity,
+        description: a.description,
+        createdAt: a.createdAt,
+        entityId: a.entityId
+      })),
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        totalPages,
+        hasMore
+      }
+    });
+
+  } catch (error: any) {
+    console.error('❌ Failed to fetch owner activities:', error);
+    return res.status(500).json({ 
+      error: 'Failed to fetch activities',
+      details: error.message 
+    });
   }
 });
 

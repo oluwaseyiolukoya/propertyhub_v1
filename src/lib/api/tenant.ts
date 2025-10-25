@@ -99,3 +99,14 @@ export const deleteTenant = async (tenantId: string) => {
   }>(`${API_ENDPOINTS.TENANT.BASE}/${tenantId}`);
 };
 
+/**
+ * Update tenant information (for property owners/managers)
+ */
+export const updateTenant = async (tenantId: string, data: {
+  name?: string;
+  email?: string;
+  phone?: string;
+}) => {
+  return apiClient.put<any>(`${API_ENDPOINTS.TENANT.BASE}/${tenantId}`, data);
+};
+

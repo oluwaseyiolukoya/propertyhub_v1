@@ -298,6 +298,7 @@ model users {
   role              String
   department        String?
   company           String?
+  baseCurrency      String              @default("USD")
   isActive          Boolean             @default(true)
   status            String              @default("pending")
   lastLogin         DateTime?
