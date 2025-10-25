@@ -96,7 +96,7 @@ model invoices {
 model leases {
   id                String     @id
   propertyId        String
-  unitId            String
+  unitId            String?
   tenantId          String
   leaseNumber       String     @unique
   startDate         DateTime
@@ -114,7 +114,7 @@ model leases {
   updatedAt         DateTime
   properties        properties @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   users             users      @relation(fields: [tenantId], references: [id])
-  units             units      @relation(fields: [unitId], references: [id])
+  units             units?     @relation(fields: [unitId], references: [id], onDelete: SetNull)
 }
 
 model plans {

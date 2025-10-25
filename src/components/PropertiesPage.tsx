@@ -7,10 +7,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Progress } from "./ui/progress";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { toast } from "sonner";
-import { getUnits, createUnit, deleteUnit } from '../lib/api/units';
+import { getUnits, createUnit, updateUnit, deleteUnit, getUnit } from '../lib/api/units';
 import { archiveProperty, deleteProperty } from '../lib/api/properties';
 import { Switch } from "./ui/switch";
 import { getMaintenanceRequests } from '../lib/api/maintenance';
@@ -109,6 +109,12 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
   const [isDeleting, setIsDeleting] = useState(false);
   const [showPropertyDeleteDialog, setShowPropertyDeleteDialog] = useState(false);
   const [propertyToDelete, setPropertyToDelete] = useState<any>(null);
+  
+  // View and Edit Unit states
+  const [showViewUnitDialog, setShowViewUnitDialog] = useState(false);
+  const [showEditUnitDialog, setShowEditUnitDialog] = useState(false);
+  const [selectedUnit, setSelectedUnit] = useState<any>(null);
+  const [editingUnit, setEditingUnit] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -162,6 +168,112 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
       toast.error(error?.message || 'Failed to delete unit');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  // Handle view unit details
+  const handleViewUnit = async (unit: any) => {
+    try {
+      const res = await getUnit(unit.id);
+      if (res.error) {
+        throw new Error(res.error.error || 'Failed to fetch unit details');
+      }
+      setSelectedUnit(res.data);
+      setShowViewUnitDialog(true);
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to load unit details');
+    }
+  };
+
+  // Handle edit unit
+  const handleEditUnit = async (unit: any) => {
+    try {
+      const res = await getUnit(unit.id);
+      if (res.error) {
+        throw new Error(res.error.error || 'Failed to fetch unit details');
+      }
+      
+      // Populate form with unit data
+      setUnitForm({
+        propertyId: res.data.propertyId || '',
+        unitNumber: res.data.unitNumber || '',
+        type: res.data.type || '',
+        floor: res.data.floor || '',
+        bedrooms: res.data.bedrooms || '',
+        bathrooms: res.data.bathrooms || '',
+        size: res.data.size || '',
+        monthlyRent: res.data.monthlyRent || '',
+        securityDeposit: res.data.securityDeposit || '',
+        status: res.data.status || 'vacant',
+        rentFrequency: res.data.rentFrequency || 'monthly',
+        serviceCharge: res.data.serviceCharge || '',
+        cautionFee: res.data.cautionFee || '',
+        legalFee: res.data.legalFee || '',
+        agentCommission: res.data.agentCommission || '',
+        agreementFee: res.data.agreementFee || '',
+        electricityMeter: res.data.electricityMeter || '',
+        prepaidMeter: res.data.prepaidMeter || false,
+        wasteFee: res.data.wasteFee || '',
+        estateDues: res.data.estateDues || '',
+        waterSource: res.data.waterSource || 'public',
+        parkingAvailable: res.data.parkingAvailable !== undefined ? res.data.parkingAvailable : true
+      });
+      setSelectedUnit(res.data);
+      setShowEditUnitDialog(true);
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to load unit details');
+    }
+  };
+
+  // Handle save edited unit
+  const handleSaveEditedUnit = async () => {
+    if (!selectedUnit) return;
+    
+    try {
+      setEditingUnit(true);
+      
+      const res = await updateUnit(selectedUnit.id, {
+        propertyId: unitForm.propertyId,
+        unitNumber: unitForm.unitNumber,
+        type: unitForm.type,
+        floor: parseInt(unitForm.floor) || null,
+        bedrooms: parseInt(unitForm.bedrooms) || 0,
+        bathrooms: parseInt(unitForm.bathrooms) || 0,
+        size: parseFloat(unitForm.size) || null,
+        monthlyRent: parseFloat(unitForm.monthlyRent) || 0,
+        securityDeposit: parseFloat(unitForm.securityDeposit) || null,
+        status: unitForm.status,
+        rentFrequency: unitForm.rentFrequency,
+        serviceCharge: parseFloat(unitForm.serviceCharge) || null,
+        cautionFee: parseFloat(unitForm.cautionFee) || null,
+        legalFee: parseFloat(unitForm.legalFee) || null,
+        agentCommission: parseFloat(unitForm.agentCommission) || null,
+        agreementFee: parseFloat(unitForm.agreementFee) || null,
+        electricityMeter: unitForm.electricityMeter || null,
+        prepaidMeter: unitForm.prepaidMeter,
+        wasteFee: parseFloat(unitForm.wasteFee) || null,
+        estateDues: parseFloat(unitForm.estateDues) || null,
+        waterSource: unitForm.waterSource,
+        parkingAvailable: unitForm.parkingAvailable
+      });
+      
+      if ((res as any).error) {
+        throw new Error((res as any).error.error || 'Failed to update unit');
+      }
+      
+      toast.success('Unit updated successfully');
+      setShowEditUnitDialog(false);
+      setSelectedUnit(null);
+      
+      // Refresh units list
+      const uRes = await getUnits();
+      if (!uRes.error && Array.isArray(uRes.data)) {
+        setUnitsData(uRes.data);
+      }
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to update unit');
+    } finally {
+      setEditingUnit(false);
     }
   };
 
@@ -955,25 +1067,44 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                                 </Badge>
                               </TableCell>
                               <TableCell>
-                                <div className="flex items-center space-x-2">
-                                  <Button variant="outline" size="sm" title="View unit">
-                                    <Eye className="h-4 w-4" />
-                                  </Button>
-                                  <Button variant="outline" size="sm" title="Edit unit">
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm"
-                                    onClick={() => {
-                                      setUnitToDelete(unit);
-                                      setShowDeleteDialog(true);
-                                    }}
-                                    title="Delete unit"
-                                  >
-                                    <Trash2 className="h-4 w-4 text-red-500" />
-                                  </Button>
-                                </div>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 w-8 p-0"
+                                    >
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-48">
+                                    <DropdownMenuLabel>Unit Actions</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    
+                                    <DropdownMenuItem onClick={() => handleViewUnit(unit)}>
+                                      <Eye className="h-4 w-4 mr-2" />
+                                      View Details
+                                    </DropdownMenuItem>
+                                    
+                                    <DropdownMenuItem onClick={() => handleEditUnit(unit)}>
+                                      <Edit className="h-4 w-4 mr-2" />
+                                      Edit Unit
+                                    </DropdownMenuItem>
+                                    
+                                    <DropdownMenuSeparator />
+                                    
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setUnitToDelete(unit);
+                                        setShowDeleteDialog(true);
+                                      }}
+                                      className="text-red-600"
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete Unit
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               </TableCell>
                             </TableRow>
                           );
@@ -1996,6 +2127,279 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                 </>
               )}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Unit Details Dialog */}
+      <Dialog open={showViewUnitDialog} onOpenChange={setShowViewUnitDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Unit Details - {selectedUnit?.unitNumber}</DialogTitle>
+            <DialogDescription>
+              {selectedUnit?.properties?.name && (
+                <span className="text-sm font-medium text-gray-700">
+                  Property: {selectedUnit.properties.name}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedUnit && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold text-gray-700">Basic Information</h4>
+                  <div className="bg-gray-50 border rounded-lg p-3 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Unit Number:</span>
+                      <span className="font-medium">{selectedUnit.unitNumber}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Type:</span>
+                      <span className="font-medium">{selectedUnit.type || '-'}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Floor:</span>
+                      <span className="font-medium">{selectedUnit.floor || '-'}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Status:</span>
+                      <Badge variant={selectedUnit.status === 'occupied' ? 'default' : 'secondary'}>
+                        {selectedUnit.status}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold text-gray-700">Property Details</h4>
+                  <div className="bg-gray-50 border rounded-lg p-3 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Bedrooms:</span>
+                      <span className="font-medium">{selectedUnit.bedrooms || 0}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Bathrooms:</span>
+                      <span className="font-medium">{selectedUnit.bathrooms || 0}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Size:</span>
+                      <span className="font-medium">{selectedUnit.size ? `${selectedUnit.size} sqft` : '-'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold text-gray-700">Financial Details</h4>
+                  <div className="bg-gray-50 border rounded-lg p-3 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Monthly Rent:</span>
+                      <span className="font-medium">{formatCurrency(selectedUnit.monthlyRent || 0, selectedUnit.properties?.currency || 'USD')}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Security Deposit:</span>
+                      <span className="font-medium">{formatCurrency(selectedUnit.securityDeposit || selectedUnit.properties?.securityDeposit || 0, selectedUnit.properties?.currency || 'USD')}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Service Charge:</span>
+                      <span className="font-medium">{formatCurrency(selectedUnit.properties?.serviceCharge || 0, selectedUnit.properties?.currency || 'USD')}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Application Fee:</span>
+                      <span className="font-medium">{formatCurrency(selectedUnit.properties?.applicationFee || 0, selectedUnit.properties?.currency || 'USD')}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold text-gray-700">Additional Fees (Property-Level)</h4>
+                  <div className="bg-gray-50 border rounded-lg p-3 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Caution Fee:</span>
+                      <span className="font-medium">{formatCurrency(selectedUnit.properties?.cautionFee || 0, selectedUnit.properties?.currency || 'USD')}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Legal Fee:</span>
+                      <span className="font-medium">{formatCurrency(selectedUnit.properties?.legalFee || 0, selectedUnit.properties?.currency || 'USD')}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Agent Commission:</span>
+                      <span className="font-medium">{formatCurrency(selectedUnit.properties?.agentCommission || 0, selectedUnit.properties?.currency || 'USD')}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Agreement Fee:</span>
+                      <span className="font-medium">{formatCurrency(selectedUnit.properties?.agreementFee || 0, selectedUnit.properties?.currency || 'USD')}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowViewUnitDialog(false);
+                    setSelectedUnit(null);
+                  }}
+                >
+                  Close
+                </Button>
+                <Button onClick={() => {
+                  setShowViewUnitDialog(false);
+                  handleEditUnit(selectedUnit);
+                }}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Unit
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Unit Dialog */}
+      <Dialog open={showEditUnitDialog} onOpenChange={setShowEditUnitDialog}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Unit</DialogTitle>
+            <DialogDescription>
+              Update unit information
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="editUnitNumber">Unit Number</label>
+                <Input 
+                  id="editUnitNumber" 
+                  value={unitForm.unitNumber} 
+                  onChange={(e) => setUnitForm({ ...unitForm, unitNumber: e.target.value })} 
+                  placeholder="A101" 
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="editType">Type</label>
+                <Input 
+                  id="editType" 
+                  value={unitForm.type} 
+                  onChange={(e) => setUnitForm({ ...unitForm, type: e.target.value })} 
+                  placeholder="Apartment, Studio, etc." 
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="editFloor">Floor</label>
+                <Input 
+                  id="editFloor" 
+                  type="number" 
+                  value={unitForm.floor} 
+                  onChange={(e) => setUnitForm({ ...unitForm, floor: e.target.value })} 
+                  placeholder="1" 
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="editBedrooms">Bedrooms</label>
+                <Input 
+                  id="editBedrooms" 
+                  type="number" 
+                  value={unitForm.bedrooms} 
+                  onChange={(e) => setUnitForm({ ...unitForm, bedrooms: e.target.value })} 
+                  placeholder="2" 
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="editBathrooms">Bathrooms</label>
+                <Input 
+                  id="editBathrooms" 
+                  type="number" 
+                  value={unitForm.bathrooms} 
+                  onChange={(e) => setUnitForm({ ...unitForm, bathrooms: e.target.value })} 
+                  placeholder="1" 
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="editSize">Size (sqft)</label>
+                <Input 
+                  id="editSize" 
+                  type="number" 
+                  value={unitForm.size} 
+                  onChange={(e) => setUnitForm({ ...unitForm, size: e.target.value })} 
+                  placeholder="850" 
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="editStatus">Status</label>
+                <Select value={unitForm.status} onValueChange={(v) => setUnitForm({ ...unitForm, status: v })}>
+                  <SelectTrigger id="editStatus">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="vacant">Vacant</SelectItem>
+                    <SelectItem value="occupied">Occupied</SelectItem>
+                    <SelectItem value="maintenance">Maintenance</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="editMonthlyRent">Monthly Rent</label>
+                <Input 
+                  id="editMonthlyRent" 
+                  type="number" 
+                  value={unitForm.monthlyRent} 
+                  onChange={(e) => setUnitForm({ ...unitForm, monthlyRent: e.target.value })} 
+                  placeholder="1200" 
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="editSecurityDeposit">Security Deposit</label>
+                <Input 
+                  id="editSecurityDeposit" 
+                  type="number" 
+                  value={unitForm.securityDeposit} 
+                  onChange={(e) => setUnitForm({ ...unitForm, securityDeposit: e.target.value })} 
+                  placeholder="2400" 
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowEditUnitDialog(false);
+                  setSelectedUnit(null);
+                }}
+                disabled={editingUnit}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveEditedUnit}
+                disabled={editingUnit}
+              >
+                {editingUnit ? (
+                  <>
+                    <Clock className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Save Changes
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
