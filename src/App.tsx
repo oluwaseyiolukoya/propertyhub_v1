@@ -258,6 +258,7 @@ function App() {
           onRemoveManager={removeManager}
           onUpdateManager={updateManager}
           onDeactivateManager={deactivateManager}
+          onRefreshManagers={loadManagers}
         />
         <Toaster />
       </>
