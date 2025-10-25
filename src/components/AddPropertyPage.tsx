@@ -9,8 +9,10 @@ import { Textarea } from "./ui/textarea";
 import { Switch } from "./ui/switch";
 import { Separator } from "./ui/separator";
 import { Progress } from "./ui/progress";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
 import { ImageUpload } from "./ImageUpload";
 import { toast } from "sonner";
+import { createManager } from '../lib/api/property-managers';
 import { 
   Building2,
   MapPin,
@@ -43,7 +45,8 @@ import {
   Maximize,
   Info,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  UserPlus
 } from 'lucide-react';
 
 interface AddPropertyPageProps {
@@ -53,9 +56,10 @@ interface AddPropertyPageProps {
   initialValues?: any;
   mode?: 'add' | 'edit';
   managers?: any[];
+  onManagerCreated?: () => Promise<void>; // Callback to refresh managers in parent
 }
 
-export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'add', managers = [] }: AddPropertyPageProps) {
+export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'add', managers = [], onManagerCreated }: AddPropertyPageProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     // Basic Information
@@ -156,10 +160,25 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
   }, [initialValues]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showCreateManagerDialog, setShowCreateManagerDialog] = useState(false);
+  const [isCreatingManager, setIsCreatingManager] = useState(false);
+  const [localManagers, setLocalManagers] = useState(managers);
+  const [newManagerForm, setNewManagerForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    department: ''
+  });
+  const [managerFormErrors, setManagerFormErrors] = useState<Record<string, string>>({});
+
+  // Update local managers when prop changes
+  React.useEffect(() => {
+    setLocalManagers(managers);
+  }, [managers]);
 
   const selectedManager = React.useMemo(() => {
-    return managers.find((m: any) => m.id === (formData as any).managerId);
-  }, [managers, (formData as any).managerId]);
+    return localManagers.find((m: any) => m.id === (formData as any).managerId);
+  }, [localManagers, (formData as any).managerId]);
 
   const steps = [
     { number: 1, title: 'Basic Information', description: 'Property name and location' },
@@ -348,6 +367,62 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const handleCreateManager = async () => {
+    // Validate form
+    const newErrors: Record<string, string> = {};
+    if (!newManagerForm.name.trim()) newErrors.name = 'Name is required';
+    if (!newManagerForm.email.trim()) newErrors.email = 'Email is required';
+    else if (!/\S+@\S+\.\S+/.test(newManagerForm.email)) newErrors.email = 'Invalid email format';
+
+    if (Object.keys(newErrors).length > 0) {
+      setManagerFormErrors(newErrors);
+      return;
+    }
+
+    try {
+      setIsCreatingManager(true);
+      const response = await createManager({
+        name: newManagerForm.name,
+        email: newManagerForm.email,
+        phone: newManagerForm.phone,
+        department: newManagerForm.department,
+        sendInvitation: true
+      });
+
+      if ((response as any).error) {
+        throw new Error((response as any).error);
+      }
+
+      const newManager = (response as any).data;
+      
+      // Refresh managers from parent if callback provided
+      if (onManagerCreated) {
+        await onManagerCreated();
+      }
+      
+      // Add to local managers list
+      setLocalManagers(prev => [...prev, newManager]);
+      
+      // Auto-select the new manager
+      handleInputChange('managerId', newManager.id);
+      
+      // Reset form and close dialog
+      setNewManagerForm({ name: '', email: '', phone: '', department: '' });
+      setManagerFormErrors({});
+      setShowCreateManagerDialog(false);
+      
+      toast.success(`Manager "${newManager.name}" created successfully!`);
+      
+      if ((response as any).data?.tempPassword) {
+        toast.info(`Temporary password: ${(response as any).data.tempPassword}`, { duration: 10000 });
+      }
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to create manager');
+    } finally {
+      setIsCreatingManager(false);
     }
   };
 
@@ -760,12 +835,25 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
                 <Label htmlFor="managerId">Select Property Manager *</Label>
                 <Select value={(formData as any).managerId || ''} onValueChange={(value) => handleInputChange('managerId', value)}>
                   <SelectTrigger className={errors.managerId ? 'border-red-500' : ''}>
-                    <SelectValue placeholder={managers.length ? 'Choose a manager' : 'No managers available'} />
+                    <SelectValue placeholder={localManagers.length ? 'Choose a manager' : 'No managers available'} />
                   </SelectTrigger>
                   <SelectContent>
-                    {managers.map((m: any) => (
+                    {localManagers.map((m: any) => (
                       <SelectItem key={m.id} value={m.id}>{m.name} ({m.email})</SelectItem>
                     ))}
+                    <Separator className="my-2" />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full justify-start text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setShowCreateManagerDialog(true);
+                      }}
+                    >
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Create New Manager
+                    </Button>
                   </SelectContent>
                 </Select>
                 {errors.managerId && <p className="text-sm text-red-600">{errors.managerId}</p>}
@@ -1379,6 +1467,127 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
           </div>
         </div>
       </div>
+
+      {/* Create Manager Dialog */}
+      <Dialog open={showCreateManagerDialog} onOpenChange={setShowCreateManagerDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Property Manager</DialogTitle>
+            <DialogDescription>
+              Add a new manager to your organization. They will receive an email with login credentials.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="manager-name">Manager Name *</Label>
+              <Input
+                id="manager-name"
+                placeholder="Enter full name"
+                value={newManagerForm.name}
+                onChange={(e) => {
+                  setNewManagerForm(prev => ({ ...prev, name: e.target.value }));
+                  if (managerFormErrors.name) {
+                    setManagerFormErrors(prev => ({ ...prev, name: '' }));
+                  }
+                }}
+                className={managerFormErrors.name ? 'border-red-500' : ''}
+              />
+              {managerFormErrors.name && (
+                <p className="text-sm text-red-600 mt-1">{managerFormErrors.name}</p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="manager-email">Email Address *</Label>
+              <Input
+                id="manager-email"
+                type="email"
+                placeholder="manager@example.com"
+                value={newManagerForm.email}
+                onChange={(e) => {
+                  setNewManagerForm(prev => ({ ...prev, email: e.target.value }));
+                  if (managerFormErrors.email) {
+                    setManagerFormErrors(prev => ({ ...prev, email: '' }));
+                  }
+                }}
+                className={managerFormErrors.email ? 'border-red-500' : ''}
+              />
+              {managerFormErrors.email && (
+                <p className="text-sm text-red-600 mt-1">{managerFormErrors.email}</p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="manager-phone">Phone Number (Optional)</Label>
+              <Input
+                id="manager-phone"
+                type="tel"
+                placeholder="+234 800 000 0000"
+                value={newManagerForm.phone}
+                onChange={(e) => {
+                  setNewManagerForm(prev => ({ ...prev, phone: e.target.value }));
+                }}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="manager-department">Department (Optional)</Label>
+              <Input
+                id="manager-department"
+                placeholder="e.g., Property Management"
+                value={newManagerForm.department}
+                onChange={(e) => {
+                  setNewManagerForm(prev => ({ ...prev, department: e.target.value }));
+                }}
+              />
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-start">
+                <Info className="h-5 w-5 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
+                <p className="text-sm text-blue-800">
+                  A temporary password will be generated and sent to the manager's email address. 
+                  They will be able to log in and change their password on first login.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowCreateManagerDialog(false);
+                setNewManagerForm({ name: '', email: '', phone: '', department: '' });
+                setManagerFormErrors({});
+              }}
+              disabled={isCreatingManager}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleCreateManager}
+              disabled={isCreatingManager}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {isCreatingManager ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Create Manager
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

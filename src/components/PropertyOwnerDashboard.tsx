@@ -30,6 +30,7 @@ interface PropertyOwnerDashboardProps {
   onRemoveManager: (managerId: string, propertyId: string) => Promise<void>;
   onUpdateManager: (managerId: string, updates: any) => Promise<void>;
   onDeactivateManager: (managerId: string) => Promise<void>;
+  onRefreshManagers?: () => Promise<void>; // Callback to reload managers
 }
 
 export function PropertyOwnerDashboard({ 
@@ -41,7 +42,8 @@ export function PropertyOwnerDashboard({
   onAssignManager,
   onRemoveManager,
   onUpdateManager,
-  onDeactivateManager
+  onDeactivateManager,
+  onRefreshManagers
 }: PropertyOwnerDashboardProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { formatCurrency } = useCurrency();
@@ -125,6 +127,14 @@ export function PropertyOwnerDashboard({
       }
     };
   }, [accountInfo]);
+
+  // Reload managers when switching to property-managers view
+  useEffect(() => {
+    if (currentView === 'property-managers' && onRefreshManagers) {
+      console.log('🔄 Reloading managers on view change...');
+      onRefreshManagers();
+    }
+  }, [currentView]);
 
   // Refresh data when window regains focus
   useEffect(() => {
@@ -755,6 +765,7 @@ export function PropertyOwnerDashboard({
               initialValues={selectedProperty}
               mode="edit"
               managers={managers}
+              onManagerCreated={onRefreshManagers}
               onSave={async (data: any) => {
                 try {
                   if (!selectedProperty?.id) throw new Error('Missing property id');
@@ -842,6 +853,7 @@ export function PropertyOwnerDashboard({
               user={user}
               onBack={() => setCurrentView('dashboard')}
               managers={managers}
+              onManagerCreated={onRefreshManagers}
               onSave={(propertyData) => {
                 // Persist to backend, then refresh list
                 (async () => {
