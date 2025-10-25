@@ -115,3 +115,30 @@ export function setPreferredCurrency(currency: string): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem('preferredCurrency', currency);
 }
+
+/**
+ * Determine the smart base currency for an owner
+ * - If all properties use the same currency, use that currency
+ * - If properties use multiple currencies, default to USD
+ */
+export function getSmartBaseCurrency(properties: any[]): string {
+  if (!properties || properties.length === 0) {
+    return 'USD'; // Default when no properties
+  }
+
+  // Get unique currencies from all properties
+  const currencies = new Set<string>();
+  properties.forEach(property => {
+    if (property.currency) {
+      currencies.add(property.currency);
+    }
+  });
+
+  // If all properties use the same currency, use that as base
+  if (currencies.size === 1) {
+    return Array.from(currencies)[0];
+  }
+
+  // If multiple currencies, use USD as base
+  return 'USD';
+}

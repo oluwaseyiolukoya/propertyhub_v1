@@ -13,7 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Separator } from "./ui/separator";
 import { toast } from "sonner";
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { formatCurrency } from '../lib/currency';
+import { formatCurrency, getSmartBaseCurrency } from '../lib/currency';
 import { deleteProperty } from '../lib/api/properties';
 import { getUnits } from '../lib/api/units';
 import { getManagerAnalytics } from '../lib/api/dashboard';
@@ -47,6 +47,9 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [propertyToDelete, setPropertyToDelete] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Calculate smart base currency based on properties
+  const smartBaseCurrency = getSmartBaseCurrency(propProperties || []);
   
   // Unit search and filter state
   const [unitSearchTerm, setUnitSearchTerm] = useState('');
@@ -483,10 +486,10 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-semibold">{formatCurrency(portfolioMetrics.totalRevenue, user?.baseCurrency || 'USD')}</div>
+                <div className="text-2xl font-semibold">{formatCurrency(portfolioMetrics.totalRevenue, smartBaseCurrency)}</div>
                 <p className="text-xs text-muted-foreground flex items-center">
                   <TrendingUp className="h-3 w-3 mr-1 text-green-600" />
-                  {properties.length > 1 && properties.some(p => p.currency !== (user?.baseCurrency || 'USD')) && 
+                  {properties.length > 1 && properties.some(p => p.currency !== smartBaseCurrency) && 
                     <span className="text-orange-600 mr-2">Multi-currency</span>
                   }
                   +8.2% from last month

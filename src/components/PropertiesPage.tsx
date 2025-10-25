@@ -16,7 +16,7 @@ import { Switch } from "./ui/switch";
 import { getMaintenanceRequests } from '../lib/api/maintenance';
 import { getOwnerDashboardOverview } from '../lib/api';
 import { getPaymentStats } from '../lib/api/payments';
-import { formatCurrency } from '../lib/currency';
+import { formatCurrency, getSmartBaseCurrency } from '../lib/currency';
 import { usePersistentState } from '../lib/usePersistentState';
 import { 
   Building2,
@@ -74,6 +74,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  
+  // Calculate smart base currency based on properties
+  const smartBaseCurrency = getSmartBaseCurrency(properties);
   const [unitsData, setUnitsData] = useState<any[]>([]);
   const [unitView, setUnitView] = useState<'list' | 'add'>('list');
   const [unitSaving, setUnitSaving] = useState(false);
@@ -537,9 +540,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     <DollarSign className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{formatCurrency(Number(portfolioMetrics.totalRevenue) || 0, user?.baseCurrency || 'USD')}</div>
+                    <div className="text-2xl font-bold">{formatCurrency(Number(portfolioMetrics.totalRevenue) || 0, smartBaseCurrency)}</div>
                     <p className="text-xs text-muted-foreground">
-                      {properties.length > 1 && properties.some(p => p.currency !== (user?.baseCurrency || 'USD')) && 
+                      {properties.length > 1 && properties.some(p => p.currency !== smartBaseCurrency) && 
                         <span className="text-orange-600 mr-2">Multi-currency · </span>
                       }
                       +8.2% from last month
@@ -969,7 +972,14 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     <DollarSign className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">$772</div>
+                    <div className="text-2xl font-bold">
+                      {formatCurrency(
+                        unitsData.length > 0 
+                          ? unitsData.reduce((sum, u) => sum + (u.monthlyRent || 0), 0) / unitsData.length 
+                          : 0, 
+                        smartBaseCurrency
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground">Per unit per month</p>
                   </CardContent>
                 </Card>
@@ -1038,7 +1048,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                                   <span>{unit.sqft} sqft</span>
                                 </div>
                               </TableCell>
-                              <TableCell className="font-medium">${unit.rent}</TableCell>
+                              <TableCell className="font-medium">{formatCurrency(unit.rent, property?.currency || 'USD')}</TableCell>
                               <TableCell>
                                 {unit.tenant ? (
                                   <div>

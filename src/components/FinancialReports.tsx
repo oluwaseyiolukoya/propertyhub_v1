@@ -27,7 +27,7 @@ import {
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell, ComposedChart, Area, AreaChart } from 'recharts';
 import { getFinancialOverview, getMonthlyRevenue, getPropertyPerformance, FinancialOverview, MonthlyRevenueData, PropertyPerformance } from '../lib/api/financial';
 import { toast } from 'sonner';
-import { formatCurrency } from '../lib/currency';
+import { formatCurrency, getSmartBaseCurrency } from '../lib/currency';
 
 interface FinancialReportsProps {
   properties: any[];
@@ -161,12 +161,12 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
     ? propertyPerformance 
     : propertyPerformance.filter(p => p.id.toString() === selectedProperty);
 
-  // Base currency for portfolio view (when viewing all properties)
-  const baseCurrency = user?.baseCurrency || 'USD'; // Default to USD as base currency
+  // Smart base currency: Use single currency if all properties use same currency, otherwise USD
+  const baseCurrency = getSmartBaseCurrency(properties);
 
   // Get the currency to use for display
   const displayCurrency = selectedProperty === 'all'
-    ? baseCurrency // Use base currency for "all properties" view
+    ? baseCurrency // Use smart base currency for "all properties" view
     : (filteredProperties[0]?.currency || properties.find(p => p.id.toString() === selectedProperty)?.currency || 'NGN');
 
   // Calculate filtered totals based on selected property
