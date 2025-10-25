@@ -567,8 +567,16 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                     type="number"
                     value={newTenant.rent}
                     onChange={(e) => setNewTenant({...newTenant, rent: e.target.value})}
-                    placeholder="1200"
+                    placeholder="Auto-populated from unit"
+                    disabled={!!newTenant.rent}
+                    className={newTenant.rent ? "bg-gray-50 cursor-not-allowed" : ""}
                   />
+                  {newTenant.rent && (
+                    <p className="text-xs text-blue-600 flex items-center gap-1">
+                      <Check className="h-3 w-3" />
+                      Auto-filled from unit's monthly rent
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -619,7 +627,15 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                   <Label htmlFor="unitId">Unit/Apartment</Label>
                   <Select 
                     value={newTenant.unitId} 
-                    onValueChange={(v) => setNewTenant({ ...newTenant, unitId: v })}
+                    onValueChange={(v) => {
+                      // Find the selected unit and auto-populate rent
+                      const selectedUnit = propertyUnits.find((u: any) => String(u.id) === v);
+                      setNewTenant({ 
+                        ...newTenant, 
+                        unitId: v,
+                        rent: selectedUnit?.monthlyRent ? String(selectedUnit.monthlyRent) : ''
+                      });
+                    }}
                     disabled={!newTenant.propertyId || propertyUnits.length === 0}
                   >
                     <SelectTrigger id="unitId">
@@ -1567,7 +1583,15 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                   <Label htmlFor="assign-unit">Unit/Apartment</Label>
                   <Select 
                     value={assignmentData.unitId} 
-                    onValueChange={(v) => setAssignmentData({ ...assignmentData, unitId: v })}
+                    onValueChange={(v) => {
+                      // Find the selected unit and auto-populate rent
+                      const selectedUnit = assignmentPropertyUnits.find((u: any) => String(u.id) === v);
+                      setAssignmentData({ 
+                        ...assignmentData, 
+                        unitId: v,
+                        rent: selectedUnit?.monthlyRent ? String(selectedUnit.monthlyRent) : ''
+                      });
+                    }}
                     disabled={!assignmentData.propertyId || assignmentPropertyUnits.length === 0}
                   >
                     <SelectTrigger id="assign-unit">
@@ -1632,8 +1656,16 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                   type="number"
                   value={assignmentData.rent}
                   onChange={(e) => setAssignmentData({ ...assignmentData, rent: e.target.value })}
-                  placeholder="Enter monthly rent amount"
+                  placeholder="Auto-populated from unit"
+                  disabled={!!assignmentData.rent}
+                  className={assignmentData.rent ? "bg-gray-50 cursor-not-allowed" : ""}
                 />
+                {assignmentData.rent && (
+                  <p className="text-xs text-blue-600 flex items-center gap-1">
+                    <Check className="h-3 w-3" />
+                    Auto-filled from unit's monthly rent
+                  </p>
+                )}
               </div>
 
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">

@@ -160,7 +160,15 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
             name: true,
             address: true,
             city: true,
-            state: true
+            state: true,
+            currency: true,
+            securityDeposit: true,
+            serviceCharge: true,
+            cautionFee: true,
+            legalFee: true,
+            agentCommission: true,
+            agreementFee: true,
+            applicationFee: true
           }
         },
         leases: {
@@ -382,7 +390,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Unit not found or access denied' });
     }
 
-    // Check for active leases
+    // Check for active leases before deletion
     const activeLeases = await prisma.leases.count({
       where: {
         unitId: id,
@@ -392,10 +400,11 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
 
     if (activeLeases > 0) {
       return res.status(400).json({
-        error: 'Cannot delete unit with active lease'
+        error: 'Cannot delete unit with active leases. Please terminate or move active leases first.'
       });
     }
 
+    // Delete the unit (historical lease records will have unitId set to null)
     await prisma.units.delete({ where: { id } });
 
     // Log activity
