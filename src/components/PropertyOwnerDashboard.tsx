@@ -19,6 +19,7 @@ import { createProperty } from '../lib/api/properties';
 import { useCurrency } from '../lib/CurrencyContext';
 import { getAccountInfo } from '../lib/api/auth';
 import { usePersistentState } from '../lib/usePersistentState';
+import { formatCurrency as formatCurrencyUtil, getSmartBaseCurrency } from '../lib/currency';
 
 interface PropertyOwnerDashboardProps {
   user: any;
@@ -180,6 +181,9 @@ export function PropertyOwnerDashboard({
   const [loading, setLoading] = useState(true);
   const [accountInfo, setAccountInfo] = useState<any>(null);
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Calculate smart base currency based on properties
+  const smartBaseCurrency = getSmartBaseCurrency(properties);
 
   // Fetch dashboard data, properties, and account info
   const fetchData = async (silent = false) => {
@@ -1112,7 +1116,7 @@ export function PropertyOwnerDashboard({
                     <DollarSign className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{formatCurrency(portfolioStats.monthlyRevenue || 0)}</div>
+                    <div className="text-2xl font-bold">{formatCurrencyUtil(portfolioStats.monthlyRevenue || 0, smartBaseCurrency)}</div>
                     <p className="text-xs text-muted-foreground">
                       +12.5% from last month
                     </p>
