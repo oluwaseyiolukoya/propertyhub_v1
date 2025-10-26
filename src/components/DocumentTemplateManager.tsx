@@ -73,9 +73,10 @@ interface Template {
 
 interface DocumentTemplateManagerProps {
   onClose: () => void;
+  onSelectTemplate?: (template: any) => void;
 }
 
-const DocumentTemplateManager: React.FC<DocumentTemplateManagerProps> = ({ onClose }) => {
+const DocumentTemplateManager: React.FC<DocumentTemplateManagerProps> = ({ onClose, onSelectTemplate }) => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -614,6 +615,17 @@ Sincerely,
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
+                          {onSelectTemplate && (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => onSelectTemplate(template)}
+                              title="Use this template"
+                            >
+                              <CheckCircle2 className="h-4 w-4 mr-1" />
+                              Use
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"

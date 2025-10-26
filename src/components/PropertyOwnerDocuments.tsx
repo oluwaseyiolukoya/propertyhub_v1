@@ -93,6 +93,8 @@ const PropertyOwnerDocuments: React.FC = () => {
     message: ''
   });
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterPropertyId, setFilterPropertyId] = useState('all');
+  const [filterTenantId, setFilterTenantId] = useState('all');
   const [dialogType, setDialogType] = useState('manager-contract');
   const [showTemplateManager, setShowTemplateManager] = useState(false);
   const [editableContent, setEditableContent] = useState('');
@@ -212,6 +214,9 @@ const PropertyOwnerDocuments: React.FC = () => {
     const unit = propertyUnits.find(u => u.id === unitId);
     if (!unit) return null;
 
+    // Auto-populate monthly rent from unit
+    const monthlyRent = unit.monthlyRent ? unit.monthlyRent.toString() : '';
+
     // Find tenant from leases through the unit
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
     fetch(`${API_URL}/api/tenant/all`, {
@@ -224,14 +229,28 @@ const PropertyOwnerDocuments: React.FC = () => {
         const leases = result.data || [];
         const lease = leases.find((l: any) => l.unitId === unitId && l.status === 'active');
         if (lease && lease.users) {
-          // Auto-populate tenant ID
+          // Auto-populate tenant ID and monthly rent
           setContractForm(prev => ({ 
             ...prev, 
-            tenantId: lease.users.id 
+            tenantId: lease.users.id,
+            compensation: monthlyRent
+          }));
+        } else {
+          // If no active lease, just populate monthly rent
+          setContractForm(prev => ({ 
+            ...prev, 
+            compensation: monthlyRent
           }));
         }
       })
-      .catch(err => console.error('Failed to get tenant for unit:', err));
+      .catch(err => {
+        console.error('Failed to get tenant for unit:', err);
+        // Still populate monthly rent even if tenant fetch fails
+        setContractForm(prev => ({ 
+          ...prev, 
+          compensation: monthlyRent
+        }));
+      });
 
     return unit;
   };
@@ -382,6 +401,16 @@ const PropertyOwnerDocuments: React.FC = () => {
           doc.category === 'Insurance'
         );
       }
+    }
+
+    // Filter by property
+    if (filterPropertyId && filterPropertyId !== 'all') {
+      filtered = filtered.filter(doc => doc.propertyId === filterPropertyId);
+    }
+
+    // Filter by tenant
+    if (filterTenantId && filterTenantId !== 'all') {
+      filtered = filtered.filter(doc => doc.tenantId === filterTenantId);
     }
 
     // Filter by search query
@@ -1323,14 +1352,60 @@ ${dialogType === 'manager-contract' ? `
               </div>
             </CardHeader>
             <CardContent>
-              <div className="mb-4 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search contracts..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
+              <div className="mb-4 space-y-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search contracts..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                
+                {/* Filters */}
+                <div className="flex gap-4">
+                  <Select value={filterPropertyId} onValueChange={setFilterPropertyId}>
+                    <SelectTrigger className="w-[250px]">
+                      <SelectValue placeholder="Filter by Property" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Properties</SelectItem>
+                      {Array.isArray(properties) && properties.map((property) => (
+                        <SelectItem key={property.id} value={property.id}>
+                          {property.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={filterTenantId} onValueChange={setFilterTenantId}>
+                    <SelectTrigger className="w-[250px]">
+                      <SelectValue placeholder="Filter by Tenant" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Tenants</SelectItem>
+                      {Array.isArray(tenants) && tenants.map((tenant) => (
+                        <SelectItem key={tenant.id} value={tenant.id}>
+                          {tenant.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {(filterPropertyId !== 'all' || filterTenantId !== 'all') && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => {
+                        setFilterPropertyId('all');
+                        setFilterTenantId('all');
+                      }}
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
+                </div>
               </div>
               <Table>
                 <TableHeader>
@@ -1432,14 +1507,60 @@ ${dialogType === 'manager-contract' ? `
               </div>
             </CardHeader>
             <CardContent>
-              <div className="mb-4 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search leases and inspections..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
+              <div className="mb-4 space-y-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search leases and inspections..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                
+                {/* Filters */}
+                <div className="flex gap-4">
+                  <Select value={filterPropertyId} onValueChange={setFilterPropertyId}>
+                    <SelectTrigger className="w-[250px]">
+                      <SelectValue placeholder="Filter by Property" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Properties</SelectItem>
+                      {Array.isArray(properties) && properties.map((property) => (
+                        <SelectItem key={property.id} value={property.id}>
+                          {property.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={filterTenantId} onValueChange={setFilterTenantId}>
+                    <SelectTrigger className="w-[250px]">
+                      <SelectValue placeholder="Filter by Tenant" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Tenants</SelectItem>
+                      {Array.isArray(tenants) && tenants.map((tenant) => (
+                        <SelectItem key={tenant.id} value={tenant.id}>
+                          {tenant.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {(filterPropertyId !== 'all' || filterTenantId !== 'all') && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => {
+                        setFilterPropertyId('all');
+                        setFilterTenantId('all');
+                      }}
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
+                </div>
               </div>
               <Table>
                 <TableHeader>
@@ -1463,7 +1584,7 @@ ${dialogType === 'manager-contract' ? `
                         </div>
                       </TableCell>
                       <TableCell>{doc.type}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{doc.property}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{doc.properties?.name || 'N/A'}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={getStatusColor(doc.status)}>
                           {doc.status.replace('_', ' ')}
@@ -1511,14 +1632,60 @@ ${dialogType === 'manager-contract' ? `
               </div>
             </CardHeader>
             <CardContent>
-              <div className="mb-4 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search receipts..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
+              <div className="mb-4 space-y-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search receipts..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                
+                {/* Filters */}
+                <div className="flex gap-4">
+                  <Select value={filterPropertyId} onValueChange={setFilterPropertyId}>
+                    <SelectTrigger className="w-[250px]">
+                      <SelectValue placeholder="Filter by Property" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Properties</SelectItem>
+                      {Array.isArray(properties) && properties.map((property) => (
+                        <SelectItem key={property.id} value={property.id}>
+                          {property.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={filterTenantId} onValueChange={setFilterTenantId}>
+                    <SelectTrigger className="w-[250px]">
+                      <SelectValue placeholder="Filter by Tenant" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Tenants</SelectItem>
+                      {Array.isArray(tenants) && tenants.map((tenant) => (
+                        <SelectItem key={tenant.id} value={tenant.id}>
+                          {tenant.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {(filterPropertyId !== 'all' || filterTenantId !== 'all') && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => {
+                        setFilterPropertyId('all');
+                        setFilterTenantId('all');
+                      }}
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
+                </div>
               </div>
               <Table>
                 <TableHeader>
@@ -1584,14 +1751,60 @@ ${dialogType === 'manager-contract' ? `
               </div>
             </CardHeader>
             <CardContent>
-              <div className="mb-4 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search policies and notices..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
+              <div className="mb-4 space-y-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search policies and notices..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                
+                {/* Filters */}
+                <div className="flex gap-4">
+                  <Select value={filterPropertyId} onValueChange={setFilterPropertyId}>
+                    <SelectTrigger className="w-[250px]">
+                      <SelectValue placeholder="Filter by Property" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Properties</SelectItem>
+                      {Array.isArray(properties) && properties.map((property) => (
+                        <SelectItem key={property.id} value={property.id}>
+                          {property.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={filterTenantId} onValueChange={setFilterTenantId}>
+                    <SelectTrigger className="w-[250px]">
+                      <SelectValue placeholder="Filter by Tenant" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Tenants</SelectItem>
+                      {Array.isArray(tenants) && tenants.map((tenant) => (
+                        <SelectItem key={tenant.id} value={tenant.id}>
+                          {tenant.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {(filterPropertyId !== 'all' || filterTenantId !== 'all') && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => {
+                        setFilterPropertyId('all');
+                        setFilterTenantId('all');
+                      }}
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
+                </div>
               </div>
               <Table>
                 <TableHeader>
@@ -1614,13 +1827,13 @@ ${dialogType === 'manager-contract' ? `
                         </div>
                       </TableCell>
                       <TableCell>{doc.type}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{doc.property}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{doc.properties?.name || 'N/A'}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={getStatusColor(doc.status)}>
                           {doc.status.replace('_', ' ')}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{doc.uploadDate}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{formatDate(doc.createdAt)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button variant="ghost" size="sm" onClick={() => handleViewDocument(doc)}>
@@ -1661,14 +1874,60 @@ ${dialogType === 'manager-contract' ? `
               </div>
             </CardHeader>
             <CardContent>
-              <div className="mb-4 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search insurance documents..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
+              <div className="mb-4 space-y-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search insurance documents..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                
+                {/* Filters */}
+                <div className="flex gap-4">
+                  <Select value={filterPropertyId} onValueChange={setFilterPropertyId}>
+                    <SelectTrigger className="w-[250px]">
+                      <SelectValue placeholder="Filter by Property" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Properties</SelectItem>
+                      {Array.isArray(properties) && properties.map((property) => (
+                        <SelectItem key={property.id} value={property.id}>
+                          {property.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={filterTenantId} onValueChange={setFilterTenantId}>
+                    <SelectTrigger className="w-[250px]">
+                      <SelectValue placeholder="Filter by Tenant" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Tenants</SelectItem>
+                      {Array.isArray(tenants) && tenants.map((tenant) => (
+                        <SelectItem key={tenant.id} value={tenant.id}>
+                          {tenant.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {(filterPropertyId !== 'all' || filterTenantId !== 'all') && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => {
+                        setFilterPropertyId('all');
+                        setFilterTenantId('all');
+                      }}
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
+                </div>
               </div>
               <Table>
                 <TableHeader>
@@ -2063,14 +2322,18 @@ ${dialogType === 'manager-contract' ? `
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="rentAmount">Monthly Rent (₦)</Label>
+              <Label htmlFor="rentAmount">Monthly Rent *</Label>
               <Input
                 id="rentAmount"
                 type="number"
-                placeholder="50000"
+                placeholder="Auto-filled from selected unit"
                 value={contractForm.compensation}
-                onChange={(e) => setContractForm({ ...contractForm, compensation: e.target.value })}
+                disabled
+                className="bg-muted cursor-not-allowed"
               />
+              <p className="text-xs text-muted-foreground">
+                Monthly rent is automatically populated from the selected unit
+              </p>
             </div>
 
             <div className="space-y-2">
