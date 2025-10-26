@@ -72,6 +72,16 @@ export const API_ENDPOINTS = {
     STATS: '/api/payments/stats/overview',
     OVERDUE: '/api/payments/overdue/list',
   },
+
+  // Documents
+  DOCUMENTS: {
+    LIST: '/api/documents',
+    GET: (id: string) => `/api/documents/${id}`,
+    UPLOAD: '/api/documents/upload',
+    UPDATE: (id: string) => `/api/documents/${id}`,
+    DELETE: (id: string) => `/api/documents/${id}`,
+    STATS: '/api/documents/stats/summary',
+  },
   
   // Tenant
   TENANT: {

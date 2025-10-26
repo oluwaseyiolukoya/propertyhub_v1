@@ -39,6 +39,8 @@ import cacheRoutes from './routes/cache';
 import tenantRoutes from './routes/tenant';
 // Financial routes
 import financialRoutes from './routes/financial';
+// Document routes
+import documentRoutes from './routes/documents';
 
 // Create Express app
 const app: Express = express();
@@ -145,6 +147,8 @@ app.use('/api/cache', cacheRoutes);
 app.use('/api/tenant', tenantRoutes);
 // Financial routes
 app.use('/api/financial', financialRoutes);
+// Document routes
+app.use('/api/documents', documentRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

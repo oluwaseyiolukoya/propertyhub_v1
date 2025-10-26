@@ -6,102 +6,11 @@ const router = express.Router();
 
 router.use(authMiddleware);
 
-// Get all payments
+// Get all payments (temporary stub until payments model is added)
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const { propertyId, leaseId, status, method, startDate, endDate, search } = req.query;
-    const userId = req.user?.id;
-    const role = req.user?.role;
-
-    const where: any = {};
-
-    // Filter by role access
-    if (role === 'owner' || role === 'property owner' || role === 'property_owner') {
-      where.lease = {
-        properties: { ownerId: userId }
-      };
-    } else if (role === 'manager' || role === 'property_manager') {
-      where.lease = {
-        properties: {
-          property_managers: {
-            some: {
-              managerId: userId,
-              isActive: true
-            }
-          }
-        }
-      };
-    } else if (role === 'tenant') {
-      where.lease = { tenantId: userId };
-    } else {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    // Additional filters
-    if (propertyId) {
-      where.lease = { ...where.lease, propertyId };
-    }
-
-    if (leaseId) {
-      where.leaseId = leaseId;
-    }
-
-    if (status) {
-      where.status = status;
-    }
-
-    if (method) {
-      where.paymentMethod = method;
-    }
-
-    if (startDate || endDate) {
-      where.paymentDate = {};
-      if (startDate) where.paymentDate.gte = new Date(startDate as string);
-      if (endDate) where.paymentDate.lte = new Date(endDate as string);
-    }
-
-    if (search) {
-      where.OR = [
-        { transactionId: { contains: search as string, mode: 'insensitive' } },
-        { confirmationNumber: { contains: search as string, mode: 'insensitive' } }
-      ];
-    }
-
-    const payments = await prisma.payment.findMany({
-      where,
-      include: {
-        lease: {
-          include: {
-            tenant: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                phone: true
-              }
-            },
-            property: {
-              select: {
-                id: true,
-                name: true,
-                address: true,
-                city: true
-              }
-            },
-            unit: {
-              select: {
-                id: true,
-                unitNumber: true
-              }
-            }
-          }
-        }
-      },
-      orderBy: { paymentDate: 'desc' }
-    });
-
-    return res.json(payments);
-
+    console.warn('Payments model not implemented yet - returning empty list');
+    return res.json([]);
   } catch (error: any) {
     console.error('Get payments error:', error);
     return res.status(500).json({ error: 'Failed to fetch payments' });
@@ -111,60 +20,8 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 // Get single payment
 router.get('/:id', async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
-    const userId = req.user?.id;
-    const role = req.user?.role;
-
-    const whereCondition: any = {
-      id,
-      OR: []
-    };
-
-    if (role === 'owner') {
-      whereCondition.OR.push({ lease: { property: { ownerId: userId } } });
-    } else if (role === 'manager') {
-      whereCondition.OR.push({
-        lease: {
-          property: {
-            managers: {
-              some: {
-                managerId: userId,
-                isActive: true
-              }
-            }
-          }
-        }
-      });
-    } else if (role === 'tenant') {
-      whereCondition.OR.push({ lease: { tenantId: userId } });
-    }
-
-    const payment = await prisma.payment.findFirst({
-      where: whereCondition,
-      include: {
-        lease: {
-          include: {
-            tenant: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                phone: true
-              }
-            },
-            property: true,
-            unit: true
-          }
-        }
-      }
-    });
-
-    if (!payment) {
-      return res.status(404).json({ error: 'Payment not found or access denied' });
-    }
-
-    return res.json(payment);
-
+    console.warn('Payments model not implemented yet - returning 404');
+    return res.status(404).json({ error: 'Payment not found or access denied' });
   } catch (error: any) {
     console.error('Get payment error:', error);
     return res.status(500).json({ error: 'Failed to fetch payment' });
@@ -174,106 +31,7 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
 // Create payment (record payment)
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user?.id;
-    const customerId = req.user?.customerId;
-    const role = req.user?.role;
-
-    const {
-      leaseId,
-      amount,
-      paymentMethod,
-      paymentDate,
-      type,
-      notes,
-      confirmationNumber,
-      lateFeesIncluded
-    } = req.body;
-
-    if (!leaseId || !amount || !paymentMethod || !paymentDate) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    // Verify access to lease
-    const lease = await prisma.lease.findFirst({
-      where: {
-        id: leaseId,
-        OR: [
-          { property: { ownerId: userId } },
-          {
-            property: {
-              managers: {
-                some: {
-                  managerId: userId,
-                  isActive: true
-                }
-              }
-            }
-          },
-          { tenantId: userId }
-        ]
-      },
-      include: {
-        property: true,
-        tenant: true
-      }
-    });
-
-    if (!lease) {
-      return res.status(403).json({ error: 'Lease not found or access denied' });
-    }
-
-    // Generate transaction ID
-    const transactionId = `TXN-${Date.now()}`;
-
-    const payment = await prisma.payment.create({
-      data: {
-        leaseId,
-        amount,
-        paymentMethod,
-        paymentDate: new Date(paymentDate),
-        type: type || 'rent',
-        status: 'completed',
-        transactionId,
-        confirmationNumber,
-        lateFeesIncluded: lateFeesIncluded || 0,
-        notes,
-        processedById: userId
-      },
-      include: {
-        lease: {
-          include: {
-            tenant: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
-            },
-            property: {
-              select: {
-                id: true,
-                name: true
-              }
-            }
-          }
-        }
-      }
-    });
-
-    // Log activity
-    await prisma.activityLog.create({
-      data: {
-        customerId,
-        userId,
-        action: 'create',
-        entity: 'payment',
-        entityId: payment.id,
-        description: `Payment of ${amount} recorded for ${lease.tenant.name}`
-      }
-    });
-
-    return res.status(201).json(payment);
-
+    return res.status(400).json({ error: 'Payments not implemented yet' });
   } catch (error: any) {
     console.error('Create payment error:', error);
     return res.status(500).json({ error: 'Failed to create payment' });
@@ -293,61 +51,8 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ error: 'Insufficient permissions' });
     }
 
-    // Check access
-    const existing = await prisma.payment.findFirst({
-      where: {
-        id,
-        lease: {
-          property: {
-            OR: [
-              { ownerId: userId },
-              {
-                managers: {
-                  some: {
-                    managerId: userId,
-                    isActive: true
-                  }
-                }
-              }
-            ]
-          }
-        }
-      },
-      include: { lease: { include: { property: true } } }
-    });
-
-    if (!existing) {
-      return res.status(404).json({ error: 'Payment not found or access denied' });
-    }
-
-    const {
-      status,
-      notes,
-      confirmationNumber
-    } = req.body;
-
-    const payment = await prisma.payment.update({
-      where: { id },
-      data: {
-        status,
-        notes,
-        confirmationNumber
-      }
-    });
-
-    // Log activity
-    await prisma.activityLog.create({
-      data: {
-        customerId,
-        userId,
-        action: 'update',
-        entity: 'payment',
-        entityId: payment.id,
-        description: `Payment ${payment.transactionId} updated`
-      }
-    });
-
-    return res.json(payment);
+    // Not implemented yet
+    return res.status(400).json({ error: 'Payments not implemented yet' });
 
   } catch (error: any) {
     console.error('Update payment error:', error);
@@ -519,11 +224,11 @@ router.get('/overdue/list', async (req: AuthRequest, res: Response) => {
       where.propertyId = propertyId;
     }
 
-    // Get active leases
-    const leases = await prisma.lease.findMany({
+    // Get active leases (use correct pluralized models)
+    const leases = await prisma.leases.findMany({
       where,
       include: {
-        tenant: {
+        users: {
           select: {
             id: true,
             name: true,
@@ -531,24 +236,17 @@ router.get('/overdue/list', async (req: AuthRequest, res: Response) => {
             phone: true
           }
         },
-        property: {
+        properties: {
           select: {
             id: true,
             name: true
           }
         },
-        unit: {
+        units: {
           select: {
             id: true,
             unitNumber: true
           }
-        },
-        payments: {
-          where: {
-            status: 'completed'
-          },
-          orderBy: { paymentDate: 'desc' },
-          take: 1
         }
       }
     });
@@ -556,20 +254,17 @@ router.get('/overdue/list', async (req: AuthRequest, res: Response) => {
     // Calculate overdue
     const currentDate = new Date();
     const overdueLeases = leases.map(lease => {
-      const lastPayment = lease.payments[0];
-      const daysSincePayment = lastPayment
-        ? Math.floor((currentDate.getTime() - new Date(lastPayment.paymentDate).getTime()) / (1000 * 60 * 60 * 24))
-        : Math.floor((currentDate.getTime() - new Date(lease.startDate).getTime()) / (1000 * 60 * 60 * 24));
+      const daysSincePayment = Math.floor((currentDate.getTime() - new Date(lease.startDate).getTime()) / (1000 * 60 * 60 * 24));
 
       const isOverdue = daysSincePayment > 30; // More than 30 days
 
       return {
         leaseId: lease.id,
-        tenant: lease.tenant,
-        property: lease.property,
-        unit: lease.unit,
+        tenant: lease.users,
+        property: lease.properties,
+        unit: lease.units,
         monthlyRent: lease.monthlyRent,
-        lastPaymentDate: lastPayment?.paymentDate || null,
+        lastPaymentDate: null,
         daysSincePayment,
         isOverdue,
         estimatedOverdueAmount: isOverdue ? lease.monthlyRent * Math.floor(daysSincePayment / 30) : 0

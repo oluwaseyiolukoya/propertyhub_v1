@@ -78,8 +78,9 @@ async function request<T>(
 ): Promise<ApiResponse<T>> {
   const token = getAuthToken();
   
+  const isFormData = options.body instanceof FormData;
   const headers: HeadersInit = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...options.headers,
   };
 
@@ -211,9 +212,10 @@ export const apiClient = {
    * POST request
    */
   post: <T>(endpoint: string, body?: any, extra?: { suppressAuthRedirect?: boolean }): Promise<ApiResponse<T>> => {
+    const isFormData = body instanceof FormData;
     return request<T>(endpoint, {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: isFormData ? body : JSON.stringify(body ?? {}),
     }, extra);
   },
 
@@ -221,9 +223,10 @@ export const apiClient = {
    * PUT request
    */
   put: <T>(endpoint: string, body?: any, extra?: { suppressAuthRedirect?: boolean }): Promise<ApiResponse<T>> => {
+    const isFormData = body instanceof FormData;
     return request<T>(endpoint, {
       method: 'PUT',
-      body: JSON.stringify(body),
+      body: isFormData ? body : JSON.stringify(body ?? {}),
     }, extra);
   },
 
@@ -231,9 +234,10 @@ export const apiClient = {
    * PATCH request
    */
   patch: <T>(endpoint: string, body?: any, extra?: { suppressAuthRedirect?: boolean }): Promise<ApiResponse<T>> => {
+    const isFormData = body instanceof FormData;
     return request<T>(endpoint, {
       method: 'PATCH',
-      body: JSON.stringify(body),
+      body: isFormData ? body : JSON.stringify(body ?? {}),
     }, extra);
   },
 
