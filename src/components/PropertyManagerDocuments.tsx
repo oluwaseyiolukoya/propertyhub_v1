@@ -639,6 +639,29 @@ const PropertyManagerDocuments: React.FC = () => {
     }
   };
 
+  const handleMakeActive = async (doc: Document) => {
+    if (!confirm('Are you sure you want to make this contract active? This will send it to the tenant for signature.')) {
+      return;
+    }
+
+    try {
+      const { error } = await updateDocument(doc.id, {
+        status: 'active'
+      });
+
+      if (error) {
+        toast.error(error);
+      } else {
+        toast.success('Contract activated successfully');
+        await loadDocuments();
+        await loadStats();
+      }
+    } catch (error) {
+      console.error('Activate contract error:', error);
+      toast.error('Failed to activate contract');
+    }
+  };
+
   const openGenerateDialog = () => {
     setContractForm({
       tenantId: '',
@@ -842,13 +865,13 @@ ${contractForm.specialTerms ? `
 
   // Show Template Manager as full page
   if (showTemplateManager) {
-    return (
-      <div className="space-y-6">
+  return (
+    <div className="space-y-6">
         <DocumentTemplateManager 
           onSelectTemplate={handleTemplateSelect}
           onClose={() => setShowTemplateManager(false)}
         />
-      </div>
+        </div>
     );
   }
 
@@ -933,17 +956,17 @@ ${contractForm.specialTerms ? `
                   <CardDescription>Generate and manage tenant lease agreements</CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
+            <Button
+              variant="outline"
                     onClick={() => setShowTemplateManager(true)}
                   >
                     <FileText className="h-4 w-4 mr-2" />
                     Manage Templates
-                  </Button>
+            </Button>
                   <Button onClick={openGenerateDialog}>
                     <Plus className="h-4 w-4 mr-2" />
                     Generate Contract
-                  </Button>
+            </Button>
                 </div>
               </div>
         </CardHeader>
@@ -1001,7 +1024,7 @@ ${contractForm.specialTerms ? `
                       Clear Filters
             </Button>
                   )}
-                </div>
+          </div>
               </div>
               <Table>
                 <TableHeader>
@@ -1067,9 +1090,17 @@ ${contractForm.specialTerms ? `
                                 <Eye className="h-4 w-4 mr-2" /> View Details
                               </DropdownMenuItem>
                               {doc.status === 'draft' && doc.type === 'tenant-contract' ? (
-                                <DropdownMenuItem onClick={() => handleEditContract(doc)}>
-                                  <FileSignature className="h-4 w-4 mr-2" /> Edit Contract
-                                </DropdownMenuItem>
+                                <>
+                                  <DropdownMenuItem onClick={() => handleEditContract(doc)}>
+                                    <FileSignature className="h-4 w-4 mr-2" /> Edit Contract
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem 
+                                    onClick={() => handleMakeActive(doc)}
+                                    className="text-green-600"
+                                  >
+                                    <FileCheck className="h-4 w-4 mr-2" /> Make Active
+                                  </DropdownMenuItem>
+                                </>
                               ) : null}
                               <DropdownMenuItem onClick={() => handleDownload(doc)}>
                                 <Download className="h-4 w-4 mr-2" /> Download
@@ -1431,7 +1462,7 @@ ${contractForm.specialTerms ? `
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+                      </div>
 
             <div className="space-y-2">
               <Label htmlFor="unit">Unit/Apartment</Label>
@@ -1454,7 +1485,7 @@ ${contractForm.specialTerms ? `
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+                  </div>
 
             <div className="space-y-2">
               <Label htmlFor="tenant">Tenant *</Label>
@@ -1473,7 +1504,7 @@ ${contractForm.specialTerms ? `
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+                      </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -1484,7 +1515,7 @@ ${contractForm.specialTerms ? `
                   value={contractForm.startDate}
                   onChange={(e) => setContractForm({ ...contractForm, startDate: e.target.value })}
                 />
-              </div>
+                  </div>
               <div className="space-y-2">
                 <Label htmlFor="endDate">End Date *</Label>
                 <Input
@@ -1493,8 +1524,8 @@ ${contractForm.specialTerms ? `
                   value={contractForm.endDate}
                   onChange={(e) => setContractForm({ ...contractForm, endDate: e.target.value })}
                 />
-              </div>
-            </div>
+                      </div>
+                  </div>
 
             <div className="space-y-2">
               <Label htmlFor="compensation">Monthly Rent *</Label>
@@ -1514,7 +1545,7 @@ ${contractForm.specialTerms ? `
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="responsibilities">Tenant Responsibilities</Label>
-                <Select
+              <Select
                   value=""
                   onValueChange={(value) => {
                     if (value && value !== 'custom') {
@@ -1528,15 +1559,15 @@ ${contractForm.specialTerms ? `
                 >
                   <SelectTrigger className="w-[200px] h-8">
                     <SelectValue placeholder="Use Template" />
-                  </SelectTrigger>
-                  <SelectContent>
+                </SelectTrigger>
+                <SelectContent>
                     {responsibilityTemplates.map((template) => (
                       <SelectItem key={template.name} value={template.name}>
                         {template.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               </div>
               <Textarea
                 id="responsibilities"
@@ -1550,7 +1581,7 @@ ${contractForm.specialTerms ? `
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="specialTerms">Special Terms & Conditions</Label>
-                <Select
+              <Select
                   value=""
                   onValueChange={(value) => {
                     if (value && value !== 'custom') {
@@ -1564,16 +1595,16 @@ ${contractForm.specialTerms ? `
                 >
                   <SelectTrigger className="w-[200px] h-8">
                     <SelectValue placeholder="Use Template" />
-                  </SelectTrigger>
-                  <SelectContent>
+                </SelectTrigger>
+                <SelectContent>
                     {specialTermsTemplates.map((template) => (
                       <SelectItem key={template.name} value={template.name}>
                         {template.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
               <Textarea
                 id="specialTerms"
                 placeholder="Enter any special terms or conditions or use a template above"
