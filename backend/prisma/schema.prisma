@@ -72,6 +72,38 @@ model customers {
   support_tickets       support_tickets[]
   users                 users[]
   customer_users        customer_users[]
+  documents             documents[]
+}
+
+model documents {
+  id              String      @id
+  customerId      String
+  propertyId      String?
+  unitId          String?
+  tenantId        String?
+  managerId       String?
+  name            String
+  type            String
+  category        String
+  fileUrl         String
+  fileSize        Int?
+  format          String?
+  description     String?
+  uploadedBy      String
+  uploadedById    String
+  status          String      @default("active")
+  metadata        Json?
+  isShared        Boolean     @default(false)
+  sharedWith      String[]    @default([])
+  expiresAt       DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime
+  customers       customers   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  properties      properties? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  units           units?      @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  tenant          users?      @relation("TenantDocuments", fields: [tenantId], references: [id], onDelete: Cascade)
+  manager         users?      @relation("ManagerDocuments", fields: [managerId], references: [id], onDelete: SetNull)
+  uploader        users       @relation("UploaderDocuments", fields: [uploadedById], references: [id])
 }
 
 model invoices {
@@ -182,6 +214,7 @@ model properties {
   users                 users               @relation(fields: [ownerId], references: [id])
   property_managers     property_managers[]
   units                 units[]
+  documents             documents[]
 }
 
 model customer_users {
@@ -284,6 +317,7 @@ model units {
   updatedAt       DateTime
   leases          leases[]
   properties      properties @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  documents       documents[]
 
   @@unique([propertyId, unitNumber])
 }
@@ -307,10 +341,13 @@ model users {
   permissions       Json?
   createdAt         DateTime            @default(now())
   updatedAt         DateTime
-  activity_logs     activity_logs[]
-  leases            leases[]
-  properties        properties[]
-  property_managers property_managers[]
-  customers         customers?          @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  customer_users    customer_users[]
+  activity_logs          activity_logs[]
+  leases                 leases[]
+  properties             properties[]
+  property_managers      property_managers[]
+  customers              customers?          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer_users         customer_users[]
+  tenantDocuments        documents[]         @relation("TenantDocuments")
+  managerDocuments       documents[]         @relation("ManagerDocuments")
+  uploadedDocuments      documents[]         @relation("UploaderDocuments")
 }

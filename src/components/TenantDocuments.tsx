@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -9,16 +9,140 @@ import {
   Search,
   File,
   FileCheck,
-  Calendar
+  Calendar,
+  Loader2,
+  Receipt,
+  ClipboardList,
+  Shield
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Badge } from './ui/badge';
 import { toast } from 'sonner';
+import {
+  getDocuments,
+  getDocumentStats,
+  getDocumentDownloadUrl,
+  Document,
+  DocumentStats,
+} from '../lib/api';
 
 const TenantDocuments: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [stats, setStats] = useState<DocumentStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('all');
 
-  // Mock data
-  const documents = [
+  // Load documents on mount
+  useEffect(() => {
+    loadDocuments();
+    loadStats();
+  }, []);
+
+  const loadDocuments = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await getDocuments();
+      if (error) {
+        console.error('Failed to load documents:', error);
+        toast.error('Failed to load documents');
+      } else if (data) {
+        setDocuments(data);
+      }
+    } catch (error) {
+      console.error('Load documents error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadStats = async () => {
+    try {
+      const { data, error } = await getDocumentStats();
+      if (error) {
+        console.error('Failed to load stats:', error);
+      } else if (data) {
+        setStats(data);
+      }
+    } catch (error) {
+      console.error('Load stats error:', error);
+    }
+  };
+
+  // Filter documents based on active tab and search
+  const getFilteredDocuments = () => {
+    let filtered = documents;
+
+    // Filter by tab
+    if (activeTab !== 'all') {
+      if (activeTab === 'leases') {
+        filtered = filtered.filter(doc => doc.type === 'lease' || doc.category?.includes('Lease'));
+      } else if (activeTab === 'receipts') {
+        filtered = filtered.filter(doc => doc.type === 'receipt' || doc.category?.includes('Receipt'));
+      } else if (activeTab === 'policies') {
+        filtered = filtered.filter(doc => doc.type === 'policy' || doc.category?.includes('Polic'));
+      } else if (activeTab === 'notices') {
+        filtered = filtered.filter(doc => doc.type === 'notice' || doc.category?.includes('Notice'));
+      }
+    }
+
+    // Filter by search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(doc =>
+        doc.name.toLowerCase().includes(query) ||
+        doc.type.toLowerCase().includes(query) ||
+        doc.category.toLowerCase().includes(query) ||
+        doc.description?.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
+  };
+
+  const handleDownload = (doc: Document) => {
+    const downloadUrl = getDocumentDownloadUrl(doc.fileUrl);
+    window.open(downloadUrl, '_blank');
+    toast.success(`Downloading ${doc.name}`);
+  };
+
+  const formatFileSize = (bytes: number | null | undefined): string => {
+    if (!bytes) return 'Unknown';
+    const kb = bytes / 1024;
+    if (kb < 1024) return `${kb.toFixed(0)} KB`;
+    const mb = kb / 1024;
+    return `${mb.toFixed(1)} MB`;
+  };
+
+  const formatDate = (date: string): string => {
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const getTypeIcon = (type: string) => {
+    switch (type?.toLowerCase()) {
+      case 'lease':
+        return <FileText className="h-4 w-4" />;
+      case 'receipt':
+        return <Receipt className="h-4 w-4" />;
+      case 'inspection':
+        return <ClipboardList className="h-4 w-4" />;
+      case 'policy':
+        return <Shield className="h-4 w-4" />;
+      case 'notice':
+        return <FileCheck className="h-4 w-4" />;
+      default:
+        return <File className="h-4 w-4" />;
+    }
+  };
+
+  const filteredDocuments = getFilteredDocuments();
+
+  // Mock data for backward compatibility (keeping structure intact)
+  const mockDocuments = [
     {
       id: 1,
       name: "Lease Agreement 2024",
@@ -143,24 +267,11 @@ const TenantDocuments: React.FC = () => {
     }
   };
 
-  const filteredDocuments = documents.filter(doc =>
-    doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    doc.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    doc.category.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const leaseDocuments = documents.filter(doc => doc.type === 'lease' || doc.type === 'inspection');
-  const receipts = documents.filter(doc => doc.type === 'receipt');
-  const policies = documents.filter(doc => doc.type === 'policy' || doc.type === 'notice');
-  const insurance = documents.filter(doc => doc.type === 'insurance');
-
-  const handleDownload = (documentName: string) => {
-    toast.success(`Downloading ${documentName}...`);
-  };
-
-  const handleView = (documentName: string) => {
-    toast.info(`Opening ${documentName}...`);
-  };
+  // Use the filtered documents from getFilteredDocuments() above
+  const leaseDocuments = filteredDocuments.filter(doc => doc.type === 'lease' || doc.type === 'inspection');
+  const receipts = filteredDocuments.filter(doc => doc.type === 'receipt');
+  const policies = filteredDocuments.filter(doc => doc.type === 'policy' || doc.type === 'notice');
+  const insuranceDocs = filteredDocuments.filter(doc => doc.type === 'insurance');
 
   const DocumentCard = ({ doc }: { doc: any }) => (
     <Card className="hover:border-blue-300 transition-colors">
@@ -274,7 +385,7 @@ const TenantDocuments: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="all" className="space-y-4">
+      <Tabs defaultValue="lease" className="space-y-4">
         <TabsList>
           <TabsTrigger value="all">All Documents</TabsTrigger>
           <TabsTrigger value="lease">Lease & Inspections</TabsTrigger>
