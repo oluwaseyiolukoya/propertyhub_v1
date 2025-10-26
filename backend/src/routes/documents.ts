@@ -93,7 +93,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         ]
       };
     } else if (role === 'manager' || role === 'property_manager') {
-      // Manager can see documents for properties they manage
+      // Manager can see documents they created or are assigned to
       const managedProperties = await prisma.property_managers.findMany({
         where: {
           managerId: userId,
@@ -103,7 +103,17 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       });
 
       const propertyIds = managedProperties.map(pm => pm.propertyId);
-      whereClause = { propertyId: { in: propertyIds } };
+      whereClause = {
+        AND: [
+          { propertyId: { in: propertyIds } },
+          {
+            OR: [
+              { uploadedById: userId }, // Documents uploaded by this manager
+              { managerId: userId }      // Documents assigned to this manager
+            ]
+          }
+        ]
+      };
     } else if (role === 'tenant') {
       // Tenant can only see their own documents
       whereClause = { tenantId: userId };
@@ -121,13 +131,19 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     if (category) whereClause.category = category as string;
     // Status filtering rules
     // - Owners: by default show everything except deleted
-    // - Managers/Tenants: by default show only active documents
+    // - Managers: by default show active and draft documents (their own drafts)
+    // - Tenants: by default show only active documents
     if (status && status !== '') {
       whereClause.status = status as string;
     } else {
-      if (role === 'manager' || role === 'property_manager' || role === 'tenant') {
+      if (role === 'manager' || role === 'property_manager') {
+        // Managers can see active and draft documents
+        whereClause.status = { in: ['active', 'draft'] };
+      } else if (role === 'tenant') {
+        // Tenants can only see active documents
         whereClause.status = 'active';
       } else {
+        // Owners can see everything except deleted
         whereClause.status = { not: 'deleted' };
       }
     }
@@ -302,6 +318,9 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       select: { name: true, role: true }
     });
 
+    // If the uploader is a manager, set managerId to their ID
+    const finalManagerId = (role === 'manager' || role === 'property_manager') ? userId : (managerId || null);
+
     const document = await prisma.documents.create({
       data: {
         id: crypto.randomUUID(),
@@ -309,7 +328,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         propertyId: propertyId || null,
         unitId: unitId || null,
         tenantId: tenantId || null,
-        managerId: managerId || null,
+        managerId: finalManagerId,
         name,
         type,
         category,
@@ -479,6 +498,9 @@ router.post('/upload', (req: AuthRequest, res: Response, next) => {
       format
     });
 
+    // If the uploader is a manager, set managerId to their ID
+    const finalManagerId = (role === 'manager' || role === 'property_manager') ? userId : (managerId || null);
+
     const document = await prisma.documents.create({
       data: {
         id: crypto.randomUUID(),
@@ -486,7 +508,7 @@ router.post('/upload', (req: AuthRequest, res: Response, next) => {
         propertyId: propertyId || null,
         unitId: unitId || null,
         tenantId: tenantId || null,
-        managerId: managerId || null,
+        managerId: finalManagerId,
         name: name || file.originalname,
         type,
         category,
@@ -690,7 +712,7 @@ router.get('/stats/summary', async (req: AuthRequest, res: Response) => {
         status: { not: 'deleted' }
       };
     } else if (role === 'manager' || role === 'property_manager') {
-      // Manager can only see active documents for properties they manage
+      // Manager can see documents they created or are assigned to
       const managedProperties = await prisma.property_managers.findMany({
         where: {
           managerId: userId,
@@ -700,8 +722,16 @@ router.get('/stats/summary', async (req: AuthRequest, res: Response) => {
       });
       const propertyIds = managedProperties.map(pm => pm.propertyId);
       whereClause = {
-        propertyId: { in: propertyIds },
-        status: 'active'
+        AND: [
+          { propertyId: { in: propertyIds } },
+          {
+            OR: [
+              { uploadedById: userId }, // Documents uploaded by this manager
+              { managerId: userId }      // Documents assigned to this manager
+            ]
+          }
+        ],
+        status: { in: ['active', 'draft'] }
       };
     } else if (role === 'tenant') {
       // Tenant can only see their own active documents
@@ -767,8 +797,20 @@ router.get('/:id/download/:format', async (req: AuthRequest, res: Response) => {
     }
 
     // Check access permissions
+    console.log('Download access check:', {
+      userId,
+      role,
+      documentId: document.id,
+      documentUploadedById: document.uploadedById,
+      documentManagerId: document.managerId,
+      documentPropertyId: document.propertyId
+    });
+    
     const hasAccess = await checkDocumentAccess(userId!, role!, document);
+    console.log('Download access result:', hasAccess);
+    
     if (!hasAccess) {
+      console.error('Download access denied for user:', userId, 'role:', role);
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -1018,7 +1060,13 @@ async function checkDocumentAccess(userId: string, role: string, document: any):
     
     return false;
   } else if (role === 'manager' || role === 'property_manager') {
-    // Check if user manages the property
+    // Manager can access documents they created or are assigned to
+    // First check if they uploaded it or it's assigned to them
+    if (document.uploadedById === userId || document.managerId === userId) {
+      return true;
+    }
+    
+    // Also check if they manage the property (for backward compatibility)
     if (document.propertyId) {
       const assignment = await prisma.property_managers.findFirst({
         where: {
@@ -1027,7 +1075,10 @@ async function checkDocumentAccess(userId: string, role: string, document: any):
           isActive: true
         }
       });
-      return !!assignment;
+      if (assignment) {
+        // Additional check: they must be the uploader or assigned manager
+        return document.uploadedById === userId || document.managerId === userId;
+      }
     }
     return false;
   } else if (role === 'tenant') {

@@ -18,14 +18,18 @@ export const authMiddleware = async (
   next: NextFunction
 ) => {
   try {
+    console.log('🔐 Auth middleware called for:', req.method, req.path);
     const token = req.headers.authorization?.replace('Bearer ', '');
 
     if (!token) {
+      console.log('❌ Auth failed: No token provided for', req.method, req.path);
       return res.status(401).json({ error: 'No token provided' });
     }
 
+    console.log('🔑 Verifying token for:', req.method, req.path);
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as any;
     req.user = decoded;
+    console.log('✅ Auth success:', decoded.role, decoded.email, 'accessing', req.method, req.path);
 
     // Optional: feature-flagged permissions change invalidation (disabled by default)
     // We rely on /api/auth/validate-session for authoritative checks (role/status/isActive)
@@ -105,7 +109,10 @@ export const authMiddleware = async (
     }
 
     next();
-  } catch (error) {
+  } catch (error: any) {
+    console.log('❌ Auth failed: Invalid token for', req.method, req.path);
+    console.log('❌ Token error details:', error.name, error.message);
+    console.log('❌ Token value (first 20 chars):', req.headers.authorization?.substring(0, 27));
     return res.status(401).json({ error: 'Invalid token' });
   }
 };
