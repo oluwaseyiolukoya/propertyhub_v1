@@ -192,12 +192,13 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Missing required fields: name, email, role' });
     }
 
-    // Check if email already exists
-    const existingUser = await prisma.users.findUnique({
-      where: { email }
-    });
+    // Check if email already exists in users or admins
+    const [existingUser, existingAdmin] = await Promise.all([
+      prisma.users.findUnique({ where: { email } }),
+      prisma.admins.findUnique({ where: { email } })
+    ]);
 
-    if (existingUser) {
+    if (existingUser || existingAdmin) {
       return res.status(400).json({ error: 'Email already exists' });
     }
 
@@ -205,8 +206,10 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-2).toUpperCase();
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
-    const user = await prisma.users.create({
-      data: {
+    let user;
+    try {
+      user = await prisma.users.create({
+        data: {
         customerId: null, // INTERNAL ADMIN USER - not associated with any customer
         name,
         email,
@@ -219,8 +222,15 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         isActive: isActive !== undefined ? isActive : true,
         status: sendInvite ? 'pending' : 'active',
         invitedAt: sendInvite ? new Date() : null
+        }
+      });
+    } catch (e: any) {
+      console.error('❌ Failed to create internal user:', e);
+      if (e?.code === 'P2002') {
+        return res.status(400).json({ error: 'Email already exists' });
       }
-    });
+      return res.status(500).json({ error: 'Failed to create user' });
+    }
 
     console.log('✅ Internal admin user created:', user.email);
 

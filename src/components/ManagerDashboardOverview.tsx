@@ -59,6 +59,12 @@ export const ManagerDashboardOverview: React.FC<ManagerDashboardOverviewProps> =
     hasMultipleCurrencies: dashboardData.revenue?.hasMultipleCurrencies || false,
     openMaintenance: dashboardData.maintenance?.open || 0,
     urgentMaintenance: dashboardData.maintenance?.urgent || 0,
+    totalExpenses: dashboardData.expenses?.total || 0,
+    totalExpensesCount: dashboardData.expenses?.totalCount || 0,
+    pendingExpenses: dashboardData.expenses?.pending || 0,
+    pendingExpensesCount: dashboardData.expenses?.pendingCount || 0,
+    paidExpenses: dashboardData.expenses?.paid || 0,
+    paidExpensesCount: dashboardData.expenses?.paidCount || 0
   } : {
     totalProperties: properties.length,
     totalUnits: 0,
@@ -73,6 +79,12 @@ export const ManagerDashboardOverview: React.FC<ManagerDashboardOverviewProps> =
     hasMultipleCurrencies: false,
     openMaintenance: 0,
     urgentMaintenance: 0,
+    totalExpenses: 0,
+    totalExpensesCount: 0,
+    pendingExpenses: 0,
+    pendingExpensesCount: 0,
+    paidExpenses: 0,
+    paidExpensesCount: 0
   };
 
   // Fetch activities when component mounts or page changes
@@ -338,6 +350,22 @@ export const ManagerDashboardOverview: React.FC<ManagerDashboardOverviewProps> =
                   <span className="text-sm font-semibold">{formatCurrency(metrics.monthlyRevenue, metrics.primaryCurrency)}</span>
                 )}
               </div>
+              {metrics.totalExpensesCount > 0 && (
+                <>
+                  <div className="flex justify-between items-center pt-2 border-t">
+                    <span className="text-sm text-gray-600">Total Expenses</span>
+                    <span className="text-sm font-semibold">{formatCurrency(metrics.totalExpenses, metrics.primaryCurrency)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Pending</span>
+                    <span className="text-sm font-semibold text-yellow-600">{formatCurrency(metrics.pendingExpenses, metrics.primaryCurrency)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Paid</span>
+                    <span className="text-sm font-semibold text-green-600">{formatCurrency(metrics.paidExpenses, metrics.primaryCurrency)}</span>
+                  </div>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>

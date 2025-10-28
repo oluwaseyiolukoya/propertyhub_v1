@@ -9,17 +9,25 @@ router.use(authMiddleware);
 // Get financial overview
 router.get('/overview', async (req: AuthRequest, res: Response) => {
   try {
+    console.log('📊 Financial overview requested by:', req.user?.role, req.user?.email);
     const userId = req.user?.id;
-    const role = req.user?.role;
+    const roleRaw = req.user?.role || '';
+    const normalizedRole = roleRaw.toLowerCase().replace(/[\s_-]/g, '');
+    const isOwner = normalizedRole === 'owner' || normalizedRole === 'propertyowner';
+    const isManager = normalizedRole === 'manager' || normalizedRole === 'propertymanager';
     const { startDate, endDate } = req.query;
 
-    if (role !== 'owner' && role !== 'manager') {
+    if (!isOwner && !isManager) {
+      console.log('❌ Access denied for role:', roleRaw);
       return res.status(403).json({ error: 'Access denied' });
     }
+    
+    console.log('✅ Access granted, fetching properties for user:', userId);
 
     // Get properties for the user
+    // NOTE: Use include with relation filters; do not mix include and select in the same query
     const properties = await prisma.properties.findMany({
-      where: role === 'owner' 
+      where: isOwner
         ? { ownerId: userId }
         : {
             property_managers: {
@@ -45,32 +53,14 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
             securityDeposit: true
           }
         }
-      },
-      select: {
-        id: true,
-        name: true,
-        purchasePrice: true,
-        currentValue: true,
-        units: {
-          select: {
-            monthlyRent: true,
-            status: true
-          }
-        },
-        leases: {
-          where: {
-            status: 'active'
-          },
-          select: {
-            monthlyRent: true,
-            securityDeposit: true
-          }
-        }
       }
     });
 
+    console.log(`📦 Found ${properties.length} properties for user`);
+    
     // If no properties, return empty data
     if (properties.length === 0) {
+      console.log('⚠️  No properties found, returning empty data');
       return res.json({
         totalRevenue: 0,
         netOperatingIncome: 0,
@@ -120,8 +110,26 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
       }
     });
 
-    // Calculate expenses (estimated at 30% of revenue for now)
-    const estimatedExpenses = totalRevenue * 0.3;
+    // Calculate actual expenses from database
+    const propertyIds = properties.map(p => p.id);
+    const actualExpenses = await prisma.expenses.aggregate({
+      where: {
+        propertyId: { in: propertyIds },
+        status: { in: ['paid', 'pending'] }, // Include paid and pending expenses
+        ...(startDate && endDate ? {
+          date: {
+            gte: new Date(startDate as string),
+            lte: new Date(endDate as string)
+          }
+        } : {})
+      },
+      _sum: {
+        amount: true
+      }
+    });
+
+    // Use actual expenses if available, otherwise estimate at 30% of revenue
+    const estimatedExpenses = actualExpenses._sum.amount || (totalRevenue * 0.3);
     
     // Net Operating Income (NOI) = Revenue - Operating Expenses
     const netOperatingIncome = totalRevenue - estimatedExpenses;
@@ -135,6 +143,15 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
 
     // Occupancy rate
     const occupancyRate = totalUnits > 0 ? (totalOccupiedUnits / totalUnits) * 100 : 0;
+
+    console.log('💰 Financial Overview Calculated:', {
+      totalRevenue,
+      netOperatingIncome,
+      estimatedExpenses,
+      portfolioCapRate,
+      totalUnits,
+      occupiedUnits: totalOccupiedUnits
+    });
 
     return res.json({
       totalRevenue,
@@ -153,8 +170,8 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error('Get financial overview error:', error);
-    console.error('Error details:', error.message, error.stack);
+    console.error('❌ Get financial overview error:', error);
+    console.error('❌ Error details:', error.message, error.stack);
     return res.status(500).json({ 
       error: 'Failed to fetch financial overview',
       details: error.message 

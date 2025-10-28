@@ -662,6 +662,29 @@ const PropertyManagerDocuments: React.FC = () => {
     }
   };
 
+  const handleMakeInactive = async (doc: Document) => {
+    if (!confirm('Are you sure you want to make this document inactive? It will be hidden from the tenant.')) {
+      return;
+    }
+
+    try {
+      const { error } = await updateDocument(doc.id, {
+        status: 'inactive'
+      });
+
+      if (error) {
+        toast.error(error);
+      } else {
+        toast.success('Document marked as inactive');
+        await loadDocuments();
+        await loadStats();
+      }
+    } catch (error) {
+      console.error('Make inactive error:', error);
+      toast.error('Failed to make document inactive');
+    }
+  };
+
   const openGenerateDialog = () => {
     setContractForm({
       tenantId: '',
@@ -1108,6 +1131,23 @@ ${contractForm.specialTerms ? `
                               {doc.status !== 'draft' && (
                                 <DropdownMenuItem onClick={() => handleShare(doc)}>
                                   <Share2 className="h-4 w-4 mr-2" /> Share
+                                </DropdownMenuItem>
+                              )}
+                              {/* Only show Make Active/Inactive for generated contracts (no fileUrl) */}
+                              {!doc.fileUrl && doc.status === 'active' && (
+                                <DropdownMenuItem 
+                                  onClick={() => handleMakeInactive(doc)}
+                                  className="text-orange-600"
+                                >
+                                  <FileWarning className="h-4 w-4 mr-2" /> Make Inactive
+                                </DropdownMenuItem>
+                              )}
+                              {!doc.fileUrl && doc.status === 'inactive' && (
+                                <DropdownMenuItem 
+                                  onClick={() => handleMakeActive(doc)}
+                                  className="text-green-600"
+                                >
+                                  <FileCheck className="h-4 w-4 mr-2" /> Make Active
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuSeparator />

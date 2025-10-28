@@ -41,7 +41,13 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     occupiedUnits: dashboardData.portfolio?.occupiedUnits || 0,
     maintenanceTickets: dashboardData.operations?.pendingMaintenance || 0,
     expiringLeases: dashboardData.operations?.expiringLeases || 0,
-    activeManagers: dashboardData.operations?.activeManagers || 0
+    activeManagers: dashboardData.operations?.activeManagers || 0,
+    totalExpenses: dashboardData.expenses?.total || 0,
+    totalExpensesCount: dashboardData.expenses?.totalCount || 0,
+    pendingExpenses: dashboardData.expenses?.pending || 0,
+    pendingExpensesCount: dashboardData.expenses?.pendingCount || 0,
+    paidExpenses: dashboardData.expenses?.paid || 0,
+    paidExpensesCount: dashboardData.expenses?.paidCount || 0
   } : {
     totalRevenue: properties.reduce((sum: number, p: any) => sum + (p.totalMonthlyIncome || 0), 0),
     totalProperties: properties.length,
@@ -52,7 +58,13 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     occupiedUnits: properties.reduce((sum: number, p: any) => sum + (p.occupiedUnits || 0), 0),
     maintenanceTickets: 0,
     expiringLeases: 0,
-    activeManagers: 0
+    activeManagers: 0,
+    totalExpenses: 0,
+    totalExpensesCount: 0,
+    pendingExpenses: 0,
+    pendingExpensesCount: 0,
+    paidExpenses: 0,
+    paidExpensesCount: 0
   };
 
   // Fetch activities when component mounts or page changes
@@ -168,6 +180,50 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </CardContent>
         </Card>
       </div>
+
+      {/* Expense Metrics */}
+      {metrics.totalExpensesCount > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">₦{metrics.totalExpenses.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">
+                {metrics.totalExpensesCount} transaction{metrics.totalExpensesCount !== 1 ? 's' : ''}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending Expenses</CardTitle>
+              <Clock className="h-4 w-4 text-yellow-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-yellow-600">₦{metrics.pendingExpenses.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">
+                {metrics.pendingExpensesCount} pending
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Paid Expenses</CardTitle>
+              <CheckCircle className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">₦{metrics.paidExpenses.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">
+                {metrics.paidExpensesCount} paid
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Properties List */}
       <Card>
