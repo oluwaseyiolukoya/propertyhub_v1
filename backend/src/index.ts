@@ -39,6 +39,8 @@ import cacheRoutes from './routes/cache';
 import tenantRoutes from './routes/tenant';
 // Financial routes
 import financialRoutes from './routes/financial';
+// Expense routes
+import expenseRoutes from './routes/expenses';
 // Document routes
 import documentRoutes from './routes/documents';
 
@@ -147,6 +149,8 @@ app.use('/api/cache', cacheRoutes);
 app.use('/api/tenant', tenantRoutes);
 // Financial routes
 app.use('/api/financial', financialRoutes);
+// Expense routes
+app.use('/api/expenses', expenseRoutes);
 // Document routes
 app.use('/api/documents', documentRoutes);
 

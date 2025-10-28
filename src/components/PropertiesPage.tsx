@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Progress } from "./ui/progress";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { toast } from "sonner";
 import { getUnits, createUnit, updateUnit, deleteUnit, getUnit } from '../lib/api/units';
 import { archiveProperty, deleteProperty } from '../lib/api/properties';
@@ -16,8 +17,12 @@ import { Switch } from "./ui/switch";
 import { getMaintenanceRequests } from '../lib/api/maintenance';
 import { getOwnerDashboardOverview } from '../lib/api';
 import { getPaymentStats } from '../lib/api/payments';
+import { getFinancialOverview } from '../lib/api/financial';
 import { formatCurrency, getSmartBaseCurrency } from '../lib/currency';
 import { usePersistentState } from '../lib/usePersistentState';
+import { getExpenses, createExpense, updateExpense, deleteExpense, getExpenseStats, EXPENSE_CATEGORIES, EXPENSE_STATUSES, PAYMENT_METHODS, type Expense } from '../lib/api/expenses';
+import { Label } from "./ui/label";
+import { Textarea } from "./ui/textarea";
 import { 
   Building2,
   Users,
@@ -113,6 +118,28 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
   const [showPropertyDeleteDialog, setShowPropertyDeleteDialog] = useState(false);
   const [propertyToDelete, setPropertyToDelete] = useState<any>(null);
   
+  // Expense management states
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [expenseStats, setExpenseStats] = useState<any>(null);
+  const [showExpenseDialog, setShowExpenseDialog] = useState(false);
+  const [expenseForm, setExpenseForm] = useState<any>({
+    propertyId: '',
+    unitId: 'none',
+    category: '',
+    description: '',
+    amount: '',
+    currency: '',
+    date: new Date().toISOString().split('T')[0],
+    dueDate: '',
+    status: 'pending',
+    paymentMethod: '',
+    notes: ''
+  });
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [expenseSaving, setExpenseSaving] = useState(false);
+  const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
+  const [showExpenseDeleteDialog, setShowExpenseDeleteDialog] = useState(false);
+  
   // View and Edit Unit states
   const [showViewUnitDialog, setShowViewUnitDialog] = useState(false);
   const [showEditUnitDialog, setShowEditUnitDialog] = useState(false);
@@ -122,26 +149,34 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
   useEffect(() => {
     (async () => {
       try {
-        const [uRes, mRes, dRes, pStats] = await Promise.all([
+        const [uRes, mRes, dRes, fRes, expRes, expStatsRes] = await Promise.all([
           getUnits(),
           getMaintenanceRequests(),
           getOwnerDashboardOverview(),
-          getPaymentStats()
+          getFinancialOverview(),
+          getExpenses(),
+          getExpenseStats()
         ]);
         if (!uRes.error && Array.isArray(uRes.data)) setUnitsData(uRes.data);
         if (!mRes.error && Array.isArray(mRes.data)) setMaintenanceData(mRes.data);
         if (!dRes.error && dRes.data?.recentActivity) setRecentActivity(dRes.data.recentActivity);
-        if (!pStats.error && pStats.data) {
-          const gross = Number(pStats.data.totalCollected || 0);
-          const expenses = Number(pStats.data.byType?.find((t: any) => t.type === 'expense')?._sum?.amount || 0) || 0;
-          const net = gross - expenses;
-          // Approximate cap rate: (annualized net) / sum of property market values (not modeled) → fallback to occupancy-based proxy
-          const capRate = properties.length > 0 ? Math.round(((net * 12) / Math.max(1, properties.length)) * 10) / 10 : 0;
+        if (!fRes.error && fRes.data) {
+          // Use real financial data from backend
+          const gross = Number(fRes.data.totalRevenue || 0);
+          const expenses = Number(fRes.data.estimatedExpenses || 0);
+          const net = Number(fRes.data.netOperatingIncome || 0);
+          const capRate = Number(fRes.data.portfolioCapRate || 0);
           setFinancialStats({ gross, net, expenses, capRate });
+        }
+        if (!expRes.error && expRes.data?.data && Array.isArray(expRes.data.data)) {
+          setExpenses(expRes.data.data);
+        }
+        if (!expStatsRes.error && expStatsRes.data) {
+          setExpenseStats(expStatsRes.data);
         }
       } catch (e: any) {
         // Non-blocking: show a toast once
-        toast.error('Failed to load units or maintenance data');
+        toast.error('Failed to load financial data');
       }
     })();
   }, [properties.length]);
@@ -278,6 +313,152 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
     } finally {
       setEditingUnit(false);
     }
+  };
+
+  // Expense Management Functions
+  const loadExpenses = async () => {
+    try {
+      const [expRes, expStatsRes] = await Promise.all([
+        getExpenses(),
+        getExpenseStats()
+      ]);
+      if (!expRes.error && expRes.data?.data && Array.isArray(expRes.data.data)) {
+        setExpenses(expRes.data.data);
+      }
+      if (!expStatsRes.error && expStatsRes.data) {
+        setExpenseStats(expStatsRes.data);
+      }
+    } catch (error: any) {
+      toast.error('Failed to load expenses');
+    }
+  };
+
+  const handleAddExpense = () => {
+    setEditingExpense(null);
+    setExpenseForm({
+      propertyId: properties[0]?.id || '',
+      unitId: 'none',
+      category: '',
+      description: '',
+      amount: '',
+      currency: properties[0]?.currency || 'NGN',
+      date: new Date().toISOString().split('T')[0],
+      dueDate: '',
+      status: 'pending',
+      paymentMethod: '',
+      notes: ''
+    });
+    setShowExpenseDialog(true);
+  };
+
+  const handleEditExpense = (expense: Expense) => {
+    setEditingExpense(expense);
+    setExpenseForm({
+      propertyId: expense.propertyId,
+      unitId: expense.unitId || '',
+      category: expense.category,
+      description: expense.description,
+      amount: expense.amount.toString(),
+      currency: expense.currency,
+      date: expense.date.split('T')[0],
+      dueDate: expense.dueDate ? expense.dueDate.split('T')[0] : '',
+      status: expense.status,
+      paymentMethod: expense.paymentMethod || '',
+      notes: expense.notes || ''
+    });
+    setShowExpenseDialog(true);
+  };
+
+  const handleSaveExpense = async () => {
+    try {
+      setExpenseSaving(true);
+      
+      if (!expenseForm.propertyId || !expenseForm.category || !expenseForm.description || !expenseForm.amount) {
+        toast.error('Please fill in all required fields');
+        return;
+      }
+
+      const expenseData = {
+        propertyId: expenseForm.propertyId,
+        unitId: expenseForm.unitId && expenseForm.unitId !== 'none' ? expenseForm.unitId : undefined,
+        category: expenseForm.category,
+        description: expenseForm.description,
+        amount: parseFloat(expenseForm.amount),
+        currency: expenseForm.currency,
+        date: expenseForm.date,
+        dueDate: expenseForm.dueDate || undefined,
+        status: expenseForm.status,
+        paymentMethod: expenseForm.paymentMethod || undefined,
+        notes: expenseForm.notes || undefined
+      };
+
+      if (editingExpense) {
+        const res = await updateExpense(editingExpense.id, expenseData);
+        if (res.error) throw new Error(res.error);
+        toast.success('Expense updated successfully');
+      } else {
+        const res = await createExpense(expenseData);
+        if (res.error) throw new Error(res.error);
+        toast.success('Expense created successfully');
+      }
+
+      setShowExpenseDialog(false);
+      await loadExpenses();
+      
+      // Refresh financial overview
+      const fRes = await getFinancialOverview();
+      if (!fRes.error && fRes.data) {
+        const gross = Number(fRes.data.totalRevenue || 0);
+        const expenses = Number(fRes.data.estimatedExpenses || 0);
+        const net = Number(fRes.data.netOperatingIncome || 0);
+        const capRate = Number(fRes.data.portfolioCapRate || 0);
+        setFinancialStats({ gross, net, expenses, capRate });
+      }
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to save expense');
+    } finally {
+      setExpenseSaving(false);
+    }
+  };
+
+  const handleDeleteExpense = async () => {
+    if (!expenseToDelete) return;
+    
+    try {
+      setIsDeleting(true);
+      const res = await deleteExpense(expenseToDelete.id);
+      if (res.error) throw new Error(res.error);
+      
+      toast.success('Expense deleted successfully');
+      setShowExpenseDeleteDialog(false);
+      setExpenseToDelete(null);
+      await loadExpenses();
+      
+      // Refresh financial overview
+      const fRes = await getFinancialOverview();
+      if (!fRes.error && fRes.data) {
+        const gross = Number(fRes.data.totalRevenue || 0);
+        const expenses = Number(fRes.data.estimatedExpenses || 0);
+        const net = Number(fRes.data.netOperatingIncome || 0);
+        const capRate = Number(fRes.data.portfolioCapRate || 0);
+        setFinancialStats({ gross, net, expenses, capRate });
+      }
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to delete expense');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const getStatusBadgeColor = (status: string) => {
+    const statusObj = EXPENSE_STATUSES.find(s => s.value === status);
+    return statusObj?.color || 'gray';
+  };
+
+  const getPropertyUnitsForExpense = (propertyId: string) => {
+    const property = properties.find(p => p.id === propertyId);
+    if (!property) return [];
+    return unitsData.filter(u => u.propertyId === propertyId);
   };
 
   // Calculate portfolio metrics from properties
@@ -1337,51 +1518,101 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
 
             <TabsContent value="financials" className="space-y-6">
               {/* Financial Overview */}
-              <div className="grid md:grid-cols-4 gap-6">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Gross Income</CardTitle>
-                    <TrendingUp className="h-4 w-4 text-green-600" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{formatCurrency(Number(financialStats.gross) || 0, smartBaseCurrency)}</div>
-                    <p className="text-xs text-muted-foreground">Live collected this period</p>
-                  </CardContent>
-                </Card>
+              <TooltipProvider>
+                <div className="grid md:grid-cols-4 gap-6">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-sm font-medium">Gross Income</CardTitle>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p className="font-semibold mb-1">How it's calculated:</p>
+                            <p className="text-xs">Sum of all monthly rent from occupied units across all properties. This represents your total rental income before any expenses.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <TrendingUp className="h-4 w-4 text-green-600" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{formatCurrency(Number(financialStats.gross) || 0, smartBaseCurrency)}</div>
+                      <p className="text-xs text-muted-foreground">Live collected this period</p>
+                    </CardContent>
+                  </Card>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Net Income</CardTitle>
-                    <DollarSign className="h-4 w-4 text-green-600" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{formatCurrency(Number(financialStats.net) || 0, smartBaseCurrency)}</div>
-                    <p className="text-xs text-muted-foreground">Gross minus operating expenses</p>
-                  </CardContent>
-                </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-sm font-medium">Net Income</CardTitle>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p className="font-semibold mb-1">How it's calculated:</p>
+                            <p className="text-xs">Gross Income minus Operating Expenses. This is your Net Operating Income (NOI) - the actual profit from your rental operations.</p>
+                            <p className="text-xs mt-1 italic">Formula: Gross Income - Operating Expenses</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <DollarSign className="h-4 w-4 text-green-600" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{formatCurrency(Number(financialStats.net) || 0, smartBaseCurrency)}</div>
+                      <p className="text-xs text-muted-foreground">Gross minus operating expenses</p>
+                    </CardContent>
+                  </Card>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Operating Expenses</CardTitle>
-                    <TrendingDown className="h-4 w-4 text-red-600" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{formatCurrency(Number(financialStats.expenses) || 0, smartBaseCurrency)}</div>
-                    <p className="text-xs text-muted-foreground">Sum of expense-type payments</p>
-                  </CardContent>
-                </Card>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-sm font-medium">Operating Expenses</CardTitle>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p className="font-semibold mb-1">How it's calculated:</p>
+                            <p className="text-xs">Estimated at 30% of Gross Income, based on industry standards. This includes maintenance, property management fees, insurance, utilities, and other operational costs.</p>
+                            <p className="text-xs mt-1 italic">Formula: Gross Income × 0.30</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <TrendingDown className="h-4 w-4 text-red-600" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{formatCurrency(Number(financialStats.expenses) || 0, smartBaseCurrency)}</div>
+                      <p className="text-xs text-muted-foreground">Sum of expense-type payments</p>
+                    </CardContent>
+                  </Card>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Cap Rate</CardTitle>
-                    <Percent className="h-4 w-4 text-blue-600" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{(Number(financialStats.capRate) || 0).toLocaleString()}%</div>
-                    <p className="text-xs text-muted-foreground">Approximation</p>
-                  </CardContent>
-                </Card>
-              </div>
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-sm font-medium">Cap Rate</CardTitle>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p className="font-semibold mb-1">How it's calculated:</p>
+                            <p className="text-xs">Capitalization Rate measures your return on investment. It's the annual Net Operating Income divided by the total property value, expressed as a percentage.</p>
+                            <p className="text-xs mt-1 italic">Formula: (Annual NOI ÷ Total Property Value) × 100</p>
+                            <p className="text-xs mt-1 text-yellow-600">Higher cap rates indicate better potential returns.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <Percent className="h-4 w-4 text-blue-600" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{(Number(financialStats.capRate) || 0).toLocaleString()}%</div>
+                      <p className="text-xs text-muted-foreground">Approximation</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TooltipProvider>
 
               {/* Property Financial Performance */}
               <Card>
@@ -1574,6 +1805,175 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Expense Management Section */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>Expense Management</CardTitle>
+                    <CardDescription>Track and manage property expenses</CardDescription>
+                  </div>
+                  <Button onClick={handleAddExpense}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Expense
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {/* Expense Statistics */}
+                  {expenseStats && (
+                    <div className="grid md:grid-cols-4 gap-4 mb-6">
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">{formatCurrency(expenseStats.totalAmount || 0, smartBaseCurrency)}</div>
+                          <p className="text-xs text-muted-foreground">{expenseStats.totalCount || 0} transactions</p>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-medium">Paid</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold text-green-600">
+                            {formatCurrency(
+                              expenseStats.byStatus?.find((s: any) => s.status === 'paid')?._sum?.amount || 0,
+                              smartBaseCurrency
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {expenseStats.byStatus?.find((s: any) => s.status === 'paid')?._count || 0} expenses
+                          </p>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-medium">Pending</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold text-yellow-600">
+                            {formatCurrency(
+                              expenseStats.byStatus?.find((s: any) => s.status === 'pending')?._sum?.amount || 0,
+                              smartBaseCurrency
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {expenseStats.byStatus?.find((s: any) => s.status === 'pending')?._count || 0} expenses
+                          </p>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-medium">Top Category</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">
+                            {expenseStats.byCategory && expenseStats.byCategory.length > 0
+                              ? EXPENSE_CATEGORIES.find(c => c.value === expenseStats.byCategory[0].category)?.label || expenseStats.byCategory[0].category
+                              : 'N/A'}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {expenseStats.byCategory && expenseStats.byCategory.length > 0
+                              ? formatCurrency(expenseStats.byCategory[0]._sum?.amount || 0, smartBaseCurrency)
+                              : '-'}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+
+                  {/* Expense Table */}
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Property</TableHead>
+                          <TableHead>Category</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {expenses.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                              No expenses recorded yet. Click "Add Expense" to get started.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          expenses.map((expense) => (
+                            <TableRow key={expense.id}>
+                              <TableCell>{new Date(expense.date).toLocaleDateString()}</TableCell>
+                              <TableCell>
+                                <div>
+                                  <p className="font-medium">{expense.property?.name || 'Unknown'}</p>
+                                  {expense.unit && (
+                                    <p className="text-xs text-muted-foreground">Unit {expense.unit.unitNumber}</p>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline">
+                                  {EXPENSE_CATEGORIES.find(c => c.value === expense.category)?.label || expense.category}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="max-w-[200px] truncate">{expense.description}</TableCell>
+                              <TableCell className="font-medium">
+                                {formatCurrency(expense.amount, expense.currency)}
+                              </TableCell>
+                              <TableCell>
+                                <Badge 
+                                  variant={
+                                    expense.status === 'paid' ? 'default' : 
+                                    expense.status === 'pending' ? 'secondary' : 
+                                    expense.status === 'overdue' ? 'destructive' : 
+                                    'outline'
+                                  }
+                                >
+                                  {expense.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="sm">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleEditExpense(expense)}>
+                                      <Edit className="h-4 w-4 mr-2" />
+                                      Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem 
+                                      className="text-red-600"
+                                      onClick={() => {
+                                        setExpenseToDelete(expense);
+                                        setShowExpenseDeleteDialog(true);
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="maintenance" className="space-y-6">
@@ -2492,6 +2892,266 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                 <>
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete Property
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add/Edit Expense Dialog */}
+      <Dialog open={showExpenseDialog} onOpenChange={setShowExpenseDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingExpense ? 'Edit Expense' : 'Add New Expense'}</DialogTitle>
+            <DialogDescription>
+              {editingExpense ? 'Update expense details' : 'Record a new property expense'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="expense-property">Property *</Label>
+                <Select 
+                  value={expenseForm.propertyId} 
+                  onValueChange={(value) => {
+                    const property = properties.find(p => p.id === value);
+                    setExpenseForm({ 
+                      ...expenseForm, 
+                      propertyId: value,
+                      currency: property?.currency || 'NGN',
+                      unitId: '' // Reset unit when property changes
+                    });
+                  }}
+                >
+                  <SelectTrigger id="expense-property">
+                    <SelectValue placeholder="Select property" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {properties.map(property => (
+                      <SelectItem key={property.id} value={property.id}>
+                        {property.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="expense-unit">Unit (Optional)</Label>
+                <Select 
+                  value={expenseForm.unitId} 
+                  onValueChange={(value) => setExpenseForm({ ...expenseForm, unitId: value })}
+                >
+                  <SelectTrigger id="expense-unit">
+                    <SelectValue placeholder="Select unit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None (Property-wide)</SelectItem>
+                    {getPropertyUnitsForExpense(expenseForm.propertyId).map(unit => (
+                      <SelectItem key={unit.id} value={unit.id}>
+                        Unit {unit.unitNumber}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="expense-category">Category *</Label>
+                <Select 
+                  value={expenseForm.category} 
+                  onValueChange={(value) => setExpenseForm({ ...expenseForm, category: value })}
+                >
+                  <SelectTrigger id="expense-category">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EXPENSE_CATEGORIES.map(category => (
+                      <SelectItem key={category.value} value={category.value}>
+                        {category.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="expense-amount">Amount *</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    id="expense-amount"
+                    type="number"
+                    step="0.01"
+                    value={expenseForm.amount}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })}
+                    placeholder="0.00"
+                    className="flex-1"
+                  />
+                  <span className="flex items-center px-3 border rounded-md bg-muted text-sm">
+                    {expenseForm.currency}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="expense-description">Description *</Label>
+              <Textarea
+                id="expense-description"
+                value={expenseForm.description}
+                onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })}
+                placeholder="Enter expense description"
+                rows={3}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="expense-date">Date *</Label>
+                <Input 
+                  id="expense-date"
+                  type="date"
+                  value={expenseForm.date}
+                  onChange={(e) => setExpenseForm({ ...expenseForm, date: e.target.value })}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="expense-due-date">Due Date (Optional)</Label>
+                <Input 
+                  id="expense-due-date"
+                  type="date"
+                  value={expenseForm.dueDate}
+                  onChange={(e) => setExpenseForm({ ...expenseForm, dueDate: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="expense-status">Status *</Label>
+                <Select 
+                  value={expenseForm.status} 
+                  onValueChange={(value) => setExpenseForm({ ...expenseForm, status: value })}
+                >
+                  <SelectTrigger id="expense-status">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EXPENSE_STATUSES.map(status => (
+                      <SelectItem key={status.value} value={status.value}>
+                        {status.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="expense-payment-method">Payment Method</Label>
+                <Select 
+                  value={expenseForm.paymentMethod} 
+                  onValueChange={(value) => setExpenseForm({ ...expenseForm, paymentMethod: value })}
+                >
+                  <SelectTrigger id="expense-payment-method">
+                    <SelectValue placeholder="Select method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_METHODS.map(method => (
+                      <SelectItem key={method.value} value={method.value}>
+                        {method.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="expense-notes">Notes (Optional)</Label>
+              <Textarea
+                id="expense-notes"
+                value={expenseForm.notes}
+                onChange={(e) => setExpenseForm({ ...expenseForm, notes: e.target.value })}
+                placeholder="Add any additional notes"
+                rows={2}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowExpenseDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveExpense} disabled={expenseSaving}>
+              {expenseSaving ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  {editingExpense ? 'Update Expense' : 'Add Expense'}
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Expense Confirmation Dialog */}
+      <Dialog open={showExpenseDeleteDialog} onOpenChange={setShowExpenseDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Expense</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this expense? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {expenseToDelete && (
+            <div className="py-4 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-sm text-muted-foreground">Property:</span>
+                <span className="text-sm font-medium">{expenseToDelete.property?.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-muted-foreground">Category:</span>
+                <span className="text-sm font-medium">
+                  {EXPENSE_CATEGORIES.find(c => c.value === expenseToDelete.category)?.label}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-muted-foreground">Amount:</span>
+                <span className="text-sm font-medium">
+                  {formatCurrency(expenseToDelete.amount, expenseToDelete.currency)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-muted-foreground">Description:</span>
+                <span className="text-sm font-medium">{expenseToDelete.description}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowExpenseDeleteDialog(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteExpense} disabled={isDeleting}>
+              {isDeleting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Expense
                 </>
               )}
             </Button>

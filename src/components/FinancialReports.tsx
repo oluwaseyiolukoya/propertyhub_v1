@@ -22,9 +22,11 @@ import {
   FileText,
   ArrowUpRight,
   ArrowDownRight,
-  Percent
+  Percent,
+  Info
 } from 'lucide-react';
-import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell, ComposedChart, Area, AreaChart } from 'recharts';
+import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell, ComposedChart, Area, AreaChart } from 'recharts';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { getFinancialOverview, getMonthlyRevenue, getPropertyPerformance, FinancialOverview, MonthlyRevenueData, PropertyPerformance } from '../lib/api/financial';
 import { toast } from 'sonner';
 import { formatCurrency, getSmartBaseCurrency } from '../lib/currency';
@@ -249,62 +251,113 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
       </div>
 
       {/* Key Financial Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(filteredTotalRevenue, displayCurrency)}</div>
-            <div className="flex items-center text-xs text-green-600 mt-1">
-              <ArrowUpRight className="h-3 w-3 mr-1" />
-              +{revenueGrowth}% vs last year
-            </div>
-          </CardContent>
-        </Card>
+      <TooltipProvider>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="font-semibold mb-1">How it's calculated:</p>
+                    <p className="text-xs">Sum of all monthly rental income from occupied units across your entire property portfolio. This represents your gross rental revenue before any deductions.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(filteredTotalRevenue, displayCurrency)}</div>
+              <div className="flex items-center text-xs text-green-600 mt-1">
+                <ArrowUpRight className="h-3 w-3 mr-1" />
+                +{revenueGrowth}% vs last year
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Net Operating Income</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(filteredTotalNetIncome, displayCurrency)}</div>
-            <div className="flex items-center text-xs text-green-600 mt-1">
-              <ArrowUpRight className="h-3 w-3 mr-1" />
-              +{yearOverYearGrowth}% vs last year
-            </div>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-medium">Net Operating Income</CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="font-semibold mb-1">How it's calculated:</p>
+                    <p className="text-xs">Total Revenue minus Operating Expenses. This is your NOI - the actual profit from property operations before financing costs and taxes.</p>
+                    <p className="text-xs mt-1 italic">Formula: Total Revenue - Operating Expenses</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(filteredTotalNetIncome, displayCurrency)}</div>
+              <div className="flex items-center text-xs text-green-600 mt-1">
+                <ArrowUpRight className="h-3 w-3 mr-1" />
+                +{yearOverYearGrowth}% vs last year
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Portfolio Cap Rate</CardTitle>
-            <Percent className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{portfolioCapRate.toFixed(1)}%</div>
-            <div className="flex items-center text-xs text-gray-600 mt-1">
-              Above market average
-            </div>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-medium">Portfolio Cap Rate</CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="font-semibold mb-1">How it's calculated:</p>
+                    <p className="text-xs">Your portfolio-wide Capitalization Rate. Measures the annual return on investment across all properties combined.</p>
+                    <p className="text-xs mt-1 italic">Formula: (Annual NOI ÷ Total Portfolio Value) × 100</p>
+                    <p className="text-xs mt-1 text-blue-600">Industry benchmark: 4-10% depending on market and property type.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Percent className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{portfolioCapRate.toFixed(1)}%</div>
+              <div className="flex items-center text-xs text-gray-600 mt-1">
+                Above market average
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Operating Margin</CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{operatingMargin.toFixed(1)}%</div>
-            <div className="flex items-center text-xs text-green-600 mt-1">
-              <ArrowUpRight className="h-3 w-3 mr-1" />
-              Healthy margin
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-medium">Operating Margin</CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="font-semibold mb-1">How it's calculated:</p>
+                    <p className="text-xs">The percentage of revenue remaining after operating expenses. Indicates operational efficiency and profitability.</p>
+                    <p className="text-xs mt-1 italic">Formula: (NOI ÷ Total Revenue) × 100</p>
+                    <p className="text-xs mt-1 text-green-600">Higher margins indicate better operational efficiency.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{operatingMargin.toFixed(1)}%</div>
+              <div className="flex items-center text-xs text-green-600 mt-1">
+                <ArrowUpRight className="h-3 w-3 mr-1" />
+                Healthy margin
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </TooltipProvider>
 
       {/* Report Tabs */}
       <Tabs value={reportView} onValueChange={setReportView} className="space-y-4">
@@ -331,7 +384,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
                     <YAxis />
-                    <Tooltip formatter={(value) => [currencyFormatter(value), '']} />
+                    <RechartsTooltip formatter={(value) => [currencyFormatter(value), '']} />
                     <Bar dataKey="revenue" fill="#8884d8" name="Revenue" />
                     <Bar dataKey="expenses" fill="#82ca9d" name="Expenses" />
                     <Line type="monotone" dataKey="netIncome" stroke="#ff7300" strokeWidth={3} name="Net Income" />
@@ -361,7 +414,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value) => [`${value}%`, '']} />
+                    <RechartsTooltip formatter={(value) => [`${value}%`, '']} />
                   </RechartsPieChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -436,7 +489,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
                   <YAxis />
-                  <Tooltip formatter={(value) => [currencyFormatter(value), 'Revenue']} />
+                  <RechartsTooltip formatter={(value) => [currencyFormatter(value), 'Revenue']} />
                   <Area type="monotone" dataKey="revenue" stroke="#8884d8" fill="#8884d8" fillOpacity={0.3} />
                 </AreaChart>
               </ResponsiveContainer>
@@ -520,7 +573,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
                     <YAxis />
-                    <Tooltip formatter={(value) => [currencyFormatter(value), 'Expenses']} />
+                    <RechartsTooltip formatter={(value) => [currencyFormatter(value), 'Expenses']} />
                     <Line type="monotone" dataKey="expenses" stroke="#ff7300" strokeWidth={2} />
                   </RechartsLineChart>
                 </ResponsiveContainer>

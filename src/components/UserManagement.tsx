@@ -75,6 +75,7 @@ export function UserManagement({
   const [selectedRole, setSelectedRole] = useState<any>(null);
   const [showRoleDetails, setShowRoleDetails] = useState(false);
   const [showEditRole, setShowEditRole] = useState(false);
+  const [showAddUserInline, setShowAddUserInline] = useState(false);
 
   const [newUser, setNewUser] = useState({
     name: '',
@@ -298,7 +299,7 @@ export function UserManagement({
             Add Role
           </Button>
           
-          <Button onClick={() => setShowAddUser(true)}>
+          <Button onClick={() => setShowAddUserInline(prev => !prev)}>
             <UserPlus className="h-4 w-4 mr-2" />
             Add Internal User
           </Button>
@@ -365,6 +366,109 @@ export function UserManagement({
                 </div>
               </CardContent>
             </Card>
+
+            {/* Inline Add User Form (replaces dialog) */}
+            {showAddUserInline && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Add Internal Admin User</CardTitle>
+                  <CardDescription>
+                    Create a new internal admin user (staff, support team, etc.). This is NOT for customer users.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleAddUser} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="name">Full Name *</Label>
+                        <Input
+                          id="name"
+                          value={newUser.name}
+                          onChange={(e) => setNewUser(prev => ({ ...prev, name: e.target.value }))}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="email">Email *</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={newUser.email}
+                          onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="phone">Phone</Label>
+                        <Input
+                          id="phone"
+                          value={newUser.phone}
+                          onChange={(e) => setNewUser(prev => ({ ...prev, phone: e.target.value }))}
+                          placeholder="+234 xxx xxx xxxx"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="role">Role *</Label>
+                        <Select value={newUser.role} onValueChange={(value) => setNewUser(prev => ({ ...prev, role: value }))}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select role" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {filteredRoles.map((role) => (
+                              <SelectItem key={role.id} value={role.name}>
+                                {role.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="company">Company</Label>
+                        <Input
+                          id="company"
+                          value={newUser.company}
+                          onChange={(e) => setNewUser(prev => ({ ...prev, company: e.target.value }))}
+                          placeholder="PropertyHub Admin"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="department">Department</Label>
+                        <Input
+                          id="department"
+                          value={newUser.department}
+                          onChange={(e) => setNewUser(prev => ({ ...prev, department: e.target.value }))}
+                          placeholder="e.g., Customer Support, IT, etc."
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="sendInvite"
+                        checked={newUser.sendInvite}
+                        onCheckedChange={(checked) => setNewUser(prev => ({ ...prev, sendInvite: checked }))}
+                      />
+                      <Label htmlFor="sendInvite">Send invitation email</Label>
+                    </div>
+
+                    <div className="flex gap-2 justify-end">
+                      <Button type="button" variant="outline" onClick={() => setShowAddUserInline(false)}>
+                        Cancel
+                      </Button>
+                      <Button type="submit">
+                        Create User
+                      </Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Users Table */}
             <Card>

@@ -215,6 +215,7 @@ model properties {
   property_managers     property_managers[]
   units                 units[]
   documents             documents[]
+  expenses              expenses[]
 }
 
 model customer_users {
@@ -318,12 +319,49 @@ model units {
   leases          leases[]
   properties      properties @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   documents       documents[]
+  expenses        expenses[]
 
   @@unique([propertyId, unitNumber])
 }
 
+model expenses {
+  id              String     @id
+  propertyId      String
+  unitId          String?
+  category        String
+  description     String
+  amount          Float
+  currency        String     @default("NGN")
+  date            DateTime   @default(now())
+  dueDate         DateTime?
+  status          String     @default("pending")
+  paidDate        DateTime?
+  paymentMethod   String?
+  recordedBy      String
+  recordedByRole  String
+  receipt         String?
+  notes           String?
+  requiresApproval Boolean   @default(false)
+  approvedBy      String?
+  approvedAt      DateTime?
+  visibleToManager Boolean   @default(false)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  
+  property        properties @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unit            units?     @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  recorder        users      @relation("RecordedExpenses", fields: [recordedBy], references: [id])
+  approver        users?     @relation("ApprovedExpenses", fields: [approvedBy], references: [id])
+  
+  @@index([propertyId])
+  @@index([date])
+  @@index([category])
+  @@index([status])
+  @@index([visibleToManager])
+}
+
 model users {
-  id                String              @id
+  id                String              @id @default(uuid())
   customerId        String?
   name              String
   email             String              @unique
@@ -340,7 +378,7 @@ model users {
   acceptedAt        DateTime?
   permissions       Json?
   createdAt         DateTime            @default(now())
-  updatedAt         DateTime
+  updatedAt         DateTime            @updatedAt
   activity_logs          activity_logs[]
   leases                 leases[]
   properties             properties[]
@@ -350,4 +388,6 @@ model users {
   tenantDocuments        documents[]         @relation("TenantDocuments")
   managerDocuments       documents[]         @relation("ManagerDocuments")
   uploadedDocuments      documents[]         @relation("UploaderDocuments")
+  recordedExpenses       expenses[]          @relation("RecordedExpenses")
+  approvedExpenses       expenses[]          @relation("ApprovedExpenses")
 }

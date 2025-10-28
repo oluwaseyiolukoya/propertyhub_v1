@@ -408,6 +408,33 @@ router.get('/manager/overview', async (req: AuthRequest, res: Response) => {
       hasMultipleCurrencies: currencies.length > 1
     });
 
+    // Expense data (managers see only their own expenses + visible owner expenses)
+    const expenseWhere: any = {
+      propertyId: { in: propertyIds },
+      OR: [
+        { recordedBy: userId },
+        { visibleToManager: true }
+      ]
+    };
+
+    const [totalExpenses, pendingExpenses, paidExpenses] = await Promise.all([
+      prisma.expenses.aggregate({
+        where: expenseWhere,
+        _sum: { amount: true },
+        _count: true
+      }),
+      prisma.expenses.aggregate({
+        where: { ...expenseWhere, status: 'pending' },
+        _sum: { amount: true },
+        _count: true
+      }),
+      prisma.expenses.aggregate({
+        where: { ...expenseWhere, status: 'paid' },
+        _sum: { amount: true },
+        _count: true
+      })
+    ]);
+
     return res.json({
       properties: {
         total: properties.length,
@@ -434,6 +461,14 @@ router.get('/manager/overview', async (req: AuthRequest, res: Response) => {
         byCurrency: revenueByCurrency, // Revenue broken down by currency
         primaryCurrency: primaryCurrency, // The main currency to display
         hasMultipleCurrencies: currencies.length > 1 // Flag if manager has properties in multiple currencies
+      },
+      expenses: {
+        total: totalExpenses._sum.amount || 0,
+        totalCount: totalExpenses._count || 0,
+        pending: pendingExpenses._sum.amount || 0,
+        pendingCount: pendingExpenses._count || 0,
+        paid: paidExpenses._sum.amount || 0,
+        paidCount: paidExpenses._count || 0
       },
       maintenance: {
         open: openMaintenance,
@@ -648,6 +683,25 @@ router.get('/owner/overview', async (req: AuthRequest, res: Response) => {
         }
       });
 
+      // Expense data
+      const [totalExpenses, pendingExpenses, paidExpenses] = await Promise.all([
+        prisma.expenses.aggregate({
+          where: { propertyId: { in: propertyIds } },
+          _sum: { amount: true },
+          _count: true
+        }),
+        prisma.expenses.aggregate({
+          where: { propertyId: { in: propertyIds }, status: 'pending' },
+          _sum: { amount: true },
+          _count: true
+        }),
+        prisma.expenses.aggregate({
+          where: { propertyId: { in: propertyIds }, status: 'paid' },
+          _sum: { amount: true },
+          _count: true
+        })
+      ]);
+
     return res.json({
       portfolio: {
         totalProperties: properties.length,
@@ -658,6 +712,14 @@ router.get('/owner/overview', async (req: AuthRequest, res: Response) => {
       },
       revenue: {
         currentMonth: monthlyIncome._sum.monthlyRent || 0
+      },
+      expenses: {
+        total: totalExpenses._sum.amount || 0,
+        totalCount: totalExpenses._count || 0,
+        pending: pendingExpenses._sum.amount || 0,
+        pendingCount: pendingExpenses._count || 0,
+        paid: paidExpenses._sum.amount || 0,
+        paidCount: paidExpenses._count || 0
       },
       collection: await (async () => {
         // Approximate collection rate from units rent: occupied vs all

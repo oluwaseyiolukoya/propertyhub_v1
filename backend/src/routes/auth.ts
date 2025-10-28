@@ -12,14 +12,14 @@ router.post('/login', async (req: Request, res: Response) => {
   try {
     const { email, password, userType } = req.body;
 
-    if (!email || !password || !userType) {
+    if (!email || !password) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
     // Database authentication ONLY
     try {
-      // For admin (checks both Super Admin and Internal Admin Users)
-      if (userType === 'admin') {
+      // Attempt ADMIN login first when explicitly requested or when no userType provided
+      if (!userType || userType === 'admin') {
         console.log('🔍 Admin login attempt:', { email, userType });
         
         // First, try Super Admin table
@@ -51,10 +51,10 @@ router.post('/login', async (req: Request, res: Response) => {
             console.warn('⚠️ Failed to update Super Admin lastLogin:', e);
           }
 
-          const token = jwt.sign(
+          const token = (jwt as any).sign(
             { id: admin.id, email: admin.email, role: admin.role },
             process.env.JWT_SECRET || 'secret',
-            { expiresIn: process.env.JWT_EXPIRES_IN || '24h' } // Session-based: expires in 24 hours or when browser closes
+            { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
           );
 
           console.log('✅ Super Admin login successful');
@@ -98,10 +98,10 @@ router.post('/login', async (req: Request, res: Response) => {
             data: { lastLogin: new Date() }
           });
 
-          const token = jwt.sign(
+          const token = (jwt as any).sign(
             { id: internalUser.id, email: internalUser.email, role: internalUser.role },
             process.env.JWT_SECRET || 'secret',
-            { expiresIn: process.env.JWT_EXPIRES_IN || '24h' } // Session-based: expires in 24 hours or when browser closes
+            { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
           );
 
           console.log('✅ Internal Admin User login successful');
@@ -117,12 +117,14 @@ router.post('/login', async (req: Request, res: Response) => {
           });
         }
 
-        // Neither Super Admin nor Internal Admin User found
-        console.log('❌ Admin not found in any table');
-        return res.status(401).json({ error: 'Invalid credentials' });
+        // If userType was explicitly admin and not found, fail here
+        if (userType === 'admin') {
+          console.log('❌ Admin not found in any table (explicit admin login)');
+          return res.status(401).json({ error: 'Invalid credentials' });
+        }
       }
 
-      // For other user types (owner, manager, tenant)
+      // CUSTOMER USERS (owner, manager, tenant)
       const user = await prisma.users.findUnique({
         where: { email },
         include: { customers: true }
@@ -159,10 +161,10 @@ router.post('/login', async (req: Request, res: Response) => {
             ? 'tenant'
             : 'owner'; // default to owner for customer users
 
-      const token = jwt.sign(
+      const token = (jwt as any).sign(
         { id: user.id, email: user.email, role: user.role, customerId: user.customerId },
         process.env.JWT_SECRET || 'secret',
-        { expiresIn: process.env.JWT_EXPIRES_IN || '24h' } // Session-based: expires in 24 hours or when browser closes
+        { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
       );
 
       return res.json({

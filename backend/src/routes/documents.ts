@@ -131,14 +131,14 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     if (category) whereClause.category = category as string;
     // Status filtering rules
     // - Owners: by default show everything except deleted
-    // - Managers: by default show active and draft documents (their own drafts)
+    // - Managers: by default show active, draft, and inactive documents (their own drafts and inactive docs)
     // - Tenants: by default show only active documents
     if (status && status !== '') {
       whereClause.status = status as string;
     } else {
       if (role === 'manager' || role === 'property_manager') {
-        // Managers can see active and draft documents
-        whereClause.status = { in: ['active', 'draft'] };
+        // Managers can see active, draft, and inactive documents
+        whereClause.status = { in: ['active', 'draft', 'inactive'] };
       } else if (role === 'tenant') {
         // Tenants can only see active documents
         whereClause.status = 'active';
@@ -731,7 +731,7 @@ router.get('/stats/summary', async (req: AuthRequest, res: Response) => {
             ]
           }
         ],
-        status: { in: ['active', 'draft'] }
+        status: { in: ['active', 'draft', 'inactive'] }
       };
     } else if (role === 'tenant') {
       // Tenant can only see their own active documents

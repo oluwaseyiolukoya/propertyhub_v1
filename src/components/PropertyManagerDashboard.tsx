@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Bell, Home, Users, CreditCard, Wrench, Shield, Settings, Menu, LogOut, FileText } from 'lucide-react';
+import { Bell, Home, Users, CreditCard, Wrench, Shield, Settings, Menu, LogOut, FileText, Receipt } from 'lucide-react';
 import { toast } from 'sonner';
 import { PropertyManagement } from './PropertyManagement';
 import { TenantManagement } from './TenantManagement';
@@ -14,8 +14,10 @@ import { NotificationCenter } from './NotificationCenter';
 import { PropertyManagerSettings } from './PropertyManagerSettings';
 import PropertyManagerDocuments from './PropertyManagerDocuments';
 import { ManagerDashboardOverview } from './ManagerDashboardOverview';
+import { ExpenseManagement } from './ExpenseManagement';
 import { getManagerDashboardOverview, getProperties } from '../lib/api';
 import { getAccountInfo } from '../lib/api/auth';
+import { getUnits } from '../lib/api/units';
 import { usePersistentState } from '../lib/usePersistentState';
 
 interface PropertyManagerDashboardProps {
@@ -32,6 +34,7 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
   const [currentUser, setCurrentUser] = useState(user);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [properties, setProperties] = useState<any[]>([]);
+  const [units, setUnits] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [accountInfo, setAccountInfo] = useState<any>(null);
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -41,9 +44,10 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
     try {
       if (!silent) setLoading(true);
       
-      const [dashResponse, propertiesResponse, accountResponse] = await Promise.all([
+      const [dashResponse, propertiesResponse, unitsResponse, accountResponse] = await Promise.all([
         getManagerDashboardOverview(),
         getProperties(),
+        getUnits(),
         getAccountInfo()
       ]);
 
@@ -57,6 +61,12 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
         if (!silent) toast.error(propertiesResponse.error.error || 'Failed to load properties');
       } else if (propertiesResponse.data) {
         setProperties(propertiesResponse.data);
+      }
+
+      if (unitsResponse.error) {
+        console.error('Failed to load units:', unitsResponse.error);
+      } else if (unitsResponse.data && Array.isArray(unitsResponse.data)) {
+        setUnits(unitsResponse.data);
       }
 
       // Update account info (plan, limits, etc.)
@@ -146,6 +156,7 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
     { id: 'properties', name: 'Properties', icon: Home },
     { id: 'tenants', name: 'Tenants', icon: Users },
     { id: 'payments', name: 'Payments', icon: CreditCard },
+    { id: 'expenses', name: 'Expenses', icon: Receipt },
     { id: 'maintenance', name: 'Maintenance', icon: Wrench },
     { id: 'access', name: 'Access Control', icon: Shield },
     { id: 'notifications', name: 'Notifications', icon: Bell, count: notificationCount },
@@ -282,6 +293,14 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
                 )}
                 {activeTab === 'tenants' && <TenantManagement properties={properties} />}
                 {activeTab === 'payments' && <PaymentManagement properties={properties} />}
+                {activeTab === 'expenses' && (
+                  <ExpenseManagement 
+                    user={currentUser}
+                    properties={properties}
+                    units={units}
+                    onBack={() => setActiveTab('overview')}
+                  />
+                )}
                 {activeTab === 'maintenance' && <MaintenanceTickets properties={properties} />}
                 {activeTab === 'access' && <AccessControl />}
                 {activeTab === 'notifications' && <NotificationCenter />}

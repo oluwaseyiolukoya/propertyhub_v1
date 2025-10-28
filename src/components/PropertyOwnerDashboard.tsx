@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { PropertiesPage } from './PropertiesPage';
 import { TenantManagement } from './TenantManagement';
 import { FinancialReports } from './FinancialReports';
+import { ExpenseManagement } from './ExpenseManagement';
 import { PropertyManagerManagement } from './PropertyManagerManagement';
 import { AccessControl } from './AccessControl';
 import { PropertyOwnerSettings } from './PropertyOwnerSettings';
@@ -16,6 +17,7 @@ import PropertyOwnerDocuments from './PropertyOwnerDocuments';
 import { getOwnerDashboardOverview, getProperties, getOwnerActivities } from '../lib/api';
 import { getProperty, updateProperty } from '../lib/api/properties';
 import { createProperty } from '../lib/api/properties';
+import { getUnits } from '../lib/api/units';
 import { useCurrency } from '../lib/CurrencyContext';
 import { getAccountInfo } from '../lib/api/auth';
 import { usePersistentState } from '../lib/usePersistentState';
@@ -176,6 +178,7 @@ export function PropertyOwnerDashboard({
   const [showWelcome, setShowWelcome] = useState(false);
   const [currentView, setCurrentView] = usePersistentState('owner-dashboard-view', 'dashboard');
   const [properties, setProperties] = useState<any[]>([]);
+  const [units, setUnits] = useState<any[]>([]);
   const [selectedProperty, setSelectedProperty] = useState<any | null>(null);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -190,9 +193,10 @@ export function PropertyOwnerDashboard({
     try {
       if (!silent) setLoading(true);
       
-      const [dashResponse, propertiesResponse, accountResponse] = await Promise.all([
+      const [dashResponse, propertiesResponse, unitsResponse, accountResponse] = await Promise.all([
         getOwnerDashboardOverview(),
         getProperties(),
+        getUnits(),
         getAccountInfo()
       ]);
 
@@ -206,6 +210,12 @@ export function PropertyOwnerDashboard({
         if (!silent) toast.error(propertiesResponse.error.error || 'Failed to load properties');
       } else if (propertiesResponse.data) {
         setProperties(propertiesResponse.data);
+      }
+
+      if (unitsResponse.error) {
+        console.error('Failed to load units:', unitsResponse.error);
+      } else if (unitsResponse.data && Array.isArray(unitsResponse.data)) {
+        setUnits(unitsResponse.data);
       }
 
       // Update account info (plan, limits, etc.)
@@ -507,6 +517,7 @@ export function PropertyOwnerDashboard({
     { name: 'Properties', key: 'properties' },
     { name: 'Tenant Management', key: 'tenants' },
     { name: 'Financial Reports', key: 'financial' },
+    { name: 'Expenses', key: 'expenses' },
     { name: 'Property Managers', key: 'managers' },
     { name: 'Access Control', key: 'access' },
     { name: 'Documents', key: 'documents' },
@@ -963,6 +974,17 @@ export function PropertyOwnerDashboard({
                 <FinancialReports 
                   properties={properties}
                   user={user}
+                />
+              </div>
+            </div>
+          ) : currentView === 'expenses' ? (
+            <div className="p-4 lg:p-8">
+              <div className="max-w-7xl mx-auto">
+                <ExpenseManagement 
+                  user={user}
+                  properties={properties}
+                  units={units}
+                  onBack={() => setCurrentView('dashboard')}
                 />
               </div>
             </div>
