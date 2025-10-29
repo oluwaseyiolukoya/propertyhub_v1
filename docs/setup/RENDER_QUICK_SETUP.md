@@ -36,6 +36,8 @@ Build Command: npm install && npm run build
 Start Command: npm start
 ```
 
+**Note**: The build script uses `prisma db push` to avoid migration issues. See [RENDER_MIGRATION_FIX.md](./RENDER_MIGRATION_FIX.md) for details.
+
 ### 2. Add PostgreSQL
 
 ```
