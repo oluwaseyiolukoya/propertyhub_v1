@@ -29,7 +29,7 @@ export const initializeSocket = async (httpServer: HttpServer) => {
   try {
     // Create Redis clients for pub/sub
     const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-    
+
     redisPublisher = createClient({ url: redisUrl });
     redisSubscriber = redisPublisher.duplicate();
 
@@ -60,14 +60,14 @@ export const initializeSocket = async (httpServer: HttpServer) => {
     io.use(async (socket: AuthenticatedSocket, next) => {
       try {
         const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
-        
+
         if (!token) {
           return next(new Error('Authentication token required'));
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
         socket.data.user = decoded;
-        
+
         console.log(`✅ Socket authenticated: ${decoded.email} (${decoded.role})`);
         next();
       } catch (error) {
@@ -145,14 +145,14 @@ export const initializeSocket = async (httpServer: HttpServer) => {
     io.use(async (socket: AuthenticatedSocket, next) => {
       try {
         const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
-        
+
         if (!token) {
           return next(new Error('Authentication token required'));
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
         socket.data.user = decoded;
-        
+
         console.log(`✅ Socket authenticated: ${decoded.email} (${decoded.role})`);
         next();
       } catch (error) {
@@ -259,7 +259,7 @@ export const emitToUser = (userId: string, event: string, data: any) => {
  * Force user to re-authenticate (for role/permission changes)
  */
 export const forceUserReauth = (userId: string, reason: string) => {
-  emitToUser(userId, 'force:reauth', { 
+  emitToUser(userId, 'force:reauth', {
     reason,
     timestamp: new Date().toISOString()
   });

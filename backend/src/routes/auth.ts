@@ -21,15 +21,15 @@ router.post('/login', async (req: Request, res: Response) => {
       // Attempt ADMIN login first when explicitly requested or when no userType provided
       if (!userType || userType === 'admin') {
         console.log('🔍 Admin login attempt:', { email, userType });
-        
+
         // First, try Super Admin table
         const admin = await prisma.admins.findUnique({ where: { email } });
         console.log('🔍 Super Admin found:', admin ? `Yes (${admin.email})` : 'No');
-        
+
         if (admin) {
           const isValidPassword = await bcrypt.compare(password, admin.password);
           console.log('🔍 Super Admin password valid:', isValidPassword);
-          
+
           if (!isValidPassword) {
             console.log('❌ Invalid password for Super Admin');
             return res.status(401).json({ error: 'Invalid credentials' });
@@ -72,15 +72,15 @@ router.post('/login', async (req: Request, res: Response) => {
 
         // If not Super Admin, try Internal Admin Users (customerId = null)
         console.log('🔍 Checking Internal Admin Users table...');
-        const internalUser = await prisma.users.findUnique({ 
+        const internalUser = await prisma.users.findUnique({
           where: { email }
         });
         console.log('🔍 Internal Admin User found:', internalUser ? `Yes (${internalUser.email})` : 'No');
-        
+
         if (internalUser && internalUser.customerId === null) {
           const isValidPassword = await bcrypt.compare(password, internalUser.password);
           console.log('🔍 Internal Admin password valid:', isValidPassword);
-          
+
           if (!isValidPassword) {
             console.log('❌ Invalid password for Internal Admin User');
             return res.status(401).json({ error: 'Invalid credentials' });
@@ -153,7 +153,7 @@ router.post('/login', async (req: Request, res: Response) => {
       // Derive userType from database, not from request
       // Internal admins are handled above; here customerId is not null
       const roleLower = (user.role || '').toLowerCase();
-      const derivedUserType = roleLower === 'owner' || roleLower === 'property-owner' 
+      const derivedUserType = roleLower === 'owner' || roleLower === 'property-owner'
         ? 'owner'
         : roleLower === 'manager' || roleLower === 'property-manager'
           ? 'manager'
@@ -284,10 +284,10 @@ router.get('/validate-session', authMiddleware, async (req: AuthRequest, res: Re
     const tokenUser = req.user;
 
     if (!tokenUser) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         valid: false,
         reason: 'Not authenticated',
-        forceLogout: true 
+        forceLogout: true
       });
     }
 
@@ -312,7 +312,7 @@ router.get('/validate-session', authMiddleware, async (req: AuthRequest, res: Re
     // 2) Check Users table (internal admins and customer users)
     const dbUser = await prisma.users.findUnique({
       where: { id: tokenUser.id },
-      select: { 
+      select: {
         role: true,
         isActive: true,
         status: true,
@@ -321,20 +321,20 @@ router.get('/validate-session', authMiddleware, async (req: AuthRequest, res: Re
     });
 
     if (!dbUser) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         valid: false,
         reason: 'User not found',
-        forceLogout: true 
+        forceLogout: true
       });
     }
 
     // Internal admin user (customerId is null)
     if (dbUser.customerId === null) {
       if (!dbUser.isActive) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           valid: false,
           reason: 'Your account has been deactivated',
-          forceLogout: true 
+          forceLogout: true
         });
       }
       // Internal admins: treat as valid if active (no role/permissions compare)
@@ -343,20 +343,20 @@ router.get('/validate-session', authMiddleware, async (req: AuthRequest, res: Re
 
     // Customer user (owner/manager/tenant)
     if (!dbUser.isActive || dbUser.status !== 'active') {
-      return res.status(403).json({ 
+      return res.status(403).json({
         valid: false,
         reason: 'Your account has been deactivated',
-        forceLogout: true 
+        forceLogout: true
       });
     }
 
     // Check role mismatch for customer users only
     if (dbUser.role !== tokenUser.role) {
       console.log(`⚠️ Role mismatch for user ${tokenUser.id}: Token=${tokenUser.role}, DB=${dbUser.role}`);
-      return res.status(403).json({ 
+      return res.status(403).json({
         valid: false,
         reason: `Your role has been changed to ${dbUser.role}. Please log in again.`,
-        forceLogout: true 
+        forceLogout: true
       });
     }
 
@@ -372,7 +372,7 @@ router.get('/validate-session', authMiddleware, async (req: AuthRequest, res: Re
 router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
-    
+
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }

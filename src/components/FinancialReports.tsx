@@ -7,11 +7,11 @@ import { Badge } from "./ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Progress } from "./ui/progress";
 import { Separator } from "./ui/separator";
-import { 
-  DollarSign, 
-  TrendingUp, 
-  TrendingDown, 
-  Building, 
+import {
+  DollarSign,
+  TrendingUp,
+  TrendingDown,
+  Building,
   Calendar,
   Download,
   Filter,
@@ -103,7 +103,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
   ];
 
   // Use real property performance data if available, otherwise calculate from properties prop
-  const propertyPerformance = propertyPerformanceData.length > 0 
+  const propertyPerformance = propertyPerformanceData.length > 0
     ? propertyPerformanceData.map(p => ({
         id: p.id,
         name: p.name,
@@ -141,26 +141,26 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
       });
 
   const currentYear = new Date().getFullYear();
-  
+
   // Use real data if available, otherwise calculate from mock data
   const totalRevenue = Number(financialData?.totalRevenue || monthlyRevenueData.reduce((sum, month) => sum + month.revenue, 0)) || 0;
   const totalExpenses = Number(financialData?.estimatedExpenses || monthlyRevenueData.reduce((sum, month) => sum + month.expenses, 0)) || 0;
   const totalNetIncome = Number(financialData?.netOperatingIncome || (totalRevenue - totalExpenses)) || 0;
-  const averageOccupancy = Number(financialData?.occupancyRate || (properties.length > 0 
-    ? properties.reduce((sum, p) => sum + (p.occupancyRate || 0), 0) / properties.length 
+  const averageOccupancy = Number(financialData?.occupancyRate || (properties.length > 0
+    ? properties.reduce((sum, p) => sum + (p.occupancyRate || 0), 0) / properties.length
     : 0)) || 0;
   const portfolioCapRate = Number(financialData?.portfolioCapRate || (propertyPerformance.length > 0
     ? propertyPerformance.reduce((sum, p) => sum + (p.capRate || 0), 0) / propertyPerformance.length
     : 0)) || 0;
 
   const operatingMargin = Number(financialData?.operatingMargin || (totalRevenue > 0 ? (totalNetIncome / totalRevenue) * 100 : 0)) || 0;
-  
+
   const yearOverYearGrowth = 12.5; // Mock data
   const revenueGrowth = 8.3;
   const expenseGrowth = 4.1;
 
-  const filteredProperties = selectedProperty === 'all' 
-    ? propertyPerformance 
+  const filteredProperties = selectedProperty === 'all'
+    ? propertyPerformance
     : propertyPerformance.filter(p => p.id.toString() === selectedProperty);
 
   // Smart base currency: Use single currency if all properties use same currency, otherwise USD
@@ -384,7 +384,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p className="max-w-xs">
-                          Visual comparison of monthly revenue (blue bars), operating expenses (green bars), 
+                          Visual comparison of monthly revenue (blue bars), operating expenses (green bars),
                           and net income (orange line) over the past 12 months. Helps identify trends and seasonality.
                         </p>
                       </TooltipContent>
@@ -420,7 +420,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p className="max-w-xs">
-                          Pie chart showing the percentage distribution of your operating expenses across 
+                          Pie chart showing the percentage distribution of your operating expenses across
                           categories like maintenance, utilities, insurance, taxes, and management fees.
                         </p>
                       </TooltipContent>
@@ -466,7 +466,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                           </TooltipTrigger>
                           <TooltipContent>
                             <p className="max-w-xs">
-                              The average percentage of occupied units across all your properties. 
+                              The average percentage of occupied units across all your properties.
                               Higher occupancy means better rental income and property utilization.
                             </p>
                           </TooltipContent>
@@ -498,7 +498,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                           </TooltipTrigger>
                           <TooltipContent>
                             <p className="max-w-xs">
-                              The total number of active properties in your portfolio. 
+                              The total number of active properties in your portfolio.
                               Each property can contain multiple units or apartments.
                             </p>
                           </TooltipContent>
@@ -530,7 +530,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                           </TooltipTrigger>
                           <TooltipContent>
                             <p className="max-w-xs">
-                              The combined number of rentable units (apartments, rooms, or spaces) 
+                              The combined number of rentable units (apartments, rooms, or spaces)
                               across all your properties. Includes both occupied and vacant units.
                             </p>
                           </TooltipContent>
@@ -564,7 +564,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                     </TooltipTrigger>
                     <TooltipContent>
                       <p className="max-w-xs">
-                        Area chart showing monthly rental revenue trends over time. 
+                        Area chart showing monthly rental revenue trends over time.
                         Use this to identify seasonal patterns, growth trends, and forecast future income.
                       </p>
                     </TooltipContent>
@@ -598,7 +598,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p className="max-w-xs">
-                          Comparative view of monthly revenue generated by each property. 
+                          Comparative view of monthly revenue generated by each property.
                           Progress bars show relative performance to help identify your top-performing assets.
                         </p>
                       </TooltipContent>
@@ -645,7 +645,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p className="max-w-xs">
-                          Key revenue performance indicators including total annual revenue, 
+                          Key revenue performance indicators including total annual revenue,
                           average monthly income, per-unit earnings, and year-over-year growth rate.
                         </p>
                       </TooltipContent>
@@ -694,7 +694,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p className="max-w-xs">
-                          Line chart tracking monthly operating expenses over time. 
+                          Line chart tracking monthly operating expenses over time.
                           Monitor spending patterns and identify opportunities to reduce costs.
                         </p>
                       </TooltipContent>
@@ -726,7 +726,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p className="max-w-xs">
-                          Detailed breakdown of expenses by category with both dollar amounts and percentages. 
+                          Detailed breakdown of expenses by category with both dollar amounts and percentages.
                           Shows where your money is going: maintenance, utilities, insurance, taxes, and fees.
                         </p>
                       </TooltipContent>
@@ -739,8 +739,8 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                   {expenseBreakdown.map((expense, index) => (
                     <div key={index} className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
-                        <div 
-                          className="w-4 h-4 rounded-full" 
+                        <div
+                          className="w-4 h-4 rounded-full"
                           style={{ backgroundColor: expense.color }}
                         />
                         <span className="font-medium">{expense.name}</span>
@@ -767,7 +767,7 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
                     </TooltipTrigger>
                     <TooltipContent>
                       <p className="max-w-xs">
-                        Summary of key expense metrics: total annual expenses, cost per unit, and expense ratio 
+                        Summary of key expense metrics: total annual expenses, cost per unit, and expense ratio
                         (expenses as a percentage of revenue). Lower expense ratios indicate better profitability.
                       </p>
                     </TooltipContent>

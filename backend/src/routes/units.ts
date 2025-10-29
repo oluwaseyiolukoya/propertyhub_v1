@@ -23,7 +23,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
     // Scope by access - need to filter via property relation
     let accessiblePropertyIds: string[] = [];
-    
+
     if (isOwner) {
       const props = await prisma.properties.findMany({
         where: { ownerId: userId },
@@ -108,9 +108,9 @@ router.get('/', async (req: AuthRequest, res: Response) => {
   } catch (error: any) {
     console.error('List units error:', error);
     console.error('Error details:', error.message, error.stack);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to fetch units',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -371,9 +371,9 @@ router.post('/', async (req: AuthRequest, res: Response) => {
   } catch (error: any) {
     console.error('Create unit error:', error);
     console.error('Error details:', error.message, error.stack);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to create unit',
-      details: error.message 
+      details: error.message
     });
   }
 });

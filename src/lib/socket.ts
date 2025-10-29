@@ -53,7 +53,7 @@ export const initializeSocket = (token: string): Socket => {
 
   socket.on('disconnect', (reason) => {
     console.log('❌ Disconnected from real-time server:', reason);
-    
+
     // Auto-reconnect for certain reasons
     if (reason === 'io server disconnect') {
       // Server disconnected us, try to reconnect manually
@@ -69,7 +69,7 @@ export const initializeSocket = (token: string): Socket => {
 
   socket.on('connect_error', (error) => {
     console.error('❌ Connection error:', error.message);
-    
+
     if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
       console.error('❌ Max reconnection attempts reached. Please refresh the page.');
     }

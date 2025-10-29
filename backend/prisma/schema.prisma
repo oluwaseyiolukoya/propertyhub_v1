@@ -357,12 +357,12 @@ model expenses {
   visibleToManager Boolean   @default(false)
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
-  
+
   property        properties @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   unit            units?     @relation(fields: [unitId], references: [id], onDelete: SetNull)
   recorder        users      @relation("RecordedExpenses", fields: [recordedBy], references: [id])
   approver        users?     @relation("ApprovedExpenses", fields: [approvedBy], references: [id])
-  
+
   @@index([propertyId])
   @@index([date])
   @@index([category])

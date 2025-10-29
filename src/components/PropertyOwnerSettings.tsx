@@ -5,12 +5,12 @@ import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { getSettings, updateManagerPermissions, getPaymentGatewaySettings, savePaymentGatewaySettings } from '../lib/api/settings';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from './ui/select';
 import { Separator } from './ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
@@ -86,10 +86,10 @@ import { toast } from 'sonner';
 import { getAccountInfo } from '../lib/api/auth';
 import { updateCustomer } from '../lib/api/customers';
 import { apiClient } from '../lib/api-client';
-import { 
-  initializeSocket, 
-  subscribeToAccountEvents, 
-  unsubscribeFromAccountEvents 
+import {
+  initializeSocket,
+  subscribeToAccountEvents,
+  unsubscribeFromAccountEvents
 } from '../lib/socket';
 import { API_BASE_URL } from '../lib/api-config';
 
@@ -173,9 +173,9 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
   const fetchAccountData = async (silent = false) => {
     try {
       if (!silent) setIsLoading(true);
-      
+
       const response = await getAccountInfo();
-      
+
       if (response.error) {
         if (!silent) toast.error('Failed to load account data');
         return;
@@ -204,7 +204,7 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
             industry: customer.industry,
             company: customer.company
           });
-          
+
           setCompanyData({
             companyName: customer.company || '',
             businessType: customer.industry || '', // Map to industry from customer database
@@ -221,7 +221,7 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
             industry: customer.industry || '',
             companySize: customer.companySize || ''
           });
-          
+
           console.log('✅ DEBUG - Company data set to:', {
             businessType: customer.industry || '',
             taxId: customer.taxId || ''
@@ -233,8 +233,8 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
             status: customer.status || 'active',
             billingCycle: customer.billingCycle || 'monthly',
             nextBillingDate: '2024-04-01',
-            amount: customer.billingCycle === 'annual' 
-              ? customer.plan?.annualPrice || 0 
+            amount: customer.billingCycle === 'annual'
+              ? customer.plan?.annualPrice || 0
               : customer.plan?.monthlyPrice || 0,
             properties: customer.propertyLimit || 0,
             units: customer.unitsCount || 0,
@@ -362,10 +362,10 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
         const settings = settingsResponse.data;
         console.log('✅ Settings loaded:', settings);
         console.log('📦 Raw permissions from DB:', settings?.permissions);
-        
+
         if (settings?.permissions && typeof settings.permissions === 'object') {
           console.log('📝 Applying permissions to state:', settings.permissions);
-          
+
           // Update security settings with loaded permissions
           setSecuritySettings(prev => {
             const updated = {
@@ -596,7 +596,7 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
 
       // Prepare update data based on current tab
       let updateData: any = {};
-      
+
       if (activeTab === 'profile') {
         updateData = {
           owner: profileData.name,
@@ -645,10 +645,10 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
       setIsEditing(false);
       setHasUnsavedChanges(false);
       toast.success(activeTab === 'profile' ? 'Profile updated successfully' : 'Company information updated successfully');
-      
+
       // Refresh data from server
       await fetchAccountData(true);
-      
+
       // Also notify parent component
       onSave(activeTab === 'profile' ? profileData : companyData);
     } catch (error: any) {
@@ -731,13 +731,13 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric', 
-      hour: 'numeric', 
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
       minute: '2-digit',
-      hour12: true 
+      hour12: true
     });
   };
 
@@ -861,7 +861,7 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
                     <DollarSign className="h-5 w-5" />
                     <span>Payment Gateway</span>
                   </button>
-                  
+
                   <button
                     onClick={() => setActiveTab('security')}
                     className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
@@ -965,7 +965,7 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
           {/* Main Content Area */}
           <div className="lg:col-span-3">
             {activeTab === 'profile' && (
-              <ProfileSection 
+              <ProfileSection
                 profileData={profileData}
                 setProfileData={setProfileData}
                 isEditing={isEditing}
@@ -992,7 +992,7 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
             )}
 
             {activeTab === 'billing' && (
-              <BillingSection 
+              <BillingSection
                 billingHistory={billingHistory}
                 paymentMethods={paymentMethods}
               />
@@ -1031,13 +1031,13 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
                     console.log('💾 Saving permissions:', permissions);
                     const result = await updateManagerPermissions(permissions);
                     console.log('✅ Save result:', result);
-                    
+
                     // Reload permissions from database to ensure sync
                     console.log('🔄 Reloading permissions to verify save...');
                     const updatedResp = await getSettings();
                     const updatedSettings = updatedResp.data;
                     console.log('📦 Reloaded permissions:', updatedSettings?.permissions);
-                    
+
                     if (updatedSettings?.permissions) {
                       setSecuritySettings(prev => ({
                         ...prev,
@@ -1054,7 +1054,7 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
                         managerCanViewFinancials: updatedSettings.permissions.managerCanViewFinancials ?? prev.managerCanViewFinancials
                       }));
                     }
-                    
+
                     toast.success('Manager permissions updated successfully');
                   } catch (error: any) {
                     console.error('❌ Save error:', error);
@@ -1701,8 +1701,8 @@ function SubscriptionSection({ subscriptionData, onCancelClick }: any) {
                     {subscriptionData.usageStats.propertiesUsed} / {subscriptionData.properties}
                   </span>
                 </div>
-                <Progress 
-                  value={(subscriptionData.usageStats.propertiesUsed / subscriptionData.properties) * 100} 
+                <Progress
+                  value={(subscriptionData.usageStats.propertiesUsed / subscriptionData.properties) * 100}
                 />
               </div>
 
@@ -1713,8 +1713,8 @@ function SubscriptionSection({ subscriptionData, onCancelClick }: any) {
                     {subscriptionData.usageStats.unitsUsed} / {subscriptionData.units}
                   </span>
                 </div>
-                <Progress 
-                  value={(subscriptionData.usageStats.unitsUsed / subscriptionData.units) * 100} 
+                <Progress
+                  value={(subscriptionData.usageStats.unitsUsed / subscriptionData.units) * 100}
                 />
               </div>
 
@@ -1725,8 +1725,8 @@ function SubscriptionSection({ subscriptionData, onCancelClick }: any) {
                     {subscriptionData.usageStats.managersUsed} / {subscriptionData.managers}
                   </span>
                 </div>
-                <Progress 
-                  value={(subscriptionData.usageStats.managersUsed / subscriptionData.managers) * 100} 
+                <Progress
+                  value={(subscriptionData.usageStats.managersUsed / subscriptionData.managers) * 100}
                 />
               </div>
 
@@ -1737,8 +1737,8 @@ function SubscriptionSection({ subscriptionData, onCancelClick }: any) {
                     {subscriptionData.usageStats.storageUsed} GB / {subscriptionData.usageStats.storageLimit} GB
                   </span>
                 </div>
-                <Progress 
-                  value={(subscriptionData.usageStats.storageUsed / subscriptionData.usageStats.storageLimit) * 100} 
+                <Progress
+                  value={(subscriptionData.usageStats.storageUsed / subscriptionData.usageStats.storageLimit) * 100}
                 />
               </div>
             </div>
@@ -2038,7 +2038,7 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
               <h4 className="font-semibold text-gray-900 mb-1">Units Management</h4>
               <p className="text-sm text-gray-600">Control what managers can do with units</p>
             </div>
-            
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="flex items-center space-x-2">
                 <Checkbox
@@ -2052,7 +2052,7 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
                   View Units
                 </Label>
               </div>
-              
+
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="unit-create"
@@ -2065,7 +2065,7 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
                   Create Units
                 </Label>
               </div>
-              
+
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="unit-edit"
@@ -2078,7 +2078,7 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
                   Edit Units
                 </Label>
               </div>
-              
+
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="unit-delete"
@@ -2100,7 +2100,7 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
               <h4 className="font-semibold text-gray-900 mb-1">Properties Management</h4>
               <p className="text-sm text-gray-600">Control what managers can do with properties</p>
             </div>
-            
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="flex items-center space-x-2">
                 <Checkbox
@@ -2114,7 +2114,7 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
                   View Properties
                 </Label>
               </div>
-              
+
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="property-edit"
@@ -2136,7 +2136,7 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
               <h4 className="font-semibold text-gray-900 mb-1">Tenants Management</h4>
               <p className="text-sm text-gray-600">Control what managers can do with tenants</p>
             </div>
-            
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="flex items-center space-x-2">
                 <Checkbox
@@ -2150,7 +2150,7 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
                   View Tenants
                 </Label>
               </div>
-              
+
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="tenant-create"
@@ -2163,7 +2163,7 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
                   Add Tenants
                 </Label>
               </div>
-              
+
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="tenant-edit"
@@ -2176,7 +2176,7 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
                   Edit Tenants
                 </Label>
               </div>
-              
+
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="tenant-delete"
@@ -2198,7 +2198,7 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
               <h4 className="font-semibold text-gray-900 mb-1">Financial Access</h4>
               <p className="text-sm text-gray-600">Control financial data visibility</p>
             </div>
-            
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="flex items-center space-x-2">
                 <Checkbox
@@ -2221,11 +2221,11 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
           <div className="flex items-center justify-between">
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex-1 mr-4">
               <p className="text-sm text-blue-900">
-                <strong>Note:</strong> These are default permissions. You can override them for individual managers 
+                <strong>Note:</strong> These are default permissions. You can override them for individual managers
                 in the Property Manager Management page.
               </p>
             </div>
-            <Button 
+            <Button
               onClick={onSavePermissions}
               disabled={savingPermissions || loadingPermissions}
             >
@@ -2803,7 +2803,7 @@ function PaymentGatewaySection() {
                       )}
                     </div>
                     <p className="text-sm text-gray-600 mb-3">{gateway.description}</p>
-                    
+
                     {gateway.connected && (
                       <div className="space-y-2 text-xs text-gray-600">
                         <div className="flex items-center gap-2">

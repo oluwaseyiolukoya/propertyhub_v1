@@ -498,7 +498,7 @@ export const AccessControl = () => {
             ← Back to Key Inventory
           </Button>
         </div>
-        
+
         <Card>
           <CardHeader>
             <CardTitle>Issue Key</CardTitle>
@@ -1168,7 +1168,7 @@ export const AccessControl = () => {
                             <Badge variant="outline" className="text-xs">{txn.personType || '—'}</Badge>
                         </TableCell>
                           <TableCell className="text-sm">{txn.performedByName || '—'}</TableCell>
-                          
+
                           <TableCell className="text-sm text-muted-foreground">
                             {typeof txn.depositAmount === 'number' ? formatCurrency(txn.depositAmount, 'NGN') : '—'}
                           </TableCell>
@@ -1289,7 +1289,7 @@ export const AccessControl = () => {
         </TabsContent>
       </Tabs>
 
-      
+
 
       <Dialog open={showReturnKey} onOpenChange={setShowReturnKey}>
         <DialogContent className="max-w-xl">
@@ -1317,7 +1317,7 @@ export const AccessControl = () => {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="flex items-center justify-between p-3 border rounded-lg">
               <div>
                 <Label>Refund Deposit</Label>
