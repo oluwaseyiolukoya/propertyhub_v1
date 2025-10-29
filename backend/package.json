@@ -8,8 +8,9 @@
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "echo 'Build complete - using tsx for runtime'",
+    "build": "prisma generate && prisma migrate deploy",
     "start": "tsx src/index.ts",
+    "postinstall": "prisma generate",
     "build:check": "tsc",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",

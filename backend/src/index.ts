@@ -73,12 +73,12 @@ app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps, Postman, curl, etc.)
     if (!origin) return callback(null, true);
-    
+
     // Allow any Vercel deployment (production and preview URLs)
     if (origin.includes('vercel.app')) {
       return callback(null, true);
     }
-    
+
     // Check against allowed origins list
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
@@ -90,10 +90,10 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
-    'Cache-Control', 
-    'Pragma', 
+    'Content-Type',
+    'Authorization',
+    'Cache-Control',
+    'Pragma',
     'Expires',
     'X-Requested-With'
   ]

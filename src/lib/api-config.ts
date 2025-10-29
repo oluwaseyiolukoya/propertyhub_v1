@@ -15,7 +15,7 @@ export const API_ENDPOINTS = {
     SETUP_PASSWORD: '/api/auth/setup-password',
     ACCOUNT: '/api/auth/account',
   },
-  
+
   // Dashboard
   DASHBOARD: {
     MANAGER_OVERVIEW: '/api/dashboard/manager/overview',
@@ -23,7 +23,7 @@ export const API_ENDPOINTS = {
     MANAGER_ANALYTICS: '/api/dashboard/manager/analytics',
     OWNER_OVERVIEW: '/api/dashboard/owner/overview',
   },
-  
+
   // Properties
   PROPERTIES: {
     LIST: '/api/properties',
@@ -33,7 +33,7 @@ export const API_ENDPOINTS = {
     DELETE: (id: string) => `/api/properties/${id}`,
     ANALYTICS: (id: string) => `/api/properties/${id}/analytics`,
   },
-  
+
   // Units
   UNITS: {
     LIST: '/api/units',
@@ -42,7 +42,7 @@ export const API_ENDPOINTS = {
     UPDATE: (id: string) => `/api/units/${id}`,
     DELETE: (id: string) => `/api/units/${id}`,
   },
-  
+
   // Leases
   LEASES: {
     LIST: '/api/leases',
@@ -51,7 +51,7 @@ export const API_ENDPOINTS = {
     UPDATE: (id: string) => `/api/leases/${id}`,
     TERMINATE: (id: string) => `/api/leases/${id}/terminate`,
   },
-  
+
   // Maintenance
   MAINTENANCE: {
     LIST: '/api/maintenance',
@@ -62,7 +62,7 @@ export const API_ENDPOINTS = {
     COMPLETE: (id: string) => `/api/maintenance/${id}/complete`,
     STATS: '/api/maintenance/stats/overview',
   },
-  
+
   // Payments
   PAYMENTS: {
     LIST: '/api/payments',
@@ -85,7 +85,7 @@ export const API_ENDPOINTS = {
     DELETE: (id: string) => `/api/documents/${id}`,
     STATS: '/api/documents/stats/summary',
   },
-  
+
   // Tenant
   TENANT: {
     BASE: '/api/tenant',
@@ -98,7 +98,7 @@ export const API_ENDPOINTS = {
     SUBMIT_PAYMENT: '/api/tenant/submit-payment',
     DOCUMENTS: '/api/tenant/documents',
   },
-  
+
   // Users
   USERS: {
     LIST: '/api/users',
@@ -108,7 +108,7 @@ export const API_ENDPOINTS = {
     DELETE: (id: string) => `/api/users/${id}`,
     SEND_INVITATION: '/api/users/send-invitation',
   },
-  
+
   // Customers (Admin)
   CUSTOMERS: {
     LIST: '/api/customers',
@@ -118,7 +118,7 @@ export const API_ENDPOINTS = {
     DELETE: (id: string) => `/api/customers/${id}`,
     STATS: '/api/customers/stats',
   },
-  
+
   // Support Tickets
   SUPPORT: {
     LIST: '/api/support-tickets',
@@ -128,14 +128,14 @@ export const API_ENDPOINTS = {
     REPLY: (id: string) => `/api/support-tickets/${id}/reply`,
     CLOSE: (id: string) => `/api/support-tickets/${id}/close`,
   },
-  
+
   // Notifications
   NOTIFICATIONS: {
     LIST: '/api/notifications',
     MARK_READ: (id: string) => `/api/notifications/${id}/read`,
     MARK_ALL_READ: '/api/notifications/mark-all-read',
   },
-  
+
   // Analytics
   ANALYTICS: {
     OVERVIEW: '/api/analytics/overview',
@@ -155,7 +155,7 @@ export const API_ENDPOINTS = {
     TRANSACTIONS: '/api/access-control/transactions',
     STATS: '/api/access-control/stats/overview',
   },
-  
+
   // Plans (Admin)
   PLANS: {
     LIST: '/api/plans',
@@ -164,7 +164,7 @@ export const API_ENDPOINTS = {
     UPDATE: (id: string) => `/api/plans/${id}`,
     DELETE: (id: string) => `/api/plans/${id}`,
   },
-  
+
   // Roles (Admin)
   ROLES: {
     LIST: '/api/roles',

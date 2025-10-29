@@ -58,7 +58,7 @@ const RecentActivityCard: React.FC = () => {
     try {
       setLoadingActivities(true);
       const response = await getOwnerActivities(page, 5);
-      
+
       if (response.error) {
         console.error('Failed to load activities:', response.error);
       } else if (response.data) {
@@ -162,8 +162,8 @@ const RecentActivityCard: React.FC = () => {
   );
 };
 
-export function PropertyOwnerDashboard({ 
-  user, 
+export function PropertyOwnerDashboard({
+  user,
   onLogout,
   managers,
   propertyAssignments,
@@ -185,7 +185,7 @@ export function PropertyOwnerDashboard({
   const [loading, setLoading] = useState(true);
   const [accountInfo, setAccountInfo] = useState<any>(null);
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // Calculate smart base currency based on properties
   const smartBaseCurrency = getSmartBaseCurrency(properties);
 
@@ -193,7 +193,7 @@ export function PropertyOwnerDashboard({
   const fetchData = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
-      
+
       const [dashResponse, propertiesResponse, unitsResponse, accountResponse] = await Promise.all([
         getOwnerDashboardOverview(),
         getProperties(),
@@ -224,12 +224,12 @@ export function PropertyOwnerDashboard({
         console.error('Failed to fetch account info:', accountResponse.error);
       } else if (accountResponse.data) {
         setAccountInfo(accountResponse.data);
-        
+
         // Show notification if plan/limits were updated (only on silent refresh)
         if (silent && accountInfo && accountResponse.data.customer) {
           const oldCustomer = accountInfo.customer;
           const newCustomer = accountResponse.data.customer;
-          
+
           if (oldCustomer && newCustomer) {
             if (oldCustomer.plan?.name !== newCustomer.plan?.name) {
               toast.success(`Your plan has been updated to ${newCustomer.plan?.name}!`);
@@ -464,7 +464,7 @@ export function PropertyOwnerDashboard({
       currency: 'NGN'
     }
   ];
-  
+
   // Use real properties if available, otherwise use mock
   const displayProperties = properties.length > 0 ? properties : mockProperties;
 
@@ -544,12 +544,12 @@ export function PropertyOwnerDashboard({
               <Building className="h-6 w-6 text-blue-600 mr-2" />
               <h1 className="text-xl font-semibold text-gray-900">PropertyHub Owner</h1>
             </div>
-            
+
             <div className="flex items-center space-x-4">
               <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
                 {user.company}
               </Badge>
-              
+
               <div className="flex items-center space-x-2">
                 <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center">
                   <span className="text-white text-sm font-medium">
@@ -610,7 +610,7 @@ export function PropertyOwnerDashboard({
                   </Button>
                 </li>
               ))}
-              
+
               {/* Logout Button below Settings */}
               <li>
                 <Button
@@ -628,7 +628,7 @@ export function PropertyOwnerDashboard({
 
         {/* Overlay for mobile */}
         {sidebarOpen && (
-          <div 
+          <div
             className="fixed inset-0 z-20 bg-black bg-opacity-50 lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
@@ -637,7 +637,7 @@ export function PropertyOwnerDashboard({
         {/* Main Content */}
         <main className="flex-1 lg:ml-0 w-full overflow-x-hidden">
           {currentView === 'properties' ? (
-            <PropertiesPage 
+            <PropertiesPage
               user={user}
               onBack={() => setCurrentView('dashboard')}
               onNavigateToAddProperty={() => setCurrentView('add-property')}
@@ -936,24 +936,24 @@ export function PropertyOwnerDashboard({
                     insurance: undefined,
                     managerId: data.managerId || '', // Include managerId for manager assignment changes
                   };
-                  
-                  console.log('🔄 Updating property with payload:', { 
-                    propertyId: selectedProperty.id, 
+
+                  console.log('🔄 Updating property with payload:', {
+                    propertyId: selectedProperty.id,
                     managerId: payload.managerId,
-                    hasManagerChange: payload.managerId !== selectedProperty.managerId 
+                    hasManagerChange: payload.managerId !== selectedProperty.managerId
                   });
-                  
+
                   const res = await updateProperty(selectedProperty.id, payload);
                   if (res.error) throw new Error(res.error.error || 'Failed to update property');
-                  
+
                   toast.success('Property updated successfully');
-                  
+
                   // Refresh managers list to reflect new assignments
                   if (onRefreshManagers) {
                     console.log('🔄 Refreshing managers list...');
                     await onRefreshManagers();
                   }
-                  
+
                   // Refresh all data to show updated property
                   await fetchData(true);
                   const refreshed = await getProperty(selectedProperty.id);
@@ -979,7 +979,7 @@ export function PropertyOwnerDashboard({
           ) : currentView === 'financial' ? (
             <div className="p-4 lg:p-8">
               <div className="max-w-7xl mx-auto">
-                <FinancialReports 
+                <FinancialReports
                   properties={properties}
                   user={user}
                 />
@@ -988,7 +988,7 @@ export function PropertyOwnerDashboard({
           ) : currentView === 'expenses' ? (
             <div className="p-4 lg:p-8">
               <div className="max-w-7xl mx-auto">
-                <ExpenseManagement 
+                <ExpenseManagement
                   user={user}
                   properties={properties}
                   units={units}
@@ -1269,7 +1269,7 @@ export function PropertyOwnerDashboard({
           )}
         </main>
       </div>
-      
+
       <Footer />
     </div>
   );

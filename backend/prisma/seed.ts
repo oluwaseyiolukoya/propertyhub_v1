@@ -565,7 +565,7 @@ async function main() {
   });
 
   console.log('✅ Created Roles (1 Internal Admin + 3 Customer-Facing)');
-  
+
   // Additional Internal Roles
   await prisma.roles.upsert({
     where: { name: 'Admin' },

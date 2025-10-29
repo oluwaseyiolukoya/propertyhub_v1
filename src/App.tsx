@@ -24,7 +24,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userType, setUserType] = useState<string>('');
   const [isAuthChecking, setIsAuthChecking] = useState(true);
-  
+
   // Managers and assignments loaded from backend
   const [managers, setManagers] = useState<any[]>([]);
   const [propertyAssignments, setPropertyAssignments] = useState<any[]>([]);
@@ -171,14 +171,14 @@ function App() {
     console.log('📋 User Role:', userData?.role);
     console.log('🏢 Customer ID:', userData?.customerId);
     console.log('🎯 UserType from backend:', userData?.userType);
-    
+
     setCurrentUser(userData);
     const derivedType = deriveUserTypeFromUser(userData);
     const finalType = userData?.userType || derivedType || type;
-    
+
     console.log('🔍 Derived Type:', derivedType);
     console.log('✅ Final UserType:', finalType);
-    
+
     setUserType(finalType);
   };
 
@@ -393,7 +393,7 @@ function deriveUserTypeFromUser(user: any): string {
     console.log('⚠️ deriveUserTypeFromUser: No user provided');
     return '';
   }
-  
+
   const role = (user.role || '').toString().toLowerCase();
   const isInternal = !user.customerId; // internal users have no customerId
 
@@ -412,7 +412,7 @@ function deriveUserTypeFromUser(user: any): string {
   }
 
   console.log('   → Customer user (has customerId)');
-  
+
   if (role === 'owner' || role === 'property owner') {
     console.log('   → Matched: owner');
     return 'owner';

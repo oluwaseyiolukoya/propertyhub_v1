@@ -9,30 +9,30 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
-import { 
-  Pagination, 
-  PaginationContent, 
-  PaginationItem, 
-  PaginationLink, 
-  PaginationNext, 
-  PaginationPrevious 
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious
 } from "./ui/pagination";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { toast } from "sonner";
-import { 
-  getExpenses, 
-  createExpense, 
-  updateExpense, 
-  deleteExpense, 
-  getExpenseStats, 
+import {
+  getExpenses,
+  createExpense,
+  updateExpense,
+  deleteExpense,
+  getExpenseStats,
   approveExpense,
-  EXPENSE_CATEGORIES, 
-  EXPENSE_STATUSES, 
-  PAYMENT_METHODS, 
-  type Expense 
+  EXPENSE_CATEGORIES,
+  EXPENSE_STATUSES,
+  PAYMENT_METHODS,
+  type Expense
 } from '../lib/api/expenses';
 import { formatCurrency, getSmartBaseCurrency } from '../lib/currency';
-import { 
+import {
   Plus,
   Edit,
   Trash2,
@@ -116,11 +116,11 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
         getExpenses(),
         getExpenseStats()
       ]);
-      
+
       if (!expRes.error && expRes.data?.data && Array.isArray(expRes.data.data)) {
         setExpenses(expRes.data.data);
       }
-      
+
       if (!expStatsRes.error && expStatsRes.data) {
         setExpenseStats(expStatsRes.data);
       }
@@ -172,7 +172,7 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
   const handleSaveExpense = async () => {
     try {
       setExpenseSaving(true);
-      
+
       if (!expenseForm.propertyId || !expenseForm.category || !expenseForm.description || !expenseForm.amount) {
         toast.error('Please fill in all required fields');
         return;
@@ -218,7 +218,7 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
     try {
       const res = await deleteExpense(expenseToDelete.id);
       if (res.error) throw new Error(res.error);
-      
+
       toast.success('Expense deleted successfully');
       setShowExpenseDeleteDialog(false);
       setExpenseToDelete(null);
@@ -232,7 +232,7 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
     try {
       const res = await approveExpense(expense.id);
       if (res.error) throw new Error(res.error);
-      
+
       toast.success('Expense approved successfully');
       await loadExpenses();
     } catch (error: any) {
@@ -245,12 +245,12 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
       const res = await updateExpense(expense.id, {
         visibleToManager: !expense.visibleToManager
       });
-      
+
       if (res.error) throw new Error(res.error);
-      
+
       toast.success(
-        !expense.visibleToManager 
-          ? 'Expense now visible to managers' 
+        !expense.visibleToManager
+          ? 'Expense now visible to managers'
           : 'Expense hidden from managers'
       );
       await loadExpenses();
@@ -271,7 +271,7 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
       const matchesProperty = filterProperty === 'all' || expense.propertyId === filterProperty;
       const matchesCategory = filterCategory === 'all' || expense.category === filterCategory;
       const matchesStatus = filterStatus === 'all' || expense.status === filterStatus;
-      
+
       return matchesSearch && matchesProperty && matchesCategory && matchesStatus;
     })
     .sort((a, b) => {
@@ -317,7 +317,7 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
                     </TooltipTrigger>
                     <TooltipContent>
                       <p className="max-w-xs">
-                        The sum of all expenses across all your properties, converted to your base currency. 
+                        The sum of all expenses across all your properties, converted to your base currency.
                         Includes all statuses: paid, pending, and overdue.
                       </p>
                     </TooltipContent>
@@ -331,7 +331,7 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
               <p className="text-xs text-muted-foreground mt-1">{expenseStats.totalCount || 0} transactions</p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
@@ -345,7 +345,7 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
                     </TooltipTrigger>
                     <TooltipContent>
                       <p className="max-w-xs">
-                        Total amount of expenses that have been marked as "Paid" and completed. 
+                        Total amount of expenses that have been marked as "Paid" and completed.
                         These are expenses that no longer require action.
                       </p>
                     </TooltipContent>
@@ -366,7 +366,7 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
               </p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
@@ -380,7 +380,7 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
                     </TooltipTrigger>
                     <TooltipContent>
                       <p className="max-w-xs">
-                        Total amount of expenses awaiting payment. These expenses have been recorded 
+                        Total amount of expenses awaiting payment. These expenses have been recorded
                         but payment has not been completed yet.
                       </p>
                     </TooltipContent>
@@ -401,7 +401,7 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
               </p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
@@ -415,7 +415,7 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
                     </TooltipTrigger>
                     <TooltipContent>
                       <p className="max-w-xs">
-                        The expense category with the highest total spending across all your properties. 
+                        The expense category with the highest total spending across all your properties.
                         This helps identify where most of your money is being spent.
                       </p>
                     </TooltipContent>
@@ -489,7 +489,7 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
                 {paginatedProperties.length > 0 ? (
                   <>
                     {paginatedProperties.map((propExpense) => (
-                      <div 
+                      <div
                         key={propExpense.propertyId}
                         className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
                       >
@@ -518,12 +518,12 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
                         <Pagination>
                           <PaginationContent>
                             <PaginationItem>
-                              <PaginationPrevious 
+                              <PaginationPrevious
                                 onClick={() => setPropertyPage(prev => Math.max(1, prev - 1))}
                                 className={propertyPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                               />
                             </PaginationItem>
-                            
+
                             {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                               <PaginationItem key={page}>
                                 <PaginationLink
@@ -535,9 +535,9 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
                                 </PaginationLink>
                               </PaginationItem>
                             ))}
-                            
+
                             <PaginationItem>
-                              <PaginationNext 
+                              <PaginationNext
                                 onClick={() => setPropertyPage(prev => Math.min(totalPages, prev + 1))}
                                 className={propertyPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                               />
@@ -574,7 +574,7 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
                 className="pl-9"
               />
             </div>
-            
+
             <Select value={filterProperty} onValueChange={setFilterProperty}>
               <SelectTrigger>
                 <SelectValue placeholder="All Properties" />
@@ -586,7 +586,7 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
                 ))}
               </SelectContent>
             </Select>
-            
+
             <Select value={filterCategory} onValueChange={setFilterCategory}>
               <SelectTrigger>
                 <SelectValue placeholder="All Categories" />
@@ -598,7 +598,7 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
                 ))}
               </SelectContent>
             </Select>
-            
+
             <Select value={filterStatus} onValueChange={setFilterStatus}>
               <SelectTrigger>
                 <SelectValue placeholder="All Statuses" />
@@ -610,7 +610,7 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
                 ))}
               </SelectContent>
             </Select>
-            
+
             <div className="flex gap-2">
               <Select value={sortBy} onValueChange={(val: any) => setSortBy(val)}>
                 <SelectTrigger>
@@ -705,11 +705,11 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
                         {formatCurrency(expense.amount, expense.currency)}
                       </TableCell>
                       <TableCell>
-                        <Badge 
+                        <Badge
                           variant={
-                            expense.status === 'paid' ? 'default' : 
-                            expense.status === 'pending' ? 'secondary' : 
-                            expense.status === 'overdue' ? 'destructive' : 
+                            expense.status === 'paid' ? 'default' :
+                            expense.status === 'pending' ? 'secondary' :
+                            expense.status === 'overdue' ? 'destructive' :
                             'outline'
                           }
                         >
@@ -769,7 +769,7 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
                             )}
                             <DropdownMenuSeparator />
                             {isOwner && (
-                              <DropdownMenuItem 
+                              <DropdownMenuItem
                                 className="text-red-600"
                                 onClick={() => {
                                   setExpenseToDelete(expense);
@@ -801,17 +801,17 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
               {editingExpense ? 'Update expense details' : 'Record a new property expense'}
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="expense-property">Property *</Label>
-                <Select 
-                  value={expenseForm.propertyId} 
+                <Select
+                  value={expenseForm.propertyId}
                   onValueChange={(value) => {
                     const property = properties.find(p => p.id === value);
-                    setExpenseForm({ 
-                      ...expenseForm, 
+                    setExpenseForm({
+                      ...expenseForm,
                       propertyId: value,
                       currency: property?.currency || 'NGN',
                       unitId: 'none'
@@ -830,11 +830,11 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="expense-unit">Unit (Optional)</Label>
-                <Select 
-                  value={expenseForm.unitId} 
+                <Select
+                  value={expenseForm.unitId}
                   onValueChange={(value) => setExpenseForm({ ...expenseForm, unitId: value })}
                 >
                   <SelectTrigger id="expense-unit">
@@ -855,8 +855,8 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="expense-category">Category *</Label>
-                <Select 
-                  value={expenseForm.category} 
+                <Select
+                  value={expenseForm.category}
                   onValueChange={(value) => setExpenseForm({ ...expenseForm, category: value })}
                 >
                   <SelectTrigger id="expense-category">
@@ -871,11 +871,11 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="expense-amount">Amount *</Label>
                 <div className="flex gap-2">
-                  <Input 
+                  <Input
                     id="expense-amount"
                     type="number"
                     step="0.01"
@@ -905,17 +905,17 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="expense-date">Date *</Label>
-                <Input 
+                <Input
                   id="expense-date"
                   type="date"
                   value={expenseForm.date}
                   onChange={(e) => setExpenseForm({ ...expenseForm, date: e.target.value })}
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="expense-due-date">Due Date (Optional)</Label>
-                <Input 
+                <Input
                   id="expense-due-date"
                   type="date"
                   value={expenseForm.dueDate}
@@ -927,8 +927,8 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="expense-status">Status *</Label>
-                <Select 
-                  value={expenseForm.status} 
+                <Select
+                  value={expenseForm.status}
                   onValueChange={(value) => setExpenseForm({ ...expenseForm, status: value })}
                 >
                   <SelectTrigger id="expense-status">
@@ -943,11 +943,11 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="expense-payment-method">Payment Method</Label>
-                <Select 
-                  value={expenseForm.paymentMethod} 
+                <Select
+                  value={expenseForm.paymentMethod}
                   onValueChange={(value) => setExpenseForm({ ...expenseForm, paymentMethod: value })}
                 >
                   <SelectTrigger id="expense-payment-method">

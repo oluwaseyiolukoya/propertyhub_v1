@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { ImageUpload } from "./ImageUpload";
 import { toast } from "sonner";
 import { createManager } from '../lib/api/property-managers';
-import { 
+import {
   Building2,
   MapPin,
   Home,
@@ -70,7 +70,7 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
     state: '',
     postalCode: '',
     country: 'Nigeria',
-    
+
     // Property Details
     yearBuilt: '',
     totalUnits: '',
@@ -78,7 +78,7 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
     totalArea: '',
     lotSize: '',
     parking: '',
-    
+
     // Financial Information
     currency: 'USD',
     avgRent: '',
@@ -91,25 +91,25 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
     agentCommission: '',
     serviceCharge: '',
     agreementFee: '',
-    
+
     // Management
     managerId: '',
-    
+
     // Features & Amenities
     features: [] as string[],
     unitFeatures: [] as string[],
-    
+
     // Insurance & Legal
     insuranceProvider: '',
     insurancePolicyNumber: '',
     insurancePremium: '',
     insuranceExpiration: '',
     propertyTaxes: '',
-    
+
     // Additional Information
     description: '',
     notes: '',
-    
+
     // Images
     coverImage: '',
     images: [] as string[]
@@ -118,16 +118,16 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
   React.useEffect(() => {
     if (initialValues) {
       // Extract managerId from property_managers array if available
-      const currentManagerId = initialValues.property_managers && initialValues.property_managers.length > 0 
-        ? initialValues.property_managers[0].managerId 
+      const currentManagerId = initialValues.property_managers && initialValues.property_managers.length > 0
+        ? initialValues.property_managers[0].managerId
         : '';
-      
-      console.log('📝 Initializing form with property data:', { 
-        propertyId: initialValues.id, 
+
+      console.log('📝 Initializing form with property data:', {
+        propertyId: initialValues.id,
         managerId: currentManagerId,
-        hasPropertyManagers: !!initialValues.property_managers 
+        hasPropertyManagers: !!initialValues.property_managers
       });
-      
+
       setFormData(prev => ({
         ...prev,
         name: initialValues.name || '',
@@ -259,11 +259,11 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
   ];
 
   const nigerianStates = [
-    'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 
-    'Benue', 'Borno', 'Cross River', 'Delta', 'Ebonyi', 'Edo', 
-    'Ekiti', 'Enugu', 'Gombe', 'Imo', 'Jigawa', 'Kaduna', 
-    'Kano', 'Katsina', 'Kebbi', 'Kogi', 'Kwara', 'Lagos', 
-    'Nasarawa', 'Niger', 'Ogun', 'Ondo', 'Osun', 'Oyo', 
+    'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa',
+    'Benue', 'Borno', 'Cross River', 'Delta', 'Ebonyi', 'Edo',
+    'Ekiti', 'Enugu', 'Gombe', 'Imo', 'Jigawa', 'Kaduna',
+    'Kano', 'Katsina', 'Kebbi', 'Kogi', 'Kwara', 'Lagos',
+    'Nasarawa', 'Niger', 'Ogun', 'Ondo', 'Osun', 'Oyo',
     'Plateau', 'Rivers', 'Sokoto', 'Taraba', 'Yobe', 'Zamfara',
     'FCT (Abuja)', 'Other'
   ];
@@ -408,25 +408,25 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
       }
 
       const newManager = (response as any).data;
-      
+
       // Refresh managers from parent if callback provided
       if (onManagerCreated) {
         await onManagerCreated();
       }
-      
+
       // Add to local managers list
       setLocalManagers(prev => [...prev, newManager]);
-      
+
       // Auto-select the new manager
       handleInputChange('managerId', newManager.id);
-      
+
       // Reset form and close dialog
       setNewManagerForm({ name: '', email: '', phone: '', department: '' });
       setManagerFormErrors({});
       setShowCreateManagerDialog(false);
-      
+
       toast.success(`Manager "${newManager.name}" created successfully!`);
-      
+
       if ((response as any).data?.tempPassword) {
         toast.info(`Temporary password: ${(response as any).data.tempPassword}`, { duration: 10000 });
       }
@@ -1319,8 +1319,8 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
                   <div className="flex items-start space-x-4">
                     <div className="flex-shrink-0">
                       <div className="w-32 h-24 border rounded-lg overflow-hidden bg-gray-50">
-                        <img 
-                          src={formData.coverImage} 
+                        <img
+                          src={formData.coverImage}
                           alt="Property cover"
                           className="w-full h-full object-cover"
                           onError={(e) => {
@@ -1370,7 +1370,7 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
               </Button>
               <h1 className="text-xl font-semibold text-gray-900">{mode === 'edit' ? 'Edit Property' : 'Add New Property'}</h1>
             </div>
-            
+
             <div className="flex items-center space-x-4">
               <div className="hidden md:flex items-center space-x-2">
                 <span className="text-sm text-gray-600">Step {currentStep} of {steps.length}</span>
@@ -1488,7 +1488,7 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
               Add a new manager to your organization. They will receive an email with login credentials.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             <div>
               <Label htmlFor="manager-name">Manager Name *</Label>
@@ -1558,7 +1558,7 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
               <div className="flex items-start">
                 <Info className="h-5 w-5 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
                 <p className="text-sm text-blue-800">
-                  A temporary password will be generated and sent to the manager's email address. 
+                  A temporary password will be generated and sent to the manager's email address.
                   They will be able to log in and change their password on first login.
                 </p>
               </div>

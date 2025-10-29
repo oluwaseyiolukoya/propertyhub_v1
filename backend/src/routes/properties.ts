@@ -106,8 +106,8 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         return {
           ...property,
           occupiedUnits,
-          occupancyRate: property._count.units > 0 
-            ? (occupiedUnits / property._count.units) * 100 
+          occupancyRate: property._count.units > 0
+            ? (occupiedUnits / property._count.units) * 100
             : 0,
           totalMonthlyIncome: totalRent._sum.monthlyRent || 0
         };
@@ -369,9 +369,9 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     console.error('Create property error:', error);
     console.error('Error details:', error.message);
     console.error('Request body:', JSON.stringify(req.body, null, 2));
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to create property',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -504,7 +504,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     // Handle manager assignment changes if managerId is provided
     if (managerId !== undefined) {
       console.log(`🔄 Manager assignment update requested for property ${id}, new managerId: ${managerId || 'none'}`);
-      
+
       // Get current active assignments for this property
       const currentAssignments = await prisma.property_managers.findMany({
         where: {
@@ -535,7 +535,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         // Assign new manager if managerId is provided and not empty
         if (managerId && managerId.trim() !== '') {
           console.log(`➕ Assigning new manager: ${managerId}`);
-          
+
           // Check if assignment already exists (but was inactive)
           const existingAssignment = await prisma.property_managers.findFirst({
             where: {
@@ -647,8 +647,8 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
     }
 
     if (!hasDeletePermission) {
-      return res.status(403).json({ 
-        error: 'You do not have permission to delete this property' 
+      return res.status(403).json({
+        error: 'You do not have permission to delete this property'
       });
     }
 
@@ -718,14 +718,14 @@ router.get('/:id/analytics', async (req: AuthRequest, res: Response) => {
     const totalUnits = property.units.length;
     const occupiedUnits = property.units.filter(u => u.status === 'occupied').length;
     const vacantUnits = property.units.filter(u => u.status === 'vacant').length;
-    
+
     const occupancyRate = totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0;
-    
+
     const potentialMonthlyIncome = property.units.reduce((sum, u) => sum + u.monthlyRent, 0);
     const actualMonthlyIncome = property.units
       .filter(u => u.status === 'occupied')
       .reduce((sum, u) => sum + u.monthlyRent, 0);
-    
+
     const activeLeases = property.leases.filter(l => l.status === 'active').length;
     const expiringLeases = property.leases.filter(l => {
       const endDate = new Date(l.endDate);
@@ -749,8 +749,8 @@ router.get('/:id/analytics', async (req: AuthRequest, res: Response) => {
         expiringSoon: expiringLeases
       },
       performance: {
-        revenueEfficiency: potentialMonthlyIncome > 0 
-          ? (actualMonthlyIncome / potentialMonthlyIncome) * 100 
+        revenueEfficiency: potentialMonthlyIncome > 0
+          ? (actualMonthlyIncome / potentialMonthlyIncome) * 100
           : 0
       }
     });

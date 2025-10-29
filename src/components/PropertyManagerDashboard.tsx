@@ -46,7 +46,7 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
   const fetchDashboardData = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
-      
+
       const shouldFetchUnits = currentUser?.permissions?.managerCanViewUnits !== false;
       const [dashResponse, propertiesResponse, unitsResponseOrNull, accountResponse] = await Promise.all([
         getManagerDashboardOverview(),
@@ -83,7 +83,7 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
         console.error('Failed to fetch account info:', accountResponse.error);
       } else if (accountResponse.data) {
         setAccountInfo(accountResponse.data);
-        
+
         // Update current user with fresh data including baseCurrency
         if (accountResponse.data.user) {
           setCurrentUser((prev: any) => ({
@@ -92,12 +92,12 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
             baseCurrency: accountResponse.data.user.baseCurrency || 'USD'
           }));
         }
-        
+
         // Show notification if plan/limits were updated (only on silent refresh)
         if (silent && accountInfo && accountResponse.data.customer) {
           const oldCustomer = accountInfo.customer;
           const newCustomer = accountResponse.data.customer;
-          
+
           if (oldCustomer && newCustomer) {
             if (oldCustomer.plan?.name !== newCustomer.plan?.name) {
               toast.success(`Your organization's plan has been updated to ${newCustomer.plan?.name}!`);
@@ -177,8 +177,8 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
   const notificationCount = dashboardData?.notifications?.unread || 0;
 
   // Get assigned property IDs from dashboard data or fallback
-  const assignedPropertyIds = dashboardData?.properties?.properties?.map((p: any) => p.id) 
-    || currentUser.assignedProperties 
+  const assignedPropertyIds = dashboardData?.properties?.properties?.map((p: any) => p.id)
+    || currentUser.assignedProperties
     || [];
 
   // Handle user settings update
@@ -221,7 +221,7 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
               </Button>
               <h1 className="text-lg sm:text-xl font-semibold text-gray-900">PropertyHub Manager</h1>
             </div>
-            
+
             <div className="flex items-center space-x-2 sm:space-x-4">
               <div className="relative">
                 <Button variant="ghost" size="sm" onClick={() => setActiveTab('notifications')}>
@@ -233,7 +233,7 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
                   )}
                 </Button>
               </div>
-              
+
               <div className="flex items-center space-x-2">
                 <div className="h-8 w-8 rounded-full bg-green-600 flex items-center justify-center">
                   <span className="text-white text-xs sm:text-sm font-medium">
@@ -252,8 +252,8 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
 
       {/* Mobile Overlay */}
       {sidebarOpen && (
-        <div 
-          className="lg:hidden fixed inset-0 bg-black/50 z-20" 
+        <div
+          className="lg:hidden fixed inset-0 bg-black/50 z-20"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -297,7 +297,7 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
 
         {/* Overlay for mobile */}
         {sidebarOpen && (
-          <div 
+          <div
             className="fixed inset-0 z-20 bg-black bg-opacity-50 lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
@@ -316,14 +316,14 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
             ) : (
               <>
                 {activeTab === 'overview' && (
-                  <ManagerDashboardOverview 
-                    dashboardData={dashboardData} 
+                  <ManagerDashboardOverview
+                    dashboardData={dashboardData}
                     properties={properties}
                     user={currentUser}
                   />
                 )}
                 {activeTab === 'properties' && (
-                  <PropertyManagement 
+                  <PropertyManagement
                     assignedPropertyIds={assignedPropertyIds}
                     isManagerView={true}
                     properties={properties}
@@ -333,7 +333,7 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
                 {activeTab === 'tenants' && <TenantManagement properties={properties} />}
                 {activeTab === 'payments' && <PaymentOverview />}
                 {activeTab === 'expenses' && (
-                  <ExpenseManagement 
+                  <ExpenseManagement
                     user={currentUser}
                     properties={properties}
                     units={units}
@@ -357,7 +357,7 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
           </div>
         </main>
       </div>
-      
+
       <Footer />
     </div>
   );

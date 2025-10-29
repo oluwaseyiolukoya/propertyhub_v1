@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { 
+import {
   Table,
   TableBody,
   TableCell,
@@ -20,9 +20,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from './ui/dialog';
-import { 
-  CreditCard, 
-  Calendar, 
+import {
+  CreditCard,
+  Calendar,
   Download,
   DollarSign,
   Clock,
@@ -53,7 +53,7 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
   const [autopayEnabled, setAutopayEnabled] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bankTransferTemplate, setBankTransferTemplate] = useState<string>('');
-  
+
   // Add Card Form State
   const [cardNumber, setCardNumber] = useState('');
   const [cardName, setCardName] = useState('');
@@ -62,7 +62,7 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
   const [makeDefault, setMakeDefault] = useState(false);
 
   const monthlyRent = dashboardData?.lease?.monthlyRent || 0;
-  
+
   React.useEffect(() => {
     setPaymentAmount(monthlyRent.toString());
   }, [monthlyRent]);
@@ -70,7 +70,7 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
   // Format data from API
   const currentRent = {
     amount: monthlyRent,
-    dueDate: dashboardData?.rent?.nextPaymentDue 
+    dueDate: dashboardData?.rent?.nextPaymentDue
       ? new Date(dashboardData.rent.nextPaymentDue).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
       : "N/A",
     daysUntilDue: dashboardData?.rent?.daysUntilDue || 0,
@@ -134,7 +134,7 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
     });
     const handleBrowserPaymentUpdate = () => loadPaymentHistory();
     window.addEventListener('payment:updated', handleBrowserPaymentUpdate);
-    
+
     // Fetch public bank transfer template (tenant-safe)
     (async () => {
       const resp = await getPublicPaymentGatewaySettings();
@@ -142,7 +142,7 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
         setBankTransferTemplate(resp.data.bankTransferTemplate);
       }
     })();
-    
+
     return () => {
       unsubscribeFromPaymentEvents();
       window.removeEventListener('payment:updated', handleBrowserPaymentUpdate);
@@ -500,7 +500,7 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
                   <p className="font-medium">Enable Auto-Pay</p>
                   <p className="text-sm text-muted-foreground">Automatically charge your default payment method on the 1st of each month</p>
                 </div>
-                <Button 
+                <Button
                   variant={currentRent.autopayEnabled ? "destructive" : "default"}
                   onClick={handleToggleAutoPay}
                 >
@@ -526,8 +526,8 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
           <DialogHeader>
             <DialogTitle>Make a Payment</DialogTitle>
             <DialogDescription>
-              {selectedPaymentType === 'full' 
-                ? 'Pay your rent securely online' 
+              {selectedPaymentType === 'full'
+                ? 'Pay your rent securely online'
                 : 'Make a custom payment amount'}
             </DialogDescription>
           </DialogHeader>
@@ -536,14 +536,14 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
               <div className="space-y-2">
                 <Label>Payment Type</Label>
                 <div className="grid grid-cols-2 gap-2">
-                  <Button 
+                  <Button
                     variant={paymentAmount === currentRent.amount.toString() ? 'default' : 'outline'}
                     onClick={() => setPaymentAmount(currentRent.amount.toString())}
                     type="button"
                   >
                     Full Rent (₦{currentRent.amount.toLocaleString()})
                   </Button>
-                  <Button 
+                  <Button
                     variant={paymentAmount !== currentRent.amount.toString() ? 'default' : 'outline'}
                     onClick={() => setPaymentAmount('')}
                     type="button"
@@ -553,15 +553,15 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
                 </div>
               </div>
             )}
-            
+
             <div className="space-y-2">
               <Label htmlFor="amount">Amount</Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₦</span>
-                <Input 
+                <Input
                   id="amount"
-                  type="number" 
-                  value={paymentAmount} 
+                  type="number"
+                  value={paymentAmount}
                   onChange={(e) => setPaymentAmount(e.target.value)}
                   readOnly={selectedPaymentType === 'full'}
                   className="pl-7"
@@ -592,7 +592,7 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
                     </div>
                   </Label>
                 </div>
-                
+
                 <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
                   <RadioGroupItem value="bank_transfer" id="method-bank" />
                   <Label htmlFor="method-bank" className="flex-1 cursor-pointer">
@@ -644,7 +644,7 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
                 <>
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    {paymentMethod === 'cash' 
+                    {paymentMethod === 'cash'
                       ? 'After making cash payment, contact your property manager to record the transaction.'
                       : 'After completing bank transfer, contact your property manager to record the transaction.'}
                   </AlertDescription>
@@ -656,12 +656,12 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
             <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleMakePayment}
               disabled={isSubmitting || !paymentAmount || parseFloat(paymentAmount) <= 0}
             >
-              {isSubmitting 
-                ? 'Processing…' 
+              {isSubmitting
+                ? 'Processing…'
                 : paymentMethod === 'paystack'
                   ? `Pay ₦${paymentAmount ? parseFloat(paymentAmount).toLocaleString() : '0.00'}`
                   : 'Confirm'}

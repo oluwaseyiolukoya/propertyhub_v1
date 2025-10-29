@@ -77,7 +77,7 @@ async function request<T>(
   extra?: { suppressAuthRedirect?: boolean }
 ): Promise<ApiResponse<T>> {
   const token = getAuthToken();
-  
+
   const isFormData = options.body instanceof FormData;
   const headers: HeadersInit = {
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
@@ -87,7 +87,7 @@ async function request<T>(
   // Add authorization header if token exists
   const publicEndpoints = ['/api/auth/login', '/api/auth/verify'];
   const isPublicEndpoint = publicEndpoints.some(pe => endpoint.includes(pe));
-  
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
     console.log('🔑 Adding auth header for request to:', endpoint);
@@ -122,13 +122,13 @@ async function request<T>(
           detail: { message: data.error || 'Your permissions have been updated. Please log in again.' }
         });
         window.dispatchEvent(event);
-        
+
         // Wait a moment for the toast to show, then clear auth and redirect
         setTimeout(() => {
           removeAuthToken();
           window.location.href = '/';
         }, 2000);
-        
+
         throw new Error('Permissions updated');
       } else {
         // Regular unauthorized error
@@ -168,7 +168,7 @@ async function request<T>(
     return { data };
   } catch (error: any) {
     clearTimeout(timeoutId);
-    
+
     if (error.name === 'AbortError') {
       return {
         error: {

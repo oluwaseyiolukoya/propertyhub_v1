@@ -20,9 +20,9 @@ import { deleteProperty } from '../lib/api/properties';
 import { getUnits, createUnit, updateUnit, deleteUnit } from '../lib/api/units';
 import { getManagerAnalytics } from '../lib/api/dashboard';
 import { usePersistentState } from '../lib/usePersistentState';
-import { 
-  Plus, Edit, Eye, MapPin, Home, Users, Search, Filter, 
-  MoreHorizontal, Building2, DollarSign, TrendingUp, 
+import {
+  Plus, Edit, Eye, MapPin, Home, Users, Search, Filter,
+  MoreHorizontal, Building2, DollarSign, TrendingUp,
   Wrench, Phone, Mail, Calendar, Bed, Bath, SquareFoot,
   AlertCircle, AlertTriangle, CheckCircle, Clock, LayoutGrid, List,
   Download, Upload, Settings, Key, Star, Copy,
@@ -57,23 +57,23 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
   const [showDeleteUnitDialog, setShowDeleteUnitDialog] = useState(false);
   const [unitToDelete, setUnitToDelete] = useState<any>(null);
   const [isDeletingUnit, setIsDeletingUnit] = useState(false);
-  
+
   // Calculate smart base currency based on properties
   const smartBaseCurrency = getSmartBaseCurrency(propProperties || []);
-  
+
   // Unit search and filter state
   const [unitSearchTerm, setUnitSearchTerm] = useState('');
   const [unitStatusFilter, setUnitStatusFilter] = useState('all');
   const [unitPropertyFilter, setUnitPropertyFilter] = useState('all');
-  
+
   // Units data state
   const [units, setUnits] = useState<any[]>([]);
   const [loadingUnits, setLoadingUnits] = useState(false);
-  
+
   // Analytics data state
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
-  
+
   // Add unit form state
   const [unitForm, setUnitForm] = useState({
     propertyId: '',
@@ -88,7 +88,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
     status: 'vacant'
   });
   const [savingUnit, setSavingUnit] = useState(false);
-  
+
   // Mock properties as fallback
   const mockProperties = [
     {
@@ -161,10 +161,10 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
     // Use backend-calculated values when available
     const totalUnits = prop._count?.units || prop.totalUnits || 0;
     const occupiedUnits = prop.occupiedUnits || 0;
-    
+
     // Use totalMonthlyIncome from backend (already calculated), fallback to monthlyRevenue
     const monthlyRevenue = prop.totalMonthlyIncome || prop.monthlyRevenue || 0;
-    
+
     return {
       ...prop,
       totalUnits,
@@ -201,7 +201,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
   });
 
   // Filter properties based on manager assignments
-  const properties = isManagerView 
+  const properties = isManagerView
     ? enrichedProperties.filter(property => assignedPropertyIds.includes(property.id.toString()))
     : enrichedProperties;
 
@@ -215,7 +215,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
     }
     // Create a stable reference for property IDs
     const propertyIds = properties.map(p => p.id);
-    
+
     if (propertyIds.length === 0) {
       setUnits([]);
       setLoadingUnits(false);
@@ -225,10 +225,10 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
     try {
       setLoadingUnits(true);
       console.log('🔄 Fetching units for properties...');
-      
+
       // Fetch all units
       const response = await getUnits();
-      
+
       if (response.error) {
         console.error('Failed to fetch units:', response.error);
         toast.error('Failed to load units');
@@ -236,16 +236,16 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
       } else if (response.data) {
         if (isManagerView) {
           // Filter units to only show those from assigned properties
-          const filteredUnits = response.data.filter((unit: any) => 
+          const filteredUnits = response.data.filter((unit: any) =>
             propertyIds.includes(unit.propertyId)
           );
-          
+
           console.log('✅ Loaded units for manager:', {
             total: response.data.length,
             filtered: filteredUnits.length,
             assignedPropertyIds: propertyIds
           });
-          
+
           setUnits(filteredUnits);
         } else {
           // For owners, show all units
@@ -276,13 +276,13 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
   useEffect(() => {
     const fetchAnalytics = async () => {
       if (activeTab !== 'analytics') return;
-      
+
       try {
         setLoadingAnalytics(true);
         console.log('📊 Fetching analytics data...');
-        
+
         const response = await getManagerAnalytics();
-        
+
         if (response.error) {
           console.error('Failed to fetch analytics:', response.error);
           toast.error('Failed to load analytics');
@@ -315,13 +315,13 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
       const managerAssignment = property.property_managers.find(
         (pm: any) => pm.managerId === user?.id && pm.isActive
       );
-      
+
       console.log('🔐 Checking edit permissions for property:', property.name, {
         managerId: user?.id,
         assignment: managerAssignment,
         permissions: managerAssignment?.permissions
       });
-      
+
       // Check if permissions object has canEdit flag
       if (managerAssignment?.permissions) {
         return managerAssignment.permissions.canEdit === true;
@@ -344,7 +344,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
       const managerAssignment = property.property_managers.find(
         (pm: any) => pm.managerId === user?.id && pm.isActive
       );
-      
+
       // Check if permissions object has canDelete flag
       if (managerAssignment?.permissions) {
         return managerAssignment.permissions.canDelete === true;
@@ -358,21 +358,21 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
   // Handle delete property
   const handleDeleteProperty = async () => {
     if (!propertyToDelete) return;
-    
+
     try {
       setIsDeleting(true);
       const response = await deleteProperty(propertyToDelete.id);
-      
+
       if ((response as any).error) {
         // Extract the error message from the error object
         const errorMessage = (response as any).error.error || (response as any).error.message || 'Failed to delete property';
         throw new Error(errorMessage);
       }
-      
+
       toast.success(`Property "${propertyToDelete.name}" deleted successfully`);
       setShowDeleteDialog(false);
       setPropertyToDelete(null);
-      
+
       // Refresh the page to show updated data
       window.location.reload();
     } catch (error: any) {
@@ -385,7 +385,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
   // Handle create unit
   const handleCreateUnit = async () => {
     // Validation
-    if (!unitForm.propertyId || !unitForm.unitNumber || !unitForm.type || 
+    if (!unitForm.propertyId || !unitForm.unitNumber || !unitForm.type ||
         !unitForm.bedrooms || !unitForm.bathrooms || !unitForm.monthlyRent) {
       toast.error('Please fill in all required fields');
       return;
@@ -393,7 +393,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
 
     try {
       setSavingUnit(true);
-      
+
       const unitData = {
         propertyId: unitForm.propertyId,
         unitNumber: unitForm.unitNumber,
@@ -408,10 +408,10 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
       };
 
       await createUnit(unitData);
-      
+
       toast.success('Unit created successfully!');
       setShowAddUnit(false);
-      
+
       // Reset form
       setUnitForm({
         propertyId: '',
@@ -425,7 +425,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
         securityDeposit: '',
         status: 'vacant'
       });
-      
+
       // Reload units
       if (activeTab === 'units') {
         loadUnits();
@@ -445,7 +445,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
     }
 
     // Validation
-    if (!editUnitForm.unitNumber || !editUnitForm.type || 
+    if (!editUnitForm.unitNumber || !editUnitForm.type ||
         !editUnitForm.bedrooms || !editUnitForm.bathrooms || !editUnitForm.monthlyRent) {
       toast.error('Please fill in all required fields');
       return;
@@ -453,7 +453,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
 
     try {
       setSavingEditUnit(true);
-      
+
       const unitData = {
         propertyId: editUnitForm.propertyId,
         unitNumber: editUnitForm.unitNumber,
@@ -468,11 +468,11 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
       };
 
       await updateUnit(selectedUnit.id, unitData);
-      
+
       toast.success('Unit updated successfully!');
       setShowEditUnit(false);
       setSelectedUnit(null);
-      
+
       // Reload units
       if (activeTab === 'units') {
         loadUnits();
@@ -501,7 +501,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
       toast.success(`Unit ${unitToDelete.unitNumber} deleted successfully!`);
       setShowDeleteUnitDialog(false);
       setUnitToDelete(null);
-      
+
       // Reload units
       if (activeTab === 'units') {
         loadUnits();
@@ -526,7 +526,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
     occupiedUnits: properties.reduce((sum, p) => sum + p.occupiedUnits, 0),
     vacantUnits: properties.reduce((sum, p) => sum + (p.totalUnits - p.occupiedUnits), 0),
     totalRevenue: properties.reduce((sum, p) => sum + p.monthlyRevenue, 0),
-    avgOccupancy: properties.length > 0 ? 
+    avgOccupancy: properties.length > 0 ?
       properties.reduce((sum, p) => sum + (p.occupiedUnits / p.totalUnits * 100), 0) / properties.length : 0,
     maintenanceRequests: properties.reduce((sum, p) => sum + p.maintenanceRequests, 0)
   };
@@ -594,13 +594,13 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
         <div>
           <h2 className="text-2xl font-semibold text-gray-900">Property Management</h2>
           <p className="text-gray-600 mt-1">
-            {isManagerView 
+            {isManagerView
               ? `Managing ${properties.length} assigned properties`
               : "Manage your properties, units, and tenants"
             }
           </p>
         </div>
-        
+
         <div className="flex items-center gap-2">
           {!isManagerView && (
             <Button onClick={() => setShowAddProperty(true)}>
@@ -694,7 +694,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                   <div className="text-2xl font-semibold">{formatCurrency(portfolioMetrics.totalRevenue, smartBaseCurrency)}</div>
                   <p className="text-xs text-muted-foreground flex items-center">
                     <TrendingUp className="h-3 w-3 mr-1 text-green-600" />
-                    {properties.length > 1 && properties.some(p => p.currency !== smartBaseCurrency) && 
+                    {properties.length > 1 && properties.some(p => p.currency !== smartBaseCurrency) &&
                       <span className="text-orange-600 mr-2">Multi-currency</span>
                     }
                     +8.2% from last month
@@ -743,7 +743,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                     <div key={property.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
                       <div className="flex items-center space-x-3">
                         <div className="h-12 w-12 rounded-lg overflow-hidden bg-gray-100">
-                          <ImageWithFallback 
+                          <ImageWithFallback
                             src={property.image}
                             alt={property.name}
                             className="h-full w-full object-cover"
@@ -779,7 +779,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                       <p className="text-xs text-gray-400">2 hours ago</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-start space-x-3 p-3 border rounded-lg">
                     <Wrench className="h-5 w-5 text-yellow-600 mt-0.5" />
                     <div className="flex-1">
@@ -788,7 +788,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                       <p className="text-xs text-gray-400">4 hours ago</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-start space-x-3 p-3 border rounded-lg">
                     <DollarSign className="h-5 w-5 text-green-600 mt-0.5" />
                     <div className="flex-1">
@@ -797,7 +797,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                       <p className="text-xs text-gray-400">1 day ago</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-start space-x-3 p-3 border rounded-lg">
                     <Home className="h-5 w-5 text-blue-600 mt-0.5" />
                     <div className="flex-1">
@@ -827,7 +827,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                     className="pl-10"
                   />
                 </div>
-                
+
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="w-full md:w-40">
                     <SelectValue placeholder="All Status" />
@@ -839,7 +839,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                     <SelectItem value="vacant">Vacant</SelectItem>
                   </SelectContent>
                 </Select>
-                
+
                 <div className="flex items-center gap-2">
                   <Button
                     variant={viewMode === 'grid' ? 'default' : 'outline'}
@@ -866,7 +866,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
               {filteredProperties.map((property) => (
                 <Card key={property.id} className="overflow-hidden hover:shadow-lg transition-shadow">
                   <div className="h-48 bg-gray-200 relative">
-                    <ImageWithFallback 
+                    <ImageWithFallback
                       src={property.image}
                       alt={property.name}
                       className="w-full h-full object-cover"
@@ -919,7 +919,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                             )}
                           </div>
                         )}
-                        
+
                         {/* Three-dot menu */}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -934,14 +934,14 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                           <DropdownMenuContent align="end" className="w-48">
                             <DropdownMenuLabel>Property Actions</DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            
+
                             <DropdownMenuItem
                               onClick={() => setSelectedProperty(property)}
                             >
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
-                            
+
                             {canEditProperty(property) && (
                               <>
                                 <DropdownMenuSeparator />
@@ -956,7 +956,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                                 </DropdownMenuItem>
                               </>
                             )}
-                            
+
                             {canDeleteProperty(property) && (
                               <>
                                 <DropdownMenuSeparator />
@@ -1002,13 +1002,13 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                       <div className="flex items-center gap-4">
                         {/* Thumbnail */}
                         <div className="w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-gray-200">
-                          <ImageWithFallback 
+                          <ImageWithFallback
                             src={property.image}
                             alt={property.name}
                             className="w-full h-full object-cover"
                           />
                         </div>
-                        
+
                         {/* Property Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between mb-2">
@@ -1023,7 +1023,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                               {property.status}
                             </Badge>
                           </div>
-                          
+
                           {/* Metrics */}
                           <div className="flex gap-4 mt-3">
                             <div className="flex items-center gap-2">
@@ -1035,7 +1035,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                                 <p className="font-semibold text-sm">{property.occupiedUnits}/{property.totalUnits}</p>
                               </div>
                             </div>
-                            
+
                             <div className="flex items-center gap-2">
                               <div className="p-2 bg-blue-100 rounded">
                                 <TrendingUp className="h-4 w-4 text-blue-600" />
@@ -1047,7 +1047,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                                 </p>
                               </div>
                             </div>
-                            
+
                             <div className="flex items-center gap-2">
                               <div className="p-2 bg-green-100 rounded">
                                 <DollarSign className="h-4 w-4 text-green-600" />
@@ -1060,7 +1060,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                               </div>
                             </div>
                           </div>
-                          
+
                           {/* Permission badges for managers */}
                           {isManagerView && (
                             <div className="flex gap-2 mt-3">
@@ -1076,7 +1076,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                             </div>
                           )}
                         </div>
-                        
+
                         {/* Three-dot menu */}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -1091,14 +1091,14 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                           <DropdownMenuContent align="end" className="w-48">
                             <DropdownMenuLabel>Property Actions</DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            
+
                             <DropdownMenuItem
                               onClick={() => setSelectedProperty(property)}
                             >
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
-                            
+
                             {canEditProperty(property) && (
                               <>
                                 <DropdownMenuSeparator />
@@ -1113,7 +1113,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                                 </DropdownMenuItem>
                               </>
                             )}
-                            
+
                             {canDeleteProperty(property) && (
                               <>
                                 <DropdownMenuSeparator />
@@ -1165,7 +1165,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                     className="pl-10"
                   />
                 </div>
-                
+
                 <Select value={unitPropertyFilter} onValueChange={setUnitPropertyFilter}>
                   <SelectTrigger className="w-full md:w-48">
                     <SelectValue placeholder="All Properties" />
@@ -1179,7 +1179,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                     ))}
                   </SelectContent>
                 </Select>
-                
+
                 <Select value={unitStatusFilter} onValueChange={setUnitStatusFilter}>
                   <SelectTrigger className="w-full md:w-40">
                     <SelectValue placeholder="All Status" />
@@ -1242,19 +1242,19 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                   </TableHeader>
                   <TableBody>
                     {properties
-                      .filter(property => 
+                      .filter(property =>
                         unitPropertyFilter === 'all' || property.id.toString() === unitPropertyFilter
                       )
-                      .flatMap(property => 
+                      .flatMap(property =>
                         getUnitsForProperty(property.id)
                           .filter(unit => {
                             const unitNumber = unit.unitNumber || unit.id || '';
                             const tenantName = unit.tenant || (unit.leases && unit.leases[0]?.users?.name) || '';
-                            const matchesSearch = 
+                            const matchesSearch =
                               unitNumber.toString().toLowerCase().includes(unitSearchTerm.toLowerCase()) ||
                               tenantName.toLowerCase().includes(unitSearchTerm.toLowerCase());
-                            const matchesStatus = 
-                              unitStatusFilter === 'all' || 
+                            const matchesStatus =
+                              unitStatusFilter === 'all' ||
                               unit.status.toLowerCase() === unitStatusFilter.toLowerCase();
                             return matchesSearch && matchesStatus;
                           })
@@ -1263,13 +1263,13 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                             const tenantName = unit.tenant || (unit.leases && unit.leases[0]?.users?.name) || '';
                             const unitSize = unit.size || unit.sqft || '-';
                             const monthlyRent = unit.monthlyRent || unit.rent || 0;
-                            
+
                             // Check permissions (owner-defined defaults applied to manager at login)
                             const canView = user?.permissions?.managerCanViewUnits === true;
                             const canEdit = user?.permissions?.managerCanEditUnits === true;
                             const canDelete = user?.permissions?.managerCanDeleteUnits === true;
                             const hasActiveLeases = Array.isArray((unit as any).leases) && (unit as any).leases.length > 0;
-                            
+
                             return (
                               <TableRow key={`${property.id}-${unit.id}`}>
                                 <TableCell className="font-medium">{unitNumber}</TableCell>
@@ -1306,7 +1306,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                                       <DropdownMenuContent align="end">
                                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                         <DropdownMenuSeparator />
-                                        
+
                                         {canView && (
                                           <DropdownMenuItem onClick={() => {
                                             setSelectedUnit({ ...unit, property, unitNumber });
@@ -1316,7 +1316,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                                             View Details
                                           </DropdownMenuItem>
                                         )}
-                                        
+
                                         {canEdit && (
                                           <DropdownMenuItem onClick={() => {
                                             setSelectedUnit({ ...unit, property, unitNumber });
@@ -1338,11 +1338,11 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                                             Edit Unit
                                           </DropdownMenuItem>
                                         )}
-                                        
+
                                         {canDelete && !hasActiveLeases && (
                                           <>
                                             <DropdownMenuSeparator />
-                                            <DropdownMenuItem 
+                                            <DropdownMenuItem
                                               onClick={() => {
                                                 setUnitToDelete({ ...unit, unitNumber, property });
                                                 setShowDeleteUnitDialog(true);
@@ -1363,7 +1363,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                                             </DropdownMenuItem>
                                           </>
                                         )}
-                                        
+
                                         {!canView && !canEdit && !canDelete && (
                                           <DropdownMenuItem disabled>
                                             <AlertCircle className="h-4 w-4 mr-2" />
@@ -1592,7 +1592,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
               {/* Property Image */}
               {selectedProperty.coverImage && (
                 <div className="w-full h-64 rounded-lg overflow-hidden bg-gray-200">
-                  <ImageWithFallback 
+                  <ImageWithFallback
                     src={selectedProperty.coverImage || selectedProperty.image}
                     alt={selectedProperty.name}
                     className="w-full h-full object-cover"
@@ -1611,7 +1611,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                     </div>
                   </CardContent>
                 </Card>
-                
+
                 <Card>
                   <CardContent className="pt-6">
                     <div className="text-center">
@@ -1621,21 +1621,21 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                     </div>
                   </CardContent>
                 </Card>
-                
+
                 <Card>
                   <CardContent className="pt-6">
                     <div className="text-center">
                       <TrendingUp className="h-8 w-8 mx-auto mb-2 text-purple-600" />
                       <p className="text-2xl font-bold">
-                        {selectedProperty.totalUnits > 0 
-                          ? Math.round((selectedProperty.occupiedUnits / selectedProperty.totalUnits) * 100) 
+                        {selectedProperty.totalUnits > 0
+                          ? Math.round((selectedProperty.occupiedUnits / selectedProperty.totalUnits) * 100)
                           : 0}%
                       </p>
                       <p className="text-sm text-gray-500">Occupancy</p>
                     </div>
                   </CardContent>
                 </Card>
-                
+
                 <Card>
                   <CardContent className="pt-6">
                     <div className="text-center">
@@ -1699,7 +1699,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                       <div>
                         <Label className="text-gray-500">Average Rent</Label>
                         <p className="font-medium">
-                          {selectedProperty.avgRent 
+                          {selectedProperty.avgRent
                             ? formatCurrency(selectedProperty.avgRent, selectedProperty.currency)
                             : 'N/A'}
                         </p>
@@ -1740,7 +1740,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                       <div>
                         <Label className="text-gray-500">Purchase Price</Label>
                         <p className="font-medium">
-                          {selectedProperty.purchasePrice 
+                          {selectedProperty.purchasePrice
                             ? formatCurrency(selectedProperty.purchasePrice, selectedProperty.currency)
                             : 'N/A'}
                         </p>
@@ -1748,7 +1748,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                       <div>
                         <Label className="text-gray-500">Current Value</Label>
                         <p className="font-medium">
-                          {selectedProperty.currentValue 
+                          {selectedProperty.currentValue
                             ? formatCurrency(selectedProperty.currentValue, selectedProperty.currency)
                             : 'N/A'}
                         </p>
@@ -1756,7 +1756,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                       <div>
                         <Label className="text-gray-500">Property Taxes</Label>
                         <p className="font-medium">
-                          {selectedProperty.propertyTaxes 
+                          {selectedProperty.propertyTaxes
                             ? formatCurrency(selectedProperty.propertyTaxes, selectedProperty.currency)
                             : 'N/A'}
                         </p>
@@ -1764,7 +1764,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                       <div>
                         <Label className="text-gray-500">Service Charge</Label>
                         <p className="font-medium">
-                          {selectedProperty.serviceCharge 
+                          {selectedProperty.serviceCharge
                             ? formatCurrency(selectedProperty.serviceCharge, selectedProperty.currency)
                             : 'N/A'}
                         </p>
@@ -1772,7 +1772,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                       <div>
                         <Label className="text-gray-500">Security Deposit</Label>
                         <p className="font-medium">
-                          {selectedProperty.securityDeposit 
+                          {selectedProperty.securityDeposit
                             ? formatCurrency(selectedProperty.securityDeposit, selectedProperty.currency)
                             : 'N/A'}
                         </p>
@@ -1780,7 +1780,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                       <div>
                         <Label className="text-gray-500">Application Fee</Label>
                         <p className="font-medium">
-                          {selectedProperty.applicationFee 
+                          {selectedProperty.applicationFee
                             ? formatCurrency(selectedProperty.applicationFee, selectedProperty.currency)
                             : 'N/A'}
                         </p>
@@ -1788,7 +1788,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                       <div>
                         <Label className="text-gray-500">Caution Fee</Label>
                         <p className="font-medium">
-                          {selectedProperty.cautionFee 
+                          {selectedProperty.cautionFee
                             ? formatCurrency(selectedProperty.cautionFee, selectedProperty.currency)
                             : 'N/A'}
                         </p>
@@ -1796,7 +1796,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                       <div>
                         <Label className="text-gray-500">Legal Fee</Label>
                         <p className="font-medium">
-                          {selectedProperty.legalFee 
+                          {selectedProperty.legalFee
                             ? formatCurrency(selectedProperty.legalFee, selectedProperty.currency)
                             : 'N/A'}
                         </p>
@@ -1804,7 +1804,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                       <div>
                         <Label className="text-gray-500">Agent Commission</Label>
                         <p className="font-medium">
-                          {selectedProperty.agentCommission 
+                          {selectedProperty.agentCommission
                             ? formatCurrency(selectedProperty.agentCommission, selectedProperty.currency)
                             : 'N/A'}
                         </p>
@@ -1812,7 +1812,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                       <div>
                         <Label className="text-gray-500">Agreement Fee</Label>
                         <p className="font-medium">
-                          {selectedProperty.agreementFee 
+                          {selectedProperty.agreementFee
                             ? formatCurrency(selectedProperty.agreementFee, selectedProperty.currency)
                             : 'N/A'}
                         </p>
@@ -1837,7 +1837,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                         <div>
                           <Label className="text-gray-500">Premium</Label>
                           <p className="font-medium">
-                            {selectedProperty.insurancePremium 
+                            {selectedProperty.insurancePremium
                               ? formatCurrency(selectedProperty.insurancePremium, selectedProperty.currency)
                               : 'N/A'}
                           </p>
@@ -1845,7 +1845,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                         <div>
                           <Label className="text-gray-500">Expiration Date</Label>
                           <p className="font-medium">
-                            {selectedProperty.insuranceExpiration 
+                            {selectedProperty.insuranceExpiration
                               ? new Date(selectedProperty.insuranceExpiration).toLocaleDateString()
                               : 'N/A'}
                           </p>
@@ -1904,7 +1904,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                           {selectedProperty.images.map((image: string, index: number) => (
                             <div key={index} className="aspect-video rounded-lg overflow-hidden bg-gray-200">
-                              <ImageWithFallback 
+                              <ImageWithFallback
                                 src={image}
                                 alt={`${selectedProperty.name} - Image ${index + 1}`}
                                 className="w-full h-full object-cover"
@@ -1946,7 +1946,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
               Are you sure you want to permanently delete this property? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          
+
           {propertyToDelete && (
             <div className="space-y-4">
               <div className="p-4 bg-gray-50 rounded-lg border">
@@ -1983,8 +1983,8 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
           )}
 
           <div className="flex justify-end space-x-3">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 setShowDeleteDialog(false);
                 setPropertyToDelete(null);
@@ -1993,8 +1993,8 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
             >
               Cancel
             </Button>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={handleDeleteProperty}
               disabled={isDeleting}
             >
@@ -2023,13 +2023,13 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
               Create a new unit for one of your managed properties
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <div className="grid gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="propertyId">Property *</Label>
-                <Select 
-                  value={unitForm.propertyId} 
+                <Select
+                  value={unitForm.propertyId}
                   onValueChange={(value) => setUnitForm({ ...unitForm, propertyId: value })}
                 >
                   <SelectTrigger id="propertyId">
@@ -2048,18 +2048,18 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="unitNumber">Unit Number *</Label>
-                  <Input 
-                    id="unitNumber" 
-                    placeholder="A101" 
+                  <Input
+                    id="unitNumber"
+                    placeholder="A101"
                     value={unitForm.unitNumber}
                     onChange={(e) => setUnitForm({ ...unitForm, unitNumber: e.target.value })}
                   />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="type">Type *</Label>
-                  <Input 
-                    id="type" 
-                    placeholder="2-bedroom" 
+                  <Input
+                    id="type"
+                    placeholder="2-bedroom"
                     value={unitForm.type}
                     onChange={(e) => setUnitForm({ ...unitForm, type: e.target.value })}
                   />
@@ -2069,31 +2069,31 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
               <div className="grid grid-cols-3 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="floor">Floor</Label>
-                  <Input 
-                    id="floor" 
-                    type="number" 
-                    placeholder="1" 
+                  <Input
+                    id="floor"
+                    type="number"
+                    placeholder="1"
                     value={unitForm.floor}
                     onChange={(e) => setUnitForm({ ...unitForm, floor: e.target.value })}
                   />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="bedrooms">Bedrooms *</Label>
-                  <Input 
-                    id="bedrooms" 
-                    type="number" 
-                    placeholder="2" 
+                  <Input
+                    id="bedrooms"
+                    type="number"
+                    placeholder="2"
                     value={unitForm.bedrooms}
                     onChange={(e) => setUnitForm({ ...unitForm, bedrooms: e.target.value })}
                   />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="bathrooms">Bathrooms *</Label>
-                  <Input 
-                    id="bathrooms" 
-                    type="number" 
-                    step="0.5" 
-                    placeholder="1.5" 
+                  <Input
+                    id="bathrooms"
+                    type="number"
+                    step="0.5"
+                    placeholder="1.5"
                     value={unitForm.bathrooms}
                     onChange={(e) => setUnitForm({ ...unitForm, bathrooms: e.target.value })}
                   />
@@ -2103,17 +2103,17 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="size">Size (sq ft)</Label>
-                  <Input 
-                    id="size" 
-                    type="number" 
-                    placeholder="850" 
+                  <Input
+                    id="size"
+                    type="number"
+                    placeholder="850"
                     value={unitForm.size}
                     onChange={(e) => setUnitForm({ ...unitForm, size: e.target.value })}
                   />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="status">Status</Label>
-                  <Select 
+                  <Select
                     value={unitForm.status}
                     onValueChange={(value) => setUnitForm({ ...unitForm, status: value })}
                   >
@@ -2132,20 +2132,20 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="monthlyRent">Monthly Rent *</Label>
-                  <Input 
-                    id="monthlyRent" 
-                    type="number" 
-                    placeholder="1200" 
+                  <Input
+                    id="monthlyRent"
+                    type="number"
+                    placeholder="1200"
                     value={unitForm.monthlyRent}
                     onChange={(e) => setUnitForm({ ...unitForm, monthlyRent: e.target.value })}
                   />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="securityDeposit">Security Deposit</Label>
-                  <Input 
-                    id="securityDeposit" 
-                    type="number" 
-                    placeholder="1200" 
+                  <Input
+                    id="securityDeposit"
+                    type="number"
+                    placeholder="1200"
                     value={unitForm.securityDeposit}
                     onChange={(e) => setUnitForm({ ...unitForm, securityDeposit: e.target.value })}
                   />
@@ -2174,13 +2174,13 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
               Update unit information for {selectedUnit?.property?.name}
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <div className="grid gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="edit-propertyId">Property *</Label>
-                <Select 
-                  value={editUnitForm.propertyId} 
+                <Select
+                  value={editUnitForm.propertyId}
                   onValueChange={(value) => setEditUnitForm({ ...editUnitForm, propertyId: value })}
                   disabled
                 >
@@ -2200,18 +2200,18 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="edit-unitNumber">Unit Number *</Label>
-                  <Input 
-                    id="edit-unitNumber" 
-                    placeholder="A101" 
+                  <Input
+                    id="edit-unitNumber"
+                    placeholder="A101"
                     value={editUnitForm.unitNumber}
                     onChange={(e) => setEditUnitForm({ ...editUnitForm, unitNumber: e.target.value })}
                   />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="edit-type">Type *</Label>
-                  <Input 
-                    id="edit-type" 
-                    placeholder="2-bedroom" 
+                  <Input
+                    id="edit-type"
+                    placeholder="2-bedroom"
                     value={editUnitForm.type}
                     onChange={(e) => setEditUnitForm({ ...editUnitForm, type: e.target.value })}
                   />
@@ -2221,31 +2221,31 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
               <div className="grid grid-cols-3 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="edit-floor">Floor</Label>
-                  <Input 
-                    id="edit-floor" 
-                    type="number" 
-                    placeholder="1" 
+                  <Input
+                    id="edit-floor"
+                    type="number"
+                    placeholder="1"
                     value={editUnitForm.floor}
                     onChange={(e) => setEditUnitForm({ ...editUnitForm, floor: e.target.value })}
                   />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="edit-bedrooms">Bedrooms *</Label>
-                  <Input 
-                    id="edit-bedrooms" 
-                    type="number" 
-                    placeholder="2" 
+                  <Input
+                    id="edit-bedrooms"
+                    type="number"
+                    placeholder="2"
                     value={editUnitForm.bedrooms}
                     onChange={(e) => setEditUnitForm({ ...editUnitForm, bedrooms: e.target.value })}
                   />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="edit-bathrooms">Bathrooms *</Label>
-                  <Input 
-                    id="edit-bathrooms" 
-                    type="number" 
-                    step="0.5" 
-                    placeholder="1.5" 
+                  <Input
+                    id="edit-bathrooms"
+                    type="number"
+                    step="0.5"
+                    placeholder="1.5"
                     value={editUnitForm.bathrooms}
                     onChange={(e) => setEditUnitForm({ ...editUnitForm, bathrooms: e.target.value })}
                   />
@@ -2255,17 +2255,17 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="edit-size">Size (sq ft)</Label>
-                  <Input 
-                    id="edit-size" 
-                    type="number" 
-                    placeholder="850" 
+                  <Input
+                    id="edit-size"
+                    type="number"
+                    placeholder="850"
                     value={editUnitForm.size}
                     onChange={(e) => setEditUnitForm({ ...editUnitForm, size: e.target.value })}
                   />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="edit-status">Status</Label>
-                  <Select 
+                  <Select
                     value={editUnitForm.status}
                     onValueChange={(value) => setEditUnitForm({ ...editUnitForm, status: value })}
                   >
@@ -2284,20 +2284,20 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="edit-monthlyRent">Monthly Rent *</Label>
-                  <Input 
-                    id="edit-monthlyRent" 
-                    type="number" 
-                    placeholder="1200" 
+                  <Input
+                    id="edit-monthlyRent"
+                    type="number"
+                    placeholder="1200"
                     value={editUnitForm.monthlyRent}
                     onChange={(e) => setEditUnitForm({ ...editUnitForm, monthlyRent: e.target.value })}
                   />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="edit-securityDeposit">Security Deposit</Label>
-                  <Input 
-                    id="edit-securityDeposit" 
-                    type="number" 
-                    placeholder="1200" 
+                  <Input
+                    id="edit-securityDeposit"
+                    type="number"
+                    placeholder="1200"
                     value={editUnitForm.securityDeposit}
                     onChange={(e) => setEditUnitForm({ ...editUnitForm, securityDeposit: e.target.value })}
                   />
@@ -2398,7 +2398,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                   <div>
                     <Label className="text-gray-500">Security Deposit</Label>
                     <p className="font-medium">
-                      {selectedUnit.securityDeposit 
+                      {selectedUnit.securityDeposit
                         ? formatCurrency(selectedUnit.securityDeposit, selectedUnit.property?.currency || 'USD')
                         : 'N/A'}
                     </p>
@@ -2425,7 +2425,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                       <div>
                         <Label className="text-gray-500">Lease Start</Label>
                         <p className="font-medium">
-                          {selectedUnit.leases[0]?.startDate 
+                          {selectedUnit.leases[0]?.startDate
                             ? new Date(selectedUnit.leases[0].startDate).toLocaleDateString()
                             : 'N/A'}
                         </p>
@@ -2433,7 +2433,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                       <div>
                         <Label className="text-gray-500">Lease End</Label>
                         <p className="font-medium">
-                          {selectedUnit.leases[0]?.endDate 
+                          {selectedUnit.leases[0]?.endDate
                             ? new Date(selectedUnit.leases[0].endDate).toLocaleDateString()
                             : 'N/A'}
                         </p>

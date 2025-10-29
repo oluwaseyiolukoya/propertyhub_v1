@@ -211,26 +211,26 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({ properties
   // Filtered payments for Current Payments tab
   const currentPayments = payments.filter(p => p.status !== 'Paid');
   const filteredCurrentPayments = currentPayments.filter(payment => {
-    const matchesSearch = 
+    const matchesSearch =
       payment.tenantName.toLowerCase().includes(currentSearchTerm.toLowerCase()) ||
       payment.unit.toLowerCase().includes(currentSearchTerm.toLowerCase()) ||
       payment.id.toLowerCase().includes(currentSearchTerm.toLowerCase());
-    
+
     const matchesStatus = currentStatusFilter === 'all' || payment.status === currentStatusFilter;
-    
+
     return matchesSearch && matchesStatus;
   });
 
   // Filtered payments for Payment History tab
   const historyPayments = payments.filter(p => p.status === 'Paid');
   const filteredHistoryPayments = historyPayments.filter(payment => {
-    const matchesSearch = 
+    const matchesSearch =
       payment.tenantName.toLowerCase().includes(historySearchTerm.toLowerCase()) ||
       payment.unit.toLowerCase().includes(historySearchTerm.toLowerCase()) ||
       payment.id.toLowerCase().includes(historySearchTerm.toLowerCase());
-    
+
     const matchesMethod = historyMethodFilter === 'all' || payment.method === historyMethodFilter;
-    
+
     return matchesSearch && matchesMethod;
   });
 
@@ -243,11 +243,11 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({ properties
 
   // Filtered autopay tenants
   const filteredAutopayTenants = autopayTenants.filter(tenant => {
-    const matchesSearch = 
+    const matchesSearch =
       tenant.name.toLowerCase().includes(autopaySearchTerm.toLowerCase()) ||
       tenant.unit.toLowerCase().includes(autopaySearchTerm.toLowerCase()) ||
       tenant.id.toLowerCase().includes(autopaySearchTerm.toLowerCase());
-    
+
     return matchesSearch;
   });
 
@@ -258,7 +258,7 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({ properties
           <h2 className="text-2xl font-semibold text-gray-900">Payment Management</h2>
           <p className="text-gray-600 mt-1">Track rent payments, late fees, and automated reminders</p>
         </div>
-        
+
         <div className="flex space-x-2">
           <Dialog open={showReminderSettings} onOpenChange={setShowReminderSettings}>
             <DialogTrigger asChild>
@@ -281,7 +281,7 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({ properties
                     <Label className="text-base">Enable Automatic Reminders</Label>
                     <p className="text-sm text-gray-500">Send automated payment reminders to tenants</p>
                   </div>
-                  <Switch 
+                  <Switch
                     checked={reminderSettings.enabled}
                     onCheckedChange={(checked) => setReminderSettings({...reminderSettings, enabled: checked})}
                   />
@@ -289,7 +289,7 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({ properties
 
                 <div className="space-y-4">
                   <Label className="text-base">Reminder Schedule</Label>
-                  
+
                   {/* First Reminder */}
                   <Card className="p-4">
                     <div className="flex items-center justify-between mb-3">
@@ -297,7 +297,7 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({ properties
                         <h4 className="font-medium">First Reminder</h4>
                         <p className="text-sm text-gray-500">Initial payment reminder</p>
                       </div>
-                      <Switch 
+                      <Switch
                         checked={reminderSettings.firstReminder.enabled}
                         onCheckedChange={(checked) => setReminderSettings({
                           ...reminderSettings,
@@ -308,9 +308,9 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({ properties
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="first-days">Days Before Due Date</Label>
-                        <Input 
-                          id="first-days" 
-                          type="number" 
+                        <Input
+                          id="first-days"
+                          type="number"
                           value={reminderSettings.firstReminder.days}
                           onChange={(e) => setReminderSettings({
                             ...reminderSettings,
@@ -320,7 +320,7 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({ properties
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="first-time">Send Time</Label>
-                        <Select 
+                        <Select
                           value={reminderSettings.firstReminder.time}
                           onValueChange={(value) => setReminderSettings({
                             ...reminderSettings,
@@ -348,7 +348,7 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({ properties
                         <h4 className="font-medium">Second Reminder</h4>
                         <p className="text-sm text-gray-500">Follow-up reminder</p>
                       </div>
-                      <Switch 
+                      <Switch
                         checked={reminderSettings.secondReminder.enabled}
                         onCheckedChange={(checked) => setReminderSettings({
                           ...reminderSettings,
@@ -359,9 +359,9 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({ properties
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="second-days">Days Before Due Date</Label>
-                        <Input 
-                          id="second-days" 
-                          type="number" 
+                        <Input
+                          id="second-days"
+                          type="number"
                           value={reminderSettings.secondReminder.days}
                           onChange={(e) => setReminderSettings({
                             ...reminderSettings,
@@ -371,7 +371,7 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({ properties
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="second-time">Send Time</Label>
-                        <Select 
+                        <Select
                           value={reminderSettings.secondReminder.time}
                           onValueChange={(value) => setReminderSettings({
                             ...reminderSettings,
@@ -399,7 +399,7 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({ properties
                         <h4 className="font-medium">Due Date Reminder</h4>
                         <p className="text-sm text-gray-500">Reminder on the due date</p>
                       </div>
-                      <Switch 
+                      <Switch
                         checked={reminderSettings.dueDateReminder.enabled}
                         onCheckedChange={(checked) => setReminderSettings({
                           ...reminderSettings,
@@ -409,7 +409,7 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({ properties
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="due-time">Send Time</Label>
-                      <Select 
+                      <Select
                         value={reminderSettings.dueDateReminder.time}
                         onValueChange={(value) => setReminderSettings({
                           ...reminderSettings,
@@ -436,7 +436,7 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({ properties
                         <h4 className="font-medium text-red-900">Overdue Reminder</h4>
                         <p className="text-sm text-red-700">Reminder after due date has passed</p>
                       </div>
-                      <Switch 
+                      <Switch
                         checked={reminderSettings.overdueReminder.enabled}
                         onCheckedChange={(checked) => setReminderSettings({
                           ...reminderSettings,
@@ -447,9 +447,9 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({ properties
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="overdue-days" className="text-red-900">Days After Due Date</Label>
-                        <Input 
-                          id="overdue-days" 
-                          type="number" 
+                        <Input
+                          id="overdue-days"
+                          type="number"
                           value={reminderSettings.overdueReminder.days}
                           onChange={(e) => setReminderSettings({
                             ...reminderSettings,
@@ -459,7 +459,7 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({ properties
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="overdue-frequency" className="text-red-900">Repeat Every</Label>
-                        <Select 
+                        <Select
                           value={reminderSettings.overdueReminder.frequency}
                           onValueChange={(value) => setReminderSettings({
                             ...reminderSettings,
@@ -492,7 +492,7 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({ properties
                           <p className="text-sm text-gray-500">Send reminders via email</p>
                         </div>
                       </div>
-                      <Switch 
+                      <Switch
                         checked={reminderSettings.channels.email}
                         onCheckedChange={(checked) => setReminderSettings({
                           ...reminderSettings,
@@ -508,7 +508,7 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({ properties
                           <p className="text-sm text-gray-500">Send reminders via text message</p>
                         </div>
                       </div>
-                      <Switch 
+                      <Switch
                         checked={reminderSettings.channels.sms}
                         onCheckedChange={(checked) => setReminderSettings({
                           ...reminderSettings,
@@ -532,7 +532,7 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({ properties
               </div>
             </DialogContent>
           </Dialog>
-          
+
           <Dialog open={showRecordPayment} onOpenChange={setShowRecordPayment}>
             <DialogTrigger asChild>
               <Button>

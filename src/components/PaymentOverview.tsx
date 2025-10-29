@@ -16,12 +16,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from './ui/dialog';
-import { 
-  DollarSign, 
-  TrendingUp, 
+import {
+  DollarSign,
+  TrendingUp,
   TrendingDown,
-  Clock, 
-  CheckCircle, 
+  Clock,
+  CheckCircle,
   XCircle,
   Search,
   Download,
@@ -487,18 +487,18 @@ export const PaymentOverview: React.FC = () => {
               Page {page} of {totalPages} • {total} total payments
             </div>
             <div className="flex items-center gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                disabled={page <= 1} 
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
                 onClick={() => setPage(p => Math.max(1, p - 1))}
               >
                 Previous
               </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                disabled={page >= totalPages} 
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               >
                 Next
@@ -520,8 +520,8 @@ export const PaymentOverview: React.FC = () => {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="lease">Tenant Lease *</Label>
-              <Select 
-                value={recordForm.leaseId} 
+              <Select
+                value={recordForm.leaseId}
                 onValueChange={(value) => setRecordForm({ ...recordForm, leaseId: value })}
               >
                 <SelectTrigger id="lease">
@@ -541,10 +541,10 @@ export const PaymentOverview: React.FC = () => {
               <Label htmlFor="amount">Amount *</Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₦</span>
-                <Input 
+                <Input
                   id="amount"
-                  type="number" 
-                  value={recordForm.amount} 
+                  type="number"
+                  value={recordForm.amount}
                   onChange={(e) => setRecordForm({ ...recordForm, amount: e.target.value })}
                   className="pl-7"
                   placeholder="0.00"
@@ -556,8 +556,8 @@ export const PaymentOverview: React.FC = () => {
 
             <div className="space-y-2">
               <Label htmlFor="method">Payment Method *</Label>
-              <Select 
-                value={recordForm.paymentMethod} 
+              <Select
+                value={recordForm.paymentMethod}
                 onValueChange={(value) => setRecordForm({ ...recordForm, paymentMethod: value })}
               >
                 <SelectTrigger id="method">
@@ -575,8 +575,8 @@ export const PaymentOverview: React.FC = () => {
 
             <div className="space-y-2">
               <Label htmlFor="type">Payment Type</Label>
-              <Select 
-                value={recordForm.type} 
+              <Select
+                value={recordForm.type}
                 onValueChange={(value) => setRecordForm({ ...recordForm, type: value })}
               >
                 <SelectTrigger id="type">
@@ -592,19 +592,19 @@ export const PaymentOverview: React.FC = () => {
 
             <div className="space-y-2">
               <Label htmlFor="date">Payment Date</Label>
-              <Input 
+              <Input
                 id="date"
-                type="date" 
-                value={recordForm.paymentDate} 
+                type="date"
+                value={recordForm.paymentDate}
                 onChange={(e) => setRecordForm({ ...recordForm, paymentDate: e.target.value })}
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="notes">Notes (Optional)</Label>
-              <Textarea 
+              <Textarea
                 id="notes"
-                value={recordForm.notes} 
+                value={recordForm.notes}
                 onChange={(e) => setRecordForm({ ...recordForm, notes: e.target.value })}
                 placeholder="Add any additional notes about this payment..."
                 rows={3}
@@ -615,7 +615,7 @@ export const PaymentOverview: React.FC = () => {
             <Button variant="outline" onClick={() => setShowRecordDialog(false)}>
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleRecordPayment}
               disabled={isRecording || !recordForm.leaseId || !recordForm.amount || parseFloat(recordForm.amount) <= 0}
             >
