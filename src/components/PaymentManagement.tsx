@@ -13,6 +13,7 @@ import { Switch } from "./ui/switch";
 import { CreditCard, DollarSign, AlertTriangle, Clock, CheckCircle, Plus, Send, Settings, Search, Filter, Mail, AlertCircle } from 'lucide-react';
 import { toast } from "sonner";
 import { getPayments, createPayment, getPaymentStats, getOverduePayments } from '../lib/api';
+import { initializeSocket, isConnected, subscribeToPaymentEvents, unsubscribeFromPaymentEvents } from '../lib/socket';
 
 interface PaymentManagementProps {
   properties?: any[];
@@ -31,43 +32,82 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({ properties
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch payments and stats
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  // Fetch payments and stats and setup realtime
   useEffect(() => {
     fetchPaymentsData();
-  }, [currentStatusFilter, historyMethodFilter]);
+    const token = localStorage.getItem('auth_token');
+    if (token && !isConnected()) {
+      try { initializeSocket(token); } catch {}
+    }
+    subscribeToPaymentEvents({
+      onUpdated: () => fetchPaymentsData(),
+      onReceived: () => fetchPaymentsData(),
+    });
+    const handleBrowserPaymentUpdate = () => fetchPaymentsData();
+    window.addEventListener('payment:updated', handleBrowserPaymentUpdate);
+    return () => {
+      unsubscribeFromPaymentEvents();
+      window.removeEventListener('payment:updated', handleBrowserPaymentUpdate);
+    };
+  }, [currentStatusFilter, historyMethodFilter, page]);
 
   const fetchPaymentsData = async () => {
     try {
-      const filters: any = {};
+      const filters: any = { page, pageSize };
       if (currentStatusFilter !== 'all') filters.status = currentStatusFilter.toLowerCase();
       if (historyMethodFilter !== 'all') filters.method = historyMethodFilter.toLowerCase();
       if (currentSearchTerm) filters.search = currentSearchTerm;
 
-      const [paymentsResponse, statsResponse, overdueResponse] = await Promise.all([
+      const [paymentsResponse, statsResponse] = await Promise.all([
         getPayments(filters),
-        getPaymentStats(),
-        getOverduePayments()
+        getPaymentStats()
       ]);
 
       if (paymentsResponse.error) {
         toast.error(paymentsResponse.error.error || 'Failed to load payments');
       } else if (paymentsResponse.data) {
+        let list: any[] = [];
+        let totalCount = 0;
+
+        // Handle paginated response
+        if (paymentsResponse.data.items) {
+          list = paymentsResponse.data.items;
+          totalCount = paymentsResponse.data.total || 0;
+          setPage(paymentsResponse.data.page || 1);
+          setPageSize(paymentsResponse.data.pageSize || 10);
+        } else if (Array.isArray(paymentsResponse.data)) {
+          // Legacy array response
+          list = paymentsResponse.data;
+          totalCount = list.length;
+        }
+
         // Transform API data
-        const transformedPayments = paymentsResponse.data.map((payment: any) => ({
-          id: payment.confirmationNumber || payment.id,
-          tenantName: payment.lease?.tenant?.name || 'Unknown',
-          unit: payment.lease?.unit?.unitNumber || 'N/A',
-          property: payment.lease?.property?.name || 'Unknown',
+        const transformedPayments = list.map((payment: any) => ({
+          id: payment.providerReference || payment.id,
+          tenantName: payment.leases?.users?.name || 'Unknown',
+          tenantEmail: payment.leases?.users?.email || '',
+          unit: payment.leases?.units?.unitNumber || 'N/A',
+          property: payment.leases?.properties?.name || 'Unknown',
           amount: payment.amount,
-          dueDate: payment.paymentDate,
-          paidDate: payment.status === 'completed' ? payment.paymentDate : null,
-          status: payment.status === 'completed' ? 'Paid' : payment.status === 'pending' ? 'Pending' : 'Due Soon',
-          method: payment.paymentMethod,
-          late: payment.lateFeesIncluded > 0,
-          lateFee: payment.lateFeesIncluded || 0,
-          transactionId: payment.transactionId
+          currency: payment.currency || 'NGN',
+          dueDate: new Date(payment.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          paidDate: payment.paidAt ? new Date(payment.paidAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null,
+          timestamp: new Date(payment.paidAt || payment.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          status: payment.status,
+          method: payment.paymentMethod || payment.provider || 'Paystack',
+          late: false,
+          lateFee: 0,
+          transactionId: payment.providerReference || payment.id,
+          type: payment.type || 'rent',
         }));
         setPayments(transformedPayments);
+        setTotal(totalCount);
       }
 
       if (statsResponse.data) {
@@ -711,10 +751,11 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({ properties
                     <TableRow>
                       <TableHead>Payment ID</TableHead>
                       <TableHead>Tenant</TableHead>
+                      <TableHead>Property</TableHead>
                       <TableHead>Unit</TableHead>
                       <TableHead>Amount</TableHead>
-                      <TableHead>Due Date</TableHead>
-                      <TableHead>Paid Date</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Time</TableHead>
                       <TableHead>Method</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
@@ -724,13 +765,14 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({ properties
                       <TableRow key={payment.id}>
                         <TableCell className="font-mono text-sm">{payment.id}</TableCell>
                         <TableCell>{payment.tenantName}</TableCell>
+                        <TableCell>{payment.property}</TableCell>
                         <TableCell>{payment.unit}</TableCell>
-                        <TableCell>₦{payment.amount}</TableCell>
-                        <TableCell>{payment.dueDate}</TableCell>
-                        <TableCell>{payment.paidDate}</TableCell>
+                        <TableCell>{payment.currency === 'NGN' ? '₦' : ''}{payment.amount.toLocaleString()} {payment.currency !== 'NGN' ? payment.currency : ''}</TableCell>
+                        <TableCell>{payment.paidDate || payment.dueDate}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{payment.timestamp}</TableCell>
                         <TableCell>{payment.method}</TableCell>
                         <TableCell>
-                          <Badge variant="default">
+                          <Badge variant={getStatusColor(payment.status)}>
                             {payment.status}
                           </Badge>
                         </TableCell>
@@ -738,7 +780,7 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({ properties
                     ))}
                     {filteredHistoryPayments.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                        <TableCell colSpan={9} className="text-center py-8 text-gray-500">
                           <div className="flex flex-col items-center space-y-2">
                             <Search className="h-8 w-8 text-gray-400" />
                             <p className="font-medium">No payment history found</p>
@@ -749,6 +791,19 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({ properties
                     )}
                   </TableBody>
                 </Table>
+              </div>
+              <div className="flex items-center justify-between mt-3">
+                <div className="text-sm text-muted-foreground">
+                  Page {page} of {totalPages} • {total} items
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => { setPage(p => Math.max(1, p - 1)); }}>
+                    Previous
+                  </Button>
+                  <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => { setPage(p => Math.min(totalPages, p + 1)); }}>
+                    Next
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

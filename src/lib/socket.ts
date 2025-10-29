@@ -368,3 +368,17 @@ export const unsubscribeFromForceReauth = () => {
   off('force:reauth');
 };
 
+/**
+ * Subscribe to permissions updated events (customer-wide)
+ */
+export const subscribeToPermissionsUpdated = (callback: (data: { customerId: string; permissions: any }) => void) => {
+  on('permissions:updated', callback);
+};
+
+/**
+ * Unsubscribe from permissions updated events
+ */
+export const unsubscribeFromPermissionsUpdated = () => {
+  off('permissions:updated');
+};
+

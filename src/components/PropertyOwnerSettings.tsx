@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { getSettings, updateManagerPermissions, getPaymentGatewaySettings, savePaymentGatewaySettings } from '../lib/api/settings';
 import { 
   Select, 
   SelectContent, 
@@ -14,6 +15,7 @@ import {
 import { Separator } from './ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Switch } from './ui/switch';
+import { Checkbox } from './ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -89,6 +91,7 @@ import {
   subscribeToAccountEvents, 
   unsubscribeFromAccountEvents 
 } from '../lib/socket';
+import { API_BASE_URL } from '../lib/api-config';
 
 interface PropertyOwnerSettingsProps {
   user: {
@@ -328,8 +331,73 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
     passwordLastChanged: '2024-02-15',
     securityQuestions: true,
     loginAlerts: true,
-    ipWhitelist: false
+    ipWhitelist: false,
+    // Units permissions
+    managerCanViewUnits: true,
+    managerCanCreateUnits: true,
+    managerCanEditUnits: true,
+    managerCanDeleteUnits: false,
+    // Properties permissions
+    managerCanViewProperties: true,
+    managerCanEditProperty: false,
+    // Tenants permissions
+    managerCanViewTenants: true,
+    managerCanCreateTenants: true,
+    managerCanEditTenants: true,
+    managerCanDeleteTenants: false,
+    // Financial permissions
+    managerCanViewFinancials: true
   });
+
+  const [loadingPermissions, setLoadingPermissions] = useState(false);
+  const [savingPermissions, setSavingPermissions] = useState(false);
+
+  // Load permissions from database on mount
+  useEffect(() => {
+    const loadPermissions = async () => {
+      try {
+        setLoadingPermissions(true);
+        console.log('🔄 Loading permissions from database...');
+        const settingsResponse = await getSettings();
+        const settings = settingsResponse.data;
+        console.log('✅ Settings loaded:', settings);
+        console.log('📦 Raw permissions from DB:', settings?.permissions);
+        
+        if (settings?.permissions && typeof settings.permissions === 'object') {
+          console.log('📝 Applying permissions to state:', settings.permissions);
+          
+          // Update security settings with loaded permissions
+          setSecuritySettings(prev => {
+            const updated = {
+              ...prev,
+              // Only update permission-related fields
+              managerCanViewUnits: settings.permissions.managerCanViewUnits ?? prev.managerCanViewUnits,
+              managerCanCreateUnits: settings.permissions.managerCanCreateUnits ?? prev.managerCanCreateUnits,
+              managerCanEditUnits: settings.permissions.managerCanEditUnits ?? prev.managerCanEditUnits,
+              managerCanDeleteUnits: settings.permissions.managerCanDeleteUnits ?? prev.managerCanDeleteUnits,
+              managerCanViewProperties: settings.permissions.managerCanViewProperties ?? prev.managerCanViewProperties,
+              managerCanEditProperty: settings.permissions.managerCanEditProperty ?? prev.managerCanEditProperty,
+              managerCanViewTenants: settings.permissions.managerCanViewTenants ?? prev.managerCanViewTenants,
+              managerCanCreateTenants: settings.permissions.managerCanCreateTenants ?? prev.managerCanCreateTenants,
+              managerCanEditTenants: settings.permissions.managerCanEditTenants ?? prev.managerCanEditTenants,
+              managerCanDeleteTenants: settings.permissions.managerCanDeleteTenants ?? prev.managerCanDeleteTenants,
+              managerCanViewFinancials: settings.permissions.managerCanViewFinancials ?? prev.managerCanViewFinancials
+            };
+            console.log('✨ Updated security settings:', updated);
+            return updated;
+          });
+        } else {
+          console.log('⚠️ No permissions found in settings or invalid format');
+        }
+      } catch (error: any) {
+        console.error('❌ Failed to load permissions:', error);
+      } finally {
+        setLoadingPermissions(false);
+      }
+    };
+
+    loadPermissions();
+  }, []);
 
   // Notification preferences
   const [notificationPreferences, setNotificationPreferences] = useState({
@@ -942,6 +1010,59 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
                 handleExportData={handleExportData}
                 setShowDeleteDialog={setShowDeleteDialog}
                 formatDate={formatDate}
+                loadingPermissions={loadingPermissions}
+                savingPermissions={savingPermissions}
+                onSavePermissions={async () => {
+                  try {
+                    setSavingPermissions(true);
+                    const permissions = {
+                      managerCanViewUnits: securitySettings.managerCanViewUnits,
+                      managerCanCreateUnits: securitySettings.managerCanCreateUnits,
+                      managerCanEditUnits: securitySettings.managerCanEditUnits,
+                      managerCanDeleteUnits: securitySettings.managerCanDeleteUnits,
+                      managerCanViewProperties: securitySettings.managerCanViewProperties,
+                      managerCanEditProperty: securitySettings.managerCanEditProperty,
+                      managerCanViewTenants: securitySettings.managerCanViewTenants,
+                      managerCanCreateTenants: securitySettings.managerCanCreateTenants,
+                      managerCanEditTenants: securitySettings.managerCanEditTenants,
+                      managerCanDeleteTenants: securitySettings.managerCanDeleteTenants,
+                      managerCanViewFinancials: securitySettings.managerCanViewFinancials
+                    };
+                    console.log('💾 Saving permissions:', permissions);
+                    const result = await updateManagerPermissions(permissions);
+                    console.log('✅ Save result:', result);
+                    
+                    // Reload permissions from database to ensure sync
+                    console.log('🔄 Reloading permissions to verify save...');
+                    const updatedResp = await getSettings();
+                    const updatedSettings = updatedResp.data;
+                    console.log('📦 Reloaded permissions:', updatedSettings?.permissions);
+                    
+                    if (updatedSettings?.permissions) {
+                      setSecuritySettings(prev => ({
+                        ...prev,
+                        managerCanViewUnits: updatedSettings.permissions.managerCanViewUnits ?? prev.managerCanViewUnits,
+                        managerCanCreateUnits: updatedSettings.permissions.managerCanCreateUnits ?? prev.managerCanCreateUnits,
+                        managerCanEditUnits: updatedSettings.permissions.managerCanEditUnits ?? prev.managerCanEditUnits,
+                        managerCanDeleteUnits: updatedSettings.permissions.managerCanDeleteUnits ?? prev.managerCanDeleteUnits,
+                        managerCanViewProperties: updatedSettings.permissions.managerCanViewProperties ?? prev.managerCanViewProperties,
+                        managerCanEditProperty: updatedSettings.permissions.managerCanEditProperty ?? prev.managerCanEditProperty,
+                        managerCanViewTenants: updatedSettings.permissions.managerCanViewTenants ?? prev.managerCanViewTenants,
+                        managerCanCreateTenants: updatedSettings.permissions.managerCanCreateTenants ?? prev.managerCanCreateTenants,
+                        managerCanEditTenants: updatedSettings.permissions.managerCanEditTenants ?? prev.managerCanEditTenants,
+                        managerCanDeleteTenants: updatedSettings.permissions.managerCanDeleteTenants ?? prev.managerCanDeleteTenants,
+                        managerCanViewFinancials: updatedSettings.permissions.managerCanViewFinancials ?? prev.managerCanViewFinancials
+                      }));
+                    }
+                    
+                    toast.success('Manager permissions updated successfully');
+                  } catch (error: any) {
+                    console.error('❌ Save error:', error);
+                    toast.error(error?.message || 'Failed to update manager permissions');
+                  } finally {
+                    setSavingPermissions(false);
+                  }
+                }}
               />
             )}
 
@@ -1815,7 +1936,7 @@ function BillingSection({ billingHistory, paymentMethods }: any) {
 }
 
 // Security Section Component
-function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswordDialog, handleExportData, setShowDeleteDialog, formatDate }: any) {
+function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswordDialog, handleExportData, setShowDeleteDialog, formatDate, loadingPermissions, savingPermissions, onSavePermissions }: any) {
   return (
     <div className="space-y-6">
       <Card>
@@ -1898,6 +2019,219 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
                 <SelectItem value="never">Never</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Manager Permissions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Manager Permissions</CardTitle>
+          <CardDescription>
+            Control default permissions for property managers
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Units Permissions */}
+          <div className="border rounded-lg p-4 space-y-4">
+            <div>
+              <h4 className="font-semibold text-gray-900 mb-1">Units Management</h4>
+              <p className="text-sm text-gray-600">Control what managers can do with units</p>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="unit-view"
+                  checked={securitySettings.managerCanViewUnits}
+                  onCheckedChange={(checked) =>
+                    setSecuritySettings({ ...securitySettings, managerCanViewUnits: checked as boolean })
+                  }
+                />
+                <Label htmlFor="unit-view" className="text-sm cursor-pointer">
+                  View Units
+                </Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="unit-create"
+                  checked={securitySettings.managerCanCreateUnits}
+                  onCheckedChange={(checked) =>
+                    setSecuritySettings({ ...securitySettings, managerCanCreateUnits: checked as boolean })
+                  }
+                />
+                <Label htmlFor="unit-create" className="text-sm cursor-pointer">
+                  Create Units
+                </Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="unit-edit"
+                  checked={securitySettings.managerCanEditUnits}
+                  onCheckedChange={(checked) =>
+                    setSecuritySettings({ ...securitySettings, managerCanEditUnits: checked as boolean })
+                  }
+                />
+                <Label htmlFor="unit-edit" className="text-sm cursor-pointer">
+                  Edit Units
+                </Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="unit-delete"
+                  checked={securitySettings.managerCanDeleteUnits}
+                  onCheckedChange={(checked) =>
+                    setSecuritySettings({ ...securitySettings, managerCanDeleteUnits: checked as boolean })
+                  }
+                />
+                <Label htmlFor="unit-delete" className="text-sm cursor-pointer">
+                  Delete Units
+                </Label>
+              </div>
+            </div>
+          </div>
+
+          {/* Properties Permissions */}
+          <div className="border rounded-lg p-4 space-y-4">
+            <div>
+              <h4 className="font-semibold text-gray-900 mb-1">Properties Management</h4>
+              <p className="text-sm text-gray-600">Control what managers can do with properties</p>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="property-view"
+                  checked={securitySettings.managerCanViewProperties}
+                  onCheckedChange={(checked) =>
+                    setSecuritySettings({ ...securitySettings, managerCanViewProperties: checked as boolean })
+                  }
+                />
+                <Label htmlFor="property-view" className="text-sm cursor-pointer">
+                  View Properties
+                </Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="property-edit"
+                  checked={securitySettings.managerCanEditProperty}
+                  onCheckedChange={(checked) =>
+                    setSecuritySettings({ ...securitySettings, managerCanEditProperty: checked as boolean })
+                  }
+                />
+                <Label htmlFor="property-edit" className="text-sm cursor-pointer">
+                  Edit Properties
+                </Label>
+              </div>
+            </div>
+          </div>
+
+          {/* Tenants Permissions */}
+          <div className="border rounded-lg p-4 space-y-4">
+            <div>
+              <h4 className="font-semibold text-gray-900 mb-1">Tenants Management</h4>
+              <p className="text-sm text-gray-600">Control what managers can do with tenants</p>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="tenant-view"
+                  checked={securitySettings.managerCanViewTenants}
+                  onCheckedChange={(checked) =>
+                    setSecuritySettings({ ...securitySettings, managerCanViewTenants: checked as boolean })
+                  }
+                />
+                <Label htmlFor="tenant-view" className="text-sm cursor-pointer">
+                  View Tenants
+                </Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="tenant-create"
+                  checked={securitySettings.managerCanCreateTenants}
+                  onCheckedChange={(checked) =>
+                    setSecuritySettings({ ...securitySettings, managerCanCreateTenants: checked as boolean })
+                  }
+                />
+                <Label htmlFor="tenant-create" className="text-sm cursor-pointer">
+                  Add Tenants
+                </Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="tenant-edit"
+                  checked={securitySettings.managerCanEditTenants}
+                  onCheckedChange={(checked) =>
+                    setSecuritySettings({ ...securitySettings, managerCanEditTenants: checked as boolean })
+                  }
+                />
+                <Label htmlFor="tenant-edit" className="text-sm cursor-pointer">
+                  Edit Tenants
+                </Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="tenant-delete"
+                  checked={securitySettings.managerCanDeleteTenants}
+                  onCheckedChange={(checked) =>
+                    setSecuritySettings({ ...securitySettings, managerCanDeleteTenants: checked as boolean })
+                  }
+                />
+                <Label htmlFor="tenant-delete" className="text-sm cursor-pointer">
+                  Remove Tenants
+                </Label>
+              </div>
+            </div>
+          </div>
+
+          {/* Financial Permissions */}
+          <div className="border rounded-lg p-4 space-y-4">
+            <div>
+              <h4 className="font-semibold text-gray-900 mb-1">Financial Access</h4>
+              <p className="text-sm text-gray-600">Control financial data visibility</p>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="financial-view"
+                  checked={securitySettings.managerCanViewFinancials}
+                  onCheckedChange={(checked) =>
+                    setSecuritySettings({ ...securitySettings, managerCanViewFinancials: checked as boolean })
+                  }
+                />
+                <Label htmlFor="financial-view" className="text-sm cursor-pointer">
+                  View Reports
+                </Label>
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Save Button */}
+          <div className="flex items-center justify-between">
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex-1 mr-4">
+              <p className="text-sm text-blue-900">
+                <strong>Note:</strong> These are default permissions. You can override them for individual managers 
+                in the Property Manager Management page.
+              </p>
+            </div>
+            <Button 
+              onClick={onSavePermissions}
+              disabled={savingPermissions || loadingPermissions}
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {savingPermissions ? 'Saving...' : 'Save Permissions'}
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -2255,12 +2589,12 @@ function PaymentGatewaySection() {
       name: 'Stripe',
       description: 'Accept credit cards, debit cards, and digital wallets',
       logo: '💳',
-      enabled: true,
-      connected: true,
-      apiKey: 'sk_test_*********************',
-      publishableKey: 'pk_test_*********************',
+      enabled: false, // default disabled unless configured
+      connected: false, // default disconnected unless configured
+      apiKey: '',
+      publishableKey: '',
       webhookUrl: 'https://propertyhub.com/webhook/stripe',
-      testMode: true
+      testMode: false
     },
     {
       id: 'paypal',
@@ -2295,7 +2629,7 @@ function PaymentGatewaySection() {
       connected: false,
       publicKey: '',
       secretKey: '',
-      webhookUrl: 'https://propertyhub.com/webhook/paystack',
+      webhookUrl: `${API_BASE_URL}/api/paystack/webhook`,
       testMode: false
     }
   ]);
@@ -2303,6 +2637,30 @@ function PaymentGatewaySection() {
   const [selectedGateway, setSelectedGateway] = useState<string | null>(null);
   const [showConfigDialog, setShowConfigDialog] = useState(false);
   const [gatewayConfig, setGatewayConfig] = useState<any>({});
+
+  // Load existing Paystack settings for this owner
+  useEffect(() => {
+    (async () => {
+      const resp = await getPaymentGatewaySettings();
+      if (!resp.error && resp.data) {
+        setPaymentGateways(prev => prev.map(g => {
+          if (g.id !== 'paystack') return g;
+          const hasKeys = !!resp.data?.publicKey;
+          return {
+            ...g,
+            connected: hasKeys || !!resp.data?.isEnabled,
+            enabled: !!resp.data?.isEnabled,
+            publicKey: resp.data?.publicKey || '',
+            secretConfigured: !!(resp.data as any)?.secretConfigured,
+            bankTransferTemplate: resp.data?.bankTransferTemplate || '',
+            // never set secretKey in UI state from server
+            testMode: !!resp.data?.testMode,
+            webhookUrl: `${API_BASE_URL}/api/paystack/webhook`
+          };
+        }));
+      }
+    })();
+  }, []);
 
   const handleConnectGateway = (gatewayId: string) => {
     const gateway = paymentGateways.find(g => g.id === gatewayId);
@@ -2313,7 +2671,36 @@ function PaymentGatewaySection() {
     }
   };
 
-  const handleSaveGatewayConfig = () => {
+  const handleSaveGatewayConfig = async () => {
+    if (selectedGateway === 'paystack') {
+      const payload: any = {
+        // Only send fields provided; backend supports partial updates now
+        ...(gatewayConfig.publicKey ? { publicKey: gatewayConfig.publicKey } : {}),
+        ...(gatewayConfig.secretKey ? { secretKey: gatewayConfig.secretKey } : {}),
+        testMode: !!gatewayConfig.testMode,
+        isEnabled: !!gatewayConfig.enabled,
+        bankTransferTemplate: gatewayConfig.bankTransferTemplate || ''
+      };
+      const resp = await savePaymentGatewaySettings(payload);
+      if (resp.error) {
+        toast.error(resp.error.error || 'Failed to save Paystack settings');
+        return;
+      }
+      setPaymentGateways(prev => prev.map(g => g.id === 'paystack' ? {
+        ...g,
+        connected: !!(resp.data?.settings?.publicKey || resp.data?.settings?.isEnabled),
+        enabled: !!resp.data?.settings?.isEnabled,
+        publicKey: resp.data?.settings?.publicKey || '',
+        bankTransferTemplate: resp.data?.settings?.bankTransferTemplate || '',
+        testMode: !!resp.data?.settings?.testMode,
+        webhookUrl: `${API_BASE_URL}/api/paystack/webhook`
+      } : g));
+      setShowConfigDialog(false);
+      toast.success('Paystack settings saved');
+      return;
+    }
+
+    // Default behavior for other gateways (mock)
     setPaymentGateways(prev =>
       prev.map(g =>
         g.id === selectedGateway
@@ -2325,14 +2712,30 @@ function PaymentGatewaySection() {
     toast.success(`${gatewayConfig.name} configured successfully`);
   };
 
-  const handleToggleGateway = (gatewayId: string, enabled: boolean) => {
+  const handleToggleGateway = async (gatewayId: string, enabled: boolean) => {
+    // Persist Paystack enable/disable to backend
+    if (gatewayId === 'paystack') {
+      const resp = await savePaymentGatewaySettings({ isEnabled: enabled } as any);
+      if (resp.error) {
+        toast.error(resp.error.error || 'Failed to update Paystack status');
+        return;
+      }
+    }
     setPaymentGateways(prev =>
       prev.map(g => (g.id === gatewayId ? { ...g, enabled } : g))
     );
     toast.success(enabled ? 'Payment gateway enabled' : 'Payment gateway disabled');
   };
 
-  const handleDisconnectGateway = (gatewayId: string) => {
+  const handleDisconnectGateway = async (gatewayId: string) => {
+    // For Paystack, mark disabled (keys retained on server)
+    if (gatewayId === 'paystack') {
+      const resp = await savePaymentGatewaySettings({ isEnabled: false } as any);
+      if (resp.error) {
+        toast.error(resp.error.error || 'Failed to disconnect Paystack');
+        return;
+      }
+    }
     setPaymentGateways(prev =>
       prev.map(g => (g.id === gatewayId ? { ...g, connected: false, enabled: false } : g))
     );
@@ -2647,6 +3050,27 @@ function PaymentGatewaySection() {
                     }
                     placeholder="sk_test_..."
                   />
+                  {gatewayConfig.secretConfigured && !gatewayConfig.secretKey && (
+                    <p className="text-xs text-gray-500">A secret key is already configured. Leave blank to keep existing.</p>
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <Label htmlFor="bankTransferTemplate">Bank Transfer Instructions (Optional)</Label>
+                  <Textarea
+                    id="bankTransferTemplate"
+                    value={gatewayConfig.bankTransferTemplate || ''}
+                    onChange={(e) =>
+                      setGatewayConfig({ ...gatewayConfig, bankTransferTemplate: e.target.value })
+                    }
+                    placeholder="Enter custom instructions for tenants making bank transfers&#10;&#10;Example:&#10;Bank Name: First Bank of Nigeria&#10;Account Name: Metro Properties Ltd&#10;Account Number: 1234567890&#10;&#10;Please use your unit number as reference."
+                    rows={6}
+                  />
+                  <p className="text-xs text-gray-500">
+                    This message will be shown to tenants when they select "Bank Transfer" as payment method. Include your bank details and any special instructions.
+                  </p>
                 </div>
               </>
             )}

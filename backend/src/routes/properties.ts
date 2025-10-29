@@ -433,44 +433,72 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       managerId // Add managerId to handle manager assignment changes
     } = req.body;
 
+    // Build update payload with proper type coercion for numeric/date fields
+    const toInt = (v: any) => (v === '' || v === null || v === undefined ? undefined : Number.parseInt(v as any));
+    const toFloat = (v: any) => (v === '' || v === null || v === undefined ? undefined : Number.parseFloat(v as any));
+    const toDate = (v: any) => (v ? new Date(v) : undefined);
+
+    const updateData: any = {
+      updatedAt: new Date(),
+    };
+
+    if (name !== undefined) updateData.name = name;
+    if (propertyType !== undefined) updateData.propertyType = propertyType;
+    if (address !== undefined) updateData.address = address;
+    if (city !== undefined) updateData.city = city;
+    if (state !== undefined) updateData.state = state;
+    if (postalCode !== undefined) updateData.postalCode = postalCode;
+    if (country !== undefined) updateData.country = country;
+    if (currency !== undefined) updateData.currency = currency;
+    if (status !== undefined) updateData.status = status;
+    if (features !== undefined) updateData.features = features;
+    if (unitFeatures !== undefined) updateData.unitFeatures = unitFeatures;
+    if (insuranceProvider !== undefined) updateData.insuranceProvider = insuranceProvider;
+    if (insurancePolicyNumber !== undefined) updateData.insurancePolicyNumber = insurancePolicyNumber;
+    if (coverImage !== undefined) updateData.coverImage = coverImage;
+    if (images !== undefined) updateData.images = images;
+    if (description !== undefined) updateData.description = description;
+    if (notes !== undefined) updateData.notes = notes;
+
+    // Numeric/date coercions (undefined means no change)
+    const coercedNumeric: Record<string, any> = {
+      yearBuilt: toInt(yearBuilt),
+      totalUnits: toInt(totalUnits),
+      floors: toInt(floors),
+      totalArea: toFloat(totalArea),
+      lotSize: toFloat(lotSize),
+      parking: toInt(parking),
+      avgRent: toFloat(avgRent),
+      securityDeposit: toFloat(securityDeposit),
+      applicationFee: toFloat(applicationFee),
+      cautionFee: toFloat(cautionFee),
+      legalFee: toFloat(legalFee),
+      agentCommission: toFloat(agentCommission),
+      serviceCharge: toFloat(serviceCharge),
+      agreementFee: toFloat(agreementFee),
+      insurancePremium: toFloat(insurancePremium),
+      propertyTaxes: toFloat(propertyTaxes),
+    };
+
+    for (const [key, value] of Object.entries(coercedNumeric)) {
+      if (value !== undefined && !Number.isNaN(value as number)) {
+        (updateData as any)[key] = value;
+      } else if (value === undefined && (key in (req.body || {})) && (req.body as any)[key] === '') {
+        // Allow clearing numeric fields by sending empty string => set to null
+        (updateData as any)[key] = null;
+      }
+    }
+
+    const coercedDates: Record<string, any> = {
+      insuranceExpiration: toDate(insuranceExpiration),
+    };
+    for (const [key, value] of Object.entries(coercedDates)) {
+      if (value !== undefined) (updateData as any)[key] = value;
+    }
+
     const property = await prisma.properties.update({
       where: { id },
-      data: {
-        name,
-        propertyType,
-        address,
-        city,
-        state,
-        postalCode,
-        country,
-        yearBuilt,
-        totalUnits,
-        floors,
-        totalArea,
-        lotSize,
-        parking,
-        currency,
-        avgRent,
-        securityDeposit,
-        applicationFee,
-        cautionFee,
-        legalFee,
-        agentCommission,
-        serviceCharge,
-        agreementFee,
-        status,
-        features,
-        unitFeatures,
-        insuranceProvider,
-        insurancePolicyNumber,
-        insurancePremium,
-        insuranceExpiration: insuranceExpiration ? new Date(insuranceExpiration) : undefined,
-        propertyTaxes,
-        coverImage,
-        images,
-        description,
-        notes
-      }
+      data: updateData,
     });
 
     // Handle manager assignment changes if managerId is provided

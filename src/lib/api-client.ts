@@ -149,8 +149,8 @@ async function request<T>(
     }
 
     if (!response.ok) {
-      // Broadcast account blocked event on 403 to centralize handling
-      if (response.status === 403) {
+      // Only broadcast accountBlocked for explicit account deactivation cases
+      if (response.status === 403 && (data?.code === 'ACCOUNT_BLOCKED' || /deactivated|blocked/i.test(data?.error || ''))) {
         const event = new CustomEvent('accountBlocked', {
           detail: { message: data.error || 'Your account has been deactivated' }
         });

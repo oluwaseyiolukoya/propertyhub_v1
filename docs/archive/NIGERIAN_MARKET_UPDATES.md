@@ -274,3 +274,4 @@ ALTER TABLE "properties" RENAME COLUMN "zipCode" TO "postalCode";
 
 
 
+

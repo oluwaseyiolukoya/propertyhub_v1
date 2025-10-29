@@ -117,10 +117,10 @@ router.post('/login', async (req: Request, res: Response) => {
           });
         }
 
-        // If userType was explicitly admin and not found, fail here
+        // Do not fail early when userType is 'admin'; fall through to customer user auth
+        // This avoids locking out users who selected the wrong role in the UI
         if (userType === 'admin') {
-          console.log('❌ Admin not found in any table (explicit admin login)');
-          return res.status(401).json({ error: 'Invalid credentials' });
+          console.log('ℹ️ Admin not found; falling back to customer user auth');
         }
       }
 
@@ -167,6 +167,30 @@ router.post('/login', async (req: Request, res: Response) => {
         { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
       );
 
+      // For managers, fetch owner's permissions
+      let permissions = user.permissions || {};
+      if (derivedUserType === 'manager' && user.customerId) {
+        try {
+          // Find the owner of this customer
+          const owner = await prisma.users.findFirst({
+            where: {
+              customerId: user.customerId,
+              role: { in: ['owner', 'property_owner', 'property owner'] }
+            },
+            select: {
+              permissions: true
+            }
+          });
+
+          if (owner && owner.permissions) {
+            permissions = owner.permissions;
+            console.log('✅ Applied owner permissions to manager:', user.email);
+          }
+        } catch (e) {
+          console.warn('⚠️ Failed to fetch owner permissions for manager:', e);
+        }
+      }
+
       return res.json({
         token,
         user: {
@@ -176,7 +200,8 @@ router.post('/login', async (req: Request, res: Response) => {
           role: user.role,
           userType: derivedUserType,
           customerId: user.customerId,
-          customer: user.customers
+          customer: user.customers,
+          permissions: permissions
         }
       });
     } catch (dbError) {
@@ -397,6 +422,25 @@ router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) =
           ? 'tenant'
           : user.customerId ? 'owner' : 'admin'; // default to owner for customer users, admin for internal
 
+    // Compute owner-derived permissions for managers so changes reflect without re-login
+    let effectivePermissions: any = user.permissions || {};
+    if (derivedUserType === 'manager' && user.customerId) {
+      try {
+        const owner = await prisma.users.findFirst({
+          where: {
+            customerId: user.customerId,
+            role: { in: ['owner', 'property_owner', 'property owner'] }
+          },
+          select: { permissions: true }
+        });
+        if (owner?.permissions) {
+          effectivePermissions = owner.permissions;
+        }
+      } catch (e) {
+        console.warn('⚠️ Could not compute owner permissions on /account:', e);
+      }
+    }
+
     res.json({
       user: {
         id: user.id,
@@ -404,9 +448,10 @@ router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) =
         email: user.email,
         role: user.role,
         status: user.status,
-        baseCurrency: user.baseCurrency || 'USD', // Include baseCurrency for multi-currency support
-        customerId: user.customerId, // Add customerId so frontend can determine internal vs customer user
-        userType: derivedUserType // Add userType so frontend knows which dashboard to show
+        baseCurrency: user.baseCurrency || 'USD',
+        customerId: user.customerId,
+        userType: derivedUserType,
+        permissions: effectivePermissions
       },
       customer: customer ? {
         id: customer.id,

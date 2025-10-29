@@ -7,7 +7,7 @@ import { Bell, Home, Users, CreditCard, Wrench, Shield, Settings, Menu, LogOut, 
 import { toast } from 'sonner';
 import { PropertyManagement } from './PropertyManagement';
 import { TenantManagement } from './TenantManagement';
-import { PaymentManagement } from './PaymentManagement';
+import { PaymentOverview } from './PaymentOverview';
 import { MaintenanceTickets } from './MaintenanceTickets';
 import { AccessControl } from './AccessControl';
 import { NotificationCenter } from './NotificationCenter';
@@ -15,9 +15,12 @@ import { PropertyManagerSettings } from './PropertyManagerSettings';
 import PropertyManagerDocuments from './PropertyManagerDocuments';
 import { ManagerDashboardOverview } from './ManagerDashboardOverview';
 import { ExpenseManagement } from './ExpenseManagement';
+import { Footer } from './Footer';
 import { getManagerDashboardOverview, getProperties } from '../lib/api';
 import { getAccountInfo } from '../lib/api/auth';
 import { getUnits } from '../lib/api/units';
+import { getAuthToken } from '../lib/api-client';
+import { initializeSocket, subscribeToPermissionsUpdated, unsubscribeFromPermissionsUpdated } from '../lib/socket';
 import { usePersistentState } from '../lib/usePersistentState';
 
 interface PropertyManagerDashboardProps {
@@ -44,10 +47,11 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
     try {
       if (!silent) setLoading(true);
       
-      const [dashResponse, propertiesResponse, unitsResponse, accountResponse] = await Promise.all([
+      const shouldFetchUnits = currentUser?.permissions?.managerCanViewUnits !== false;
+      const [dashResponse, propertiesResponse, unitsResponseOrNull, accountResponse] = await Promise.all([
         getManagerDashboardOverview(),
         getProperties(),
-        getUnits(),
+        shouldFetchUnits ? getUnits() : Promise.resolve({ data: [] } as any),
         getAccountInfo()
       ]);
 
@@ -63,10 +67,15 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
         setProperties(propertiesResponse.data);
       }
 
-      if (unitsResponse.error) {
-        console.error('Failed to load units:', unitsResponse.error);
-      } else if (unitsResponse.data && Array.isArray(unitsResponse.data)) {
-        setUnits(unitsResponse.data);
+      const unitsResponse = unitsResponseOrNull as any;
+      if (shouldFetchUnits) {
+        if (unitsResponse.error) {
+          console.error('Failed to load units:', unitsResponse.error);
+        } else if (unitsResponse.data && Array.isArray(unitsResponse.data)) {
+          setUnits(unitsResponse.data);
+        }
+      } else {
+        setUnits([]);
       }
 
       // Update account info (plan, limits, etc.)
@@ -107,6 +116,36 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  // Live permissions updates via socket
+  useEffect(() => {
+    try {
+      const token = getAuthToken();
+      if (token) {
+        initializeSocket(token);
+        const handler = (data: { customerId: string; permissions: any }) => {
+          if (!currentUser?.customerId) return;
+          if (data.customerId !== currentUser.customerId) return;
+          toast.info('Your permissions were updated by the owner. Refreshing…');
+          // Refresh account info to pull computed permissions from backend
+          getAccountInfo().then((acct) => {
+            if (acct?.data?.user) {
+              setCurrentUser((prev: any) => ({ ...prev, ...acct.data.user }));
+            }
+            // Silent refresh dashboard data (units fetch will honor permissions)
+            fetchDashboardData(true);
+          });
+        };
+        subscribeToPermissionsUpdated(handler);
+        return () => {
+          unsubscribeFromPermissionsUpdated();
+        };
+      }
+    } catch (e) {
+      console.warn('Socket init failed:', e);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.customerId]);
 
   // Set up periodic refresh (every 30 seconds)
   useEffect(() => {
@@ -158,7 +197,7 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
     { id: 'payments', name: 'Payments', icon: CreditCard },
     { id: 'expenses', name: 'Expenses', icon: Receipt },
     { id: 'maintenance', name: 'Maintenance', icon: Wrench },
-    { id: 'access', name: 'Access Control', icon: Shield },
+    { id: 'access', name: 'Key Management', icon: Shield },
     { id: 'notifications', name: 'Notifications', icon: Bell, count: notificationCount },
     { id: 'documents', name: 'Documents', icon: FileText },
     { id: 'settings', name: 'Settings', icon: Settings },
@@ -166,7 +205,7 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+    <div className="min-h-screen bg-gray-50 flex flex-col overflow-x-hidden">
       {/* Header */}
       <header className="bg-white shadow-sm border-b sticky top-0 z-40">
         <div className="px-4 sm:px-6 lg:px-8">
@@ -292,7 +331,7 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
                   />
                 )}
                 {activeTab === 'tenants' && <TenantManagement properties={properties} />}
-                {activeTab === 'payments' && <PaymentManagement properties={properties} />}
+                {activeTab === 'payments' && <PaymentOverview />}
                 {activeTab === 'expenses' && (
                   <ExpenseManagement 
                     user={currentUser}
@@ -318,6 +357,8 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
           </div>
         </main>
       </div>
+      
+      <Footer />
     </div>
   );
 }

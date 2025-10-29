@@ -52,6 +52,7 @@ import {
   EyeOff,
   ChevronDown
 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 
 interface ExpenseManagementProps {
   user: any;
@@ -301,11 +302,27 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
 
       {/* Statistics Cards */}
       {expenseStats && (
+        <TooltipProvider>
         <div className="grid md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
+                <CardTitle className="text-sm font-medium flex items-center gap-1">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help inline-flex items-center gap-1">
+                        Total Expenses
+                        <AlertCircle className="h-3 w-3 text-muted-foreground" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs">
+                        The sum of all expenses across all your properties, converted to your base currency. 
+                        Includes all statuses: paid, pending, and overdue.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </div>
             </CardHeader>
@@ -318,7 +335,22 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium">Paid</CardTitle>
+                <CardTitle className="text-sm font-medium flex items-center gap-1">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help inline-flex items-center gap-1">
+                        Paid
+                        <AlertCircle className="h-3 w-3 text-muted-foreground" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs">
+                        Total amount of expenses that have been marked as "Paid" and completed. 
+                        These are expenses that no longer require action.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </CardTitle>
                 <CheckCircle className="h-4 w-4 text-green-600" />
               </div>
             </CardHeader>
@@ -338,7 +370,22 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium">Pending</CardTitle>
+                <CardTitle className="text-sm font-medium flex items-center gap-1">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help inline-flex items-center gap-1">
+                        Pending
+                        <AlertCircle className="h-3 w-3 text-muted-foreground" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs">
+                        Total amount of expenses awaiting payment. These expenses have been recorded 
+                        but payment has not been completed yet.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </CardTitle>
                 <Clock className="h-4 w-4 text-yellow-600" />
               </div>
             </CardHeader>
@@ -358,7 +405,22 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium">Top Category</CardTitle>
+                <CardTitle className="text-sm font-medium flex items-center gap-1">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help inline-flex items-center gap-1">
+                        Top Category
+                        <AlertCircle className="h-3 w-3 text-muted-foreground" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs">
+                        The expense category with the highest total spending across all your properties. 
+                        This helps identify where most of your money is being spent.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </div>
             </CardHeader>
@@ -376,6 +438,7 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
             </CardContent>
           </Card>
         </div>
+        </TooltipProvider>
       )}
 
       {/* Expenses by Property (Owner only) */}

@@ -27,13 +27,15 @@ export interface PaymentFilters {
   startDate?: string;
   endDate?: string;
   search?: string;
+  page?: number;
+  pageSize?: number;
 }
 
 /**
  * Get all payments
  */
 export const getPayments = async (filters?: PaymentFilters) => {
-  return apiClient.get<Payment[]>(API_ENDPOINTS.PAYMENTS.LIST, filters);
+  return apiClient.get<any>(API_ENDPOINTS.PAYMENTS.LIST, filters);
 };
 
 /**
@@ -75,6 +77,50 @@ export const getOverduePayments = async (propertyId?: string) => {
   return apiClient.get<any>(
     API_ENDPOINTS.PAYMENTS.OVERDUE,
     propertyId ? { propertyId } : undefined
+  );
+};
+
+/**
+ * Initialize tenant rent payment via Paystack
+ */
+export const initializeTenantPayment = async (payload: {
+  leaseId: string;
+  amount?: number;
+  currency?: string;
+}) => {
+  return apiClient.post<{ authorizationUrl: string; reference: string; publicKey: string }>(
+    API_ENDPOINTS.PAYMENTS.INIT,
+    payload
+  );
+};
+
+/**
+ * Initialize subscription payment (admin/platform)
+ */
+export const initializeSubscriptionPayment = async (payload: {
+  customerId: string;
+  invoiceId: string;
+}) => {
+  return apiClient.post<{ authorizationUrl: string; reference: string; publicKey: string }>(
+    API_ENDPOINTS.PAYMENTS.INIT_SUBSCRIPTION,
+    payload
+  );
+};
+
+/**
+ * Record manual payment (cash, bank transfer, etc.) - Manager/Owner only
+ */
+export const recordManualPayment = async (payload: {
+  leaseId: string;
+  amount: number;
+  paymentMethod: string;
+  paymentDate?: string;
+  notes?: string;
+  type?: string;
+}) => {
+  return apiClient.post<{ success: boolean; payment: any }>(
+    API_ENDPOINTS.PAYMENTS.RECORD,
+    payload
   );
 };
 

@@ -6,32 +6,71 @@ const router = express.Router();
 
 router.use(authMiddleware);
 
-// Get all keycards
-router.get('/keycards', async (req: AuthRequest, res: Response) => {
-  try {
-    const { propertyId, status, search } = req.query;
-    const userId = req.user?.id;
-    const role = req.user?.role;
+const OWNER_ROLES = ['owner', 'property_owner', 'property owner'];
+const MANAGER_ROLES = ['manager', 'property_manager', 'property manager'];
 
-    const where: any = {};
+const buildPropertyAccessFilter = (req: AuthRequest) => {
+  const role = (req.user?.role || '').toLowerCase();
+  const userId = req.user?.id;
 
-    // Filter by role access
-    if (role === 'owner') {
-      where.property = { ownerId: userId };
-    } else if (role === 'manager') {
-      where.property = {
-        managers: {
+  if (!userId) {
+    return null;
+  }
+
+  if (OWNER_ROLES.includes(role)) {
+    return { property: { ownerId: userId } };
+  }
+
+  if (MANAGER_ROLES.includes(role)) {
+    return {
+      property: {
+        property_managers: {
           some: {
             managerId: userId,
             isActive: true
           }
         }
-      };
-    } else {
+      }
+    };
+  }
+
+  if (role.includes('admin')) {
+    return {};
+  }
+
+  return null;
+};
+
+const resolveActorName = async (req: AuthRequest) => {
+  const userId = req.user?.id;
+  if (!userId) return undefined;
+
+  const userRecord = await prisma.users.findUnique({
+    where: { id: userId },
+    select: { name: true, email: true }
+  });
+
+  return userRecord?.name || userRecord?.email || undefined;
+};
+
+// Fetch key inventory
+router.get('/keys', async (req: AuthRequest, res: Response) => {
+  try {
+    const propertyFilter = buildPropertyAccessFilter(req);
+    if (propertyFilter === null) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Additional filters
+    const { propertyId, status, type, search } = req.query;
+
+    const where: any = {
+      customerId: req.user?.customerId || undefined
+    };
+
+    if (propertyFilter.property) {
+      where.property = propertyFilter.property;
+    }
+
     if (propertyId) {
       where.propertyId = propertyId;
     }
@@ -40,21 +79,29 @@ router.get('/keycards', async (req: AuthRequest, res: Response) => {
       where.status = status;
     }
 
+    if (type) {
+      where.keyType = type;
+    }
+
     if (search) {
+      const query = String(search);
       where.OR = [
-        { cardNumber: { contains: search as string, mode: 'insensitive' } },
-        { assignedTo: { name: { contains: search as string, mode: 'insensitive' } } }
+        { keyNumber: { contains: query, mode: 'insensitive' } },
+        { keyLabel: { contains: query, mode: 'insensitive' } },
+        { issuedToName: { contains: query, mode: 'insensitive' } },
+        { property: { name: { contains: query, mode: 'insensitive' } } },
+        { unit: { unitNumber: { contains: query, mode: 'insensitive' } } }
       ];
     }
 
-    const keycards = await prisma.keycard.findMany({
+    const keys = await prisma.property_keys.findMany({
       where,
       include: {
         property: {
           select: {
             id: true,
             name: true,
-            address: true
+            currency: true
           }
         },
         unit: {
@@ -62,507 +109,480 @@ router.get('/keycards', async (req: AuthRequest, res: Response) => {
             id: true,
             unitNumber: true
           }
-        },
-        assignedTo: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true
-          }
         }
       },
       orderBy: { createdAt: 'desc' }
     });
 
-    return res.json(keycards);
-
+    return res.json(keys);
   } catch (error: any) {
-    console.error('Get keycards error:', error);
-    return res.status(500).json({ error: 'Failed to fetch keycards' });
+    console.error('Failed to fetch property keys:', error);
+    return res.status(500).json({ error: 'Failed to load key inventory' });
   }
 });
 
-// Get single keycard
-router.get('/keycards/:id', async (req: AuthRequest, res: Response) => {
+// Create a new key in inventory
+router.post('/keys', async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
-    const userId = req.user?.id;
-    const role = req.user?.role;
-
-    const whereCondition: any = {
-      id,
-      OR: []
-    };
-
-    if (role === 'owner') {
-      whereCondition.OR.push({ property: { ownerId: userId } });
-    } else if (role === 'manager') {
-      whereCondition.OR.push({
-        property: {
-          managers: {
-            some: {
-              managerId: userId,
-              isActive: true
-            }
-          }
-        }
-      });
-    }
-
-    const keycard = await prisma.keycard.findFirst({
-      where: whereCondition,
-      include: {
-        property: true,
-        unit: true,
-        assignedTo: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true
-          }
-        },
-        accessLogs: {
-          orderBy: { accessTime: 'desc' },
-          take: 20
-        }
-      }
-    });
-
-    if (!keycard) {
-      return res.status(404).json({ error: 'Keycard not found or access denied' });
-    }
-
-    return res.json(keycard);
-
-  } catch (error: any) {
-    console.error('Get keycard error:', error);
-    return res.status(500).json({ error: 'Failed to fetch keycard' });
-  }
-});
-
-// Create keycard
-router.post('/keycards', async (req: AuthRequest, res: Response) => {
-  try {
-    const userId = req.user?.id;
-    const customerId = req.user?.customerId;
-    const role = req.user?.role;
-
-    if (role !== 'owner' && role !== 'manager') {
-      return res.status(403).json({ error: 'Insufficient permissions' });
+    const propertyFilter = buildPropertyAccessFilter(req);
+    if (propertyFilter === null) {
+      return res.status(403).json({ error: 'Access denied' });
     }
 
     const {
+      keyNumber,
+      keyLabel,
+      keyType,
       propertyId,
       unitId,
-      assignedToId,
-      cardType,
-      accessLevel,
-      validFrom,
-      validUntil,
-      accessZones,
+      numberOfCopies,
+      location,
       notes
     } = req.body;
 
-    if (!propertyId || !cardType || !accessLevel) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    if (!keyNumber || !keyType || !propertyId) {
+      return res.status(400).json({ error: 'Key number, type, and property are required' });
     }
 
-    // Verify property access
-    const property = await prisma.property.findFirst({
+    const propertyAccessCheck = await prisma.properties.findFirst({
       where: {
         id: propertyId,
-        OR: [
-          { ownerId: userId },
-          {
-            managers: {
-              some: {
-                managerId: userId,
-                isActive: true
-              }
-            }
-          }
-        ]
-      }
+        ...(propertyFilter.property || {})
+      },
+      select: { id: true, customerId: true }
     });
 
-    if (!property) {
+    if (!propertyAccessCheck) {
       return res.status(403).json({ error: 'Property not found or access denied' });
     }
 
-    // Generate card number
-    const cardNumber = `KEY-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-
-    const keycard = await prisma.keycard.create({
+    const createdKey = await prisma.property_keys.create({
       data: {
+        keyNumber,
+        keyLabel,
+        keyType,
         propertyId,
-        unitId,
-        assignedToId,
-        cardNumber,
-        cardType,
-        accessLevel,
-        status: 'active',
-        validFrom: validFrom ? new Date(validFrom) : new Date(),
-        validUntil: validUntil ? new Date(validUntil) : null,
-        accessZones,
+        unitId: unitId || null,
+        customerId: propertyAccessCheck.customerId,
+        numberOfCopies: numberOfCopies ? Number(numberOfCopies) : 1,
+        location,
         notes,
-        issuedById: userId
+        createdById: req.user?.id,
+        updatedById: req.user?.id
       },
       include: {
         property: {
-          select: {
-            id: true,
-            name: true
-          }
-        },
-        assignedTo: {
           select: {
             id: true,
             name: true,
-            email: true
+            currency: true
+          }
+        },
+        unit: {
+          select: {
+            id: true,
+            unitNumber: true
           }
         }
       }
     });
 
-    // Log activity
-    await prisma.activityLog.create({
-      data: {
-        customerId,
-        userId,
-        action: 'create',
-        entity: 'keycard',
-        entityId: keycard.id,
-        description: `Keycard ${cardNumber} issued${keycard.assignedTo ? ` to ${keycard.assignedTo.name}` : ''}`
-      }
-    });
-
-    return res.status(201).json(keycard);
-
+    return res.status(201).json(createdKey);
   } catch (error: any) {
-    console.error('Create keycard error:', error);
-    return res.status(500).json({ error: 'Failed to create keycard' });
+    console.error('Failed to create property key:', error);
+    if (error.code === 'P2002') {
+      return res.status(409).json({ error: 'Key number already exists' });
+    }
+    return res.status(500).json({ error: 'Failed to create key' });
   }
 });
 
-// Update keycard
-router.put('/keycards/:id', async (req: AuthRequest, res: Response) => {
+// Issue a key to a person
+router.post('/keys/:id/issue', async (req: AuthRequest, res: Response) => {
   try {
+    const propertyFilter = buildPropertyAccessFilter(req);
+    if (propertyFilter === null) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
     const { id } = req.params;
-    const userId = req.user?.id;
-    const customerId = req.user?.customerId;
-    const role = req.user?.role;
-
-    if (role !== 'owner' && role !== 'manager') {
-      return res.status(403).json({ error: 'Insufficient permissions' });
-    }
-
-    // Check access
-    const existing = await prisma.keycard.findFirst({
-      where: {
-        id,
-        property: {
-          OR: [
-            { ownerId: userId },
-            {
-              managers: {
-                some: {
-                  managerId: userId,
-                  isActive: true
-                }
-              }
-            }
-          ]
-        }
-      },
-      include: { property: true }
-    });
-
-    if (!existing) {
-      return res.status(404).json({ error: 'Keycard not found or access denied' });
-    }
-
     const {
-      status,
-      assignedToId,
-      accessLevel,
-      validFrom,
-      validUntil,
-      accessZones,
+      issuedTo,
+      issuedToType,
+      expectedReturnDate,
+      depositAmount,
+      witnessName,
       notes
     } = req.body;
 
-    const keycard = await prisma.keycard.update({
-      where: { id },
-      data: {
-        status,
-        assignedToId,
-        accessLevel,
-        validFrom: validFrom ? new Date(validFrom) : undefined,
-        validUntil: validUntil ? new Date(validUntil) : undefined,
-        accessZones,
-        notes
-      }
-    });
-
-    // Log activity
-    await prisma.activityLog.create({
-      data: {
-        customerId,
-        userId,
-        action: 'update',
-        entity: 'keycard',
-        entityId: keycard.id,
-        description: `Keycard ${keycard.cardNumber} updated`
-      }
-    });
-
-    return res.json(keycard);
-
-  } catch (error: any) {
-    console.error('Update keycard error:', error);
-    return res.status(500).json({ error: 'Failed to update keycard' });
-  }
-});
-
-// Deactivate keycard
-router.post('/keycards/:id/deactivate', async (req: AuthRequest, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { reason } = req.body;
-    const userId = req.user?.id;
-    const customerId = req.user?.customerId;
-    const role = req.user?.role;
-
-    if (role !== 'owner' && role !== 'manager') {
-      return res.status(403).json({ error: 'Insufficient permissions' });
+    if (!issuedTo || !issuedToType) {
+      return res.status(400).json({ error: 'Issued to name and type are required' });
     }
 
-    const keycard = await prisma.keycard.findFirst({
+    const keyRecord = await prisma.property_keys.findFirst({
       where: {
         id,
-        property: {
-          OR: [
-            { ownerId: userId },
-            {
-              managers: {
-                some: {
-                  managerId: userId,
-                  isActive: true
-                }
-              }
-            }
-          ]
-        }
-      },
-      include: { property: true }
+        customerId: req.user?.customerId || undefined,
+        ...(propertyFilter.property ? { property: propertyFilter.property } : {})
+      }
     });
 
-    if (!keycard) {
-      return res.status(404).json({ error: 'Keycard not found or access denied' });
+    if (!keyRecord) {
+      return res.status(404).json({ error: 'Key not found or access denied' });
     }
 
-    const updated = await prisma.keycard.update({
+    if (keyRecord.status === 'issued') {
+      return res.status(400).json({ error: 'Key is already issued' });
+    }
+
+    const actorName = await resolveActorName(req);
+
+    const updatedKey = await prisma.property_keys.update({
       where: { id },
       data: {
-        status: 'inactive',
-        deactivatedAt: new Date(),
-        notes: reason ? `${keycard.notes || ''}\nDeactivated: ${reason}` : keycard.notes
+        status: 'issued',
+        issuedToName: issuedTo,
+        issuedToType,
+        issuedDate: new Date(),
+        expectedReturnDate: expectedReturnDate ? new Date(expectedReturnDate) : null,
+        depositAmount: depositAmount ? Number(depositAmount) : keyRecord.depositAmount,
+        depositRefunded: false,
+        location: `Issued to ${issuedTo}`,
+        depositNotes: notes,
+        updatedById: req.user?.id
+      },
+      include: {
+        property: {
+          select: { id: true, name: true, currency: true }
+        },
+        unit: {
+          select: { id: true, unitNumber: true }
+        }
       }
     });
 
-    // Log activity
-    await prisma.activityLog.create({
+    await prisma.property_key_transactions.create({
       data: {
-        customerId,
-        userId,
-        action: 'deactivate',
-        entity: 'keycard',
-        entityId: id,
-        description: `Keycard ${keycard.cardNumber} deactivated${reason ? `: ${reason}` : ''}`
+        keyId: id,
+        customerId: updatedKey.customerId,
+        action: 'ISSUE',
+        performedById: req.user?.id,
+        performedByName: actorName,
+        performedForName: issuedTo,
+        personType: issuedToType,
+        witnessName,
+        depositAmount: depositAmount ? Number(depositAmount) : null,
+        notes,
+        metadata: {
+          expectedReturnDate,
+          location: updatedKey.location
+        }
       }
     });
 
-    return res.json(updated);
-
+    return res.json(updatedKey);
   } catch (error: any) {
-    console.error('Deactivate keycard error:', error);
-    return res.status(500).json({ error: 'Failed to deactivate keycard' });
+    console.error('Failed to issue key:', error);
+    return res.status(500).json({ error: 'Failed to issue key' });
   }
 });
 
-// Get access logs
-router.get('/access-logs', async (req: AuthRequest, res: Response) => {
+// Return a key
+router.post('/keys/:id/return', async (req: AuthRequest, res: Response) => {
   try {
-    const { propertyId, keycardId, startDate, endDate, accessResult } = req.query;
-    const userId = req.user?.id;
-    const role = req.user?.role;
-
-    const where: any = {};
-
-    // Filter by role access
-    if (role === 'owner') {
-      where.keycard = { property: { ownerId: userId } };
-    } else if (role === 'manager') {
-      where.keycard = {
-        property: {
-          managers: {
-            some: {
-              managerId: userId,
-              isActive: true
-            }
-          }
-        }
-      };
-    } else {
+    const propertyFilter = buildPropertyAccessFilter(req);
+    if (propertyFilter === null) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Additional filters
-    if (propertyId) {
-      where.keycard = { ...where.keycard, propertyId };
+    const { id } = req.params;
+    const { condition, refundDeposit, refundAmount, witnessName, notes } = req.body;
+
+    const keyRecord = await prisma.property_keys.findFirst({
+      where: {
+        id,
+        customerId: req.user?.customerId || undefined,
+        ...(propertyFilter.property ? { property: propertyFilter.property } : {})
+      }
+    });
+
+    if (!keyRecord) {
+      return res.status(404).json({ error: 'Key not found or access denied' });
     }
 
-    if (keycardId) {
-      where.keycardId = keycardId;
+    if (keyRecord.status !== 'issued') {
+      return res.status(400).json({ error: 'Key is not currently issued' });
     }
 
-    if (startDate || endDate) {
-      where.accessTime = {};
-      if (startDate) where.accessTime.gte = new Date(startDate as string);
-      if (endDate) where.accessTime.lte = new Date(endDate as string);
+    const actorName = await resolveActorName(req);
+
+    const updatedKey = await prisma.property_keys.update({
+      where: { id },
+      data: {
+        status: 'available',
+        issuedToName: null,
+        issuedToType: null,
+        issuedToUserId: null,
+        issuedDate: null,
+        expectedReturnDate: null,
+        returnedDate: new Date(),
+        depositRefunded: !!refundDeposit,
+        location: 'Key Cabinet - Office',
+        depositNotes: notes,
+        updatedById: req.user?.id
+      },
+      include: {
+        property: {
+          select: { id: true, name: true, currency: true }
+        },
+        unit: {
+          select: { id: true, unitNumber: true }
+        }
+      }
+    });
+
+    await prisma.property_key_transactions.create({
+      data: {
+        keyId: id,
+        customerId: updatedKey.customerId,
+        action: 'RETURN',
+        performedById: req.user?.id,
+        performedByName: actorName,
+        performedForName: keyRecord.issuedToName || undefined,
+        personType: keyRecord.issuedToType || undefined,
+        witnessName,
+        // Use provided refundAmount for partial refunds, fallback to full deposit for full refund
+        depositAmount: refundDeposit
+          ? (typeof refundAmount === 'number' && !isNaN(refundAmount) ? Number(refundAmount) : (keyRecord.depositAmount || undefined))
+          : undefined,
+        notes,
+        metadata: {
+          condition,
+          refundDeposit: !!refundDeposit,
+          refundAmount: (typeof refundAmount === 'number' && !isNaN(refundAmount)) ? Number(refundAmount) : undefined,
+          partialRefund: (typeof refundAmount === 'number' && !isNaN(refundAmount) && keyRecord.depositAmount && Number(refundAmount) < keyRecord.depositAmount) || false
+        }
+      }
+    });
+
+    return res.json(updatedKey);
+  } catch (error: any) {
+    console.error('Failed to return key:', error);
+    return res.status(500).json({ error: 'Failed to return key' });
+  }
+});
+
+// Report a lost key
+router.post('/keys/:id/report-lost', async (req: AuthRequest, res: Response) => {
+  try {
+    const propertyFilter = buildPropertyAccessFilter(req);
+    if (propertyFilter === null) {
+      return res.status(403).json({ error: 'Access denied' });
     }
 
-    if (accessResult) {
-      where.accessResult = accessResult;
+    const { id } = req.params;
+    const {
+      reportedBy,
+      lostDate,
+      circumstances,
+      policeReportNumber,
+      replaceLock
+    } = req.body;
+
+    if (!reportedBy || !lostDate) {
+      return res.status(400).json({ error: 'Reported by and lost date are required' });
     }
 
-    const logs = await prisma.accessLog.findMany({
+    const keyRecord = await prisma.property_keys.findFirst({
+      where: {
+        id,
+        customerId: req.user?.customerId || undefined,
+        ...(propertyFilter.property ? { property: propertyFilter.property } : {})
+      }
+    });
+
+    if (!keyRecord) {
+      return res.status(404).json({ error: 'Key not found or access denied' });
+    }
+
+    const actorName = await resolveActorName(req);
+
+    const combinedNotes = [
+      keyRecord.notes,
+      `Lost on ${lostDate}${circumstances ? ` - ${circumstances}` : ''}`,
+      policeReportNumber ? `Police report: ${policeReportNumber}` : null,
+      replaceLock ? 'Lock replacement required' : null
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const updatedKey = await prisma.property_keys.update({
+      where: { id },
+      data: {
+        status: 'lost',
+        location: 'Lost',
+        depositRefunded: false,
+        depositNotes: combinedNotes,
+        notes: combinedNotes,
+        updatedById: req.user?.id
+      },
+      include: {
+        property: {
+          select: { id: true, name: true, currency: true }
+        },
+        unit: {
+          select: { id: true, unitNumber: true }
+        }
+      }
+    });
+
+    await prisma.property_key_transactions.create({
+      data: {
+        keyId: id,
+        customerId: updatedKey.customerId,
+        action: 'LOST_REPORT',
+        performedById: req.user?.id,
+        performedByName: actorName,
+        performedForName: keyRecord.issuedToName || reportedBy,
+        personType: keyRecord.issuedToType || undefined,
+        notes: circumstances,
+        metadata: {
+          reportedBy,
+          lostDate,
+          policeReportNumber,
+          replaceLock
+        }
+      }
+    });
+
+    return res.json(updatedKey);
+  } catch (error: any) {
+    console.error('Failed to report lost key:', error);
+    return res.status(500).json({ error: 'Failed to report lost key' });
+  }
+});
+
+// Fetch custody chain / transactions
+router.get('/transactions', async (req: AuthRequest, res: Response) => {
+  try {
+    const propertyFilter = buildPropertyAccessFilter(req);
+    if (propertyFilter === null) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const { search, action, limit } = req.query;
+
+    const where: any = {
+      customerId: req.user?.customerId || undefined
+    };
+
+    // Only add key filter if propertyFilter has property criteria
+    if (propertyFilter.property && Object.keys(propertyFilter.property).length > 0) {
+      // Scope transactions by keys that belong to properties accessible to the requester
+      where.key = {
+        property: propertyFilter.property
+      };
+    }
+
+    if (action) {
+      where.action = action;
+    }
+
+    if (search) {
+      const query = String(search);
+      where.OR = [
+        { key: { keyNumber: { contains: query, mode: 'insensitive' } } },
+        { performedForName: { contains: query, mode: 'insensitive' } },
+        { performedByName: { contains: query, mode: 'insensitive' } },
+        { notes: { contains: query, mode: 'insensitive' } }
+      ];
+    }
+
+    const transactions = await prisma.property_key_transactions.findMany({
       where,
       include: {
-        keycard: {
-          include: {
+        key: {
+          select: {
+            id: true,
+            keyNumber: true,
+            keyType: true,
             property: {
-              select: {
-                id: true,
-                name: true
-              }
+              select: { id: true, name: true }
             },
-            assignedTo: {
-              select: {
-                id: true,
-                name: true
-              }
+            unit: {
+              select: { id: true, unitNumber: true }
             }
           }
         }
       },
-      orderBy: { accessTime: 'desc' },
-      take: 100
+      orderBy: { createdAt: 'desc' },
+      take: limit ? Number(limit) : 100
     });
 
-    return res.json(logs);
-
+    return res.json(transactions);
   } catch (error: any) {
-    console.error('Get access logs error:', error);
-    return res.status(500).json({ error: 'Failed to fetch access logs' });
+    console.error('Failed to fetch key transactions:', error);
+    return res.status(500).json({ error: 'Failed to load key transactions' });
   }
 });
 
-// Get access control statistics
+// Stats overview
 router.get('/stats/overview', async (req: AuthRequest, res: Response) => {
   try {
-    const { propertyId } = req.query;
-    const userId = req.user?.id;
-    const role = req.user?.role;
-
-    const where: any = {};
-
-    if (role === 'owner') {
-      where.property = { ownerId: userId };
-    } else if (role === 'manager') {
-      where.property = {
-        managers: {
-          some: {
-            managerId: userId,
-            isActive: true
-          }
-        }
-      };
-    } else {
+    const propertyFilter = buildPropertyAccessFilter(req);
+    if (propertyFilter === null) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    if (propertyId) {
-      where.propertyId = propertyId;
+    const { propertyId } = req.query;
+
+    const baseWhere: any = {
+      customerId: req.user?.customerId || undefined
+    };
+
+    if (propertyFilter.property) {
+      baseWhere.property = propertyFilter.property;
     }
 
-    const [totalKeycards, activeKeycards, expiringSoon, suspended] = await Promise.all([
-      prisma.keycard.count({ where }),
-      prisma.keycard.count({ where: { ...where, status: 'active' } }),
-      prisma.keycard.count({
+    if (propertyId) {
+      baseWhere.propertyId = propertyId;
+    }
+
+    const [totalKeys, issuedKeys, availableKeys, lostKeys, depositAggregate, typeBreakdown] = await Promise.all([
+      prisma.property_keys.count({ where: baseWhere }),
+      prisma.property_keys.count({ where: { ...baseWhere, status: 'issued' } }),
+      prisma.property_keys.count({ where: { ...baseWhere, status: 'available' } }),
+      prisma.property_keys.count({ where: { ...baseWhere, status: 'lost' } }),
+      prisma.property_keys.aggregate({
+        _sum: { depositAmount: true },
         where: {
-          ...where,
-          status: 'active',
-          validUntil: {
-            lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-            gte: new Date()
-          }
+          ...baseWhere,
+          depositAmount: { not: null },
+          depositRefunded: false
         }
       }),
-      prisma.keycard.count({ where: { ...where, status: 'suspended' } })
+      prisma.property_keys.groupBy({
+        by: ['keyType'],
+        where: baseWhere,
+        _count: true
+      })
     ]);
 
-    // By card type
-    const byType = await prisma.keycard.groupBy({
-      by: ['cardType'],
-      where,
-      _count: true
-    });
-
-    // By access level
-    const byAccessLevel = await prisma.keycard.groupBy({
-      by: ['accessLevel'],
-      where,
-      _count: true
-    });
-
-    // Recent access activity (last 24 hours)
-    const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const recentActivity = await prisma.accessLog.count({
-      where: {
-        keycard: where,
-        accessTime: { gte: last24Hours }
-      }
-    });
-
-    // Failed access attempts (last 24 hours)
-    const failedAttempts = await prisma.accessLog.count({
-      where: {
-        keycard: where,
-        accessTime: { gte: last24Hours },
-        accessResult: 'denied'
-      }
-    });
-
     return res.json({
-      totalKeycards,
-      activeKeycards,
-      expiringSoon,
-      suspended,
-      byType: byType.map(t => ({ type: t.cardType, count: t._count })),
-      byAccessLevel: byAccessLevel.map(a => ({ level: a.accessLevel, count: a._count })),
-      recentActivity24h: recentActivity,
-      failedAttempts24h: failedAttempts
+      totalKeys,
+      issuedKeys,
+      availableKeys,
+      lostKeys,
+      depositHeld: depositAggregate._sum.depositAmount || 0,
+      byType: typeBreakdown.map((item) => ({
+        keyType: item.keyType,
+        count: item._count
+      }))
     });
-
   } catch (error: any) {
-    console.error('Get access control stats error:', error);
-    return res.status(500).json({ error: 'Failed to fetch access control statistics' });
+    console.error('Failed to load key stats:', error);
+    return res.status(500).json({ error: 'Failed to fetch key statistics' });
   }
 });
 
 export default router;
-
-

@@ -1,742 +1,1095 @@
-import React, { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Badge } from "./ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Switch } from "./ui/switch";
 import { Textarea } from "./ui/textarea";
-import { Shield, Key, Clock, AlertTriangle, CheckCircle, Settings, History, Plus, Play, Pause, RotateCcw, Search, Filter, X as XIcon } from 'lucide-react';
+import { Switch } from "./ui/switch";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import {
+  Key,
+  ClipboardList,
+  FileText,
+  AlertTriangle,
+  CheckCircle,
+  Search,
+  Plus,
+  LogOut,
+  LogIn,
+  Shield,
+  Lock,
+  AlertCircle,
+  Download,
+  MoreHorizontal,
+  Info
+} from 'lucide-react';
 import { toast } from "sonner";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
+import { Alert, AlertDescription } from "./ui/alert";
+import { Separator } from "./ui/separator";
+import {
+  PropertyKey,
+  PropertyKeyTransaction,
+  KeyStats,
+  getPropertyKeys,
+  createPropertyKey,
+  issuePropertyKey,
+  returnPropertyKey,
+  reportLostPropertyKey,
+  getPropertyKeyStats,
+  getPropertyKeyTransactions
+} from '../lib/api/access-control';
+import { getProperties, Property } from '../lib/api/properties';
+import { getUnits, getUnit } from '../lib/api/units';
+import { formatCurrency } from '../lib/currency';
+
+const STATUS_OPTIONS = [
+  { label: 'All Status', value: 'all' },
+  { label: 'Issued', value: 'issued' },
+  { label: 'Available', value: 'available' },
+  { label: 'Lost', value: 'lost' },
+  { label: 'Damaged', value: 'damaged' },
+];
+
+const KEY_TYPE_OPTIONS = [
+  { label: 'All Types', value: 'all' },
+  { label: 'Unit', value: 'Unit' },
+  { label: 'Master', value: 'Master' },
+  { label: 'Common Area', value: 'Common Area' },
+  { label: 'Emergency', value: 'Emergency' },
+  { label: 'Gate', value: 'Gate' },
+];
+
+const PERSON_TYPE_OPTIONS = ['Tenant', 'Owner', 'Manager', 'Contractor', 'Staff'];
+
+const prettifyStatus = (status: string) => status.charAt(0).toUpperCase() + status.slice(1);
+
+const formatDate = (value?: string | null) => {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString();
+};
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString();
+};
 
 export const AccessControl = () => {
-  // Search and filter state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchBy, setSearchBy] = useState('all');
+  const [keys, setKeys] = useState<PropertyKey[]>([]);
+  const [transactions, setTransactions] = useState<PropertyKeyTransaction[]>([]);
+  const [stats, setStats] = useState<KeyStats | null>(null);
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [units, setUnits] = useState<any[]>([]);
+  const [selectedUnitActiveTenant, setSelectedUnitActiveTenant] = useState<any | null>(null);
+  const [issueKeyTenant, setIssueKeyTenant] = useState<any | null>(null);
+
+  const [loadingKeys, setLoadingKeys] = useState(false);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [loadingStats, setLoadingStats] = useState(false);
+  const [savingKey, setSavingKey] = useState(false);
+  const [processingIssue, setProcessingIssue] = useState(false);
+  const [processingReturn, setProcessingReturn] = useState(false);
+  const [processingLost, setProcessingLost] = useState(false);
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [paymentStatusFilter, setPaymentStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
   const [propertyFilter, setPropertyFilter] = useState('all');
-  const [showFilters, setShowFilters] = useState(false);
+  const [activeTab, setActiveTab] = useState<'keys' | 'custody' | 'compliance'>('keys');
 
-  const [tenantAccess, setTenantAccess] = useState([
-    {
-      id: 'ACC001',
-      tenantName: 'Sarah Johnson',
-      unit: 'A101',
-      property: 'Sunset Apartments',
-      propertyId: 'PROP001',
-      cardId: 'CARD001',
-      status: 'Active',
-      lastAccess: '2024-01-02 14:30',
-      paymentStatus: 'Current',
-      accessExpiry: '2024-12-31',
-      autoRevoke: true
-    },
-    {
-      id: 'ACC002',
-      tenantName: 'Michael Brown',
-      unit: 'A201',
-      property: 'Sunset Apartments',
-      propertyId: 'PROP001',
-      cardId: 'CARD002',
-      status: 'Active',
-      lastAccess: '2024-01-01 09:15',
-      paymentStatus: 'Due Soon',
-      accessExpiry: '2024-08-31',
-      autoRevoke: true
-    },
-    {
-      id: 'ACC003',
-      tenantName: 'Lisa Wilson',
-      unit: 'A202',
-      property: 'Sunset Apartments',
-      propertyId: 'PROP001',
-      cardId: 'CARD003',
-      status: 'Revoked',
-      lastAccess: '2023-12-25 16:45',
-      paymentStatus: 'Overdue',
-      accessExpiry: '2025-02-28',
-      autoRevoke: true,
-      revokedDate: '2023-12-28',
-      revokeReason: 'Payment Overdue'
-    },
-    {
-      id: 'ACC004',
-      tenantName: 'David Chen',
-      unit: 'B301',
-      property: 'Harbor View Condos',
-      propertyId: 'PROP002',
-      cardId: 'CARD004',
-      status: 'Temporary',
-      lastAccess: '2024-01-01 11:20',
-      paymentStatus: 'Current',
-      accessExpiry: '2024-01-07',
-      autoRevoke: false,
-      temporaryReason: 'Extended by PM'
-    },
-    {
-      id: 'ACC005',
-      tenantName: 'Emma Davis',
-      unit: 'B101',
-      property: 'Harbor View Condos',
-      propertyId: 'PROP002',
-      cardId: 'CARD005',
-      status: 'Active',
-      lastAccess: '2024-01-02 08:45',
-      paymentStatus: 'Current',
-      accessExpiry: '2024-11-30',
-      autoRevoke: true
-    },
-    {
-      id: 'ACC006',
-      tenantName: 'James Miller',
-      unit: 'C105',
-      property: 'Downtown Lofts',
-      propertyId: 'PROP003',
-      cardId: 'CARD006',
-      status: 'Active',
-      lastAccess: '2024-01-01 18:20',
-      paymentStatus: 'Current',
-      accessExpiry: '2025-03-31',
-      autoRevoke: true
-    }
-  ]);
+  const [showAddKeyPage, setShowAddKeyPage] = useState(false);
+  const [showIssueKeyPage, setShowIssueKeyPage] = useState(false);
+  const [showReturnKey, setShowReturnKey] = useState(false);
+  const [showReportLost, setShowReportLost] = useState(false);
 
-  const [accessLogs, setAccessLogs] = useState([
-    {
-      id: 'LOG001',
-      tenantName: 'Sarah Johnson',
-      unit: 'A101',
-      cardId: 'CARD001',
-      action: 'Access Granted',
-      timestamp: '2024-01-02 14:30:15',
-      location: 'Main Entrance',
-      result: 'Success'
-    },
-    {
-      id: 'LOG002',
-      tenantName: 'Lisa Wilson',
-      unit: 'A202',
-      cardId: 'CARD003',
-      action: 'Access Denied',
-      timestamp: '2024-01-02 10:15:30',
-      location: 'Main Entrance',
-      result: 'Failed - Card Revoked'
-    },
-    {
-      id: 'LOG003',
-      tenantName: 'Michael Brown',
-      unit: 'A201',
-      cardId: 'CARD002',
-      action: 'Access Granted',
-      timestamp: '2024-01-01 09:15:45',
-      location: 'Building Entrance',
-      result: 'Success'
-    }
-  ]);
+  const [selectedKey, setSelectedKey] = useState<PropertyKey | null>(null);
 
-  const [systemSettings, setSystemSettings] = useState({
-    autoRevokeEnabled: true,
-    revokeTime: '23:59',
-    gracePeriod: 24, // hours
-    webhookUrl: 'https://api.property-management.com/webhooks/access',
-    integrationProvider: 'Kisi'
+  const [newKeyForm, setNewKeyForm] = useState({
+    keyNumber: '',
+    keyLabel: '',
+    keyType: 'Unit',
+    propertyId: '',
+    unitId: '',
+    numberOfCopies: '1',
+    location: 'Key Cabinet - Office',
+    notes: ''
   });
 
-  const [showExtendAccess, setShowExtendAccess] = useState(false);
-  const [selectedTenant, setSelectedTenant] = useState<any>(null);
-  const [extensionData, setExtensionData] = useState({
-    duration: '',
-    reason: '',
-    type: 'temporary'
+  const [issueKeyForm, setIssueKeyForm] = useState({
+    keyId: '',
+    issuedTo: '',
+    issuedToType: 'Tenant',
+    expectedReturnDate: '',
+    depositAmount: '',
+    notes: ''
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Active': return 'default';
-      case 'Revoked': return 'destructive';
-      case 'Temporary': return 'secondary';
-      case 'Expired': return 'outline';
-      default: return 'secondary';
+  const [returnKeyForm, setReturnKeyForm] = useState({
+    condition: 'Good',
+    refundDeposit: true,
+    refundAmount: '',
+    notes: ''
+  });
+
+  const [lostKeyForm, setLostKeyForm] = useState({
+    reportedBy: '',
+    lostDate: '',
+    circumstances: '',
+    policeReportNumber: '',
+    replaceLock: true
+  });
+
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedSearch(searchTerm), 400);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
+  const loadProperties = useCallback(async () => {
+    const response = await getProperties();
+    if (response.error) {
+      console.error('Failed to load properties:', response.error);
+      return;
     }
-  };
-
-  const getPaymentStatusColor = (status: string) => {
-    switch (status) {
-      case 'Current': return 'default';
-      case 'Due Soon': return 'secondary';
-      case 'Overdue': return 'destructive';
-      default: return 'outline';
+    const data = response.data || [];
+    setProperties(data);
+    if (!newKeyForm.propertyId && data.length > 0) {
+      setNewKeyForm((prev) => ({ ...prev, propertyId: data[0].id }));
     }
-  };
+  }, [newKeyForm.propertyId]);
 
-  const handleRevokeAccess = (tenantId: string, reason = 'Manual Revocation') => {
-    setTenantAccess(tenantAccess.map(tenant =>
-      tenant.id === tenantId
-        ? {
-            ...tenant,
-            status: 'Revoked',
-            revokedDate: new Date().toISOString().split('T')[0],
-            revokeReason: reason
-          }
-        : tenant
-    ));
-    
-    // Add to access logs
-    const tenant = tenantAccess.find(t => t.id === tenantId);
-    if (tenant) {
-      const newLog = {
-        id: `LOG${String(accessLogs.length + 1).padStart(3, '0')}`,
-        tenantName: tenant.tenantName,
-        unit: tenant.unit,
-        cardId: tenant.cardId,
-        action: 'Access Revoked',
-        timestamp: new Date().toISOString().replace('T', ' ').split('.')[0],
-        location: 'System',
-        result: `Revoked - ${reason}`
-      };
-      setAccessLogs([newLog, ...accessLogs]);
+  const loadUnitsForProperty = useCallback(async (propertyId: string) => {
+    if (!propertyId) {
+      setUnits([]);
+      return;
     }
-    
-    toast.success(`Access revoked for ${tenant?.tenantName}`);
-  };
+    const response = await getUnits({ propertyId });
+    if (response.error) {
+      console.error('Failed to load units:', response.error);
+      setUnits([]);
+      return;
+    }
+    setUnits(response.data || []);
+  }, []);
 
-  const handleRestoreAccess = (tenantId: string) => {
-    setTenantAccess(tenantAccess.map(tenant =>
-      tenant.id === tenantId
-        ? {
-            ...tenant,
-            status: 'Active',
-            revokedDate: undefined,
-            revokeReason: undefined
-          }
-        : tenant
-    ));
-    
-    const tenant = tenantAccess.find(t => t.id === tenantId);
-    toast.success(`Access restored for ${tenant?.tenantName}`);
-  };
+  const loadKeys = useCallback(async () => {
+    setLoadingKeys(true);
+    const params: any = {};
+    if (propertyFilter !== 'all') params.propertyId = propertyFilter;
+    if (statusFilter !== 'all') params.status = statusFilter;
+    if (typeFilter !== 'all') params.type = typeFilter;
+    if (debouncedSearch) params.search = debouncedSearch;
 
-  const handleExtendAccess = () => {
-    if (!selectedTenant) return;
-    
-    const extendedDate = new Date();
-    extendedDate.setDate(extendedDate.getDate() + parseInt(extensionData.duration));
-    
-    setTenantAccess(tenantAccess.map(tenant =>
-      tenant.id === selectedTenant.id
-        ? {
-            ...tenant,
-            status: extensionData.type === 'permanent' ? 'Active' : 'Temporary',
-            accessExpiry: extendedDate.toISOString().split('T')[0],
-            temporaryReason: extensionData.reason
-          }
-        : tenant
-    ));
-    
-    toast.success(`Access extended for ${selectedTenant.tenantName}`);
-    setShowExtendAccess(false);
-    setSelectedTenant(null);
-    setExtensionData({ duration: '', reason: '', type: 'temporary' });
-  };
-
-  // Get unique properties with keycard counts
-  const properties = tenantAccess.reduce((acc, tenant) => {
-    const existing = acc.find(p => p.id === tenant.propertyId);
-    if (existing) {
-      existing.totalKeycards++;
-      if (tenant.status === 'Active') existing.activeKeycards++;
-      if (tenant.status === 'Revoked') existing.revokedKeycards++;
+    const response = await getPropertyKeys(params);
+    if (response.error) {
+      console.error('Failed to load keys:', response.error);
+      toast.error(response.error.error || 'Failed to load keys');
+      setKeys([]);
     } else {
-      acc.push({
-        id: tenant.propertyId,
-        name: tenant.property,
-        totalKeycards: 1,
-        activeKeycards: tenant.status === 'Active' ? 1 : 0,
-        revokedKeycards: tenant.status === 'Revoked' ? 1 : 0
-      });
+      setKeys(response.data || []);
     }
-    return acc;
-  }, [] as any[]);
+    setLoadingKeys(false);
+  }, [debouncedSearch, propertyFilter, statusFilter, typeFilter]);
 
-  // Filter and search logic
-  const filteredTenantAccess = tenantAccess.filter(tenant => {
-    // Property filter
-    if (propertyFilter !== 'all' && tenant.propertyId !== propertyFilter) return false;
-    
-    // Status filter
-    if (statusFilter !== 'all' && tenant.status !== statusFilter) return false;
-    
-    // Payment status filter
-    if (paymentStatusFilter !== 'all' && tenant.paymentStatus !== paymentStatusFilter) return false;
-    
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      switch (searchBy) {
-        case 'tenant':
-          return tenant.tenantName.toLowerCase().includes(query);
-        case 'unit':
-          return tenant.unit.toLowerCase().includes(query);
-        case 'cardId':
-          return tenant.cardId.toLowerCase().includes(query);
-        case 'all':
-        default:
-          return (
-            tenant.tenantName.toLowerCase().includes(query) ||
-            tenant.unit.toLowerCase().includes(query) ||
-            tenant.cardId.toLowerCase().includes(query) ||
-            tenant.property.toLowerCase().includes(query)
-          );
+  const loadStats = useCallback(async () => {
+    setLoadingStats(true);
+    const params = propertyFilter !== 'all' ? { propertyId: propertyFilter } : undefined;
+    const response = await getPropertyKeyStats(params);
+    if (response.error) {
+      console.error('Failed to load key stats:', response.error);
+      toast.error(response.error.error || 'Failed to load key statistics');
+      setStats(null);
+    } else {
+      setStats(response.data || null);
+    }
+    setLoadingStats(false);
+  }, [propertyFilter]);
+
+  const loadTransactions = useCallback(async () => {
+    setLoadingTransactions(true);
+    const params: any = { limit: 100 };
+    if (debouncedSearch) params.search = debouncedSearch;
+    const response = await getPropertyKeyTransactions(params);
+    if (response.error) {
+      console.error('Failed to load key transactions:', response.error);
+      toast.error(response.error.error || 'Failed to load transactions');
+      setTransactions([]);
+    } else {
+      setTransactions(response.data || []);
+    }
+    setLoadingTransactions(false);
+  }, [debouncedSearch]);
+
+  useEffect(() => {
+    loadProperties();
+  }, [loadProperties]);
+
+  useEffect(() => {
+    loadKeys();
+  }, [loadKeys]);
+
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
+
+  useEffect(() => {
+    loadTransactions();
+  }, [loadTransactions]);
+
+  useEffect(() => {
+    if (newKeyForm.propertyId) {
+      loadUnitsForProperty(newKeyForm.propertyId);
+    }
+  }, [newKeyForm.propertyId, loadUnitsForProperty]);
+
+  // Load unit details and active tenant when a unit is selected
+  useEffect(() => {
+    const fetchUnitDetails = async () => {
+      setSelectedUnitActiveTenant(null);
+      const unitId = newKeyForm.unitId;
+      if (!unitId || unitId === 'none') return;
+      const response = await getUnit(unitId);
+      if (response.error) {
+        console.error('Failed to load unit details:', response.error);
+        return;
       }
-    }
-    
-    return true;
-  });
+      const unit = response.data;
+      // Find active tenant from leases
+      const activeLease = Array.isArray(unit?.leases)
+        ? unit.leases.find((l: any) => l.status?.toLowerCase?.() === 'active') || unit.leases[0]
+        : null;
+      const tenant = activeLease?.users || activeLease?.tenant || null;
+      if (tenant) setSelectedUnitActiveTenant(tenant);
+    };
+    fetchUnitDetails();
+  }, [newKeyForm.unitId]);
 
-  const filteredAccessLogs = accessLogs.filter(log => {
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      switch (searchBy) {
-        case 'tenant':
-          return log.tenantName.toLowerCase().includes(query);
-        case 'unit':
-          return log.unit.toLowerCase().includes(query);
-        case 'cardId':
-          return log.cardId.toLowerCase().includes(query);
-        case 'location':
-          return log.location.toLowerCase().includes(query);
-        case 'all':
-        default:
-          return (
-            log.tenantName.toLowerCase().includes(query) ||
-            log.unit.toLowerCase().includes(query) ||
-            log.cardId.toLowerCase().includes(query) ||
-            log.location.toLowerCase().includes(query) ||
-            log.action.toLowerCase().includes(query)
-          );
+  // Load assigned tenant for the unit of the selected key in Issue Key page
+  useEffect(() => {
+    const loadIssueKeyTenant = async () => {
+      setIssueKeyTenant(null);
+      const selKeyId = issueKeyForm.keyId;
+      if (!selKeyId) return;
+      const key = keys.find((k) => k.id === selKeyId);
+      const unitId = key?.unit?.id;
+      if (!unitId) return;
+      const response = await getUnit(unitId);
+      if (response.error) {
+        console.error('Failed to load unit for issue key:', response.error);
+        return;
       }
-    }
-    return true;
-  });
+      const unit = response.data;
+      const activeLease = Array.isArray(unit?.leases)
+        ? unit.leases.find((l: any) => l.status?.toLowerCase?.() === 'active') || unit.leases[0]
+        : null;
+      const tenant = activeLease?.users || activeLease?.tenant || null;
+      if (tenant) setIssueKeyTenant(tenant);
+    };
+    loadIssueKeyTenant();
+  }, [issueKeyForm.keyId, keys]);
 
-  const clearFilters = () => {
-    setSearchQuery('');
-    setSearchBy('all');
-    setStatusFilter('all');
-    setPaymentStatusFilter('all');
-    setPropertyFilter('all');
+  const refreshData = useCallback(async () => {
+    await Promise.all([loadKeys(), loadStats(), loadTransactions()]);
+  }, [loadKeys, loadStats, loadTransactions]);
+
+  const propertyOptions = useMemo(() => {
+    if (properties.length > 0) return properties;
+    const uniqueFromKeys = keys
+      .map((key) => key.property)
+      .filter((prop): prop is PropertyKey['property'] => Boolean(prop?.id && prop?.name))
+      .map((prop) => ({ id: prop!.id, name: prop!.name }))
+      .filter((value, index, self) => self.findIndex((v) => v.id === value.id) === index);
+    return uniqueFromKeys as Property[];
+  }, [keys, properties]);
+
+  const statsReady = Boolean(stats) && !loadingStats;
+  const totalKeys = stats?.totalKeys ?? 0;
+  const issuedKeys = stats?.issuedKeys ?? 0;
+  const availableKeys = stats?.availableKeys ?? 0;
+  const lostKeys = stats?.lostKeys ?? 0;
+  const depositHeld = stats?.depositHeld ?? 0;
+
+  const handleAddKey = async () => {
+    if (!newKeyForm.keyNumber || !newKeyForm.propertyId) {
+      toast.error('Please provide a key number and property');
+      return;
+    }
+
+    setSavingKey(true);
+    const payload = {
+      keyNumber: newKeyForm.keyNumber.trim(),
+      keyLabel: newKeyForm.keyLabel || undefined,
+      keyType: newKeyForm.keyType,
+      propertyId: newKeyForm.propertyId,
+      unitId: newKeyForm.unitId && newKeyForm.unitId !== 'none' ? newKeyForm.unitId : undefined,
+      numberOfCopies: Number(newKeyForm.numberOfCopies) || 1,
+      location: newKeyForm.location,
+      notes: newKeyForm.notes || undefined
+    };
+
+    const response = await createPropertyKey(payload);
+    setSavingKey(false);
+    if (response.error) {
+      console.error('Failed to create key:', response.error);
+      toast.error(response.error.error || 'Failed to create key');
+      return;
+    }
+
+    toast.success(`Key ${response.data?.keyNumber} added to inventory`);
+    setShowAddKeyPage(false);
+    setNewKeyForm({
+      keyNumber: '',
+      keyLabel: '',
+      keyType: 'Unit',
+      propertyId: propertyOptions[0]?.id || '',
+      unitId: '',
+      numberOfCopies: '1',
+      location: 'Key Cabinet - Office',
+      notes: ''
+    });
+    refreshData();
   };
 
-  const hasActiveFilters = searchQuery || statusFilter !== 'all' || paymentStatusFilter !== 'all' || propertyFilter !== 'all';
+  const handleIssueKey = async () => {
+    if (!issueKeyForm.keyId || !issueKeyForm.issuedTo) {
+      toast.error('Please select a key and person');
+      return;
+    }
 
+    setProcessingIssue(true);
+    const response = await issuePropertyKey(issueKeyForm.keyId, {
+      issuedTo: issueKeyForm.issuedTo,
+      issuedToType: issueKeyForm.issuedToType,
+      expectedReturnDate: issueKeyForm.expectedReturnDate || undefined,
+      notes: issueKeyForm.notes || undefined
+    });
+    setProcessingIssue(false);
+
+    if (response.error) {
+      console.error('Failed to issue key:', response.error);
+      toast.error(response.error.error || 'Failed to issue key');
+      return;
+    }
+
+    toast.success(`Key ${response.data?.keyNumber} issued to ${issueKeyForm.issuedTo}`);
+    setShowIssueKeyPage(false);
+    setIssueKeyForm({
+      keyId: '',
+      issuedTo: '',
+      issuedToType: 'Tenant',
+      expectedReturnDate: '',
+      depositAmount: '',
+      notes: ''
+    });
+    refreshData();
+  };
+
+  const handleReturnKey = async () => {
+    if (!selectedKey) return;
+
+    setProcessingReturn(true);
+    const response = await returnPropertyKey(selectedKey.id, {
+      condition: returnKeyForm.condition,
+      refundDeposit: returnKeyForm.refundDeposit,
+      refundAmount: (returnKeyForm.refundDeposit && returnKeyForm.condition === 'Fair' && returnKeyForm.refundAmount)
+        ? Number(returnKeyForm.refundAmount)
+        : undefined,
+      notes: returnKeyForm.notes || undefined
+    });
+    setProcessingReturn(false);
+
+    if (response.error) {
+      console.error('Failed to process return:', response.error);
+      toast.error(response.error.error || 'Failed to process return');
+      return;
+    }
+
+    toast.success('Key return recorded successfully');
+    setShowReturnKey(false);
+    setSelectedKey(null);
+    setReturnKeyForm({ condition: 'Good', refundDeposit: true, refundAmount: '', notes: '' });
+    refreshData();
+  };
+
+  const handleReportLost = async () => {
+    if (!selectedKey) return;
+    if (!lostKeyForm.reportedBy || !lostKeyForm.lostDate) {
+      toast.error('Please provide the reporter and lost date');
+      return;
+    }
+
+    setProcessingLost(true);
+    const response = await reportLostPropertyKey(selectedKey.id, {
+      reportedBy: lostKeyForm.reportedBy,
+      lostDate: lostKeyForm.lostDate,
+      circumstances: lostKeyForm.circumstances || undefined,
+      policeReportNumber: lostKeyForm.policeReportNumber || undefined,
+      replaceLock: lostKeyForm.replaceLock
+    });
+    setProcessingLost(false);
+
+    if (response.error) {
+      console.error('Failed to report lost key:', response.error);
+      toast.error(response.error.error || 'Failed to report lost key');
+      return;
+    }
+
+    toast.error(`Key ${response.data?.keyNumber} reported lost`);
+    setShowReportLost(false);
+    setSelectedKey(null);
+    setLostKeyForm({ reportedBy: '', lostDate: '', circumstances: '', policeReportNumber: '', replaceLock: true });
+    refreshData();
+  };
+
+  const openIssueDialog = (key?: PropertyKey) => {
+    setSelectedKey(key || null);
+    setIssueKeyForm((prev) => ({
+      ...prev,
+      keyId: key?.id || prev.keyId
+    }));
+    setShowIssueKeyPage(true);
+  };
+
+  const openReturnDialog = (key: PropertyKey) => {
+    setSelectedKey(key);
+    setReturnKeyForm({ condition: 'Good', refundDeposit: true, refundAmount: '', notes: '' });
+    setShowReturnKey(true);
+  };
+
+  const openLostDialog = (key: PropertyKey) => {
+    setSelectedKey(key);
+    setLostKeyForm({
+      reportedBy: key.issuedToName || '',
+      lostDate: new Date().toISOString().split('T')[0],
+      circumstances: '',
+      policeReportNumber: '',
+      replaceLock: true
+    });
+    setShowReportLost(true);
+  };
+
+  const renderStatusBadge = (status: string) => {
+    const normalized = status.toLowerCase();
+    if (normalized === 'issued') return <Badge variant="default">Issued</Badge>;
+    if (normalized === 'available') return <Badge variant="secondary">Available</Badge>;
+    if (normalized === 'lost') return <Badge variant="destructive">Lost</Badge>;
+    if (normalized === 'damaged') return <Badge variant="outline">Damaged</Badge>;
+    return <Badge variant="outline">{prettifyStatus(status)}</Badge>;
+  };
+
+  const displayedKeys = keys;
+  const displayedTransactions = transactions;
+
+  // If "Issue Key" page is open, render it as an in-page form
+  if (showIssueKeyPage) {
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900">Access Control</h2>
-          <p className="text-gray-600 mt-1">Manage keycard access and automated payment-based revocation</p>
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" onClick={() => setShowIssueKeyPage(false)}>
+            ← Back to Key Inventory
+          </Button>
         </div>
         
-        <div className="flex space-x-2">
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <Settings className="h-4 w-4 mr-2" />
-                System Settings
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Access Control Settings</DialogTitle>
-                <DialogDescription>
-                  Configure automatic access revocation and integration settings
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-6 py-4">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-base">Auto-Revoke on Payment Due</Label>
-                      <p className="text-sm text-gray-500">Automatically revoke access when payment is overdue</p>
+        <Card>
+          <CardHeader>
+            <CardTitle>Issue Key</CardTitle>
+            <CardDescription>Capture handover details for custody tracking</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6 max-w-2xl">
+              <div className="space-y-2">
+                <Label>Select Key *</Label>
+                <Select
+                  value={issueKeyForm.keyId}
+                  onValueChange={(value) => setIssueKeyForm((prev) => ({ ...prev, keyId: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a key" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {keys
+                      .filter((k) => k.status.toLowerCase() !== 'issued')
+                      .map((k) => (
+                        <SelectItem key={k.id} value={k.id}>
+                          {k.keyNumber} · {k.property?.name ?? 'Unknown'}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                {/* Assigned tenant preview */}
+                {issueKeyForm.keyId && (
+                  <div className="mt-3 p-3 border rounded-md bg-muted/30">
+                    <p className="text-xs text-muted-foreground mb-1">Assigned Tenant</p>
+                    {issueKeyTenant ? (
+                      <div className="text-sm">
+                        <p className="font-medium">{issueKeyTenant.name}</p>
+                        <p className="text-xs text-muted-foreground">{issueKeyTenant.email || issueKeyTenant.phone || '—'}</p>
                     </div>
-                    <Switch
-                      checked={systemSettings.autoRevokeEnabled}
-                      onCheckedChange={(checked) => setSystemSettings({...systemSettings, autoRevokeEnabled: checked})}
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No active tenant found for this unit</p>
+                    )}
+                  </div>
+                )}
+                    </div>
+
+              <div className="space-y-2">
+                <Label>Issued To (Full Name) *</Label>
+                <Input
+                  value={issueKeyForm.issuedTo}
+                  onChange={(e) => setIssueKeyForm((prev) => ({ ...prev, issuedTo: e.target.value }))}
+                  placeholder="Enter full name as on ID"
                     />
                   </div>
 
-                  {systemSettings.autoRevokeEnabled && (
-                    <div className="grid grid-cols-2 gap-4">
+              <div className="grid md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>Revoke Time</Label>
+                  <Label>Person Type *</Label>
+                  <Select
+                    value={issueKeyForm.issuedToType}
+                    onValueChange={(value) => setIssueKeyForm((prev) => ({ ...prev, issuedToType: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PERSON_TYPE_OPTIONS.map((type) => (
+                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Expected Return</Label>
                         <Input
-                          type="time"
-                          value={systemSettings.revokeTime}
-                          onChange={(e) => setSystemSettings({...systemSettings, revokeTime: e.target.value})}
-                        />
-                        <p className="text-xs text-gray-500">Time to revoke access on due date</p>
+                    type="date"
+                    value={issueKeyForm.expectedReturnDate}
+                    onChange={(e) => setIssueKeyForm((prev) => ({ ...prev, expectedReturnDate: e.target.value }))}
+                  />
+                      </div>
+              </div>
+
+              {/* Deposit removed by request */}
+
+                      <div className="space-y-2">
+                <Label>Notes</Label>
+                <Textarea
+                  value={issueKeyForm.notes}
+                  onChange={(e) => setIssueKeyForm((prev) => ({ ...prev, notes: e.target.value }))}
+                  rows={3}
+                  placeholder="Any special conditions or remarks..."
+                />
+              </div>
+
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  Ensure government-issued ID is verified before key issuance. Witness signature is mandatory for audit compliance.
+                </AlertDescription>
+              </Alert>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <Button variant="outline" onClick={() => setShowIssueKeyPage(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleIssueKey} disabled={processingIssue}>
+                  {processingIssue ? 'Issuing...' : 'Issue Key'}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // If "Add New Key" page is open, show only that page
+  if (showAddKeyPage) {
+  return (
+    <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" onClick={() => setShowAddKeyPage(false)}>
+            ← Back to Key Inventory
+              </Button>
+                  </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Register New Key</CardTitle>
+            <CardDescription>Add a new physical key to the inventory management system</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6 max-w-3xl">
+              <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                  <Label>Key Number *</Label>
+                        <Input
+                    value={newKeyForm.keyNumber}
+                    onChange={(e) => setNewKeyForm((prev) => ({ ...prev, keyNumber: e.target.value }))}
+                    placeholder="e.g. SUN-A101-01"
+                  />
+                  <p className="text-xs text-muted-foreground">Format: PROPERTY-UNIT-NUMBER</p>
                       </div>
                       <div className="space-y-2">
-                        <Label>Grace Period (hours)</Label>
+                  <Label>Key Label (Optional)</Label>
                         <Input
-                          type="number"
-                          value={systemSettings.gracePeriod}
-                          onChange={(e) => setSystemSettings({...systemSettings, gracePeriod: parseInt(e.target.value)})}
-                        />
-                        <p className="text-xs text-gray-500">Additional time before revocation</p>
-                      </div>
+                    value={newKeyForm.keyLabel}
+                    onChange={(e) => setNewKeyForm((prev) => ({ ...prev, keyLabel: e.target.value }))}
+                    placeholder="e.g. Front Door, Back Entrance"
+                  />
                     </div>
-                  )}
                 </div>
 
-                <div className="space-y-4">
-                  <Label className="text-base">Integration Settings</Label>
-                  <div className="grid gap-4">
+              <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Access Control Provider</Label>
+                  <Label>Key Type *</Label>
                       <Select
-                        value={systemSettings.integrationProvider}
-                        onValueChange={(value) => setSystemSettings({...systemSettings, integrationProvider: value})}
+                    value={newKeyForm.keyType}
+                    onValueChange={(value) => setNewKeyForm((prev) => ({ ...prev, keyType: value }))}
                       >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Kisi">Kisi</SelectItem>
-                          <SelectItem value="Brivo">Brivo</SelectItem>
-                          <SelectItem value="HID">HID/Salto</SelectItem>
-                          <SelectItem value="Custom">Custom Webhook</SelectItem>
+                      {KEY_TYPE_OPTIONS.filter((option) => option.value !== 'all').map((option) => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Webhook URL</Label>
-                      <Input
-                        value={systemSettings.webhookUrl}
-                        onChange={(e) => setSystemSettings({...systemSettings, webhookUrl: e.target.value})}
-                        placeholder="https://api.your-system.com/webhooks/access"
-                      />
-                    </div>
-                  </div>
+                  <Label>Property *</Label>
+                  <Select
+                    value={newKeyForm.propertyId}
+                    onValueChange={(value) => {
+                      setNewKeyForm((prev) => ({ ...prev, propertyId: value, unitId: '' }));
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select property" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {propertyOptions.map((property) => (
+                        <SelectItem key={property.id} value={property.id}>{property.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-              <div className="flex justify-end">
-                <Button>Save Settings</Button>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Unit (Optional)</Label>
+                  <Select
+                    value={newKeyForm.unitId}
+                    onValueChange={(value) => setNewKeyForm((prev) => ({ ...prev, unitId: value }))}
+                    disabled={!newKeyForm.propertyId || units.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={units.length === 0 ? 'No units available' : 'Select unit'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None (Common Key)</SelectItem>
+                      {units.map((unit) => (
+                        <SelectItem key={unit.id} value={unit.id}>
+                          Unit {unit.unitNumber} - {unit.type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {!newKeyForm.propertyId
+                      ? 'Select a property first'
+                      : units.length === 0
+                      ? 'No units found for this property'
+                      : `${units.length} unit(s) available`}
+                  </p>
+
+                  {/* Active tenant preview */}
+                  {newKeyForm.unitId && newKeyForm.unitId !== 'none' && (
+                    <div className="mt-3 p-3 border rounded-md bg-muted/30">
+                      <p className="text-xs text-muted-foreground mb-1">Active Tenant</p>
+                      {selectedUnitActiveTenant ? (
+                        <div className="text-sm">
+                          <p className="font-medium">{selectedUnitActiveTenant.name}</p>
+                          <p className="text-xs text-muted-foreground">{selectedUnitActiveTenant.email || selectedUnitActiveTenant.phone || '—'}</p>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No active tenant found for this unit</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Number of Copies</Label>
+                      <Input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={newKeyForm.numberOfCopies}
+                    onChange={(e) => setNewKeyForm((prev) => ({ ...prev, numberOfCopies: e.target.value }))}
+                  />
+                  <p className="text-xs text-muted-foreground">Maximum 2 copies for unit keys</p>
+                    </div>
+                  </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Storage Location *</Label>
+                  <Input
+                    value={newKeyForm.location}
+                    onChange={(e) => setNewKeyForm((prev) => ({ ...prev, location: e.target.value }))}
+                    placeholder="e.g. Key Cabinet - Office"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Notes</Label>
+                  <Input
+                    value={newKeyForm.notes}
+                    onChange={(e) => setNewKeyForm((prev) => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Additional information"
+                  />
               </div>
-            </DialogContent>
-          </Dialog>
+              </div>
+
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Best Practice:</strong> Assign unique key numbers for tracking. Include property code, unit number, and copy number (e.g., SUN-A101-01 for Sunset Apartments, Unit A101, Copy 1).
+                </AlertDescription>
+              </Alert>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button variant="outline" onClick={() => setShowAddKeyPage(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleAddKey} disabled={savingKey}>
+                  {savingKey ? 'Registering...' : 'Add to Inventory'}
+                </Button>
         </div>
       </div>
-
-      {/* System Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Access</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{tenantAccess.filter(t => t.status === 'Active').length}</div>
-            <p className="text-xs text-muted-foreground">
-              Cards with active access
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Revoked Access</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-red-600">{tenantAccess.filter(t => t.status === 'Revoked').length}</div>
-            <p className="text-xs text-muted-foreground">
-              Due to payment issues
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Temporary Access</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-yellow-600">{tenantAccess.filter(t => t.status === 'Temporary').length}</div>
-            <p className="text-xs text-muted-foreground">
-              Extended by PM
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Integration Status</CardTitle>
-            <Shield className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-green-600">Online</div>
-            <p className="text-xs text-muted-foreground">
-              {systemSettings.integrationProvider} connected
-            </p>
           </CardContent>
         </Card>
       </div>
+    );
+  }
 
-      <Tabs defaultValue="access" className="space-y-4">
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-start">
+        <div>
+          <h2 className="text-2xl font-semibold text-gray-900">Key Management</h2>
+          <p className="text-gray-600 mt-1">Track physical keys, custody chain, and compliance documentation</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => toast.info('Custody log exported')}>
+            <Download className="h-4 w-4 mr-2" />
+            Export Log
+              </Button>
+          <Button
+            onClick={() => {
+              if (!newKeyForm.propertyId && propertyOptions.length > 0) {
+                setNewKeyForm((prev) => ({ ...prev, propertyId: propertyOptions[0].id }));
+              }
+              setShowAddKeyPage(true);
+            }}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add New Key
+          </Button>
+                    </div>
+                  </div>
+
+      <Alert>
+        <Shield className="h-4 w-4" />
+        <AlertDescription>
+          <strong>Compliance:</strong> Every issuance, return, and lost-report is logged with witnesses for audit trails. Maintain a physical register as a secondary backup in line with regulatory requirements.
+        </AlertDescription>
+      </Alert>
+
+      <TooltipProvider>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-medium">Total Keys</CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs">Total number of physical keys registered in the inventory system across all properties and units.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Key className="h-4 w-4 text-gray-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-semibold">{loadingStats ? '—' : totalKeys}</div>
+              <p className="text-xs text-muted-foreground">In inventory</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-medium">Keys Issued</CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs">Number of keys currently issued to tenants, managers, contractors, or other authorized personnel. These keys are actively in use.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <LogOut className="h-4 w-4 text-blue-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-semibold text-blue-600">{loadingStats ? '—' : issuedKeys}</div>
+              <p className="text-xs text-muted-foreground">Currently out</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-medium">Available</CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs">Keys stored in the key cabinet or office that are ready to be issued. These keys are not currently assigned to anyone.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <CheckCircle className="h-4 w-4 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-semibold text-green-600">{loadingStats ? '—' : availableKeys}</div>
+              <p className="text-xs text-muted-foreground">Ready for issuance</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-medium">Lost / Damaged</CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs">Keys reported as lost or damaged. These require immediate follow-up including lock replacement, police reports, and deposit forfeiture.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <AlertTriangle className="h-4 w-4 text-red-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-semibold text-red-600">{loadingStats ? '—' : lostKeys}</div>
+              <p className="text-xs text-muted-foreground">Require follow-up</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-medium">Deposits Held</CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs">Total security deposits collected for issued keys that have not been refunded. Deposits are refundable upon key return in good condition.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Lock className="h-4 w-4 text-purple-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-semibold text-purple-600">
+                {statsReady ? formatCurrency(depositHeld, 'NGN') : '—'}
+              </div>
+              <p className="text-xs text-muted-foreground">Refundable security</p>
+            </CardContent>
+          </Card>
+        </div>
+      </TooltipProvider>
+
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)} className="space-y-4">
         <TabsList>
-          <TabsTrigger value="access">Access Management</TabsTrigger>
-          <TabsTrigger value="logs">Access Logs</TabsTrigger>
-          <TabsTrigger value="rules">Automation Rules</TabsTrigger>
+          <TabsTrigger value="keys">Key Inventory</TabsTrigger>
+          <TabsTrigger value="custody">Custody Chain</TabsTrigger>
+          <TabsTrigger value="compliance">Compliance</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="access" className="space-y-4">
+        <TabsContent value="keys" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex flex-col space-y-4">
-                <div className="flex items-center justify-between">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div>
-                    <CardTitle>Tenant Access Status</CardTitle>
-                    <CardDescription>
-                      Manage keycard access for all tenants with payment-based automation
-                    </CardDescription>
+                  <CardTitle>Key Inventory Register</CardTitle>
+                  <CardDescription>Real-time view of all physical keys and their status</CardDescription>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowFilters(!showFilters)}
-                  >
-                    <Filter className="h-4 w-4 mr-2" />
-                    {showFilters ? 'Hide' : 'Show'} Filters
+                <Button onClick={() => openIssueDialog()}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Issue Key
                   </Button>
                 </div>
 
-                {/* Search and Filter Section */}
-                <div className="space-y-3">
-                  {/* Search Bar */}
-                  <div className="flex gap-2">
+              <div className="flex flex-col md:flex-row gap-3 mt-4">
                     <div className="flex-1 relative">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                       <Input
-                        placeholder="Search tenants, units, or card IDs..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10 pr-10"
-                      />
-                      {searchQuery && (
-                        <button
-                          onClick={() => setSearchQuery('')}
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                        >
-                          <XIcon className="h-4 w-4" />
-                        </button>
-                      )}
+                    placeholder="Search keys, properties, or person names..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
                     </div>
-                    <Select value={searchBy} onValueChange={setSearchBy}>
-                      <SelectTrigger className="w-40">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Fields</SelectItem>
-                        <SelectItem value="tenant">Tenant Name</SelectItem>
-                        <SelectItem value="unit">Unit Number</SelectItem>
-                        <SelectItem value="cardId">Card ID</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Advanced Filters */}
-                  {showFilters && (
-                    <div className="space-y-3">
-                      <div className="flex gap-2 items-center p-4 bg-gray-50 rounded-lg">
-                        <div className="flex-1 space-y-2">
-                          <Label className="text-xs">Property</Label>
                           <Select value={propertyFilter} onValueChange={setPropertyFilter}>
-                            <SelectTrigger>
-                              <SelectValue />
+                  <SelectTrigger className="w-full md:w-48">
+                    <SelectValue placeholder="All properties" />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="all">All Properties</SelectItem>
-                              {properties.map(property => (
-                                <SelectItem key={property.id} value={property.id}>
-                                  {property.name} ({property.totalKeycards} keycards)
-                                </SelectItem>
+                    {propertyOptions.map((property) => (
+                      <SelectItem key={property.id} value={property.id}>{property.name}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
-                        </div>
-
-                        <div className="flex-1 space-y-2">
-                          <Label className="text-xs">Access Status</Label>
-                          <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger>
-                              <SelectValue />
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger className="w-full md:w-40">
+                    <SelectValue placeholder="Key type" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="all">All Status</SelectItem>
-                              <SelectItem value="Active">Active</SelectItem>
-                              <SelectItem value="Revoked">Revoked</SelectItem>
-                              <SelectItem value="Temporary">Temporary</SelectItem>
-                              <SelectItem value="Expired">Expired</SelectItem>
+                    {KEY_TYPE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    ))}
                             </SelectContent>
                           </Select>
-                        </div>
-
-                        <div className="flex-1 space-y-2">
-                          <Label className="text-xs">Payment Status</Label>
-                          <Select value={paymentStatusFilter} onValueChange={setPaymentStatusFilter}>
-                            <SelectTrigger>
-                              <SelectValue />
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full md:w-40">
+                    <SelectValue placeholder="Status" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="all">All Status</SelectItem>
-                              <SelectItem value="Current">Current</SelectItem>
-                              <SelectItem value="Due Soon">Due Soon</SelectItem>
-                              <SelectItem value="Overdue">Overdue</SelectItem>
+                    {STATUS_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    ))}
                             </SelectContent>
                           </Select>
-                        </div>
-
-                        {hasActiveFilters && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={clearFilters}
-                            className="mt-6"
-                          >
-                            <XIcon className="h-4 w-4 mr-2" />
-                            Clear All
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Results Summary */}
-                  {hasActiveFilters && (
-                    <div className="flex items-center justify-between text-sm flex-wrap gap-2">
-                      <span className="text-gray-600">
-                        Showing {filteredTenantAccess.length} of {tenantAccess.length} results
-                      </span>
-                      <div className="flex items-center gap-3">
-                        {propertyFilter !== 'all' && (
-                          <span className="text-gray-500">
-                            Property: <span className="font-medium">{properties.find(p => p.id === propertyFilter)?.name}</span>
-                          </span>
-                        )}
-                        {searchQuery && (
-                          <span className="text-gray-500">
-                            Searching by: <span className="font-medium">{searchBy === 'all' ? 'All Fields' : searchBy}</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-auto">
+              <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Tenant</TableHead>
-                      <TableHead>Property</TableHead>
-                      <TableHead>Card ID</TableHead>
-                      <TableHead>Access Status</TableHead>
-                      <TableHead>Payment Status</TableHead>
-                      <TableHead>Last Access</TableHead>
-                      <TableHead>Expiry</TableHead>
-                      <TableHead>Auto-Revoke</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead>Key Number</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Property / Unit</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Holder</TableHead>
+                      <TableHead>Issued</TableHead>
+                      <TableHead>Expected Return</TableHead>
+                      <TableHead>Deposit</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredTenantAccess.length > 0 ? (
-                      filteredTenantAccess.map((tenant) => (
-                      <TableRow key={tenant.id}>
+                    {loadingKeys ? (
+                      <TableRow>
+                        <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                          Loading keys...
+                        </TableCell>
+                      </TableRow>
+                    ) : displayedKeys.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                          No keys match the current filters
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      displayedKeys.map((key) => (
+                        <TableRow key={key.id}>
                         <TableCell>
-                          <div>
-                            <p className="font-medium">{tenant.tenantName}</p>
-                            <p className="text-sm text-gray-500">{tenant.unit}</p>
+                            <div className="flex flex-col">
+                              <code className="text-sm bg-gray-100 px-2 py-1 rounded font-mono">{key.keyNumber}</code>
+                              {key.keyLabel && <span className="text-xs text-gray-500 mt-1">{key.keyLabel}</span>}
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="text-sm">
-                            <p className="font-medium">{tenant.property}</p>
-                          </div>
+                            <Badge variant="outline">{key.keyType}</Badge>
                         </TableCell>
                         <TableCell>
-                          <code className="text-sm bg-gray-100 px-2 py-1 rounded">{tenant.cardId}</code>
+                            <div className="text-sm">
+                              <p className="font-medium">{key.property?.name ?? '—'}</p>
+                              {key.unit?.unitNumber && (
+                                <p className="text-xs text-muted-foreground">Unit {key.unit.unitNumber}</p>
+                              )}
+                            </div>
                         </TableCell>
+                          <TableCell>{renderStatusBadge(key.status)}</TableCell>
                         <TableCell>
-                          <Badge variant={getStatusColor(tenant.status)}>
-                            {tenant.status}
-                          </Badge>
-                          {tenant.status === 'Revoked' && tenant.revokeReason && (
-                            <p className="text-xs text-gray-500 mt-1">{tenant.revokeReason}</p>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={getPaymentStatusColor(tenant.paymentStatus)}>
-                            {tenant.paymentStatus}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-sm">{tenant.lastAccess}</TableCell>
-                        <TableCell className="text-sm">{tenant.accessExpiry}</TableCell>
-                        <TableCell>
-                          <Switch
-                            checked={tenant.autoRevoke}
-                            disabled={tenant.status === 'Revoked'}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex space-x-1">
-                            {tenant.status === 'Active' ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleRevokeAccess(tenant.id, 'Manual Revocation')}
-                              >
-                                <Pause className="h-3 w-3 mr-1" />
-                                Revoke
-                              </Button>
+                            {key.issuedToName ? (
+                              <div className="text-sm">
+                                <p className="font-medium">{key.issuedToName}</p>
+                                {key.issuedToType && (
+                                  <p className="text-xs text-muted-foreground">{key.issuedToType}</p>
+                                )}
+                              </div>
                             ) : (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleRestoreAccess(tenant.id)}
-                              >
-                                <Play className="h-3 w-3 mr-1" />
-                                Restore
-                              </Button>
+                              <span className="text-muted-foreground">—</span>
                             )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedTenant(tenant);
-                                setShowExtendAccess(true);
-                              }}
-                            >
-                              <Clock className="h-3 w-3 mr-1" />
-                              Extend
-                            </Button>
-                          </div>
+                        </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{formatDate(key.issuedDate)}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{formatDate(key.expectedReturnDate)}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {typeof key.depositAmount === 'number'
+                              ? formatCurrency(key.depositAmount, key.depositCurrency || 'NGN')
+                              : '—'}
+                        </TableCell>
+                          <TableCell className="text-sm text-muted-foreground max-w-[160px] truncate">{key.location || '—'}</TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                  <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openIssueDialog(key)} disabled={processingIssue || key.status.toLowerCase() === 'issued'}>
+                                  <LogOut className="h-4 w-4 mr-2" />
+                                  Issue Key
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openReturnDialog(key)} disabled={processingReturn || key.status.toLowerCase() !== 'issued'}>
+                                  <LogIn className="h-4 w-4 mr-2" />
+                                  Mark Returned
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => openLostDialog(key)}
+                                  disabled={processingLost || key.status.toLowerCase() === 'lost'}
+                                  className="text-red-600 focus:text-red-600"
+                                >
+                                  <AlertCircle className="h-4 w-4 mr-2" />
+                                  Report Lost
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={9} className="text-center py-8 text-gray-500">
-                          No results found matching your search criteria
-                        </TableCell>
-                      </TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -745,100 +1098,83 @@ export const AccessControl = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="logs" className="space-y-4">
+        <TabsContent value="custody" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex flex-col space-y-4">
-                <div>
-                  <CardTitle>Access Logs</CardTitle>
-                  <CardDescription>
-                    Audit trail of all access control changes and entry attempts
-                  </CardDescription>
-                </div>
-
-                {/* Search Bar for Logs */}
-                <div className="flex gap-2">
-                  <div className="flex-1 relative">
+              <CardTitle>Key Custody Chain</CardTitle>
+              <CardDescription>Every issuance, return, and exception recorded for audit readiness</CardDescription>
+              <div className="relative mt-4 max-w-md">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
-                      placeholder="Search logs by tenant, unit, card ID, or location..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 pr-10"
-                    />
-                    {searchQuery && (
-                      <button
-                        onClick={() => setSearchQuery('')}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        <XIcon className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                  <Select value={searchBy} onValueChange={setSearchBy}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Fields</SelectItem>
-                      <SelectItem value="tenant">Tenant Name</SelectItem>
-                      <SelectItem value="unit">Unit Number</SelectItem>
-                      <SelectItem value="cardId">Card ID</SelectItem>
-                      <SelectItem value="location">Location</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Results Summary for Logs */}
-                {searchQuery && (
-                  <div className="text-sm text-gray-600">
-                    Showing {filteredAccessLogs.length} of {accessLogs.length} log entries
-                  </div>
-                )}
+                  placeholder="Search custody entries..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-auto">
+              <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Timestamp</TableHead>
-                      <TableHead>Tenant</TableHead>
-                      <TableHead>Card ID</TableHead>
+                      <TableHead>Key Number</TableHead>
                       <TableHead>Action</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>Result</TableHead>
+                      <TableHead>Recipient</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Recorded By</TableHead>
+                      <TableHead>Deposit</TableHead>
+                      <TableHead>Notes</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredAccessLogs.length > 0 ? (
-                      filteredAccessLogs.map((log) => (
-                      <TableRow key={log.id}>
-                        <TableCell className="font-mono text-sm">{log.timestamp}</TableCell>
+                    {loadingTransactions ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                          Loading custody transactions...
+                        </TableCell>
+                      </TableRow>
+                    ) : displayedTransactions.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                          No custody transactions found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      displayedTransactions.map((txn) => (
+                        <TableRow key={txn.id}>
+                          <TableCell className="font-mono text-sm whitespace-nowrap">{formatDateTime(txn.createdAt)}</TableCell>
                         <TableCell>
-                          <div>
-                            <p className="font-medium">{log.tenantName}</p>
-                            <p className="text-sm text-gray-500">{log.unit}</p>
+                            <div className="flex flex-col">
+                              <code className="text-sm bg-gray-100 px-2 py-1 rounded font-mono">{txn.key?.keyNumber ?? '—'}</code>
+                              {txn.key?.property?.name && (
+                                <span className="text-xs text-muted-foreground">{txn.key.property.name}</span>
+                              )}
                           </div>
                         </TableCell>
                         <TableCell>
-                          <code className="text-sm bg-gray-100 px-2 py-1 rounded">{log.cardId}</code>
+                            <Badge variant={txn.action === 'ISSUE' ? 'default' : txn.action === 'RETURN' ? 'secondary' : txn.action === 'LOST_REPORT' ? 'destructive' : 'outline'}>
+                              {txn.action.replace('_', ' ')}
+                            </Badge>
                         </TableCell>
-                        <TableCell>{log.action}</TableCell>
-                        <TableCell>{log.location}</TableCell>
+                          <TableCell className="text-sm">
+                            <p className="font-medium">{txn.performedForName || '—'}</p>
+                            {txn.personType && (
+                              <p className="text-xs text-muted-foreground">{txn.personType}</p>
+                            )}
+                          </TableCell>
                         <TableCell>
-                          <Badge variant={log.result.includes('Success') ? 'default' : 'destructive'}>
-                            {log.result}
-                          </Badge>
+                            <Badge variant="outline" className="text-xs">{txn.personType || '—'}</Badge>
                         </TableCell>
+                          <TableCell className="text-sm">{txn.performedByName || '—'}</TableCell>
+                          
+                          <TableCell className="text-sm text-muted-foreground">
+                            {typeof txn.depositAmount === 'number' ? formatCurrency(txn.depositAmount, 'NGN') : '—'}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground max-w-xs truncate">{txn.notes || '—'}</TableCell>
                       </TableRow>
-                    ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                          No log entries found matching your search criteria
-                        </TableCell>
-                      </TableRow>
+                      ))
                     )}
                   </TableBody>
                 </Table>
@@ -847,74 +1183,105 @@ export const AccessControl = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="rules" className="space-y-4">
+        <TabsContent value="compliance" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Automation Rules</CardTitle>
-              <CardDescription>
-                Configure automatic access control based on payment status
-              </CardDescription>
+              <CardTitle>Key Control Compliance Framework</CardTitle>
+              <CardDescription>Policies and reports that keep your key program audit-ready</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <div className="p-4 border rounded-lg">
-                  <div className="flex items-center justify-between mb-4">
+            <CardContent className="space-y-6">
                     <div>
-                      <h4 className="font-medium">Payment Due Date Rule</h4>
-                      <p className="text-sm text-gray-500">Automatically revoke access when payment is overdue</p>
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5" />
+                  Compliance Checklist
+                </h4>
+                <div className="space-y-3">
+                  {[
+                    { title: 'Physical key register maintained', detail: 'Bound ledger stored securely off-site weekly' },
+                    { title: 'Digital audit trail active', detail: 'All events timestamped with witnesses and user IDs' },
+                    { title: 'Deposits collected & reconciled', detail: 'NGN 5,000 for unit keys, NGN 20,000 for master keys' },
+                    { title: 'Master key controls', detail: 'Weekly accountability check and dual control storage' },
+                    { title: 'Lost key protocol', detail: 'Mandatory police report and lock replacement sourcing' }
+                  ].map((item) => (
+                    <div key={item.title} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                        <p className="font-medium text-sm">{item.title}</p>
+                        <p className="text-xs text-muted-foreground">{item.detail}</p>
                     </div>
-                    <Switch checked={systemSettings.autoRevokeEnabled} />
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    </div>
+                  ))}
                   </div>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
+                </div>
+
+              <Separator />
+
                     <div>
-                      <span className="font-medium">Trigger:</span> Payment due date passed
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Operational Policies
+                </h4>
+                <div className="grid md:grid-cols-2 gap-3 text-sm">
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="font-medium text-blue-900 mb-1">Issuance</p>
+                    <ul className="text-blue-800 space-y-1 ml-4 list-disc">
+                      <li>Valid government-issued ID is compulsory</li>
+                      <li>Witness signature for every handover</li>
+                      <li>Maximum two copies per residential unit</li>
+                      <li>Automated email confirmation to tenant</li>
+                    </ul>
                     </div>
-                    <div>
-                      <span className="font-medium">Action:</span> Revoke keycard access
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="font-medium text-green-900 mb-1">Returns</p>
+                    <ul className="text-green-800 space-y-1 ml-4 list-disc">
+                      <li>Return within 24 hours of move-out</li>
+                      <li>Refund deposit within 48 hours if no issues</li>
+                      <li>Partial refund (₦2,500) for damaged keys</li>
+                      <li>No refund for lost keys</li>
+                    </ul>
+                  </div>
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="font-medium text-red-900 mb-1">Lost Keys</p>
+                    <ul className="text-red-800 space-y-1 ml-4 list-disc">
+                      <li>Report to management within 24 hours</li>
+                      <li>Police report mandatory for insurance claims</li>
+                      <li>Immediate lock replacement for affected units</li>
+                      <li>Deposit automatically forfeited</li>
+                    </ul>
                     </div>
-                    <div>
-                      <span className="font-medium">Time:</span> {systemSettings.revokeTime} on due date
-                    </div>
-                    <div>
-                      <span className="font-medium">Restore:</span> On successful payment
+                  <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                    <p className="font-medium text-purple-900 mb-1">Master Keys</p>
+                    <ul className="text-purple-800 space-y-1 ml-4 list-disc">
+                      <li>Dual custody (Manager + Security Supervisor)</li>
+                      <li>Weekly audit with signatures</li>
+                      <li>Stored in biometric safe with access log</li>
+                      <li>Immediate re-core if master key is compromised</li>
+                    </ul>
                     </div>
                   </div>
                 </div>
 
-                <div className="p-4 border rounded-lg bg-gray-50">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h4 className="font-medium">Grace Period Extension</h4>
-                      <p className="text-sm text-gray-500">Allow additional time before automatic revocation</p>
-                    </div>
-                    <Switch defaultChecked />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium">Duration:</span> {systemSettings.gracePeriod} hours
-                    </div>
-                    <div>
-                      <span className="font-medium">Notification:</span> Send warning to tenant
-                    </div>
-                  </div>
-                </div>
+              <Separator />
 
-                <div className="p-4 border rounded-lg">
-                  <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h4 className="font-medium">Lease Expiration Rule</h4>
-                      <p className="text-sm text-gray-500">Automatically revoke access when lease expires</p>
-                    </div>
-                    <Switch defaultChecked />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium">Trigger:</span> Lease end date reached
-                    </div>
-                    <div>
-                      <span className="font-medium">Action:</span> Revoke access at midnight
-                    </div>
-                  </div>
+                <h4 className="font-medium mb-3">Generate Compliance Reports</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <Button variant="outline" onClick={() => toast.info('Monthly key inventory exported')}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Monthly Inventory
+                  </Button>
+                  <Button variant="outline" onClick={() => toast.info('Deposit ledger exported')}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Deposit Ledger
+                  </Button>
+                  <Button variant="outline" onClick={() => toast.info('Lost key incidents exported')}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Lost Keys
+                  </Button>
+                  <Button variant="outline" onClick={() => toast.info('Custody audit exported')}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Custody Audit
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -922,58 +1289,113 @@ export const AccessControl = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Extend Access Dialog */}
-      <Dialog open={showExtendAccess} onOpenChange={setShowExtendAccess}>
-        <DialogContent>
+      
+
+      <Dialog open={showReturnKey} onOpenChange={setShowReturnKey}>
+        <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Extend Access</DialogTitle>
-            <DialogDescription>
-              Extend or override access for {selectedTenant?.tenantName}
-            </DialogDescription>
+            <DialogTitle>Mark Key as Returned</DialogTitle>
+            <DialogDescription>Confirm the physical key is back in custody</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label>Extension Type</Label>
-              <Select
-                value={extensionData.type}
-                onValueChange={(value) => setExtensionData({...extensionData, type: value})}
-              >
+          <div className="space-y-4 py-4">
+            <div className="p-3 bg-muted/30 rounded-lg text-sm space-y-1">
+              <div className="flex justify-between"><span className="text-muted-foreground">Key Number:</span><span className="font-medium">{selectedKey?.keyNumber ?? '—'}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Last Holder:</span><span className="font-medium">{selectedKey?.issuedToName ?? '—'}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Deposit:</span><span className="font-medium">{selectedKey?.depositAmount ? formatCurrency(selectedKey.depositAmount, selectedKey.depositCurrency || 'NGN') : '—'}</span></div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Condition on Return</Label>
+              <Select value={returnKeyForm.condition} onValueChange={(value) => setReturnKeyForm((prev) => ({ ...prev, condition: value }))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="temporary">Temporary Extension</SelectItem>
-                  <SelectItem value="permanent">Permanent Override</SelectItem>
+                  <SelectItem value="Good">Good - Full refund</SelectItem>
+                  <SelectItem value="Fair">Fair - Partial refund</SelectItem>
+                  <SelectItem value="Poor">Poor - No refund</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             
-            <div className="grid gap-2">
-              <Label>Duration (days)</Label>
-              <Input
-                type="number"
-                value={extensionData.duration}
-                onChange={(e) => setExtensionData({...extensionData, duration: e.target.value})}
-                placeholder="7"
-              />
+            <div className="flex items-center justify-between p-3 border rounded-lg">
+              <div>
+                <Label>Refund Deposit</Label>
+                <p className="text-xs text-muted-foreground">Toggle off if refund is withheld</p>
+              </div>
+              <Switch checked={returnKeyForm.refundDeposit} onCheckedChange={(checked) => setReturnKeyForm((prev) => ({ ...prev, refundDeposit: checked }))} />
             </div>
 
-            <div className="grid gap-2">
-              <Label>Reason for Extension</Label>
-              <Textarea
-                value={extensionData.reason}
-                onChange={(e) => setExtensionData({...extensionData, reason: e.target.value})}
-                placeholder="Explain why access is being extended..."
-                rows={3}
+            {(returnKeyForm.refundDeposit && returnKeyForm.condition === 'Fair') && (
+              <div className="space-y-2">
+                <Label>Refund Amount (Partial)</Label>
+              <Input
+                type="number"
+                  min={0}
+                  value={returnKeyForm.refundAmount}
+                  onChange={(e) => setReturnKeyForm((prev) => ({ ...prev, refundAmount: e.target.value }))}
+                  placeholder="Enter partial refund amount"
               />
             </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Textarea value={returnKeyForm.notes} onChange={(e) => setReturnKeyForm((prev) => ({ ...prev, notes: e.target.value }))} rows={3} placeholder="Damage observations, comments..." />
+            </div>
           </div>
-          <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={() => setShowExtendAccess(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleExtendAccess}>
-              Extend Access
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowReturnKey(false)}>Cancel</Button>
+            <Button onClick={handleReturnKey} disabled={processingReturn}>{processingReturn ? 'Processing...' : 'Confirm Return'}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showReportLost} onOpenChange={setShowReportLost}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Report Lost Key</DialogTitle>
+            <DialogDescription>Document the security incident and trigger follow-up actions</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>Lost keys compromise security. Initiate lock replacement and notify the property owner immediately.</AlertDescription>
+            </Alert>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Reported By *</Label>
+                <Input value={lostKeyForm.reportedBy} onChange={(e) => setLostKeyForm((prev) => ({ ...prev, reportedBy: e.target.value }))} placeholder="Full name" />
+              </div>
+              <div className="space-y-2">
+                <Label>Date Lost *</Label>
+                <Input type="date" value={lostKeyForm.lostDate} onChange={(e) => setLostKeyForm((prev) => ({ ...prev, lostDate: e.target.value }))} />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Circumstances *</Label>
+              <Textarea value={lostKeyForm.circumstances} onChange={(e) => setLostKeyForm((prev) => ({ ...prev, circumstances: e.target.value }))} rows={3} placeholder="Describe how the key was lost" />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Police Report Number</Label>
+              <Input value={lostKeyForm.policeReportNumber} onChange={(e) => setLostKeyForm((prev) => ({ ...prev, policeReportNumber: e.target.value }))} placeholder="Optional" />
+            </div>
+
+            <div className="flex items-center justify-between p-3 border rounded-lg bg-red-50 border-red-200">
+              <div>
+                <Label className="text-red-900">Arrange Lock Replacement</Label>
+                <p className="text-xs text-red-700">Recommended to maintain tenant security</p>
+              </div>
+              <Switch checked={lostKeyForm.replaceLock} onCheckedChange={(checked) => setLostKeyForm((prev) => ({ ...prev, replaceLock: checked }))} />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowReportLost(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleReportLost} disabled={processingLost}>
+              {processingLost ? 'Reporting...' : 'Report Lost Key'}
             </Button>
           </div>
         </DialogContent>
@@ -981,4 +1403,3 @@ export const AccessControl = () => {
     </div>
   );
 };
-

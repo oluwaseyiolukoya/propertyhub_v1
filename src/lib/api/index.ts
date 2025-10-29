@@ -15,6 +15,7 @@ export * from './analytics';
 export * from './system';
 export * from './users';
 export * from './documents';
+export * from './access-control';
 
 // Re-export API client utilities
 export { apiClient, getAuthToken, getUserData, getUserType, removeAuthToken } from '../api-client';

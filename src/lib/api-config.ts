@@ -71,6 +71,9 @@ export const API_ENDPOINTS = {
     UPDATE: (id: string) => `/api/payments/${id}`,
     STATS: '/api/payments/stats/overview',
     OVERDUE: '/api/payments/overdue/list',
+    INIT: '/api/payments/initialize',
+    INIT_SUBSCRIPTION: '/api/payments/subscription/initialize',
+    RECORD: '/api/payments/record',
   },
 
   // Documents
@@ -141,6 +144,16 @@ export const API_ENDPOINTS = {
     DASHBOARD: '/api/analytics/dashboard',
     SYSTEM_HEALTH: '/api/analytics/system-health',
     ACTIVITY_LOGS: '/api/analytics/activity-logs',
+  },
+
+  // Access Control
+  ACCESS_CONTROL: {
+    KEYS: '/api/access-control/keys',
+    ISSUE: (id: string) => `/api/access-control/keys/${id}/issue`,
+    RETURN: (id: string) => `/api/access-control/keys/${id}/return`,
+    REPORT_LOST: (id: string) => `/api/access-control/keys/${id}/report-lost`,
+    TRANSACTIONS: '/api/access-control/transactions',
+    STATS: '/api/access-control/stats/overview',
   },
   
   // Plans (Admin)

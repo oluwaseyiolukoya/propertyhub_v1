@@ -375,7 +375,22 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
             {/* Revenue vs Expenses Chart */}
             <Card>
               <CardHeader>
-                <CardTitle>Revenue vs Expenses Trend</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  Revenue vs Expenses Trend
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs">
+                          Visual comparison of monthly revenue (blue bars), operating expenses (green bars), 
+                          and net income (orange line) over the past 12 months. Helps identify trends and seasonality.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </CardTitle>
                 <CardDescription>Monthly financial performance over the last 12 months</CardDescription>
               </CardHeader>
               <CardContent>
@@ -396,7 +411,22 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
             {/* Expense Breakdown */}
             <Card>
               <CardHeader>
-                <CardTitle>Expense Breakdown</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  Expense Breakdown
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs">
+                          Pie chart showing the percentage distribution of your operating expenses across 
+                          categories like maintenance, utilities, insurance, taxes, and management fees.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </CardTitle>
                 <CardDescription>Distribution of operating expenses</CardDescription>
               </CardHeader>
               <CardContent>
@@ -427,7 +457,22 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Average Occupancy</p>
+                    <div className="flex items-center gap-1">
+                      <p className="text-sm font-medium text-gray-600">Average Occupancy</p>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="max-w-xs">
+                              The average percentage of occupied units across all your properties. 
+                              Higher occupancy means better rental income and property utilization.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                     <p className="text-2xl font-bold">{averageOccupancy.toFixed(1)}%</p>
                     <p className="text-xs text-gray-500 mt-1">
                       {financialData?.occupiedUnits || 0} of {financialData?.totalUnits || 0} units occupied
@@ -444,7 +489,22 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Total Properties</p>
+                    <div className="flex items-center gap-1">
+                      <p className="text-sm font-medium text-gray-600">Total Properties</p>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="max-w-xs">
+                              The total number of active properties in your portfolio. 
+                              Each property can contain multiple units or apartments.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                     <p className="text-2xl font-bold">{financialData?.totalProperties || propertyPerformanceData.length || properties.length}</p>
                     <p className="text-xs text-gray-500 mt-1">
                       Active properties in portfolio
@@ -461,7 +521,22 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Total Units</p>
+                    <div className="flex items-center gap-1">
+                      <p className="text-sm font-medium text-gray-600">Total Units</p>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="max-w-xs">
+                              The combined number of rentable units (apartments, rooms, or spaces) 
+                              across all your properties. Includes both occupied and vacant units.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                     <p className="text-2xl font-bold">{financialData?.totalUnits || propertyPerformance.reduce((sum, p) => sum + (p.units || 0), 0)}</p>
                     <p className="text-xs text-gray-500 mt-1">
                       {financialData?.vacantUnits || 0} vacant units
@@ -480,7 +555,22 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
         <TabsContent value="revenue" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Revenue Analysis</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                Revenue Analysis
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs">
+                        Area chart showing monthly rental revenue trends over time. 
+                        Use this to identify seasonal patterns, growth trends, and forecast future income.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </CardTitle>
               <CardDescription>Detailed revenue trends and projections</CardDescription>
             </CardHeader>
             <CardContent>
@@ -499,7 +589,22 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Revenue by Property</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  Revenue by Property
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs">
+                          Comparative view of monthly revenue generated by each property. 
+                          Progress bars show relative performance to help identify your top-performing assets.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -531,7 +636,22 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
 
             <Card>
               <CardHeader>
-                <CardTitle>Revenue Metrics</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  Revenue Metrics
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs">
+                          Key revenue performance indicators including total annual revenue, 
+                          average monthly income, per-unit earnings, and year-over-year growth rate.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -565,7 +685,22 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Monthly Expense Trend</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  Monthly Expense Trend
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs">
+                          Line chart tracking monthly operating expenses over time. 
+                          Monitor spending patterns and identify opportunities to reduce costs.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
@@ -582,7 +717,22 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
 
             <Card>
               <CardHeader>
-                <CardTitle>Expense Categories</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  Expense Categories
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs">
+                          Detailed breakdown of expenses by category with both dollar amounts and percentages. 
+                          Shows where your money is going: maintenance, utilities, insurance, taxes, and fees.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -608,7 +758,22 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
 
           <Card>
             <CardHeader>
-              <CardTitle>Expense Analysis</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                Expense Analysis
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs">
+                        Summary of key expense metrics: total annual expenses, cost per unit, and expense ratio 
+                        (expenses as a percentage of revenue). Lower expense ratios indicate better profitability.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
