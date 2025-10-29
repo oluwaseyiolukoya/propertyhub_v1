@@ -8,6 +8,7 @@ import morgan from 'morgan';
 import compression from 'compression';
 import dotenv from 'dotenv';
 import { initializeSocket, cleanupSocket } from './lib/socket';
+import paystackWebhookRoutes from './routes/paystack';
 
 // Load environment variables
 dotenv.config();
@@ -43,6 +44,8 @@ import financialRoutes from './routes/financial';
 import expenseRoutes from './routes/expenses';
 // Document routes
 import documentRoutes from './routes/documents';
+// Settings routes
+import settingsRoutes from './routes/settings';
 
 // Create Express app
 const app: Express = express();
@@ -54,6 +57,9 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 app.use(compression()); // Compress responses
+
+// Mount webhook route BEFORE JSON parser to access raw body for signature verification
+app.use('/api/paystack', paystackWebhookRoutes);
 
 // CORS configuration - Allow multiple origins
 const allowedOrigins = [
@@ -153,6 +159,8 @@ app.use('/api/financial', financialRoutes);
 app.use('/api/expenses', expenseRoutes);
 // Document routes
 app.use('/api/documents', documentRoutes);
+// Settings routes
+app.use('/api/settings', settingsRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

@@ -14,6 +14,7 @@ import { PropertyOwnerSettings } from './PropertyOwnerSettings';
 import { AddPropertyPage } from './AddPropertyPage';
 import { Footer } from './Footer';
 import PropertyOwnerDocuments from './PropertyOwnerDocuments';
+import { PaymentOverview } from './PaymentOverview';
 import { getOwnerDashboardOverview, getProperties, getOwnerActivities } from '../lib/api';
 import { getProperty, updateProperty } from '../lib/api/properties';
 import { createProperty } from '../lib/api/properties';
@@ -516,10 +517,11 @@ export function PropertyOwnerDashboard({
     { name: 'Portfolio Overview', key: 'dashboard' },
     { name: 'Properties', key: 'properties' },
     { name: 'Tenant Management', key: 'tenants' },
+    { name: 'Payments', key: 'payments' },
     { name: 'Financial Reports', key: 'financial' },
     { name: 'Expenses', key: 'expenses' },
     { name: 'Property Managers', key: 'managers' },
-    { name: 'Access Control', key: 'access' },
+    { name: 'Key Management', key: 'access' },
     { name: 'Documents', key: 'documents' },
     { name: 'Settings', key: 'settings' },
   ];
@@ -968,6 +970,12 @@ export function PropertyOwnerDashboard({
                 <TenantManagement properties={properties} />
               </div>
             </div>
+          ) : currentView === 'payments' ? (
+            <div className="p-4 lg:p-8">
+              <div className="max-w-7xl mx-auto">
+                <PaymentOverview />
+              </div>
+            </div>
           ) : currentView === 'financial' ? (
             <div className="p-4 lg:p-8">
               <div className="max-w-7xl mx-auto">
@@ -1251,7 +1259,7 @@ export function PropertyOwnerDashboard({
                     </Button>
                     <Button variant="outline" className="h-20 flex-col text-xs sm:text-sm" onClick={() => setCurrentView('access')}>
                       <Shield className="h-5 w-5 md:h-6 md:w-6 mb-2" />
-                      <span>Access Control</span>
+                      <span>Key Management</span>
                     </Button>
                   </div>
                 </CardContent>

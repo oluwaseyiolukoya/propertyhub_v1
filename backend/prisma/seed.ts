@@ -160,6 +160,326 @@ async function main() {
 
   console.log('✅ Created Owner User:', owner.email);
 
+  // Configure Paystack (owner-level) using env test keys if available
+  const paystackPublic = process.env.PAYSTACK_TEST_PUBLIC_KEY || process.env.PAYSTACK_PUBLIC_KEY || '';
+  const paystackSecret = process.env.PAYSTACK_TEST_SECRET_KEY || process.env.PAYSTACK_SECRET_KEY || '';
+  if (paystackPublic && paystackSecret) {
+    await prisma.payment_settings.upsert({
+      where: {
+        customerId_provider: { customerId: customer.id, provider: 'paystack' }
+      },
+      update: {
+        publicKey: paystackPublic,
+        secretKey: paystackSecret,
+        isEnabled: true,
+        testMode: true,
+        updatedAt: new Date(),
+      },
+      create: {
+        customerId: customer.id,
+        provider: 'paystack',
+        publicKey: paystackPublic,
+        secretKey: paystackSecret,
+        isEnabled: true,
+        testMode: true,
+        bankTransferTemplate: 'Bank Name: First Bank of Nigeria\nAccount Name: Metro Properties Ltd\nAccount Number: 1234567890\n\nUse your UNIT NUMBER as reference.',
+      }
+    });
+    console.log('✅ Configured Paystack test keys for owner');
+  } else {
+    console.log('ℹ️  PAYSTACK_TEST_PUBLIC_KEY / PAYSTACK_TEST_SECRET_KEY not set; skipping Paystack seed');
+  }
+
+  // Create Manager User
+  const managerPassword = await bcrypt.hash('manager123', 10);
+  const manager = await prisma.users.upsert({
+    where: { email: 'manager@metro-properties.com' },
+    update: {},
+    create: {
+      id: 'user-manager-1',
+      customerId: customer.id,
+      name: 'Mary Johnson',
+      email: 'manager@metro-properties.com',
+      password: managerPassword,
+      phone: '+234-800-9876543',
+      role: 'manager',
+      status: 'active',
+      company: 'Metro Properties LLC',
+      baseCurrency: 'NGN',
+    }
+  });
+  console.log('✅ Created Manager User:', manager.email);
+
+  // Create Tenants
+  const tenant1Password = await bcrypt.hash('tenant123', 10);
+  const tenant1 = await prisma.users.upsert({
+    where: { email: 'tenant1@metro-properties.com' },
+    update: {},
+    create: {
+      id: 'user-tenant-1',
+      customerId: customer.id,
+      name: 'Ade Akin',
+      email: 'tenant1@metro-properties.com',
+      password: tenant1Password,
+      phone: '+234-801-1111111',
+      role: 'tenant',
+      status: 'active',
+      baseCurrency: 'NGN',
+    }
+  });
+
+  const tenant2Password = await bcrypt.hash('tenant123', 10);
+  const tenant2 = await prisma.users.upsert({
+    where: { email: 'tenant2@metro-properties.com' },
+    update: {},
+    create: {
+      id: 'user-tenant-2',
+      customerId: customer.id,
+      name: 'Ngozi Chukwu',
+      email: 'tenant2@metro-properties.com',
+      password: tenant2Password,
+      phone: '+234-801-2222222',
+      role: 'tenant',
+      status: 'active',
+      baseCurrency: 'NGN',
+    }
+  });
+  console.log('✅ Created Tenants:', tenant1.email, tenant2.email);
+
+  // Create Property
+  const property = await prisma.properties.upsert({
+    where: { id: 'prop-metro-1' },
+    update: {},
+    create: {
+      id: 'prop-metro-1',
+      customerId: customer.id,
+      ownerId: owner.id,
+      name: 'Metro Garden Apartments',
+      propertyType: 'Apartment',
+      address: '45 Admiralty Way',
+      city: 'Lagos',
+      state: 'Lagos',
+      postalCode: '105102',
+      country: 'Nigeria',
+      totalUnits: 3,
+      floors: 3,
+      currency: 'NGN',
+      status: 'active',
+      description: 'Modern apartments in Lekki Phase 1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+  });
+  console.log('✅ Created Property:', property.name);
+
+  // Assign Manager to Property
+  await prisma.property_managers.upsert({
+    where: { propertyId_managerId: { propertyId: property.id, managerId: manager.id } },
+    update: {},
+    create: {
+      id: 'pm-assignment-1',
+      propertyId: property.id,
+      managerId: manager.id,
+      isActive: true,
+    }
+  });
+  console.log('✅ Assigned Manager to Property');
+
+  // Create Units
+  const unitA = await prisma.units.upsert({
+    where: { propertyId_unitNumber: { propertyId: property.id, unitNumber: 'A1' } },
+    update: {},
+    create: {
+      id: 'unit-metro-a1',
+      propertyId: property.id,
+      unitNumber: 'A1',
+      type: '2 Bedroom',
+      floor: 1,
+      bedrooms: 2,
+      bathrooms: 2,
+      size: 90,
+      monthlyRent: 350000,
+      securityDeposit: 350000,
+      status: 'occupied',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+  });
+
+  const unitB = await prisma.units.upsert({
+    where: { propertyId_unitNumber: { propertyId: property.id, unitNumber: 'B2' } },
+    update: {},
+    create: {
+      id: 'unit-metro-b2',
+      propertyId: property.id,
+      unitNumber: 'B2',
+      type: '1 Bedroom',
+      floor: 2,
+      bedrooms: 1,
+      bathrooms: 1,
+      size: 60,
+      monthlyRent: 250000,
+      securityDeposit: 250000,
+      status: 'occupied',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+  });
+
+  const unitC = await prisma.units.upsert({
+    where: { propertyId_unitNumber: { propertyId: property.id, unitNumber: 'C3' } },
+    update: {},
+    create: {
+      id: 'unit-metro-c3',
+      propertyId: property.id,
+      unitNumber: 'C3',
+      type: 'Studio',
+      floor: 3,
+      bedrooms: 0,
+      bathrooms: 1,
+      size: 35,
+      monthlyRent: 180000,
+      securityDeposit: 180000,
+      status: 'vacant',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+  });
+  console.log('✅ Created Units:', unitA.unitNumber, unitB.unitNumber, unitC.unitNumber);
+
+  // Create Leases for two units
+  const lease1 = await prisma.leases.upsert({
+    where: { leaseNumber: 'LEASE-METRO-001' },
+    update: {},
+    create: {
+      id: 'lease-metro-1',
+      propertyId: property.id,
+      unitId: unitA.id,
+      tenantId: tenant1.id,
+      leaseNumber: 'LEASE-METRO-001',
+      startDate: new Date(new Date().setMonth(new Date().getMonth() - 2)),
+      endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+      monthlyRent: unitA.monthlyRent,
+      securityDeposit: unitA.securityDeposit || 0,
+      currency: 'NGN',
+      status: 'active',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+  });
+
+  const lease2 = await prisma.leases.upsert({
+    where: { leaseNumber: 'LEASE-METRO-002' },
+    update: {},
+    create: {
+      id: 'lease-metro-2',
+      propertyId: property.id,
+      unitId: unitB.id,
+      tenantId: tenant2.id,
+      leaseNumber: 'LEASE-METRO-002',
+      startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+      endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+      monthlyRent: unitB.monthlyRent,
+      securityDeposit: unitB.securityDeposit || 0,
+      currency: 'NGN',
+      status: 'active',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+  });
+  console.log('✅ Created Leases:', lease1.leaseNumber, lease2.leaseNumber);
+
+  // Create Invoices for current month
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const period = `${yyyy}-${mm}`;
+
+  const invoice1 = await prisma.invoices.upsert({
+    where: { invoiceNumber: 'INV-METRO-001' },
+    update: {},
+    create: {
+      id: 'inv-metro-1',
+      customerId: customer.id,
+      invoiceNumber: 'INV-METRO-001',
+      amount: unitA.monthlyRent,
+      currency: 'NGN',
+      status: 'paid',
+      dueDate: new Date(new Date().setDate(5)),
+      paidAt: new Date(),
+      billingPeriod: period,
+      description: 'Monthly Rent',
+      items: [{ description: 'Rent', amount: unitA.monthlyRent }],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+  });
+
+  const invoice2 = await prisma.invoices.upsert({
+    where: { invoiceNumber: 'INV-METRO-002' },
+    update: {},
+    create: {
+      id: 'inv-metro-2',
+      customerId: customer.id,
+      invoiceNumber: 'INV-METRO-002',
+      amount: unitB.monthlyRent,
+      currency: 'NGN',
+      status: 'pending',
+      dueDate: new Date(new Date().setDate(5)),
+      billingPeriod: period,
+      description: 'Monthly Rent',
+      items: [{ description: 'Rent', amount: unitB.monthlyRent }],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+  });
+  console.log('✅ Created Invoices:', invoice1.invoiceNumber, invoice2.invoiceNumber);
+
+  // Create Payments (one success manual, one pending paystack)
+  const existingPayments = await prisma.payments.count({ where: { customerId: customer.id } });
+  if (existingPayments === 0) {
+    await prisma.payments.create({
+      data: {
+        customerId: customer.id,
+        propertyId: property.id,
+        unitId: unitA.id,
+        leaseId: lease1.id,
+        tenantId: tenant1.id,
+        invoiceId: invoice1.id,
+        amount: unitA.monthlyRent,
+        currency: 'NGN',
+        status: 'success',
+        type: 'rent',
+        paymentMethod: 'bank_transfer',
+        provider: 'manual',
+        providerReference: 'MANUAL-DEMO-1',
+        providerFee: 0,
+        paidAt: new Date(),
+        metadata: { note: 'Seeded payment (manual)' },
+      }
+    });
+
+    await prisma.payments.create({
+      data: {
+        customerId: customer.id,
+        propertyId: property.id,
+        unitId: unitB.id,
+        leaseId: lease2.id,
+        tenantId: tenant2.id,
+        invoiceId: invoice2.id,
+        amount: unitB.monthlyRent,
+        currency: 'NGN',
+        status: 'pending',
+        type: 'rent',
+        paymentMethod: 'paystack',
+        provider: 'paystack',
+        providerReference: 'PSK-DEMO-PENDING-1',
+        metadata: { note: 'Seeded payment (pending)' },
+      }
+    });
+    console.log('✅ Created Payments (1 success, 1 pending)');
+  }
+
   // Create Roles
   // Internal Admin Role
   await prisma.roles.upsert({

@@ -10,6 +10,7 @@ import { getUserData, getUserType, removeAuthToken, verifyToken } from './lib/ap
 import { setupActiveSessionValidation } from './lib/sessionValidator';
 import { getAccountInfo } from './lib/api/auth';
 import { sessionManager } from './lib/sessionManager';
+import { initializeSocket } from './lib/socket';
 import {
   getManagers as apiGetManagers,
   createManager as apiCreateManager,
@@ -67,6 +68,66 @@ function App() {
 
     checkAuth();
   }, []);
+
+  // Ensure socket is connected for all authenticated users (tenant, owner, manager, admin)
+  useEffect(() => {
+    if (!currentUser) return;
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      try { initializeSocket(token); } catch {}
+    }
+  }, [currentUser]);
+
+  // Handle Paystack redirect: ?payment_ref=...
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paymentRef = params.get('payment_ref');
+    if (!paymentRef || !currentUser) return;
+    // Query backend for status and notify
+    const fetchStatus = async () => {
+      try {
+        // Always verify with Paystack via backend to ensure accurate status
+        const verifyResp = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/payments/verify/${encodeURIComponent(paymentRef)}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('auth_token') || ''}` },
+          cache: 'no-store',
+        });
+        if (verifyResp.ok) {
+          const v = await verifyResp.json();
+          if (v?.status === 'success') toast.success('Payment successful', { description: `Ref ${paymentRef}` });
+          else if (v?.status === 'failed') toast.error('Payment failed', { description: `Ref ${paymentRef}` });
+          else toast.info(`Payment ${v?.status || 'pending'}`, { description: `Ref ${paymentRef}` });
+          // Broadcast browser event so pages can refresh immediately
+          window.dispatchEvent(new CustomEvent('payment:updated', { detail: { reference: paymentRef, status: v?.status } }));
+        } else {
+          // Fallback to local record if verification failed
+          const resp = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/payments/by-reference/${encodeURIComponent(paymentRef)}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('auth_token') || ''}` },
+          cache: 'no-store',
+        });
+          const data = await resp.json();
+          if (resp.ok && data?.status) {
+          if (data.status === 'success') {
+            toast.success('Payment successful', { description: `Ref ${paymentRef}` });
+          } else if (data.status === 'failed') {
+            toast.error('Payment failed', { description: `Ref ${paymentRef}` });
+          } else {
+            toast.info(`Payment ${data.status}`, { description: `Ref ${paymentRef}` });
+          }
+          } else {
+            toast.error(data?.error || 'Unable to verify payment');
+          }
+        }
+      } catch (e: any) {
+        toast.error('Unable to verify payment');
+      } finally {
+        // Clean URL
+        const url = new URL(window.location.href);
+        url.searchParams.delete('payment_ref');
+        window.history.replaceState({}, document.title, url.toString());
+      }
+    };
+    fetchStatus();
+  }, [currentUser]);
 
   // Initialize session manager
   useEffect(() => {
