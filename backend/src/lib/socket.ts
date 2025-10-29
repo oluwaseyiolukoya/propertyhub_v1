@@ -126,7 +126,7 @@ export const initializeSocket = async (httpServer: HttpServer) => {
     console.log('✅ Socket.io server initialized');
     return io;
   } catch (error) {
-    console.error('❌ Failed to initialize Socket.io:', error);
+    console.error('❌ Failed to initialize Socket.io with Redis:', error);
     // If Redis fails, initialize without Redis adapter (fallback)
     io = new Server(httpServer, {
       cors: {
@@ -134,10 +134,80 @@ export const initializeSocket = async (httpServer: HttpServer) => {
         credentials: true,
         methods: ['GET', 'POST']
       },
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'],
+      pingTimeout: 60000,
+      pingInterval: 25000
     });
 
     console.warn('⚠️  Socket.io initialized WITHOUT Redis adapter (single server mode)');
+
+    // Set up authentication middleware for fallback mode
+    io.use(async (socket: AuthenticatedSocket, next) => {
+      try {
+        const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
+        
+        if (!token) {
+          return next(new Error('Authentication token required'));
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+        socket.data.user = decoded;
+        
+        console.log(`✅ Socket authenticated: ${decoded.email} (${decoded.role})`);
+        next();
+      } catch (error) {
+        console.error('❌ Socket authentication failed:', error);
+        next(new Error('Authentication failed'));
+      }
+    });
+
+    // Connection handler for fallback mode
+    io.on('connection', (socket: AuthenticatedSocket) => {
+      const user = socket.data.user;
+      console.log(`🔌 User connected: ${user.email} (${user.role})`);
+
+      // Join user-specific room
+      socket.join(`user:${user.id}`);
+
+      // Join customer-specific room (for owners, managers, tenants)
+      if (user.customerId) {
+        socket.join(`customer:${user.customerId}`);
+        console.log(`  → Joined room: customer:${user.customerId}`);
+      }
+
+      // Join role-based rooms
+      if (user.role === 'super_admin' || user.role === 'admin') {
+        socket.join('admins');
+        console.log(`  → Joined room: admins`);
+      } else if (user.role === 'owner') {
+        socket.join('owners');
+        console.log(`  → Joined room: owners`);
+      } else if (user.role === 'manager') {
+        socket.join('managers');
+        console.log(`  → Joined room: managers`);
+      } else if (user.role === 'tenant') {
+        socket.join('tenants');
+        console.log(`  → Joined room: tenants`);
+      }
+
+      // Send welcome message
+      socket.emit('connected', {
+        message: 'Connected to real-time updates',
+        userId: user.id,
+        timestamp: new Date().toISOString()
+      });
+
+      // Handle disconnect
+      socket.on('disconnect', (reason) => {
+        console.log(`🔌 User disconnected: ${user.email} (Reason: ${reason})`);
+      });
+
+      // Handle ping for connection health check
+      socket.on('ping', () => {
+        socket.emit('pong', { timestamp: Date.now() });
+      });
+    });
+
     return io;
   }
 };

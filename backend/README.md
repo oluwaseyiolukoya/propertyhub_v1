@@ -1,273 +1,292 @@
-# PropertyHub Backend API
+# Property Management System - Backend
 
-Backend API for the PropertyHub SaaS platform built with Express, TypeScript, Prisma, and PostgreSQL.
+Express.js backend with TypeScript, Prisma ORM, and PostgreSQL.
 
-## 🚀 Tech Stack
-
-- **Node.js** - Runtime environment
-- **Express** - Web framework
-- **TypeScript** - Type safety
-- **Prisma** - Database ORM
-- **PostgreSQL** - Database
-- **JWT** - Authentication
-- **bcryptjs** - Password hashing
-
-## 📋 Prerequisites
-
-- Node.js 18+ installed
-- PostgreSQL 14+ installed and running
-- npm or yarn package manager
-
-## 🛠️ Installation
-
-### 1. Install Dependencies
+## 🚀 Quick Start
 
 ```bash
-cd backend
+# Install dependencies
 npm install
-```
 
-### 2. Setup PostgreSQL Database
+# Setup environment
+cp .env.example .env
+# Edit .env with your configuration
 
-Create a new PostgreSQL database:
+# Run migrations
+npx prisma migrate dev
 
-```bash
-# Login to PostgreSQL
-psql -U postgres
+# Seed database
+npx prisma db seed
 
-# Create database
-CREATE DATABASE propertyhub;
-
-# Exit psql
-\q
-```
-
-### 3. Configure Environment Variables
-
-Create a `.env` file in the backend directory:
-
-```bash
-cp env.example .env
-```
-
-Update the `.env` file with your database credentials:
-
-```env
-DATABASE_URL="postgresql://postgres:your_password@localhost:5432/propertyhub?schema=public"
-PORT=5000
-NODE_ENV=development
-JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-JWT_EXPIRES_IN=7d
-FRONTEND_URL=http://localhost:5173
-```
-
-### 4. Run Database Migrations
-
-```bash
-# Generate Prisma Client
-npm run prisma:generate
-
-# Run migrations to create database schema
-npm run prisma:migrate
-```
-
-This will create all the necessary tables in your database.
-
-### 5. Seed the Database
-
-Populate the database with initial data (admin user, plans, sample customer):
-
-```bash
-npm run prisma:seed
-```
-
-### 6. Start the Development Server
-
-```bash
+# Start development server
 npm run dev
 ```
 
-The server will start on `http://localhost:5000`
+## 📁 Project Structure
 
-## 🔑 Default Credentials
+```
+backend/
+├── src/
+│   ├── index.ts          # Application entry point
+│   ├── routes/           # API route handlers
+│   │   ├── auth.ts       # Authentication
+│   │   ├── properties.ts # Property management
+│   │   ├── payments.ts   # Payment processing
+│   │   ├── tenants.ts    # Tenant management
+│   │   └── ...
+│   ├── middleware/
+│   │   └── auth.ts       # JWT authentication middleware
+│   ├── lib/
+│   │   ├── db.ts         # Prisma client
+│   │   ├── socket.ts     # Socket.io setup
+│   │   └── ...
+│   ├── services/         # Business logic (recommended)
+│   ├── controllers/      # HTTP controllers (recommended)
+│   └── repositories/     # Data access layer (recommended)
+├── prisma/
+│   ├── schema.prisma     # Database schema
+│   ├── migrations/       # Database migrations
+│   └── seed.ts           # Database seeding
+├── scripts/
+│   └── ...               # Utility scripts
+└── uploads/              # File uploads
+```
 
-After seeding, you can login with these accounts:
+## 🏗️ Architecture (Recommended)
 
-**Super Admin:**
-- Email: `admin@propertyhub.com`
-- Password: `admin123`
+### Layered Architecture
 
-**Property Owner:**
-- Email: `john@metro-properties.com`
-- Password: `owner123`
+```
+Routes (HTTP) → Controllers → Services → Repositories → Database
+```
 
-## 📚 API Endpoints
+1. **Routes** (`src/routes/`): Define HTTP endpoints, validate requests
+2. **Controllers** (`src/controllers/`): Handle HTTP req/res, call services
+3. **Services** (`src/services/`): Business logic, orchestrate repositories
+4. **Repositories** (`src/repositories/`): Data access, Prisma queries
 
-### Authentication
+### Migration Guide
 
-- `POST /api/auth/login` - Login
-- `POST /api/auth/setup-password` - Setup password for new users
-- `GET /api/auth/verify` - Verify JWT token
+To refactor existing code:
 
-### Customers (Admin Only)
+```typescript
+// Before (route with mixed concerns)
+router.get('/payments', async (req, res) => {
+  const payments = await prisma.payments.findMany({ ... });
+  res.json(payments);
+});
 
-- `GET /api/customers` - Get all customers
-- `GET /api/customers/:id` - Get single customer
-- `POST /api/customers` - Create customer
-- `PUT /api/customers/:id` - Update customer
-- `DELETE /api/customers/:id` - Delete customer
-- `POST /api/customers/:id/actions` - Customer actions (suspend, activate, etc.)
+// After (layered)
+// routes/payments.ts
+router.get('/payments', paymentsController.list);
 
-### Users (Admin Only)
+// controllers/payments.controller.ts
+export const list = async (req, res) => {
+  const payments = await paymentsService.getPayments(req.query);
+  res.json(payments);
+};
 
-- `GET /api/users` - Get all users
-- `GET /api/users/:id` - Get single user
-- `POST /api/users` - Create user
-- `PUT /api/users/:id` - Update user
-- `DELETE /api/users/:id` - Delete user
+// services/payments.service.ts
+export const getPayments = async (filters) => {
+  return paymentsRepository.findMany(filters);
+};
 
-### Roles (Admin Only)
+// repositories/payments.repository.ts
+export const findMany = async (filters) => {
+  return prisma.payments.findMany({ where: filters });
+};
+```
 
-- `GET /api/roles` - Get all roles
-- `POST /api/roles` - Create role
-- `PUT /api/roles/:id` - Update role
-- `DELETE /api/roles/:id` - Delete role
+## 🔧 Environment Variables
 
-### Plans (Admin Only)
+Required in `.env`:
 
-- `GET /api/plans` - Get all plans
-- `POST /api/plans` - Create plan
-- `PUT /api/plans/:id` - Update plan
-- `DELETE /api/plans/:id` - Delete plan
+```env
+# Database
+DATABASE_URL="postgresql://user:password@localhost:5432/dbname"
 
-### Invoices (Admin Only)
+# Authentication
+JWT_SECRET="your-secret-key-min-32-chars"
 
-- `GET /api/invoices` - Get all invoices
-- `POST /api/invoices` - Create invoice
-- `PUT /api/invoices/:id` - Update invoice
+# Payment Gateway (Paystack)
+PAYSTACK_SECRET_KEY="sk_test_..."
+PAYSTACK_PUBLIC_KEY="pk_test_..."
 
-### Support Tickets (Admin Only)
+# Optional
+NODE_ENV="development"
+PORT="3000"
+REDIS_URL="redis://localhost:6379"  # For Socket.io scaling
+```
 
-- `GET /api/support-tickets` - Get all tickets
-- `GET /api/support-tickets/:id` - Get single ticket
-- `POST /api/support-tickets` - Create ticket
-- `PUT /api/support-tickets/:id` - Update ticket
+## 📊 Database
 
-### Analytics (Admin Only)
+### Prisma Commands
 
-- `GET /api/analytics/dashboard` - Get dashboard analytics
-- `GET /api/analytics/system-health` - Get system health metrics
-- `GET /api/analytics/activity-logs` - Get activity logs
+```bash
+# Generate Prisma Client
+npx prisma generate
 
-### System Settings (Admin Only)
+# Create migration
+npx prisma migrate dev --name migration_name
 
-- `GET /api/system/settings` - Get all settings
-- `GET /api/system/settings/:key` - Get single setting
-- `POST /api/system/settings` - Create/update setting
-- `DELETE /api/system/settings/:key` - Delete setting
+# Apply migrations
+npx prisma migrate deploy
+
+# Reset database (dev only)
+npx prisma migrate reset
+
+# Open Prisma Studio
+npx prisma studio
+
+# Seed database
+npx prisma db seed
+
+# Push schema without migrations (dev only)
+npx prisma db push
+```
+
+### Schema Management
+
+- Edit `prisma/schema.prisma` for schema changes
+- Run `npx prisma migrate dev` to create migrations
+- Migrations are in `prisma/migrations/`
 
 ## 🔐 Authentication
 
-All API endpoints (except login and setup-password) require a JWT token in the Authorization header:
+JWT-based authentication with role-based access control.
 
+### Roles
+- `SUPER_ADMIN`: Platform administrator
+- `OWNER`: Property owner
+- `MANAGER`: Property manager
+- `TENANT`: Property tenant
+
+### Middleware
+
+```typescript
+import { authenticateToken } from './middleware/auth';
+
+// Protect route
+router.get('/protected', authenticateToken, (req, res) => {
+  // req.user contains authenticated user
+  res.json({ user: req.user });
+});
 ```
-Authorization: Bearer <your-jwt-token>
+
+## 💳 Payment Integration
+
+Paystack integration for payment processing.
+
+### Configuration
+- Owners configure their Paystack keys in settings
+- Platform uses separate keys for subscriptions
+- Webhook endpoint: `/api/paystack/webhook`
+
+### Payment Flow
+1. Initialize payment: `POST /api/payments/initialize`
+2. Redirect to Paystack checkout
+3. Paystack webhook confirms payment
+4. Verify transaction: `GET /api/payments/verify/:reference`
+
+## 🔌 Real-time Updates
+
+Socket.io for real-time notifications.
+
+### Events
+- `paymentStatusUpdated`: Payment status changes
+- `permissionsUpdated`: User permissions changed
+- `accountBlocked`: Account status changed
+
+### Usage
+
+```typescript
+import { io } from './lib/socket';
+
+// Emit to specific user
+io.to(`user:${userId}`).emit('paymentStatusUpdated', data);
+
+// Emit to all property managers
+io.to(`property:${propertyId}:managers`).emit('event', data);
 ```
 
-Admin-only endpoints also require the user to have the `super_admin` or `admin` role.
-
-## 🗄️ Database Schema
-
-The database includes the following main entities:
-
-- **Admin** - Super admin users
-- **Customer** - Property management companies
-- **User** - Property owners, managers, and tenants
-- **Role** - User roles and permissions
-- **Plan** - Subscription plans
-- **Property** - Properties owned by customers
-- **Unit** - Individual units within properties
-- **Lease** - Tenant leases
-- **Invoice** - Customer invoices
-- **SupportTicket** - Support tickets
-- **ActivityLog** - System activity logs
-- **SystemSetting** - Platform settings
-
-## 🛠️ Useful Commands
+## 🧪 Testing
 
 ```bash
-# Start development server
-npm run dev
+# Run tests (when implemented)
+npm test
 
-# Build for production
+# Type checking
+npm run type-check
+
+# Linting
+npm run lint
+```
+
+## 📝 API Documentation
+
+See main docs:
+- [Property Owner API](../docs/PROPERTY_OWNER_API_GUIDE.md)
+- [Property Manager API](../docs/PROPERTY_MANAGER_API_GUIDE.md)
+- [Tenant API](../docs/TENANT_API_GUIDE.md)
+
+## 🐛 Debugging
+
+```bash
+# Enable Prisma query logging
+# In .env
+DATABASE_URL="postgresql://...?connection_limit=5&pool_timeout=20"
+
+# Run with debug logs
+DEBUG=* npm run dev
+
+# Check database connections
+npx prisma db execute --stdin <<< "SELECT count(*) FROM pg_stat_activity;"
+```
+
+## 🚀 Deployment
+
+### Production Checklist
+- [ ] Set `NODE_ENV=production`
+- [ ] Use strong `JWT_SECRET`
+- [ ] Configure production `DATABASE_URL`
+- [ ] Run `npx prisma migrate deploy`
+- [ ] Set up Redis for Socket.io (optional)
+- [ ] Configure CORS for frontend domain
+- [ ] Set up SSL/TLS
+- [ ] Configure logging and monitoring
+
+### Build
+
+```bash
 npm run build
-
-# Start production server
 npm start
-
-# Generate Prisma Client
-npm run prisma:generate
-
-# Create new migration
-npm run prisma:migrate
-
-# Open Prisma Studio (database GUI)
-npm run prisma:studio
-
-# Seed database
-npm run prisma:seed
 ```
 
-## 📊 Prisma Studio
+## 📦 Dependencies
 
-You can view and edit your database using Prisma Studio:
+### Core
+- `express`: Web framework
+- `prisma`: ORM
+- `@prisma/client`: Prisma client
+- `jsonwebtoken`: JWT authentication
+- `bcrypt`: Password hashing
+- `socket.io`: Real-time communication
 
-```bash
-npm run prisma:studio
-```
+### Payment
+- `axios`: HTTP client for Paystack API
 
-This will open a web interface at `http://localhost:5555`
-
-## 🔍 Troubleshooting
-
-### Database Connection Error
-
-If you get a database connection error, check:
-1. PostgreSQL is running: `sudo service postgresql status`
-2. Database exists: `psql -l | grep propertyhub`
-3. Credentials in `.env` are correct
-
-### Port Already in Use
-
-If port 5000 is already in use, change it in `.env`:
-```env
-PORT=3001
-```
-
-### Prisma Client Not Generated
-
-If you get "Cannot find module '@prisma/client'":
-```bash
-npm run prisma:generate
-```
-
-## 📝 Next Steps
-
-1. Update the frontend to connect to these API endpoints
-2. Implement email sending for invitations and notifications
-3. Add file upload functionality for documents and images
-4. Implement payment gateway integration
-5. Add real-time features with WebSockets
+### Development
+- `typescript`: Type safety
+- `ts-node-dev`: Development server
+- `@types/*`: TypeScript definitions
 
 ## 🤝 Contributing
 
-1. Create a new branch for your feature
-2. Make your changes
-3. Test thoroughly
-4. Submit a pull request
+1. Follow the layered architecture pattern
+2. Add tests for new features
+3. Update API documentation
+4. Run type checking before committing
 
-## 📄 License
+---
 
-Proprietary - PropertyHub SaaS Platform
-
-
+For more information, see [../docs/README.md](../docs/README.md)

@@ -27,13 +27,18 @@ import {
   DollarSign,
   Clock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Banknote,
+  Building2
 } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Checkbox } from './ui/checkbox';
 import { toast } from 'sonner';
+import { getPayments, initializeTenantPayment } from '../lib/api/payments';
+import { getPublicPaymentGatewaySettings } from '../lib/api/settings';
+import { initializeSocket, isConnected, subscribeToPaymentEvents, unsubscribeFromPaymentEvents } from '../lib/socket';
 
 interface TenantPaymentsPageProps {
   dashboardData: any;
@@ -42,11 +47,12 @@ interface TenantPaymentsPageProps {
 const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }) => {
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showAddCardDialog, setShowAddCardDialog] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('1');
+  const [paymentMethod, setPaymentMethod] = useState('paystack');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [selectedPaymentType, setSelectedPaymentType] = useState<'full' | 'custom'>('full');
   const [autopayEnabled, setAutopayEnabled] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [bankTransferTemplate, setBankTransferTemplate] = useState<string>('');
   
   // Add Card Form State
   const [cardNumber, setCardNumber] = useState('');
@@ -72,15 +78,76 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
     autopayEnabled: autopayEnabled
   };
 
-  const paymentHistory = dashboardData?.payments?.recent?.map((payment: any) => ({
-    id: payment.id,
-    date: new Date(payment.paymentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-    amount: payment.amount,
-    status: payment.status === 'completed' ? 'paid' : payment.status,
-    method: payment.paymentMethod,
-    type: payment.type || 'Rent',
-    confirmation: payment.confirmationNumber || payment.transactionId
-  })) || [];
+  const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  const loadPaymentHistory = async (opts?: { resetPage?: boolean }) => {
+    const nextPage = opts?.resetPage ? 1 : page;
+    const resp = await getPayments({ page: nextPage, pageSize });
+    if ((resp as any).data && Array.isArray((resp as any).data)) {
+      const list = (resp as any).data.map((p: any) => ({
+        id: p.id,
+        date: new Date(p.paidAt || p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        timestamp: new Date(p.paidAt || p.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        amount: p.amount,
+        currency: p.currency || 'NGN',
+        status: p.status,
+        method: p.paymentMethod || p.provider || 'Paystack',
+        type: p.type || 'rent',
+        confirmation: p.providerReference || p.id,
+      }));
+      setPaymentHistory(list);
+      // When data is array (legacy), we cannot know total; fallback
+      setTotal(list.length);
+    } else if ((resp as any).data && (resp as any).data.items) {
+      const payload = (resp as any).data;
+      const list = payload.items.map((p: any) => ({
+        id: p.id,
+        date: new Date(p.paidAt || p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        timestamp: new Date(p.paidAt || p.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        amount: p.amount,
+        currency: p.currency || 'NGN',
+        status: p.status,
+        method: p.paymentMethod || p.provider || 'Paystack',
+        type: p.type || 'rent',
+        confirmation: p.providerReference || p.id,
+      }));
+      setPaymentHistory(list);
+      setTotal(payload.total || 0);
+      setPage(payload.page || 1);
+      setPageSize(payload.pageSize || 10);
+    }
+  };
+
+  React.useEffect(() => {
+    loadPaymentHistory();
+    const token = localStorage.getItem('auth_token');
+    if (token && !isConnected()) {
+      try { initializeSocket(token); } catch {}
+    }
+    subscribeToPaymentEvents({
+      onUpdated: () => loadPaymentHistory(),
+      onReceived: () => loadPaymentHistory(),
+    });
+    const handleBrowserPaymentUpdate = () => loadPaymentHistory();
+    window.addEventListener('payment:updated', handleBrowserPaymentUpdate);
+    
+    // Fetch public bank transfer template (tenant-safe)
+    (async () => {
+      const resp = await getPublicPaymentGatewaySettings();
+      if (!resp.error && resp.data?.bankTransferTemplate) {
+        setBankTransferTemplate(resp.data.bankTransferTemplate);
+      }
+    })();
+    
+    return () => {
+      unsubscribeFromPaymentEvents();
+      window.removeEventListener('payment:updated', handleBrowserPaymentUpdate);
+    };
+  }, []);
 
   const scheduledPayments: any[] = []; // This would come from API if auto-pay is enabled
 
@@ -97,10 +164,53 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
     }
   };
 
-  const handleMakePayment = () => {
-    setShowPaymentDialog(false);
-    const selectedMethod = paymentMethods.find(m => m.id.toString() === paymentMethod);
-    toast.success(`Payment of ₦${parseFloat(paymentAmount).toLocaleString()} processed successfully via ${selectedMethod?.brand} •••• ${selectedMethod?.last4}!`);
+  const handleMakePayment = async () => {
+    try {
+      if (!dashboardData?.lease?.id) {
+        toast.error('Lease not found');
+        return;
+      }
+      const amountNum = parseFloat(paymentAmount || '0');
+      if (!amountNum || amountNum <= 0) {
+        toast.error('Enter a valid amount');
+        return;
+      }
+
+      // For non-Paystack methods, show instructions
+      if (paymentMethod !== 'paystack') {
+        const methodName = paymentMethod === 'cash' ? 'Cash' : 'Bank Transfer';
+        toast.info(`${methodName} payment selected. Please contact your property manager to record the payment after completion.`, {
+          duration: 8000
+        });
+        setShowPaymentDialog(false);
+        return;
+      }
+
+      // Paystack payment flow
+      setIsSubmitting(true);
+      const resp = await initializeTenantPayment({
+        leaseId: dashboardData.lease.id,
+        amount: selectedPaymentType === 'full' ? currentRent.amount : amountNum,
+        currency: dashboardData?.lease?.currency || undefined
+      });
+      setIsSubmitting(false);
+      if ((resp as any).error) {
+        const msg = (resp as any).error?.error || 'Failed to initialize payment';
+        toast.error(msg);
+        return;
+      }
+      const { authorizationUrl } = (resp as any).data || {};
+      if (!authorizationUrl) {
+        toast.error('Failed to start payment');
+        return;
+      }
+      // Redirect to Paystack checkout
+      window.location.href = authorizationUrl;
+    } catch (e: any) {
+      setIsSubmitting(false);
+      toast.error('Payment initialization failed');
+      console.error(e);
+    }
   };
 
   const handleOpenPaymentDialog = (type: 'full' | 'custom' = 'full') => {
@@ -118,12 +228,8 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
       toast.error('Please fill in all card details');
       return;
     }
-    
-    // Simulate adding a card
     setShowAddCardDialog(false);
     toast.success(`Card ending in ${cardNumber.slice(-4)} added successfully!`);
-    
-    // Reset form
     setCardNumber('');
     setCardName('');
     setCardExpiry('');
@@ -134,7 +240,6 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
   const handleToggleAutoPay = () => {
     const newStatus = !autopayEnabled;
     setAutopayEnabled(newStatus);
-    
     if (newStatus) {
       toast.success('Auto-pay has been enabled! Your rent will be automatically charged on the 1st of each month.');
     } else {
@@ -268,6 +373,7 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
+                    <TableHead>Time</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Method</TableHead>
                     <TableHead>Confirmation</TableHead>
@@ -279,10 +385,11 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
                   {paymentHistory.map((payment) => (
                     <TableRow key={payment.id}>
                       <TableCell>{payment.date}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{payment.timestamp}</TableCell>
                       <TableCell>{payment.type}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{payment.method}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{payment.confirmation}</TableCell>
-                      <TableCell className="text-right font-medium">₦{payment.amount.toLocaleString()}</TableCell>
+                      <TableCell className="text-right font-medium">{payment.currency === 'NGN' ? '₦' : ''}{payment.amount.toLocaleString()} {payment.currency !== 'NGN' ? payment.currency : ''}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={getStatusColor(payment.status)}>
                           {payment.status}
@@ -292,6 +399,19 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
                   ))}
                 </TableBody>
               </Table>
+              <div className="flex items-center justify-between mt-3">
+                <div className="text-sm text-muted-foreground">
+                  Page {page} of {totalPages} • {total} items
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => { setPage(p => Math.max(1, p - 1)); setTimeout(() => loadPaymentHistory(), 0); }}>
+                    Previous
+                  </Button>
+                  <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => { setPage(p => Math.min(totalPages, p + 1)); setTimeout(() => loadPaymentHistory(), 0); }}>
+                    Next
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -460,29 +580,76 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
             <div className="space-y-2">
               <Label>Payment Method</Label>
               <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
-                {paymentMethods.map((method) => (
-                  <div key={method.id} className="flex items-center space-x-2 p-3 border rounded-lg">
-                    <RadioGroupItem value={method.id.toString()} id={`method-${method.id}`} />
-                    <Label htmlFor={`method-${method.id}`} className="flex-1 cursor-pointer">
-                      <div className="flex items-center justify-between">
-                        <span>{method.brand} •••• {method.last4}</span>
-                        {method.isDefault && (
-                          <Badge variant="outline" className="bg-blue-100 text-blue-800 ml-2">
-                            Default
-                          </Badge>
-                        )}
+                <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <RadioGroupItem value="paystack" id="method-paystack" />
+                  <Label htmlFor="method-paystack" className="flex-1 cursor-pointer">
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="h-4 w-4 text-blue-600" />
+                      <div>
+                        <p className="font-medium">Paystack (Card/Bank)</p>
+                        <p className="text-xs text-muted-foreground">Pay online with card or bank transfer</p>
                       </div>
-                    </Label>
-                  </div>
-                ))}
+                    </div>
+                  </Label>
+                </div>
+                
+                <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <RadioGroupItem value="bank_transfer" id="method-bank" />
+                  <Label htmlFor="method-bank" className="flex-1 cursor-pointer">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-green-600" />
+                      <div>
+                        <p className="font-medium">Bank Transfer</p>
+                        <p className="text-xs text-muted-foreground">Transfer directly to property account</p>
+                      </div>
+                    </div>
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <RadioGroupItem value="cash" id="method-cash" />
+                  <Label htmlFor="method-cash" className="flex-1 cursor-pointer">
+                    <div className="flex items-center gap-2">
+                      <Banknote className="h-4 w-4 text-orange-600" />
+                      <div>
+                        <p className="font-medium">Cash</p>
+                        <p className="text-xs text-muted-foreground">Pay in person at property office</p>
+                      </div>
+                    </div>
+                  </Label>
+                </div>
               </RadioGroup>
             </div>
 
             <Alert>
-              <CheckCircle2 className="h-4 w-4" />
-              <AlertDescription>
-                Your payment will be processed immediately and a confirmation email will be sent to your registered email address.
-              </AlertDescription>
+              {paymentMethod === 'paystack' ? (
+                <>
+                  <CheckCircle2 className="h-4 w-4" />
+                  <AlertDescription>
+                    You'll be redirected to Paystack to complete your payment. A receipt will be emailed after confirmation.
+                  </AlertDescription>
+                </>
+              ) : paymentMethod === 'bank_transfer' && bankTransferTemplate ? (
+                <>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <div className="space-y-2">
+                      <p className="font-medium">Bank Transfer Instructions:</p>
+                      <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-3 rounded border">{bankTransferTemplate}</pre>
+                      <p className="text-xs text-muted-foreground mt-2">After completing the transfer, contact your property manager to record the transaction.</p>
+                    </div>
+                  </AlertDescription>
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    {paymentMethod === 'cash' 
+                      ? 'After making cash payment, contact your property manager to record the transaction.'
+                      : 'After completing bank transfer, contact your property manager to record the transaction.'}
+                  </AlertDescription>
+                </>
+              )}
             </Alert>
           </div>
           <DialogFooter>
@@ -491,9 +658,13 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
             </Button>
             <Button 
               onClick={handleMakePayment}
-              disabled={!paymentAmount || parseFloat(paymentAmount) <= 0}
+              disabled={isSubmitting || !paymentAmount || parseFloat(paymentAmount) <= 0}
             >
-              Pay ₦{paymentAmount ? parseFloat(paymentAmount).toLocaleString() : '0.00'}
+              {isSubmitting 
+                ? 'Processing…' 
+                : paymentMethod === 'paystack'
+                  ? `Pay ₦${paymentAmount ? parseFloat(paymentAmount).toLocaleString() : '0.00'}`
+                  : 'Confirm'}
             </Button>
           </DialogFooter>
         </DialogContent>

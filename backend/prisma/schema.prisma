@@ -73,6 +73,10 @@ model customers {
   users                 users[]
   customer_users        customer_users[]
   documents             documents[]
+  property_keys         property_keys[]
+  property_key_transactions property_key_transactions[]
+  payment_settings      payment_settings[]
+  payments              payments[]
 }
 
 model documents {
@@ -123,6 +127,7 @@ model invoices {
   refundedAt    DateTime?
   customers     customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
   refunds       refunds[]
+  payments      payments[]
 }
 
 model leases {
@@ -147,6 +152,7 @@ model leases {
   properties        properties @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   users             users      @relation(fields: [tenantId], references: [id])
   units             units?     @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  payments          payments[]
 }
 
 model plans {
@@ -216,6 +222,8 @@ model properties {
   units                 units[]
   documents             documents[]
   expenses              expenses[]
+  property_keys         property_keys[]
+  payments              payments[]
 }
 
 model customer_users {
@@ -320,6 +328,8 @@ model units {
   properties      properties @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   documents       documents[]
   expenses        expenses[]
+  property_keys   property_keys[]
+  payments        payments[]
 
   @@unique([propertyId, unitNumber])
 }
@@ -390,4 +400,133 @@ model users {
   uploadedDocuments      documents[]         @relation("UploaderDocuments")
   recordedExpenses       expenses[]          @relation("RecordedExpenses")
   approvedExpenses       expenses[]          @relation("ApprovedExpenses")
+  issuedKeys             property_keys[]     @relation("KeyIssuedTo")
+  createdKeys            property_keys[]     @relation("KeyCreatedBy")
+  updatedKeys            property_keys[]     @relation("KeyUpdatedBy")
+  keyTransactionsPerformed property_key_transactions[] @relation("TransactionPerformedBy")
+  keyTransactionsReceived property_key_transactions[]  @relation("TransactionPerformedFor")
+  payments              payments[]
+}
+
+model property_keys {
+  id                String   @id @default(uuid())
+  customerId        String
+  propertyId        String
+  unitId            String?
+  keyNumber         String   @unique
+  keyLabel          String?
+  keyType           String
+  status            String   @default("available")
+  numberOfCopies    Int      @default(1)
+  location          String?
+  notes             String?
+  issuedToUserId    String?
+  issuedToName      String?
+  issuedToType      String?
+  issuedDate        DateTime?
+  expectedReturnDate DateTime?
+  returnedDate      DateTime?
+  depositAmount     Float?
+  depositCurrency   String?  @default("NGN")
+  depositRefunded   Boolean  @default(false)
+  depositNotes      String?
+  createdById       String?
+  updatedById       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  customer          customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  property          properties @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unit              units?     @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  issuedToUser      users?     @relation("KeyIssuedTo", fields: [issuedToUserId], references: [id], onDelete: SetNull)
+  createdBy         users?     @relation("KeyCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy         users?     @relation("KeyUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  transactions      property_key_transactions[]
+
+  @@index([customerId])
+  @@index([propertyId])
+  @@index([status])
+  @@index([keyType])
+}
+
+model property_key_transactions {
+  id                 String   @id @default(uuid())
+  keyId              String
+  customerId         String
+  action             String
+  performedById      String?
+  performedByName    String?
+  performedForUserId String?
+  performedForName   String?
+  personType         String?
+  witnessName        String?
+  witnessSignature   String?
+  depositAmount      Float?
+  notes              String?
+  metadata           Json?
+  createdAt          DateTime @default(now())
+
+  key                property_keys @relation(fields: [keyId], references: [id], onDelete: Cascade)
+  customer           customers     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  performedBy        users?        @relation("TransactionPerformedBy", fields: [performedById], references: [id], onDelete: SetNull)
+  performedFor       users?        @relation("TransactionPerformedFor", fields: [performedForUserId], references: [id], onDelete: SetNull)
+
+  @@index([customerId])
+  @@index([keyId])
+  @@index([action])
+}
+
+/// Payment gateway settings per customer (owner-level)
+model payment_settings {
+  id                    String   @id @default(uuid())
+  customerId            String
+  provider              String   // e.g., "paystack"
+  publicKey             String?
+  secretKey             String?  // store securely; never expose in APIs
+  testMode              Boolean  @default(false)
+  isEnabled             Boolean  @default(false)
+  bankTransferTemplate  String?  // Custom message for bank transfer instructions
+  metadata              Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  customers  customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, provider])
+}
+
+/// Payments for rent, deposits, fees, and subscriptions
+model payments {
+  id               String     @id @default(uuid())
+  customerId       String
+  propertyId       String?
+  unitId           String?
+  leaseId          String?
+  tenantId         String?
+  invoiceId        String?
+  amount           Float
+  currency         String     @default("NGN")
+  status           String     @default("pending") // pending, success, failed, refunded
+  type             String     @default("rent")    // rent, deposit, fee, subscription
+  paymentMethod    String?
+  provider         String
+  providerReference String?
+  providerFee      Float?
+  paidAt           DateTime?
+  metadata         Json?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  customers        customers  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  properties       properties? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  units            units?     @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  leases           leases?    @relation(fields: [leaseId], references: [id], onDelete: SetNull)
+  tenant           users?     @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  invoices         invoices?  @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@index([customerId])
+  @@index([leaseId])
+  @@index([propertyId])
+  @@index([status])
+  @@index([provider])
 }

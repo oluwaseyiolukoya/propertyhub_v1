@@ -154,7 +154,7 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
         agentCommission: initialValues.agentCommission != null ? String(initialValues.agentCommission) : '',
         serviceCharge: initialValues.serviceCharge != null ? String(initialValues.serviceCharge) : '',
         agreementFee: initialValues.agreementFee != null ? String(initialValues.agreementFee) : '',
-        managerId: currentManagerId, // Set the current manager ID
+        managerId: (initialValues.property_managers && initialValues.property_managers.find((pm: any) => pm.isActive)?.managerId) || currentManagerId,
         features: Array.isArray(initialValues.features) ? initialValues.features : [],
         unitFeatures: Array.isArray(initialValues.unitFeatures) ? initialValues.unitFeatures : [],
         insuranceProvider: initialValues.insuranceProvider || '',
@@ -165,8 +165,7 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
         description: initialValues.description || '',
         notes: initialValues.notes || '',
         coverImage: initialValues.coverImage || (Array.isArray(initialValues.images) && initialValues.images[0]) || '',
-        images: Array.isArray(initialValues.images) ? initialValues.images : [],
-        managerId: (initialValues.property_managers && initialValues.property_managers.find((pm: any) => pm.isActive)?.managerId) || ''
+        images: Array.isArray(initialValues.images) ? initialValues.images : []
       }));
     }
   }, [initialValues]);
