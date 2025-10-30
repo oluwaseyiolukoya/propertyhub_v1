@@ -273,6 +273,11 @@ const TenantDocuments: React.FC = () => {
   const policies = filteredDocuments.filter(doc => doc.type === 'policy' || doc.type === 'notice');
   const insuranceDocs = filteredDocuments.filter(doc => doc.type === 'insurance');
 
+  const handleView = (docName: string) => {
+    toast.info(`Viewing ${docName}`);
+    // TODO: Implement document viewer
+  };
+
   const DocumentCard = ({ doc }: { doc: any }) => (
     <Card className="hover:border-blue-300 transition-colors">
       <CardContent className="p-4">
@@ -297,7 +302,7 @@ const TenantDocuments: React.FC = () => {
                 <Button variant="ghost" size="sm" onClick={() => handleView(doc.name)}>
                   <Eye className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => handleDownload(doc.name)}>
+                <Button variant="ghost" size="sm" onClick={() => handleDownload(doc)}>
                   <Download className="h-4 w-4" />
                 </Button>
               </div>
@@ -426,7 +431,7 @@ const TenantDocuments: React.FC = () => {
                       <Eye className="h-4 w-4 mr-2" />
                       View
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => handleDownload(doc.name)}>
+                    <Button variant="outline" size="sm" onClick={() => toast.info(`Downloading ${doc.name}`)}>
                       <Download className="h-4 w-4 mr-2" />
                       Download
                     </Button>
@@ -469,7 +474,7 @@ const TenantDocuments: React.FC = () => {
                       <Eye className="h-4 w-4 mr-2" />
                       View
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => handleDownload(doc.name)}>
+                    <Button variant="outline" size="sm" onClick={() => toast.info(`Downloading ${doc.name}`)}>
                       <Download className="h-4 w-4 mr-2" />
                       Download
                     </Button>
@@ -504,7 +509,7 @@ const TenantDocuments: React.FC = () => {
                       <Eye className="h-4 w-4 mr-2" />
                       View
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => handleDownload(doc.name)}>
+                    <Button variant="outline" size="sm" onClick={() => toast.info(`Downloading ${doc.name}`)}>
                       <Download className="h-4 w-4 mr-2" />
                       Download
                     </Button>
@@ -522,7 +527,7 @@ const TenantDocuments: React.FC = () => {
               <CardDescription>Your renters insurance policies</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {insurance.map((doc) => (
+              {insuranceDocs.map((doc) => (
                 <div key={doc.id} className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="flex items-center space-x-3">
                     <div className="p-2 bg-gray-100 rounded-lg">
@@ -539,7 +544,7 @@ const TenantDocuments: React.FC = () => {
                       <Eye className="h-4 w-4 mr-2" />
                       View
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => handleDownload(doc.name)}>
+                    <Button variant="outline" size="sm" onClick={() => toast.info(`Downloading ${doc.name}`)}>
                       <Download className="h-4 w-4 mr-2" />
                       Download
                     </Button>
