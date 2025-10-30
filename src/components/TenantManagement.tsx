@@ -71,6 +71,30 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
   const [isAssigning, setIsAssigning] = useState(false);
   // In-memory map to hold latest generated temp passwords keyed by tenantId
   const [tenantPasswords, setTenantPasswords] = useState<Record<string, string>>({});
+  // Surface immediate post-creation/reset password with explicit copy CTA
+  const [recentPasswordInfo, setRecentPasswordInfo] = useState<{
+    tenantId: string;
+    email: string;
+    password: string;
+  } | null>(null);
+
+  // Load persisted temp passwords from localStorage on mount (session convenience)
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem('tenantTempPasswords');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') setTenantPasswords(parsed);
+      }
+    } catch {}
+  }, []);
+
+  // Persist temp passwords to localStorage when they change
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('tenantTempPasswords', JSON.stringify(tenantPasswords));
+    } catch {}
+  }, [tenantPasswords]);
 
   // Load units when property is selected (only vacant units) for new tenant
   React.useEffect(() => {
@@ -268,6 +292,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
         // Store the freshly generated password in the in-memory map for copy action
         if (generatedPassword && newTenantId) {
           setTenantPasswords(prev => ({ ...prev, [newTenantId]: generatedPassword }));
+          setRecentPasswordInfo({ tenantId: newTenantId, email: (res as any).data?.tenant?.email || newTenant.email, password: generatedPassword });
           console.log('🔐 Password stored for tenant:', newTenantId);
         }
       }
@@ -279,7 +304,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
       setShowAddTenant(false);
 
       if (generatedPassword) {
-        toast.success('Tenant created! Password: ' + generatedPassword + ' (Click copy icon to copy)');
+        toast.success('Tenant created! A temporary password has been generated.');
       } else {
         toast.success('Tenant created and assigned successfully');
       }
@@ -467,6 +492,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
 
       // Update in-memory password map for reliable copy action
       setTenantPasswords(prev => ({ ...prev, [tenantToResetPassword.id]: response.data.tempPassword }));
+      setRecentPasswordInfo({ tenantId: tenantToResetPassword.id, email: tenantToResetPassword.email, password: response.data.tempPassword });
 
       toast.success('Password reset successfully! Make sure to copy and share it with the tenant.');
     } catch (error: any) {
@@ -732,6 +758,32 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
       <Card>
         <CardContent className="pt-6">
           <div className="space-y-4">
+            {recentPasswordInfo && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="text-sm text-amber-800">
+                    <span className="font-semibold">Temporary password generated</span> for {recentPasswordInfo.email}. Copy and share securely.
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="recent-temp-password" className="text-xs text-amber-700">Password</Label>
+                    <Input id="recent-temp-password" readOnly value={recentPasswordInfo.password} className="font-mono max-w-xs bg-white" />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        navigator.clipboard.writeText(recentPasswordInfo.password);
+                        toast.success('Password copied to clipboard!');
+                      }}
+                    >
+                      <Copy className="h-4 w-4 mr-2" /> Copy
+                    </Button>
+                  </div>
+                </div>
+                <div>
+                  <Button variant="ghost" onClick={() => setRecentPasswordInfo(null)}>Dismiss</Button>
+                </div>
+              </div>
+            )}
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
