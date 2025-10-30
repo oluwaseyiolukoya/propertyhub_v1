@@ -69,6 +69,8 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
   });
   const [assignmentPropertyUnits, setAssignmentPropertyUnits] = useState<any[]>([]);
   const [isAssigning, setIsAssigning] = useState(false);
+  // In-memory map to hold latest generated temp passwords keyed by tenantId
+  const [tenantPasswords, setTenantPasswords] = useState<Record<string, string>>({});
 
   // Load units when property is selected (only vacant units) for new tenant
   React.useEffect(() => {
@@ -137,14 +139,14 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
           leaseId: lease.id,
           createdAt: lease.createdAt || new Date()
         }));
-        
+
         // Group by tenant ID and keep only the most recent lease per tenant
         // Prioritize Active leases over Terminated ones
         const tenantMap = new Map<string, any>();
-        
+
         allTenantsData.forEach((tenant: any) => {
           const existingTenant = tenantMap.get(tenant.id);
-          
+
           if (!existingTenant) {
             // First lease for this tenant
             tenantMap.set(tenant.id, tenant);
@@ -155,7 +157,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
             const statusPriority = { Active: 3, Pending: 2, Terminated: 1 };
             const existingPriority = statusPriority[existingTenant.status as keyof typeof statusPriority] || 0;
             const newPriority = statusPriority[tenant.status as keyof typeof statusPriority] || 0;
-            
+
             if (newPriority > existingPriority) {
               // New lease has higher priority status
               tenantMap.set(tenant.id, tenant);
@@ -168,18 +170,18 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
             // Otherwise, keep existing (has higher priority)
           }
         });
-        
+
         // Convert map back to array
         const uniqueTenantsData = Array.from(tenantMap.values());
-        
-        console.log('✅ Loaded tenants (deduplicated):', uniqueTenantsData.map(t => ({ 
-          name: t.name, 
+
+        console.log('✅ Loaded tenants (deduplicated):', uniqueTenantsData.map(t => ({
+          name: t.name,
           status: t.status,
-          property: t.property, 
+          property: t.property,
           currency: t.currency,
-          rent: t.rent 
+          rent: t.rent
         })));
-        
+
         setTenants(uniqueTenantsData);
       }
     } catch (error: any) {
@@ -231,7 +233,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
       // Capture the generated password and tenant ID from the response
       const generatedPassword = (res as any).data?.tempPassword;
       const newTenantId = (res as any).data?.tenant?.id;
-      
+
       console.log('✅ Tenant created successfully');
       if (generatedPassword) {
         console.log('🔐 Generated password:', generatedPassword);
@@ -255,15 +257,19 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
           leaseEnd: lease.endDate,
           rent: lease.monthlyRent,
           status: lease.status || 'active',
-          // IMPORTANT: Preserve the password for the newly created tenant
-          ...(lease.users?.id === newTenantId && generatedPassword 
-            ? { credentials: { tempPassword: generatedPassword } } 
+          // IMPORTANT: Do not persist passwords in server data; only attach from in-memory map
+          ...(tenantPasswords[lease.users?.id || lease.tenantId]
+            ? { credentials: { tempPassword: tenantPasswords[lease.users?.id || lease.tenantId] } }
             : {}
           )
         }));
-        
+
         setTenants(allTenantsData);
-        console.log('🔐 Password stored for tenant:', newTenantId);
+        // Store the freshly generated password in the in-memory map for copy action
+        if (generatedPassword && newTenantId) {
+          setTenantPasswords(prev => ({ ...prev, [newTenantId]: generatedPassword }));
+          console.log('🔐 Password stored for tenant:', newTenantId);
+        }
       }
 
       setNewTenant({
@@ -271,7 +277,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
         leaseStart: '', leaseEnd: '', rent: '', occupancyDate: '', password: ''
       });
       setShowAddTenant(false);
-      
+
       if (generatedPassword) {
         toast.success('Tenant created! Password: ' + generatedPassword + ' (Click copy icon to copy)');
       } else {
@@ -288,14 +294,14 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
   };
 
   const copyCredentials = (tenant: any) => {
-    // Copy only the password if available
-    const password = tenant.credentials?.tempPassword || '';
-    
+    // Prefer in-memory password map; fallback to attached credentials in state
+    const password = tenantPasswords[tenant.id] || tenant.credentials?.tempPassword || '';
+
     if (!password) {
       toast.error('No password available to copy. Please reset the password first.');
       return;
     }
-    
+
     navigator.clipboard.writeText(password);
     toast.success('Password copied to clipboard!');
     console.log('📋 Password copied for tenant:', tenant.email);
@@ -303,16 +309,16 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
 
   const handleUnassignTenant = async () => {
     if (!tenantToUnassign) return;
-    
+
     try {
       setIsUnassigning(true);
       // Terminate the lease to unassign the tenant from the unit
       await terminateLease(tenantToUnassign.leaseId, 'Tenant unassigned by owner');
-      
+
       toast.success('Tenant unassigned from unit successfully');
       setShowUnassignDialog(false);
       setTenantToUnassign(null);
-      
+
       // Refresh tenants list
       await loadTenants();
     } catch (error: any) {
@@ -324,24 +330,24 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
 
   const handleDeleteTenant = async () => {
     if (!tenantToDelete) return;
-    
+
     try {
       setIsDeleting(true);
       console.log('🗑️  Deleting tenant:', tenantToDelete.id);
-      
+
       // Delete the tenant (this will also terminate their leases and free up units)
       const response = await deleteTenant(tenantToDelete.id);
-      
+
       if (response.error) {
         console.error('❌ Delete error:', response.error);
         throw new Error(response.error.error || response.error.message || 'Failed to delete tenant');
       }
-      
+
       console.log('✅ Tenant deleted successfully:', response.data);
       toast.success('Tenant deleted successfully');
       setShowDeleteDialog(false);
       setTenantToDelete(null);
-      
+
       // Refresh tenants list
       await loadTenants();
     } catch (error: any) {
@@ -354,24 +360,24 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
 
   const handleUpdateTenant = async () => {
     if (!selectedTenant) return;
-    
+
     try {
       setIsUpdatingTenant(true);
       console.log('✏️  Updating tenant:', selectedTenant.id, editTenantData);
-      
+
       // Update the tenant information
       const response = await updateTenant(selectedTenant.id, editTenantData);
-      
+
       if (response.error) {
         console.error('❌ Update error:', response.error);
         throw new Error(response.error.error || response.error.message || 'Failed to update tenant');
       }
-      
+
       console.log('✅ Tenant updated successfully:', response.data);
       toast.success('Tenant information updated successfully');
       setShowEditTenantDialog(false);
       setSelectedTenant(null);
-      
+
       // Refresh tenants list
       await loadTenants();
     } catch (error: any) {
@@ -384,7 +390,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
 
   const handleAssignUnit = async () => {
     if (!tenantToAssign) return;
-    
+
     try {
       if (!assignmentData.propertyId) throw new Error('Please select a property');
       if (!assignmentData.unitId) throw new Error('Please select a unit');
@@ -393,7 +399,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
 
       setIsAssigning(true);
       console.log('🏠 Assigning tenant to unit:', tenantToAssign.id, assignmentData);
-      
+
       const payload = {
         propertyId: String(assignmentData.propertyId),
         unitId: String(assignmentData.unitId),
@@ -412,7 +418,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
 
       const res = await createLease(payload);
       if ((res as any).error) throw new Error((res as any).error.error || 'Failed to assign tenant to unit');
-      
+
       console.log('✅ Tenant assigned to unit successfully');
       toast.success('Tenant assigned to unit successfully');
       setShowAssignUnitDialog(false);
@@ -424,7 +430,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
         leaseEnd: '',
         rent: ''
       });
-      
+
       // Refresh tenants list
       await loadTenants();
     } catch (error: any) {
@@ -437,37 +443,31 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
 
   const handleResetPassword = async () => {
     if (!tenantToResetPassword) return;
-    
+
     try {
       setIsResettingPassword(true);
       console.log('🔐 Resetting password for tenant:', tenantToResetPassword.id);
-      
+
       const response = await resetTenantPassword(tenantToResetPassword.id);
       console.log('📥 Reset password response:', response);
-      
+
       if (response.error) {
         console.error('❌ Reset password error:', response.error);
         throw new Error(response.error.error || response.error.message || 'Failed to reset password');
       }
-      
+
       if (!response.data || !response.data.tempPassword) {
         console.error('❌ No password in response:', response);
         throw new Error('No password returned from server');
       }
-      
+
       console.log('✅ Password reset successful, new password received');
       setNewGeneratedPassword(response.data.tempPassword);
       setPasswordCopied(false);
-      
-      // Update tenant in state with the new password so it can be copied later
-      setTenants(prevTenants => 
-        prevTenants.map(t => 
-          t.id === tenantToResetPassword.id 
-            ? { ...t, credentials: { tempPassword: response.data.tempPassword } }
-            : t
-        )
-      );
-      
+
+      // Update in-memory password map for reliable copy action
+      setTenantPasswords(prev => ({ ...prev, [tenantToResetPassword.id]: response.data.tempPassword }));
+
       toast.success('Password reset successfully! Make sure to copy and share it with the tenant.');
     } catch (error: any) {
       console.error('❌ Reset password failed:', error);
@@ -509,15 +509,15 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
 
   // Filter tenants based on search and filters
   const filteredTenants = tenants.filter(tenant => {
-    const matchesSearch = 
+    const matchesSearch =
       tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tenant.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tenant.unit.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tenant.id.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesStatus = statusFilter === 'all' || tenant.status === statusFilter;
     const matchesProperty = propertyFilter === 'all' || tenant.property === propertyFilter;
-    
+
     return matchesSearch && matchesStatus && matchesProperty;
   });
 
@@ -528,7 +528,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
           <h2 className="text-2xl font-semibold text-gray-900">Tenant Management</h2>
           <p className="text-gray-600 mt-1">Manage tenants, leases, and assignments</p>
         </div>
-        
+
         <Dialog open={showAddTenant} onOpenChange={setShowAddTenant}>
           <DialogTrigger asChild>
             <Button>
@@ -565,7 +565,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                   />
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="phone">Phone Number</Label>
@@ -641,13 +641,13 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="unitId">Unit/Apartment</Label>
-                  <Select 
-                    value={newTenant.unitId} 
+                  <Select
+                    value={newTenant.unitId}
                     onValueChange={(v) => {
                       // Find the selected unit and auto-populate rent
                       const selectedUnit = propertyUnits.find((u: any) => String(u.id) === v);
-                      setNewTenant({ 
-                        ...newTenant, 
+                      setNewTenant({
+                        ...newTenant,
                         unitId: v,
                         rent: selectedUnit?.monthlyRent ? String(selectedUnit.monthlyRent) : ''
                       });
@@ -656,10 +656,10 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                   >
                     <SelectTrigger id="unitId">
                       <SelectValue placeholder={
-                        !newTenant.propertyId 
-                          ? "Select property first" 
-                          : propertyUnits.length === 0 
-                            ? "No vacant units available" 
+                        !newTenant.propertyId
+                          ? "Select property first"
+                          : propertyUnits.length === 0
+                            ? "No vacant units available"
                             : "Select vacant unit"
                       } />
                     </SelectTrigger>
@@ -772,8 +772,8 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
               </Select>
 
               {(searchTerm || propertyFilter !== 'all' || statusFilter !== 'all') && (
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => {
                     setSearchTerm('');
                     setPropertyFilter('all');
@@ -921,7 +921,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                         <DropdownMenuContent align="end" className="w-48">
                           <DropdownMenuLabel>Tenant Actions</DropdownMenuLabel>
                           <DropdownMenuSeparator />
-                          
+
                           <DropdownMenuItem
                             onClick={() => {
                               setSelectedTenant(tenant);
@@ -931,7 +931,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                             <Eye className="h-4 w-4 mr-2" />
                             View Details
                           </DropdownMenuItem>
-                          
+
                           <DropdownMenuItem
                             onClick={() => {
                               setSelectedTenant(tenant);
@@ -946,9 +946,9 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                             <Edit className="h-4 w-4 mr-2" />
                             Edit Tenant
                           </DropdownMenuItem>
-                          
+
                           <DropdownMenuSeparator />
-                          
+
                           <DropdownMenuItem
                             onClick={() => {
                               setTenantToResetPassword(tenant);
@@ -958,23 +958,23 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                             <KeyRound className="h-4 w-4 mr-2 text-blue-500" />
                             Reset Password
                           </DropdownMenuItem>
-                          
+
                           <DropdownMenuItem
                             onClick={() => copyCredentials(tenant)}
                           >
                             <Copy className="h-4 w-4 mr-2" />
                             Copy Password
                           </DropdownMenuItem>
-                          
+
                           <DropdownMenuItem
                             onClick={() => sendCredentialsEmail(tenant)}
                           >
                             <Mail className="h-4 w-4 mr-2" />
                             Email Credentials
                           </DropdownMenuItem>
-                          
+
                           <DropdownMenuSeparator />
-                          
+
                           {/* Show Assign or Unassign based on tenant status */}
                           {tenant.status === 'Active' ? (
                             <DropdownMenuItem
@@ -1004,9 +1004,9 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                               Assign Unit
                             </DropdownMenuItem>
                           ) : null}
-                          
+
                           {(tenant.status === 'Active' || tenant.status === 'Terminated') && <DropdownMenuSeparator />}
-                          
+
                           <DropdownMenuItem
                             onClick={() => {
                               setTenantToDelete(tenant);
@@ -1037,7 +1037,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
               Are you sure you want to unassign this unit from the tenant? The lease will be terminated.
             </DialogDescription>
           </DialogHeader>
-          
+
           {tenantToUnassign && (
             <div className="space-y-4">
               <div className="bg-gray-50 border rounded-lg p-4 space-y-2">
@@ -1112,7 +1112,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
               Are you sure you want to delete this tenant? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          
+
           {tenantToDelete && (
             <div className="space-y-4">
               <div className="bg-gray-50 border rounded-lg p-4 space-y-2">
@@ -1207,7 +1207,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
               Generate a new temporary password for the tenant. Make sure to copy and share it securely.
             </DialogDescription>
           </DialogHeader>
-          
+
           {tenantToResetPassword && (
             <div className="space-y-4">
               <div className="bg-gray-50 border rounded-lg p-4 space-y-2">
@@ -1261,9 +1261,9 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                         readOnly
                         className="font-mono text-lg bg-white"
                       />
-                      <Button 
-                        type="button" 
-                        variant={passwordCopied ? "default" : "outline"} 
+                      <Button
+                        type="button"
+                        variant={passwordCopied ? "default" : "outline"}
                         onClick={handleCopyPassword}
                         className="whitespace-nowrap"
                       >
@@ -1345,7 +1345,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
               Complete information about the tenant and their lease
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedTenant && (
             <div className="space-y-6">
               {/* Personal Information */}
@@ -1473,7 +1473,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
               Update the tenant's personal information
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedTenant && (
             <div className="space-y-4">
               <div className="grid gap-2">
@@ -1560,7 +1560,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
               Assign {tenantToAssign?.name} to a property unit and create a lease
             </DialogDescription>
           </DialogHeader>
-          
+
           {tenantToAssign && (
             <div className="space-y-4">
               {/* Tenant Info */}
@@ -1580,8 +1580,8 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="assign-property">Property</Label>
-                  <Select 
-                    value={assignmentData.propertyId} 
+                  <Select
+                    value={assignmentData.propertyId}
                     onValueChange={(v) => setAssignmentData({ ...assignmentData, propertyId: v, unitId: '' })}
                   >
                     <SelectTrigger id="assign-property">
@@ -1597,13 +1597,13 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
 
                 <div className="grid gap-2">
                   <Label htmlFor="assign-unit">Unit/Apartment</Label>
-                  <Select 
-                    value={assignmentData.unitId} 
+                  <Select
+                    value={assignmentData.unitId}
                     onValueChange={(v) => {
                       // Find the selected unit and auto-populate rent
                       const selectedUnit = assignmentPropertyUnits.find((u: any) => String(u.id) === v);
-                      setAssignmentData({ 
-                        ...assignmentData, 
+                      setAssignmentData({
+                        ...assignmentData,
                         unitId: v,
                         rent: selectedUnit?.monthlyRent ? String(selectedUnit.monthlyRent) : ''
                       });
@@ -1612,10 +1612,10 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                   >
                     <SelectTrigger id="assign-unit">
                       <SelectValue placeholder={
-                        !assignmentData.propertyId 
-                          ? "Select property first" 
-                          : assignmentPropertyUnits.length === 0 
-                            ? "No vacant units available" 
+                        !assignmentData.propertyId
+                          ? "Select property first"
+                          : assignmentPropertyUnits.length === 0
+                            ? "No vacant units available"
                             : "Select vacant unit"
                       } />
                     </SelectTrigger>
