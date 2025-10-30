@@ -156,7 +156,10 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       currency,
       terms,
       specialClauses,
-      sendInvitation
+      sendInvitation,
+      // Optional: allow client to provide a temp password; fallback to server-generated
+      tempPassword: clientProvidedTempPassword,
+      password: clientProvidedPassword
     } = req.body;
 
     if (!propertyId || !unitId || !tenantName || !tenantEmail || !startDate || !endDate || !monthlyRent) {
@@ -231,7 +234,12 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
     if (!tenant) {
       // Create new tenant user
-      tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase();
+      const proposed = (clientProvidedTempPassword || clientProvidedPassword);
+      // Basic validation for a provided password
+      const isValidProvided = typeof proposed === 'string' && proposed.length >= 8;
+      tempPassword = isValidProvided
+        ? proposed
+        : Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase();
       const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
       tenant = await prisma.users.create({

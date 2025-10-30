@@ -248,7 +248,9 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
         currency: 'USD',
         terms: undefined,
         specialClauses: undefined,
-        sendInvitation: true
+        sendInvitation: true,
+        // If the user generated/typed a password in the dialog, pass it to backend
+        tempPassword: newTenant.password || undefined
       };
 
       const res = await createLease(payload);
