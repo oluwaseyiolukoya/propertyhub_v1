@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Home, 
-  CreditCard, 
-  Wrench, 
-  FileText, 
-  Settings, 
+import {
+  Home,
+  CreditCard,
+  Wrench,
+  FileText,
+  Settings,
   LogOut,
   Bell,
   Menu,
@@ -103,7 +103,7 @@ const TenantDashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+    <div className="min-h-screen bg-gray-50">
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b z-50 flex items-center justify-between px-4">
         <div className="flex items-center space-x-3">
@@ -130,7 +130,7 @@ const TenantDashboard: React.FC = () => {
 
       {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (
-        <div 
+        <div
           className="lg:hidden fixed inset-0 bg-black/50 z-40 mt-16"
           onClick={() => setIsMobileMenuOpen(false)}
         />
@@ -179,8 +179,8 @@ const TenantDashboard: React.FC = () => {
                     }}
                     className={`
                       w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors
-                      ${isActive 
-                        ? 'bg-blue-50 text-blue-600' 
+                      ${isActive
+                        ? 'bg-blue-50 text-blue-600'
                         : 'text-gray-700 hover:bg-gray-100'
                       }
                     `}
@@ -207,9 +207,9 @@ const TenantDashboard: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <div className="lg:ml-64 pt-16 lg:pt-0 w-full overflow-x-hidden">
+      <div className="lg:ml-64 pt-16 lg:pt-0 flex flex-col min-h-screen">
         {/* Desktop Header */}
-        <div className="hidden lg:block sticky top-0 z-30 bg-white border-b max-w-full">
+        <div className="hidden lg:block sticky top-0 z-30 bg-white border-b">
           <div className="flex items-center justify-between px-8 py-4">
             <div>
               <h2 className="text-xl font-semibold">{tenantInfo.property}</h2>
@@ -233,8 +233,10 @@ const TenantDashboard: React.FC = () => {
         </div>
 
         {/* Page Content */}
-        <div className="p-4 lg:p-8 max-w-7xl">
-          {renderContent()}
+        <div className="p-4 lg:p-8 flex-grow w-full max-w-full overflow-x-auto">
+          <div className="max-w-7xl mx-auto">
+            {renderContent()}
+          </div>
         </div>
 
         {/* Footer */}

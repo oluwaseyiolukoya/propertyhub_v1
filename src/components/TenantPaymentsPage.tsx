@@ -369,36 +369,38 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
               </div>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Method</TableHead>
-                    <TableHead>Confirmation</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paymentHistory.map((payment) => (
-                    <TableRow key={payment.id}>
-                      <TableCell>{payment.date}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{payment.timestamp}</TableCell>
-                      <TableCell>{payment.type}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{payment.method}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{payment.confirmation}</TableCell>
-                      <TableCell className="text-right font-medium">{payment.currency === 'NGN' ? '₦' : ''}{payment.amount.toLocaleString()} {payment.currency !== 'NGN' ? payment.currency : ''}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={getStatusColor(payment.status)}>
-                          {payment.status}
-                        </Badge>
-                      </TableCell>
+              <div className="overflow-x-auto -mx-6 px-6">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="whitespace-nowrap">Date</TableHead>
+                      <TableHead className="whitespace-nowrap">Time</TableHead>
+                      <TableHead className="whitespace-nowrap">Type</TableHead>
+                      <TableHead className="whitespace-nowrap">Method</TableHead>
+                      <TableHead className="whitespace-nowrap">Confirmation</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">Amount</TableHead>
+                      <TableHead className="whitespace-nowrap">Status</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {paymentHistory.map((payment) => (
+                      <TableRow key={payment.id}>
+                        <TableCell className="whitespace-nowrap">{payment.date}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{payment.timestamp}</TableCell>
+                        <TableCell className="whitespace-nowrap">{payment.type}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{payment.method}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{payment.confirmation}</TableCell>
+                        <TableCell className="text-right font-medium whitespace-nowrap">{payment.currency === 'NGN' ? '₦' : ''}{payment.amount.toLocaleString()} {payment.currency !== 'NGN' ? payment.currency : ''}</TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <Badge variant="outline" className={getStatusColor(payment.status)}>
+                            {payment.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
               <div className="flex items-center justify-between mt-3">
                 <div className="text-sm text-muted-foreground">
                   Page {page} of {totalPages} • {total} items
