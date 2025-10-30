@@ -128,14 +128,18 @@ Add these in Render Dashboard → Environment → Environment Variables:
 | `JWT_SECRET` | `[Generate strong secret]` | Min 32 characters |
 | `FRONTEND_URL` | `https://your-app.vercel.app` | Your frontend URL |
 
-#### Payment Gateway (Required)
+#### Platform Paystack (Optional - Only for Admin Subscriptions)
 
-| Key | Value |
-|-----|-------|
-| `PAYSTACK_SECRET_KEY` | `sk_live_...` |
-| `PAYSTACK_PUBLIC_KEY` | `pk_live_...` |
-| `PAYSTACK_TEST_SECRET_KEY` | `sk_test_...` |
-| `PAYSTACK_TEST_PUBLIC_KEY` | `pk_test_...` |
+**Note:** These are ONLY needed if you're charging property owners for subscription plans. Individual property owners configure their own Paystack keys in the frontend, which are stored in the database.
+
+| Key | Value | Purpose |
+|-----|-------|---------|
+| `PAYSTACK_SECRET_KEY` | `sk_live_your_platform_key` | Platform subscription billing only |
+| `PAYSTACK_PUBLIC_KEY` | `pk_live_your_platform_key` | Platform subscription billing only |
+
+**Not needed in Render environment:**
+- ❌ Individual owner Paystack keys (configured per-owner in frontend)
+- ❌ Test keys (use production keys only)
 
 #### Optional (Recommended)
 
