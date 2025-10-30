@@ -76,6 +76,15 @@ export const API_ENDPOINTS = {
     RECORD: '/api/payments/record',
   },
 
+  // Payment Methods (Cards)
+  PAYMENT_METHODS: {
+    LIST: '/api/payment-methods',
+    ADD: '/api/payment-methods',
+    SET_DEFAULT: (id: string) => `/api/payment-methods/${id}/default`,
+    DELETE: (id: string) => `/api/payment-methods/${id}`,
+    CHARGE: (id: string) => `/api/payment-methods/${id}/charge`,
+  },
+
   // Documents
   DOCUMENTS: {
     LIST: '/api/documents',

@@ -46,6 +46,8 @@ import expenseRoutes from './routes/expenses';
 import documentRoutes from './routes/documents';
 // Settings routes
 import settingsRoutes from './routes/settings';
+// Payment Methods routes
+import paymentMethodRoutes from './routes/payment-methods';
 
 // Create Express app
 const app: Express = express();
@@ -161,6 +163,8 @@ app.use('/api/expenses', expenseRoutes);
 app.use('/api/documents', documentRoutes);
 // Settings routes
 app.use('/api/settings', settingsRoutes);
+// Payment Methods routes
+app.use('/api/payment-methods', paymentMethodRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
