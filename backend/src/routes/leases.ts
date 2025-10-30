@@ -82,9 +82,9 @@ router.get('/', async (req: AuthRequest, res: Response) => {
   } catch (error: any) {
     console.error('Get leases error:', error);
     console.error('Error details:', error.message, error.stack);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to fetch leases',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -313,7 +313,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     // Update unit status
     await prisma.units.update({
       where: { id: unitId },
-      data: { 
+      data: {
         status: 'occupied',
         updatedAt: new Date()
       }
@@ -368,9 +368,9 @@ router.post('/', async (req: AuthRequest, res: Response) => {
   } catch (error: any) {
     console.error('Create lease error:', error);
     console.error('Error details:', error.message, error.stack);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to create lease',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -430,7 +430,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     if (status === 'terminated' || status === 'expired') {
       await prisma.units.update({
         where: { id: existingLease.unitId },
-        data: { 
+        data: {
           status: 'vacant',
           updatedAt: new Date()
         }
@@ -495,7 +495,7 @@ router.post('/:id/terminate', async (req: AuthRequest, res: Response) => {
     // Update unit status
     await prisma.units.update({
       where: { id: lease.unitId },
-      data: { 
+      data: {
         status: 'vacant',
         updatedAt: new Date()
       }

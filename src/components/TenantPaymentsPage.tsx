@@ -39,6 +39,14 @@ import { toast } from 'sonner';
 import { getPayments, initializeTenantPayment } from '../lib/api/payments';
 import { getPublicPaymentGatewaySettings } from '../lib/api/settings';
 import { initializeSocket, isConnected, subscribeToPaymentEvents, unsubscribeFromPaymentEvents } from '../lib/socket';
+import { 
+  getPaymentMethods, 
+  addPaymentMethod, 
+  setDefaultPaymentMethod, 
+  deletePaymentMethod,
+  chargePaymentMethod,
+  PaymentMethod 
+} from '../lib/api/payment-methods';
 
 interface TenantPaymentsPageProps {
   dashboardData: any;
@@ -151,7 +159,31 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
 
   const scheduledPayments: any[] = []; // This would come from API if auto-pay is enabled
 
-  const paymentMethods: any[] = []; // This would come from payment provider API
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [loadingMethods, setLoadingMethods] = useState(false);
+  const [addingCard, setAddingCard] = useState(false);
+
+  // Load payment methods
+  const loadPaymentMethods = async () => {
+    try {
+      setLoadingMethods(true);
+      const response = await getPaymentMethods();
+      if (response.error) {
+        console.error('Failed to load payment methods:', response.error);
+      } else if (response.data) {
+        setPaymentMethods(response.data);
+      }
+    } catch (error) {
+      console.error('Load payment methods error:', error);
+    } finally {
+      setLoadingMethods(false);
+    }
+  };
+
+  // Load payment methods on mount
+  React.useEffect(() => {
+    loadPaymentMethods();
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch(status) {
