@@ -228,26 +228,42 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
       const res = await createLease(payload);
       if ((res as any).error) throw new Error((res as any).error.error || 'Failed to create lease');
 
-      // Capture the generated password from the response
+      // Capture the generated password and tenant ID from the response
       const generatedPassword = (res as any).data?.tempPassword;
+      const newTenantId = (res as any).data?.tenant?.id;
       
       console.log('✅ Tenant created successfully');
       if (generatedPassword) {
         console.log('🔐 Generated password:', generatedPassword);
       }
 
-      // Reload tenants from backend and add password to the newly created tenant
-      await loadTenants();
-      
-      // If password was generated, update the tenant in state with the password
-      if (generatedPassword && (res as any).data?.tenant?.id) {
-        setTenants(prevTenants => 
-          prevTenants.map(t => 
-            t.id === (res as any).data.tenant.id 
-              ? { ...t, credentials: { tempPassword: generatedPassword } }
-              : t
+      // Reload tenants from backend
+      const leaseRes = await getLeases();
+      if (!leaseRes.error && Array.isArray(leaseRes.data)) {
+        // Transform lease data to tenant format
+        const allTenantsData = leaseRes.data.map((lease: any) => ({
+          id: lease.users?.id || lease.tenantId,
+          name: lease.users?.name || 'Unknown',
+          email: lease.users?.email || '',
+          phone: lease.users?.phone || '',
+          leaseId: lease.id,
+          unitNumber: lease.units?.unitNumber || 'N/A',
+          propertyName: lease.properties?.name || 'N/A',
+          propertyId: lease.propertyId,
+          unitId: lease.unitId,
+          leaseStart: lease.startDate,
+          leaseEnd: lease.endDate,
+          rent: lease.monthlyRent,
+          status: lease.status || 'active',
+          // IMPORTANT: Preserve the password for the newly created tenant
+          ...(lease.users?.id === newTenantId && generatedPassword 
+            ? { credentials: { tempPassword: generatedPassword } } 
+            : {}
           )
-        );
+        }));
+        
+        setTenants(allTenantsData);
+        console.log('🔐 Password stored for tenant:', newTenantId);
       }
 
       setNewTenant({
