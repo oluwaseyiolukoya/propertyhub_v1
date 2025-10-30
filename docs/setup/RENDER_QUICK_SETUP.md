@@ -57,20 +57,24 @@ NODE_ENV=production
 DATABASE_URL=[from PostgreSQL addon]
 JWT_SECRET=[generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"]
 FRONTEND_URL=https://your-frontend.vercel.app
-PAYSTACK_SECRET_KEY=sk_live_...
-PAYSTACK_PUBLIC_KEY=pk_live_...
 ```
 
-**Optional (for testing):**
-```
-PAYSTACK_TEST_SECRET_KEY=sk_test_...
-PAYSTACK_TEST_PUBLIC_KEY=pk_test_...
-```
-
-**Optional (for scaling):**
+**Optional (for Socket.io scaling):**
 ```
 REDIS_URL=[from Redis addon]
 ```
+
+**Optional (ONLY if charging owners for subscriptions):**
+```
+# Platform-level Paystack for subscription billing
+PAYSTACK_SECRET_KEY=sk_live_your_platform_account
+PAYSTACK_PUBLIC_KEY=pk_live_your_platform_account
+```
+
+**❌ NOT NEEDED in Render:**
+- Individual property owner Paystack keys
+- These are configured by each owner in the frontend
+- Stored in database `payment_settings` table
 
 ### 4. Configure Health Check
 
