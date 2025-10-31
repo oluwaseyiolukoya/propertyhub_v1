@@ -339,7 +339,12 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
         }
       });
 
-      handler.openIframe();
+      // Close dialog before opening Paystack to avoid overlay/focus traps
+      setShowAddCardDialog(false);
+      // Defer opening to allow DOM update
+      setTimeout(() => {
+        handler.openIframe();
+      }, 50);
     } catch (error) {
       console.error('Error adding card:', error);
       toast.error('Failed to initialize card addition');
