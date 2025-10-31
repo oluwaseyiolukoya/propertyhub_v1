@@ -265,9 +265,24 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
         return;
       }
 
+      // Validate Paystack public key before initializing Inline
+      const paystackPublicKey = (import.meta as any).env?.VITE_PAYSTACK_PUBLIC_KEY as string | undefined;
+      const isValidKey = typeof paystackPublicKey === 'string' && /^pk_(test|live)_/.test(paystackPublicKey) && paystackPublicKey.length > 12;
+      if (!isValidKey) {
+        toast.error('We could not start this transaction, please enter a valid key.');
+        return;
+      }
+
+      // Validate Paystack library availability
+      const PaystackPop = (window as any)?.PaystackPop;
+      if (!PaystackPop || typeof PaystackPop.setup !== 'function') {
+        toast.error('Payment provider unavailable. Please refresh and try again.');
+        return;
+      }
+
       // Use Paystack Inline to tokenize the card with a ₦50 verification charge
-      const handler = (window as any).PaystackPop.setup({
-        key: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_xxxx', // Use public key from env
+      const handler = PaystackPop.setup({
+        key: paystackPublicKey,
         email: dashboardData.user.email,
         amount: 5000, // ₦50 in kobo (minimum for card verification)
         currency: 'NGN',
