@@ -39,13 +39,13 @@ import { toast } from 'sonner';
 import { getPayments, initializeTenantPayment } from '../lib/api/payments';
 import { getPublicPaymentGatewaySettings } from '../lib/api/settings';
 import { initializeSocket, isConnected, subscribeToPaymentEvents, unsubscribeFromPaymentEvents } from '../lib/socket';
-import { 
-  getPaymentMethods, 
-  addPaymentMethod, 
-  setDefaultPaymentMethod, 
+import {
+  getPaymentMethods,
+  addPaymentMethod,
+  setDefaultPaymentMethod,
   deletePaymentMethod,
-  chargePaymentMethod,
-  PaymentMethod 
+  chargeCard,
+  PaymentMethod
 } from '../lib/api/payment-methods';
 
 interface TenantPaymentsPageProps {
@@ -255,18 +255,70 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
     setShowPaymentDialog(true);
   };
 
-  const handleAddCard = () => {
-    if (!cardNumber || !cardName || !cardExpiry || !cardCVV) {
-      toast.error('Please fill in all card details');
-      return;
+  const handleAddCard = async () => {
+    try {
+      if (!dashboardData?.user?.email) {
+        toast.error('User email not found');
+        return;
+      }
+
+      // Use Paystack Inline to tokenize the card with a ₦50 verification charge
+      const handler = (window as any).PaystackPop.setup({
+        key: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_xxxx', // Use public key from env
+        email: dashboardData.user.email,
+        amount: 5000, // ₦50 in kobo (minimum for card verification)
+        currency: 'NGN',
+        ref: `card_verify_${Date.now()}`,
+        metadata: {
+          custom_fields: [
+            {
+              display_name: 'Purpose',
+              variable_name: 'purpose',
+              value: 'Card Verification'
+            }
+          ]
+        },
+        callback: async function(response: any) {
+          // Card successfully charged, now save the authorization
+          try {
+            const authCode = response.reference;
+            
+            // Call backend to save the payment method
+            const result = await addPaymentMethod({
+              email: dashboardData.user.email,
+              authorizationCode: authCode
+            });
+
+            if (result.error) {
+              toast.error(result.error.error || 'Failed to save card');
+              return;
+            }
+
+            toast.success('Card added successfully! The ₦50 verification charge will be refunded.');
+            setShowAddCardDialog(false);
+            loadPaymentMethods(); // Reload the payment methods list
+            
+            // Reset form
+            setCardNumber('');
+            setCardName('');
+            setCardExpiry('');
+            setCardCVV('');
+            setMakeDefault(false);
+          } catch (error) {
+            console.error('Error saving card:', error);
+            toast.error('Failed to save card details');
+          }
+        },
+        onClose: function() {
+          toast.info('Card addition cancelled');
+        }
+      });
+
+      handler.openIframe();
+    } catch (error) {
+      console.error('Error adding card:', error);
+      toast.error('Failed to initialize card addition');
     }
-    setShowAddCardDialog(false);
-    toast.success(`Card ending in ${cardNumber.slice(-4)} added successfully!`);
-    setCardNumber('');
-    setCardName('');
-    setCardExpiry('');
-    setCardCVV('');
-    setMakeDefault(false);
   };
 
   const handleToggleAutoPay = () => {
@@ -496,29 +548,83 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {paymentMethods.map((method) => (
-                  <div key={method.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center space-x-4">
-                      <div className="p-2 bg-gray-100 rounded-lg">
-                        <CreditCard className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="font-medium">{method.brand} •••• {method.last4}</p>
-                        <p className="text-sm text-muted-foreground">Expires {method.expiry}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      {method.isDefault && (
-                        <Badge variant="outline" className="bg-blue-100 text-blue-800">
-                          Default
-                        </Badge>
-                      )}
-                      <Button variant="outline" size="sm">Edit</Button>
-                    </div>
+              {loadingMethods ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="mt-2 text-sm text-muted-foreground">Loading payment methods...</p>
                   </div>
-                ))}
-              </div>
+                </div>
+              ) : paymentMethods.length === 0 ? (
+                <div className="text-center py-8">
+                  <CreditCard className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-muted-foreground">No payment methods saved</p>
+                  <p className="text-sm text-muted-foreground mt-1">Add a card to enable quick payments</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {paymentMethods.map((method) => (
+                    <div key={method.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center space-x-4">
+                        <div className="p-2 bg-gray-100 rounded-lg">
+                          <CreditCard className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{method.cardBrand} •••• {method.cardLast4}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Expires {method.cardExpMonth}/{method.cardExpYear}
+                          </p>
+                          {method.bank && (
+                            <p className="text-xs text-muted-foreground">{method.bank}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {method.isDefault && (
+                          <Badge variant="outline" className="bg-blue-100 text-blue-800">
+                            Default
+                          </Badge>
+                        )}
+                        {!method.isDefault && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={async () => {
+                              const result = await setDefaultPaymentMethod(method.id);
+                              if (result.error) {
+                                toast.error('Failed to set default card');
+                              } else {
+                                toast.success('Default card updated');
+                                loadPaymentMethods();
+                              }
+                            }}
+                          >
+                            Set Default
+                          </Button>
+                        )}
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="text-red-600 hover:text-red-700"
+                          onClick={async () => {
+                            if (confirm('Are you sure you want to remove this card?')) {
+                              const result = await deletePaymentMethod(method.id);
+                              if (result.error) {
+                                toast.error('Failed to remove card');
+                              } else {
+                                toast.success('Card removed successfully');
+                                loadPaymentMethods();
+                              }
+                            }
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -710,86 +816,28 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
           <DialogHeader>
             <DialogTitle>Add Payment Method</DialogTitle>
             <DialogDescription>
-              Add a new credit or debit card to your account
+              Securely add a credit or debit card via Paystack
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="cardNumber">Card Number</Label>
-              <Input
-                id="cardNumber"
-                placeholder="1234 5678 9012 3456"
-                value={cardNumber}
-                onChange={(e) => {
-                  // Format card number with spaces
-                  const value = e.target.value.replace(/\s/g, '');
-                  const formatted = value.match(/.{1,4}/g)?.join(' ') || value;
-                  setCardNumber(formatted);
-                }}
-                maxLength={19}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="cardName">Cardholder Name</Label>
-              <Input
-                id="cardName"
-                placeholder="John Doe"
-                value={cardName}
-                onChange={(e) => setCardName(e.target.value)}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="cardExpiry">Expiry Date</Label>
-                <Input
-                  id="cardExpiry"
-                  placeholder="MM/YY"
-                  value={cardExpiry}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, '');
-                    let formatted = value;
-                    if (value.length >= 2) {
-                      formatted = value.slice(0, 2) + '/' + value.slice(2, 4);
-                    }
-                    setCardExpiry(formatted);
-                  }}
-                  maxLength={5}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="cardCVV">CVV</Label>
-                <Input
-                  id="cardCVV"
-                  type="password"
-                  placeholder="123"
-                  value={cardCVV}
-                  onChange={(e) => setCardCVV(e.target.value.replace(/\D/g, ''))}
-                  maxLength={4}
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="makeDefault"
-                checked={makeDefault}
-                onCheckedChange={(checked) => setMakeDefault(checked as boolean)}
-              />
-              <Label
-                htmlFor="makeDefault"
-                className="text-sm font-normal cursor-pointer"
-              >
-                Set as default payment method
-              </Label>
-            </div>
-
             <Alert>
               <CheckCircle2 className="h-4 w-4" />
               <AlertDescription>
-                Your card information is securely encrypted and stored. We never share your payment details.
+                <p className="font-medium mb-2">How it works:</p>
+                <ul className="list-disc list-inside space-y-1 text-sm">
+                  <li>A secure Paystack payment window will open</li>
+                  <li>Enter your card details securely</li>
+                  <li>A ₦50 verification charge will be made</li>
+                  <li>Your card will be saved for future payments</li>
+                  <li>The ₦50 will be refunded within 24 hours</li>
+                </ul>
+              </AlertDescription>
+            </Alert>
+
+            <Alert className="border-blue-200 bg-blue-50">
+              <AlertCircle className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-900">
+                Your card information is processed securely by Paystack. We never see or store your full card details.
               </AlertDescription>
             </Alert>
           </div>
@@ -798,7 +846,8 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
               Cancel
             </Button>
             <Button onClick={handleAddCard}>
-              Add Card
+              <CreditCard className="h-4 w-4 mr-2" />
+              Continue to Paystack
             </Button>
           </DialogFooter>
         </DialogContent>

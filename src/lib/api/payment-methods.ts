@@ -3,46 +3,46 @@ import { API_ENDPOINTS } from '../api-config';
 
 export interface PaymentMethod {
   id: string;
+  tenantId: string;
+  customerId: string;
   type: string;
   provider: string;
-  cardBrand?: string;
-  cardLast4?: string;
-  cardExpMonth?: string;
-  cardExpYear?: string;
-  bank?: string;
-  accountName?: string;
-  isDefault: boolean;
-  createdAt: string;
-}
-
-export interface AddPaymentMethodPayload {
   authorizationCode: string;
-  cardBrand?: string;
+  cardBrand: string;
   cardLast4: string;
-  cardExpMonth?: string;
-  cardExpYear?: string;
+  cardExpMonth: string;
+  cardExpYear: string;
   cardBin?: string;
   cardType?: string;
   bank?: string;
   accountName?: string;
-  setAsDefault?: boolean;
+  isDefault: boolean;
+  isActive: boolean;
+  metadata?: any;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface ChargePaymentMethodPayload {
+export interface AddPaymentMethodPayload {
+  email: string;
+  authorizationCode: string;
+}
+
+export interface ChargeCardPayload {
+  paymentMethodId: string;
   amount: number;
-  leaseId?: string;
-  type?: string;
+  leaseId: string;
 }
 
 /**
- * Get all payment methods for the authenticated tenant
+ * Get all payment methods for the current tenant
  */
 export const getPaymentMethods = async (): Promise<ApiResponse<PaymentMethod[]>> => {
   return apiClient.get<PaymentMethod[]>(API_ENDPOINTS.PAYMENT_METHODS.LIST);
 };
 
 /**
- * Add a new payment method (card)
+ * Add a new payment method
  */
 export const addPaymentMethod = async (payload: AddPaymentMethodPayload): Promise<ApiResponse<PaymentMethod>> => {
   return apiClient.post<PaymentMethod>(API_ENDPOINTS.PAYMENT_METHODS.ADD, payload);
@@ -51,21 +51,20 @@ export const addPaymentMethod = async (payload: AddPaymentMethodPayload): Promis
 /**
  * Set a payment method as default
  */
-export const setDefaultPaymentMethod = async (id: string): Promise<ApiResponse<{ message: string }>> => {
-  return apiClient.put<{ message: string }>(API_ENDPOINTS.PAYMENT_METHODS.SET_DEFAULT(id), {});
+export const setDefaultPaymentMethod = async (id: string): Promise<ApiResponse<PaymentMethod>> => {
+  return apiClient.put<PaymentMethod>(API_ENDPOINTS.PAYMENT_METHODS.SET_DEFAULT(id), {});
 };
 
 /**
- * Delete (deactivate) a payment method
+ * Delete a payment method
  */
-export const deletePaymentMethod = async (id: string): Promise<ApiResponse<{ message: string }>> => {
-  return apiClient.delete<{ message: string }>(API_ENDPOINTS.PAYMENT_METHODS.DELETE(id));
+export const deletePaymentMethod = async (id: string): Promise<ApiResponse<void>> => {
+  return apiClient.delete<void>(API_ENDPOINTS.PAYMENT_METHODS.DELETE(id));
 };
 
 /**
- * Charge a specific payment method
+ * Charge a saved card
  */
-export const chargePaymentMethod = async (id: string, payload: ChargePaymentMethodPayload): Promise<ApiResponse<any>> => {
-  return apiClient.post<any>(API_ENDPOINTS.PAYMENT_METHODS.CHARGE(id), payload);
+export const chargeCard = async (payload: ChargeCardPayload): Promise<ApiResponse<any>> => {
+  return apiClient.post<any>(API_ENDPOINTS.PAYMENT_METHODS.CHARGE, payload);
 };
-
