@@ -1,10 +1,13 @@
 import { Router, Response } from 'express';
-import { AuthRequest } from '../middleware/auth';
+import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { db } from '../lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
 
 const router = Router();
+
+// Apply authentication middleware to all routes
+router.use(authMiddleware);
 
 // Get all payment methods for a tenant
 router.get('/', async (req: AuthRequest, res: Response) => {
@@ -58,7 +61,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
     // Verify the authorization with Paystack
     const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
-    
+
     if (!paystackSecretKey) {
       return res.status(500).json({ error: 'Payment gateway not configured' });
     }
@@ -131,19 +134,19 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       }
     });
 
-    res.json({ 
+    res.json({
       message: 'Payment method added successfully',
-      paymentMethod 
+      paymentMethod
     });
   } catch (error: any) {
     console.error('Error adding payment method:', error);
-    
+
     if (error.response?.data) {
-      return res.status(400).json({ 
-        error: error.response.data.message || 'Failed to verify card with payment provider' 
+      return res.status(400).json({
+        error: error.response.data.message || 'Failed to verify card with payment provider'
       });
     }
-    
+
     res.status(500).json({ error: 'Failed to add payment method' });
   }
 });
@@ -189,9 +192,9 @@ router.put('/:id/set-default', async (req: AuthRequest, res: Response) => {
       data: { isDefault: true }
     });
 
-    res.json({ 
+    res.json({
       message: 'Default payment method updated',
-      paymentMethod: updatedMethod 
+      paymentMethod: updatedMethod
     });
   } catch (error) {
     console.error('Error setting default payment method:', error);
@@ -343,8 +346,8 @@ router.post('/charge', async (req: AuthRequest, res: Response) => {
     const chargeData = chargeResponse.data.data;
 
     if (chargeData.status !== 'success') {
-      return res.status(400).json({ 
-        error: chargeData.gateway_response || 'Payment failed' 
+      return res.status(400).json({
+        error: chargeData.gateway_response || 'Payment failed'
       });
     }
 
@@ -379,13 +382,13 @@ router.post('/charge', async (req: AuthRequest, res: Response) => {
     });
   } catch (error: any) {
     console.error('Error charging card:', error);
-    
+
     if (error.response?.data) {
-      return res.status(400).json({ 
-        error: error.response.data.message || 'Payment failed' 
+      return res.status(400).json({
+        error: error.response.data.message || 'Payment failed'
       });
     }
-    
+
     res.status(500).json({ error: 'Failed to process payment' });
   }
 });
