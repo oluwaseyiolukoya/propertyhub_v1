@@ -59,19 +59,34 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Authorization code is required' });
     }
 
-    // Verify the authorization with Paystack
-    const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
+    // Determine owner's Paystack secret based on the tenant's active lease (owner-level config)
+    const activeLease = await prisma.leases.findFirst({
+      where: { tenantId: userId, status: 'active' },
+      include: {
+        properties: { select: { customerId: true } },
+        units: { include: { properties: { select: { customerId: true } } } }
+      }
+    });
 
-    if (!paystackSecretKey) {
-      return res.status(500).json({ error: 'Payment gateway not configured' });
+    const ownerCustomerId = activeLease?.properties?.customerId || activeLease?.units?.properties?.customerId;
+    if (!ownerCustomerId) {
+      return res.status(400).json({ error: 'Property owner not found' });
     }
 
-    // Fetch authorization details from Paystack
+    const ownerSettings = await prisma.payment_settings.findFirst({
+      where: { customerId: ownerCustomerId, provider: 'paystack' }
+    });
+
+    if (!ownerSettings?.secretKey) {
+      return res.status(400).json({ error: 'Owner has not configured payment gateway' });
+    }
+
+    // Fetch authorization details from Paystack using owner's secret key
     const authResponse = await axios.get(
       `https://api.paystack.co/transaction/verify_authorization/${authorizationCode}`,
       {
         headers: {
-          Authorization: `Bearer ${paystackSecretKey}`
+          Authorization: `Bearer ${ownerSettings.secretKey}`
         }
       }
     );

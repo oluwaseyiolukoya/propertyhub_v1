@@ -79,6 +79,12 @@ export const getPublicPaymentGatewaySettings = async (): Promise<ApiResponse<{ i
   return await apiClient.get<{ isEnabled: boolean; testMode: boolean; bankTransferTemplate?: string; updatedAt?: string } | null>('/api/settings/payment-gateway/public');
 };
 
+export const getTenantPublicPaymentGateway = async (): Promise<ApiResponse<{ publicKey: string | null; isEnabled: boolean; testMode: boolean; bankTransferTemplate?: string; updatedAt?: string }>> => {
+  return await apiClient.get<{ publicKey: string | null; isEnabled: boolean; testMode: boolean; bankTransferTemplate?: string; updatedAt?: string }>(
+    '/api/tenant/payment-gateway/public'
+  );
+};
+
 export const savePaymentGatewaySettings = async (payload: {
   publicKey: string;
   secretKey: string;
