@@ -171,7 +171,10 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
       if (response.error) {
         console.error('Failed to load payment methods:', response.error);
       } else if (response.data) {
-        setPaymentMethods(response.data);
+        const list = Array.isArray(response.data)
+          ? response.data
+          : (response.data as any).paymentMethods || [];
+        setPaymentMethods(list);
       }
     } catch (error) {
       console.error('Load payment methods error:', error);
