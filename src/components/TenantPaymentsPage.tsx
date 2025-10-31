@@ -278,17 +278,15 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
             }
           ]
         },
-        callback: async function(response: any) {
+        callback: function(response: any) {
           // Card successfully charged, now save the authorization
-          try {
-            const authCode = response.reference;
-            
-            // Call backend to save the payment method
-            const result = await addPaymentMethod({
-              email: dashboardData.user.email,
-              authorizationCode: authCode
-            });
+          const authCode = response.reference;
 
+          // Call backend to save the payment method (handle async in non-blocking way)
+          addPaymentMethod({
+            email: dashboardData.user.email,
+            authorizationCode: authCode
+          }).then((result) => {
             if (result.error) {
               toast.error(result.error.error || 'Failed to save card');
               return;
@@ -297,17 +295,17 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
             toast.success('Card added successfully! The ₦50 verification charge will be refunded.');
             setShowAddCardDialog(false);
             loadPaymentMethods(); // Reload the payment methods list
-            
+
             // Reset form
             setCardNumber('');
             setCardName('');
             setCardExpiry('');
             setCardCVV('');
             setMakeDefault(false);
-          } catch (error) {
+          }).catch((error) => {
             console.error('Error saving card:', error);
             toast.error('Failed to save card details');
-          }
+          });
         },
         onClose: function() {
           toast.info('Card addition cancelled');
@@ -586,8 +584,8 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
                           </Badge>
                         )}
                         {!method.isDefault && (
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="sm"
                             onClick={async () => {
                               const result = await setDefaultPaymentMethod(method.id);
@@ -602,8 +600,8 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
                             Set Default
                           </Button>
                         )}
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="sm"
                           className="text-red-600 hover:text-red-700"
                           onClick={async () => {
