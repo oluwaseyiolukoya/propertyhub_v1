@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Ensure Paystack inline overlay is clickable and above any app modal overlays */
+.paystack-overlay, .paystack-checkout, .paystack-popup, .paystack-modal {
+  z-index: 999999 !important;
+  pointer-events: auto !important;
+}
+
 :root {
   --background: 0 0% 100%;
   --foreground: 222.2 84% 4.9%;
