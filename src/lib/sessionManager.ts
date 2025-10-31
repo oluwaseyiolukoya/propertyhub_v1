@@ -1,6 +1,6 @@
 /**
  * Session Manager - Simple session management
- * 
+ *
  * Since we're using localStorage, sessions naturally persist across page refreshes.
  * This manager provides a simple interface for session management.
  */
@@ -29,7 +29,7 @@ class SessionManager {
    */
   private clearSession(): void {
     if (this.isClearing) return;
-    
+
     this.isClearing = true;
     try {
       removeAuthToken();

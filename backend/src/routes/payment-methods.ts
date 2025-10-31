@@ -81,9 +81,9 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Owner has not configured payment gateway' });
     }
 
-    // Fetch authorization details from Paystack using owner's secret key
-    const authResponse = await axios.get(
-      `https://api.paystack.co/transaction/verify_authorization/${authorizationCode}`,
+    // Verify the transaction reference to obtain the reusable authorization code
+    const verifyResponse = await axios.get(
+      `https://api.paystack.co/transaction/verify/${authorizationCode}`,
       {
         headers: {
           Authorization: `Bearer ${ownerSettings.secretKey}`
@@ -91,13 +91,13 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       }
     );
 
-    const authData = authResponse.data.data;
+    const verifyData = verifyResponse.data?.data;
 
-    if (!authData || !authData.authorization) {
-      return res.status(400).json({ error: 'Invalid authorization code' });
+    if (!verifyData || !verifyData.authorization) {
+      return res.status(400).json({ error: 'Invalid or unverifiable transaction reference' });
     }
 
-    const authorization = authData.authorization;
+    const authorization = verifyData.authorization;
 
     // Check if this card already exists
     const existingCard = await prisma.payment_methods.findFirst({
