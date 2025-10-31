@@ -12,7 +12,7 @@ router.use(authMiddleware);
 // Get all payment methods for a tenant
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user?.userId;
+    const userId = req.user?.id;
     const role = req.user?.role;
 
     if (!userId) {
@@ -45,7 +45,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 // Add a new payment method (card tokenization via Paystack)
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user?.userId;
+    const userId = req.user?.id;
     const role = req.user?.role;
     const customerId = req.user?.customerId;
 
@@ -154,7 +154,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 // Set a payment method as default
 router.put('/:id/set-default', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user?.userId;
+    const userId = req.user?.id;
     const role = req.user?.role;
     const { id } = req.params;
 
@@ -205,7 +205,7 @@ router.put('/:id/set-default', async (req: AuthRequest, res: Response) => {
 // Delete a payment method
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user?.userId;
+    const userId = req.user?.id;
     const role = req.user?.role;
     const { id } = req.params;
 
@@ -261,7 +261,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
 // Charge a saved card for rent payment
 router.post('/charge', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user?.userId;
+    const userId = req.user?.id;
     const role = req.user?.role;
     const customerId = req.user?.customerId;
 
