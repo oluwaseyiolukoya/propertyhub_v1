@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
-import { db } from '../lib/db';
+import prisma from '../lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
 
@@ -24,7 +24,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ error: 'Only tenants can access payment methods' });
     }
 
-    const paymentMethods = await db.payment_methods.findMany({
+    const paymentMethods = await prisma.payment_methods.findMany({
       where: {
         tenantId: userId,
         isActive: true
@@ -85,7 +85,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     const authorization = authData.authorization;
 
     // Check if this card already exists
-    const existingCard = await db.payment_methods.findFirst({
+    const existingCard = await prisma.payment_methods.findFirst({
       where: {
         tenantId: userId,
         authorizationCode: authorization.authorization_code,
@@ -98,7 +98,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     }
 
     // If this is the first card, make it default
-    const existingCards = await db.payment_methods.count({
+    const existingCards = await prisma.payment_methods.count({
       where: {
         tenantId: userId,
         isActive: true
@@ -108,7 +108,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     const isFirstCard = existingCards === 0;
 
     // Create the payment method
-    const paymentMethod = await db.payment_methods.create({
+    const paymentMethod = await prisma.payment_methods.create({
       data: {
         id: uuidv4(),
         tenantId: userId,
@@ -163,7 +163,7 @@ router.put('/:id/set-default', async (req: AuthRequest, res: Response) => {
     }
 
     // Verify the payment method belongs to the tenant
-    const paymentMethod = await db.payment_methods.findFirst({
+    const paymentMethod = await prisma.payment_methods.findFirst({
       where: {
         id,
         tenantId: userId,
@@ -176,7 +176,7 @@ router.put('/:id/set-default', async (req: AuthRequest, res: Response) => {
     }
 
     // Remove default flag from all other cards
-    await db.payment_methods.updateMany({
+    await prisma.payment_methods.updateMany({
       where: {
         tenantId: userId,
         isActive: true
@@ -187,7 +187,7 @@ router.put('/:id/set-default', async (req: AuthRequest, res: Response) => {
     });
 
     // Set this card as default
-    const updatedMethod = await db.payment_methods.update({
+    const updatedMethod = await prisma.payment_methods.update({
       where: { id },
       data: { isDefault: true }
     });
@@ -214,7 +214,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
     }
 
     // Verify the payment method belongs to the tenant
-    const paymentMethod = await db.payment_methods.findFirst({
+    const paymentMethod = await prisma.payment_methods.findFirst({
       where: {
         id,
         tenantId: userId,
@@ -227,14 +227,14 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
     }
 
     // Soft delete the payment method
-    await db.payment_methods.update({
+    await prisma.payment_methods.update({
       where: { id },
       data: { isActive: false }
     });
 
     // If this was the default card, set another card as default
     if (paymentMethod.isDefault) {
-      const nextCard = await db.payment_methods.findFirst({
+      const nextCard = await prisma.payment_methods.findFirst({
         where: {
           tenantId: userId,
           isActive: true,
@@ -244,7 +244,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
       });
 
       if (nextCard) {
-        await db.payment_methods.update({
+        await prisma.payment_methods.update({
           where: { id: nextCard.id },
           data: { isDefault: true }
         });
@@ -276,7 +276,7 @@ router.post('/charge', async (req: AuthRequest, res: Response) => {
     }
 
     // Get the payment method
-    const paymentMethod = await db.payment_methods.findFirst({
+    const paymentMethod = await prisma.payment_methods.findFirst({
       where: {
         id: paymentMethodId,
         tenantId: userId,
@@ -289,7 +289,7 @@ router.post('/charge', async (req: AuthRequest, res: Response) => {
     }
 
     // Get the lease to verify
-    const lease = await db.leases.findFirst({
+    const lease = await prisma.leases.findFirst({
       where: {
         id: leaseId,
         tenantId: userId
@@ -313,7 +313,7 @@ router.post('/charge', async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Property owner not found' });
     }
 
-    const paymentSettings = await db.payment_settings.findFirst({
+    const paymentSettings = await prisma.payment_settings.findFirst({
       where: { customerId: ownerCustomerId }
     });
 
@@ -352,7 +352,7 @@ router.post('/charge', async (req: AuthRequest, res: Response) => {
     }
 
     // Create payment record
-    const payment = await db.payments.create({
+    const payment = await prisma.payments.create({
       data: {
         id: uuidv4(),
         leaseId,
