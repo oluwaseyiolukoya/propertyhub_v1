@@ -1,20 +1,15 @@
 import { Router, Response } from 'express';
-import { AuthRequest, authMiddleware } from '../middleware/auth';
-import { getPrisma } from '../lib/db';
+import { AuthRequest } from '../middleware/auth';
+import { db } from '../lib/db';
 import { v4 as uuidv4 } from 'uuid';
+import axios from 'axios';
 
 const router = Router();
 
-// Apply auth middleware to all routes
-router.use(authMiddleware);
-
-/**
- * GET /api/payment-methods
- * Get all payment methods for the authenticated tenant
- */
+// Get all payment methods for a tenant
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     const role = req.user?.role;
 
     if (!userId) {
@@ -23,423 +18,376 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
     // Only tenants can access their payment methods
     if (role !== 'tenant') {
-      return res.status(403).json({ error: 'Only tenants can manage payment methods' });
+      return res.status(403).json({ error: 'Only tenants can access payment methods' });
     }
 
-    const prisma = getPrisma();
-
-    const paymentMethods = await prisma.payment_methods.findMany({
+    const paymentMethods = await db.payment_methods.findMany({
       where: {
         tenantId: userId,
-        isActive: true,
+        isActive: true
       },
       orderBy: [
         { isDefault: 'desc' },
-        { createdAt: 'desc' },
-      ],
-      select: {
-        id: true,
-        type: true,
-        provider: true,
-        cardBrand: true,
-        cardLast4: true,
-        cardExpMonth: true,
-        cardExpYear: true,
-        bank: true,
-        accountName: true,
-        isDefault: true,
-        createdAt: true,
-        // Never expose authorization code or sensitive data
-      },
+        { createdAt: 'desc' }
+      ]
     });
 
-    res.json({ data: paymentMethods });
+    res.json({ paymentMethods });
   } catch (error) {
     console.error('Error fetching payment methods:', error);
     res.status(500).json({ error: 'Failed to fetch payment methods' });
   }
 });
 
-/**
- * POST /api/payment-methods
- * Add a new payment method (card) for the tenant
- * Expects Paystack authorization code from frontend
- */
+// Add a new payment method (card tokenization via Paystack)
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user?.id;
-    const customerId = req.user?.customerId;
+    const userId = req.user?.userId;
     const role = req.user?.role;
+    const customerId = req.user?.customerId;
 
-    if (!userId || !customerId) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    if (role !== 'tenant') {
+    if (!userId || role !== 'tenant') {
       return res.status(403).json({ error: 'Only tenants can add payment methods' });
     }
 
-    const {
-      authorizationCode,
-      cardBrand,
-      cardLast4,
-      cardExpMonth,
-      cardExpYear,
-      cardBin,
-      cardType,
-      bank,
-      accountName,
-      setAsDefault,
-    } = req.body;
+    const { email, authorizationCode } = req.body;
 
-    if (!authorizationCode || !cardLast4) {
-      return res.status(400).json({ error: 'Authorization code and card details are required' });
+    if (!authorizationCode) {
+      return res.status(400).json({ error: 'Authorization code is required' });
     }
 
-    const prisma = getPrisma();
-
-    // If setting as default, unset other defaults
-    if (setAsDefault) {
-      await prisma.payment_methods.updateMany({
-        where: {
-          tenantId: userId,
-          isDefault: true,
-        },
-        data: {
-          isDefault: false,
-        },
-      });
+    // Verify the authorization with Paystack
+    const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
+    
+    if (!paystackSecretKey) {
+      return res.status(500).json({ error: 'Payment gateway not configured' });
     }
 
-    // Check if this is the first card (auto-set as default)
-    const existingCount = await prisma.payment_methods.count({
+    // Fetch authorization details from Paystack
+    const authResponse = await axios.get(
+      `https://api.paystack.co/transaction/verify_authorization/${authorizationCode}`,
+      {
+        headers: {
+          Authorization: `Bearer ${paystackSecretKey}`
+        }
+      }
+    );
+
+    const authData = authResponse.data.data;
+
+    if (!authData || !authData.authorization) {
+      return res.status(400).json({ error: 'Invalid authorization code' });
+    }
+
+    const authorization = authData.authorization;
+
+    // Check if this card already exists
+    const existingCard = await db.payment_methods.findFirst({
       where: {
         tenantId: userId,
-        isActive: true,
-      },
+        authorizationCode: authorization.authorization_code,
+        isActive: true
+      }
     });
 
-    const isFirstCard = existingCount === 0;
+    if (existingCard) {
+      return res.status(400).json({ error: 'This card has already been added' });
+    }
+
+    // If this is the first card, make it default
+    const existingCards = await db.payment_methods.count({
+      where: {
+        tenantId: userId,
+        isActive: true
+      }
+    });
+
+    const isFirstCard = existingCards === 0;
 
     // Create the payment method
-    const paymentMethod = await prisma.payment_methods.create({
+    const paymentMethod = await db.payment_methods.create({
       data: {
         id: uuidv4(),
         tenantId: userId,
-        customerId,
+        customerId: customerId || '',
         type: 'card',
         provider: 'paystack',
-        authorizationCode,
-        cardBrand: cardBrand || null,
-        cardLast4,
-        cardExpMonth: cardExpMonth || null,
-        cardExpYear: cardExpYear || null,
-        cardBin: cardBin || null,
-        cardType: cardType || null,
-        bank: bank || null,
-        accountName: accountName || null,
-        isDefault: setAsDefault || isFirstCard,
+        authorizationCode: authorization.authorization_code,
+        cardBrand: authorization.brand,
+        cardLast4: authorization.last4,
+        cardExpMonth: authorization.exp_month,
+        cardExpYear: authorization.exp_year,
+        cardBin: authorization.bin,
+        cardType: authorization.card_type,
+        bank: authorization.bank,
+        accountName: authorization.account_name,
+        isDefault: isFirstCard,
         isActive: true,
-        updatedAt: new Date(),
-      },
-      select: {
-        id: true,
-        type: true,
-        provider: true,
-        cardBrand: true,
-        cardLast4: true,
-        cardExpMonth: true,
-        cardExpYear: true,
-        bank: true,
-        isDefault: true,
-        createdAt: true,
-      },
+        metadata: {
+          channel: authorization.channel,
+          countryCode: authorization.country_code,
+          reusable: authorization.reusable
+        }
+      }
     });
 
-    res.status(201).json({ data: paymentMethod });
-  } catch (error) {
+    res.json({ 
+      message: 'Payment method added successfully',
+      paymentMethod 
+    });
+  } catch (error: any) {
     console.error('Error adding payment method:', error);
+    
+    if (error.response?.data) {
+      return res.status(400).json({ 
+        error: error.response.data.message || 'Failed to verify card with payment provider' 
+      });
+    }
+    
     res.status(500).json({ error: 'Failed to add payment method' });
   }
 });
 
-/**
- * PUT /api/payment-methods/:id/default
- * Set a payment method as default
- */
-router.put('/:id/default', async (req: AuthRequest, res: Response) => {
+// Set a payment method as default
+router.put('/:id/set-default', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     const role = req.user?.role;
     const { id } = req.params;
 
-    if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    if (role !== 'tenant') {
+    if (!userId || role !== 'tenant') {
       return res.status(403).json({ error: 'Only tenants can manage payment methods' });
     }
 
-    const prisma = getPrisma();
-
     // Verify the payment method belongs to the tenant
-    const paymentMethod = await prisma.payment_methods.findFirst({
+    const paymentMethod = await db.payment_methods.findFirst({
       where: {
         id,
         tenantId: userId,
-        isActive: true,
-      },
+        isActive: true
+      }
     });
 
     if (!paymentMethod) {
       return res.status(404).json({ error: 'Payment method not found' });
     }
 
-    // Unset all other defaults
-    await prisma.payment_methods.updateMany({
+    // Remove default flag from all other cards
+    await db.payment_methods.updateMany({
       where: {
         tenantId: userId,
-        isDefault: true,
+        isActive: true
       },
       data: {
-        isDefault: false,
-        updatedAt: new Date(),
-      },
+        isDefault: false
+      }
     });
 
-    // Set this one as default
-    await prisma.payment_methods.update({
+    // Set this card as default
+    const updatedMethod = await db.payment_methods.update({
       where: { id },
-      data: {
-        isDefault: true,
-        updatedAt: new Date(),
-      },
+      data: { isDefault: true }
     });
 
-    res.json({ message: 'Default payment method updated' });
+    res.json({ 
+      message: 'Default payment method updated',
+      paymentMethod: updatedMethod 
+    });
   } catch (error) {
     console.error('Error setting default payment method:', error);
-    res.status(500).json({ error: 'Failed to set default payment method' });
+    res.status(500).json({ error: 'Failed to update default payment method' });
   }
 });
 
-/**
- * DELETE /api/payment-methods/:id
- * Delete (deactivate) a payment method
- */
+// Delete a payment method
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     const role = req.user?.role;
     const { id } = req.params;
 
-    if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    if (role !== 'tenant') {
+    if (!userId || role !== 'tenant') {
       return res.status(403).json({ error: 'Only tenants can manage payment methods' });
     }
 
-    const prisma = getPrisma();
-
     // Verify the payment method belongs to the tenant
-    const paymentMethod = await prisma.payment_methods.findFirst({
+    const paymentMethod = await db.payment_methods.findFirst({
       where: {
         id,
         tenantId: userId,
-        isActive: true,
-      },
+        isActive: true
+      }
     });
 
     if (!paymentMethod) {
       return res.status(404).json({ error: 'Payment method not found' });
     }
 
-    // Soft delete by setting isActive to false
-    await prisma.payment_methods.update({
+    // Soft delete the payment method
+    await db.payment_methods.update({
       where: { id },
-      data: {
-        isActive: false,
-        updatedAt: new Date(),
-      },
+      data: { isActive: false }
     });
 
-    // If this was the default, set another card as default
+    // If this was the default card, set another card as default
     if (paymentMethod.isDefault) {
-      const nextCard = await prisma.payment_methods.findFirst({
+      const nextCard = await db.payment_methods.findFirst({
         where: {
           tenantId: userId,
           isActive: true,
-          id: { not: id },
+          id: { not: id }
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: 'desc' }
       });
 
       if (nextCard) {
-        await prisma.payment_methods.update({
+        await db.payment_methods.update({
           where: { id: nextCard.id },
-          data: {
-            isDefault: true,
-            updatedAt: new Date(),
-          },
+          data: { isDefault: true }
         });
       }
     }
 
-    res.json({ message: 'Payment method removed' });
+    res.json({ message: 'Payment method removed successfully' });
   } catch (error) {
     console.error('Error deleting payment method:', error);
     res.status(500).json({ error: 'Failed to delete payment method' });
   }
 });
 
-/**
- * POST /api/payment-methods/:id/charge
- * Charge a specific payment method (for manual payments or scheduled auto-pay)
- */
-router.post('/:id/charge', async (req: AuthRequest, res: Response) => {
+// Charge a saved card for rent payment
+router.post('/charge', async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user?.id;
-    const customerId = req.user?.customerId;
+    const userId = req.user?.userId;
     const role = req.user?.role;
-    const { id } = req.params;
-    const { amount, leaseId, type = 'rent' } = req.body;
+    const customerId = req.user?.customerId;
 
-    if (!userId || !customerId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (!userId || role !== 'tenant') {
+      return res.status(403).json({ error: 'Only tenants can make payments' });
     }
 
-    if (role !== 'tenant') {
-      return res.status(403).json({ error: 'Only tenants can charge payment methods' });
-    }
+    const { paymentMethodId, amount, leaseId } = req.body;
 
-    if (!amount || amount <= 0) {
-      return res.status(400).json({ error: 'Valid amount is required' });
+    if (!paymentMethodId || !amount || !leaseId) {
+      return res.status(400).json({ error: 'Payment method, amount, and lease ID are required' });
     }
-
-    const prisma = getPrisma();
 
     // Get the payment method
-    const paymentMethod = await prisma.payment_methods.findFirst({
+    const paymentMethod = await db.payment_methods.findFirst({
       where: {
-        id,
+        id: paymentMethodId,
         tenantId: userId,
-        isActive: true,
-      },
+        isActive: true
+      }
     });
 
     if (!paymentMethod) {
       return res.status(404).json({ error: 'Payment method not found' });
     }
 
-    if (!paymentMethod.authorizationCode) {
-      return res.status(400).json({ error: 'Payment method not configured for charging' });
+    // Get the lease to verify
+    const lease = await db.leases.findFirst({
+      where: {
+        id: leaseId,
+        tenantId: userId
+      },
+      include: {
+        units: {
+          include: {
+            properties: true
+          }
+        }
+      }
+    });
+
+    if (!lease) {
+      return res.status(404).json({ error: 'Lease not found' });
     }
 
     // Get owner's Paystack settings
-    const paymentSettings = await prisma.payment_settings.findFirst({
-      where: {
-        customerId,
-        provider: 'paystack',
-        isEnabled: true,
-      },
-    });
-
-    if (!paymentSettings || !paymentSettings.secretKey) {
-      return res.status(400).json({ error: 'Payment gateway not configured' });
+    const ownerCustomerId = lease.units?.properties?.customerId;
+    if (!ownerCustomerId) {
+      return res.status(400).json({ error: 'Property owner not found' });
     }
 
-    // Get lease details if provided
-    let lease = null;
-    let propertyId = null;
-    let unitId = null;
+    const paymentSettings = await db.payment_settings.findFirst({
+      where: { customerId: ownerCustomerId }
+    });
 
-    if (leaseId) {
-      lease = await prisma.leases.findFirst({
-        where: {
-          id: leaseId,
-          tenantId: userId,
-        },
-      });
-
-      if (lease) {
-        propertyId = lease.propertyId;
-        unitId = lease.unitId;
-      }
+    if (!paymentSettings?.paystackSecretKey) {
+      return res.status(400).json({ error: 'Owner has not configured payment gateway' });
     }
 
     // Charge the card using Paystack
-    const paystackUrl = 'https://api.paystack.co/transaction/charge_authorization';
-    const paystackResponse = await fetch(paystackUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${paymentSettings.secretKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    const chargeResponse = await axios.post(
+      'https://api.paystack.co/transaction/charge_authorization',
+      {
         authorization_code: paymentMethod.authorizationCode,
         email: req.user?.email,
         amount: Math.round(amount * 100), // Convert to kobo
-        currency: 'NGN',
         metadata: {
-          tenant_id: userId,
-          lease_id: leaseId,
-          type,
-        },
-      }),
-    });
+          leaseId,
+          tenantId: userId,
+          customerId: ownerCustomerId,
+          paymentMethodId: paymentMethod.id
+        }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${paymentSettings.paystackSecretKey}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
 
-    const paystackData = await paystackResponse.json();
+    const chargeData = chargeResponse.data.data;
 
-    if (!paystackData.status || paystackData.data?.status !== 'success') {
-      return res.status(400).json({
-        error: paystackData.message || 'Payment failed',
-        details: paystackData,
+    if (chargeData.status !== 'success') {
+      return res.status(400).json({ 
+        error: chargeData.gateway_response || 'Payment failed' 
       });
     }
 
     // Create payment record
-    const payment = await prisma.payments.create({
+    const payment = await db.payments.create({
       data: {
         id: uuidv4(),
-        customerId,
-        propertyId,
-        unitId,
         leaseId,
         tenantId: userId,
-        paymentMethodId: id,
+        customerId: ownerCustomerId,
         amount,
-        currency: 'NGN',
-        status: 'success',
-        type,
+        currency: lease.currency || 'NGN',
         paymentMethod: 'card',
         provider: 'paystack',
-        providerReference: paystackData.data.reference,
-        providerFee: paystackData.data.fees ? paystackData.data.fees / 100 : null,
+        providerReference: chargeData.reference,
+        status: 'success',
+        type: 'rent',
         paidAt: new Date(),
-        metadata: {
-          authorization_code: paymentMethod.authorizationCode,
-          card_last4: paymentMethod.cardLast4,
-          card_brand: paymentMethod.cardBrand,
-        },
-        updatedAt: new Date(),
-      },
+        paymentMethodId: paymentMethod.id
+      }
     });
 
     res.json({
       message: 'Payment successful',
-      data: {
-        payment,
-        transaction: paystackData.data,
-      },
+      payment,
+      transaction: {
+        reference: chargeData.reference,
+        amount: chargeData.amount / 100,
+        currency: chargeData.currency,
+        status: chargeData.status
+      }
     });
-  } catch (error) {
-    console.error('Error charging payment method:', error);
+  } catch (error: any) {
+    console.error('Error charging card:', error);
+    
+    if (error.response?.data) {
+      return res.status(400).json({ 
+        error: error.response.data.message || 'Payment failed' 
+      });
+    }
+    
     res.status(500).json({ error: 'Failed to process payment' });
   }
 });
 
 export default router;
-

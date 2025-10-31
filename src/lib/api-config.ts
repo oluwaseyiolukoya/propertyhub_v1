@@ -80,9 +80,9 @@ export const API_ENDPOINTS = {
   PAYMENT_METHODS: {
     LIST: '/api/payment-methods',
     ADD: '/api/payment-methods',
-    SET_DEFAULT: (id: string) => `/api/payment-methods/${id}/default`,
+    SET_DEFAULT: (id: string) => `/api/payment-methods/${id}/set-default`,
     DELETE: (id: string) => `/api/payment-methods/${id}`,
-    CHARGE: (id: string) => `/api/payment-methods/${id}/charge`,
+    CHARGE: '/api/payment-methods/charge',
   },
 
   // Documents
