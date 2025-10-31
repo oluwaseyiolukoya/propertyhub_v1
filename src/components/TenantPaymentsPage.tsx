@@ -37,7 +37,7 @@ import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Checkbox } from './ui/checkbox';
 import { toast } from 'sonner';
 import { getPayments, initializeTenantPayment } from '../lib/api/payments';
-import { getPublicPaymentGatewaySettings } from '../lib/api/settings';
+import { getPublicPaymentGatewaySettings, getTenantPublicPaymentGateway } from '../lib/api/settings';
 import { initializeSocket, isConnected, subscribeToPaymentEvents, unsubscribeFromPaymentEvents } from '../lib/socket';
 import {
   getPaymentMethods,
@@ -61,6 +61,7 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
   const [autopayEnabled, setAutopayEnabled] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bankTransferTemplate, setBankTransferTemplate] = useState<string>('');
+  const [ownerPublicKey, setOwnerPublicKey] = useState<string | null>(null);
 
   // Add Card Form State
   const [cardNumber, setCardNumber] = useState('');
@@ -148,6 +149,14 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
       const resp = await getPublicPaymentGatewaySettings();
       if (!resp.error && resp.data?.bankTransferTemplate) {
         setBankTransferTemplate(resp.data.bankTransferTemplate);
+      }
+    })();
+
+    // Fetch owner's Paystack public key for card addition (tenant-safe)
+    (async () => {
+      const resp = await getTenantPublicPaymentGateway();
+      if (!resp.error) {
+        setOwnerPublicKey(resp.data?.publicKey ?? null);
       }
     })();
 
@@ -265,8 +274,8 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
         return;
       }
 
-      // Validate Paystack public key before initializing Inline
-      const paystackPublicKey = (import.meta as any).env?.VITE_PAYSTACK_PUBLIC_KEY as string | undefined;
+      // Validate owner's Paystack public key before initializing Inline
+      const paystackPublicKey = ownerPublicKey || undefined;
       const isValidKey = typeof paystackPublicKey === 'string' && /^pk_(test|live)_/.test(paystackPublicKey) && paystackPublicKey.length > 12;
       if (!isValidKey) {
         toast.error('We could not start this transaction, please enter a valid key.');

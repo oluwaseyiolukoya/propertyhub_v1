@@ -71,10 +71,67 @@ router.get('/all', async (req: AuthRequest, res: Response) => {
 
   } catch (error: any) {
     console.error('❌ Failed to get all tenants:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to retrieve tenants',
-      details: error.message 
+      details: error.message
     });
+  }
+});
+
+// Public, tenant-safe payment gateway info (owner-level)
+router.get('/payment-gateway/public', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const role = req.user?.role;
+
+    if (role !== 'tenant') {
+      return res.status(403).json({ error: 'Access denied. Tenant access only.' });
+    }
+
+    // Find tenant's active lease to determine property owner (customer)
+    const lease = await prisma.leases.findFirst({
+      where: { tenantId: userId, status: 'active' },
+      include: {
+        properties: { select: { customerId: true } },
+        units: { include: { properties: { select: { customerId: true } } } }
+      }
+    });
+
+    if (!lease) {
+      return res.status(404).json({ error: 'No active lease found' });
+    }
+
+    const ownerCustomerId = lease.properties?.customerId || lease.units?.properties?.customerId;
+    if (!ownerCustomerId) {
+      return res.status(400).json({ error: 'Property owner not found' });
+    }
+
+    // Get owner's Paystack settings (public key is safe for client)
+    const settings = await prisma.payment_settings.findFirst({
+      where: { customerId: ownerCustomerId, provider: 'paystack' },
+      select: {
+        publicKey: true,
+        testMode: true,
+        isEnabled: true,
+        bankTransferTemplate: true,
+        updatedAt: true
+      }
+    });
+
+    if (!settings) {
+      return res.json({ publicKey: null, testMode: false, isEnabled: false, bankTransferTemplate: null });
+    }
+
+    return res.json({
+      publicKey: settings.publicKey || null,
+      testMode: settings.testMode,
+      isEnabled: settings.isEnabled,
+      bankTransferTemplate: settings.bankTransferTemplate || null,
+      updatedAt: settings.updatedAt
+    });
+  } catch (error: any) {
+    console.error('❌ Tenant public payment gateway error:', error);
+    return res.status(500).json({ error: 'Failed to load payment gateway settings' });
   }
 });
 
@@ -204,9 +261,9 @@ router.get('/dashboard/overview', async (req: AuthRequest, res: Response) => {
       code: error.code,
       meta: error.meta
     });
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to fetch tenant dashboard',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -457,7 +514,7 @@ router.post('/submit-payment', async (req: AuthRequest, res: Response) => {
     }
 
     // TODO: payments table doesn't exist yet
-    return res.status(501).json({ 
+    return res.status(501).json({
       error: 'Payment feature not yet implemented',
       message: 'The payment system is currently under development. Please contact your property manager for payment arrangements.'
     });
@@ -590,7 +647,7 @@ router.post('/:id/reset-password', async (req: AuthRequest, res: Response) => {
 
     // Generate a new temporary password
     const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase();
-    
+
     // Hash the password
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
@@ -634,9 +691,9 @@ router.post('/:id/reset-password', async (req: AuthRequest, res: Response) => {
       stack: error.stack,
       code: error.code
     });
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to reset tenant password',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -708,7 +765,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
       // Update unit status to vacant
       await prisma.units.update({
         where: { id: lease.units.id },
-        data: { 
+        data: {
           status: 'vacant',
           updatedAt: new Date()
         }
@@ -760,9 +817,9 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
       stack: error.stack,
       code: error.code
     });
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to delete tenant',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -820,8 +877,8 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     });
 
     if (!tenantLease && role !== 'admin' && role !== 'super_admin') {
-      return res.status(403).json({ 
-        error: 'You do not have permission to update this tenant. Tenant must be assigned to your property.' 
+      return res.status(403).json({
+        error: 'You do not have permission to update this tenant. Tenant must be assigned to your property.'
       });
     }
 
@@ -850,9 +907,9 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
 
   } catch (error: any) {
     console.error('❌ Update tenant error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to update tenant',
-      details: error.message 
+      details: error.message
     });
   }
 });
