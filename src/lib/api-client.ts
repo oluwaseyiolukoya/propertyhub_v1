@@ -4,6 +4,7 @@
  */
 
 import { API_BASE_URL, REQUEST_TIMEOUT, STORAGE_KEYS } from './api-config';
+import { safeStorage } from './safeStorage';
 
 export interface ApiError {
   error: string;
@@ -20,30 +21,30 @@ export interface ApiResponse<T> {
  * Get auth token from localStorage (persists across page refreshes)
  */
 export const getAuthToken = (): string | null => {
-  return localStorage.getItem(STORAGE_KEYS.TOKEN);
+  return safeStorage.getItem(STORAGE_KEYS.TOKEN);
 };
 
 /**
  * Set auth token in localStorage (persists across page refreshes)
  */
 export const setAuthToken = (token: string): void => {
-  localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+  safeStorage.setItem(STORAGE_KEYS.TOKEN, token);
 };
 
 /**
  * Remove auth token from localStorage
  */
 export const removeAuthToken = (): void => {
-  localStorage.removeItem(STORAGE_KEYS.TOKEN);
-  localStorage.removeItem(STORAGE_KEYS.USER);
-  localStorage.removeItem(STORAGE_KEYS.USER_TYPE);
+  safeStorage.removeItem(STORAGE_KEYS.TOKEN);
+  safeStorage.removeItem(STORAGE_KEYS.USER);
+  safeStorage.removeItem(STORAGE_KEYS.USER_TYPE);
 };
 
 /**
  * Get user data from localStorage (persists across page refreshes)
  */
 export const getUserData = (): any | null => {
-  const userData = localStorage.getItem(STORAGE_KEYS.USER);
+  const userData = safeStorage.getItem(STORAGE_KEYS.USER);
   return userData ? JSON.parse(userData) : null;
 };
 
@@ -51,21 +52,21 @@ export const getUserData = (): any | null => {
  * Set user data in localStorage (persists across page refreshes)
  */
 export const setUserData = (user: any): void => {
-  localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+  safeStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
 };
 
 /**
  * Get user type from localStorage (persists across page refreshes)
  */
 export const getUserType = (): string | null => {
-  return localStorage.getItem(STORAGE_KEYS.USER_TYPE);
+  return safeStorage.getItem(STORAGE_KEYS.USER_TYPE);
 };
 
 /**
  * Set user type in localStorage (persists across page refreshes)
  */
 export const setUserType = (userType: string): void => {
-  localStorage.setItem(STORAGE_KEYS.USER_TYPE, userType);
+  safeStorage.setItem(STORAGE_KEYS.USER_TYPE, userType);
 };
 
 /**

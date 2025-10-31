@@ -72,7 +72,7 @@ function App() {
   // Ensure socket is connected for all authenticated users (tenant, owner, manager, admin)
   useEffect(() => {
     if (!currentUser) return;
-    const token = localStorage.getItem('auth_token');
+    const token = (await import('./lib/safeStorage')).safeStorage.getItem('auth_token');
     if (token) {
       try { initializeSocket(token); } catch {}
     }
@@ -88,7 +88,7 @@ function App() {
       try {
         // Always verify with Paystack via backend to ensure accurate status
         const verifyResp = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/payments/verify/${encodeURIComponent(paymentRef)}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('auth_token') || ''}` },
+          headers: { Authorization: `Bearer ${(await import('./lib/safeStorage')).safeStorage.getItem('auth_token') || ''}` },
           cache: 'no-store',
         });
         if (verifyResp.ok) {
@@ -101,7 +101,7 @@ function App() {
         } else {
           // Fallback to local record if verification failed
           const resp = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/payments/by-reference/${encodeURIComponent(paymentRef)}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('auth_token') || ''}` },
+          headers: { Authorization: `Bearer ${(await import('./lib/safeStorage')).safeStorage.getItem('auth_token') || ''}` },
           cache: 'no-store',
         });
           const data = await resp.json();
