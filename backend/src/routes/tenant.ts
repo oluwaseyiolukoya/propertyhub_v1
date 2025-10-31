@@ -148,8 +148,20 @@ router.get('/dashboard/overview', async (req: AuthRequest, res: Response) => {
     const leaseEndDate = new Date(activeLease.endDate);
     const daysUntilLeaseEnd = Math.ceil((leaseEndDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
+    // Get tenant user information
+    const tenantUser = await prisma.users.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true
+      }
+    });
+
     return res.json({
       hasActiveLease: true,
+      user: tenantUser,
       lease: {
         id: activeLease.id,
         leaseNumber: activeLease.leaseNumber,
@@ -157,6 +169,7 @@ router.get('/dashboard/overview', async (req: AuthRequest, res: Response) => {
         endDate: activeLease.endDate,
         monthlyRent: activeLease.monthlyRent,
         securityDeposit: activeLease.securityDeposit,
+        currency: activeLease.currency,
         daysUntilLeaseEnd,
         isExpiringSoon: daysUntilLeaseEnd <= 60
       },
