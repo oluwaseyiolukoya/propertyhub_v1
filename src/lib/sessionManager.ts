@@ -6,6 +6,7 @@
  */
 
 import { removeAuthToken } from './api-client';
+import { safeStorage } from './safeStorage';
 
 class SessionManager {
   private static instance: SessionManager;
@@ -51,7 +52,7 @@ class SessionManager {
    * Check if session exists
    */
   public hasSession(): boolean {
-    return !!localStorage.getItem('auth_token');
+    return !!safeStorage.getItem('auth_token');
   }
 }
 
