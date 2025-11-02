@@ -280,7 +280,7 @@ export const AccessControl = () => {
       const selKeyId = issueKeyForm.keyId;
       if (!selKeyId) return;
       const key = keys.find((k) => k.id === selKeyId);
-      const unitId = key?.unit?.id;
+      const unitId = key?.units?.id;
       if (!unitId) return;
       const response = await getUnit(unitId);
       if (response.error) {
@@ -520,7 +520,7 @@ export const AccessControl = () => {
                       .filter((k) => k.status.toLowerCase() !== 'issued')
                       .map((k) => (
                         <SelectItem key={k.id} value={k.id}>
-                          {k.keyNumber} · {k.property?.name ?? 'Unknown'}
+                          {k.keyNumber} · {k.properties?.name ?? 'Unknown'}
                         </SelectItem>
                       ))}
                   </SelectContent>
@@ -1034,9 +1034,9 @@ export const AccessControl = () => {
                         </TableCell>
                         <TableCell>
                             <div className="text-sm">
-                              <p className="font-medium">{key.property?.name ?? '—'}</p>
-                              {key.unit?.unitNumber && (
-                                <p className="text-xs text-muted-foreground">Unit {key.unit.unitNumber}</p>
+                              <p className="font-medium">{key.properties?.name ?? '—'}</p>
+                              {key.units?.unitNumber && (
+                                <p className="text-xs text-muted-foreground">Unit {key.units.unitNumber}</p>
                               )}
                             </div>
                         </TableCell>
@@ -1148,8 +1148,8 @@ export const AccessControl = () => {
                         <TableCell>
                             <div className="flex flex-col">
                               <code className="text-sm bg-gray-100 px-2 py-1 rounded font-mono">{txn.key?.keyNumber ?? '—'}</code>
-                              {txn.key?.property?.name && (
-                                <span className="text-xs text-muted-foreground">{txn.key.property.name}</span>
+                              {txn.key?.properties?.name && (
+                                <span className="text-xs text-muted-foreground">{txn.key.properties.name}</span>
                               )}
                           </div>
                         </TableCell>

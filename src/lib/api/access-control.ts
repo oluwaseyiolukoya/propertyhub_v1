@@ -24,12 +24,12 @@ export interface PropertyKey {
   depositNotes?: string | null;
   createdAt: string;
   updatedAt: string;
-  property?: {
+  properties?: {
     id: string;
     name: string;
     currency: string;
   };
-  unit?: {
+  units?: {
     id: string;
     unitNumber: string;
   } | null;
@@ -55,11 +55,11 @@ export interface PropertyKeyTransaction {
     id: string;
     keyNumber: string;
     keyType: string;
-    property?: {
+    properties?: {
       id: string;
       name: string;
     };
-    unit?: {
+    units?: {
       id: string;
       unitNumber: string;
     } | null;

@@ -57,12 +57,22 @@ router.get('/settings/:key', async (req: AuthRequest, res: Response) => {
   try {
     const { key } = req.params;
 
-    const setting = await prisma.system_settings.findUnique({
-      where: { key }
-    });
+    // Try exact key first
+    let setting = await prisma.system_settings.findUnique({ where: { key } });
 
+    // If not found, try alias (platform_logo_url <-> brand_logo_url)
+    if (!setting && (key === 'brand_logo_url' || key === 'platform_logo_url')) {
+      const aliasKey = key === 'brand_logo_url' ? 'platform_logo_url' : 'brand_logo_url';
+      setting = await prisma.system_settings.findUnique({ where: { key: aliasKey } });
+      if (setting) {
+        // Return using the requested key but with alias value
+        return res.json({ ...setting, key });
+      }
+    }
+
+    // If still not found, return a graceful 200 with null value
     if (!setting) {
-      return res.status(404).json({ error: 'Setting not found' });
+      return res.json({ key, value: null, category: 'branding', description: null });
     }
 
     return res.json(setting);

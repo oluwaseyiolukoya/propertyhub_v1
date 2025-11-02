@@ -18,10 +18,10 @@ import { PlatformSettings } from './PlatformSettings';
 import { AddCustomerPage } from './AddCustomerPage';
 import { Footer } from './Footer';
 import { toast } from "sonner";
-import { 
-  initializeSocket, 
-  disconnectSocket, 
-  subscribeToCustomerEvents, 
+import {
+  initializeSocket,
+  disconnectSocket,
+  subscribeToCustomerEvents,
   unsubscribeFromCustomerEvents,
   subscribeToUserEvents,
   unsubscribeFromUserEvents,
@@ -30,37 +30,37 @@ import {
 } from '../lib/socket';
 import { clearCache } from '../lib/api/cache';
 import { setupActiveSessionValidation } from '../lib/sessionValidator';
-import { 
+import {
   getCustomers,
   createCustomer,
-  updateCustomer, 
-  deleteCustomer, 
-  getUsers, 
+  updateCustomer,
+  deleteCustomer,
+  getUsers,
   createUser,
   updateUser,
   deleteUser,
-  type Customer 
+  type Customer
 } from '../lib/api';
-import { 
-  getRoles, 
-  createRole, 
-  updateRole, 
+import {
+  getRoles,
+  createRole,
+  updateRole,
   deleteRole,
-  type Role 
+  type Role
 } from '../lib/api/roles';
 import { getBillingPlans } from '../lib/api/plans';
 import { apiClient } from '../lib/api-client';
-import { 
-  PERMISSIONS, 
-  getUserPermissions, 
+import {
+  PERMISSIONS,
+  getUserPermissions,
   hasPermission,
-  hasAnyPermission 
+  hasAnyPermission
 } from '../lib/permissions';
-import { 
-  Users, 
-  Building, 
-  DollarSign, 
-  TrendingUp, 
+import {
+  Users,
+  Building,
+  DollarSign,
+  TrendingUp,
   LogOut,
   Menu,
   Plus,
@@ -87,8 +87,8 @@ interface SuperAdminDashboardProps {
   onLogout: () => void;
 }
 
-export function SuperAdminDashboard({ 
-  user, 
+export function SuperAdminDashboard({
+  user,
   onLogout
 }: SuperAdminDashboardProps) {
   const { currency, formatCurrency, convertAmount } = useCurrency();
@@ -165,7 +165,7 @@ export function SuperAdminDashboard({
         }
       }
       const response = await getCustomers({ search: searchTerm });
-      
+
       if (response.error) {
         toast.error(response.error.error || 'Failed to load customers');
       } else if (response.data) {
@@ -191,7 +191,7 @@ export function SuperAdminDashboard({
   const fetchUsersData = async () => {
     try {
       const response = await getUsers();
-      
+
       if (response.error) {
         console.error('Failed to load users:', response.error);
       } else if (response.data) {
@@ -208,7 +208,7 @@ export function SuperAdminDashboard({
       setRolesLoading(true);
       console.log('🔄 Fetching roles from database...');
       const response = await getRoles();
-      
+
       if (response.error) {
         console.error('❌ Failed to load roles:', response.error);
         toast.error('Failed to load roles');
@@ -231,7 +231,7 @@ export function SuperAdminDashboard({
       setPlansLoading(true);
       console.log('🔄 Fetching plans from database...');
       const response = await getBillingPlans();
-      
+
       if (response.error) {
         console.error('❌ Failed to load plans:', response.error);
         toast.error('Failed to load plans');
@@ -253,21 +253,21 @@ export function SuperAdminDashboard({
     try {
       setIsClearingCache(true);
       console.log('🧹 Clearing cache for all user types...');
-      
+
       // Debug: Check if we have a token
       const token = localStorage.getItem('auth_token');
       console.log('🔑 Auth token exists:', !!token);
       console.log('🔑 Token preview:', token ? `${token.substring(0, 20)}...` : 'No token');
-      
+
       const response = await clearCache();
-      
+
       if (response.error) {
         console.error('❌ Failed to clear cache:', response.error);
         toast.error('Failed to clear cache');
       } else if (response.data) {
         console.log('✅ Cache cleared successfully:', response.data);
         toast.success(`Cache cleared successfully! Cleared ${response.data.details.clearedTypes.length} cache types.`);
-        
+
         // Optionally refresh data after cache clear
         setTimeout(() => {
           fetchCustomersData({ silent: true });
@@ -389,7 +389,7 @@ export function SuperAdminDashboard({
         </div>,
         { duration: 5000 }
       );
-      
+
       // Logout after showing message
       setTimeout(() => {
         onLogout();
@@ -526,7 +526,7 @@ export function SuperAdminDashboard({
       if (response.error) {
         toast.error(response.error.error || 'Failed to update customer');
       } else {
-        setCustomers(prev => prev.map(c => 
+        setCustomers(prev => prev.map(c =>
           c.id === editCustomerDialog.id ? { ...c, ...editFormData } : c
         ));
         toast.success(`${editFormData.company} updated successfully!`);
@@ -560,7 +560,7 @@ export function SuperAdminDashboard({
     if (confirmAction.customer) {
       try {
         setIsSubmitting(true);
-        
+
         // Call API to reset password and generate new one (using apiClient for auth)
         const response = await apiClient.post<any>(
           `/api/customers/${confirmAction.customer.id}/action`,
@@ -578,7 +578,7 @@ export function SuperAdminDashboard({
           email: response.data.email,
           name: response.data.name
         });
-        
+
         setConfirmAction({ type: null, customer: null });
         toast.success('New password generated successfully!');
       } catch (error: any) {
@@ -594,13 +594,13 @@ export function SuperAdminDashboard({
       try {
         setIsSubmitting(true);
         const newStatus = confirmAction.customer.status === 'active' ? 'inactive' : 'active';
-        
+
         const response = await updateCustomer(confirmAction.customer.id, { status: newStatus });
-        
+
         if (response.error) {
           toast.error(response.error.error || 'Failed to update customer status');
         } else {
-          setCustomers(prev => prev.map(c => 
+          setCustomers(prev => prev.map(c =>
             c.id === confirmAction.customer.id ? { ...c, status: newStatus } : c
           ));
           const action = confirmAction.customer.status === 'active' ? 'deactivated' : 'reactivated';
@@ -635,7 +635,7 @@ export function SuperAdminDashboard({
       try {
         setIsSubmitting(true);
         const response = await deleteCustomer(confirmAction.customer.id);
-        
+
         if (response.error) {
           toast.error(response.error.error || 'Failed to delete customer');
         } else {
@@ -643,7 +643,7 @@ export function SuperAdminDashboard({
           setCustomers(prev => prev.filter(c => c.id !== confirmAction.customer.id));
           toast.success(`${confirmAction.customer.company} has been deleted successfully`);
           setConfirmAction({ type: null, customer: null });
-          
+
           // Refresh customer list from server
           await fetchCustomersData();
         }
@@ -729,25 +729,33 @@ export function SuperAdminDashboard({
   // Get user permissions
   const userPermissions = getUserPermissions(user);
 
-  // Define navigation with permissions
+  // Define navigation with permissions (matching the permission IDs from the database)
   const allNavigation = [
-    { id: 'overview', name: 'Overview', permission: null }, // No permission required for overview
-    { id: 'customers', name: 'Customers', permission: PERMISSIONS.CUSTOMER_VIEW },
-    { id: 'users', name: 'User Management', permission: PERMISSIONS.USER_VIEW },
-    { id: 'billing', name: 'Billing & Plans', permission: PERMISSIONS.BILLING_MANAGEMENT },
-    { id: 'analytics', name: 'Analytics', permission: PERMISSIONS.ANALYTICS_VIEW },
-    { id: 'system', name: 'System Health', permission: PERMISSIONS.SYSTEM_HEALTH },
-    { id: 'support', name: 'Support Tickets', permission: PERMISSIONS.SUPPORT_VIEW },
-    { id: 'settings', name: 'Platform Settings', permission: PERMISSIONS.PLATFORM_SETTINGS },
+    // Overview is always visible to avoid a blank dashboard for restricted roles
+    { id: 'overview', name: 'Overview', permission: null },
+    // Show page if user has explicit page permission OR any action within that area
+    { id: 'customers', name: 'Customers', permission: [PERMISSIONS.CUSTOMERS, PERMISSIONS.CUSTOMER_VIEW, PERMISSIONS.CUSTOMER_CREATE, PERMISSIONS.CUSTOMER_EDIT, PERMISSIONS.CUSTOMER_DELETE] },
+    { id: 'users', name: 'User Management', permission: [PERMISSIONS.USERS, PERMISSIONS.USER_VIEW, PERMISSIONS.USER_CREATE, PERMISSIONS.USER_EDIT, PERMISSIONS.USER_DELETE] },
+    { id: 'billing', name: 'Billing & Plans', permission: [PERMISSIONS.BILLING, PERMISSIONS.BILLING_MANAGEMENT, PERMISSIONS.PLAN_VIEW, PERMISSIONS.PLAN_CREATE, PERMISSIONS.PLAN_EDIT, PERMISSIONS.PLAN_DELETE, PERMISSIONS.INVOICE_VIEW, PERMISSIONS.PAYMENT_VIEW] },
+    { id: 'analytics', name: 'Analytics', permission: [PERMISSIONS.ANALYTICS, PERMISSIONS.ANALYTICS_VIEW, PERMISSIONS.ANALYTICS_MRR, PERMISSIONS.ANALYTICS_CHURN, PERMISSIONS.ANALYTICS_EXPORT] },
+    { id: 'system', name: 'System Health', permission: [PERMISSIONS.SYSTEM, PERMISSIONS.SYSTEM_HEALTH, PERMISSIONS.SYSTEM_LOGS, PERMISSIONS.PLATFORM_SETTINGS, PERMISSIONS.CACHE_CLEAR] },
+    { id: 'support', name: 'Support Tickets', permission: [PERMISSIONS.SUPPORT, PERMISSIONS.SUPPORT_VIEW, PERMISSIONS.SUPPORT_CREATE, PERMISSIONS.SUPPORT_RESPOND, PERMISSIONS.SUPPORT_CLOSE, PERMISSIONS.SUPPORT_ASSIGN] },
+    { id: 'settings', name: 'Platform Settings', permission: [PERMISSIONS.SETTINGS, PERMISSIONS.PLATFORM_SETTINGS] },
   ];
 
   // Filter navigation based on user permissions
   const navigation = allNavigation.filter(item => {
     // If no permission required, show item
     if (!item.permission) return true;
-    // Check if user has permission
-    return hasPermission(userPermissions, item.permission);
+    // Check if user has permission (supports single or any-of array)
+    if (Array.isArray(item.permission)) {
+      return hasAnyPermission(userPermissions, item.permission as any);
+    }
+    return hasPermission(userPermissions, item.permission as any);
   });
+
+  // Safety net: if nothing is visible for the user, at least show Overview
+  const visibleNavigation = navigation.length === 0 ? allNavigation.filter(i => i.id === 'overview') : navigation;
 
   const handleSaveCustomer = async (customerData: any) => {
     try {
@@ -770,7 +778,7 @@ export function SuperAdminDashboard({
       toast.success('Customer created successfully!');
       setCurrentView('dashboard');
       setActiveTab('customers');
-      
+
       // Refetch customers to get the latest data
       await fetchCustomersData();
     } catch (error) {
@@ -782,7 +790,21 @@ export function SuperAdminDashboard({
   // Handle user actions
   const handleAddUser = async (userData: any) => {
     try {
-      const response = await createUser(userData);
+      // Find the role by name to get its permissions
+      const selectedRole = roles.find(r => r.name === userData.role);
+
+      // Include the role's permissions in the user data
+      const userDataWithPermissions = {
+        ...userData,
+        permissions: selectedRole?.permissions || []
+      };
+
+      console.log('📤 Creating user with role permissions:', {
+        role: userData.role,
+        permissions: userDataWithPermissions.permissions
+      });
+
+      const response = await createUser(userDataWithPermissions);
       if (response.error) {
         toast.error(response.error.error || 'Failed to create user');
       } else if (response.data) {
@@ -797,11 +819,23 @@ export function SuperAdminDashboard({
 
   const handleUpdateUser = async (userId: string, updates: any) => {
     try {
-      const response = await updateUser(userId, updates);
+      // If role is being updated, include the new role's permissions
+      let updatesWithPermissions = { ...updates };
+      if (updates.role) {
+        const selectedRole = roles.find(r => r.name === updates.role);
+        updatesWithPermissions.permissions = selectedRole?.permissions || [];
+
+        console.log('📤 Updating user role with permissions:', {
+          role: updates.role,
+          permissions: updatesWithPermissions.permissions
+        });
+      }
+
+      const response = await updateUser(userId, updatesWithPermissions);
       if (response.error) {
         toast.error(response.error.error || 'Failed to update user');
       } else if (response.data) {
-        setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updates } : u));
+        setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updatesWithPermissions } : u));
         toast.success('User updated successfully!');
         await fetchUsersData();
       }
@@ -826,12 +860,12 @@ export function SuperAdminDashboard({
 
   // Show Add Customer Page
   if (currentView === 'add-customer') {
-    return <AddCustomerPage 
-      user={user} 
+    return <AddCustomerPage
+      user={user}
       onBack={() => {
         setCurrentView('dashboard');
         fetchCustomersData(); // Refresh customer list when returning from add customer page
-      }} 
+      }}
       onSave={handleSaveCustomer}
       onEditExisting={(customerId: string) => {
         // Find the customer and open edit dialog
@@ -862,7 +896,7 @@ export function SuperAdminDashboard({
               <h1 className="text-lg sm:text-xl font-semibold text-gray-900">PropertyHub Admin</h1>
               <Badge variant="destructive" className="ml-2 text-xs">ADMIN</Badge>
             </div>
-            
+
             <div className="flex items-center space-x-2 sm:space-x-4">
               {/* Clear Cache Button */}
               <Button
@@ -884,7 +918,7 @@ export function SuperAdminDashboard({
                   </>
                 )}
               </Button>
-              
+
               <div className="flex items-center space-x-2">
                 <div className="h-8 w-8 rounded-full bg-red-600 flex items-center justify-center">
                   <span className="text-white text-xs sm:text-sm font-medium">
@@ -906,7 +940,7 @@ export function SuperAdminDashboard({
         <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-30 w-64 bg-white shadow-lg lg:shadow-none border-r mt-16 lg:mt-0 transition-transform duration-200 ease-in-out`}>
           <nav className="mt-5 px-4">
             <ul className="space-y-1">
-              {navigation.map((item) => (
+              {visibleNavigation.map((item) => (
                 <li key={item.id}>
                   <Button
                     variant={activeTab === item.id ? "default" : "ghost"}
@@ -921,7 +955,7 @@ export function SuperAdminDashboard({
                   </Button>
                 </li>
               ))}
-              
+
               {/* Logout Button */}
               <li className="pt-4">
                 <Button
@@ -939,7 +973,7 @@ export function SuperAdminDashboard({
 
         {/* Overlay for mobile */}
         {sidebarOpen && (
-          <div 
+          <div
             className="fixed inset-0 z-20 bg-black bg-opacity-50 lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
@@ -1272,7 +1306,7 @@ export function SuperAdminDashboard({
                         const propLimit = customer.plan?.propertyLimit;
                         const userLimit = customer.plan?.userLimit;
                         const lastLogin = customer.users?.find((u: any) => u.lastLogin)?
-                          new Date(customer.users.find((u: any) => u.lastLogin).lastLogin).toLocaleDateString() : 
+                          new Date(customer.users.find((u: any) => u.lastLogin).lastLogin).toLocaleDateString() :
                           'Never';
 
                         return (
@@ -1342,14 +1376,14 @@ export function SuperAdminDashboard({
                                   Resend Invitation
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem 
+                                <DropdownMenuItem
                                   onClick={() => handleDeactivateClick(customer)}
                                   className="text-orange-600 focus:text-orange-600"
                                 >
                                   <UserX className="mr-2 h-4 w-4" />
                                   {customer.status === 'active' ? 'Deactivate' : 'Reactivate'}
                                 </DropdownMenuItem>
-                                <DropdownMenuItem 
+                                <DropdownMenuItem
                                   onClick={() => handleDeleteClick(customer)}
                                   className="text-red-600 focus:text-red-600"
                                 >
@@ -1388,7 +1422,7 @@ export function SuperAdminDashboard({
                 onAddRole={async (roleData) => {
                   try {
                     const response = await createRole(roleData);
-                    
+
                     if (response.error) {
                       toast.error(response.error.error || 'Failed to create role');
                     } else if (response.data) {
@@ -1405,7 +1439,7 @@ export function SuperAdminDashboard({
                 onUpdateRole={async (roleId, updates) => {
                   try {
                     const response = await updateRole(roleId, updates);
-                    
+
                     if (response.error) {
                       toast.error(response.error.error || 'Failed to update role');
                     } else if (response.data) {
@@ -1422,7 +1456,7 @@ export function SuperAdminDashboard({
                 onDeleteRole={async (roleId) => {
                   try {
                     const response = await deleteRole(roleId);
-                    
+
                     if (response.error) {
                       toast.error(response.error.error || 'Failed to delete role');
                     } else {
@@ -1459,7 +1493,7 @@ export function SuperAdminDashboard({
           <AlertDialogHeader>
             <AlertDialogTitle>Generate New Password</AlertDialogTitle>
             <AlertDialogDescription>
-              Generate a new temporary password for <strong>{confirmAction.customer?.company}</strong>? 
+              Generate a new temporary password for <strong>{confirmAction.customer?.company}</strong>?
               The new password will be displayed so you can share it securely with the customer owner at <strong>{confirmAction.customer?.email}</strong>.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1479,21 +1513,21 @@ export function SuperAdminDashboard({
               {confirmAction.customer?.status === 'active' ? 'Deactivate' : 'Reactivate'} Customer
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to {confirmAction.customer?.status === 'active' ? 'deactivate' : 'reactivate'} <strong>{confirmAction.customer?.company}</strong>? 
-              {confirmAction.customer?.status === 'active' 
-                ? ' This will suspend their access to the platform.' 
+              Are you sure you want to {confirmAction.customer?.status === 'active' ? 'deactivate' : 'reactivate'} <strong>{confirmAction.customer?.company}</strong>?
+              {confirmAction.customer?.status === 'active'
+                ? ' This will suspend their access to the platform.'
                 : ' This will restore their access to the platform.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={confirmDeactivate}
               disabled={isSubmitting}
               className={confirmAction.customer?.status === 'active' ? 'bg-red-600 hover:bg-red-700' : ''}
             >
-              {isSubmitting 
-                ? 'Processing...' 
+              {isSubmitting
+                ? 'Processing...'
                 : confirmAction.customer?.status === 'active' ? 'Deactivate' : 'Reactivate'}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -1505,7 +1539,7 @@ export function SuperAdminDashboard({
           <AlertDialogHeader>
             <AlertDialogTitle>Resend Invitation</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to resend the invitation email to <strong>{confirmAction.customer?.company}</strong>? 
+              Are you sure you want to resend the invitation email to <strong>{confirmAction.customer?.company}</strong>?
               A new invitation will be sent to <strong>{confirmAction.customer?.email}</strong>.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1524,13 +1558,13 @@ export function SuperAdminDashboard({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Customer</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to permanently delete <strong>{confirmAction.customer?.company}</strong>? 
+              Are you sure you want to permanently delete <strong>{confirmAction.customer?.company}</strong>?
               This action cannot be undone. All data associated with this customer, including properties, users, and records will be permanently deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={confirmDelete}
               disabled={isSubmitting}
               className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
@@ -1556,7 +1590,7 @@ export function SuperAdminDashboard({
               A new temporary password has been generated for this customer.
             </DialogDescription>
           </DialogHeader>
-          
+
           {generatedPasswordDialog && (
             <div className="space-y-4">
               {/* Customer Info */}
@@ -1633,7 +1667,7 @@ export function SuperAdminDashboard({
           )}
 
           <DialogFooter>
-            <Button 
+            <Button
               onClick={() => {
                 setGeneratedPasswordDialog(null);
                 setCopiedPassword(false);

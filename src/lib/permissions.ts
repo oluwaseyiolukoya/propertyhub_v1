@@ -3,51 +3,67 @@
  * Role-Based Access Control (RBAC)
  */
 
-// Permission constants
+// Permission constants - These match the permission IDs in UserManagement.tsx
 export const PERMISSIONS = {
-  // Customer & User Management
-  CUSTOMER_MANAGEMENT: 'customer_management',
+  // Dashboard Pages (Main Navigation)
+  OVERVIEW: 'overview',
+  CUSTOMERS: 'customers',
+  USERS: 'users',
+  BILLING: 'billing',
+  ANALYTICS: 'analytics',
+  SYSTEM: 'system',
+  SUPPORT: 'support',
+  SETTINGS: 'settings',
+
+  // Customer Management Actions
+  CUSTOMER_VIEW: 'customer_view',
   CUSTOMER_CREATE: 'customer_create',
   CUSTOMER_EDIT: 'customer_edit',
   CUSTOMER_DELETE: 'customer_delete',
-  CUSTOMER_VIEW: 'customer_view',
-  
-  // Internal User Management
-  USER_MANAGEMENT: 'user_management',
+  CUSTOMER_RESET_PASSWORD: 'customer_reset_password',
+  CUSTOMER_DEACTIVATE: 'customer_deactivate',
+
+  // Internal User Management Actions
+  USER_VIEW: 'user_view',
   USER_CREATE: 'user_create',
   USER_EDIT: 'user_edit',
   USER_DELETE: 'user_delete',
-  USER_VIEW: 'user_view',
-  
-  // Role Management
-  ROLE_MANAGEMENT: 'role_management',
+  USER_RESET_PASSWORD: 'user_reset_password',
+
+  // Role & Permission Management
+  ROLE_VIEW: 'role_view',
   ROLE_CREATE: 'role_create',
   ROLE_EDIT: 'role_edit',
   ROLE_DELETE: 'role_delete',
-  
-  // Billing & Plans
+
+  // Billing & Plans Management
   BILLING_MANAGEMENT: 'billing_management',
-  PLAN_MANAGEMENT: 'plan_management',
-  INVOICE_MANAGEMENT: 'invoice_management',
+  PLAN_VIEW: 'plan_view',
+  PLAN_CREATE: 'plan_create',
+  PLAN_EDIT: 'plan_edit',
+  PLAN_DELETE: 'plan_delete',
+  INVOICE_VIEW: 'invoice_view',
   PAYMENT_VIEW: 'payment_view',
-  
-  // Analytics
+
+  // Analytics & Reports
   ANALYTICS_VIEW: 'analytics_view',
-  ANALYTICS_REPORTS: 'analytics_reports',
+  ANALYTICS_MRR: 'analytics_mrr',
+  ANALYTICS_CHURN: 'analytics_churn',
   ANALYTICS_EXPORT: 'analytics_export',
-  
+
   // System & Platform
   SYSTEM_HEALTH: 'system_health',
-  SYSTEM_SETTINGS: 'system_settings',
-  PLATFORM_SETTINGS: 'platform_settings',
   SYSTEM_LOGS: 'system_logs',
-  
-  // Support
-  SUPPORT_TICKETS: 'support_tickets',
+  PLATFORM_SETTINGS: 'platform_settings',
+  CACHE_CLEAR: 'cache_clear',
+
+  // Support & Tickets
   SUPPORT_VIEW: 'support_view',
+  SUPPORT_CREATE: 'support_create',
   SUPPORT_RESPOND: 'support_respond',
   SUPPORT_CLOSE: 'support_close',
-  
+  SUPPORT_ASSIGN: 'support_assign',
+
   // Activity & Audit
   ACTIVITY_LOGS: 'activity_logs',
   AUDIT_REPORTS: 'audit_reports',
@@ -101,17 +117,32 @@ export function hasAllPermissions(userPermissions: string[], permissions: Permis
  * Get user permissions from user object
  */
 export function getUserPermissions(user: any): string[] {
+  const roleName: string | undefined = user?.role;
+  const roleLower = roleName ? String(roleName).toLowerCase() : '';
+
+  // Super Admin/Admin should have all permissions regardless of stored values
+  const isAdminLike =
+    roleLower === 'super admin' ||
+    roleLower === 'superadmin' ||
+    roleLower === 'super_admin' ||
+    roleLower === 'admin' ||
+    (roleLower.includes('super') && roleLower.includes('admin'));
+
+  if (isAdminLike) {
+    return Object.values(PERMISSIONS);
+  }
+
   // If user has direct permissions array (internal admin users)
-  if (user?.permissions && Array.isArray(user.permissions)) {
-    return user.permissions;
+  if (Array.isArray(user?.permissions) && user.permissions.length > 0) {
+    return user.permissions as string[];
   }
-  
-  // If user has role with permissions
-  if (user?.rolePermissions && Array.isArray(user.rolePermissions)) {
-    return user.rolePermissions;
+
+  // If user has role with permissions (e.g., provided by backend as rolePermissions)
+  if (Array.isArray(user?.rolePermissions) && user.rolePermissions.length > 0) {
+    return user.rolePermissions as string[];
   }
-  
-  // Default permissions based on role name
+
+  // Default permissions based on role name (fallback)
   return getDefaultPermissionsForRole(user?.role);
 }
 
@@ -121,30 +152,32 @@ export function getUserPermissions(user: any): string[] {
  */
 function getDefaultPermissionsForRole(roleName?: string): string[] {
   if (!roleName) return [];
-  
+
   const role = roleName.toLowerCase();
-  
+
   // Super Admin - all permissions
   if (role === 'super admin' || role === 'superadmin' || role === 'super_admin') {
     return Object.values(PERMISSIONS);
   }
-  
+
   // Admin - most internal permissions (also gets all permissions)
   if (role === 'admin') {
     return Object.values(PERMISSIONS); // Give admin full access like super admin
   }
-  
+
   // Support Staff
   if (role === 'support' || role.includes('support')) {
     return [
+      PERMISSIONS.OVERVIEW,
+      PERMISSIONS.SUPPORT,
       PERMISSIONS.CUSTOMER_VIEW,
-      PERMISSIONS.SUPPORT_TICKETS,
       PERMISSIONS.SUPPORT_VIEW,
+      PERMISSIONS.SUPPORT_CREATE,
       PERMISSIONS.SUPPORT_RESPOND,
       PERMISSIONS.SUPPORT_CLOSE,
     ];
   }
-  
+
   // Property Owner - full property access
   if (role === 'owner' || role === 'property owner') {
     return [
@@ -156,7 +189,7 @@ function getDefaultPermissionsForRole(roleName?: string): string[] {
       PERMISSIONS.USER_MANAGEMENT, // Can manage their own users
     ];
   }
-  
+
   // Property Manager - property operations
   if (role === 'manager' || role === 'property manager') {
     return [
@@ -166,7 +199,7 @@ function getDefaultPermissionsForRole(roleName?: string): string[] {
       PERMISSIONS.ACCESS_CONTROL,
     ];
   }
-  
+
   // Tenant - limited access
   if (role === 'tenant') {
     return [
@@ -175,22 +208,28 @@ function getDefaultPermissionsForRole(roleName?: string): string[] {
       PERMISSIONS.MAKE_PAYMENTS,
     ];
   }
-  
+
   // Analyst
   if (role === 'analyst' || role.includes('analyst')) {
     return [
+      PERMISSIONS.OVERVIEW,
+      PERMISSIONS.ANALYTICS,
       PERMISSIONS.ANALYTICS_VIEW,
-      PERMISSIONS.ANALYTICS_REPORTS,
+      PERMISSIONS.ANALYTICS_MRR,
+      PERMISSIONS.ANALYTICS_CHURN,
       PERMISSIONS.ANALYTICS_EXPORT,
       PERMISSIONS.CUSTOMER_VIEW,
     ];
   }
-  
+
   // Finance
   if (role === 'finance' || role.includes('finance')) {
     return [
+      PERMISSIONS.OVERVIEW,
+      PERMISSIONS.BILLING,
       PERMISSIONS.BILLING_MANAGEMENT,
-      PERMISSIONS.INVOICE_MANAGEMENT,
+      PERMISSIONS.PLAN_VIEW,
+      PERMISSIONS.INVOICE_VIEW,
       PERMISSIONS.PAYMENT_VIEW,
       PERMISSIONS.CUSTOMER_VIEW,
       PERMISSIONS.ANALYTICS_VIEW,
@@ -200,14 +239,17 @@ function getDefaultPermissionsForRole(roleName?: string): string[] {
   // Billing (alias for Finance)
   if (role === 'billing') {
     return [
+      PERMISSIONS.OVERVIEW,
+      PERMISSIONS.BILLING,
       PERMISSIONS.BILLING_MANAGEMENT,
-      PERMISSIONS.INVOICE_MANAGEMENT,
+      PERMISSIONS.PLAN_VIEW,
+      PERMISSIONS.INVOICE_VIEW,
       PERMISSIONS.PAYMENT_VIEW,
       PERMISSIONS.CUSTOMER_VIEW,
       PERMISSIONS.ANALYTICS_VIEW,
     ];
   }
-  
+
   // Default: no permissions
   return [];
 }
@@ -224,12 +266,12 @@ export function filterMenuByPermissions(
       // No permission required, show item
       return true;
     }
-    
+
     if (Array.isArray(item.permission)) {
       // Item requires ANY of the listed permissions
       return hasAnyPermission(userPermissions, item.permission);
     }
-    
+
     // Item requires specific permission
     return hasPermission(userPermissions, item.permission);
   });
@@ -240,7 +282,7 @@ export function filterMenuByPermissions(
  */
 export function isSuperAdmin(user: any): boolean {
   const role = user?.role?.toLowerCase();
-  return role === 'super admin' || 
+  return role === 'super admin' ||
          role === 'superadmin' ||
          role === 'super_admin' ||
          user?.isSuperAdmin === true;
@@ -258,7 +300,7 @@ export function isAdmin(user: any): boolean {
  * Check if user is Property Owner
  */
 export function isOwner(user: any): boolean {
-  return user?.role?.toLowerCase() === 'owner' || 
+  return user?.role?.toLowerCase() === 'owner' ||
          user?.role?.toLowerCase() === 'property owner';
 }
 
@@ -266,7 +308,7 @@ export function isOwner(user: any): boolean {
  * Check if user is Property Manager
  */
 export function isManager(user: any): boolean {
-  return user?.role?.toLowerCase() === 'manager' || 
+  return user?.role?.toLowerCase() === 'manager' ||
          user?.role?.toLowerCase() === 'property manager';
 }
 

@@ -98,13 +98,28 @@ router.post('/login', async (req: Request, res: Response) => {
             data: { lastLogin: new Date() }
           });
 
+          // Resolve effective permissions: prefer user's stored permissions; fallback to role's permissions
+          let userPermissions: string[] = [];
+          if (Array.isArray(internalUser.permissions) && (internalUser.permissions as any[]).length > 0) {
+            userPermissions = internalUser.permissions as string[];
+          } else {
+            try {
+              const roleRecord = await prisma.roles.findUnique({ where: { name: internalUser.role } });
+              if (roleRecord && Array.isArray(roleRecord.permissions as any[])) {
+                userPermissions = roleRecord.permissions as string[];
+              }
+            } catch (e) {
+              console.warn('⚠️ Could not fetch role permissions for', internalUser.role, e);
+            }
+          }
+
           const token = (jwt as any).sign(
             { id: internalUser.id, email: internalUser.email, role: internalUser.role },
             process.env.JWT_SECRET || 'secret',
             { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
           );
 
-          console.log('✅ Internal Admin User login successful');
+          console.log('✅ Internal Admin User login successful with permissions:', userPermissions.length);
           return res.json({
             token,
             user: {
@@ -112,6 +127,8 @@ router.post('/login', async (req: Request, res: Response) => {
               email: internalUser.email,
               name: internalUser.name,
               role: internalUser.role,
+              permissions: userPermissions,
+              rolePermissions: userPermissions, // Also include as rolePermissions for compatibility
               userType: 'admin'
             }
           });

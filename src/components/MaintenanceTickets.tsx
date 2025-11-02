@@ -4,20 +4,23 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Badge } from "./ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Textarea } from "./ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Wrench, Clock, CheckCircle, AlertTriangle, Plus, Search, Filter } from 'lucide-react';
+import { Wrench, Clock, CheckCircle, AlertTriangle, Plus, Search, Filter, File as FileIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { 
-  getMaintenanceRequests, 
-  createMaintenanceRequest, 
+import {
+  getMaintenanceRequests,
+  getMaintenanceRequest,
+  createMaintenanceRequest,
   updateMaintenanceRequest,
   assignMaintenanceRequest,
-  completeMaintenanceRequest 
-} from '../lib/api';
+  completeMaintenanceRequest,
+  replyMaintenanceRequest
+} from '../lib/api/maintenance';
+import { initializeSocket, isConnected, subscribeToMaintenanceEvents, unsubscribeFromMaintenanceEvents } from '../lib/socket';
 
 interface MaintenanceTicketsProps {
   properties?: any[];
@@ -33,6 +36,7 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
 
   const [tickets, setTickets] = useState<any[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
+  const [reviewNote, setReviewNote] = useState('');
   const [showAddTicket, setShowAddTicket] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,6 +45,21 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
   useEffect(() => {
     fetchMaintenanceRequests();
   }, [statusFilter, priorityFilter, propertyFilter, categoryFilter]);
+
+  // Realtime maintenance updates for manager/owner
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem('auth_token') || '';
+      if (token && !isConnected()) initializeSocket(token);
+    } catch {}
+    subscribeToMaintenanceEvents({
+      onCreated: () => fetchMaintenanceRequests(),
+      onUpdated: () => fetchMaintenanceRequests()
+    });
+    return () => {
+      unsubscribeFromMaintenanceEvents();
+    };
+  }, []);
 
   const fetchMaintenanceRequests = async () => {
     try {
@@ -52,13 +71,14 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
       if (searchTerm) filters.search = searchTerm;
 
       const response = await getMaintenanceRequests(filters);
-      
+
       if (response.error) {
         toast.error(response.error.error || 'Failed to load maintenance requests');
       } else if (response.data) {
         // Transform API data to match component format
         const transformedTickets = response.data.map((req: any) => ({
-          id: req.ticketNumber || req.id,
+          id: req.id,
+          ticketNumber: req.ticketNumber || req.id,
           title: req.title,
           description: req.description,
           tenant: req.reportedBy?.name || 'Unknown',
@@ -192,8 +212,8 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
   };
 
   // Get unique properties for filter dropdown
-  const uniqueProperties = properties.length > 0 
-    ? properties 
+  const uniqueProperties = properties.length > 0
+    ? properties
     : Array.from(new Set(tickets.map(t => ({ id: t.propertyId, name: t.property }))));
 
   // Filter tickets based on search and filters
@@ -220,6 +240,28 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
   const activeTickets = filterTickets(tickets.filter(t => t.status !== 'Completed'));
   const completedTickets = filterTickets(tickets.filter(t => t.status === 'Completed'));
 
+  // Load full details when a ticket is selected
+  useEffect(() => {
+    (async () => {
+      if (!selectedTicket?.id) return;
+      try {
+        const resp = await getMaintenanceRequest(selectedTicket.id);
+        if ((resp as any).data) {
+          const req: any = (resp as any).data;
+          setSelectedTicket((prev: any) => ({
+            ...(prev || {}),
+            tenant: req.reportedBy?.name || prev?.tenant,
+            unit: req.unit?.unitNumber || prev?.unit,
+            property: req.property?.name || prev?.property,
+            photos: Array.isArray(req.images) ? req.images : (prev?.photos || []),
+            updates: req.updates || prev?.updates,
+            assignedTo: req.assignedTo?.name || prev?.assignedTo
+          }));
+        }
+      } catch {}
+    })();
+  }, [selectedTicket?.id]);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -227,22 +269,24 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
           <h2 className="text-2xl font-semibold text-gray-900">Maintenance Tickets</h2>
           <p className="text-gray-600 mt-1">Manage maintenance requests and work orders</p>
         </div>
-        
-        <Dialog open={showAddTicket} onOpenChange={setShowAddTicket}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Ticket
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Create Maintenance Ticket</DialogTitle>
-              <DialogDescription>
-                Create a new maintenance request for a tenant
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
+
+        <Button onClick={() => setShowAddTicket(!showAddTicket)}>
+          <Plus className="h-4 w-4 mr-2" />
+          {showAddTicket ? 'Cancel' : 'Create Ticket'}
+        </Button>
+      </div>
+
+      {/* Create Ticket Form */}
+      {showAddTicket && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Create Maintenance Ticket</CardTitle>
+            <CardDescription>
+              Create a new maintenance request for a tenant
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="title">Issue Title</Label>
                 <Input
@@ -250,7 +294,7 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
                   placeholder="Brief description of the issue"
                 />
               </div>
-              
+
               <div className="grid gap-2">
                 <Label htmlFor="description">Description</Label>
                 <Textarea
@@ -313,18 +357,19 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
                   </Select>
                 </div>
               </div>
+
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button variant="outline" onClick={() => setShowAddTicket(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={() => setShowAddTicket(false)}>
+                  Create Ticket
+                </Button>
+              </div>
             </div>
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setShowAddTicket(false)}>
-                Cancel
-              </Button>
-              <Button onClick={() => setShowAddTicket(false)}>
-                Create Ticket
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Tickets Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -504,7 +549,7 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
                   <TableBody>
                     {activeTickets.map((ticket) => (
                       <TableRow key={ticket.id} className="cursor-pointer hover:bg-gray-50">
-                        <TableCell className="font-mono text-sm">{ticket.id}</TableCell>
+                        <TableCell className="font-mono text-sm">{ticket.ticketNumber || ticket.id}</TableCell>
                         <TableCell>
                           <div>
                             <p className="font-medium">{ticket.title}</p>
@@ -576,12 +621,13 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
                       <TableHead>Category</TableHead>
                       <TableHead>Assigned To</TableHead>
                       <TableHead>Completed</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {completedTickets.map((ticket) => (
                       <TableRow key={ticket.id}>
-                        <TableCell className="font-mono text-sm">{ticket.id}</TableCell>
+                        <TableCell className="font-mono text-sm">{ticket.ticketNumber || ticket.id}</TableCell>
                         <TableCell className="font-medium">{ticket.title}</TableCell>
                         <TableCell>
                           <div>
@@ -592,11 +638,20 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
                         <TableCell>{ticket.category}</TableCell>
                         <TableCell>{ticket.assignedTo || 'Unassigned'}</TableCell>
                         <TableCell>{ticket.createdDate}</TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedTicket(ticket)}
+                          >
+                            View
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                     {completedTickets.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                        <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                           <div className="flex flex-col items-center space-y-2">
                             <Search className="h-8 w-8 text-gray-400" />
                             <p className="font-medium">No completed tickets found</p>
@@ -631,12 +686,13 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
                       <TableHead>Priority</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Created</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredTickets.map((ticket) => (
                       <TableRow key={ticket.id}>
-                        <TableCell className="font-mono text-sm">{ticket.id}</TableCell>
+                        <TableCell className="font-mono text-sm">{ticket.ticketNumber || ticket.id}</TableCell>
                         <TableCell className="font-medium">{ticket.title}</TableCell>
                         <TableCell>
                           <div>
@@ -655,11 +711,20 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
                           </Badge>
                         </TableCell>
                         <TableCell>{ticket.createdDate}</TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedTicket(ticket)}
+                          >
+                            View
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                     {filteredTickets.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                        <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                           <div className="flex flex-col items-center space-y-2">
                             <Search className="h-8 w-8 text-gray-400" />
                             <p className="font-medium">No tickets found</p>
@@ -675,6 +740,162 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Ticket Details Dialog */}
+      <Dialog open={!!selectedTicket} onOpenChange={(open) => { if (!open) { setSelectedTicket(null); setReviewNote(''); } }}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          {selectedTicket && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-xl">{selectedTicket.title}</DialogTitle>
+                <DialogDescription>
+                  Ticket {selectedTicket.ticketNumber || selectedTicket.id} • {selectedTicket.category}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-6 py-2">
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="outline">Status: {selectedTicket.status}</Badge>
+                  <Badge variant="outline">Priority: {selectedTicket.priority}</Badge>
+                  {selectedTicket.property && <Badge variant="outline">Property: {selectedTicket.property}</Badge>}
+                  {selectedTicket.unit && <Badge variant="outline">Unit: {selectedTicket.unit}</Badge>}
+                </div>
+
+                <div>
+                  <h4 className="font-medium mb-1">Description</h4>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedTicket.description}</p>
+                </div>
+
+                {/* Attachments from initial ticket (photos/images) */}
+                {Array.isArray((selectedTicket as any).photos) && (selectedTicket as any).photos.length > 0 && (
+                  <div>
+                    <h4 className="font-medium mb-1">Attachments</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {(selectedTicket as any).photos.map((img: any, idx: number) => {
+                        const base = (import.meta as any).env.VITE_API_URL || 'http://localhost:5000';
+                        const raw = typeof img === 'string' ? img : (img?.url || '');
+                        const fullUrl = (raw || '').startsWith('http') ? raw : `${base}${raw}`;
+                        const name = typeof img === 'string' ? (raw.split('/').pop() || 'Attachment') : (img?.originalName || 'Attachment');
+                        const isImage = (typeof img === 'object' && img?.mimetype ? img.mimetype.startsWith('image/') : /\.(png|jpe?g|gif|webp)$/i.test(raw));
+                        if (isImage) {
+                          return (
+                            <a key={idx} href={fullUrl} target="_blank" rel="noopener noreferrer" className="block">
+                              <img src={fullUrl} alt={name} className="h-32 w-full object-cover rounded border" />
+                            </a>
+                          );
+                        }
+                        return (
+                          <a key={idx} href={fullUrl} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2 text-sm text-blue-600 hover:underline">
+                            <FileIcon className="h-4 w-4" />
+                            <span className="truncate">{name}</span>
+                          </a>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tenant Info */}
+                <div className="grid grid-cols-2 gap-4 bg-gray-50 border rounded p-3">
+                  <div>
+                    <p className="text-xs text-gray-500">Tenant</p>
+                    <p className="font-medium">{selectedTicket.tenant}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Created</p>
+                    <p className="font-medium">{selectedTicket.createdDate}</p>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (!selectedTicket.assignedToId) {
+                        toast.info('Assigning to yourself requires an assignee user ID.');
+                        return;
+                      }
+                      const res = await assignMaintenanceRequest(selectedTicket.id, { assignedToId: selectedTicket.assignedToId });
+                      if ((res as any).error) toast.error((res as any).error.error || 'Failed to assign'); else { toast.success('Assigned'); fetchMaintenanceRequests(); }
+                    }}
+                  >
+                    Assign
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      const res = await completeMaintenanceRequest(selectedTicket.id, {});
+                      if ((res as any).error) toast.error((res as any).error.error || 'Failed to complete'); else { toast.success('Marked completed'); fetchMaintenanceRequests(); }
+                    }}
+                  >
+                    Mark Completed
+                  </Button>
+                </div>
+
+                {/* Updates & Activity */}
+                {Array.isArray((selectedTicket as any).updates) && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium">Updates</h4>
+                    <div className="space-y-3">
+                      {(selectedTicket as any).updates.map((u: any, idx: number) => (
+                        <div key={idx} className="border-b pb-2 last:border-0">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="font-medium">{u?.updatedBy?.name || 'Update'}</span>
+                            <span className="text-gray-500">{u?.createdAt ? new Date(u.createdAt).toLocaleString() : ''}</span>
+                          </div>
+                          <div className="text-sm text-gray-700 whitespace-pre-wrap">{u?.note}</div>
+                          {Array.isArray(u?.attachments) && u.attachments.length > 0 && (
+                            <div className="mt-2 space-y-1">
+                              {u.attachments.map((f: any, i: number) => {
+                                const base = (import.meta as any).env.VITE_API_URL || 'http://localhost:5000';
+                                const href = typeof f === 'string' ? (f.startsWith('http') ? f : `${base}${f}`) : ((f?.url || '').startsWith('http') ? f.url : `${base}${f?.url || ''}`);
+                                const label = typeof f === 'string' ? 'Attachment' : (f.originalName || 'Attachment');
+                                return (
+                                  <a key={i} href={href} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">
+                                    {label}
+                                  </a>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Manager/Owner Review (reply) */}
+                <div className="space-y-2">
+                  <h4 className="font-medium">Add Manager/Owner Review</h4>
+                  <Textarea rows={3} value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} placeholder="Write a short review or note for the tenant (visible in ticket updates)" />
+                  <div className="flex justify-end">
+                    <Button size="sm" onClick={async () => {
+                      if (!reviewNote.trim()) return;
+                      const res = await replyMaintenanceRequest(selectedTicket.id, { note: reviewNote.trim() });
+                      if ((res as any).error) { toast.error((res as any).error.error || 'Failed to add review'); return; }
+                      toast.success('Review added');
+                      setReviewNote('');
+                      // Reload details
+                      try {
+                        const d = await getMaintenanceRequest(selectedTicket.id);
+                        if ((d as any).data) {
+                          const req: any = (d as any).data;
+                          setSelectedTicket((prev: any) => ({
+                            ...prev,
+                            updates: req.updates || prev?.updates || []
+                          }));
+                        }
+                      } catch {}
+                    }}>Submit Review</Button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -9,6 +9,7 @@ import { TenantManagement } from './TenantManagement';
 import { FinancialReports } from './FinancialReports';
 import { ExpenseManagement } from './ExpenseManagement';
 import { PropertyManagerManagement } from './PropertyManagerManagement';
+import { MaintenanceTickets } from './MaintenanceTickets';
 import { AccessControl } from './AccessControl';
 import { PropertyOwnerSettings } from './PropertyOwnerSettings';
 import { AddPropertyPage } from './AddPropertyPage';
@@ -520,6 +521,7 @@ export function PropertyOwnerDashboard({
     { name: 'Payments', key: 'payments' },
     { name: 'Financial Reports', key: 'financial' },
     { name: 'Expenses', key: 'expenses' },
+    { name: 'Maintenance', key: 'maintenance' },
     { name: 'Property Managers', key: 'managers' },
     { name: 'Key Management', key: 'access' },
     { name: 'Documents', key: 'documents' },
@@ -994,6 +996,12 @@ export function PropertyOwnerDashboard({
                   units={units}
                   onBack={() => setCurrentView('dashboard')}
                 />
+              </div>
+            </div>
+          ) : currentView === 'maintenance' ? (
+            <div className="p-4 lg:p-8">
+              <div className="max-w-7xl mx-auto">
+                <MaintenanceTickets properties={properties} />
               </div>
             </div>
           ) : currentView === 'managers' ? (

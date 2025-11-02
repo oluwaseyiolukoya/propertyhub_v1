@@ -22,9 +22,11 @@ import {
   getDocuments,
   getDocumentStats,
   getDocumentDownloadUrl,
+  downloadDocumentInFormat,
   Document,
   DocumentStats,
-} from '../lib/api';
+} from '../lib/api/documents';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 
 const TenantDocuments: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -32,6 +34,8 @@ const TenantDocuments: React.FC = () => {
   const [stats, setStats] = useState<DocumentStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
+  const [viewingDocument, setViewingDocument] = useState<Document | null>(null);
+  const [showViewDialog, setShowViewDialog] = useState(false);
 
   // Load documents on mount
   useEffect(() => {
@@ -100,10 +104,23 @@ const TenantDocuments: React.FC = () => {
     return filtered;
   };
 
-  const handleDownload = (doc: Document) => {
-    const downloadUrl = getDocumentDownloadUrl(doc.fileUrl);
-    window.open(downloadUrl, '_blank');
-    toast.success(`Downloading ${doc.name}`);
+  const handleDownload = (doc: Document, format: 'pdf' | 'docx' = 'pdf') => {
+    // For generated contracts (no fileUrl), use the download API
+    if (!doc.fileUrl || doc.fileUrl === '') {
+      const downloadUrl = downloadDocumentInFormat(doc.id, format, { includeToken: true });
+      window.open(downloadUrl, '_blank');
+      toast.success(`Downloading ${doc.name} as ${format.toUpperCase()}`);
+    } else {
+      // For uploaded files, use direct file URL
+      const downloadUrl = getDocumentDownloadUrl(doc.fileUrl);
+      window.open(downloadUrl, '_blank');
+      toast.success(`Downloading ${doc.name}`);
+    }
+  };
+
+  const handleView = (doc: Document) => {
+    setViewingDocument(doc);
+    setShowViewDialog(true);
   };
 
   const formatFileSize = (bytes: number | null | undefined): string => {
@@ -120,6 +137,20 @@ const TenantDocuments: React.FC = () => {
       month: 'short',
       day: 'numeric'
     });
+  };
+
+  const getDisplayFormat = (doc: Document): string => {
+    if (!doc.fileUrl) return 'PDF';
+    if (doc.format) return doc.format.toUpperCase();
+    const parts = doc.fileUrl.toLowerCase().split('.');
+    const ext = parts.length > 1 ? parts.pop() as string : '';
+    return (ext || 'PDF').toUpperCase();
+  };
+
+  const getDisplaySizeText = (doc: Document): string => {
+    if (doc.fileSize) return formatFileSize(doc.fileSize);
+    if (!doc.fileUrl) return 'Generated';
+    return 'Unknown';
   };
 
   const getTypeIcon = (type: string) => {
@@ -273,12 +304,7 @@ const TenantDocuments: React.FC = () => {
   const policies = filteredDocuments.filter(doc => doc.type === 'policy' || doc.type === 'notice');
   const insuranceDocs = filteredDocuments.filter(doc => doc.type === 'insurance');
 
-  const handleView = (docName: string) => {
-    toast.info(`Viewing ${docName}`);
-    // TODO: Implement document viewer
-  };
-
-  const DocumentCard = ({ doc }: { doc: any }) => (
+  const DocumentCard = ({ doc }: { doc: Document }) => (
     <Card className="hover:border-blue-300 transition-colors">
       <CardContent className="p-4">
         <div className="flex items-start space-x-3">
@@ -294,12 +320,12 @@ const TenantDocuments: React.FC = () => {
             </div>
             <div className="flex items-center justify-between mt-3">
               <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                <span>{doc.format} • {doc.size}</span>
+                <span>{getDisplayFormat(doc)} • {getDisplaySizeText(doc)}</span>
                 <span>•</span>
-                <span>{doc.dateAdded}</span>
+                <span>{doc.createdAt ? formatDate(doc.createdAt) : 'N/A'}</span>
               </div>
               <div className="flex items-center space-x-2">
-                <Button variant="ghost" size="sm" onClick={() => handleView(doc.name)}>
+                <Button variant="ghost" size="sm" onClick={() => handleView(doc)}>
                   <Eye className="h-4 w-4" />
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => handleDownload(doc)}>
@@ -367,7 +393,7 @@ const TenantDocuments: React.FC = () => {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">3</div>
+            <div className="text-2xl font-bold">{stats?.recent ?? 0}</div>
             <p className="text-xs text-muted-foreground">
               This month
             </p>
@@ -427,11 +453,11 @@ const TenantDocuments: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => handleView(doc.name)}>
+                    <Button variant="outline" size="sm" onClick={() => handleView(doc)}>
                       <Eye className="h-4 w-4 mr-2" />
                       View
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => toast.info(`Downloading ${doc.name}`)}>
+                    <Button variant="outline" size="sm" onClick={() => handleDownload(doc)}>
                       <Download className="h-4 w-4 mr-2" />
                       Download
                     </Button>
@@ -470,11 +496,11 @@ const TenantDocuments: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => handleView(doc.name)}>
+                    <Button variant="outline" size="sm" onClick={() => handleView(doc)}>
                       <Eye className="h-4 w-4 mr-2" />
                       View
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => toast.info(`Downloading ${doc.name}`)}>
+                    <Button variant="outline" size="sm" onClick={() => handleDownload(doc)}>
                       <Download className="h-4 w-4 mr-2" />
                       Download
                     </Button>
@@ -505,11 +531,11 @@ const TenantDocuments: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => handleView(doc.name)}>
+                    <Button variant="outline" size="sm" onClick={() => handleView(doc)}>
                       <Eye className="h-4 w-4 mr-2" />
                       View
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => toast.info(`Downloading ${doc.name}`)}>
+                    <Button variant="outline" size="sm" onClick={() => handleDownload(doc)}>
                       <Download className="h-4 w-4 mr-2" />
                       Download
                     </Button>
@@ -540,11 +566,11 @@ const TenantDocuments: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => handleView(doc.name)}>
+                    <Button variant="outline" size="sm" onClick={() => handleView(doc)}>
                       <Eye className="h-4 w-4 mr-2" />
                       View
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => toast.info(`Downloading ${doc.name}`)}>
+                    <Button variant="outline" size="sm" onClick={() => handleDownload(doc)}>
                       <Download className="h-4 w-4 mr-2" />
                       Download
                     </Button>
@@ -555,6 +581,79 @@ const TenantDocuments: React.FC = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Document Viewer Dialog */}
+      <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>{viewingDocument?.name}</DialogTitle>
+            <DialogDescription>
+              {viewingDocument?.description || 'Document preview'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Document Info */}
+            <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Document Details</p>
+                <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                  <span>{viewingDocument ? getDisplayFormat(viewingDocument) : 'PDF'}</span>
+                  <span>•</span>
+                  <span>{viewingDocument ? getDisplaySizeText(viewingDocument) : '—'}</span>
+                  <span>•</span>
+                  <span>{viewingDocument?.createdAt ? formatDate(viewingDocument.createdAt) : 'N/A'}</span>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => viewingDocument && handleDownload(viewingDocument, 'pdf')}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  PDF
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => viewingDocument && handleDownload(viewingDocument, 'docx')}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  DOCX
+                </Button>
+              </div>
+            </div>
+
+            {/* Document Preview */}
+            <div className="border rounded-lg overflow-hidden" style={{ height: '500px' }}>
+              {viewingDocument?.fileUrl ? (
+                // For uploaded files, show iframe or image
+                viewingDocument.fileUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                  <img
+                    src={getDocumentDownloadUrl(viewingDocument.fileUrl)}
+                    alt={viewingDocument.name}
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <iframe
+                    src={getDocumentDownloadUrl(viewingDocument.fileUrl)}
+                    className="w-full h-full"
+                    title={viewingDocument.name}
+                  />
+                )
+              ) : (
+                // For generated contracts, show PDF preview
+                <iframe
+                  src={viewingDocument ? downloadDocumentInFormat(viewingDocument.id, 'pdf', { inline: true, includeToken: true }) : ''}
+                  className="w-full h-full"
+                  title={viewingDocument?.name || 'Document'}
+                />
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

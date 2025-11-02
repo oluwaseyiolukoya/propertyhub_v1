@@ -1,4 +1,5 @@
 import express, { Response } from 'express';
+import { randomUUID } from 'crypto';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import prisma from '../lib/db';
 import { emitToCustomer, emitToUser } from '../lib/socket';
@@ -152,6 +153,7 @@ router.post('/record', async (req: AuthRequest, res: Response) => {
 
     const payment = await prisma.payments.create({
       data: {
+        id: randomUUID(),
         customerId,
         propertyId: lease.propertyId,
         unitId: lease.unitId,
@@ -170,6 +172,8 @@ router.post('/record', async (req: AuthRequest, res: Response) => {
           recordedByRole: role,
           notes: notes || null
         } as any
+      ,
+        updatedAt: new Date()
       },
       include: {
         leases: {
@@ -259,6 +263,7 @@ router.post('/initialize', async (req: AuthRequest, res: Response) => {
     try {
       await prisma.payments.create({
         data: {
+          id: randomUUID(),
           customerId,
           propertyId: property.id,
           unitId: unit?.id || null,
@@ -273,7 +278,8 @@ router.post('/initialize', async (req: AuthRequest, res: Response) => {
           metadata: {
             leaseNumber: lease.leaseNumber,
             unitNumber: unit?.unitNumber
-          } as any
+          } as any,
+          updatedAt: new Date()
         }
       });
     } catch (err: any) {
@@ -292,7 +298,9 @@ router.post('/initialize', async (req: AuthRequest, res: Response) => {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const callbackUrl = `${frontendUrl}/?payment_ref=${encodeURIComponent(reference)}`;
 
-    const resp = await fetch('https://api.paystack.co/transaction/initialize', {
+    let resp: any;
+    try {
+      resp = await fetch('https://api.paystack.co/transaction/initialize', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${settings.secretKey}`,
@@ -313,7 +321,17 @@ router.post('/initialize', async (req: AuthRequest, res: Response) => {
           type: 'rent'
         }
       })
-    } as any);
+      } as any);
+    } catch (err: any) {
+      console.error('Paystack init network error:', err?.message || err);
+      try {
+        await prisma.payments.updateMany({
+          where: { customerId, provider: 'paystack', providerReference: reference },
+          data: { status: 'failed', updatedAt: new Date() }
+        });
+      } catch {}
+      return res.status(400).json({ error: 'Network error initializing payment. Please try again.' });
+    }
 
     const json = await resp.json().catch(() => ({}));
     if (!resp.ok || !json?.status) {
@@ -340,8 +358,8 @@ router.post('/initialize', async (req: AuthRequest, res: Response) => {
         action: 'Execute: cd backend && npx prisma migrate dev',
       });
     }
-    console.error('Initialize payment error:', error);
-    return res.status(500).json({ error: 'Failed to initialize payment' });
+    console.error('Initialize payment error:', error?.message || error);
+    return res.status(500).json({ error: 'Failed to initialize payment', details: error?.message || String(error) });
   }
 });
 
@@ -370,6 +388,7 @@ router.post('/subscription/initialize', async (req: AuthRequest, res: Response) 
     const reference = `PH-SUB-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     await prisma.payments.create({
       data: {
+        id: randomUUID(),
         customerId,
         invoiceId,
         amount: invoice.amount,
@@ -378,7 +397,8 @@ router.post('/subscription/initialize', async (req: AuthRequest, res: Response) 
         type: 'subscription',
         provider: 'paystack',
         providerReference: reference,
-        metadata: { billingPeriod: invoice.billingPeriod } as any
+        metadata: { billingPeriod: invoice.billingPeriod } as any,
+        updatedAt: new Date()
       }
     });
 

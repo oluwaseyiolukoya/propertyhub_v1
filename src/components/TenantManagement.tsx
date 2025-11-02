@@ -532,16 +532,17 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
     }
   };
 
-  // Get unique properties for filter dropdown
-  const uniqueProperties = Array.from(new Set(tenants.map(t => t.property)));
+  // Get unique properties for filter dropdown (sanitize undefined)
+  const uniqueProperties = Array.from(new Set(tenants.map(t => t.property || ''))).filter(Boolean);
 
   // Filter tenants based on search and filters
   const filteredTenants = tenants.filter(tenant => {
+    const safe = (v: any) => (v == null ? '' : String(v)).toLowerCase();
     const matchesSearch =
-      tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tenant.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tenant.unit.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tenant.id.toLowerCase().includes(searchTerm.toLowerCase());
+      safe(tenant.name).includes(searchTerm.toLowerCase()) ||
+      safe(tenant.email).includes(searchTerm.toLowerCase()) ||
+      safe(tenant.unit).includes(searchTerm.toLowerCase()) ||
+      safe(tenant.id).includes(searchTerm.toLowerCase());
 
     const matchesStatus = statusFilter === 'all' || tenant.status === statusFilter;
     const matchesProperty = propertyFilter === 'all' || tenant.property === propertyFilter;

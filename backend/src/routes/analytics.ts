@@ -11,7 +11,7 @@ router.use(adminOnly);
 router.get('/overview', async (req: AuthRequest, res: Response) => {
   try {
     const period = req.query.period as string || '30d';
-    
+
     // Calculate date range based on period
     let startDate = new Date();
     if (period === '7d') {
@@ -28,20 +28,20 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
     const totalCustomers = await prisma.customer.count();
     const activeCustomers = await prisma.customer.count({ where: { status: 'active' } });
     const trialCustomers = await prisma.customer.count({ where: { status: 'trial' } });
-    
+
     // Get customers in period
     const customersInPeriod = await prisma.customer.count({
       where: { createdAt: { gte: startDate } }
     });
-    
+
     // Get previous period for comparison
     const previousStartDate = new Date(startDate);
     const daysDiff = Math.floor((Date.now() - startDate.getTime()) / (1000 * 60 * 60 * 24));
     previousStartDate.setDate(previousStartDate.getDate() - daysDiff);
-    
+
     const customersInPreviousPeriod = await prisma.customer.count({
-      where: { 
-        createdAt: { 
+      where: {
+        createdAt: {
           gte: previousStartDate,
           lt: startDate
         }
@@ -49,7 +49,7 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
     });
 
     // Calculate growth percentage
-    const customerGrowth = customersInPreviousPeriod > 0 
+    const customerGrowth = customersInPreviousPeriod > 0
       ? ((customersInPeriod - customersInPreviousPeriod) / customersInPreviousPeriod) * 100
       : 0;
 
@@ -60,7 +60,7 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
     });
 
     const totalRevenue = await prisma.invoice.aggregate({
-      where: { 
+      where: {
         status: 'paid',
         createdAt: { gte: startDate }
       },
@@ -68,9 +68,9 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
     });
 
     const previousRevenue = await prisma.invoice.aggregate({
-      where: { 
+      where: {
         status: 'paid',
-        createdAt: { 
+        createdAt: {
           gte: previousStartDate,
           lt: startDate
         }
@@ -105,7 +105,7 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
     let dailyStats: any[] = [];
     try {
       dailyStats = await prisma.$queryRaw`
-        SELECT 
+        SELECT
           DATE("createdAt") as date,
           COUNT(*) as customers,
           SUM(mrr) as revenue
@@ -210,7 +210,7 @@ router.get('/dashboard', async (req: AuthRequest, res: Response) => {
     let customerGrowth: any[] = [];
     try {
       customerGrowth = await prisma.$queryRaw`
-        SELECT 
+        SELECT
           DATE_TRUNC('month', "createdAt") as month,
           COUNT(*) as count
         FROM customers
@@ -318,7 +318,7 @@ router.get('/system-health', async (req: AuthRequest, res: Response) => {
     let dbStats: any[] = [];
     try {
       dbStats = await prisma.$queryRaw`
-        SELECT 
+        SELECT
           pg_database_size(current_database()) as size,
           (SELECT count(*) FROM pg_stat_activity) as connections
       ` as any[];
@@ -330,7 +330,7 @@ router.get('/system-health', async (req: AuthRequest, res: Response) => {
     // Get error logs (from activity logs)
     let errorLogs = 0;
     try {
-      errorLogs = await prisma.activityLog.count({
+      errorLogs = await prisma.activity_logs.count({
         where: {
           action: 'error',
           createdAt: {
@@ -385,16 +385,16 @@ router.get('/activity-logs', async (req: AuthRequest, res: Response) => {
     if (entity) where.entity = entity as string;
     if (action) where.action = action as string;
 
-    const logs = await prisma.activityLog.findMany({
+    const logs = await prisma.activity_logs.findMany({
       where,
       include: {
-        customer: {
+        customers: {
           select: {
             id: true,
             company: true
           }
         },
-        user: {
+        users: {
           select: {
             id: true,
             name: true,

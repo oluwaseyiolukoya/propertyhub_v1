@@ -35,100 +35,150 @@ model admins {
   lastLogin DateTime?
 }
 
+model customer_users {
+  id          String    @id
+  customerId  String
+  userId      String
+  role        String
+  permissions Json?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+  customers   customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  users       users     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, userId])
+}
+
 model customers {
-  id                    String            @id
-  company               String
-  owner                 String
-  email                 String            @unique
-  phone                 String?
-  website               String?
-  taxId                 String?
-  industry              String?
-  companySize           String?
-  planId                String?
-  billingCycle          String            @default("monthly")
-  mrr                   Float             @default(0)
-  trialEndsAt           DateTime?
-  subscriptionStartDate DateTime?
-  status                String            @default("trial")
-  lastLogin             DateTime?
-  propertyLimit         Int               @default(5)
-  userLimit             Int               @default(3)
-  storageLimit          Int               @default(1000)
-  street                String?
-  city                  String?
-  state                 String?
-  postalCode            String?
-  country               String            @default("Nigeria")
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime
-  propertiesCount       Int               @default(0)
-  unitsCount            Int               @default(0)
-  notes                 String?
-  activity_logs         activity_logs[]
-  plans                 plans?            @relation(fields: [planId], references: [id])
-  invoices              invoices[]
-  properties            properties[]
-  support_tickets       support_tickets[]
-  users                 users[]
-  customer_users        customer_users[]
-  documents             documents[]
-  property_keys         property_keys[]
+  id                        String                      @id
+  company                   String
+  owner                     String
+  email                     String                      @unique
+  phone                     String?
+  website                   String?
+  taxId                     String?
+  industry                  String?
+  companySize               String?
+  planId                    String?
+  billingCycle              String                      @default("monthly")
+  mrr                       Float                       @default(0)
+  trialEndsAt               DateTime?
+  subscriptionStartDate     DateTime?
+  status                    String                      @default("trial")
+  lastLogin                 DateTime?
+  propertyLimit             Int                         @default(5)
+  userLimit                 Int                         @default(3)
+  storageLimit              Int                         @default(1000)
+  street                    String?
+  city                      String?
+  state                     String?
+  postalCode                String?
+  country                   String                      @default("Nigeria")
+  createdAt                 DateTime                    @default(now())
+  updatedAt                 DateTime
+  propertiesCount           Int                         @default(0)
+  unitsCount                Int                         @default(0)
+  notes                     String?
+  activity_logs             activity_logs[]
+  customer_users            customer_users[]
+  plans                     plans?                      @relation(fields: [planId], references: [id])
+  documents                 documents[]
+  invoices                  invoices[]
+  payment_methods           payment_methods[]
+  payment_settings          payment_settings[]
+  payments                  payments[]
+  properties                properties[]
   property_key_transactions property_key_transactions[]
-  payment_settings      payment_settings[]
-  payments              payments[]
-  payment_methods       payment_methods[]
+  property_keys             property_keys[]
+  support_tickets           support_tickets[]
+  users                     users[]
 }
 
 model documents {
-  id              String      @id
-  customerId      String
-  propertyId      String?
-  unitId          String?
-  tenantId        String?
-  managerId       String?
-  name            String
-  type            String
-  category        String
-  fileUrl         String
-  fileSize        Int?
-  format          String?
-  description     String?
-  uploadedBy      String
-  uploadedById    String
-  status          String      @default("active")
-  metadata        Json?
-  isShared        Boolean     @default(false)
-  sharedWith      String[]    @default([])
-  expiresAt       DateTime?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime
-  customers       customers   @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  properties      properties? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  units           units?      @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  tenant          users?      @relation("TenantDocuments", fields: [tenantId], references: [id], onDelete: Cascade)
-  manager         users?      @relation("ManagerDocuments", fields: [managerId], references: [id], onDelete: SetNull)
-  uploader        users       @relation("UploaderDocuments", fields: [uploadedById], references: [id])
+  id                                  String      @id
+  customerId                          String
+  propertyId                          String?
+  unitId                              String?
+  tenantId                            String?
+  managerId                           String?
+  name                                String
+  type                                String
+  category                            String
+  fileUrl                             String
+  fileSize                            Int?
+  format                              String?
+  description                         String?
+  uploadedBy                          String
+  uploadedById                        String
+  status                              String      @default("active")
+  metadata                            Json?
+  isShared                            Boolean     @default(false)
+  sharedWith                          String[]    @default([])
+  expiresAt                           DateTime?
+  createdAt                           DateTime    @default(now())
+  updatedAt                           DateTime
+  customers                           customers   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  users_documents_managerIdTousers    users?      @relation("documents_managerIdTousers", fields: [managerId], references: [id])
+  properties                          properties? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  users_documents_tenantIdTousers     users?      @relation("documents_tenantIdTousers", fields: [tenantId], references: [id], onDelete: Cascade)
+  units                               units?      @relation(fields: [unitId], references: [id])
+  users_documents_uploadedByIdTousers users       @relation("documents_uploadedByIdTousers", fields: [uploadedById], references: [id])
+}
+
+model expenses {
+  id                               String     @id
+  propertyId                       String
+  unitId                           String?
+  category                         String
+  description                      String
+  amount                           Float
+  currency                         String     @default("NGN")
+  date                             DateTime   @default(now())
+  dueDate                          DateTime?
+  status                           String     @default("pending")
+  paidDate                         DateTime?
+  paymentMethod                    String?
+  recordedBy                       String
+  recordedByRole                   String
+  receipt                          String?
+  notes                            String?
+  requiresApproval                 Boolean    @default(false)
+  approvedBy                       String?
+  approvedAt                       DateTime?
+  visibleToManager                 Boolean    @default(false)
+  createdAt                        DateTime   @default(now())
+  updatedAt                        DateTime
+  users_expenses_approvedByTousers users?     @relation("expenses_approvedByTousers", fields: [approvedBy], references: [id])
+  properties                       properties @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  users_expenses_recordedByTousers users      @relation("expenses_recordedByTousers", fields: [recordedBy], references: [id])
+  units                            units?     @relation(fields: [unitId], references: [id])
+
+  @@index([category])
+  @@index([date])
+  @@index([propertyId])
+  @@index([status])
+  @@index([visibleToManager])
 }
 
 model invoices {
-  id            String    @id
+  id            String     @id
   customerId    String
-  invoiceNumber String    @unique
+  invoiceNumber String     @unique
   amount        Float
-  currency      String    @default("NGN")
-  status        String    @default("pending")
+  currency      String     @default("NGN")
+  status        String     @default("pending")
   dueDate       DateTime
   paidAt        DateTime?
   billingPeriod String
   description   String?
   items         Json
-  createdAt     DateTime  @default(now())
+  createdAt     DateTime   @default(now())
   updatedAt     DateTime
   refundedAt    DateTime?
-  customers     customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  refunds       refunds[]
+  customers     customers  @relation(fields: [customerId], references: [id], onDelete: Cascade)
   payments      payments[]
+  refunds       refunds[]
 }
 
 model leases {
@@ -152,8 +202,92 @@ model leases {
   updatedAt         DateTime
   properties        properties @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   users             users      @relation(fields: [tenantId], references: [id])
-  units             units?     @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  units             units?     @relation(fields: [unitId], references: [id])
   payments          payments[]
+}
+
+model payment_methods {
+  id                String     @id
+  tenantId          String
+  customerId        String
+  type              String     @default("card")
+  provider          String     @default("paystack")
+  authorizationCode String?
+  cardBrand         String?
+  cardLast4         String?
+  cardExpMonth      String?
+  cardExpYear       String?
+  cardBin           String?
+  cardType          String?
+  bank              String?
+  accountName       String?
+  isDefault         Boolean    @default(false)
+  isActive          Boolean    @default(true)
+  metadata          Json?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime
+  customers         customers  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  users             users      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payments          payments[]
+
+  @@index([customerId])
+  @@index([isActive])
+  @@index([isDefault])
+  @@index([tenantId])
+}
+
+model payment_settings {
+  id                   String    @id
+  customerId           String
+  provider             String
+  publicKey            String?
+  secretKey            String?
+  testMode             Boolean   @default(false)
+  isEnabled            Boolean   @default(false)
+  bankTransferTemplate String?
+  metadata             Json?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime
+  customers            customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, provider])
+}
+
+model payments {
+  id                String           @id
+  customerId        String
+  propertyId        String?
+  unitId            String?
+  leaseId           String?
+  tenantId          String?
+  invoiceId         String?
+  amount            Float
+  currency          String           @default("NGN")
+  status            String           @default("pending")
+  type              String           @default("rent")
+  paymentMethod     String?
+  provider          String
+  providerReference String?
+  providerFee       Float?
+  paidAt            DateTime?
+  metadata          Json?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime
+  paymentMethodId   String?
+  customers         customers        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  invoices          invoices?        @relation(fields: [invoiceId], references: [id])
+  leases            leases?          @relation(fields: [leaseId], references: [id])
+  payment_methods   payment_methods? @relation(fields: [paymentMethodId], references: [id])
+  properties        properties?      @relation(fields: [propertyId], references: [id])
+  users             users?           @relation(fields: [tenantId], references: [id])
+  units             units?           @relation(fields: [unitId], references: [id])
+
+  @@index([customerId])
+  @@index([leaseId])
+  @@index([paymentMethodId])
+  @@index([propertyId])
+  @@index([provider])
+  @@index([status])
 }
 
 model plans {
@@ -175,7 +309,7 @@ model plans {
 }
 
 model properties {
-  id                    String              @id
+  id                    String                 @id
   customerId            String
   ownerId               String
   name                  String
@@ -184,16 +318,16 @@ model properties {
   city                  String
   state                 String
   postalCode            String
-  country               String              @default("Nigeria")
+  country               String                 @default("Nigeria")
   yearBuilt             Int?
   totalUnits            Int
   floors                Int?
   totalArea             Float?
   lotSize               Float?
   parking               Int?
-  currency              String              @default("NGN")
+  currency              String                 @default("NGN")
   avgRent               Float?
-  status                String              @default("active")
+  status                String                 @default("active")
   features              Json?
   unitFeatures          Json?
   insuranceProvider     String?
@@ -205,7 +339,7 @@ model properties {
   images                Json?
   description           String?
   notes                 String?
-  createdAt             DateTime            @default(now())
+  createdAt             DateTime               @default(now())
   updatedAt             DateTime
   securityDeposit       Float?
   applicationFee        Float?
@@ -216,31 +350,82 @@ model properties {
   agreementFee          Float?
   purchasePrice         Float?
   currentValue          Float?
-  leases                leases[]
-  customers             customers           @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  users                 users               @relation(fields: [ownerId], references: [id])
-  property_managers     property_managers[]
-  units                 units[]
   documents             documents[]
   expenses              expenses[]
-  property_keys         property_keys[]
+  leases                leases[]
   payments              payments[]
+  customers             customers              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  users                 users                  @relation(fields: [ownerId], references: [id])
+  property_keys         property_keys[]
+  property_managers     property_managers[]
+  units                 units[]
+  maintenance_requests  maintenance_requests[]
 }
 
-model customer_users {
-  id          String     @id
-  customerId  String
-  userId      String
-  role        String
-  permissions Json?
-  isActive    Boolean    @default(true)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime
+model property_key_transactions {
+  id                                                        String        @id
+  keyId                                                     String
+  customerId                                                String
+  action                                                    String
+  performedById                                             String?
+  performedByName                                           String?
+  performedForUserId                                        String?
+  performedForName                                          String?
+  personType                                                String?
+  witnessName                                               String?
+  witnessSignature                                          String?
+  depositAmount                                             Float?
+  notes                                                     String?
+  metadata                                                  Json?
+  createdAt                                                 DateTime      @default(now())
+  customers                                                 customers     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  property_keys                                             property_keys @relation(fields: [keyId], references: [id], onDelete: Cascade)
+  users_property_key_transactions_performedByIdTousers      users?        @relation("property_key_transactions_performedByIdTousers", fields: [performedById], references: [id])
+  users_property_key_transactions_performedForUserIdTousers users?        @relation("property_key_transactions_performedForUserIdTousers", fields: [performedForUserId], references: [id])
 
-  customers   customers  @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  users       users      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([action])
+  @@index([customerId])
+  @@index([keyId])
+}
 
-  @@unique([customerId, userId])
+model property_keys {
+  id                                        String                      @id
+  customerId                                String
+  propertyId                                String
+  unitId                                    String?
+  keyNumber                                 String                      @unique
+  keyLabel                                  String?
+  keyType                                   String
+  status                                    String                      @default("available")
+  numberOfCopies                            Int                         @default(1)
+  location                                  String?
+  notes                                     String?
+  issuedToUserId                            String?
+  issuedToName                              String?
+  issuedToType                              String?
+  issuedDate                                DateTime?
+  expectedReturnDate                        DateTime?
+  returnedDate                              DateTime?
+  depositAmount                             Float?
+  depositCurrency                           String?                     @default("NGN")
+  depositRefunded                           Boolean                     @default(false)
+  depositNotes                              String?
+  createdById                               String?
+  updatedById                               String?
+  createdAt                                 DateTime                    @default(now())
+  updatedAt                                 DateTime
+  property_key_transactions                 property_key_transactions[]
+  users_property_keys_createdByIdTousers    users?                      @relation("property_keys_createdByIdTousers", fields: [createdById], references: [id])
+  customers                                 customers                   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  users_property_keys_issuedToUserIdTousers users?                      @relation("property_keys_issuedToUserIdTousers", fields: [issuedToUserId], references: [id])
+  properties                                properties                  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  units                                     units?                      @relation(fields: [unitId], references: [id])
+  users_property_keys_updatedByIdTousers    users?                      @relation("property_keys_updatedByIdTousers", fields: [updatedById], references: [id])
+
+  @@index([customerId])
+  @@index([keyType])
+  @@index([propertyId])
+  @@index([status])
 }
 
 model property_managers {
@@ -310,260 +495,112 @@ model system_settings {
 }
 
 model units {
-  id              String     @id
-  propertyId      String
-  unitNumber      String
-  type            String
-  floor           Int?
-  bedrooms        Int
-  bathrooms       Float
-  size            Float?
-  monthlyRent     Float
-  securityDeposit Float?
-  status          String     @default("vacant")
-  features        Json?
-  images          Json?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime
-  leases          leases[]
-  properties      properties @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  documents       documents[]
-  expenses        expenses[]
-  property_keys   property_keys[]
-  payments        payments[]
+  id                   String                 @id
+  propertyId           String
+  unitNumber           String
+  type                 String
+  floor                Int?
+  bedrooms             Int
+  bathrooms            Float
+  size                 Float?
+  monthlyRent          Float
+  securityDeposit      Float?
+  status               String                 @default("vacant")
+  features             Json?
+  images               Json?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime
+  documents            documents[]
+  expenses             expenses[]
+  leases               leases[]
+  payments             payments[]
+  property_keys        property_keys[]
+  properties           properties             @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  maintenance_requests maintenance_requests[]
 
   @@unique([propertyId, unitNumber])
 }
 
-model expenses {
-  id              String     @id
-  propertyId      String
-  unitId          String?
-  category        String
-  description     String
-  amount          Float
-  currency        String     @default("NGN")
-  date            DateTime   @default(now())
-  dueDate         DateTime?
-  status          String     @default("pending")
-  paidDate        DateTime?
-  paymentMethod   String?
-  recordedBy      String
-  recordedByRole  String
-  receipt         String?
-  notes           String?
-  requiresApproval Boolean   @default(false)
-  approvedBy      String?
-  approvedAt      DateTime?
-  visibleToManager Boolean   @default(false)
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-
-  property        properties @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  unit            units?     @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  recorder        users      @relation("RecordedExpenses", fields: [recordedBy], references: [id])
-  approver        users?     @relation("ApprovedExpenses", fields: [approvedBy], references: [id])
-
-  @@index([propertyId])
-  @@index([date])
-  @@index([category])
-  @@index([status])
-  @@index([visibleToManager])
-}
-
 model users {
-  id                String              @id @default(uuid())
-  customerId        String?
-  name              String
-  email             String              @unique
-  password          String?
-  phone             String?
-  role              String
-  department        String?
-  company           String?
-  baseCurrency      String              @default("USD")
-  isActive          Boolean             @default(true)
-  status            String              @default("pending")
-  lastLogin         DateTime?
-  invitedAt         DateTime?
-  acceptedAt        DateTime?
-  permissions       Json?
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  activity_logs          activity_logs[]
-  leases                 leases[]
-  properties             properties[]
-  property_managers      property_managers[]
-  customers              customers?          @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  customer_users         customer_users[]
-  tenantDocuments        documents[]         @relation("TenantDocuments")
-  managerDocuments       documents[]         @relation("ManagerDocuments")
-  uploadedDocuments      documents[]         @relation("UploaderDocuments")
-  recordedExpenses       expenses[]          @relation("RecordedExpenses")
-  approvedExpenses       expenses[]          @relation("ApprovedExpenses")
-  issuedKeys             property_keys[]     @relation("KeyIssuedTo")
-  createdKeys            property_keys[]     @relation("KeyCreatedBy")
-  updatedKeys            property_keys[]     @relation("KeyUpdatedBy")
-  keyTransactionsPerformed property_key_transactions[] @relation("TransactionPerformedBy")
-  keyTransactionsReceived property_key_transactions[]  @relation("TransactionPerformedFor")
-  payments              payments[]
-  payment_methods       payment_methods[]
+  id                                                                            String                      @id
+  customerId                                                                    String?
+  name                                                                          String
+  email                                                                         String                      @unique
+  password                                                                      String?
+  phone                                                                         String?
+  role                                                                          String
+  department                                                                    String?
+  company                                                                       String?
+  baseCurrency                                                                  String                      @default("USD")
+  isActive                                                                      Boolean                     @default(true)
+  status                                                                        String                      @default("pending")
+  lastLogin                                                                     DateTime?
+  invitedAt                                                                     DateTime?
+  acceptedAt                                                                    DateTime?
+  permissions                                                                   Json?
+  createdAt                                                                     DateTime                    @default(now())
+  updatedAt                                                                     DateTime
+  activity_logs                                                                 activity_logs[]
+  customer_users                                                                customer_users[]
+  documents_documents_managerIdTousers                                          documents[]                 @relation("documents_managerIdTousers")
+  documents_documents_tenantIdTousers                                           documents[]                 @relation("documents_tenantIdTousers")
+  documents_documents_uploadedByIdTousers                                       documents[]                 @relation("documents_uploadedByIdTousers")
+  expenses_expenses_approvedByTousers                                           expenses[]                  @relation("expenses_approvedByTousers")
+  expenses_expenses_recordedByTousers                                           expenses[]                  @relation("expenses_recordedByTousers")
+  leases                                                                        leases[]
+  payment_methods                                                               payment_methods[]
+  payments                                                                      payments[]
+  properties                                                                    properties[]
+  property_key_transactions_property_key_transactions_performedByIdTousers      property_key_transactions[] @relation("property_key_transactions_performedByIdTousers")
+  property_key_transactions_property_key_transactions_performedForUserIdTousers property_key_transactions[] @relation("property_key_transactions_performedForUserIdTousers")
+  property_keys_property_keys_createdByIdTousers                                property_keys[]             @relation("property_keys_createdByIdTousers")
+  property_keys_property_keys_issuedToUserIdTousers                             property_keys[]             @relation("property_keys_issuedToUserIdTousers")
+  property_keys_property_keys_updatedByIdTousers                                property_keys[]             @relation("property_keys_updatedByIdTousers")
+  property_managers                                                             property_managers[]
+  maintenance_requests_maintenance_requests_reportedByIdTousers                 maintenance_requests[]      @relation("maintenance_requests_reportedByIdTousers")
+  maintenance_requests_maintenance_requests_assignedToIdTousers                 maintenance_requests[]      @relation("maintenance_requests_assignedToIdTousers")
+  maintenance_updates                                                           maintenance_updates[]
+  customers                                                                     customers?                  @relation(fields: [customerId], references: [id], onDelete: Cascade)
 }
 
-model property_keys {
-  id                String   @id @default(uuid())
+model maintenance_requests {
+  id                String    @id @default(cuid())
   customerId        String
   propertyId        String
   unitId            String?
-  keyNumber         String   @unique
-  keyLabel          String?
-  keyType           String
-  status            String   @default("available")
-  numberOfCopies    Int      @default(1)
-  location          String?
+  reportedById      String
+  assignedToId      String?
+  ticketNumber      String    @unique
+  title             String
+  description       String
+  category          String
+  priority          String    @default("medium")
+  status            String    @default("open")
+  images            Json?
+  preferredSchedule DateTime?
+  scheduledDate     DateTime?
+  estimatedCost     Float?
+  actualCost        Float?
+  completedAt       DateTime?
   notes             String?
-  issuedToUserId    String?
-  issuedToName      String?
-  issuedToType      String?
-  issuedDate        DateTime?
-  expectedReturnDate DateTime?
-  returnedDate      DateTime?
-  depositAmount     Float?
-  depositCurrency   String?  @default("NGN")
-  depositRefunded   Boolean  @default(false)
-  depositNotes      String?
-  createdById       String?
-  updatedById       String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  customer          customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  property          properties @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  unit              units?     @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  issuedToUser      users?     @relation("KeyIssuedTo", fields: [issuedToUserId], references: [id], onDelete: SetNull)
-  createdBy         users?     @relation("KeyCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy         users?     @relation("KeyUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  transactions      property_key_transactions[]
-
-  @@index([customerId])
-  @@index([propertyId])
-  @@index([status])
-  @@index([keyType])
-}
-
-model property_key_transactions {
-  id                 String   @id @default(uuid())
-  keyId              String
-  customerId         String
-  action             String
-  performedById      String?
-  performedByName    String?
-  performedForUserId String?
-  performedForName   String?
-  personType         String?
-  witnessName        String?
-  witnessSignature   String?
-  depositAmount      Float?
-  notes              String?
-  metadata           Json?
-  createdAt          DateTime @default(now())
-
-  key                property_keys @relation(fields: [keyId], references: [id], onDelete: Cascade)
-  customer           customers     @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  performedBy        users?        @relation("TransactionPerformedBy", fields: [performedById], references: [id], onDelete: SetNull)
-  performedFor       users?        @relation("TransactionPerformedFor", fields: [performedForUserId], references: [id], onDelete: SetNull)
-
-  @@index([customerId])
-  @@index([keyId])
-  @@index([action])
-}
-
-/// Payment gateway settings per customer (owner-level)
-model payment_settings {
-  id                    String   @id @default(uuid())
-  customerId            String
-  provider              String   // e.g., "paystack"
-  publicKey             String?
-  secretKey             String?  // store securely; never expose in APIs
-  testMode              Boolean  @default(false)
-  isEnabled             Boolean  @default(false)
-  bankTransferTemplate  String?  // Custom message for bank transfer instructions
-  metadata              Json?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-
-  customers  customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
-
-  @@unique([customerId, provider])
-}
-
-/// Payments for rent, deposits, fees, and subscriptions
-model payments {
-  id               String     @id @default(uuid())
-  customerId       String
-  propertyId       String?
-  unitId           String?
-  leaseId          String?
-  tenantId         String?
-  invoiceId        String?
-  paymentMethodId  String?
-  amount           Float
-  currency         String     @default("NGN")
-  status           String     @default("pending") // pending, success, failed, refunded
-  type             String     @default("rent")    // rent, deposit, fee, subscription
-  paymentMethod    String?
-  provider         String
-  providerReference String?
-  providerFee      Float?
-  paidAt           DateTime?
-  metadata         Json?
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
-
-  customers        customers  @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  properties       properties? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
-  units            units?     @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  leases           leases?    @relation(fields: [leaseId], references: [id], onDelete: SetNull)
-  tenant           users?     @relation(fields: [tenantId], references: [id], onDelete: SetNull)
-  invoices         invoices?  @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
-  payment_method   payment_methods? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
-
-  @@index([customerId])
-  @@index([leaseId])
-  @@index([propertyId])
-  @@index([status])
-  @@index([provider])
-  @@index([paymentMethodId])
-}
-
-/// Stored payment methods (cards) for tenants
-model payment_methods {
-  id                String    @id @default(uuid())
-  tenantId          String
-  customerId        String
-  type              String    @default("card") // card, bank_account
-  provider          String    @default("paystack") // paystack, stripe, etc.
-  authorizationCode String?   // Paystack authorization code for recurring charges
-  cardBrand         String?   // visa, mastercard, etc.
-  cardLast4         String?   // last 4 digits
-  cardExpMonth      String?
-  cardExpYear       String?
-  cardBin           String?   // first 6 digits
-  cardType          String?   // debit, credit
-  bank              String?
-  accountName       String?
-  isDefault         Boolean   @default(false)
-  isActive          Boolean   @default(true)
-  metadata          Json?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  tenant            users     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  customer          customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  payments          payments[]
+  property   properties            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unit       units?                @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  reportedBy users                 @relation("maintenance_requests_reportedByIdTousers", fields: [reportedById], references: [id])
+  assignedTo users?                @relation("maintenance_requests_assignedToIdTousers", fields: [assignedToId], references: [id])
+  updates    maintenance_updates[]
+}
 
-  @@index([tenantId])
-  @@index([customerId])
-  @@index([isDefault])
-  @@index([isActive])
+model maintenance_updates {
+  id                   String               @id @default(cuid())
+  requestId            String
+  updatedById          String
+  note                 String
+  status               String?
+  attachments          Json?                @default("[]")
+  createdAt            DateTime             @default(now())
+  maintenance_requests maintenance_requests @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  updatedBy            users                @relation(fields: [updatedById], references: [id])
 }

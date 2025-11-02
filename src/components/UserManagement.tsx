@@ -12,11 +12,11 @@ import { Textarea } from "./ui/textarea";
 import { Switch } from "./ui/switch";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { resetUserPassword as resetUserPasswordAPI } from '../lib/api/users';
-import { 
-  Users, 
-  UserPlus, 
-  Shield, 
-  Search, 
+import {
+  Users,
+  UserPlus,
+  Shield,
+  Search,
   MoreHorizontal,
   Eye,
   Edit,
@@ -46,17 +46,17 @@ interface UserManagementProps {
   onBack: () => void;
 }
 
-export function UserManagement({ 
-  user, 
-  users, 
+export function UserManagement({
+  user,
+  users,
   roles,
-  onAddUser, 
-  onUpdateUser, 
+  onAddUser,
+  onUpdateUser,
   onDeleteUser,
   onAddRole,
   onUpdateRole,
   onDeleteRole,
-  onBack 
+  onBack
 }: UserManagementProps) {
   const [activeTab, setActiveTab] = useState('users');
   const [searchTerm, setSearchTerm] = useState('');
@@ -96,53 +96,70 @@ export function UserManagement({
   });
 
   // Internal admin permissions (for PropertyHub platform management)
+  // These permissions map to actual dashboard pages and features
   const availablePermissions = [
-    // Customer & User Management
-    { id: 'customer_management', label: 'Customer Management', category: 'Customers' },
-    { id: 'customer_create', label: 'Create Customers', category: 'Customers' },
-    { id: 'customer_edit', label: 'Edit Customers', category: 'Customers' },
-    { id: 'customer_delete', label: 'Delete Customers', category: 'Customers' },
-    { id: 'customer_view', label: 'View Customers', category: 'Customers' },
-    
-    // Internal User Management
-    { id: 'user_management', label: 'User Management', category: 'Internal Users' },
-    { id: 'user_create', label: 'Create Internal Users', category: 'Internal Users' },
-    { id: 'user_edit', label: 'Edit Internal Users', category: 'Internal Users' },
-    { id: 'user_delete', label: 'Delete Internal Users', category: 'Internal Users' },
-    { id: 'user_view', label: 'View Internal Users', category: 'Internal Users' },
-    
-    // Role Management
-    { id: 'role_management', label: 'Role Management', category: 'Roles & Permissions' },
-    { id: 'role_create', label: 'Create Roles', category: 'Roles & Permissions' },
-    { id: 'role_edit', label: 'Edit Roles', category: 'Roles & Permissions' },
-    { id: 'role_delete', label: 'Delete Roles', category: 'Roles & Permissions' },
-    
-    // Billing & Plans
-    { id: 'billing_management', label: 'Billing Management', category: 'Billing & Plans' },
-    { id: 'plan_management', label: 'Plan Management', category: 'Billing & Plans' },
-    { id: 'invoice_management', label: 'Invoice Management', category: 'Billing & Plans' },
-    { id: 'payment_view', label: 'View Payments', category: 'Billing & Plans' },
-    
-    // Analytics
-    { id: 'analytics_view', label: 'View Analytics Dashboard', category: 'Analytics' },
-    { id: 'analytics_reports', label: 'Generate Reports', category: 'Analytics' },
-    { id: 'analytics_export', label: 'Export Analytics Data', category: 'Analytics' },
-    
+    // Dashboard Pages (Main Navigation)
+    { id: 'overview', label: 'Dashboard Overview', category: 'Dashboard Pages', description: 'View main dashboard with metrics and stats' },
+    { id: 'customers', label: 'Customer Management Page', category: 'Dashboard Pages', description: 'Access customer management dashboard' },
+    { id: 'users', label: 'User Management Page', category: 'Dashboard Pages', description: 'Access internal user management' },
+    { id: 'billing', label: 'Billing & Plans Page', category: 'Dashboard Pages', description: 'Access billing plans management' },
+    { id: 'analytics', label: 'Analytics Page', category: 'Dashboard Pages', description: 'View analytics and reports dashboard' },
+    { id: 'system', label: 'System Health Page', category: 'Dashboard Pages', description: 'Monitor system health and performance' },
+    { id: 'support', label: 'Support Tickets Page', category: 'Dashboard Pages', description: 'Manage customer support tickets' },
+    { id: 'settings', label: 'Platform Settings Page', category: 'Dashboard Pages', description: 'Configure platform-wide settings' },
+
+    // Customer Management Actions
+    { id: 'customer_view', label: 'View Customers', category: 'Customer Actions', description: 'View customer list and details' },
+    { id: 'customer_create', label: 'Create Customers', category: 'Customer Actions', description: 'Add new customers to the platform' },
+    { id: 'customer_edit', label: 'Edit Customers', category: 'Customer Actions', description: 'Modify customer information' },
+    { id: 'customer_delete', label: 'Delete Customers', category: 'Customer Actions', description: 'Remove customers from the platform' },
+    { id: 'customer_reset_password', label: 'Reset Customer Passwords', category: 'Customer Actions', description: 'Reset customer account passwords' },
+    { id: 'customer_deactivate', label: 'Activate/Deactivate Customers', category: 'Customer Actions', description: 'Change customer account status' },
+
+    // Internal User Management Actions
+    { id: 'user_view', label: 'View Internal Users', category: 'User Management', description: 'View internal staff users' },
+    { id: 'user_create', label: 'Create Internal Users', category: 'User Management', description: 'Add new staff members' },
+    { id: 'user_edit', label: 'Edit Internal Users', category: 'User Management', description: 'Modify staff user information' },
+    { id: 'user_delete', label: 'Delete Internal Users', category: 'User Management', description: 'Remove staff users' },
+    { id: 'user_reset_password', label: 'Reset User Passwords', category: 'User Management', description: 'Reset staff user passwords' },
+
+    // Role & Permission Management
+    { id: 'role_view', label: 'View Roles', category: 'Roles & Permissions', description: 'View all roles and their permissions' },
+    { id: 'role_create', label: 'Create Roles', category: 'Roles & Permissions', description: 'Create new user roles' },
+    { id: 'role_edit', label: 'Edit Roles', category: 'Roles & Permissions', description: 'Modify role permissions' },
+    { id: 'role_delete', label: 'Delete Roles', category: 'Roles & Permissions', description: 'Remove custom roles' },
+
+    // Billing & Plans Management
+    { id: 'billing_management', label: 'Manage Billing Plans', category: 'Billing & Plans', description: 'Create and edit subscription plans' },
+    { id: 'plan_view', label: 'View Plans', category: 'Billing & Plans', description: 'View all subscription plans' },
+    { id: 'plan_create', label: 'Create Plans', category: 'Billing & Plans', description: 'Add new subscription plans' },
+    { id: 'plan_edit', label: 'Edit Plans', category: 'Billing & Plans', description: 'Modify existing plans' },
+    { id: 'plan_delete', label: 'Delete Plans', category: 'Billing & Plans', description: 'Remove subscription plans' },
+    { id: 'invoice_view', label: 'View Invoices', category: 'Billing & Plans', description: 'View customer invoices' },
+    { id: 'payment_view', label: 'View Payments', category: 'Billing & Plans', description: 'View payment transactions' },
+
+    // Analytics & Reports
+    { id: 'analytics_view', label: 'View Analytics', category: 'Analytics & Reports', description: 'Access analytics dashboard' },
+    { id: 'analytics_mrr', label: 'View MRR Analytics', category: 'Analytics & Reports', description: 'View monthly recurring revenue' },
+    { id: 'analytics_churn', label: 'View Churn Analytics', category: 'Analytics & Reports', description: 'View customer churn metrics' },
+    { id: 'analytics_export', label: 'Export Analytics Data', category: 'Analytics & Reports', description: 'Download analytics reports' },
+
     // System & Platform
-    { id: 'system_health', label: 'View System Health', category: 'System & Platform' },
-    { id: 'system_settings', label: 'Manage System Settings', category: 'System & Platform' },
-    { id: 'platform_settings', label: 'Manage Platform Settings', category: 'System & Platform' },
-    { id: 'system_logs', label: 'View System Logs', category: 'System & Platform' },
-    
-    // Support
-    { id: 'support_tickets', label: 'Manage Support Tickets', category: 'Support' },
-    { id: 'support_view', label: 'View Support Tickets', category: 'Support' },
-    { id: 'support_respond', label: 'Respond to Tickets', category: 'Support' },
-    { id: 'support_close', label: 'Close Support Tickets', category: 'Support' },
-    
+    { id: 'system_health', label: 'View System Health', category: 'System & Platform', description: 'Monitor system performance' },
+    { id: 'system_logs', label: 'View System Logs', category: 'System & Platform', description: 'Access system activity logs' },
+    { id: 'platform_settings', label: 'Manage Platform Settings', category: 'System & Platform', description: 'Configure platform settings' },
+    { id: 'cache_clear', label: 'Clear System Cache', category: 'System & Platform', description: 'Clear application cache' },
+
+    // Support & Tickets
+    { id: 'support_view', label: 'View Support Tickets', category: 'Support', description: 'View customer support tickets' },
+    { id: 'support_create', label: 'Create Support Tickets', category: 'Support', description: 'Create tickets on behalf of customers' },
+    { id: 'support_respond', label: 'Respond to Tickets', category: 'Support', description: 'Reply to customer tickets' },
+    { id: 'support_close', label: 'Close Support Tickets', category: 'Support', description: 'Resolve and close tickets' },
+    { id: 'support_assign', label: 'Assign Support Tickets', category: 'Support', description: 'Assign tickets to team members' },
+
     // Activity & Audit
-    { id: 'activity_logs', label: 'View Activity Logs', category: 'Audit & Logs' },
-    { id: 'audit_reports', label: 'Generate Audit Reports', category: 'Audit & Logs' }
+    { id: 'activity_logs', label: 'View Activity Logs', category: 'Audit & Logs', description: 'View user activity history' },
+    { id: 'audit_reports', label: 'Generate Audit Reports', category: 'Audit & Logs', description: 'Create compliance audit reports' }
   ];
 
   // Filter users based on search and filters
@@ -150,16 +167,16 @@ export function UserManagement({
     const matchesSearch = userItem.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          userItem.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          userItem.company?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesStatus = statusFilter === 'all' || userItem.status === statusFilter;
     const matchesRole = roleFilter === 'all' || userItem.role === roleFilter;
-    
+
     return matchesSearch && matchesStatus && matchesRole;
   });
 
   // Filter roles to show only internal admin roles (exclude customer-facing roles)
   const customerRoleNames = ['owner', 'manager', 'tenant', 'property owner', 'property manager'];
-  const filteredRoles = roles.filter(role => 
+  const filteredRoles = roles.filter(role =>
     !customerRoleNames.includes(role.name.toLowerCase())
   );
 
@@ -169,17 +186,17 @@ export function UserManagement({
     if (!permissionId || typeof permissionId !== 'string') {
       return 'Unknown Permission';
     }
-    
+
     const permission = availablePermissions.find(p => p.id === permissionId);
     return permission ? permission.label : permissionId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
   const handleAddUser = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Send data to backend API
     onAddUser(newUser);
-    
+
     // Reset form
     setNewUser({
       name: '',
@@ -196,14 +213,18 @@ export function UserManagement({
 
   const handleAddRole = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Only send the fields that the backend expects
     const roleData = {
-      ...newRole,
-      id: `ROLE${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      userCount: 0
+      name: newRole.name,
+      description: newRole.description,
+      permissions: newRole.permissions,
+      isActive: newRole.isActive
     };
-    
+
+    console.log('📤 Sending role data to backend:', roleData);
     onAddRole(roleData);
+
     setNewRole({
       name: '',
       description: '',
@@ -225,18 +246,18 @@ export function UserManagement({
 
   const confirmResetPassword = async () => {
     if (!userToReset) return;
-    
+
     try {
       const response = await resetUserPasswordAPI(userToReset.id);
       console.log('🔐 Password reset API response:', response);
-      
+
       if (response.error) {
         console.error('Password reset error:', response.error);
         alert(`Failed to reset password: ${response.error.message || response.error.error}`);
         setShowResetConfirmation(false);
         return;
       }
-      
+
       if (response.data?.tempPassword) {
         console.log('🔑 Temp password:', response.data.tempPassword);
         setGeneratedPassword(response.data.tempPassword);
@@ -270,12 +291,12 @@ export function UserManagement({
   const getRoleBadge = (roleName: string) => {
     const colors: Record<string, string> = {
       'Super Admin': 'bg-red-100 text-red-800',
-      'Property Owner': 'bg-blue-100 text-blue-800', 
+      'Property Owner': 'bg-blue-100 text-blue-800',
       'Property Manager': 'bg-purple-100 text-purple-800',
       'Tenant': 'bg-green-100 text-green-800',
       'Support Staff': 'bg-orange-100 text-orange-800'
     };
-    
+
     return (
       <Badge className={`${colors[roleName] || 'bg-gray-100 text-gray-800'} flex items-center`}>
         <Shield className="h-3 w-3 mr-1" />
@@ -292,13 +313,13 @@ export function UserManagement({
           <h2 className="text-2xl font-bold text-gray-900">Internal User Management</h2>
           <p className="text-gray-600">Manage internal admin users (staff, support team, etc.). Customer users are managed in Customer Management.</p>
         </div>
-        
+
         <div className="flex items-center space-x-3">
           <Button variant="outline" onClick={() => setShowAddRole(true)}>
             <Shield className="h-4 w-4 mr-2" />
             Add Role
           </Button>
-          
+
           <Button onClick={() => setShowAddUserInline(prev => !prev)}>
             <UserPlus className="h-4 w-4 mr-2" />
             Add Internal User
@@ -337,7 +358,7 @@ export function UserManagement({
                       />
                     </div>
                   </div>
-                  
+
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger className="w-full md:w-[150px]">
                       <SelectValue placeholder="All Status" />
@@ -349,7 +370,7 @@ export function UserManagement({
                       <SelectItem value="pending">Pending</SelectItem>
                     </SelectContent>
                   </Select>
-                  
+
                   <Select value={roleFilter} onValueChange={setRoleFilter}>
                     <SelectTrigger className="w-full md:w-[150px]">
                       <SelectValue placeholder="All Roles" />
@@ -542,7 +563,7 @@ export function UserManagement({
                                   <Eye className="h-4 w-4 mr-2" />
                                   View Details
                                 </DropdownMenuItem>
-                                
+
                                 {/* Disable edit for Super Admins */}
                                 {!(userItem as any).isSuperAdmin && (
                                   <DropdownMenuItem onClick={() => {
@@ -553,13 +574,13 @@ export function UserManagement({
                                     Edit User
                                   </DropdownMenuItem>
                                 )}
-                                
+
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => openResetConfirmation(userItem.id, userItem.name, userItem.email)}>
                                   <Lock className="h-4 w-4 mr-2" />
                                   Reset Password
                                 </DropdownMenuItem>
-                                
+
                                 {/* Disable deactivate for Super Admins */}
                                 {!(userItem as any).isSuperAdmin && (
                                   <DropdownMenuItem onClick={() => toggleUserStatus(userItem.id, userItem.status)}>
@@ -576,12 +597,12 @@ export function UserManagement({
                                     )}
                                   </DropdownMenuItem>
                                 )}
-                                
+
                                 {/* Disable delete for Super Admins */}
                                 {!(userItem as any).isSuperAdmin && (
                                   <>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem 
+                                    <DropdownMenuItem
                                       className="text-red-600"
                                       onClick={() => {
                                         if (confirm('Are you sure you want to delete this user?')) {
@@ -675,7 +696,7 @@ export function UserManagement({
                             {!role.isSystem && (
                               <>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem 
+                                <DropdownMenuItem
                                   className="text-red-600"
                                   onClick={() => {
                                     if (confirm(`Are you sure you want to delete the "${role.name}" role?`)) {
@@ -708,7 +729,7 @@ export function UserManagement({
                             )}
                           </div>
                         </div>
-                        
+
                         <div>
                           <div className="text-sm font-medium mb-2">Permissions</div>
                           <div className="flex flex-wrap gap-1">
@@ -814,7 +835,7 @@ export function UserManagement({
                                 {!role.isSystem && (
                                   <>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem 
+                                    <DropdownMenuItem
                                       className="text-red-600"
                                       onClick={() => {
                                         if (confirm(`Are you sure you want to delete the "${role.name}" role?`)) {
@@ -850,7 +871,7 @@ export function UserManagement({
               Create a new internal admin user (staff, support team, etc.). This is NOT for customer users.
             </DialogDescription>
           </DialogHeader>
-          
+
           <form onSubmit={handleAddUser} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -873,7 +894,7 @@ export function UserManagement({
                 />
               </div>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="phone">Phone</Label>
@@ -900,7 +921,7 @@ export function UserManagement({
                 </Select>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="company">Company</Label>
@@ -952,7 +973,7 @@ export function UserManagement({
               Create a new role with specific permissions
             </DialogDescription>
           </DialogHeader>
-          
+
           <form onSubmit={handleAddRole} className="space-y-4">
             <div>
               <Label htmlFor="roleName">Role Name *</Label>
@@ -962,9 +983,10 @@ export function UserManagement({
                 onChange={(e) => setNewRole(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="e.g., Support Staff, Business Analyst, Developer"
                 required
+                className="mt-3"
               />
             </div>
-            
+
             <div>
               <Label htmlFor="roleDescription">Description</Label>
               <Textarea
@@ -973,6 +995,7 @@ export function UserManagement({
                 onChange={(e) => setNewRole(prev => ({ ...prev, description: e.target.value }))}
                 placeholder="Describe what this role is responsible for..."
                 rows={3}
+                className="mt-3"
               />
             </div>
 
@@ -990,7 +1013,7 @@ export function UserManagement({
                       {availablePermissions
                         .filter(p => p.category === category)
                         .map((permission) => (
-                          <div key={permission.id} className="flex items-center space-x-2">
+                          <div key={permission.id} className="flex items-start space-x-2 py-1">
                             <input
                               type="checkbox"
                               id={`perm-${permission.id}`}
@@ -1008,11 +1031,16 @@ export function UserManagement({
                                   }));
                                 }
                               }}
-                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mt-1"
                             />
-                            <Label htmlFor={`perm-${permission.id}`} className="text-sm text-gray-700 cursor-pointer">
-                              {permission.label}
-                            </Label>
+                            <div className="flex-1">
+                              <Label htmlFor={`perm-${permission.id}`} className="text-sm font-medium text-gray-700 cursor-pointer">
+                                {permission.label}
+                              </Label>
+                              {permission.description && (
+                                <p className="text-xs text-gray-500 mt-0.5">{permission.description}</p>
+                              )}
+                            </div>
                           </div>
                         ))}
                     </div>
@@ -1044,7 +1072,7 @@ export function UserManagement({
                   Detailed information for {selectedUser.name}
                 </DialogDescription>
               </DialogHeader>
-              
+
               <div className="space-y-6">
                 <div className="flex items-center space-x-4">
                   <div className="h-16 w-16 rounded-full bg-blue-600 flex items-center justify-center">
@@ -1129,7 +1157,7 @@ export function UserManagement({
                   Update internal admin user information
                 </DialogDescription>
               </DialogHeader>
-              
+
               <form onSubmit={(e) => {
                 e.preventDefault();
                 onUpdateUser(selectedUser.id, selectedUser);
@@ -1156,7 +1184,7 @@ export function UserManagement({
                     />
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="edit-phone">Phone</Label>
@@ -1182,7 +1210,7 @@ export function UserManagement({
                     </Select>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="edit-company">Company</Label>
@@ -1201,7 +1229,7 @@ export function UserManagement({
                     />
                   </div>
                 </div>
-                
+
                 <div>
                   <Label htmlFor="edit-status">Status</Label>
                   <Select value={selectedUser.status} onValueChange={(value) => setSelectedUser({ ...selectedUser, status: value })}>
@@ -1241,7 +1269,7 @@ export function UserManagement({
               This action will generate a new temporary password for the user.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
               <p className="text-sm text-orange-900 mb-2">
@@ -1251,15 +1279,15 @@ export function UserManagement({
                 Email: {userToReset?.email}
               </p>
             </div>
-            
+
             <p className="text-sm text-gray-600">
               A new temporary password will be generated and you'll need to share it with the user securely.
             </p>
           </div>
 
           <div className="flex justify-end gap-3">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 setShowResetConfirmation(false);
                 setUserToReset(null);
@@ -1267,7 +1295,7 @@ export function UserManagement({
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={confirmResetPassword}
               className="bg-orange-600 hover:bg-orange-700"
             >
@@ -1286,7 +1314,7 @@ export function UserManagement({
               A new temporary password has been generated for this user
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm font-medium text-blue-900 mb-2">Temporary Password:</p>
@@ -1316,7 +1344,7 @@ export function UserManagement({
 
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <p className="text-sm text-yellow-800">
-                <strong>Important:</strong> Copy this password now and share it securely with the user. 
+                <strong>Important:</strong> Copy this password now and share it securely with the user.
                 They should change it after their first login.
               </p>
             </div>
@@ -1344,7 +1372,7 @@ export function UserManagement({
                   {selectedRole.description}
                 </DialogDescription>
               </DialogHeader>
-              
+
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -1378,12 +1406,12 @@ export function UserManagement({
                   <div className="max-h-96 overflow-y-auto border rounded-lg p-4">
                     <div className="space-y-4">
                       {Array.from(new Set(availablePermissions.map(p => p.category))).map((category) => {
-                        const categoryPermissions = selectedRole.permissions.filter((pId: string) => 
+                        const categoryPermissions = selectedRole.permissions.filter((pId: string) =>
                           availablePermissions.find(p => p.id === pId && p.category === category)
                         );
-                        
+
                         if (categoryPermissions.length === 0) return null;
-                        
+
                         return (
                           <div key={category}>
                             <div className="font-semibold text-sm text-gray-700 mb-2 flex items-center">
@@ -1441,7 +1469,7 @@ export function UserManagement({
                   Update role information and permissions
                 </DialogDescription>
               </DialogHeader>
-              
+
               <form onSubmit={(e) => {
                 e.preventDefault();
                 onUpdateRole(selectedRole.id, selectedRole);
@@ -1460,8 +1488,8 @@ export function UserManagement({
                   </div>
                   <div>
                     <Label htmlFor="edit-role-status">Status</Label>
-                    <Select 
-                      value={selectedRole.isActive ? 'active' : 'inactive'} 
+                    <Select
+                      value={selectedRole.isActive ? 'active' : 'inactive'}
                       onValueChange={(value) => setSelectedRole({ ...selectedRole, isActive: value === 'active' })}
                     >
                       <SelectTrigger>

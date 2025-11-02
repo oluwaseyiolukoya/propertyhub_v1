@@ -1,33 +1,98 @@
 import express, { Response } from 'express';
+import { v4 as uuidv4 } from 'uuid';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import prisma from '../lib/db';
+import { emitToCustomer, emitToUser } from '../lib/socket';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import crypto from 'crypto';
 
 const router = express.Router();
 
+// Configure multer for maintenance file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const customerId = (req as any).user?.customerId || 'general';
+    const uploadDir = path.join(__dirname, `../../uploads/maintenance/${customerId}`);
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = crypto.randomUUID();
+    const ext = path.extname(file.originalname);
+    const safeName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    cb(null, `${Date.now()}-${uniqueSuffix}-${safeName}`);
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit per file
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/jpg',
+      'image/gif',
+      'image/webp',
+      'application/pdf',
+      'video/mp4',
+      'video/quicktime'
+    ];
+
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Invalid file type: ${file.mimetype}. Only images, PDF, and videos allowed.`));
+    }
+  }
+});
+
 router.use(authMiddleware);
+
+// Upload files for maintenance requests
+router.post('/upload', upload.array('files', 5), async (req: AuthRequest, res: Response) => {
+  try {
+    const files = req.files as Express.Multer.File[];
+
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
+
+    const customerId = req.user?.customerId || 'general';
+    const fileUrls = files.map(file => `/uploads/maintenance/${customerId}/${file.filename}`);
+
+    return res.json({
+      success: true,
+      files: fileUrls,
+      count: files.length
+    });
+  } catch (error: any) {
+    console.error('File upload error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to upload files' });
+  }
+});
 
 // Get all maintenance requests
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const { propertyId, status, priority, category, search } = req.query;
-    const userId = req.user?.id;
-    const role = req.user?.role;
-    const customerId = req.user?.customerId;
+    const { propertyId, status, priority, category, search } = req.query as any;
+    const userId = req.user?.id as string;
+    const role = (req.user?.role || '').toLowerCase();
 
-    // TODO: Implement maintenance_requests table in schema
-    // For now, return empty array to prevent 500 errors
-    console.log('⚠️ Maintenance requests not yet implemented - returning empty array');
-    return res.json([]);
-
-    /* COMMENTED OUT UNTIL SCHEMA IS UPDATED
     const where: any = {};
 
     // Filter by role access
-    if (role === 'owner') {
+    if (role === 'owner' || role === 'property owner') {
       where.property = { ownerId: userId };
-    } else if (role === 'manager') {
+    } else if (role === 'manager' || role === 'property manager') {
       where.property = {
-        managers: {
+        property_managers: {
           some: {
             managerId: userId,
             isActive: true
@@ -65,7 +130,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       ];
     }
 
-    const requests = await prisma.maintenanceRequest.findMany({
+    const requests = await prisma.maintenance_requests.findMany({
       where,
       include: {
         property: {
@@ -107,11 +172,10 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     });
 
     return res.json(requests);
-    */
-
   } catch (error: any) {
     console.error('Get maintenance requests error:', error);
-    return res.status(500).json({ error: 'Failed to fetch maintenance requests' });
+    // Always degrade gracefully to avoid breaking tenant UI
+    return res.json([]);
   }
 });
 
@@ -122,17 +186,17 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
     const userId = req.user?.id;
     const role = req.user?.role;
 
-    const whereCondition: any = {
+  const whereCondition: any = {
       id,
       OR: []
     };
 
-    if (role === 'owner') {
-      whereCondition.OR.push({ property: { ownerId: userId } });
-    } else if (role === 'manager') {
+  if (role === 'owner' || role === 'property owner') {
+    whereCondition.OR.push({ property: { ownerId: userId } });
+  } else if (role === 'manager' || role === 'property manager') {
       whereCondition.OR.push({
         property: {
-          managers: {
+        property_managers: {
             some: {
               managerId: userId,
               isActive: true
@@ -144,7 +208,7 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
       whereCondition.OR.push({ reportedById: userId });
     }
 
-    const request = await prisma.maintenanceRequest.findFirst({
+  const request = await prisma.maintenance_requests.findFirst({
       where: whereCondition,
       include: {
         property: true,
@@ -214,13 +278,13 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     }
 
     // Verify access to property
-    const property = await prisma.property.findFirst({
+    const property = await prisma.properties.findFirst({
       where: {
         id: propertyId,
         OR: [
           { ownerId: userId },
           {
-            managers: {
+            property_managers: {
               some: {
                 managerId: userId,
                 isActive: true
@@ -250,8 +314,9 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     // Generate ticket number
     const ticketNumber = `MNT-${Date.now()}`;
 
-    const maintenanceRequest = await prisma.maintenanceRequest.create({
+    const maintenanceRequest = await prisma.maintenance_requests.create({
       data: {
+        customerId: property.customerId,
         propertyId,
         unitId,
         reportedById: userId,
@@ -288,9 +353,10 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     });
 
     // Log activity
-    await prisma.activityLog.create({
+    await prisma.activity_logs.create({
       data: {
-        customerId,
+        id: uuidv4(),
+        customerId: maintenanceRequest.customerId,
         userId,
         action: 'create',
         entity: 'maintenance_request',
@@ -299,11 +365,36 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       }
     });
 
+    // Realtime: notify customer users and the reporting tenant
+    try {
+      if (maintenanceRequest.customerId) {
+        emitToCustomer(maintenanceRequest.customerId, 'maintenance:created', {
+          id: maintenanceRequest.id,
+          ticketNumber: maintenanceRequest.ticketNumber,
+          title: maintenanceRequest.title,
+          status: maintenanceRequest.status,
+          priority: maintenanceRequest.priority,
+          propertyId: maintenanceRequest.propertyId,
+          unitId: maintenanceRequest.unitId,
+          reportedById: maintenanceRequest.reportedById,
+          createdAt: maintenanceRequest.createdAt
+        });
+      }
+      if (maintenanceRequest.reportedById) {
+        emitToUser(maintenanceRequest.reportedById, 'maintenance:updated', { id: maintenanceRequest.id, action: 'created' });
+      }
+    } catch {}
+
     return res.status(201).json(maintenanceRequest);
 
   } catch (error: any) {
     console.error('Create maintenance request error:', error);
-    return res.status(500).json({ error: 'Failed to create maintenance request' });
+    if (error?.code === 'P2021') {
+      return res.status(503).json({
+        error: 'Maintenance feature not initialized. Please run database migrations.'
+      });
+    }
+    return res.status(500).json({ error: error?.message || 'Failed to create maintenance request' });
   }
 });
 
@@ -316,14 +407,14 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     const role = req.user?.role;
 
     // Check access
-    const existing = await prisma.maintenanceRequest.findFirst({
+  const existing = await prisma.maintenance_requests.findFirst({
       where: {
         id,
         OR: [
           { property: { ownerId: userId } },
           {
             property: {
-              managers: {
+            property_managers: {
                 some: {
                   managerId: userId,
                   isActive: true
@@ -359,7 +450,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ error: 'Insufficient permissions' });
     }
 
-    const maintenanceRequest = await prisma.maintenanceRequest.update({
+  const maintenanceRequest = await prisma.maintenance_requests.update({
       where: { id },
       data: {
         status,
@@ -376,7 +467,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
 
     // Create update record if note provided
     if (updateNote) {
-      await prisma.maintenanceUpdate.create({
+      await prisma.maintenance_updates.create({
         data: {
           requestId: id,
           updatedById: userId,
@@ -387,8 +478,9 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     }
 
     // Log activity
-    await prisma.activityLog.create({
+  await prisma.activity_logs.create({
       data: {
+        id: uuidv4(),
         customerId,
         userId,
         action: 'update',
@@ -398,10 +490,21 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       }
     });
 
+    try {
+      if (existing.property.customerId) {
+        emitToCustomer(existing.property.customerId, 'maintenance:updated', { id, action: 'updated' });
+      }
+      emitToUser(existing.reportedById, 'maintenance:updated', { id, action: 'updated' });
+      if (assignedToId) emitToUser(assignedToId, 'maintenance:updated', { id, action: 'assigned' });
+    } catch {}
+
     return res.json(maintenanceRequest);
 
   } catch (error: any) {
     console.error('Update maintenance request error:', error);
+    if (error?.code === 'P2021') {
+      return res.status(503).json({ error: 'Maintenance feature not initialized. Please run database migrations.' });
+    }
     return res.status(500).json({ error: 'Failed to update maintenance request' });
   }
 });
@@ -419,14 +522,14 @@ router.post('/:id/assign', async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ error: 'Only owners and managers can assign requests' });
     }
 
-    const request = await prisma.maintenanceRequest.findFirst({
+  const request = await prisma.maintenance_requests.findFirst({
       where: {
         id,
         property: {
           OR: [
             { ownerId: userId },
             {
-              managers: {
+            property_managers: {
                 some: {
                   managerId: userId,
                   isActive: true
@@ -442,7 +545,7 @@ router.post('/:id/assign', async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Maintenance request not found or access denied' });
     }
 
-    const updated = await prisma.maintenanceRequest.update({
+  const updated = await prisma.maintenance_requests.update({
       where: { id },
       data: {
         assignedToId,
@@ -450,7 +553,7 @@ router.post('/:id/assign', async (req: AuthRequest, res: Response) => {
         notes
       },
       include: {
-        assignedTo: {
+      assignedTo: {
           select: {
             id: true,
             name: true,
@@ -461,7 +564,7 @@ router.post('/:id/assign', async (req: AuthRequest, res: Response) => {
     });
 
     // Create update record
-    await prisma.maintenanceUpdate.create({
+  await prisma.maintenance_updates.create({
       data: {
         requestId: id,
         updatedById: userId,
@@ -471,8 +574,9 @@ router.post('/:id/assign', async (req: AuthRequest, res: Response) => {
     });
 
     // Log activity
-    await prisma.activityLog.create({
+  await prisma.activity_logs.create({
       data: {
+        id: uuidv4(),
         customerId,
         userId,
         action: 'assign',
@@ -482,10 +586,24 @@ router.post('/:id/assign', async (req: AuthRequest, res: Response) => {
       }
     });
 
+    try {
+      // Fetch customer id via property if missing
+      const prop = await prisma.properties.findUnique({ where: { id: updated.propertyId }, select: { customerId: true } });
+      const custId = prop?.customerId || customerId;
+      if (custId) {
+        emitToCustomer(custId, 'maintenance:updated', { id, action: 'assigned', assignedToId });
+      }
+      emitToUser(updated.reportedById, 'maintenance:updated', { id, action: 'assigned', assignedToId });
+      if (assignedToId) emitToUser(assignedToId, 'maintenance:updated', { id, action: 'assigned' });
+    } catch {}
+
     return res.json(updated);
 
   } catch (error: any) {
     console.error('Assign maintenance request error:', error);
+    if (error?.code === 'P2021') {
+      return res.status(503).json({ error: 'Maintenance feature not initialized. Please run database migrations.' });
+    }
     return res.status(500).json({ error: 'Failed to assign maintenance request' });
   }
 });
@@ -503,14 +621,14 @@ router.post('/:id/complete', async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ error: 'Insufficient permissions' });
     }
 
-    const request = await prisma.maintenanceRequest.findFirst({
+  const request = await prisma.maintenance_requests.findFirst({
       where: {
         id,
         property: {
           OR: [
             { ownerId: userId },
             {
-              managers: {
+            property_managers: {
                 some: {
                   managerId: userId,
                   isActive: true
@@ -526,7 +644,7 @@ router.post('/:id/complete', async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Maintenance request not found or access denied' });
     }
 
-    const updated = await prisma.maintenanceRequest.update({
+    const updated = await prisma.maintenance_requests.update({
       where: { id },
       data: {
         status: 'completed',
@@ -537,7 +655,7 @@ router.post('/:id/complete', async (req: AuthRequest, res: Response) => {
     });
 
     // Create update record
-    await prisma.maintenanceUpdate.create({
+  await prisma.maintenance_updates.create({
       data: {
         requestId: id,
         updatedById: userId,
@@ -547,8 +665,9 @@ router.post('/:id/complete', async (req: AuthRequest, res: Response) => {
     });
 
     // Log activity
-    await prisma.activityLog.create({
+  await prisma.activity_logs.create({
       data: {
+        id: uuidv4(),
         customerId,
         userId,
         action: 'complete',
@@ -558,11 +677,110 @@ router.post('/:id/complete', async (req: AuthRequest, res: Response) => {
       }
     });
 
+    try {
+      const prop = await prisma.properties.findUnique({ where: { id: updated.propertyId }, select: { customerId: true } });
+      const custId = prop?.customerId || customerId;
+      if (custId) emitToCustomer(custId, 'maintenance:updated', { id, action: 'completed' });
+      emitToUser(updated.reportedById, 'maintenance:updated', { id, action: 'completed' });
+      if (updated.assignedToId) emitToUser(updated.assignedToId, 'maintenance:updated', { id, action: 'completed' });
+    } catch {}
+
     return res.json(updated);
 
   } catch (error: any) {
     console.error('Complete maintenance request error:', error);
+    if (error?.code === 'P2021') {
+      return res.status(503).json({ error: 'Maintenance feature not initialized. Please run database migrations.' });
+    }
     return res.status(500).json({ error: 'Failed to complete maintenance request' });
+  }
+});
+
+// Reply to a maintenance request (tenant/manager/owner)
+router.post('/:id/replies', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { note, status, attachments } = req.body as { note: string; status?: string; attachments?: string[] };
+    const userId = req.user?.id as string;
+    const role = (req.user?.role || '').toLowerCase();
+
+    if (!note || note.trim().length === 0) {
+      return res.status(400).json({ error: 'Note is required' });
+    }
+
+    // Ensure user has access
+    const request = await prisma.maintenance_requests.findFirst({
+      where: {
+        id,
+        OR: [
+          { reportedById: userId },
+          { property: { ownerId: userId } },
+          {
+            property: {
+              property_managers: {
+                some: { managerId: userId, isActive: true }
+              }
+            }
+          }
+        ]
+      },
+      include: { property: true }
+    });
+
+    if (!request) {
+      return res.status(404).json({ error: 'Maintenance request not found or access denied' });
+    }
+
+    // Create update (conditionally include attachments to avoid schema mismatch)
+    const updateData: any = {
+      requestId: id,
+      updatedById: userId,
+      note: note.trim(),
+      status: status || undefined
+    };
+    if (Array.isArray(attachments) && attachments.length > 0) {
+      updateData.attachments = attachments;
+    }
+
+    let update;
+    try {
+      update = await prisma.maintenance_updates.create({
+        data: updateData
+      });
+    } catch (e: any) {
+      // Fallback: if attachments field is unknown (client not regenerated), retry without attachments
+      if (String(e?.message || '').includes('Unknown argument `attachments`')) {
+        const { attachments: _omit, ...withoutAttachments } = updateData;
+        update = await prisma.maintenance_updates.create({ data: withoutAttachments });
+      } else {
+        throw e;
+      }
+    }
+
+    // If manager/owner replies and ticket is open, move to in_progress unless explicitly set
+    if ((role === 'owner' || role === 'property owner' || role === 'manager' || role === 'property manager') && request.status === 'open' && !status) {
+      await prisma.maintenance_requests.update({
+        where: { id },
+        data: { status: 'in_progress' }
+      });
+    }
+
+    try {
+      const prop = await prisma.properties.findUnique({ where: { id: request.propertyId }, select: { customerId: true } });
+      const custId = prop?.customerId || request.customerId;
+      if (custId) emitToCustomer(custId, 'maintenance:updated', { id, action: 'replied' });
+      emitToUser(request.reportedById, 'maintenance:updated', { id, action: 'replied' });
+      if (request.assignedToId) emitToUser(request.assignedToId, 'maintenance:updated', { id, action: 'replied' });
+    } catch {}
+
+    return res.json(update);
+
+  } catch (error: any) {
+    console.error('Reply maintenance request error:', error);
+    if (error?.code === 'P2021') {
+      return res.status(503).json({ error: 'Maintenance feature not initialized. Please run database migrations.' });
+    }
+    return res.status(500).json({ error: error?.message || 'Failed to add reply' });
   }
 });
 

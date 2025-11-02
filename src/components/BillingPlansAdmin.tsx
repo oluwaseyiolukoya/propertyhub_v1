@@ -11,26 +11,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Switch } from "./ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { toast } from "sonner";
-import { 
-  getBillingPlans, 
-  createBillingPlan, 
-  updateBillingPlan, 
+import {
+  getBillingPlans,
+  createBillingPlan,
+  updateBillingPlan,
   deleteBillingPlan,
-  type BillingPlan 
+  type BillingPlan
 } from '../lib/api';
-import { 
+import {
   getCustomers,
   type Customer
 } from '../lib/api';
 import { getInvoices, createRefund } from '../lib/api/invoices';
 import { getSystemSetting } from '../lib/api/system';
 import { initializeSocket, subscribeToCustomerEvents, unsubscribeFromCustomerEvents } from '../lib/socket';
-import { 
-  DollarSign, 
-  Users, 
-  TrendingUp, 
-  Plus, 
-  Edit, 
+import {
+  DollarSign,
+  Users,
+  TrendingUp,
+  Plus,
+  Edit,
   MoreHorizontal,
   CreditCard,
   AlertCircle,
@@ -87,11 +87,17 @@ export function BillingPlansAdmin() {
     fetchPlans();
     fetchCustomersData();
     fetchInvoices();
-    // Load brand logo from system settings (key: brand_logo_url)
+    // Load brand logo from system settings (prefer platform_logo_url; fallback to brand_logo_url)
     (async () => {
       try {
-        const res = await getSystemSetting('brand_logo_url');
-        if (!res.error && res.data?.value) setBrandLogoUrl(res.data.value as string);
+        let res = await getSystemSetting('platform_logo_url');
+        if (res?.data?.value) {
+          setBrandLogoUrl(res.data.value as string);
+        } else {
+          // Fallback to legacy key
+          res = await getSystemSetting('brand_logo_url');
+          if (res?.data?.value) setBrandLogoUrl(res.data.value as string);
+        }
       } catch {}
     })();
     // Realtime: refresh customers when they update (e.g., cancellations)
@@ -115,7 +121,7 @@ export function BillingPlansAdmin() {
     try {
       setLoading(true);
       const response = await getBillingPlans();
-      
+
       if (response.error) {
         toast.error(response.error.error || 'Failed to load billing plans');
       } else if (response.data) {
@@ -165,7 +171,7 @@ export function BillingPlansAdmin() {
       maxProperties: plan.propertyLimit,
       maxUnits: plan.userLimit,
       currency: planCurrency,
-      features: Array.isArray(plan.features) ? plan.features : 
+      features: Array.isArray(plan.features) ? plan.features :
                 (typeof plan.features === 'string' ? JSON.parse(plan.features) : []),
       activeSubscriptions: customersOnPlan.length,
       revenue: monthlyRevenueFromPlan,
@@ -503,7 +509,7 @@ export function BillingPlansAdmin() {
       const formData = new FormData(e.currentTarget);
       const featuresText = formData.get('features') as string;
       const features = featuresText.split('\n').filter(f => f.trim() !== '');
-      
+
       const planData = {
         name: formData.get('planName') as string,
         description: formData.get('planDescription') as string,
@@ -548,7 +554,7 @@ export function BillingPlansAdmin() {
 
     try {
       const response = await deleteBillingPlan(planId);
-      
+
       if (response.error) {
         toast.error(response.error.error || 'Failed to delete plan');
       } else {
@@ -580,32 +586,32 @@ export function BillingPlansAdmin() {
     <form id="planForm" onSubmit={handleSubmitPlan} className="space-y-4">
       <div>
         <Label htmlFor="planName">Plan Name *</Label>
-        <Input 
-          id="planName" 
+        <Input
+          id="planName"
           name="planName"
-          placeholder="e.g., Professional" 
+          placeholder="e.g., Professional"
           defaultValue={selectedPlan?.name}
           required
         />
       </div>
-      
+
       <div>
         <Label htmlFor="planDescription">Description</Label>
-        <Textarea 
-          id="planDescription" 
+        <Textarea
+          id="planDescription"
           name="planDescription"
           placeholder="Brief description of the plan"
           defaultValue={selectedPlan?.description}
         />
       </div>
-      
+
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label htmlFor="monthlyPrice">Monthly Price ({currentCurrency.symbol}) *</Label>
-          <Input 
-            id="monthlyPrice" 
+          <Input
+            id="monthlyPrice"
             name="monthlyPrice"
-            type="number" 
+            type="number"
             step="0.01"
             placeholder="299"
             defaultValue={selectedPlan?.monthlyPrice || ''}
@@ -614,10 +620,10 @@ export function BillingPlansAdmin() {
         </div>
         <div>
           <Label htmlFor="yearlyPrice">Yearly Price ({currentCurrency.symbol}) *</Label>
-          <Input 
-            id="yearlyPrice" 
+          <Input
+            id="yearlyPrice"
             name="yearlyPrice"
-            type="number" 
+            type="number"
             step="0.01"
             placeholder="2990"
             defaultValue={selectedPlan?.yearlyPrice || selectedPlan?.annualPrice || ''}
@@ -625,14 +631,14 @@ export function BillingPlansAdmin() {
           />
         </div>
       </div>
-      
+
       <div className="grid grid-cols-3 gap-4">
         <div>
           <Label htmlFor="maxProperties">Max Properties *</Label>
-          <Input 
-            id="maxProperties" 
+          <Input
+            id="maxProperties"
             name="maxProperties"
-            type="number" 
+            type="number"
             placeholder="25"
             defaultValue={selectedPlan?.maxProperties || selectedPlan?.propertyLimit || ''}
             required
@@ -640,10 +646,10 @@ export function BillingPlansAdmin() {
         </div>
         <div>
           <Label htmlFor="maxUnits">Max Users *</Label>
-          <Input 
-            id="maxUnits" 
+          <Input
+            id="maxUnits"
             name="maxUnits"
-            type="number" 
+            type="number"
             placeholder="10"
             defaultValue={selectedPlan?.maxUnits || selectedPlan?.userLimit || ''}
             required
@@ -651,21 +657,21 @@ export function BillingPlansAdmin() {
         </div>
         <div>
           <Label htmlFor="storageLimit">Storage (MB) *</Label>
-          <Input 
-            id="storageLimit" 
+          <Input
+            id="storageLimit"
             name="storageLimit"
-            type="number" 
+            type="number"
             placeholder="1000"
             defaultValue={selectedPlan?.storageLimit || 1000}
             required
           />
         </div>
       </div>
-      
+
       <div>
         <Label htmlFor="features">Features (one per line) *</Label>
-        <Textarea 
-          id="features" 
+        <Textarea
+          id="features"
           name="features"
           placeholder="Property Management&#10;Tenant Management&#10;Payment Processing"
           defaultValue={selectedPlan?.features?.join('\n') || ''}
@@ -673,7 +679,7 @@ export function BillingPlansAdmin() {
           required
         />
       </div>
-      
+
       <div className="flex items-center space-x-4">
         <div className="flex items-center space-x-2">
           <Switch id="active" name="active" defaultChecked={selectedPlan?.status === 'active' || selectedPlan?.isActive !== false} />
@@ -907,8 +913,8 @@ export function BillingPlansAdmin() {
                       <Edit className="h-4 w-4 mr-1" />
                       Edit
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => handleDeletePlan(plan.id)}
                       disabled={plan.activeSubscriptions > 0}
@@ -929,7 +935,7 @@ export function BillingPlansAdmin() {
                         <p className="text-sm text-gray-600">{formatCurrency(convertAmount(plan.yearlyPrice, plan.currency, selectedCurrency), selectedCurrency)}/year (save 17%)</p>
                       </div>
                     </div>
-                    
+
                     <div>
                       <h4 className="font-medium mb-2">Limits</h4>
                       <div className="space-y-1">
@@ -937,7 +943,7 @@ export function BillingPlansAdmin() {
                         <p className="text-sm">Up to {plan.maxUnits} units</p>
                       </div>
                     </div>
-                    
+
                     <div>
                       <h4 className="font-medium mb-2">Performance</h4>
                       <div className="space-y-1">
@@ -945,7 +951,7 @@ export function BillingPlansAdmin() {
                         <p className="text-sm">{formatCurrency(plan.revenue, selectedCurrency)}/month revenue</p>
                       </div>
                     </div>
-                    
+
                     <div>
                       <h4 className="font-medium mb-2">Features</h4>
                       <ul className="text-sm space-y-1">
@@ -1398,17 +1404,17 @@ export function BillingPlansAdmin() {
               {selectedPlan ? 'Edit Plan' : 'Create New Plan'}
             </DialogTitle>
             <DialogDescription>
-              {selectedPlan 
-                ? 'Update the subscription plan details below.' 
+              {selectedPlan
+                ? 'Update the subscription plan details below.'
                 : 'Set up a new subscription plan for your customers.'
               }
             </DialogDescription>
           </DialogHeader>
           <PlanForm />
           <div className="flex justify-end space-x-2 pt-4">
-            <Button 
+            <Button
               type="button"
-              variant="outline" 
+              variant="outline"
               onClick={() => {
                 setIsCreatePlanOpen(false);
                 setSelectedPlan(null);
@@ -1417,7 +1423,7 @@ export function BillingPlansAdmin() {
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               type="submit"
               form="planForm"
               disabled={isSubmitting}

@@ -42,7 +42,7 @@ const upload = multer({
       mimetype: file.mimetype,
       size: file.size
     });
-    
+
     const allowedTypes = [
       'application/pdf',
       'application/msword',
@@ -51,7 +51,7 @@ const upload = multer({
       'image/png',
       'image/jpg'
     ];
-    
+
     if (allowedTypes.includes(file.mimetype)) {
       console.log('File type allowed');
       cb(null, true);
@@ -165,21 +165,21 @@ router.get('/', async (req: AuthRequest, res: Response) => {
             type: true
           }
         },
-        tenant: {
+        users_documents_tenantIdTousers: {
           select: {
             id: true,
             name: true,
             email: true
           }
         },
-        manager: {
+        users_documents_managerIdTousers: {
           select: {
             id: true,
             name: true,
             email: true
           }
         },
-        uploader: {
+        users_documents_uploadedByIdTousers: {
           select: {
             id: true,
             name: true,
@@ -211,21 +211,21 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
       include: {
         properties: true,
         units: true,
-        tenant: {
+        users_documents_tenantIdTousers: {
           select: {
             id: true,
             name: true,
             email: true
           }
         },
-        manager: {
+        users_documents_managerIdTousers: {
           select: {
             id: true,
             name: true,
             email: true
           }
         },
-        uploader: {
+        users_documents_uploadedByIdTousers: {
           select: {
             id: true,
             name: true,
@@ -597,7 +597,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       include: {
         properties: true,
         units: true,
-        tenant: {
+        users_documents_tenantIdTousers: {
           select: {
             id: true,
             name: true,
@@ -778,6 +778,7 @@ router.get('/:id/download/:format', async (req: AuthRequest, res: Response) => {
     const { id, format } = req.params;
     const userId = req.user?.id;
     const role = req.user?.role;
+    const inline = (req.query.inline === '1' || req.query.inline === 'true');
 
     if (!['pdf', 'docx'].includes(format.toLowerCase())) {
       return res.status(400).json({ error: 'Invalid format. Use "pdf" or "docx"' });
@@ -787,8 +788,8 @@ router.get('/:id/download/:format', async (req: AuthRequest, res: Response) => {
       where: { id },
       include: {
         properties: true,
-        tenant: true,
-        manager: true
+        users_documents_tenantIdTousers: true,
+        users_documents_managerIdTousers: true
       }
     });
 
@@ -805,10 +806,10 @@ router.get('/:id/download/:format', async (req: AuthRequest, res: Response) => {
       documentManagerId: document.managerId,
       documentPropertyId: document.propertyId
     });
-    
+
     const hasAccess = await checkDocumentAccess(userId!, role!, document);
     console.log('Download access result:', hasAccess);
-    
+
     if (!hasAccess) {
       console.error('Download access denied for user:', userId, 'role:', role);
       return res.status(403).json({ error: 'Access denied' });
@@ -844,7 +845,7 @@ router.get('/:id/download/:format', async (req: AuthRequest, res: Response) => {
           };
           const contentType = mimeMap[originalFormat] || 'application/octet-stream';
           res.setHeader('Content-Type', contentType);
-          res.setHeader('Content-Disposition', `attachment; filename="${sanitizedName}.${originalFormat}"`);
+          res.setHeader('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename="${sanitizedName}.${originalFormat}"`);
 
           const stream = fs.createReadStream(filePath);
           stream.pipe(res);
@@ -863,7 +864,7 @@ router.get('/:id/download/:format', async (req: AuthRequest, res: Response) => {
     if (format.toLowerCase() === 'pdf') {
       // Generate PDF
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${fileName}.pdf"`);
+      res.setHeader('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename="${fileName}.pdf"`);
 
       const doc = new PDFDocument({
         size: 'A4',
@@ -886,7 +887,7 @@ router.get('/:id/download/:format', async (req: AuthRequest, res: Response) => {
 
       // Split content into lines and apply formatting
       const lines = plainText.split('\n');
-      
+
       lines.forEach((line: string) => {
         const trimmedLine = line.trim();
         if (!trimmedLine) {
@@ -899,7 +900,7 @@ router.get('/:id/download/:format', async (req: AuthRequest, res: Response) => {
           // Check if it's a potential heading by looking at context
           const nextLineIndex = lines.indexOf(line) + 1;
           const hasContentAfter = nextLineIndex < lines.length && lines[nextLineIndex].trim();
-          
+
           if (hasContentAfter && (line.toUpperCase() === line || line.length < 60)) {
             // Heading
             doc.fontSize(14).fillColor('#000000').font('Helvetica-Bold');
@@ -933,7 +934,7 @@ router.get('/:id/download/:format', async (req: AuthRequest, res: Response) => {
     } else if (format.toLowerCase() === 'docx') {
       // Generate DOCX
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-      res.setHeader('Content-Disposition', `attachment; filename="${fileName}.docx"`);
+      res.setHeader('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename="${fileName}.docx"`);
 
       // Convert HTML to plain text with formatting
       const plainText = convert(content, {
@@ -950,7 +951,7 @@ router.get('/:id/download/:format', async (req: AuthRequest, res: Response) => {
       // Parse HTML to extract formatting
       const parseHtmlToParagraphs = (htmlContent: string) => {
         const paragraphs: any[] = [];
-        
+
         // Simple HTML tag detection
         const h1Regex = /<h1[^>]*>(.*?)<\/h1>/gi;
         const h2Regex = /<h2[^>]*>(.*?)<\/h2>/gi;
@@ -961,7 +962,7 @@ router.get('/:id/download/:format', async (req: AuthRequest, res: Response) => {
         const ulRegex = /<ul[^>]*>(.*?)<\/ul>/gi;
         const olRegex = /<ol[^>]*>(.*?)<\/ol>/gi;
         const liRegex = /<li[^>]*>(.*?)<\/li>/gi;
-        
+
         let match;
         let processedContent = htmlContent;
 
@@ -976,7 +977,7 @@ router.get('/:id/download/:format', async (req: AuthRequest, res: Response) => {
           // Check if it's a heading based on HTML content
           const isH1 = htmlContent.match(new RegExp(`<h1[^>]*>${trimmedLine.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i'));
           const isH2 = htmlContent.match(new RegExp(`<h2[^>]*>${trimmedLine.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i'));
-          
+
           if (isH1) {
             paragraphs.push(new Paragraph({
               text: trimmedLine,
@@ -992,20 +993,20 @@ router.get('/:id/download/:format', async (req: AuthRequest, res: Response) => {
           } else {
             // Regular paragraph
             const textRuns: any[] = [];
-            
+
             // Simple text run (this could be enhanced to handle inline formatting)
             textRuns.push(new TextRun({
               text: trimmedLine,
               size: 22 // 11pt
             }));
-            
+
             paragraphs.push(new Paragraph({
               children: textRuns,
               spacing: { after: 150 }
             }));
           }
         });
-        
+
         return paragraphs;
       };
 
@@ -1046,7 +1047,7 @@ async function checkDocumentAccess(userId: string, role: string, document: any):
       });
       if (property) return true;
     }
-    
+
     // If no propertyId or property not found, check if user owns any property with this customerId
     if (document.customerId) {
       const ownerProperty = await prisma.properties.findFirst({
@@ -1057,7 +1058,7 @@ async function checkDocumentAccess(userId: string, role: string, document: any):
       });
       return !!ownerProperty;
     }
-    
+
     return false;
   } else if (role === 'manager' || role === 'property_manager') {
     // Manager can access documents they created or are assigned to
@@ -1065,7 +1066,7 @@ async function checkDocumentAccess(userId: string, role: string, document: any):
     if (document.uploadedById === userId || document.managerId === userId) {
       return true;
     }
-    
+
     // Also check if they manage the property (for backward compatibility)
     if (document.propertyId) {
       const assignment = await prisma.property_managers.findFirst({

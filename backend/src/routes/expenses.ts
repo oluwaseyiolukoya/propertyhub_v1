@@ -176,7 +176,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       });
       const propertyIds = assignments.map(a => a.propertyId);
       whereClause.propertyId = { in: propertyIds };
-      
+
       // Managers can only see:
       // 1. Expenses they created themselves OR
       // 2. Expenses marked as visible to managers
@@ -209,27 +209,27 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     const expenses = await prisma.expenses.findMany({
       where: whereClause,
       include: {
-        property: {
+        properties: {
           select: {
             id: true,
             name: true,
             currency: true
           }
         },
-        unit: {
+        units: {
           select: {
             id: true,
             unitNumber: true
           }
         },
-        recorder: {
+        users_expenses_recordedByTousers: {
           select: {
             id: true,
             name: true,
             email: true
           }
         },
-        approver: {
+        users_expenses_approvedByTousers: {
           select: {
             id: true,
             name: true,
@@ -262,16 +262,16 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
     const expense = await prisma.expenses.findUnique({
       where: { id },
       include: {
-        property: true,
-        unit: true,
-        recorder: {
+        properties: true,
+        units: true,
+        users_expenses_recordedByTousers: {
           select: {
             id: true,
             name: true,
             email: true
           }
         },
-        approver: {
+        users_expenses_approvedByTousers: {
           select: {
             id: true,
             name: true,
@@ -456,7 +456,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     // Check if expense exists and user has access
     const expense = await prisma.expenses.findUnique({
       where: { id },
-      include: { property: true }
+      include: { properties: true }
     });
 
     if (!expense) {
@@ -470,7 +470,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
 
     // Check access
     if (isOwner) {
-      if (expense.property.ownerId !== userId) {
+      if (expense.properties.ownerId !== userId) {
         return res.status(403).json({ error: 'Access denied' });
       }
     } else if (isManager) {
@@ -505,27 +505,27 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         updatedAt: new Date()
       },
       include: {
-        property: {
+        properties: {
           select: {
             id: true,
             name: true,
             currency: true
           }
         },
-        unit: {
+        units: {
           select: {
             id: true,
             unitNumber: true
           }
         },
-        recorder: {
+        users_expenses_recordedByTousers: {
           select: {
             id: true,
             name: true,
             email: true
           }
         },
-        approver: {
+        users_expenses_approvedByTousers: {
           select: {
             id: true,
             name: true,
@@ -544,9 +544,9 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       code: error?.code,
       meta: error?.meta
     });
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to update expense',
-      details: error?.message 
+      details: error?.message
     });
   }
 });
@@ -565,7 +565,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
     // Check if expense exists and user has access
     const expense = await prisma.expenses.findUnique({
       where: { id },
-      include: { property: true }
+      include: { properties: true }
     });
 
     if (!expense) {
@@ -622,7 +622,7 @@ router.post('/:id/approve', async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Expense not found' });
     }
 
-    if (expense.property.ownerId !== userId) {
+    if (expense.properties.ownerId !== userId) {
       return res.status(403).json({ error: 'Access denied' });
     }
 

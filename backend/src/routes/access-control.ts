@@ -1,6 +1,7 @@
 import express, { Response } from 'express';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import prisma from '../lib/db';
+import { v4 as uuidv4 } from 'uuid';
 
 const router = express.Router();
 
@@ -18,12 +19,13 @@ const buildPropertyAccessFilter = (req: AuthRequest) => {
   }
 
   if (OWNER_ROLES.includes(role)) {
-    return { property: { ownerId: userId } };
+    // property_keys relation to properties is named "properties"
+    return { properties: { ownerId: userId } };
   }
 
   if (MANAGER_ROLES.includes(role)) {
     return {
-      property: {
+      properties: {
         property_managers: {
           some: {
             managerId: userId,
@@ -64,12 +66,9 @@ router.get('/keys', async (req: AuthRequest, res: Response) => {
     const { propertyId, status, type, search } = req.query;
 
     const where: any = {
-      customerId: req.user?.customerId || undefined
+      customerId: req.user?.customerId || undefined,
+      ...(propertyFilter || {})
     };
-
-    if (propertyFilter.property) {
-      where.property = propertyFilter.property;
-    }
 
     if (propertyId) {
       where.propertyId = propertyId;
@@ -89,22 +88,22 @@ router.get('/keys', async (req: AuthRequest, res: Response) => {
         { keyNumber: { contains: query, mode: 'insensitive' } },
         { keyLabel: { contains: query, mode: 'insensitive' } },
         { issuedToName: { contains: query, mode: 'insensitive' } },
-        { property: { name: { contains: query, mode: 'insensitive' } } },
-        { unit: { unitNumber: { contains: query, mode: 'insensitive' } } }
+        { properties: { name: { contains: query, mode: 'insensitive' } } },
+        { units: { unitNumber: { contains: query, mode: 'insensitive' } } }
       ];
     }
 
     const keys = await prisma.property_keys.findMany({
       where,
       include: {
-        property: {
+        properties: {
           select: {
             id: true,
             name: true,
             currency: true
           }
         },
-        unit: {
+        units: {
           select: {
             id: true,
             unitNumber: true
@@ -158,6 +157,7 @@ router.post('/keys', async (req: AuthRequest, res: Response) => {
 
     const createdKey = await prisma.property_keys.create({
       data: {
+        id: uuidv4(),
         keyNumber,
         keyLabel,
         keyType,
@@ -168,17 +168,18 @@ router.post('/keys', async (req: AuthRequest, res: Response) => {
         location,
         notes,
         createdById: req.user?.id,
-        updatedById: req.user?.id
+        updatedById: req.user?.id,
+        updatedAt: new Date()
       },
       include: {
-        property: {
+        properties: {
           select: {
             id: true,
             name: true,
             currency: true
           }
         },
-        unit: {
+        units: {
           select: {
             id: true,
             unitNumber: true
@@ -223,7 +224,7 @@ router.post('/keys/:id/issue', async (req: AuthRequest, res: Response) => {
       where: {
         id,
         customerId: req.user?.customerId || undefined,
-        ...(propertyFilter.property ? { property: propertyFilter.property } : {})
+        ...(propertyFilter ? propertyFilter : {})
       }
     });
 
@@ -249,13 +250,14 @@ router.post('/keys/:id/issue', async (req: AuthRequest, res: Response) => {
         depositRefunded: false,
         location: `Issued to ${issuedTo}`,
         depositNotes: notes,
-        updatedById: req.user?.id
+        updatedById: req.user?.id,
+        updatedAt: new Date()
       },
       include: {
-        property: {
+        properties: {
           select: { id: true, name: true, currency: true }
         },
-        unit: {
+        units: {
           select: { id: true, unitNumber: true }
         }
       }
@@ -263,6 +265,7 @@ router.post('/keys/:id/issue', async (req: AuthRequest, res: Response) => {
 
     await prisma.property_key_transactions.create({
       data: {
+        id: uuidv4(),
         keyId: id,
         customerId: updatedKey.customerId,
         action: 'ISSUE',
@@ -302,7 +305,7 @@ router.post('/keys/:id/return', async (req: AuthRequest, res: Response) => {
       where: {
         id,
         customerId: req.user?.customerId || undefined,
-        ...(propertyFilter.property ? { property: propertyFilter.property } : {})
+        ...(propertyFilter ? propertyFilter : {})
       }
     });
 
@@ -329,13 +332,14 @@ router.post('/keys/:id/return', async (req: AuthRequest, res: Response) => {
         depositRefunded: !!refundDeposit,
         location: 'Key Cabinet - Office',
         depositNotes: notes,
-        updatedById: req.user?.id
+        updatedById: req.user?.id,
+        updatedAt: new Date()
       },
       include: {
-        property: {
+        properties: {
           select: { id: true, name: true, currency: true }
         },
-        unit: {
+        units: {
           select: { id: true, unitNumber: true }
         }
       }
@@ -343,6 +347,7 @@ router.post('/keys/:id/return', async (req: AuthRequest, res: Response) => {
 
     await prisma.property_key_transactions.create({
       data: {
+        id: uuidv4(),
         keyId: id,
         customerId: updatedKey.customerId,
         action: 'RETURN',
@@ -397,7 +402,7 @@ router.post('/keys/:id/report-lost', async (req: AuthRequest, res: Response) => 
       where: {
         id,
         customerId: req.user?.customerId || undefined,
-        ...(propertyFilter.property ? { property: propertyFilter.property } : {})
+        ...(propertyFilter ? propertyFilter : {})
       }
     });
 
@@ -424,13 +429,14 @@ router.post('/keys/:id/report-lost', async (req: AuthRequest, res: Response) => 
         depositRefunded: false,
         depositNotes: combinedNotes,
         notes: combinedNotes,
-        updatedById: req.user?.id
+        updatedById: req.user?.id,
+        updatedAt: new Date()
       },
       include: {
-        property: {
+        properties: {
           select: { id: true, name: true, currency: true }
         },
-        unit: {
+        units: {
           select: { id: true, unitNumber: true }
         }
       }
@@ -438,6 +444,7 @@ router.post('/keys/:id/report-lost', async (req: AuthRequest, res: Response) => 
 
     await prisma.property_key_transactions.create({
       data: {
+        id: uuidv4(),
         keyId: id,
         customerId: updatedKey.customerId,
         action: 'LOST_REPORT',
@@ -477,11 +484,9 @@ router.get('/transactions', async (req: AuthRequest, res: Response) => {
     };
 
     // Only add key filter if propertyFilter has property criteria
-    if (propertyFilter.property && Object.keys(propertyFilter.property).length > 0) {
+    if (propertyFilter && Object.keys(propertyFilter).length > 0) {
       // Scope transactions by keys that belong to properties accessible to the requester
-      where.key = {
-        property: propertyFilter.property
-      };
+      where.property_keys = propertyFilter; // relation field is property_keys → properties nested
     }
 
     if (action) {
@@ -501,15 +506,15 @@ router.get('/transactions', async (req: AuthRequest, res: Response) => {
     const transactions = await prisma.property_key_transactions.findMany({
       where,
       include: {
-        key: {
+        property_keys: {
           select: {
             id: true,
             keyNumber: true,
             keyType: true,
-            property: {
+            properties: {
               select: { id: true, name: true }
             },
-            unit: {
+            units: {
               select: { id: true, unitNumber: true }
             }
           }

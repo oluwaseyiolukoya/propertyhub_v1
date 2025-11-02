@@ -1,4 +1,5 @@
 import express, { Response } from 'express';
+import { v4 as uuidv4 } from 'uuid';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import prisma from '../lib/db';
 import { emitToCustomer } from '../lib/socket';
@@ -260,7 +261,7 @@ router.get('/payment-gateway', async (req: AuthRequest, res: Response) => {
       });
     }
     console.error('❌ Get payment gateway settings error:', error);
-    return res.status(500).json({ error: 'Failed to fetch payment gateway settings' });
+    return res.status(500).json({ error: 'Failed to fetch payment gateway settings', details: error?.message || String(error) });
   }
 });
 
@@ -306,7 +307,7 @@ router.get('/payment-gateway/public', async (req: AuthRequest, res: Response) =>
       });
     }
     console.error('❌ Get public payment settings error:', error);
-    return res.status(500).json({ error: 'Failed to fetch payment settings' });
+    return res.status(500).json({ error: 'Failed to fetch payment settings', details: error?.message || String(error) });
   }
 });
 
@@ -362,13 +363,15 @@ router.put('/payment-gateway', async (req: AuthRequest, res: Response) => {
         }
       },
       create: {
+        id: uuidv4(),
         customerId,
         provider: 'paystack',
         publicKey: publicKey!,
         secretKey: secretKey!,
         testMode: !!testMode,
         isEnabled: !!isEnabled,
-        bankTransferTemplate: bankTransferTemplate || null
+        bankTransferTemplate: bankTransferTemplate || null,
+        updatedAt: new Date()
       },
       update: {
         ...updateData
@@ -386,7 +389,7 @@ router.put('/payment-gateway', async (req: AuthRequest, res: Response) => {
       });
     }
     console.error('❌ Update payment gateway settings error:', error);
-    return res.status(500).json({ error: 'Failed to update payment gateway settings' });
+    return res.status(500).json({ error: 'Failed to update payment gateway settings', details: error?.message || String(error) });
   }
 });
 

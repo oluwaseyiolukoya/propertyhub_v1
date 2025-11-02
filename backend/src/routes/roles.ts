@@ -24,22 +24,50 @@ router.post('/', async (req: AuthRequest, res: Response) => {
   try {
     const { name, description, permissions, isActive } = req.body;
 
+    console.log('📝 Creating role with data:', { name, description, permissions, isActive });
+
     if (!name) {
       return res.status(400).json({ error: 'Name is required' });
     }
 
+    // Generate unique ID
+    const id = `ROLE${Date.now()}`;
+    const now = new Date();
+
+    // Normalize & validate permissions payload to be an array of strings
+    let normalizedPermissions: string[] = [];
+    if (Array.isArray(permissions)) {
+      normalizedPermissions = Array.from(
+        new Set(
+          permissions
+            .filter((p: any) => typeof p === 'string' && p.trim().length > 0)
+            .map((p: string) => p.trim())
+        )
+      );
+    }
+
     const role = await prisma.roles.create({
       data: {
+        id,
         name,
-        description,
-        permissions: permissions || [],
-        isActive: isActive !== undefined ? isActive : true
+        description: description || '',
+        permissions: normalizedPermissions,
+        isActive: isActive !== undefined ? isActive : true,
+        isSystem: false,
+        createdAt: now,
+        updatedAt: now
       }
     });
 
+    console.log('✅ Role created successfully:', role);
     return res.status(201).json(role);
   } catch (error: any) {
-    return res.status(500).json({ error: 'Failed to create role' });
+    console.error('❌ Error creating role:', error);
+    // Handle Prisma known errors gracefully (e.g., unique constraint on name)
+    if (error?.code === 'P2002') {
+      return res.status(400).json({ error: 'Role name already exists. Choose a different name.' });
+    }
+    return res.status(500).json({ error: 'Failed to create role', details: error?.message || String(error) });
   }
 });
 
@@ -51,12 +79,19 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
 
     const role = await prisma.roles.update({
       where: { id },
-      data: { name, description, permissions, isActive }
+      data: {
+        name,
+        description,
+        permissions,
+        isActive,
+        updatedAt: new Date()
+      }
     });
 
     return res.json(role);
   } catch (error: any) {
-    return res.status(500).json({ error: 'Failed to update role' });
+    console.error('❌ Error updating role:', error);
+    return res.status(500).json({ error: 'Failed to update role', details: error.message });
   }
 });
 

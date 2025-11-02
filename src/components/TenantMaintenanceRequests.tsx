@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -9,7 +9,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from './ui/dialog';
@@ -20,21 +19,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
-import { 
-  Wrench, 
-  Plus, 
+import {
+  Wrench,
+  Plus,
   Clock,
   CheckCircle2,
   Calendar,
   MessageSquare,
-  Image as ImageIcon
+  Image as ImageIcon,
+  File as FileIcon
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { toast } from 'sonner';
+import { getMaintenanceRequests, getMaintenanceRequest, createMaintenanceRequest, replyMaintenanceRequest } from '../lib/api/maintenance';
+import { initializeSocket, isConnected, subscribeToMaintenanceEvents, unsubscribeFromMaintenanceEvents } from '../lib/socket';
+import { apiClient } from '../lib/api-client';
+import { FileUpload } from './FileUpload';
+import { UploadedFile } from '../lib/api/uploads';
 
 const TenantMaintenanceRequests: React.FC = () => {
   const [showNewRequestDialog, setShowNewRequestDialog] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [replyNote, setReplyNote] = useState('');
+  const [tenantLease, setTenantLease] = useState<{ propertyId?: string; unitId?: string } | null>(null);
   const [newRequest, setNewRequest] = useState({
     title: '',
     category: '',
@@ -42,83 +53,63 @@ const TenantMaintenanceRequests: React.FC = () => {
     description: '',
     images: [] as string[]
   });
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [replyFiles, setReplyFiles] = useState<UploadedFile[]>([]);
 
-  // Mock data
-  const maintenanceRequests = [
-    {
-      id: 1,
-      title: "Kitchen Faucet Leak",
-      category: "Plumbing",
-      priority: "high",
-      status: "in-progress",
-      dateSubmitted: "Oct 10, 2024",
-      dateScheduled: "Oct 18, 2024",
-      description: "The kitchen faucet has been dripping constantly for the past 3 days. Water is collecting under the sink.",
-      assignedTo: "Mike Wilson - ProPlumb Services",
-      estimatedTime: "2-3 hours",
-      updates: [
-        { date: "Oct 15, 2024", message: "Technician assigned. Will arrive on Oct 18 between 9-11 AM.", by: "System" },
-        { date: "Oct 10, 2024", message: "Request received and under review.", by: "Property Manager" }
-      ]
-    },
-    {
-      id: 2,
-      title: "AC Not Cooling Properly",
-      category: "HVAC",
-      priority: "high",
-      status: "scheduled",
-      dateSubmitted: "Oct 8, 2024",
-      dateScheduled: "Oct 19, 2024",
-      description: "The air conditioning unit is running but not cooling the apartment effectively. Temperature stays around 78°F even when set to 68°F.",
-      assignedTo: "CoolTech HVAC",
-      estimatedTime: "1-2 hours",
-      updates: [
-        { date: "Oct 12, 2024", message: "HVAC technician scheduled for Oct 19 between 1-3 PM.", by: "Property Manager" },
-        { date: "Oct 8, 2024", message: "Request received. Scheduling technician.", by: "System" }
-      ]
-    },
-    {
-      id: 3,
-      title: "Bedroom Light Fixture",
-      category: "Electrical",
-      priority: "medium",
-      status: "completed",
-      dateSubmitted: "Sep 28, 2024",
-      dateCompleted: "Oct 2, 2024",
-      description: "The light fixture in the master bedroom is flickering and sometimes doesn't turn on.",
-      assignedTo: "John's Electric",
-      completionNotes: "Replaced faulty light fixture. All working properly now.",
-      updates: [
-        { date: "Oct 2, 2024", message: "Work completed. Fixture replaced.", by: "John's Electric" },
-        { date: "Sep 30, 2024", message: "Electrician will arrive Oct 2 at 10 AM.", by: "Property Manager" },
-        { date: "Sep 28, 2024", message: "Request received.", by: "System" }
-      ]
-    },
-    {
-      id: 4,
-      title: "Dishwasher Not Draining",
-      category: "Appliances",
-      priority: "medium",
-      status: "pending",
-      dateSubmitted: "Oct 16, 2024",
-      description: "Dishwasher fills with water but doesn't drain properly. Water stays in the bottom after cycle completes.",
-      updates: [
-        { date: "Oct 16, 2024", message: "Request received. Reviewing with maintenance team.", by: "System" }
-      ]
-    },
-    {
-      id: 5,
-      title: "Broken Window Lock",
-      category: "Security",
-      priority: "high",
-      status: "pending",
-      dateSubmitted: "Oct 15, 2024",
-      description: "The lock on the living room window is broken and the window won't stay closed securely.",
-      updates: [
-        { date: "Oct 15, 2024", message: "Request received. This is a priority item.", by: "Property Manager" }
-      ]
+  useEffect(() => {
+    const loadLease = async () => {
+      try {
+        const res = await apiClient.get<any>('/api/tenant/lease');
+        if (res.data) {
+          setTenantLease({ propertyId: res.data.properties?.id, unitId: res.data.units?.id });
+        }
+      } catch {}
+    };
+    loadLease();
+  }, []);
+
+  const fetchTickets = async () => {
+    setLoading(true);
+    try {
+      const res = await getMaintenanceRequests();
+      if (!res.error && Array.isArray(res.data)) {
+        setTickets(res.data);
+      } else if (res.error) {
+        toast.error(res.error.error || 'Failed to load maintenance requests');
+      }
+    } catch {
+      toast.error('Failed to load maintenance requests');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  useEffect(() => {
+    fetchTickets();
+    // Realtime updates for maintenance
+    try {
+      const token = localStorage.getItem('auth_token') || '';
+      if (token && !isConnected()) initializeSocket(token);
+    } catch {}
+    subscribeToMaintenanceEvents({
+      onCreated: () => fetchTickets(),
+      onUpdated: async (data: any) => {
+        fetchTickets();
+        // If the updated ticket is currently open, refresh its details
+        if (selectedRequest && data?.id === selectedRequest.id) {
+          try {
+            const refreshResp = await getMaintenanceRequest(data.id);
+            if (!refreshResp.error && refreshResp.data) {
+              setSelectedRequest(refreshResp.data);
+            }
+          } catch {}
+        }
+      }
+    });
+    return () => {
+      unsubscribeFromMaintenanceEvents();
+    };
+  }, [selectedRequest]);
 
   const categories = [
     "Plumbing",
@@ -152,20 +143,94 @@ const TenantMaintenanceRequests: React.FC = () => {
     }
   };
 
-  const handleSubmitRequest = () => {
+  const formatStatus = (status: string) =>
+    (status || '')
+      .split('_')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+
+  const formatPriority = (p: string) =>
+    (p || '').charAt(0).toUpperCase() + (p || '').slice(1);
+
+  const handleSubmitRequest = async () => {
+    if (!tenantLease?.propertyId) {
+      toast.error('No active lease found');
+      return;
+    }
+
+    try {
+      const resp = await createMaintenanceRequest({
+        propertyId: tenantLease.propertyId,
+        unitId: tenantLease.unitId,
+        title: newRequest.title,
+        description: newRequest.description,
+        category: newRequest.category,
+        priority: newRequest.priority,
+        images: uploadedFiles.map(f => ({ url: f.url, originalName: f.originalName, mimetype: f.mimetype, size: f.size })),
+      });
+
+      if (resp.error) {
+        toast.error(resp.error.error || 'Failed to submit request');
+      } else {
+        toast.success('Maintenance request submitted successfully');
     setShowNewRequestDialog(false);
-    setNewRequest({
-      title: '',
-      category: '',
-      priority: 'medium',
-      description: '',
-      images: []
-    });
-    toast.success('Maintenance request submitted successfully!');
+        setNewRequest({ title: '', category: '', priority: 'medium', description: '', images: [] });
+        setUploadedFiles([]);
+        fetchTickets();
+      }
+    } catch {
+      toast.error('Failed to submit request');
+    }
   };
 
-  const activeRequests = maintenanceRequests.filter(r => r.status !== 'completed' && r.status !== 'cancelled');
-  const completedRequests = maintenanceRequests.filter(r => r.status === 'completed');
+  const handleViewTicket = async (ticket: any) => {
+    setLoadingDetails(true);
+    setSelectedRequest(ticket); // Set immediately for UI feedback
+    try {
+      const resp = await getMaintenanceRequest(ticket.id);
+      if (resp.error) {
+        toast.error(resp.error.error || 'Failed to load ticket details');
+        setSelectedRequest(null);
+      } else {
+        setSelectedRequest(resp.data);
+      }
+    } catch {
+      toast.error('Failed to load ticket details');
+      setSelectedRequest(null);
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  const handleReply = async () => {
+    if (!selectedRequest) return;
+    if (!replyNote.trim()) return;
+
+    try {
+      const resp = await replyMaintenanceRequest(selectedRequest.id, {
+        note: replyNote.trim(),
+        attachments: replyFiles && replyFiles.length > 0 ? replyFiles : undefined
+      });
+
+      if (resp.error) {
+        toast.error(resp.error.error || 'Failed to send reply');
+      } else {
+        toast.success('Reply sent');
+        setReplyNote('');
+        setReplyFiles([]);
+        // Refresh the full ticket details to get the latest updates
+        const refreshResp = await getMaintenanceRequest(selectedRequest.id);
+        if (!refreshResp.error && refreshResp.data) {
+          setSelectedRequest(refreshResp.data);
+        }
+      }
+    } catch {
+      toast.error('Failed to send reply');
+    }
+  };
+
+  const activeRequests = tickets.filter((r: any) => r.status !== 'completed' && r.status !== 'cancelled');
+  const completedRequests = tickets.filter((r: any) => r.status === 'completed');
 
   return (
     <div className="space-y-6">
@@ -174,207 +239,23 @@ const TenantMaintenanceRequests: React.FC = () => {
           <h1>Maintenance Requests</h1>
           <p className="text-muted-foreground">Submit and track maintenance requests</p>
         </div>
-        <Button onClick={() => setShowNewRequestDialog(true)}>
+        <Button onClick={() => setShowNewRequestDialog(!showNewRequestDialog)}>
           <Plus className="h-4 w-4 mr-2" />
-          New Request
+          {showNewRequestDialog ? 'Cancel' : 'New Request'}
         </Button>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* New Request Form */}
+      {showNewRequestDialog && (
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Requests</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{activeRequests.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Pending or in progress
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Scheduled</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {maintenanceRequests.filter(r => r.status === 'scheduled').length}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Appointments set
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-            <Wrench className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {maintenanceRequests.filter(r => r.status === 'in-progress').length}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Being worked on
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{completedRequests.length}</div>
-            <p className="text-xs text-muted-foreground">
-              This month
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Tabs defaultValue="active" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="active">Active ({activeRequests.length})</TabsTrigger>
-          <TabsTrigger value="completed">Completed ({completedRequests.length})</TabsTrigger>
-          <TabsTrigger value="all">All Requests</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="active" className="space-y-4">
-          <div className="grid grid-cols-1 gap-4">
-            {activeRequests.map((request) => (
-              <Card key={request.id} className="cursor-pointer hover:border-blue-300 transition-colors" onClick={() => setSelectedRequest(request)}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <CardTitle className="text-lg">{request.title}</CardTitle>
-                        <Badge variant="outline" className={getStatusColor(request.status)}>
-                          {request.status}
-                        </Badge>
-                        <Badge variant="outline" className={getPriorityColor(request.priority)}>
-                          {request.priority}
-                        </Badge>
-                      </div>
-                      <CardDescription>{request.category}</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-sm">{request.description}</p>
-                  <div className="grid grid-cols-2 gap-4 pt-3 border-t">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Submitted</p>
-                      <p className="text-sm font-medium">{request.dateSubmitted}</p>
-                    </div>
-                    {request.dateScheduled && (
-                      <div>
-                        <p className="text-xs text-muted-foreground">Scheduled</p>
-                        <p className="text-sm font-medium">{request.dateScheduled}</p>
-                      </div>
-                    )}
-                    {request.assignedTo && (
-                      <div className="col-span-2">
-                        <p className="text-xs text-muted-foreground">Assigned To</p>
-                        <p className="text-sm font-medium">{request.assignedTo}</p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="completed" className="space-y-4">
-          <div className="grid grid-cols-1 gap-4">
-            {completedRequests.map((request) => (
-              <Card key={request.id} className="cursor-pointer hover:border-blue-300 transition-colors" onClick={() => setSelectedRequest(request)}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <CardTitle className="text-lg">{request.title}</CardTitle>
-                        <Badge variant="outline" className={getStatusColor(request.status)}>
-                          {request.status}
-                        </Badge>
-                      </div>
-                      <CardDescription>{request.category}</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-sm">{request.description}</p>
-                  {request.completionNotes && (
-                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <p className="text-sm text-green-900"><span className="font-medium">Completion Notes:</span> {request.completionNotes}</p>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-4 pt-3 border-t">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Submitted</p>
-                      <p className="text-sm font-medium">{request.dateSubmitted}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Completed</p>
-                      <p className="text-sm font-medium">{request.dateCompleted}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="all" className="space-y-4">
-          <div className="grid grid-cols-1 gap-4">
-            {maintenanceRequests.map((request) => (
-              <Card key={request.id} className="cursor-pointer hover:border-blue-300 transition-colors" onClick={() => setSelectedRequest(request)}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <CardTitle className="text-lg">{request.title}</CardTitle>
-                        <Badge variant="outline" className={getStatusColor(request.status)}>
-                          {request.status}
-                        </Badge>
-                        <Badge variant="outline" className={getPriorityColor(request.priority)}>
-                          {request.priority}
-                        </Badge>
-                      </div>
-                      <CardDescription>{request.category}</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-sm">{request.description}</p>
-                  <div className="flex items-center space-x-4 pt-3 border-t text-sm text-muted-foreground">
-                    <span>Submitted: {request.dateSubmitted}</span>
-                    {request.assignedTo && <span>• {request.assignedTo}</span>}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      {/* New Request Dialog */}
-      <Dialog open={showNewRequestDialog} onOpenChange={setShowNewRequestDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Submit Maintenance Request</DialogTitle>
-            <DialogDescription>
+          <CardHeader>
+            <CardTitle>Submit Maintenance Request</CardTitle>
+            <CardDescription>
               Describe the issue and we'll get it taken care of
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="title">Title *</Label>
               <Input
@@ -423,27 +304,251 @@ const TenantMaintenanceRequests: React.FC = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label>Photos (Optional)</Label>
-              <div className="border-2 border-dashed rounded-lg p-6 text-center">
-                <ImageIcon className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground mb-2">Upload photos of the issue</p>
-                <Button variant="outline" size="sm">Choose Files</Button>
+                <Label>Photos/Videos (Optional - Max 5 files, 10MB each)</Label>
+                <FileUpload
+                  onFilesUploaded={(files) => setUploadedFiles(prev => [...prev, ...files])}
+                  existingFiles={uploadedFiles}
+                  onRemoveFile={(file) => setUploadedFiles(prev => prev.filter(f => f.filename !== file.filename))}
+                  maxFiles={5}
+                  maxSize={10}
+                />
               </div>
-            </div>
-          </div>
-          <DialogFooter>
+              <div className="flex justify-end space-x-2 pt-4">
             <Button variant="outline" onClick={() => setShowNewRequestDialog(false)}>
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleSubmitRequest}
               disabled={!newRequest.title || !newRequest.category || !newRequest.description}
             >
               Submit Request
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Requests</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{activeRequests.length}</div>
+            <p className="text-xs text-muted-foreground">
+              Pending or in progress
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Scheduled</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+            {tickets.filter((r: any) => r.status === 'scheduled').length}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Appointments set
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
+            <Wrench className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+            {tickets.filter((r: any) => r.status === 'in_progress').length}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Being worked on
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Completed</CardTitle>
+            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{completedRequests.length}</div>
+            <p className="text-xs text-muted-foreground">
+              This month
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Tabs defaultValue="active" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="active">Active ({activeRequests.length})</TabsTrigger>
+          <TabsTrigger value="completed">Completed ({completedRequests.length})</TabsTrigger>
+          <TabsTrigger value="all">All Requests</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="active" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Active Requests</CardTitle>
+              <CardDescription>Tickets that are pending or in progress</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Assigned To</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {activeRequests.map((request) => (
+                      <TableRow key={request.id} className="cursor-pointer hover:bg-gray-50">
+                        <TableCell className="font-medium">{request.title}</TableCell>
+                        <TableCell>{request.category}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={getPriorityColor(request.priority)}>
+                            {formatPriority(request.priority)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={getStatusColor(request.status)}>
+                            {formatStatus(request.status)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{new Date(request.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell>{request.assignedTo?.name || '—'}</TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="sm" onClick={() => handleViewTicket(request)}>View</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {activeRequests.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-gray-500">No active requests</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="completed" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Completed Requests</CardTitle>
+              <CardDescription>Recently completed maintenance work</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Completed</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {completedRequests.map((request) => (
+                      <TableRow key={request.id}>
+                        <TableCell className="font-medium">{request.title}</TableCell>
+                        <TableCell>{request.category}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={getStatusColor(request.status)}>
+                            {formatStatus(request.status)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{request.completedAt ? new Date(request.completedAt).toLocaleDateString() : '—'}</TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="sm" onClick={() => handleViewTicket(request)}>View</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {completedRequests.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8 text-gray-500">No completed requests</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="all" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>All Requests</CardTitle>
+              <CardDescription>Complete history of your maintenance requests</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Assigned To</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tickets.map((request) => (
+                      <TableRow key={request.id}>
+                        <TableCell className="font-medium">{request.title}</TableCell>
+                        <TableCell>{request.category}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={getPriorityColor(request.priority)}>
+                            {formatPriority(request.priority)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={getStatusColor(request.status)}>
+                            {formatStatus(request.status)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{new Date(request.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell>{request.assignedTo?.name || '—'}</TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="sm" onClick={() => handleViewTicket(request)}>View</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {tickets.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-gray-500">No requests</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Request Details Dialog */}
       <Dialog open={selectedRequest !== null} onOpenChange={() => setSelectedRequest(null)}>
@@ -471,6 +576,39 @@ const TenantMaintenanceRequests: React.FC = () => {
                   <h4 className="font-medium mb-2">Description</h4>
                   <p className="text-sm text-muted-foreground">{selectedRequest.description}</p>
                 </div>
+
+                {Array.isArray(selectedRequest.images) && selectedRequest.images.length > 0 && (
+                  <div>
+                    <h4 className="font-medium mb-2">Attachments</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {selectedRequest.images.map((img: any, idx: number) => {
+                        const base = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+                        const raw = typeof img === 'string' ? img : (img?.url || '');
+                        const fullUrl = (raw || '').startsWith('http') ? raw : `${base}${raw}`;
+                        const name = typeof img === 'string' ? (raw.split('/').pop() || 'Attachment') : (img?.originalName || 'Attachment');
+                        const isImage = (typeof img === 'object' && img?.mimetype ? img.mimetype.startsWith('image/') : /\.(png|jpe?g|gif|webp)$/i.test(raw));
+                        if (isImage) {
+                          return (
+                            <a key={idx} href={fullUrl} target="_blank" rel="noopener noreferrer" className="block">
+                              <img
+                                src={fullUrl}
+                                alt={name}
+                                className="h-32 w-full object-cover rounded border"
+                              />
+                            </a>
+                          );
+                        }
+                        // Non-image (e.g., PDF) → show link with icon
+                        return (
+                          <a key={idx} href={fullUrl} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2 text-sm text-blue-600 hover:underline">
+                            <FileIcon className="h-4 w-4" />
+                            <span className="truncate">{name}</span>
+                          </a>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -513,18 +651,52 @@ const TenantMaintenanceRequests: React.FC = () => {
                 <div>
                   <h4 className="font-medium mb-3">Updates & Activity</h4>
                   <div className="space-y-3">
-                    {selectedRequest.updates.map((update: any, index: number) => (
+                    {(selectedRequest.updates || []).map((update: any, index: number) => (
                       <div key={index} className="flex space-x-3 pb-3 border-b last:border-0">
                         <MessageSquare className="h-4 w-4 text-muted-foreground mt-1" />
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-1">
-                            <p className="text-sm font-medium">{update.by}</p>
-                            <p className="text-xs text-muted-foreground">{update.date}</p>
+                            <p className="text-sm font-medium">{update?.updatedBy?.name || 'Update'}</p>
+                            <p className="text-xs text-muted-foreground">{new Date(update.createdAt).toLocaleString()}</p>
                           </div>
-                          <p className="text-sm text-muted-foreground">{update.message}</p>
+                          <p className="text-sm text-muted-foreground">{update.note || update.message}</p>
+                          {Array.isArray(update.attachments) && update.attachments.length > 0 && (
+                            <div className="mt-2 space-y-1">
+                              {update.attachments.map((file: any, idx: number) => (
+                                <a
+                                  key={idx}
+                                  href={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${file.url || file}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-blue-600 hover:underline"
+                                >
+                                  {file.originalName || 'Attachment'}
+                                </a>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
+                    {/* Reply attachments and box */}
+                    <div className="space-y-2">
+                      <FileUpload
+                        onFilesUploaded={(files) => setReplyFiles(prev => [...prev, ...files])}
+                        existingFiles={replyFiles}
+                        onRemoveFile={(file) => setReplyFiles(prev => prev.filter(f => f.filename !== file.filename))}
+                        maxFiles={3}
+                        maxSize={10}
+                      />
+                      <div className="flex items-start space-x-2">
+                        <Textarea
+                          placeholder="Type your reply..."
+                          value={replyNote}
+                          onChange={(e) => setReplyNote(e.target.value)}
+                          rows={2}
+                        />
+                        <Button onClick={handleReply} disabled={!replyNote.trim()}>Send</Button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

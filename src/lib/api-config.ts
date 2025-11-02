@@ -58,6 +58,7 @@ export const API_ENDPOINTS = {
     GET: (id: string) => `/api/maintenance/${id}`,
     CREATE: '/api/maintenance',
     UPDATE: (id: string) => `/api/maintenance/${id}`,
+    REPLY: (id: string) => `/api/maintenance/${id}/replies`,
     ASSIGN: (id: string) => `/api/maintenance/${id}/assign`,
     COMPLETE: (id: string) => `/api/maintenance/${id}/complete`,
     STATS: '/api/maintenance/stats/overview',

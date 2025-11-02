@@ -66,6 +66,16 @@ export const updateMaintenanceRequest = async (
 };
 
 /**
+ * Reply to a maintenance request (tenant, manager, or owner)
+ */
+export const replyMaintenanceRequest = async (
+  id: string,
+  data: { note: string; status?: string; attachments?: string[] }
+) => {
+  return apiClient.post<any>(API_ENDPOINTS.MAINTENANCE.REPLY(id), data);
+};
+
+/**
  * Assign maintenance request
  */
 export const assignMaintenanceRequest = async (
@@ -93,5 +103,31 @@ export const getMaintenanceStats = async (propertyId?: string) => {
     API_ENDPOINTS.MAINTENANCE.STATS,
     propertyId ? { propertyId } : undefined
   );
+};
+
+/**
+ * Upload files for maintenance request
+ */
+export const uploadMaintenanceFiles = async (files: File[]) => {
+  const formData = new FormData();
+  files.forEach(file => {
+    formData.append('files', file);
+  });
+
+  const token = localStorage.getItem('auth_token');
+  const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/maintenance/upload`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
+    body: formData
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to upload files');
+  }
+
+  return response.json();
 };
 

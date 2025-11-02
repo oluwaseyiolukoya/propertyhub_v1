@@ -19,7 +19,11 @@ export const authMiddleware = async (
 ) => {
   try {
     console.log('🔐 Auth middleware called for:', req.method, req.path);
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    // Support Authorization header or token passed via query (for iframe/download use-cases)
+    let token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token && typeof req.query.token === 'string') {
+      token = req.query.token as string;
+    }
 
     if (!token) {
       console.log('❌ Auth failed: No token provided for', req.method, req.path);
@@ -37,7 +41,7 @@ export const authMiddleware = async (
       try {
         // Check if it's an internal admin user or a customer user
         let userRecord;
-        
+
         // First check admins table (for Super Admin)
         const admin = await prisma.admins.findUnique({
           where: { id: decoded.id }
@@ -124,7 +128,7 @@ export const adminOnly = async (
 ) => {
   try {
     const userId = req.user?.id;
-    
+
     if (!userId) {
       console.log('❌ Admin check failed: No user ID in request');
       return res.status(403).json({ error: 'Access denied. Admin only.' });
@@ -164,7 +168,7 @@ export const adminOnly = async (
     try {
       internalUser = await prisma.users.findUnique({
         where: { id: userId },
-        select: { 
+        select: {
           id: true,
           customerId: true,
           email: true,

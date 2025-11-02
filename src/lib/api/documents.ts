@@ -1,4 +1,4 @@
-import apiClient from '../api-client';
+import apiClient, { getAuthToken } from '../api-client';
 import { API_ENDPOINTS } from '../api-config';
 
 export interface Document {
@@ -78,7 +78,7 @@ export async function getDocuments(filters?: DocumentFilters) {
         if (value) params.append(key, value);
       });
     }
-    
+
     const base = API_ENDPOINTS.DOCUMENTS.LIST;
     const url = `${base}${params.toString() ? `?${params.toString()}` : ''}`;
     const response = await apiClient.get(url, undefined, { suppressAuthRedirect: true });
@@ -195,5 +195,22 @@ export async function getDocumentStats() {
 export function getDocumentDownloadUrl(fileUrl: string): string {
   const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   return `${baseUrl}${fileUrl}`;
+}
+
+/**
+ * Download a document in a specific format (PDF or DOCX)
+ */
+export function downloadDocumentInFormat(documentId: string, format: 'pdf' | 'docx', options?: { inline?: boolean; includeToken?: boolean }): string {
+  // Use relative path to leverage same-origin proxy in dev and avoid CSP/frame-ancestors issues
+  const params = new URLSearchParams();
+  if (options?.inline) params.set('inline', '1');
+
+  if (options?.includeToken) {
+    const token = getAuthToken();
+    if (token) params.set('token', token);
+  }
+
+  const qs = params.toString();
+  return `/api/documents/${documentId}/download/${format}${qs ? `?${qs}` : ''}`;
 }
 

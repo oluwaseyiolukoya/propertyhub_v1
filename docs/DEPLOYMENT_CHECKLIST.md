@@ -5,6 +5,7 @@ Use this checklist to ensure a smooth deployment to DigitalOcean.
 ## Pre-Deployment
 
 ### 1. Code Preparation
+
 - [ ] All code committed to Git
 - [ ] Git repository pushed to GitHub/GitLab
 - [ ] No sensitive data in code (passwords, API keys)
@@ -13,12 +14,14 @@ Use this checklist to ensure a smooth deployment to DigitalOcean.
 - [ ] Build succeeds locally: `npm run build` (both frontend and backend)
 
 ### 2. Environment Variables Prepared
+
 - [ ] JWT_SECRET generated (64+ characters)
 - [ ] Paystack keys ready (if using payments)
 - [ ] SMTP credentials ready (if using email)
 - [ ] All required environment variables documented
 
 ### 3. Database Ready
+
 - [ ] Database schema finalized
 - [ ] Seed data prepared
 - [ ] Migrations tested locally
@@ -26,11 +29,13 @@ Use this checklist to ensure a smooth deployment to DigitalOcean.
 ## DigitalOcean Setup
 
 ### 4. Account Setup
+
 - [ ] DigitalOcean account created
 - [ ] Billing method added
 - [ ] Git repository connected to DigitalOcean
 
 ### 5. Database Creation
+
 - [ ] PostgreSQL database created
 - [ ] Database cluster running
 - [ ] Connection string saved
@@ -38,6 +43,7 @@ Use this checklist to ensure a smooth deployment to DigitalOcean.
 - [ ] Database user created (optional)
 
 ### 6. Backend Deployment
+
 - [ ] Backend app created in App Platform
 - [ ] Source directory set to `/backend`
 - [ ] Build command: `npm install && npm run build`
@@ -50,6 +56,7 @@ Use this checklist to ensure a smooth deployment to DigitalOcean.
 - [ ] Backend URL saved
 
 ### 7. Frontend Deployment
+
 - [ ] Frontend static site created
 - [ ] Source directory set to `/`
 - [ ] Build command: `npm install && npm run build`
@@ -59,6 +66,7 @@ Use this checklist to ensure a smooth deployment to DigitalOcean.
 - [ ] Frontend URL saved
 
 ### 8. Database Initialization
+
 - [ ] Connected to backend console
 - [ ] Ran `npx prisma generate`
 - [ ] Ran `npx prisma db push --accept-data-loss`
@@ -69,6 +77,7 @@ Use this checklist to ensure a smooth deployment to DigitalOcean.
 ## Post-Deployment
 
 ### 9. Testing
+
 - [ ] Frontend loads successfully
 - [ ] Backend health check responds: `/api/health`
 - [ ] Super admin login works
@@ -82,6 +91,7 @@ Use this checklist to ensure a smooth deployment to DigitalOcean.
 - [ ] All CRUD operations work
 
 ### 10. Security
+
 - [ ] Changed default super admin password
 - [ ] JWT_SECRET is strong and unique
 - [ ] Database firewall configured
@@ -92,6 +102,7 @@ Use this checklist to ensure a smooth deployment to DigitalOcean.
 - [ ] File upload restrictions in place
 
 ### 11. Custom Domain (Optional)
+
 - [ ] Domain purchased
 - [ ] DNS configured for frontend (CNAME)
 - [ ] DNS configured for backend (CNAME)
@@ -101,6 +112,7 @@ Use this checklist to ensure a smooth deployment to DigitalOcean.
 - [ ] Both services redeployed
 
 ### 12. File Storage (Optional)
+
 - [ ] DigitalOcean Spaces created
 - [ ] Spaces credentials generated
 - [ ] Backend updated to use Spaces
@@ -108,6 +120,7 @@ Use this checklist to ensure a smooth deployment to DigitalOcean.
 - [ ] File upload tested
 
 ### 13. Monitoring
+
 - [ ] Application logs accessible
 - [ ] Database metrics visible
 - [ ] Uptime monitoring configured
@@ -116,12 +129,14 @@ Use this checklist to ensure a smooth deployment to DigitalOcean.
 - [ ] Alert notifications configured
 
 ### 14. Backups
+
 - [ ] Database automatic backups enabled (default)
 - [ ] Backup restore tested
 - [ ] Environment variables exported
 - [ ] Deployment process documented
 
 ### 15. Documentation
+
 - [ ] Admin credentials documented securely
 - [ ] Deployment process documented
 - [ ] Environment variables documented
@@ -131,6 +146,7 @@ Use this checklist to ensure a smooth deployment to DigitalOcean.
 ## Production Readiness
 
 ### 16. Performance
+
 - [ ] Frontend build optimized (minified, tree-shaken)
 - [ ] Backend response times acceptable (<500ms)
 - [ ] Database queries optimized
@@ -138,12 +154,14 @@ Use this checklist to ensure a smooth deployment to DigitalOcean.
 - [ ] CDN enabled for static assets (automatic)
 
 ### 17. Scalability
+
 - [ ] Instance sizes appropriate for traffic
 - [ ] Database connection pooling configured
 - [ ] Redis added if scaling horizontally
 - [ ] Load balancer configured (if needed)
 
 ### 18. Compliance
+
 - [ ] Privacy policy added
 - [ ] Terms of service added
 - [ ] GDPR compliance (if applicable)
@@ -152,6 +170,7 @@ Use this checklist to ensure a smooth deployment to DigitalOcean.
 ## Go-Live
 
 ### 19. Final Checks
+
 - [ ] All features tested in production
 - [ ] No critical errors in logs
 - [ ] Performance acceptable
@@ -160,6 +179,7 @@ Use this checklist to ensure a smooth deployment to DigitalOcean.
 - [ ] Rollback plan documented
 
 ### 20. Launch
+
 - [ ] Announced to users
 - [ ] Support channels ready
 - [ ] Monitoring active
@@ -168,6 +188,7 @@ Use this checklist to ensure a smooth deployment to DigitalOcean.
 ## Post-Launch
 
 ### 21. Monitoring (First 24 Hours)
+
 - [ ] Check logs every hour
 - [ ] Monitor error rates
 - [ ] Track user registrations
@@ -176,6 +197,7 @@ Use this checklist to ensure a smooth deployment to DigitalOcean.
 - [ ] Monitor resource usage
 
 ### 22. First Week
+
 - [ ] Gather user feedback
 - [ ] Fix critical bugs
 - [ ] Optimize slow queries
@@ -187,12 +209,14 @@ Use this checklist to ensure a smooth deployment to DigitalOcean.
 If something goes wrong:
 
 ### Build Fails
+
 - [ ] Check build logs in App Platform
 - [ ] Verify all dependencies in package.json
 - [ ] Test build locally: `npm run build`
 - [ ] Check Node.js version compatibility
 
 ### Backend Won't Start
+
 - [ ] Check runtime logs
 - [ ] Verify DATABASE_URL is correct
 - [ ] Check all required environment variables are set
@@ -200,18 +224,21 @@ If something goes wrong:
 - [ ] Check port is set to 5000
 
 ### Database Connection Fails
+
 - [ ] Verify DATABASE_URL format
 - [ ] Check database is running
 - [ ] Verify trusted sources include App Platform
 - [ ] Check connection limit in DATABASE_URL
 
 ### Frontend Can't Reach Backend
+
 - [ ] Verify VITE_API_URL is correct
 - [ ] Check CORS settings in backend
 - [ ] Verify FRONTEND_URL in backend matches frontend domain
 - [ ] Check network tab for actual error
 
 ### 502 Bad Gateway
+
 - [ ] Check backend is running
 - [ ] Verify health check passes
 - [ ] Check backend logs for errors
@@ -220,6 +247,7 @@ If something goes wrong:
 ## Cost Optimization
 
 ### Monthly Review
+
 - [ ] Review resource usage
 - [ ] Downsize unused resources
 - [ ] Check bandwidth usage
@@ -230,17 +258,20 @@ If something goes wrong:
 ## Maintenance Schedule
 
 ### Daily
+
 - [ ] Check error logs
 - [ ] Monitor uptime
 - [ ] Verify backups completed
 
 ### Weekly
+
 - [ ] Review performance metrics
 - [ ] Check security logs
 - [ ] Update dependencies (if needed)
 - [ ] Review user feedback
 
 ### Monthly
+
 - [ ] Database maintenance (VACUUM, ANALYZE)
 - [ ] Review and rotate logs
 - [ ] Security audit
@@ -276,4 +307,3 @@ npm run prisma:seed
 
 **Last Updated:** October 31, 2025
 **Version:** 1.0.0
-

@@ -48,6 +48,8 @@ import documentRoutes from './routes/documents';
 import settingsRoutes from './routes/settings';
 // Payment Methods routes
 import paymentMethodRoutes from './routes/payment-methods';
+// Upload routes
+import uploadRoutes from './routes/uploads';
 
 // Create Express app
 const app: Express = express();
@@ -165,6 +167,8 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/settings', settingsRoutes);
 // Payment Methods routes
 app.use('/api/payment-methods', paymentMethodRoutes);
+// Upload routes
+app.use('/api/uploads', uploadRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
