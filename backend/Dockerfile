@@ -10,6 +10,7 @@ RUN apt-get update -y && apt-get install -y openssl ca-certificates curl && \
 # Copy package files
 COPY package*.json ./
 COPY tsconfig.json ./
+COPY .swcrc ./
 
 # Copy Prisma schema first to generate client before npm ci
 COPY prisma ./prisma
@@ -28,6 +29,9 @@ COPY src ./src
 
 # Build JavaScript with SWC (no type checking during build)
 RUN npx swc src -d dist --copy-files
+
+# Validate build output exists
+RUN test -f dist/index.js || (echo "dist/index.js missing" && ls -la && ls -la dist && exit 1)
 
 # Prune dev dependencies to reduce image size
 RUN npm prune --omit=dev
