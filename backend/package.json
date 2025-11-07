@@ -40,7 +40,7 @@
     "redis": "^5.8.3",
     "socket.io": "^4.8.1",
     "tsx": "^4.7.0",
-    "uuid": "^13.0.0"
+    "uuid": "^8.3.2"
   },
   "devDependencies": {
     "@swc/cli": "^0.5.2",
