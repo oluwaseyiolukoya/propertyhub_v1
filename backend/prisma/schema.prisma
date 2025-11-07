@@ -250,7 +250,7 @@ model payment_methods {
   isActive          Boolean    @default(true)
   metadata          Json?
   createdAt         DateTime   @default(now())
-  updatedAt         DateTime
+  updatedAt         DateTime   @updatedAt
   customers         customers  @relation(fields: [customerId], references: [id], onDelete: Cascade)
   users             users      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   payments          payments[]
