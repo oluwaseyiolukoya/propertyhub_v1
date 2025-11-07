@@ -11,6 +11,12 @@ if [ -n "$DATABASE_URL" ]; then
     echo "[start] migrate deploy failed; attempting db push"
     npx prisma db push --accept-data-loss || true
   fi
+  
+  # Run seed if SEED_ON_START is set (useful for first deployment)
+  if [ "$SEED_ON_START" = "true" ]; then
+    echo "[start] Running database seed..."
+    npm run prisma:seed || echo "[start] Seed failed (may already exist)"
+  fi
 else
   echo "[start] DATABASE_URL not set; skipping migrations"
 fi
