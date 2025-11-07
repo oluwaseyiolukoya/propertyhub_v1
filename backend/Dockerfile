@@ -26,8 +26,8 @@ RUN npx prisma generate
 # Copy source code
 COPY src ./src
 
-# Build TypeScript (just compile, don't push to DB)
-RUN npx tsc
+# Build JavaScript with SWC (no type checking during build)
+RUN npx swc src -d dist --copy-files
 
 # Production stage
 FROM node:18-slim
