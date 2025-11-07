@@ -30,8 +30,8 @@ COPY src ./src
 # Build JavaScript with SWC (no type checking during build)
 RUN npx swc src -d dist --copy-files
 
-# Validate build output exists
-RUN test -f dist/index.js || (echo "dist/index.js missing" && ls -la && ls -la dist && exit 1)
+# Validate build output exists (SWC emitted under dist/src)
+RUN test -f dist/src/index.js || (echo "dist/src/index.js missing" && ls -la && ls -la dist && ls -la dist/src || true && exit 1)
 
 # Prune dev dependencies to reduce image size
 RUN npm prune --omit=dev
@@ -66,6 +66,6 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Start the application
-CMD ["node", "dist/index.js"]
+# Start the application (SWC output path)
+CMD ["node", "dist/src/index.js"]
 
