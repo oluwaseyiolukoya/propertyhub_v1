@@ -106,10 +106,10 @@ Create a file `github-actions-policy.json`:
 ### 1.2 Create IAM User via AWS Console
 
 1. Go to **AWS Console** → **IAM** → **Users** → **Create user**
-2. **User name**: `github-actions-propertyhub`
+2. **User name**: `github-actions-contrezz`
 3. **Permissions**: Attach policies directly
 4. Click **Create policy** → **JSON** → Paste the policy above
-5. **Policy name**: `GitHubActionsPropertyHubPolicy`
+5. **Policy name**: `GitHubActionsContrezzPolicy`
 6. Click **Create policy**
 7. Back to user creation, select the new policy
 8. Click **Next** → **Create user**

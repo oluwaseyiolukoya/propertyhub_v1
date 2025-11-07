@@ -282,7 +282,7 @@ SELECT amount, currency FROM payments WHERE amount > 0 LIMIT 5;
 ```
 Recent Transactions
 ┌─────────────────────────────┐
-│ PropertyHub                 │
+│ Contrezz                 │
 │ Starter - 2025-11-02        │
 │ $400,000        [pending] ❌│ ← Wrong!
 └─────────────────────────────┘
@@ -292,7 +292,7 @@ Recent Transactions
 ```
 Recent Transactions
 ┌─────────────────────────────┐
-│ PropertyHub                 │
+│ Contrezz                 │
 │ Starter - 2025-11-02        │
 │ $400.00         [pending] ✅│ ← Correct!
 └─────────────────────────────┘

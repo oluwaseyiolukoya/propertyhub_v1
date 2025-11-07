@@ -11,7 +11,7 @@ if (!DATABASE_URL || DATABASE_URL.includes('username:password')) {
   // Fail-fast with clear guidance
   // This avoids silently running with an in-memory mock and losing test data
   // Configure backend/.env with a valid DATABASE_URL for persistent storage
-  // Example: postgresql://user:password@localhost:5432/propertyhub
+  // Example: postgresql://user:password@localhost:5432/contrezz
   // Then run: npx prisma migrate deploy (or db push), and npx prisma db seed
   console.error('❌ DATABASE_URL is not configured. A real PostgreSQL database is required.');
   console.error('➡️  Please set DATABASE_URL in backend/.env and restart the server.');

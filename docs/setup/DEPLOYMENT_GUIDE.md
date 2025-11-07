@@ -1,7 +1,7 @@
-# PropertyHub Deployment Guide
+# Contrezz Deployment Guide
 
 ## 🚨 Current Issue
-Your frontend is deployed on Vercel (`https://propertyhub-v1.vercel.app`) but cannot connect to the backend because:
+Your frontend is deployed on Vercel (`https://contrezz-v1.vercel.app`) but cannot connect to the backend because:
 1. Backend is only running on `localhost:5000` (not accessible from the internet)
 2. Backend CORS is configured for `localhost:5173` (local development)
 
@@ -17,9 +17,9 @@ Your frontend is deployed on Vercel (`https://propertyhub-v1.vercel.app`) but ca
 
 ### 1.2 Deploy Backend
 1. Click "New +" → "Web Service"
-2. Connect your GitHub repository: `oluwaseyiolukoya/propertyhub_v1`
+2. Connect your GitHub repository: `oluwaseyiolukoya/contrezz_v1`
 3. Configure the service:
-   - **Name**: `propertyhub-backend` (or any name you prefer)
+   - **Name**: `contrezz-backend` (or any name you prefer)
    - **Region**: Choose closest to your users
    - **Branch**: `main`
    - **Root Directory**: `backend`
@@ -36,7 +36,7 @@ NODE_ENV=production
 PORT=5000
 DATABASE_URL=<your-postgres-database-url>
 JWT_SECRET=<generate-a-secure-random-string>
-FRONTEND_URL=https://propertyhub-v1.vercel.app
+FRONTEND_URL=https://contrezz-v1.vercel.app
 ```
 
 **To get DATABASE_URL:**
@@ -54,7 +54,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ### 1.4 Deploy
 1. Click "Create Web Service"
 2. Wait for deployment (5-10 minutes)
-3. Your backend URL will be: `https://propertyhub-backend.onrender.com` (or similar)
+3. Your backend URL will be: `https://contrezz-backend.onrender.com` (or similar)
 
 ---
 
@@ -62,11 +62,11 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ### 2.1 Add Environment Variable to Vercel
 1. Go to [vercel.com/dashboard](https://vercel.com/dashboard)
-2. Select your `propertyhub-v1` project
+2. Select your `contrezz-v1` project
 3. Go to "Settings" → "Environment Variables"
 4. Add this variable:
    - **Name**: `VITE_API_URL`
-   - **Value**: `https://propertyhub-backend.onrender.com` (your Render backend URL)
+   - **Value**: `https://contrezz-backend.onrender.com` (your Render backend URL)
    - **Environment**: Select all (Production, Preview, Development)
 5. Click "Save"
 
@@ -110,7 +110,7 @@ Edit `/Users/oluwaseyio/test_ui_figma_and_cursor/backend/src/index.ts`:
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
-  'https://propertyhub-v1.vercel.app',
+  'https://contrezz-v1.vercel.app',
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
@@ -161,7 +161,7 @@ ngrok http 5000
 ## Step 4: Verify Deployment
 
 ### 4.1 Test Backend Health
-Visit: `https://propertyhub-backend.onrender.com/health`
+Visit: `https://contrezz-backend.onrender.com/health`
 
 You should see:
 ```json
@@ -174,7 +174,7 @@ You should see:
 ```
 
 ### 4.2 Test Frontend
-1. Visit: `https://propertyhub-v1.vercel.app`
+1. Visit: `https://contrezz-v1.vercel.app`
 2. Try to log in
 3. Check browser console - no CORS errors!
 
@@ -189,7 +189,7 @@ Create `/Users/oluwaseyio/test_ui_figma_and_cursor/backend/.env`:
 ```env
 NODE_ENV=development
 PORT=5000
-DATABASE_URL=postgresql://user:password@localhost:5432/propertyhub
+DATABASE_URL=postgresql://user:password@localhost:5432/contrezz
 JWT_SECRET=your-jwt-secret-here
 FRONTEND_URL=http://localhost:5173
 ```
@@ -207,7 +207,7 @@ VITE_API_URL=http://localhost:5000
 Create `/Users/oluwaseyio/test_ui_figma_and_cursor/.env.production`:
 
 ```env
-VITE_API_URL=https://propertyhub-backend.onrender.com
+VITE_API_URL=https://contrezz-backend.onrender.com
 ```
 
 ---

@@ -1,6 +1,6 @@
 # Render Deployment Guide - Backend
 
-Complete guide for deploying the PropertyHub backend to Render.com with all necessary configurations.
+Complete guide for deploying the Contrezz backend to Render.com with all necessary configurations.
 
 ## 🚀 Quick Deployment Checklist
 
@@ -88,13 +88,13 @@ SMTP_PASS=your-app-password
 1. Go to [Render Dashboard](https://dashboard.render.com/)
 2. Click **"New +"** → **"Web Service"**
 3. Connect your GitHub repository
-4. Select the repository: `propertyhub_v1`
+4. Select the repository: `contrezz_v1`
 
 ### Step 2: Configure Service Settings
 
 **Basic Settings:**
 ```
-Name: propertyhub-backend
+Name: contrezz-backend
 Region: Choose closest to your users (e.g., Oregon, Frankfurt, Singapore)
 Branch: main (or your production branch)
 Root Directory: backend
@@ -154,7 +154,7 @@ Add these in Render Dashboard → Environment → Environment Variables:
 1. In your Render service, go to **"Environment"** tab
 2. Click **"Add Database"** or create separately:
    - Go to Dashboard → **"New +"** → **"PostgreSQL"**
-   - Name: `propertyhub-db`
+   - Name: `contrezz-db`
    - Plan: Free (for testing) or Starter ($7/month)
    - Region: Same as your web service
 3. Copy the **Internal Database URL** to `DATABASE_URL` environment variable
@@ -166,7 +166,7 @@ Add these in Render Dashboard → Environment → Environment Variables:
 For Socket.io scaling across multiple instances:
 
 1. Go to Dashboard → **"New +"** → **"Redis"**
-2. Name: `propertyhub-redis`
+2. Name: `contrezz-redis`
 3. Plan: Free (for testing) or Starter ($10/month)
 4. Copy the **Internal Redis URL** to `REDIS_URL` environment variable
 

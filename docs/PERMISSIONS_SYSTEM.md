@@ -2,7 +2,7 @@
 
 ## Overview
 
-PropertyHub uses a **Role-Based Access Control (RBAC)** system where permissions are stored in the database and automatically applied to users based on their assigned roles.
+Contrezz uses a **Role-Based Access Control (RBAC)** system where permissions are stored in the database and automatically applied to users based on their assigned roles.
 
 ---
 

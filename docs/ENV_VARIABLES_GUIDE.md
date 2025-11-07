@@ -1,6 +1,6 @@
 # Environment Variables Guide
 
-Complete reference for all environment variables used in PropertyHub SaaS.
+Complete reference for all environment variables used in Contrezz SaaS.
 
 ## Table of Contents
 1. [Backend Variables](#backend-variables)
@@ -21,7 +21,7 @@ Set these in DigitalOcean App Platform → Backend Service → Settings → Envi
 - **Format:** `postgresql://user:password@host:port/database?schema=public`
 - **DigitalOcean:** Auto-injected when you attach a managed database
 - **Local:** Set in `backend/.env`
-- **Example:** `postgresql://user:pass@localhost:5432/propertyhub?schema=public`
+- **Example:** `postgresql://user:pass@localhost:5432/contrezz?schema=public`
 - **Security:** Mark as SECRET in DigitalOcean
 
 #### `NODE_ENV`
@@ -309,11 +309,11 @@ FRONTEND_URL=http://app.example.com  # Should be https in production
 ### 7. Use Environment-Specific Values
 ```bash
 # Development
-DATABASE_URL=postgresql://localhost:5432/propertyhub_dev
+DATABASE_URL=postgresql://localhost:5432/contrezz_dev
 FRONTEND_URL=http://localhost:5173
 
 # Production
-DATABASE_URL=postgresql://prod-host:5432/propertyhub
+DATABASE_URL=postgresql://prod-host:5432/contrezz
 FRONTEND_URL=https://app.example.com
 ```
 

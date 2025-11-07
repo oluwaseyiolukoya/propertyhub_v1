@@ -1,6 +1,6 @@
 # API Integration Summary
 
-This document summarizes the frontend-backend API integration work completed for the PropertyHub application.
+This document summarizes the frontend-backend API integration work completed for the Contrezz application.
 
 ## ✅ Completed Integrations
 

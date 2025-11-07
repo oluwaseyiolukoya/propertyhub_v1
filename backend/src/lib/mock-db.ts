@@ -208,7 +208,7 @@ const mockCustomers = [
 ];
 
 const mockSystemSettings: Record<string, any> = {
-  site_name: { id: 'mock-site_name', key: 'site_name', value: 'PropertyHub', category: 'system', description: 'Platform name', createdAt: new Date(), updatedAt: new Date() },
+  site_name: { id: 'mock-site_name', key: 'site_name', value: 'Contrezz', category: 'system', description: 'Platform name', createdAt: new Date(), updatedAt: new Date() },
   default_currency: { id: 'mock-default_currency', key: 'default_currency', value: 'NGN', category: 'system', description: 'Default platform currency', createdAt: new Date(), updatedAt: new Date() },
 };
 

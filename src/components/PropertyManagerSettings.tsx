@@ -1299,19 +1299,19 @@ function HelpSection() {
   const handleDocumentation = () => {
     toast.info('Opening documentation...');
     // Open documentation in new window
-    window.open('https://docs.propertyhub.com', '_blank');
+    window.open('https://docs.contrezz.com', '_blank');
   };
 
   const handleContactSupport = () => {
     toast.info('Opening support contact...');
     // Open email client or support form
-    window.location.href = 'mailto:support@propertyhub.com?subject=Support Request&body=Hello PropertyHub Support Team,%0D%0A%0D%0AI need help with:%0D%0A';
+    window.location.href = 'mailto:support@contrezz.com?subject=Support Request&body=Hello Contrezz Support Team,%0D%0A%0D%0AI need help with:%0D%0A';
   };
 
   const handleFAQs = () => {
     toast.info('Opening FAQs...');
     // Open FAQs page in new window
-    window.open('https://help.propertyhub.com/faqs', '_blank');
+    window.open('https://help.contrezz.com/faqs', '_blank');
   };
 
   const handleStartLiveChat = () => {

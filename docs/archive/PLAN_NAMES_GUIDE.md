@@ -10,7 +10,7 @@ The plan names **are already showing** in the frontend. Here's where to see them
 
 ### To See Plan Names in the UI:
 
-1. **Login:** `admin@propertyhub.com` / `admin123`
+1. **Login:** `admin@contrezz.com` / `admin123`
 2. **Go to:** Admin Dashboard → Customers tab
 3. **Look at the customer table**
 4. **Plan column** shows the plan name:
@@ -227,7 +227,7 @@ POST /api/customers 201 125.973 ms
 ### Step-by-Step Test:
 
 1. **Open Admin Dashboard:** http://localhost:5173
-2. **Login:** `admin@propertyhub.com` / `admin123`
+2. **Login:** `admin@contrezz.com` / `admin123`
 3. **Click:** Customers tab
 4. **Look at the table:**
    - Company column: Company name

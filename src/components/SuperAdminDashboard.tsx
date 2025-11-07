@@ -1092,7 +1092,7 @@ export function SuperAdminDashboard({
               >
                 <Menu className="h-5 w-5" />
               </Button>
-              <h1 className="text-lg sm:text-xl font-semibold text-gray-900">PropertyHub Admin</h1>
+              <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Contrezz Admin</h1>
               <Badge variant="destructive" className="ml-2 text-xs">ADMIN</Badge>
             </div>
 

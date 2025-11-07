@@ -9,7 +9,7 @@ create_route53_zone = false
 # Database Configuration
 db_instance_class    = "db.t4g.micro"
 db_allocated_storage = 20
-db_name              = "propertyhub"
+db_name              = "contrezz"
 db_username          = "dbadmin"
 db_password          = "D3RqzEg=XE86D3-DMZr"
 

@@ -30,7 +30,7 @@ Your current build command will **wipe your database** on every deploy. Update i
 Create `backend/.env` with your local database:
 
 ```bash
-DATABASE_URL="postgresql://postgres:your_password@localhost:5432/propertyhub_local"
+DATABASE_URL="postgresql://postgres:your_password@localhost:5432/contrezz_local"
 JWT_SECRET="local-dev-secret-123"
 FRONTEND_URL="http://localhost:5173"
 NODE_ENV="development"
@@ -106,14 +106,14 @@ git push origin main
 
 ## 📱 Your Production URLs
 
-- **Frontend:** https://propertyhub-v1.vercel.app
-- **Backend:** https://propertyhub-backend-2suw.onrender.com
-- **Health Check:** https://propertyhub-backend-2suw.onrender.com/health
+- **Frontend:** https://contrezz-v1.vercel.app
+- **Backend:** https://contrezz-backend-2suw.onrender.com
+- **Health Check:** https://contrezz-backend-2suw.onrender.com/health
 
 ### Login Credentials:
 
 **Super Admin:**
-- Email: `admin@propertyhub.com`
+- Email: `admin@contrezz.com`
 - Password: `admin123`
 
 **Sample Property Owner:**

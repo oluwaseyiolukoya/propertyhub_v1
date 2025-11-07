@@ -23,7 +23,7 @@ The Tax ID field is now fully connected between the Admin Dashboard (customer cr
 
 ### Test 1: Create Customer with Tax ID (Admin)
 1. **Login as Admin**
-   - Email: `admin@propertyhub.com`
+   - Email: `admin@contrezz.com`
    - Password: `admin123`
 
 2. **Navigate to Customers Tab**

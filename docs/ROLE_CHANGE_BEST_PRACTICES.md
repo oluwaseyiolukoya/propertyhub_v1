@@ -485,7 +485,7 @@ export const setupTokenRefresh = (accessToken: string, refreshToken: string) => 
 
 ## 🎯 Conclusion
 
-For **PropertyHub** and most production applications:
+For **Contrezz** and most production applications:
 
 ✅ **Use Force Re-authentication** (our implementation)
 

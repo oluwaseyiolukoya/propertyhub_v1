@@ -21,14 +21,14 @@
 
 ## 📊 Database Information
 
-**Database Name:** `propertyhub`  
+**Database Name:** `contrezz`  
 **Host:** `localhost:5432`  
 **User:** `oluwaseyio`  
 **Connection:** PostgreSQL 18 (via Postgres.app)
 
 **Connection String:**
 ```
-postgresql://oluwaseyio@localhost:5432/propertyhub?schema=public
+postgresql://oluwaseyio@localhost:5432/contrezz?schema=public
 ```
 
 ---
@@ -115,9 +115,9 @@ npm run prisma:seed
 
 Since the database is empty, these mock credentials still work:
 
-- **Super Admin:** admin@propertyhub.com / admin123
+- **Super Admin:** admin@contrezz.com / admin123
 - **Property Owner:** john@metro-properties.com / owner123
-- **Property Manager:** sarah@propertyhub.com / manager123
+- **Property Manager:** sarah@contrezz.com / manager123
 - **Tenant:** mike@email.com / tenant123
 
 ---
@@ -127,7 +127,7 @@ Since the database is empty, these mock credentials still work:
 ### View Database in Terminal:
 ```bash
 export PATH="/Applications/Postgres.app/Contents/Versions/18/bin:$PATH"
-psql propertyhub
+psql contrezz
 ```
 
 ### List All Tables:
@@ -167,7 +167,7 @@ npx prisma generate
    ↓ sends requests to
 2. **Backend API** (http://localhost:5000)
    ↓ queries
-3. **PostgreSQL Database** (localhost:5432/propertyhub)
+3. **PostgreSQL Database** (localhost:5432/contrezz)
    ↓ managed by
 4. **Prisma Studio** (http://localhost:5555) ← **You can view/edit here!**
 
@@ -203,7 +203,7 @@ npx prisma generate
 ## 🎊 Success Checklist
 
 - ✅ PostgreSQL 18 installed (via Postgres.app)
-- ✅ Database `propertyhub` created
+- ✅ Database `contrezz` created
 - ✅ All tables created (16 tables)
 - ✅ Backend connected to PostgreSQL
 - ✅ Prisma Studio running
@@ -235,7 +235,7 @@ npm run dev
 ### If you get "database does not exist":
 ```bash
 export PATH="/Applications/Postgres.app/Contents/Versions/18/bin:$PATH"
-createdb propertyhub
+createdb contrezz
 ```
 
 ---
@@ -261,5 +261,5 @@ You can now:
 
 ---
 
-**🎉 Congratulations! Your PropertyHub backend is now running with a real PostgreSQL database!**
+**🎉 Congratulations! Your Contrezz backend is now running with a real PostgreSQL database!**
 

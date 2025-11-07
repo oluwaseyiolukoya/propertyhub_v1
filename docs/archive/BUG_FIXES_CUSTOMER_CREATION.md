@@ -278,7 +278,7 @@ The activity logs table is still empty. Activity log creation may be failing sil
 ### To Test Customer Creation:
 
 1. **Login as Admin:**
-   - Email: `admin@propertyhub.com`
+   - Email: `admin@contrezz.com`
    - Password: `admin123`
 
 2. **Go to Customers Tab**
@@ -301,7 +301,7 @@ The activity logs table is still empty. Activity log creation may be failing sil
 
 7. **Verify in Database:**
    ```bash
-   psql propertyhub -c "SELECT company, owner, email FROM customers ORDER BY \"createdAt\" DESC LIMIT 1;"
+   psql contrezz -c "SELECT company, owner, email FROM customers ORDER BY \"createdAt\" DESC LIMIT 1;"
    ```
 
 8. **Verify in Prisma Studio:**

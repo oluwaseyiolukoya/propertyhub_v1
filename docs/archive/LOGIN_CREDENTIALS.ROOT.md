@@ -1,4 +1,4 @@
-# 🔐 PropertyHub Login Credentials
+# 🔐 Contrezz Login Credentials
 
 ## 🚀 Quick Start
 
@@ -22,7 +22,7 @@ Backend API will run on: http://localhost:5000
 ## 👤 Login Credentials
 
 ### 🔴 Super Admin
-- **Email:** `admin@propertyhub.com`
+- **Email:** `admin@contrezz.com`
 - **Password:** `admin123`
 - **User Type:** Super Admin
 - **Access:** Full system administration, customer management, billing, analytics, system health
@@ -34,7 +34,7 @@ Backend API will run on: http://localhost:5000
 - **Access:** Portfolio management, properties, tenants, financials, managers, access control
 
 ### 🔵 Property Manager
-- **Email:** `sarah@propertyhub.com`
+- **Email:** `sarah@contrezz.com`
 - **Password:** `manager123`
 - **User Type:** Property Manager
 - **Access:** Property management, tenants, payments, maintenance, notifications
@@ -108,7 +108,7 @@ All property managers below have been created in the real PostgreSQL database an
 
 **Current Setup:** ✅ **PostgreSQL Connected & Operational!**
 - ✅ **Real PostgreSQL database** running on `localhost:5432`
-- ✅ **Database name:** `propertyhub`
+- ✅ **Database name:** `contrezz`
 - ✅ **16 tables created** and ready
 - ✅ **Prisma Studio** available at http://localhost:5555
 - ✅ **Real data persistence** - all changes are saved!
@@ -119,7 +119,7 @@ All property managers below have been created in the real PostgreSQL database an
 
 **Database Setup:** ✅ Already completed!
 - ✅ PostgreSQL installed via Postgres.app
-- ✅ Database `propertyhub` created
+- ✅ Database `contrezz` created
 - ✅ `backend/.env` configured  
 - ✅ All migrations completed
 - ✅ Prisma Studio running on port 5555
@@ -129,7 +129,7 @@ All property managers below have been created in the real PostgreSQL database an
 ## 🎯 Testing Each Dashboard
 
 ### Test Super Admin:
-1. Login with `admin@propertyhub.com` / `admin123`
+1. Login with `admin@contrezz.com` / `admin123`
 2. Access: Customers, Users, Billing, Analytics, Support Tickets, Platform Settings
 
 ### Test Property Owner:
@@ -137,7 +137,7 @@ All property managers below have been created in the real PostgreSQL database an
 2. Access: Portfolio, Properties, Payments, Financial Reports, Managers, Access Control
 
 ### Test Property Manager:
-1. Login with `sarah@propertyhub.com` / `manager123`
+1. Login with `sarah@contrezz.com` / `manager123`
 2. Access: Properties, Tenants, Payments, Maintenance, Notifications, Documents
 
 ### Test Tenant:
@@ -149,7 +149,7 @@ All property managers below have been created in the real PostgreSQL database an
 ## 🔧 Troubleshooting
 
 ### Login Not Working?
-1. **Check Backend:** `curl http://localhost:5000/api/auth/login -X POST -H "Content-Type: application/json" -d '{"email":"admin@propertyhub.com","password":"admin123","userType":"admin"}'`
+1. **Check Backend:** `curl http://localhost:5000/api/auth/login -X POST -H "Content-Type: application/json" -d '{"email":"admin@contrezz.com","password":"admin123","userType":"admin"}'`
 2. **Check Frontend:** Visit http://localhost:5173
 3. **Clear Browser Cache:** Ctrl+Shift+R (or Cmd+Shift+R on Mac)
 4. **Check Console:** Open browser DevTools (F12) and check for errors

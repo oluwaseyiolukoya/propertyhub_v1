@@ -114,7 +114,7 @@ const TenantDashboard: React.FC = () => {
           >
             {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
-          <h2 className="font-semibold">PropertyHub</h2>
+          <h2 className="font-semibold">Contrezz</h2>
         </div>
         <div className="flex items-center space-x-2">
           <Button variant="ghost" size="icon" className="relative">
@@ -146,7 +146,7 @@ const TenantDashboard: React.FC = () => {
         <div className="flex flex-col h-full">
           {/* Logo - Desktop only */}
           <div className="hidden lg:block p-6 border-b">
-            <h1 className="text-2xl font-bold text-blue-600">PropertyHub</h1>
+            <h1 className="text-2xl font-bold text-blue-600">Contrezz</h1>
             <p className="text-sm text-muted-foreground mt-1">Tenant Portal</p>
           </div>
 

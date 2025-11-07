@@ -236,7 +236,7 @@ In the Edit Customer dialog, admins can modify:
 ## 🚀 Testing the Actions
 
 ### Test View Details:
-1. Login as admin: `admin@propertyhub.com` / `admin123`
+1. Login as admin: `admin@contrezz.com` / `admin123`
 2. Go to Customers tab
 3. Click ⋮ on any customer
 4. Click "View Details"
@@ -274,7 +274,7 @@ In the Edit Customer dialog, admins can modify:
 # Check customer was updated
 cd backend
 export PATH="/Applications/Postgres.app/Contents/Versions/18/bin:$PATH"
-psql propertyhub -c "SELECT company, status, \"propertyLimit\" FROM customers;"
+psql contrezz -c "SELECT company, status, \"propertyLimit\" FROM customers;"
 ```
 
 ---

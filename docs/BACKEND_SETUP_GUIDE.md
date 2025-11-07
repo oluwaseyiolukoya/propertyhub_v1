@@ -1,6 +1,6 @@
-# 🚀 PropertyHub Backend Setup Guide
+# 🚀 Contrezz Backend Setup Guide
 
-This guide will walk you through setting up the complete backend infrastructure for PropertyHub Super Admin dashboard.
+This guide will walk you through setting up the complete backend infrastructure for Contrezz Super Admin dashboard.
 
 ## 📦 What We've Built
 
@@ -79,11 +79,11 @@ Download and install from: https://www.postgresql.org/download/windows/
 psql postgres
 
 # Create database
-CREATE DATABASE propertyhub;
+CREATE DATABASE contrezz;
 
 # Create user (optional, or use default postgres user)
-CREATE USER propertyhub_user WITH PASSWORD 'your_secure_password';
-GRANT ALL PRIVILEGES ON DATABASE propertyhub TO propertyhub_user;
+CREATE USER contrezz_user WITH PASSWORD 'your_secure_password';
+GRANT ALL PRIVILEGES ON DATABASE contrezz TO contrezz_user;
 
 # Exit
 \q
@@ -108,7 +108,7 @@ Edit `.env` with your configuration:
 
 ```env
 # Database - Update with your PostgreSQL credentials
-DATABASE_URL="postgresql://postgres:your_password@localhost:5432/propertyhub?schema=public"
+DATABASE_URL="postgresql://postgres:your_password@localhost:5432/contrezz?schema=public"
 
 # Server
 PORT=5000
@@ -186,7 +186,7 @@ After seeding, use these credentials to test:
 
 ### Super Admin Dashboard:
 ```
-Email: admin@propertyhub.com
+Email: admin@contrezz.com
 Password: admin123
 User Type: Admin
 ```
@@ -271,7 +271,7 @@ Opens at: http://localhost:5555
 curl -X POST http://localhost:5000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "admin@propertyhub.com",
+    "email": "admin@contrezz.com",
     "password": "admin123",
     "userType": "admin"
   }'
@@ -283,7 +283,7 @@ Response:
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "user": {
     "id": "...",
-    "email": "admin@propertyhub.com",
+    "email": "admin@contrezz.com",
     "name": "Super Admin",
     "role": "super_admin",
     "userType": "admin"
@@ -386,7 +386,7 @@ export const api = {
 **Solution:**
 1. Check PostgreSQL is running: `pg_isready`
 2. Verify credentials in `.env`
-3. Ensure database exists: `psql -l | grep propertyhub`
+3. Ensure database exists: `psql -l | grep contrezz`
 
 ### Issue: Port 5000 already in use
 

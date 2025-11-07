@@ -41,7 +41,7 @@ Create a `.env` file in your `backend/` folder for local development:
 
 ```bash
 # backend/.env (Local Development)
-DATABASE_URL="postgresql://postgres:your_local_password@localhost:5432/propertyhub_local"
+DATABASE_URL="postgresql://postgres:your_local_password@localhost:5432/contrezz_local"
 JWT_SECRET="your-local-jwt-secret-key-change-this"
 FRONTEND_URL="http://localhost:5173"
 NODE_ENV="development"
@@ -58,7 +58,7 @@ PORT=5000
 Your production environment variables are already set in Render:
 - `DATABASE_URL` → Your Render PostgreSQL connection string
 - `JWT_SECRET` → Your production secret
-- `FRONTEND_URL` → `https://propertyhub-v1.vercel.app`
+- `FRONTEND_URL` → `https://contrezz-v1.vercel.app`
 - `NODE_ENV` → `production`
 - `PORT` → `5000`
 
@@ -333,7 +333,7 @@ git push origin main
 # Go to: https://dashboard.render.com → Your Service → Logs
 
 # Check backend health
-curl https://propertyhub-backend-2suw.onrender.com/health
+curl https://contrezz-backend-2suw.onrender.com/health
 
 # Check Vercel frontend
 # Go to: https://vercel.com/dashboard → Your Project → Deployments

@@ -19,7 +19,7 @@ This is a streamlined guide to get your app running on DigitalOcean as fast as p
    - **Engine:** PostgreSQL 15
    - **Plan:** Basic ($15/month)
    - **Region:** Closest to your users
-   - **Name:** `propertyhub-db`
+   - **Name:** `contrezz-db`
 4. Click **"Create Database Cluster"**
 5. Wait 3-5 minutes for provisioning
 6. Go to **"Connection Details"** → Copy the **"Connection String"**
@@ -55,7 +55,7 @@ This is a streamlined guide to get your app running on DigitalOcean as fast as p
 6. **Link Database:**
    - Scroll to **"Database"**
    - Click **"Attach Database"**
-   - Select `propertyhub-db`
+   - Select `contrezz-db`
    - This auto-creates `DATABASE_URL`
 7. Click **"Next"** → **"Next"** → **"Create Resources"**
 8. Wait 5-7 minutes for deployment
@@ -104,7 +104,7 @@ This is a streamlined guide to get your app running on DigitalOcean as fast as p
 1. Open your **Frontend URL** in a browser
 2. Login with default credentials:
    ```
-   Email: admin@propertyhub.com
+   Email: admin@contrezz.com
    Password: Admin123!@#
    ```
 3. **Change the password immediately!**
@@ -196,7 +196,7 @@ If you want to enable payment processing:
 
 ## Next Steps
 
-1. **Change default password** (admin@propertyhub.com)
+1. **Change default password** (admin@contrezz.com)
 2. **Create your first property owner**
 3. **Set up monitoring** (DigitalOcean provides built-in monitoring)
 4. **Add custom domain** (optional but recommended)

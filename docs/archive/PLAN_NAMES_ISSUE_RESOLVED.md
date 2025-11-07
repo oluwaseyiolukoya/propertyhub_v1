@@ -68,7 +68,7 @@ cd backend && npm run dev
 
 1. **Go to Admin Dashboard**
    - URL: http://localhost:5173
-   - Login: admin@propertyhub.com / admin123
+   - Login: admin@contrezz.com / admin123
 
 2. **Navigate to Customers tab**
 

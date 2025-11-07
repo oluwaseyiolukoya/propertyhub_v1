@@ -311,7 +311,7 @@ export function PropertyOwnerDashboard({
       occupancyRate: 91.7,
       manager: "Sarah Johnson",
       managerPhone: "(555) 123-4567",
-      managerEmail: "sarah@propertyhub.com",
+      managerEmail: "sarah@contrezz.com",
       status: "active",
       lastInspection: "2024-02-15",
       nextInspection: "2024-05-15",
@@ -354,7 +354,7 @@ export function PropertyOwnerDashboard({
       occupancyRate: 94.4,
       manager: "Mike Chen",
       managerPhone: "(555) 987-6543",
-      managerEmail: "mike@propertyhub.com",
+      managerEmail: "mike@contrezz.com",
       status: "active",
       lastInspection: "2024-03-01",
       nextInspection: "2024-06-01",
@@ -397,7 +397,7 @@ export function PropertyOwnerDashboard({
       occupancyRate: 93.8,
       manager: "Lisa Rodriguez",
       managerPhone: "(555) 456-7890",
-      managerEmail: "lisa@propertyhub.com",
+      managerEmail: "lisa@contrezz.com",
       status: "active",
       lastInspection: "2024-01-20",
       nextInspection: "2024-04-20",
@@ -440,7 +440,7 @@ export function PropertyOwnerDashboard({
       occupancyRate: 88.9,
       manager: "David Thompson",
       managerPhone: "(555) 321-0987",
-      managerEmail: "david@propertyhub.com",
+      managerEmail: "david@contrezz.com",
       status: "maintenance",
       lastInspection: "2024-02-28",
       nextInspection: "2024-05-28",
@@ -544,7 +544,7 @@ export function PropertyOwnerDashboard({
                 <Menu className="h-5 w-5" />
               </Button>
               <Building className="h-6 w-6 text-blue-600 mr-2" />
-              <h1 className="text-xl font-semibold text-gray-900">PropertyHub Owner</h1>
+              <h1 className="text-xl font-semibold text-gray-900">Contrezz Owner</h1>
             </div>
 
             <div className="flex items-center space-x-4">
@@ -575,7 +575,7 @@ export function PropertyOwnerDashboard({
             <CheckCircle className="h-5 w-5 text-green-400 mr-3" />
             <div>
               <h3 className="text-sm font-medium text-green-800">
-                Welcome to PropertyHub, {user.name}!
+                Welcome to Contrezz, {user.name}!
               </h3>
               <p className="mt-1 text-sm text-green-700">
                 Your account has been successfully set up. Get started by adding your first property or exploring the dashboard features.

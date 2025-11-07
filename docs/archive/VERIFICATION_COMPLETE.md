@@ -12,7 +12,7 @@
 **Test:** Create a new customer through the `/api/customers` endpoint
 
 **Steps:**
-1. Admin logged in with `admin@propertyhub.com`
+1. Admin logged in with `admin@contrezz.com`
 2. Created customer with POST request:
    - Company: "Test Real Estate LLC"
    - Owner: "John Doe"
@@ -238,17 +238,17 @@ curl -s http://localhost:5000/api/properties \
 
 ### View All Customers
 ```bash
-psql propertyhub -c "SELECT id, company, owner, email, status FROM customers;"
+psql contrezz -c "SELECT id, company, owner, email, status FROM customers;"
 ```
 
 ### View All Users
 ```bash
-psql propertyhub -c "SELECT id, name, email, role, status FROM users;"
+psql contrezz -c "SELECT id, name, email, role, status FROM users;"
 ```
 
 ### View Specific Customer with Full Details
 ```bash
-psql propertyhub -c "
+psql contrezz -c "
   SELECT 
     c.company,
     c.owner,
@@ -392,7 +392,7 @@ psql propertyhub -c "
 
 **✅ DATABASE CONNECTION: VERIFIED & OPERATIONAL**
 
-Your PropertyHub application is now:
+Your Contrezz application is now:
 - ✅ Connected to PostgreSQL
 - ✅ Creating customers in the database
 - ✅ Auto-creating user accounts

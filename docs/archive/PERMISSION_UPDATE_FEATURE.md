@@ -97,7 +97,7 @@ useEffect(() => {
 
 1. **Super Admin Actions:**
    ```
-   1. Login as admin@propertyhub.com
+   1. Login as admin@contrezz.com
    2. Go to User Management
    3. Find "Anuoluwapo" (Support Admin)
    4. Click Actions → Edit User
@@ -169,7 +169,7 @@ User Record Updated At:         2025-10-19 20:15:00
 
 ### Test Case 1: Update Internal Admin Role
 ```bash
-1. Login as Super Admin (admin@propertyhub.com / admin123)
+1. Login as Super Admin (admin@contrezz.com / admin123)
 2. Go to User Management
 3. Edit any internal admin user's role
 4. In another browser/incognito, login as that user

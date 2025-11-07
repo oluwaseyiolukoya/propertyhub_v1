@@ -164,7 +164,7 @@ import {
 1. **Refresh your browser** to load the updated code
 
 2. **Login as Admin:**
-   - Email: `admin@propertyhub.com`
+   - Email: `admin@contrezz.com`
    - Password: `admin123`
 
 3. **Go to Customers Tab**
@@ -190,7 +190,7 @@ import {
 
 8. **Verify in Database:**
    ```bash
-   psql propertyhub -c "SELECT company, owner, email FROM customers WHERE email = 'test@example.com';"
+   psql contrezz -c "SELECT company, owner, email FROM customers WHERE email = 'test@example.com';"
    ```
 
 9. **Verify in Prisma Studio:**
@@ -200,7 +200,7 @@ import {
 
 10. **Verify User Created:**
     ```bash
-    psql propertyhub -c "SELECT name, email, role FROM users WHERE email = 'test@example.com';"
+    psql contrezz -c "SELECT name, email, role FROM users WHERE email = 'test@example.com';"
     ```
 
 ---

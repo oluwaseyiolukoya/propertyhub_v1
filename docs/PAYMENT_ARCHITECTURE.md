@@ -173,7 +173,7 @@ PAYSTACK_PUBLIC_KEY=pk_live_your_platform_key
 
 **Backend `.env`:**
 ```env
-DATABASE_URL=postgresql://localhost:5432/propertyhub
+DATABASE_URL=postgresql://localhost:5432/contrezz
 JWT_SECRET=dev-secret-key
 FRONTEND_URL=http://localhost:5173
 

@@ -60,7 +60,7 @@ Created a new admin-only endpoint that aggregates transactions from multiple sou
     {
       "id": "pay-xyz789",
       "type": "payment",
-      "customer": "PropertyHub",
+      "customer": "Contrezz",
       "customerId": "cust-456",
       "plan": "Starter",
       "amount": 25000,
@@ -250,7 +250,7 @@ ORDER BY createdAt DESC;
 │ ✓ Metro Properties LLC                  ₦50,000 │
 │   Professional - 2024-11-05          [completed] │
 │                                                  │
-│ ✓ PropertyHub                           ₦25,000 │
+│ ✓ Contrezz                           ₦25,000 │
 │   Starter - 2024-11-04               [completed] │
 │                                                  │
 │ ⏱ Acme Corp                             ₦75,000 │

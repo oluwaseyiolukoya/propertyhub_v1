@@ -26,14 +26,14 @@ createuser -s postgres
 #### Option C: Docker (If you prefer containers)
 ```bash
 # Create and start PostgreSQL container
-docker run --name propertyhub-postgres \
+docker run --name contrezz-postgres \
   -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=propertyhub_local \
+  -e POSTGRES_DB=contrezz_local \
   -p 5432:5432 \
   -d postgres:16
 
 # Start it whenever you need it
-docker start propertyhub-postgres
+docker start contrezz-postgres
 ```
 
 ### 2. Verify PostgreSQL is Running
@@ -60,7 +60,7 @@ Then edit `backend/.env` with these values:
 
 ```env
 # Database - Local PostgreSQL
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/propertyhub_local?schema=public"
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/contrezz_local?schema=public"
 
 # Server
 PORT=5000
@@ -85,7 +85,7 @@ UPLOAD_DIR=./uploads
 ```
 
 **Important Notes:**
-- ✅ Use `propertyhub_local` database (separate from production)
+- ✅ Use `contrezz_local` database (separate from production)
 - ✅ Use different JWT secret than production
 - ✅ `.env` is in `.gitignore` so it won't be pushed to GitHub
 
@@ -98,7 +98,7 @@ UPLOAD_DIR=./uploads
 cd backend
 
 # Create local database
-createdb propertyhub_local
+createdb contrezz_local
 
 # Run migrations to create tables
 npx prisma migrate dev
@@ -108,7 +108,7 @@ npm run prisma:seed
 ```
 
 You'll get login credentials for local development:
-- **Admin:** `admin@propertyhub.com` / `admin123`
+- **Admin:** `admin@contrezz.com` / `admin123`
 - **Owner:** `john@metro-properties.com` / `owner123`
 
 ---
@@ -160,7 +160,7 @@ Opens at: http://localhost:5555
 - **Prisma Studio:** http://localhost:5555 (if running)
 
 ### Login Credentials (Local):
-- Email: `admin@propertyhub.com`
+- Email: `admin@contrezz.com`
 - Password: `admin123`
 
 ---
@@ -186,13 +186,13 @@ docker ps | grep postgres
 # Start PostgreSQL
 brew services start postgresql@16
 # or
-docker start propertyhub-postgres
+docker start contrezz-postgres
 ```
 
 ### Issue: "Database does not exist"
 ```bash
 # Create the database
-createdb propertyhub_local
+createdb contrezz_local
 
 # Then run migrations
 cd backend
@@ -260,7 +260,7 @@ open http://localhost:5173
 ### Production (Render):
 - `DATABASE_URL` → Render PostgreSQL URL
 - `NODE_ENV` → `production`
-- `FRONTEND_URL` → `https://propertyhub-v1.vercel.app`
+- `FRONTEND_URL` → `https://contrezz-v1.vercel.app`
 - `JWT_SECRET` → Production secret (different from local)
 
 ---
@@ -329,7 +329,7 @@ npx prisma studio
 
 - [ ] PostgreSQL is installed and running
 - [ ] Created `backend/.env` with local settings
-- [ ] Created local database: `propertyhub_local`
+- [ ] Created local database: `contrezz_local`
 - [ ] Ran migrations: `npx prisma migrate dev`
 - [ ] Seeded database: `npm run prisma:seed`
 - [ ] Backend starts successfully: `npm run dev`

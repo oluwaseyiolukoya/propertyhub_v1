@@ -214,7 +214,7 @@ aws budgets create-budget \
 
 ```json
 {
-  "BudgetName": "PropertyHub-Dev-Monthly",
+  "BudgetName": "Contrezz-Dev-Monthly",
   "BudgetLimit": {
     "Amount": "40",
     "Unit": "USD"

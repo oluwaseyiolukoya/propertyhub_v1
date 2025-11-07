@@ -2708,7 +2708,7 @@ function PaymentGatewaySection() {
       connected: false, // default disconnected unless configured
       apiKey: '',
       publishableKey: '',
-      webhookUrl: 'https://propertyhub.com/webhook/stripe',
+      webhookUrl: 'https://contrezz.com/webhook/stripe',
       testMode: false
     },
     {
@@ -2720,7 +2720,7 @@ function PaymentGatewaySection() {
       connected: false,
       clientId: '',
       clientSecret: '',
-      webhookUrl: 'https://propertyhub.com/webhook/paypal',
+      webhookUrl: 'https://contrezz.com/webhook/paypal',
       testMode: false
     },
     {
@@ -2732,7 +2732,7 @@ function PaymentGatewaySection() {
       connected: false,
       applicationId: '',
       accessToken: '',
-      webhookUrl: 'https://propertyhub.com/webhook/square',
+      webhookUrl: 'https://contrezz.com/webhook/square',
       testMode: false
     },
     {
@@ -3257,7 +3257,7 @@ function HelpSection() {
         <CardHeader>
           <CardTitle>Help & Support</CardTitle>
           <CardDescription>
-            Get help and learn more about PropertyHub
+            Get help and learn more about Contrezz
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

@@ -9,7 +9,7 @@
 
 | Test | Status | Details |
 |------|--------|---------|
-| PostgreSQL Connection | ✅ PASS | Connected to `propertyhub` database |
+| PostgreSQL Connection | ✅ PASS | Connected to `contrezz` database |
 | Customer Creation | ✅ PASS | Customer saved to database |
 | User Creation | ✅ PASS | Owner user account created |
 | Authentication | ✅ PASS | Login successful with database credentials |
@@ -22,7 +22,7 @@
 
 ### 1. Database Connection ✅
 
-**Database:** `propertyhub`  
+**Database:** `contrezz`  
 **Host:** `localhost:5432`  
 **Provider:** PostgreSQL 18 (Postgres.app)  
 **Status:** Connected and operational
@@ -381,11 +381,11 @@ ORDER BY "createdAt" DESC;
 ### If Login Fails:
 ```bash
 # Check if user exists
-psql propertyhub -c "SELECT * FROM users WHERE email = 'john.doe@testrealestate.com';"
+psql contrezz -c "SELECT * FROM users WHERE email = 'john.doe@testrealestate.com';"
 
 # Reset password if needed
 # (Hash: testowner123)
-psql propertyhub -c "UPDATE users SET password = '\$2a\$10\$fxeiRbfTi1.L7OTvQ8apw.wzLYZzPUbdcZ3rhF9Kmw.RZ8UvD7Dnq' WHERE email = 'john.doe@testrealestate.com';"
+psql contrezz -c "UPDATE users SET password = '\$2a\$10\$fxeiRbfTi1.L7OTvQ8apw.wzLYZzPUbdcZ3rhF9Kmw.RZ8UvD7Dnq' WHERE email = 'john.doe@testrealestate.com';"
 ```
 
 ### If Database Connection Fails:
@@ -407,7 +407,7 @@ Then go to: http://localhost:5555
 
 **🎉 All database tests passed successfully!**
 
-Your PropertyHub application is now:
+Your Contrezz application is now:
 - ✅ Connected to a real PostgreSQL database
 - ✅ Creating customers and storing data
 - ✅ Authenticating users from the database

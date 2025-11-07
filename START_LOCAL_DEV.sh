@@ -30,11 +30,11 @@ echo ""
 
 # Create local database
 echo -e "${BLUE}📊 Creating local database...${NC}"
-createdb propertyhub_local 2>/dev/null
+createdb contrezz_local 2>/dev/null
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✅ Database 'propertyhub_local' created${NC}"
+    echo -e "${GREEN}✅ Database 'contrezz_local' created${NC}"
 else
-    echo -e "${YELLOW}⚠️  Database 'propertyhub_local' may already exist${NC}"
+    echo -e "${YELLOW}⚠️  Database 'contrezz_local' may already exist${NC}"
 fi
 echo ""
 
@@ -71,7 +71,7 @@ echo ""
 echo -e "${GREEN}🎉 Setup complete!${NC}"
 echo ""
 echo -e "${BLUE}📝 Login Credentials:${NC}"
-echo "   Email: admin@propertyhub.com"
+echo "   Email: admin@contrezz.com"
 echo "   Password: admin123"
 echo ""
 echo -e "${BLUE}🚀 To start development servers:${NC}"

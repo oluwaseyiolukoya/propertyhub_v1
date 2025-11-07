@@ -114,7 +114,7 @@ export function UserManagement({
     email: "",
     phone: "",
     role: "admin", // Default to admin role for internal users
-    company: "PropertyHub Admin", // Internal admin company
+    company: "Contrezz Admin", // Internal admin company
     department: "",
     isActive: true,
     sendInvite: true,
@@ -326,7 +326,7 @@ export function UserManagement({
     "Zimbabwe",
   ];
 
-  // Internal admin permissions (for PropertyHub platform management)
+  // Internal admin permissions (for Contrezz platform management)
   // These permissions map to actual dashboard pages and features
   const availablePermissions = [
     // Dashboard Pages (Main Navigation)
@@ -671,7 +671,7 @@ export function UserManagement({
       email: "",
       phone: "",
       role: "admin", // Default to admin role for internal users
-      company: "PropertyHub Admin", // Internal admin company
+      company: "Contrezz Admin", // Internal admin company
       department: "",
       isActive: true,
       sendInvite: true,
@@ -985,7 +985,7 @@ export function UserManagement({
                               company: e.target.value,
                             }))
                           }
-                          placeholder="PropertyHub Admin"
+                          placeholder="Contrezz Admin"
                         />
                       </div>
                       <div>
@@ -1569,7 +1569,7 @@ export function UserManagement({
                   onChange={(e) =>
                     setNewUser((prev) => ({ ...prev, company: e.target.value }))
                   }
-                  placeholder="PropertyHub Admin"
+                  placeholder="Contrezz Admin"
                 />
               </div>
               <div>

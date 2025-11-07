@@ -1,6 +1,6 @@
 # Best Practice Deployment Summary
 
-This document summarizes the industry-standard CI/CD deployment setup for PropertyHub.
+This document summarizes the industry-standard CI/CD deployment setup for Contrezz.
 
 ---
 
@@ -181,7 +181,7 @@ curl https://api.dev.contrezz.com/health
 aws budgets create-budget \
   --account-id $(aws sts get-caller-identity --query Account --output text) \
   --budget '{
-    "BudgetName": "PropertyHub-Dev-Monthly",
+    "BudgetName": "Contrezz-Dev-Monthly",
     "BudgetLimit": {"Amount": "40", "Unit": "USD"},
     "TimeUnit": "MONTHLY",
     "BudgetType": "COST"

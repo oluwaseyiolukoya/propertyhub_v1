@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide explains how to implement and use the multi-currency system in PropertyHub, allowing owners to manage properties in different currencies while maintaining accurate financial reporting.
+This guide explains how to implement and use the multi-currency system in Contrezz, allowing owners to manage properties in different currencies while maintaining accurate financial reporting.
 
 ---
 

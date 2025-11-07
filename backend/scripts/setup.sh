@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🚀 PropertyHub Backend Setup Script"
+echo "🚀 Contrezz Backend Setup Script"
 echo "===================================="
 echo ""
 
@@ -78,7 +78,7 @@ if [ $? -ne 0 ]; then
     echo "Troubleshooting:"
     echo "1. Make sure PostgreSQL is running"
     echo "2. Check your DATABASE_URL in .env"
-    echo "3. Ensure the database exists: createdb propertyhub"
+    echo "3. Ensure the database exists: createdb contrezz"
     exit 1
 fi
 
@@ -102,7 +102,7 @@ echo ""
 echo "📝 Default Login Credentials:"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "Super Admin:"
-echo "  Email: admin@propertyhub.com"
+echo "  Email: admin@contrezz.com"
 echo "  Password: admin123"
 echo ""
 echo "Property Owner:"

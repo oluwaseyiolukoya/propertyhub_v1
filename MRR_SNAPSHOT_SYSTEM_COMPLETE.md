@@ -179,7 +179,7 @@ npx tsx backend/scripts/backfill-mrr-snapshots.ts
 
 Processing: Metro Properties LLC (john@metro-properties.com)
   ✅ Created 1 snapshots
-Processing: PropertyHub (testcustomer@gmail.com)
+Processing: Contrezz (testcustomer@gmail.com)
   ✅ Created 1 snapshots
 
 ✨ Backfill Complete!

@@ -1,4 +1,4 @@
-# ✅ PropertyHub Fixes Summary
+# ✅ Contrezz Fixes Summary
 
 ## Date: October 19, 2024
 
@@ -114,7 +114,7 @@ console.log('Final planId:', finalPlanId);
 
 ### Test Delete Customer:
 
-1. **Login as Admin:** `admin@propertyhub.com` / `admin123`
+1. **Login as Admin:** `admin@contrezz.com` / `admin123`
 2. **Go to:** Admin Dashboard → Customers
 3. **Click Action menu (⋮)** on any customer
 4. **Click "Delete Customer"**
@@ -125,7 +125,7 @@ console.log('Final planId:', finalPlanId);
 
 ### Test Add Customer with Plan:
 
-1. **Login as Admin:** `admin@propertyhub.com` / `admin123`
+1. **Login as Admin:** `admin@contrezz.com` / `admin123`
 2. **Go to:** Admin Dashboard → Customers
 3. **Click "Add Customer"**
 4. **Fill in:** Customer information
@@ -233,7 +233,7 @@ npx prisma studio
 ## Login Credentials (After Seed)
 
 ### Super Admin:
-- **Email:** `admin@propertyhub.com`
+- **Email:** `admin@contrezz.com`
 - **Password:** `admin123`
 
 ### Property Owner (Sample):

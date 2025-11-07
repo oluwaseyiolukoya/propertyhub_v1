@@ -236,7 +236,7 @@ setEditFormData({
 ### 2. Test All Fields:
 
 1. **Login as Admin:**
-   - Email: `admin@propertyhub.com`
+   - Email: `admin@contrezz.com`
    - Password: `admin123`
 
 2. **Go to Customers Tab**
@@ -275,7 +275,7 @@ setEditFormData({
 ```bash
 cd backend
 export PATH="/Applications/Postgres.app/Contents/Versions/18/bin:$PATH"
-psql propertyhub -c "SELECT company, website, industry, \"companySize\", city, country FROM customers WHERE email = 'your@email.com';"
+psql contrezz -c "SELECT company, website, industry, \"companySize\", city, country FROM customers WHERE email = 'your@email.com';"
 ```
 
 ### 4. Verify in Prisma Studio:

@@ -9,11 +9,11 @@ async function main() {
   // Create Super Admin
   const adminPassword = await bcrypt.hash('admin123', 10);
   const admin = await prisma.admins.upsert({
-    where: { email: 'admin@propertyhub.com' },
+    where: { email: 'admin@contrezz.com' },
     update: {},
     create: {
       id: 'admin-1',
-      email: 'admin@propertyhub.com',
+      email: 'admin@contrezz.com',
       password: adminPassword,
       name: 'Super Admin',
       role: 'super_admin',
@@ -651,7 +651,7 @@ async function main() {
     create: {
       id: 'setting-site-name',
       key: 'site_name',
-      value: 'PropertyHub',
+      value: 'Contrezz',
       category: 'system',
       description: 'Platform name',
       updatedAt: new Date()
@@ -689,7 +689,7 @@ async function main() {
   console.log('🎉 Seeding completed!');
   console.log('\n📝 Login Credentials:');
   console.log('Super Admin:');
-  console.log('  Email: admin@propertyhub.com');
+  console.log('  Email: admin@contrezz.com');
   console.log('  Password: admin123');
   console.log('\nProperty Owner:');
   console.log('  Email: john@metro-properties.com');

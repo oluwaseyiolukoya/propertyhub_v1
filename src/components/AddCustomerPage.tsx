@@ -278,11 +278,11 @@ export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCus
   };
 
   const emailTemplate = `
-Subject: Welcome to PropertyHub - Your Account is Ready!
+Subject: Welcome to Contrezz - Your Account is Ready!
 
 Dear ${newCustomer.owner},
 
-Welcome to PropertyHub! Your account has been successfully created and is ready to use.
+Welcome to Contrezz! Your account has been successfully created and is ready to use.
 
 ACCOUNT DETAILS:
 • Company: ${newCustomer.company}
@@ -302,10 +302,10 @@ WHAT'S NEXT:
 • Invite your team members
 • Start managing your properties and tenants
 
-Need help? Our support team is available 24/7 at support@propertyhub.com
+Need help? Our support team is available 24/7 at support@contrezz.com
 
 Best regards,
-The PropertyHub Team
+The Contrezz Team
 
 ---
 This is an automated message. Please do not reply to this email.
@@ -359,7 +359,7 @@ This is an automated message. Please do not reply to this email.
           <TabsContent value="information" className="space-y-6 mt-6">
             <div className="mb-6">
               <p className="text-gray-600">
-                Create a new customer account for the PropertyHub platform. The customer will receive an invitation email with login credentials.
+                Create a new customer account for the Contrezz platform. The customer will receive an invitation email with login credentials.
               </p>
             </div>
 

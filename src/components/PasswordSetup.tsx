@@ -80,9 +80,9 @@ export function PasswordSetup({ customerData, onPasswordSet }: PasswordSetupProp
         <div className="text-center space-y-2">
           <div className="flex items-center justify-center space-x-2 mb-4">
             <Shield className="h-8 w-8 text-blue-600" />
-            <h1 className="text-3xl font-bold text-gray-900">PropertyHub</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Contrezz</h1>
           </div>
-          <h2 className="text-xl font-semibold text-gray-900">Welcome to PropertyHub!</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Welcome to Contrezz!</h2>
           <p className="text-gray-600">Please set up your account password to get started</p>
         </div>
 
@@ -127,7 +127,7 @@ export function PasswordSetup({ customerData, onPasswordSet }: PasswordSetupProp
               <span>Set Your Password</span>
             </CardTitle>
             <CardDescription>
-              Create a secure password for your PropertyHub account
+              Create a secure password for your Contrezz account
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -291,7 +291,7 @@ export function PasswordSetup({ customerData, onPasswordSet }: PasswordSetupProp
 
         {/* Help Text */}
         <div className="text-center text-sm text-gray-500">
-          <p>Need help? Contact our support team at support@propertyhub.com</p>
+          <p>Need help? Contact our support team at support@contrezz.com</p>
         </div>
       </div>
     </div>

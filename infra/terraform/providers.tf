@@ -4,7 +4,7 @@ provider "aws" {
   default_tags {
     tags = {
       Environment = var.env
-      Project     = "PropertyHub"
+      Project     = "Contrezz"
       ManagedBy   = "Terraform"
     }
   }
@@ -18,7 +18,7 @@ provider "aws" {
   default_tags {
     tags = {
       Environment = var.env
-      Project     = "PropertyHub"
+      Project     = "Contrezz"
       ManagedBy   = "Terraform"
     }
   }

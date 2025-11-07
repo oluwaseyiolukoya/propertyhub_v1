@@ -1,4 +1,4 @@
-# 🚀 PropertyHub SaaS - Deployment Guide
+# 🚀 Contrezz SaaS - Deployment Guide
 
 Welcome! This guide will help you deploy your Property Management SaaS platform to DigitalOcean.
 
@@ -125,7 +125,7 @@ Your application consists of:
   ```
 
 #### 5. Test (2 min)
-- Login with: `admin@propertyhub.com` / `Admin123!@#`
+- Login with: `admin@contrezz.com` / `Admin123!@#`
 - Change password immediately!
 
 **Done!** 🎉

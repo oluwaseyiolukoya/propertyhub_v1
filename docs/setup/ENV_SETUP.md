@@ -28,7 +28,7 @@ NODE_ENV=development
 PORT=5000
 
 # Database (Local PostgreSQL)
-DATABASE_URL=postgresql://postgres:password@localhost:5432/propertyhub
+DATABASE_URL=postgresql://postgres:password@localhost:5432/contrezz
 
 # Security
 # Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
@@ -63,7 +63,7 @@ NODE_ENV=production
 PORT=5000
 DATABASE_URL=<your-render-postgresql-connection-string>
 JWT_SECRET=<your-generated-secret>
-FRONTEND_URL=https://propertyhub-v1.vercel.app
+FRONTEND_URL=https://contrezz-v1.vercel.app
 ```
 
 ### For Vercel (Frontend)
@@ -94,7 +94,7 @@ EOL
 cat > backend/.env << 'EOL'
 NODE_ENV=development
 PORT=5000
-DATABASE_URL=postgresql://postgres:password@localhost:5432/propertyhub
+DATABASE_URL=postgresql://postgres:password@localhost:5432/contrezz
 JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
 FRONTEND_URL=http://localhost:5173
 EOL

@@ -28,7 +28,7 @@ These configuration changes have been applied to your codebase:
 
 ```
 Dashboard → New + → Web Service
-Repository: propertyhub_v1
+Repository: contrezz_v1
 Branch: main
 Root Directory: backend
 Runtime: Node
@@ -42,7 +42,7 @@ Start Command: npm start
 
 ```
 Dashboard → New + → PostgreSQL
-Name: propertyhub-db
+Name: contrezz-db
 Plan: Starter ($7/month)
 Region: Same as web service
 ```

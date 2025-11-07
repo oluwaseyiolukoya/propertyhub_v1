@@ -111,16 +111,16 @@ You need to configure GitHub Actions to automatically deploy your backend. This 
 ```
 
 - Click **Next**
-- **Policy name**: `GitHubActionsPropertyHubPolicy`
+- **Policy name**: `GitHubActionsContrezzPolicy`
 - Click **Create policy**
 
 3. **Create the user**:
 
    - Go back to **Users** → **Create user**
-   - **User name**: `github-actions-propertyhub`
+   - **User name**: `github-actions-contrezz`
    - Click **Next**
    - **Permissions**: Select **Attach policies directly**
-   - Search for and select `GitHubActionsPropertyHubPolicy`
+   - Search for and select `GitHubActionsContrezzPolicy`
    - Click **Next** → **Create user**
 
 4. **Create access keys**:

@@ -1,8 +1,8 @@
-# Real-Time Updates System - PropertyHub
+# Real-Time Updates System - Contrezz
 
 ## 🚀 Overview
 
-PropertyHub now features a **real-time data synchronization system** powered by Socket.io and Redis. This ensures that all users see data updates immediately without needing to refresh their browser.
+Contrezz now features a **real-time data synchronization system** powered by Socket.io and Redis. This ensures that all users see data updates immediately without needing to refresh their browser.
 
 ---
 
@@ -636,5 +636,5 @@ Examples:
 3. **Frontend components already integrated** - Admin and Owner dashboards have real-time support
 4. **Test immediately** - Open two tabs and try editing a customer!
 
-**That's it! Your PropertyHub application now has real-time data synchronization! 🎉**
+**That's it! Your Contrezz application now has real-time data synchronization! 🎉**
 

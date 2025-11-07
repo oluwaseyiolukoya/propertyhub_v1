@@ -74,9 +74,9 @@ export function PlatformSettings() {
   });
   const [settings, setSettings] = useState({
     general: {
-      platformName: 'PropertyHub',
-      platformUrl: 'https://propertyhub.com',
-      supportEmail: 'support@propertyhub.com',
+      platformName: 'Contrezz',
+      platformUrl: 'https://contrezz.com',
+      supportEmail: 'support@contrezz.com',
       timezone: 'UTC-8',
       dateFormat: 'MM/DD/YYYY',
       currency: 'USD',
@@ -88,11 +88,11 @@ export function PlatformSettings() {
     smtp: {
       host: 'smtp.gmail.com',
       port: 587,
-      username: 'noreply@propertyhub.com',
+      username: 'noreply@contrezz.com',
       password: '••••••••••••',
       encryption: 'TLS',
-      fromEmail: 'noreply@propertyhub.com',
-      fromName: 'PropertyHub',
+      fromEmail: 'noreply@contrezz.com',
+      fromName: 'Contrezz',
       isConnected: true
     },
     security: {
@@ -119,7 +119,7 @@ export function PlatformSettings() {
     },
     billing: {
       paymentProcessor: 'stripe',
-      webhookUrl: 'https://api.propertyhub.com/webhooks/stripe',
+      webhookUrl: 'https://api.contrezz.com/webhooks/stripe',
       taxCalculation: true,
       invoiceTemplate: 'default',
       paymentMethods: ['card', 'ach', 'wire'],
@@ -136,7 +136,7 @@ export function PlatformSettings() {
       type: 'payment',
       status: 'connected',
       lastSync: '2024-03-21T14:30:00Z',
-      webhookUrl: 'https://api.propertyhub.com/webhooks/stripe',
+      webhookUrl: 'https://api.contrezz.com/webhooks/stripe',
       apiVersion: 'v2024-02-15'
     },
     {
@@ -145,7 +145,7 @@ export function PlatformSettings() {
       type: 'access-control',
       status: 'connected',
       lastSync: '2024-03-21T12:15:00Z',
-      webhookUrl: 'https://api.propertyhub.com/webhooks/kisi',
+      webhookUrl: 'https://api.contrezz.com/webhooks/kisi',
       apiVersion: 'v2.0'
     },
     {
@@ -163,7 +163,7 @@ export function PlatformSettings() {
       type: 'communication',
       status: 'connected',
       lastSync: '2024-03-21T15:45:00Z',
-      webhookUrl: 'https://api.propertyhub.com/webhooks/sendgrid',
+      webhookUrl: 'https://api.contrezz.com/webhooks/sendgrid',
       apiVersion: 'v3'
     },
     {
@@ -172,7 +172,7 @@ export function PlatformSettings() {
       type: 'communication',
       status: 'pending',
       lastSync: null,
-      webhookUrl: 'https://api.propertyhub.com/webhooks/twilio',
+      webhookUrl: 'https://api.contrezz.com/webhooks/twilio',
       apiVersion: 'v2010-04-01'
     }
   ];
@@ -235,7 +235,7 @@ export function PlatformSettings() {
     {
       id: 1,
       action: 'Settings Updated',
-      user: 'admin@propertyhub.com',
+      user: 'admin@contrezz.com',
       timestamp: '2024-03-21T14:30:00Z',
       details: 'Updated payment processor configuration',
       ipAddress: '192.168.1.100'
@@ -243,7 +243,7 @@ export function PlatformSettings() {
     {
       id: 2,
       action: 'User Role Modified',
-      user: 'admin@propertyhub.com',
+      user: 'admin@contrezz.com',
       timestamp: '2024-03-21T13:15:00Z',
       details: 'Added new permission to Property Manager role',
       ipAddress: '192.168.1.100'
@@ -251,7 +251,7 @@ export function PlatformSettings() {
     {
       id: 3,
       action: 'Integration Configured',
-      user: 'admin@propertyhub.com',
+      user: 'admin@contrezz.com',
       timestamp: '2024-03-21T12:00:00Z',
       details: 'Connected new Stripe webhook endpoint',
       ipAddress: '192.168.1.100'
@@ -882,7 +882,7 @@ export function PlatformSettings() {
                   <div className="flex items-center justify-between p-3 border rounded">
                     <div>
                       <p className="font-medium">Payment Events</p>
-                      <p className="text-sm text-gray-600">https://api.propertyhub.com/webhooks/payments</p>
+                      <p className="text-sm text-gray-600">https://api.contrezz.com/webhooks/payments</p>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Badge variant="default">Active</Badge>
@@ -895,7 +895,7 @@ export function PlatformSettings() {
                   <div className="flex items-center justify-between p-3 border rounded">
                     <div>
                       <p className="font-medium">User Events</p>
-                      <p className="text-sm text-gray-600">https://api.propertyhub.com/webhooks/users</p>
+                      <p className="text-sm text-gray-600">https://api.contrezz.com/webhooks/users</p>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Badge variant="default">Active</Badge>
@@ -1267,7 +1267,7 @@ export function PlatformSettings() {
                     <Input 
                       id="smtp-username" 
                       type="email"
-                      placeholder="noreply@propertyhub.com"
+                      placeholder="noreply@contrezz.com"
                       value={settings.smtp.username}
                       onChange={(e) => setSettings(prev => ({
                         ...prev,
@@ -1335,7 +1335,7 @@ export function PlatformSettings() {
                     <Input 
                       id="smtp-from-email" 
                       type="email"
-                      placeholder="noreply@propertyhub.com"
+                      placeholder="noreply@contrezz.com"
                       value={settings.smtp.fromEmail}
                       onChange={(e) => setSettings(prev => ({
                         ...prev,
@@ -1348,7 +1348,7 @@ export function PlatformSettings() {
                     <Label htmlFor="smtp-from-name">From Name</Label>
                     <Input 
                       id="smtp-from-name" 
-                      placeholder="PropertyHub"
+                      placeholder="Contrezz"
                       value={settings.smtp.fromName}
                       onChange={(e) => setSettings(prev => ({
                         ...prev,

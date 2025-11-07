@@ -146,14 +146,14 @@ npm run seed
 
 **Expected Output:**
 ```
-✅ Created Super Admin: admin@propertyhub.com
+✅ Created Super Admin: admin@contrezz.com
 ✅ Created Sample Customer: Metro Properties LLC
 ✅ Created Owner User: john@metro-properties.com
 ```
 
 ### **2. Test Super Admin Login:**
 ```
-Email: admin@propertyhub.com
+Email: admin@contrezz.com
 Password: admin123
 User Type: Admin
 ```
@@ -247,7 +247,7 @@ User Type: Admin
   name: string,
   role: 'Support Admin' | 'Billing Admin' | etc.,
   department: string,
-  company: 'PropertyHub Admin',
+  company: 'Contrezz Admin',
   permissions: string[],
   ...
 }
@@ -314,7 +314,7 @@ Before deploying to production:
 
 ## 📞 Troubleshooting
 
-### **Issue: "Invalid credentials" for admin@propertyhub.com**
+### **Issue: "Invalid credentials" for admin@contrezz.com**
 
 **Solution:**
 ```bash

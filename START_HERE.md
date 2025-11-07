@@ -124,7 +124,7 @@ Total: **~$25-75/month**
 
 After deployment, login with:
 ```
-Email: admin@propertyhub.com
+Email: admin@contrezz.com
 Password: Admin123!@#
 ```
 

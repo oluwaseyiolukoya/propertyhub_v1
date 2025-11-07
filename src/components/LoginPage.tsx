@@ -217,7 +217,7 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-2">
               <Building className="h-8 w-8 text-blue-600" />
-              <h1 className="text-xl font-bold text-gray-900">PropertyHub</h1>
+              <h1 className="text-xl font-bold text-gray-900">Contrezz</h1>
               <Badge variant="secondary" className="ml-2">SaaS</Badge>
             </div>
             
@@ -239,7 +239,7 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
                 <div>
                   <h1 className="text-4xl font-bold text-gray-900 mb-4">
                     Welcome Back to
-                    <span className="text-blue-600"> PropertyHub</span>
+                    <span className="text-blue-600"> Contrezz</span>
                   </h1>
                   <p className="text-xl text-gray-600">
                     Sign in to access your personalized dashboard and manage your properties efficiently.

@@ -35,7 +35,7 @@ variable "db_allocated_storage" {
 variable "db_name" {
   description = "Database name"
   type        = string
-  default     = "propertyhub"
+  default     = "contrezz"
 }
 
 variable "db_username" {

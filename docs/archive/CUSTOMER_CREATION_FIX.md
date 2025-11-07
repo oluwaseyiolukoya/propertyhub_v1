@@ -331,7 +331,7 @@ SELECT * FROM invoices WHERE customerId = 'xxx';
 ```sql
 -- Activity Logs
 SELECT * FROM activity_logs WHERE customerId = 'xxx';
--- ✅ Result: 1 row - "Customer XXX created by admin@propertyhub.com"
+-- ✅ Result: 1 row - "Customer XXX created by admin@contrezz.com"
 
 -- Invoices
 SELECT * FROM invoices WHERE customerId = 'xxx';

@@ -265,7 +265,7 @@ ALTER TABLE "properties" RENAME COLUMN "zipCode" TO "postalCode";
 
 ---
 
-**Maintained by:** PropertyHub Development Team  
+**Maintained by:** Contrezz Development Team  
 **Last Updated:** October 22, 2025  
 **Version:** 2.0.0-nigerian-market
 

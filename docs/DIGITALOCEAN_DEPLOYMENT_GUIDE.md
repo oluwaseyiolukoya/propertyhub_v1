@@ -1,6 +1,6 @@
 # DigitalOcean Deployment Guide
 
-Complete guide to deploy PropertyHub SaaS to DigitalOcean using App Platform.
+Complete guide to deploy Contrezz SaaS to DigitalOcean using App Platform.
 
 ## Table of Contents
 1. [Prerequisites](#prerequisites)
@@ -63,7 +63,7 @@ Your deployment will consist of:
    Database Engine: PostgreSQL 15 or 16
    Plan: Basic ($15/month minimum)
    Datacenter Region: Choose closest to your users
-   Database Name: propertyhub-db
+   Database Name: contrezz-db
    ```
 
 3. **Create Database:**
@@ -87,9 +87,9 @@ Your deployment will consist of:
 -- Connect to your database using the connection string
 -- Then run these commands:
 
-CREATE DATABASE propertyhub;
-CREATE USER propertyhub_user WITH ENCRYPTED PASSWORD 'your-secure-password';
-GRANT ALL PRIVILEGES ON DATABASE propertyhub TO propertyhub_user;
+CREATE DATABASE contrezz;
+CREATE USER contrezz_user WITH ENCRYPTED PASSWORD 'your-secure-password';
+GRANT ALL PRIVILEGES ON DATABASE contrezz TO contrezz_user;
 ```
 
 ---
@@ -108,7 +108,7 @@ GRANT ALL PRIVILEGES ON DATABASE propertyhub TO propertyhub_user;
 
 3. **Configure Backend Service:**
    ```yaml
-   Name: propertyhub-backend
+   Name: contrezz-backend
    Type: Web Service
    Source Directory: /backend
    Build Command: npm install && npm run build
@@ -131,7 +131,7 @@ GRANT ALL PRIVILEGES ON DATABASE propertyhub TO propertyhub_user;
 Create a file at `/backend/.do/app.yaml`:
 
 ```yaml
-name: propertyhub-backend
+name: contrezz-backend
 services:
   - name: backend
     source_dir: backend
@@ -167,7 +167,7 @@ services:
 
 2. **Configure Frontend:**
    ```yaml
-   Name: propertyhub-frontend
+   Name: contrezz-frontend
    Type: Static Site
    Source Directory: /
    Build Command: npm install && npm run build
@@ -294,7 +294,7 @@ Set these in DigitalOcean App Platform → Frontend Service → Settings → Env
 
 ```bash
 # Backend API URL (use your backend app URL)
-VITE_API_URL=https://propertyhub-backend-xxxxx.ondigitalocean.app
+VITE_API_URL=https://contrezz-backend-xxxxx.ondigitalocean.app
 ```
 
 ---
@@ -334,7 +334,7 @@ After backend deployment, you need to initialize the database:
    - Check the seed script output in the console
    - Default credentials (from seed):
      ```
-     Email: admin@propertyhub.com
+     Email: admin@contrezz.com
      Password: Admin123!@#
      ```
 
@@ -395,7 +395,7 @@ DigitalOcean App Platform has ephemeral storage. For persistent file uploads:
 1. **Create Space:**
    - Dashboard → "Spaces" → "Create Space"
    - Choose region closest to your app
-   - Name: `propertyhub-uploads`
+   - Name: `contrezz-uploads`
 
 2. **Get Credentials:**
    - Go to API → Spaces Keys
@@ -408,7 +408,7 @@ DigitalOcean App Platform has ephemeral storage. For persistent file uploads:
    - Add environment variables:
      ```bash
      SPACES_ENDPOINT=https://nyc3.digitaloceanspaces.com
-     SPACES_BUCKET=propertyhub-uploads
+     SPACES_BUCKET=contrezz-uploads
      SPACES_KEY=your-access-key
      SPACES_SECRET=your-secret-key
      ```

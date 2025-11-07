@@ -1,16 +1,16 @@
 # DigitalOcean App Platform Configuration
 # This file defines your entire application infrastructure
 
-name: propertyhub-saas
+name: contrezz-saas
 region: nyc
 
 # Database
 databases:
-  - name: propertyhub-db
+  - name: contrezz-db
     engine: PG
     version: "15"
     production: true
-    cluster_name: propertyhub-db-cluster
+    cluster_name: contrezz-db-cluster
 
 # Backend Service
 services:
@@ -51,7 +51,7 @@ services:
       # Database (auto-injected by DigitalOcean)
       - key: DATABASE_URL
         scope: RUN_TIME
-        value: ${propertyhub-db.DATABASE_URL}
+        value: ${contrezz-db.DATABASE_URL}
 
       # JWT Configuration (CHANGE THESE!)
       - key: JWT_SECRET
@@ -141,5 +141,5 @@ jobs:
     envs:
       - key: DATABASE_URL
         scope: RUN_TIME
-        value: ${propertyhub-db.DATABASE_URL}
+        value: ${contrezz-db.DATABASE_URL}
 

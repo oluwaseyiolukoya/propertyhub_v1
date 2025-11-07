@@ -1,4 +1,4 @@
-# 🗄️ PostgreSQL Setup Guide for PropertyHub
+# 🗄️ PostgreSQL Setup Guide for Contrezz
 
 ## 📋 Current Status
 
@@ -70,11 +70,11 @@ sudo systemctl enable postgresql
 ### On macOS/Linux:
 ```bash
 # Create the database
-createdb propertyhub
+createdb contrezz
 
 # Or using psql
 psql postgres
-CREATE DATABASE propertyhub;
+CREATE DATABASE contrezz;
 \q
 ```
 
@@ -85,7 +85,7 @@ psql -U postgres
 # Enter your password when prompted
 
 # Then run:
-CREATE DATABASE propertyhub;
+CREATE DATABASE contrezz;
 \q
 ```
 
@@ -103,14 +103,14 @@ cd /Users/oluwaseyio/test_ui_figma_and_cursor/backend
 
 ```env
 # Replace these with your actual PostgreSQL credentials
-DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/propertyhub?schema=public"
+DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/contrezz?schema=public"
 
 # Server
 PORT=5000
 NODE_ENV=development
 
 # JWT
-JWT_SECRET=propertyhub-secret-key-dev-only-change-in-production
+JWT_SECRET=contrezz-secret-key-dev-only-change-in-production
 JWT_EXPIRES_IN=7d
 
 # CORS
@@ -119,9 +119,9 @@ FRONTEND_URL=http://localhost:5173
 
 **Common Database URL Formats:**
 
-- **macOS (Homebrew):** `postgresql://YOUR_USERNAME@localhost:5432/propertyhub?schema=public`
-- **Windows:** `postgresql://postgres:YOUR_PASSWORD@localhost:5432/propertyhub?schema=public`
-- **Linux:** `postgresql://postgres:YOUR_PASSWORD@localhost:5432/propertyhub?schema=public`
+- **macOS (Homebrew):** `postgresql://YOUR_USERNAME@localhost:5432/contrezz?schema=public`
+- **Windows:** `postgresql://postgres:YOUR_PASSWORD@localhost:5432/contrezz?schema=public`
+- **Linux:** `postgresql://postgres:YOUR_PASSWORD@localhost:5432/contrezz?schema=public`
 
 ---
 
@@ -193,16 +193,16 @@ sudo systemctl status postgresql
 ### Issue: "password authentication failed"
 **Solution:**
 - Check your DATABASE_URL has the correct password
-- Try connecting with psql to verify: `psql -U postgres -d propertyhub`
+- Try connecting with psql to verify: `psql -U postgres -d contrezz`
 
 ### Issue: "database does not exist"
 **Solution:**
 ```bash
 # Create the database
-createdb propertyhub
+createdb contrezz
 
 # Or using psql
-psql postgres -c "CREATE DATABASE propertyhub;"
+psql postgres -c "CREATE DATABASE contrezz;"
 ```
 
 ### Issue: Prisma migration errors
@@ -251,7 +251,7 @@ Once connected, your database will have these tables:
 
 ```bash
 # Connect to database
-psql propertyhub
+psql contrezz
 
 # List all databases
 \l
@@ -297,9 +297,9 @@ You can switch at any time by:
 - ✅ All Features: Fully functional
 
 **Login Credentials (Mock Data):**
-- **Super Admin:** admin@propertyhub.com / admin123
+- **Super Admin:** admin@contrezz.com / admin123
 - **Property Owner:** john@metro-properties.com / owner123
-- **Property Manager:** sarah@propertyhub.com / manager123
+- **Property Manager:** sarah@contrezz.com / manager123
 - **Tenant:** mike@email.com / tenant123
 
 ---

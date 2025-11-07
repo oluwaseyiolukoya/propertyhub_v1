@@ -184,7 +184,7 @@ export function SupportTickets() {
       assignedTo: 'David Chen',
       created: '2024-03-19T14:30:00Z',
       lastUpdate: '2024-03-21T11:30:00Z',
-      description: 'Kisi access control system not receiving tenant access updates from PropertyHub.',
+      description: 'Kisi access control system not receiving tenant access updates from Contrezz.',
       tags: ['kisi-integration', 'access-control', 'sync-issue'],
       slaStatus: 'resolved',
       timeToResolve: 'Resolved',

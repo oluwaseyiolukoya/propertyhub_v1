@@ -158,7 +158,7 @@ Before going live:
 
 After deployment, login with:
 ```
-Email: admin@propertyhub.com
+Email: admin@contrezz.com
 Password: Admin123!@#
 ```
 
@@ -297,7 +297,7 @@ See `docs/DIGITALOCEAN_DEPLOYMENT_GUIDE.md#troubleshooting` for more.
 
 ## 🔄 Next Steps After Deployment
 
-1. **Change default password** (admin@propertyhub.com)
+1. **Change default password** (admin@contrezz.com)
 2. **Create your first property owner**
 3. **Add custom domain** (optional but recommended)
 4. **Enable Paystack** for payments

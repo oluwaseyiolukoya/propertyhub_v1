@@ -1,6 +1,6 @@
-# PropertyHub AWS Infrastructure
+# Contrezz AWS Infrastructure
 
-This Terraform configuration deploys the complete PropertyHub infrastructure to AWS.
+This Terraform configuration deploys the complete Contrezz infrastructure to AWS.
 
 ## Prerequisites
 

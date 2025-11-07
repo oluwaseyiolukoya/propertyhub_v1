@@ -1,7 +1,7 @@
 {
-  "name": "propertyhub-saas",
+  "name": "contrezz-saas",
   "version": "1.0.0",
-  "description": "PropertyHub - Property Management SaaS Platform",
+  "description": "Contrezz - Property Management SaaS Platform",
   "type": "module",
   "scripts": {
     "dev": "vite",

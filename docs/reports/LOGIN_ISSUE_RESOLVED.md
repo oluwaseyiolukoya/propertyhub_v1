@@ -89,7 +89,7 @@ npx prisma db seed
 ```
 
 **Created Users**:
-- **Super Admin**: `admin@propertyhub.com` / `admin123`
+- **Super Admin**: `admin@contrezz.com` / `admin123`
 - **Property Owner**: `john@metro-properties.com` / `owner123`
 
 ### 3. **Server Restart**
@@ -113,7 +113,7 @@ npm run dev > ../server-dev.log 2>&1 &
 ```bash
 curl -X POST http://localhost:5000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@propertyhub.com","password":"admin123","userType":"admin"}'
+  -d '{"email":"admin@contrezz.com","password":"admin123","userType":"admin"}'
 ```
 
 **Result**: ✅ Success
@@ -122,7 +122,7 @@ curl -X POST http://localhost:5000/api/auth/login \
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "user": {
     "id": "admin-1",
-    "email": "admin@propertyhub.com",
+    "email": "admin@contrezz.com",
     "role": "super_admin",
     ...
   }
@@ -197,7 +197,7 @@ curl -X POST http://localhost:5000/api/auth/login \
 
 2. **Environment Variables**: Ensure `.env` is properly configured
    ```env
-   DATABASE_URL=postgresql://user:password@localhost:5432/propertyhub
+   DATABASE_URL=postgresql://user:password@localhost:5432/contrezz
    JWT_SECRET=your-secret-key
    REDIS_URL=redis://localhost:6379  # Optional
    FRONTEND_URL=http://localhost:5173
@@ -206,7 +206,7 @@ curl -X POST http://localhost:5000/api/auth/login \
 ## Login Credentials
 
 ### Super Admin
-- **Email**: `admin@propertyhub.com`
+- **Email**: `admin@contrezz.com`
 - **Password**: `admin123`
 - **User Type**: Admin
 - **Access**: Full system access

@@ -15,7 +15,7 @@ const mockUsers = [
   {
     id: 'admin-1',
     name: 'Admin User',
-    email: 'admin@propertyhub.com',
+    email: 'admin@contrezz.com',
     role: 'admin',
     status: 'active',
     customerId: null, // Internal admin user, not associated with a customer
@@ -27,7 +27,7 @@ const mockUsers = [
   {
     id: 'admin-2',
     name: 'Support Staff',
-    email: 'support@propertyhub.com',
+    email: 'support@contrezz.com',
     role: 'admin',
     status: 'active',
     customerId: null, // Internal admin user
@@ -86,7 +86,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         phone: admin.phone || '',
         role: 'Super Admin', // Distinguish from regular admin users
         department: 'Administration',
-        company: 'PropertyHub Admin',
+        company: 'Contrezz Admin',
         isActive: true,
         status: 'active',
         lastLogin: admin.lastLogin,
@@ -217,7 +217,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         phone,
         role: role || 'admin', // Default to admin role for internal users
         department,
-        company: company || 'PropertyHub Admin', // Internal admin company
+        company: company || 'Contrezz Admin', // Internal admin company
         permissions,
         isActive: isActive !== undefined ? isActive : true,
         status: sendInvite ? 'pending' : 'active',

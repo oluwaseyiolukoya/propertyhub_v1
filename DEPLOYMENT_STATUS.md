@@ -1,6 +1,6 @@
 # Deployment Status
 
-This document summarizes the current state of the AWS deployment for the PropertyHub application.
+This document summarizes the current state of the AWS deployment for the Contrezz application.
 
 ---
 
