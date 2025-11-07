@@ -56,6 +56,10 @@ COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist
 
+# Copy startup script
+COPY start.sh ./start.sh
+RUN chmod +x ./start.sh
+
 # Create uploads directory
 RUN mkdir -p uploads/documents uploads/logos uploads/maintenance
 
@@ -66,6 +70,6 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Start the application (SWC output path)
-CMD ["node", "dist/src/index.js"]
+# Start the application via entrypoint (runs migrations then starts API)
+CMD ["/bin/sh", "/app/start.sh"]
 
