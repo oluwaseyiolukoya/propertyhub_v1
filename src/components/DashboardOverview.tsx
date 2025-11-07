@@ -123,17 +123,36 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900">Welcome back, {user.name.split(' ')[0]}!</h2>
-        <p className="text-gray-600">Here's an overview of your property portfolio</p>
+      {/* Hero Banner */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 p-6 mb-2">
+        <div className="relative z-10">
+          <h2 className="text-2xl md:text-3xl font-bold text-white">Welcome back, {user.name.split(' ')[0]}!</h2>
+          <p className="text-indigo-50/90">Here's an overview of your property portfolio</p>
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-xl bg-white/10 backdrop-blur-sm px-4 py-3">
+              <p className="text-xs text-indigo-50/80">Properties</p>
+              <p className="text-lg font-semibold text-white">{metrics.totalProperties}</p>
+            </div>
+            <div className="rounded-xl bg-white/10 backdrop-blur-sm px-4 py-3">
+              <p className="text-xs text-indigo-50/80">Occupied Units</p>
+              <p className="text-lg font-semibold text-white">{metrics.occupiedUnits}</p>
+            </div>
+            <div className="rounded-xl bg-white/10 backdrop-blur-sm px-4 py-3">
+              <p className="text-xs text-indigo-50/80">Occupancy Rate</p>
+              <p className="text-lg font-semibold text-white">{Math.round(metrics.occupancyRate)}%</p>
+            </div>
+          </div>
+        </div>
+        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-white/10" />
+        <div className="pointer-events-none absolute -right-4 top-16 h-24 w-24 rounded-full bg-white/10" />
       </div>
 
       {/* Key Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
-        <Card>
+        <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-blue-100">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Properties</CardTitle>
-            <Building className="h-4 w-4 text-muted-foreground" />
+            <Building className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{metrics.totalProperties}</div>
@@ -143,10 +162,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-emerald-100">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Occupied Units</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <Users className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{metrics.occupiedUnits}</div>
@@ -156,10 +175,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-0 shadow-sm bg-gradient-to-br from-amber-50 to-amber-100">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <DollarSign className="h-4 w-4 text-amber-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">₦{metrics.totalRevenue.toLocaleString()}</div>
@@ -169,10 +188,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-0 shadow-sm bg-gradient-to-br from-violet-50 to-violet-100">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Occupancy Rate</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <TrendingUp className="h-4 w-4 text-violet-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{Math.round(metrics.occupancyRate)}%</div>

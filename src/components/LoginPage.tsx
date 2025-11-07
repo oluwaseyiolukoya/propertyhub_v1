@@ -447,15 +447,7 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
                           )}
                         </Button>
 
-                        {/* Demo Credentials Info */}
-                        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                          <p className="text-sm font-medium text-gray-700 mb-2">Demo Credentials:</p>
-                          <div className="space-y-1 text-xs text-gray-600">
-                            <p>• Email: demo@example.com</p>
-                            <p>• Password: demo123</p>
-                            <p className="text-gray-500 mt-2">Select a role above and use these credentials to explore the platform.</p>
-                          </div>
-                        </div>
+                        {/* Demo credentials removed per request */}
                       </form>
                     </TabsContent>
 
