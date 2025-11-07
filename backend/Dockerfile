@@ -56,6 +56,12 @@ COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist
 
+# Copy Prisma schema for migrations and seeding
+COPY --from=builder /app/prisma ./prisma
+
+# Copy package.json for seed script
+COPY --from=builder /app/package.json ./package.json
+
 # Copy startup script
 COPY start.sh ./start.sh
 RUN chmod +x ./start.sh
