@@ -26,8 +26,8 @@ RUN npx prisma generate
 # Copy source code
 COPY src ./src
 
-# Build TypeScript
-RUN npm run build
+# Build TypeScript (just compile, don't push to DB)
+RUN npx tsc
 
 # Production stage
 FROM node:18-slim
