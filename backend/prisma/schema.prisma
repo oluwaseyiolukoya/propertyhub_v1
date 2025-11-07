@@ -80,6 +80,13 @@ model customers {
   propertiesCount           Int                         @default(0)
   unitsCount                Int                         @default(0)
   notes                     String?
+  timezone                  String?
+  language                  String?
+  yearEstablished           String?
+  licenseNumber             String?
+  insuranceProvider         String?
+  insurancePolicy           String?
+  insuranceExpiration       String?
   activity_logs             activity_logs[]
   customer_users            customer_users[]
   plans                     plans?                      @relation(fields: [planId], references: [id])
@@ -93,6 +100,24 @@ model customers {
   property_keys             property_keys[]
   support_tickets           support_tickets[]
   users                     users[]
+  mrr_snapshots             mrr_snapshots[]
+}
+
+model mrr_snapshots {
+  id          String    @id @default(uuid())
+  customerId  String
+  month       DateTime  // First day of the month
+  mrr         Float     @default(0)
+  planId      String?
+  planName    String?
+  status      String    // active, trial, cancelled
+  billingCycle String?  // monthly, annual
+  createdAt   DateTime  @default(now())
+  customers   customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, month])
+  @@index([month])
+  @@index([customerId])
 }
 
 model documents {
@@ -538,6 +563,7 @@ model users {
   invitedAt                                                                     DateTime?
   acceptedAt                                                                    DateTime?
   permissions                                                                   Json?
+  avatar                                                                        String?
   createdAt                                                                     DateTime                    @default(now())
   updatedAt                                                                     DateTime
   activity_logs                                                                 activity_logs[]

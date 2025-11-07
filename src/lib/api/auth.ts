@@ -101,6 +101,20 @@ export const getAccountInfo = async () => {
       email: string;
       phone: string;
       website: string;
+      taxId?: string;
+      industry?: string;
+      companySize?: string;
+      yearEstablished?: string;
+      licenseNumber?: string;
+      insuranceProvider?: string;
+      insurancePolicy?: string;
+      insuranceExpiration?: string;
+      street?: string;
+      city?: string;
+      state?: string;
+      postalCode?: string;
+      zipCode?: string;
+      country?: string;
       status: string;
       billingCycle: string;
       propertyLimit: number;
@@ -108,6 +122,9 @@ export const getAccountInfo = async () => {
       storageLimit: number;
       propertiesCount: number;
       unitsCount: number;
+      actualPropertiesCount?: number;
+      actualUnitsCount?: number;
+      actualManagersCount?: number;
       subscriptionStartDate: string | null;
       trialEndsAt: string | null;
       plan: {

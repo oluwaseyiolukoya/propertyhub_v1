@@ -7,6 +7,7 @@ You've successfully implemented industry best practices for deployment! Here's w
 ## ✅ What's Complete
 
 ### Infrastructure (Terraform) ✅
+
 - [x] AWS infrastructure deployed (VPC, RDS, ECS, ALB, S3, CloudFront)
 - [x] Cost optimized to ~$30-36/month (under $40 budget)
 - [x] Fargate Spot enabled (70% savings)
@@ -16,11 +17,13 @@ You've successfully implemented industry best practices for deployment! Here's w
 - [x] DNS records added to Namecheap
 
 ### Frontend Deployment ✅
+
 - [x] Built and uploaded to S3
 - [x] CloudFront cache invalidated
 - [x] Live at https://app.dev.contrezz.com
 
 ### CI/CD Pipeline ✅
+
 - [x] GitHub Actions workflow created (`.github/workflows/deploy-dev.yml`)
 - [x] Configured for automatic deployment on push to `main`
 - [x] Builds backend Docker image (on Linux, no SSL issues)
@@ -28,6 +31,7 @@ You've successfully implemented industry best practices for deployment! Here's w
 - [x] Builds and deploys frontend to S3/CloudFront
 
 ### Documentation ✅
+
 - [x] Complete deployment guides created
 - [x] Cost optimization guide
 - [x] Stop/start script for dev environment
@@ -78,9 +82,7 @@ You need to configure GitHub Actions to automatically deploy your backend. This 
     },
     {
       "Effect": "Allow",
-      "Action": [
-        "iam:PassRole"
-      ],
+      "Action": ["iam:PassRole"],
       "Resource": [
         "arn:aws:iam::*:role/ph-dev-ecs-task-execution",
         "arn:aws:iam::*:role/ph-dev-ecs-task-role"
@@ -101,20 +103,19 @@ You need to configure GitHub Actions to automatically deploy your backend. This 
     },
     {
       "Effect": "Allow",
-      "Action": [
-        "cloudfront:CreateInvalidation"
-      ],
+      "Action": ["cloudfront:CreateInvalidation"],
       "Resource": "arn:aws:cloudfront::*:distribution/E2PEMOC7P57ZD9"
     }
   ]
 }
 ```
 
-   - Click **Next**
-   - **Policy name**: `GitHubActionsPropertyHubPolicy`
-   - Click **Create policy**
+- Click **Next**
+- **Policy name**: `GitHubActionsPropertyHubPolicy`
+- Click **Create policy**
 
 3. **Create the user**:
+
    - Go back to **Users** → **Create user**
    - **User name**: `github-actions-propertyhub`
    - Click **Next**
@@ -140,6 +141,7 @@ AWS_SECRET_ACCESS_KEY: wJalr...
 ### Step 2: Add Secrets to GitHub (3 min)
 
 1. **Go to your GitHub repository**:
+
    ```
    https://github.com/YOUR_USERNAME/test_ui_figma_and_cursor
    ```
@@ -151,11 +153,13 @@ AWS_SECRET_ACCESS_KEY: wJalr...
 4. **Click "New repository secret"**
 
 5. **Add first secret**:
+
    - **Name**: `AWS_ACCESS_KEY_ID`
    - **Value**: Paste the Access key ID from Step 1
    - Click **Add secret**
 
 6. **Add second secret**:
+
    - **Name**: `AWS_SECRET_ACCESS_KEY`
    - **Value**: Paste the Secret access key from Step 1
    - Click **Add secret**
@@ -193,6 +197,7 @@ git push origin main
 ### Step 4: Watch the Magic Happen! (5-8 min)
 
 1. **Go to GitHub Actions**:
+
    ```
    https://github.com/YOUR_USERNAME/test_ui_figma_and_cursor/actions
    ```
@@ -202,6 +207,7 @@ git push origin main
 3. **Click on it** to see real-time logs
 
 4. **What's happening**:
+
    - ✅ Building backend Docker image (on Linux, no SSL issues!)
    - ✅ Pushing to ECR
    - ✅ Updating ECS task definition
@@ -217,17 +223,20 @@ git push origin main
 ### Step 5: Test Your Application (2 min)
 
 **Frontend:**
+
 ```bash
 open https://app.dev.contrezz.com
 ```
 
 **Backend API:**
+
 ```bash
 curl https://api.dev.contrezz.com/health
 # Should return: {"status":"healthy"}
 ```
 
 **Full test:**
+
 1. Open https://app.dev.contrezz.com
 2. Login with your credentials
 3. Navigate to Analytics page
@@ -253,6 +262,7 @@ Once the above steps are complete, you'll have:
 ### Daily Routine (Recommended)
 
 **Morning (start work):**
+
 ```bash
 cd /Users/oluwaseyio/test_ui_figma_and_cursor/infra/scripts
 ./dev-control.sh start
@@ -260,17 +270,20 @@ cd /Users/oluwaseyio/test_ui_figma_and_cursor/infra/scripts
 ```
 
 **Evening (end work):**
+
 ```bash
 ./dev-control.sh stop
 # Saves ~$0.50/hour = $12/day if stopped 24 hours
 ```
 
 ### Check Status
+
 ```bash
 ./dev-control.sh status
 ```
 
 ### Cost Breakdown
+
 - **Always on**: ~$53/month ⚠️
 - **8 hours/day, 5 days/week**: ~$30-36/month ✅ (under budget)
 - **Stopped**: ~$20/month (only NAT Gateway + ALB + S3)
@@ -281,13 +294,13 @@ cd /Users/oluwaseyio/test_ui_figma_and_cursor/infra/scripts
 
 All guides are in the `infra/` directory:
 
-| File | Purpose |
-|------|---------|
-| **BEST_PRACTICE_DEPLOYMENT_SUMMARY.md** | Complete overview |
-| **GITHUB_ACTIONS_SETUP.md** | Detailed CI/CD setup guide |
-| **COST_OPTIMIZATION.md** | Cost breakdown and tips |
-| **DNS_SETUP_NAMECHEAP.md** | DNS configuration |
-| **scripts/dev-control.sh** | Stop/start script |
+| File                                    | Purpose                    |
+| --------------------------------------- | -------------------------- |
+| **BEST_PRACTICE_DEPLOYMENT_SUMMARY.md** | Complete overview          |
+| **GITHUB_ACTIONS_SETUP.md**             | Detailed CI/CD setup guide |
+| **COST_OPTIMIZATION.md**                | Cost breakdown and tips    |
+| **DNS_SETUP_NAMECHEAP.md**              | DNS configuration          |
+| **scripts/dev-control.sh**              | Stop/start script          |
 
 ---
 
@@ -296,18 +309,22 @@ All guides are in the `infra/` directory:
 Once your CI/CD is working, you can add:
 
 1. **Automated Tests**:
+
    - Add `npm test` to workflow before deploying
    - Prevent broken code from reaching production
 
 2. **Slack Notifications**:
+
    - Get notified when deployments succeed/fail
    - Add webhook to workflow
 
 3. **Staging Environment**:
+
    - Create `env/staging.tfvars`
    - Deploy to staging before production
 
 4. **Production Environment**:
+
    - When ready for v1 launch
    - Use Fargate on-demand (not Spot)
    - Multi-AZ RDS for high availability
@@ -324,6 +341,7 @@ Once your CI/CD is working, you can add:
 ### Workflow Fails: "Error: Cannot find task definition"
 
 **Solution**: The task definition will be created on first deployment. If it fails, run:
+
 ```bash
 cd /Users/oluwaseyio/test_ui_figma_and_cursor/infra/terraform
 terraform apply -var-file=env/dev.tfvars -auto-approve
@@ -332,6 +350,7 @@ terraform apply -var-file=env/dev.tfvars -auto-approve
 ### Workflow Fails: "Error: Unable to locate credentials"
 
 **Solution**: Check GitHub Secrets are set correctly:
+
 1. Go to GitHub → Settings → Secrets and variables → Actions
 2. Verify `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` exist
 3. Delete and re-create if needed
@@ -339,11 +358,13 @@ terraform apply -var-file=env/dev.tfvars -auto-approve
 ### Backend Returns 502 Bad Gateway
 
 **Check ECS logs:**
+
 ```bash
 aws logs tail /ecs/ph-dev-api --follow
 ```
 
 **Common issues:**
+
 - Database connection string incorrect
 - Secrets not set in Secrets Manager
 - Security group blocking traffic
@@ -351,6 +372,7 @@ aws logs tail /ecs/ph-dev-api --follow
 ### Frontend Shows Old Version
 
 **Invalidate CloudFront cache:**
+
 ```bash
 aws cloudfront create-invalidation \
   --distribution-id E2PEMOC7P57ZD9 \
@@ -400,4 +422,3 @@ aws cloudfront create-invalidation \
 Estimated time: **15 minutes**
 
 After that, you'll have a fully automated, professional, cost-effective deployment pipeline! 🎉
-

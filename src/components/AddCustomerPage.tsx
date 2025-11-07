@@ -12,10 +12,10 @@ import { toast } from "sonner";
 import { createCustomer, getBillingPlans } from '../lib/api';
 import { useCurrency } from '../lib/CurrencyContext';
 import { on as onSocketEvent, off as offSocketEvent } from '../lib/socket';
-import { 
-  ArrowLeft, 
-  Building, 
-  CreditCard, 
+import {
+  ArrowLeft,
+  Building,
+  CreditCard,
   Check,
   DollarSign,
   Mail,
@@ -51,7 +51,41 @@ export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCus
   const [existingCustomerInfo, setExistingCustomerInfo] = useState<any>(null);
   const [subscriptionPlans, setSubscriptionPlans] = useState<any[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
-  
+
+  // Major countries list
+  const countries = [
+    "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan",
+    "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", "Bhutan", "Bolivia",
+    "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria", "Burkina Faso", "Burundi",
+    "Cambodia", "Cameroon", "Canada", "Cape Verde", "Central African Republic", "Chad", "Chile", "China", "Colombia",
+    "Comoros", "Congo", "Costa Rica", "Croatia", "Cuba", "Cyprus", "Czech Republic",
+    "Denmark", "Djibouti", "Dominica", "Dominican Republic",
+    "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Eswatini", "Ethiopia",
+    "Fiji", "Finland", "France",
+    "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau", "Guyana",
+    "Haiti", "Honduras", "Hungary",
+    "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel", "Italy", "Ivory Coast",
+    "Jamaica", "Japan", "Jordan",
+    "Kazakhstan", "Kenya", "Kiribati", "Kosovo", "Kuwait", "Kyrgyzstan",
+    "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg",
+    "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", "Mauritania", "Mauritius",
+    "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar",
+    "Namibia", "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Korea", "North Macedonia", "Norway",
+    "Oman",
+    "Pakistan", "Palau", "Palestine", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal",
+    "Qatar",
+    "Romania", "Russia", "Rwanda",
+    "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Sao Tome and Principe",
+    "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Solomon Islands",
+    "Somalia", "South Africa", "South Korea", "South Sudan", "Spain", "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland", "Syria",
+    "Taiwan", "Tajikistan", "Tanzania", "Thailand", "Timor-Leste", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey",
+    "Turkmenistan", "Tuvalu",
+    "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States", "Uruguay", "Uzbekistan",
+    "Vanuatu", "Vatican City", "Venezuela", "Vietnam",
+    "Yemen",
+    "Zambia", "Zimbabwe"
+  ];
+
   const [newCustomer, setNewCustomer] = useState({
     company: '',
     owner: '',
@@ -81,7 +115,7 @@ export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCus
     try {
       setLoadingPlans(true);
       const response = await getBillingPlans();
-      
+
       if (response.error) {
         toast.error('Failed to load subscription plans');
       } else if (response.data) {
@@ -153,10 +187,10 @@ export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCus
     // Generate credentials
     const password = generatePassword();
     const link = generateInvitationLink(newCustomer.email);
-    
+
     setTemporaryPassword(password);
     setInvitationLink(link);
-    
+
     // Move to invitation tab
     setCurrentTab('invitation');
   };
@@ -200,7 +234,7 @@ export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCus
           setIsSubmitting(false);
           return;
         }
-        
+
         toast.error(response.error.error || 'Failed to create customer');
         setIsSubmitting(false);
         return;
@@ -237,9 +271,9 @@ export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCus
   };
 
   const isFormValid = () => {
-    return newCustomer.company && 
-           newCustomer.owner && 
-           newCustomer.email && 
+    return newCustomer.company &&
+           newCustomer.owner &&
+           newCustomer.email &&
            newCustomer.plan;
   };
 
@@ -496,27 +530,12 @@ This is an automated message. Please do not reply to this email.
                               <SelectTrigger id="country">
                                 <SelectValue placeholder="Select country" />
                               </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Nigeria">Nigeria</SelectItem>
-                                <SelectItem value="Ghana">Ghana</SelectItem>
-                                <SelectItem value="Kenya">Kenya</SelectItem>
-                                <SelectItem value="South Africa">South Africa</SelectItem>
-                                <SelectItem value="United States">United States</SelectItem>
-                                <SelectItem value="United Kingdom">United Kingdom</SelectItem>
-                                <SelectItem value="Canada">Canada</SelectItem>
-                                <SelectItem value="Germany">Germany</SelectItem>
-                                <SelectItem value="France">France</SelectItem>
-                                <SelectItem value="India">India</SelectItem>
-                                <SelectItem value="China">China</SelectItem>
-                                <SelectItem value="Brazil">Brazil</SelectItem>
-                                <SelectItem value="Mexico">Mexico</SelectItem>
-                                <SelectItem value="United Arab Emirates">United Arab Emirates</SelectItem>
-                                <SelectItem value="Saudi Arabia">Saudi Arabia</SelectItem>
-                                <SelectItem value="Egypt">Egypt</SelectItem>
-                                <SelectItem value="Turkey">Turkey</SelectItem>
-                                <SelectItem value="Spain">Spain</SelectItem>
-                                <SelectItem value="Italy">Italy</SelectItem>
-                                <SelectItem value="Netherlands">Netherlands</SelectItem>
+                              <SelectContent className="max-h-[300px]">
+                                {countries.map((country) => (
+                                  <SelectItem key={country} value={country}>
+                                    {country}
+                                  </SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                           </div>
@@ -582,7 +601,7 @@ This is an automated message. Please do not reply to this email.
                           const plan = subscriptionPlans.find(p => p.name === value);
                           if (plan) {
                             setNewCustomer({
-                              ...newCustomer, 
+                              ...newCustomer,
                               plan: value,
                               propertyLimit: plan.propertyLimit?.toString() || '5',
                               userLimit: plan.userLimit?.toString() || '3',
@@ -695,7 +714,7 @@ This is an automated message. Please do not reply to this email.
                             <Badge className="bg-blue-100 text-blue-800">Most Popular</Badge>
                           )}
                         </div>
-                        
+
                         <div className="space-y-2">
                           <p className="text-sm font-medium text-gray-700">Features included:</p>
                           <ul className="space-y-1">
@@ -723,7 +742,7 @@ This is an automated message. Please do not reply to this email.
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={handleCreateCustomer}
                 disabled={!isFormValid()}
                 className="min-w-[200px]"
@@ -788,7 +807,7 @@ This is an automated message. Please do not reply to this email.
                       {newCustomer.email}
                     </div>
                   </div>
-                  
+
                   <div>
                     <p className="text-sm text-gray-600 mb-1">Temporary Password</p>
                     <div className="flex items-center space-x-2">
@@ -854,8 +873,8 @@ This is an automated message. Please do not reply to this email.
                       <Info className="h-4 w-4" />
                       <span className="text-sm">Ready to send invitation email</span>
                     </div>
-                    <Button 
-                      onClick={handleSendInvitation} 
+                    <Button
+                      onClick={handleSendInvitation}
                       className="w-full max-w-md"
                       disabled={isSubmitting}
                     >
@@ -980,7 +999,7 @@ This is an automated message. Please do not reply to this email.
               A customer with this email address already exists in the system.
             </DialogDescription>
           </DialogHeader>
-          
+
           {existingCustomerInfo && (
             <div className="space-y-4 py-4">
               {/* Existing Customer Info */}
@@ -1024,8 +1043,8 @@ This is an automated message. Please do not reply to this email.
           )}
 
           <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 setShowDuplicateDialog(false);
                 setCurrentTab('information'); // Go back to edit email
@@ -1035,7 +1054,7 @@ This is an automated message. Please do not reply to this email.
               <X className="h-4 w-4 mr-2" />
               Change Email
             </Button>
-            <Button 
+            <Button
               onClick={() => {
                 setShowDuplicateDialog(false);
                 onEditExisting(existingCustomerInfo.id);

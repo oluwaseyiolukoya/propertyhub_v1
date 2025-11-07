@@ -1,17 +1,49 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import React, { useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "./ui/table";
 import { Textarea } from "./ui/textarea";
 import { Switch } from "./ui/switch";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
-import { resetUserPassword as resetUserPasswordAPI } from '../lib/api/users';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
+import { resetUserPassword as resetUserPasswordAPI } from "../lib/api/users";
 import {
   Users,
   UserPlus,
@@ -30,8 +62,8 @@ import {
   Mail,
   Phone,
   Building,
-  Clipboard
-} from 'lucide-react';
+  Clipboard,
+} from "lucide-react";
 
 interface UserManagementProps {
   user: any;
@@ -56,12 +88,12 @@ export function UserManagement({
   onAddRole,
   onUpdateRole,
   onDeleteRole,
-  onBack
+  onBack,
 }: UserManagementProps) {
-  const [activeTab, setActiveTab] = useState('users');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [roleFilter, setRoleFilter] = useState('all');
+  const [activeTab, setActiveTab] = useState("users");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [roleFilter, setRoleFilter] = useState("all");
   const [showAddUser, setShowAddUser] = useState(false);
   const [showAddRole, setShowAddRole] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
@@ -70,125 +102,561 @@ export function UserManagement({
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [showResetConfirmation, setShowResetConfirmation] = useState(false);
   const [userToReset, setUserToReset] = useState<any>(null);
-  const [generatedPassword, setGeneratedPassword] = useState('');
-  const [roleViewMode, setRoleViewMode] = useState<'grid' | 'list'>('grid');
+  const [generatedPassword, setGeneratedPassword] = useState("");
+  const [roleViewMode, setRoleViewMode] = useState<"grid" | "list">("grid");
   const [selectedRole, setSelectedRole] = useState<any>(null);
   const [showRoleDetails, setShowRoleDetails] = useState(false);
   const [showEditRole, setShowEditRole] = useState(false);
   const [showAddUserInline, setShowAddUserInline] = useState(false);
 
   const [newUser, setNewUser] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    role: 'admin', // Default to admin role for internal users
-    company: 'PropertyHub Admin', // Internal admin company
-    department: '',
+    name: "",
+    email: "",
+    phone: "",
+    role: "admin", // Default to admin role for internal users
+    company: "PropertyHub Admin", // Internal admin company
+    department: "",
     isActive: true,
-    sendInvite: true
+    sendInvite: true,
   });
 
   const [newRole, setNewRole] = useState({
-    name: '',
-    description: '',
+    name: "",
+    description: "",
     permissions: [] as string[],
-    isActive: true
+    isActive: true,
   });
+
+  // Major countries list
+  const countries = [
+    "Afghanistan",
+    "Albania",
+    "Algeria",
+    "Andorra",
+    "Angola",
+    "Argentina",
+    "Armenia",
+    "Australia",
+    "Austria",
+    "Azerbaijan",
+    "Bahamas",
+    "Bahrain",
+    "Bangladesh",
+    "Barbados",
+    "Belarus",
+    "Belgium",
+    "Belize",
+    "Benin",
+    "Bhutan",
+    "Bolivia",
+    "Bosnia and Herzegovina",
+    "Botswana",
+    "Brazil",
+    "Brunei",
+    "Bulgaria",
+    "Burkina Faso",
+    "Burundi",
+    "Cambodia",
+    "Cameroon",
+    "Canada",
+    "Cape Verde",
+    "Central African Republic",
+    "Chad",
+    "Chile",
+    "China",
+    "Colombia",
+    "Comoros",
+    "Congo",
+    "Costa Rica",
+    "Croatia",
+    "Cuba",
+    "Cyprus",
+    "Czech Republic",
+    "Denmark",
+    "Djibouti",
+    "Dominica",
+    "Dominican Republic",
+    "Ecuador",
+    "Egypt",
+    "El Salvador",
+    "Equatorial Guinea",
+    "Eritrea",
+    "Estonia",
+    "Eswatini",
+    "Ethiopia",
+    "Fiji",
+    "Finland",
+    "France",
+    "Gabon",
+    "Gambia",
+    "Georgia",
+    "Germany",
+    "Ghana",
+    "Greece",
+    "Grenada",
+    "Guatemala",
+    "Guinea",
+    "Guinea-Bissau",
+    "Guyana",
+    "Haiti",
+    "Honduras",
+    "Hungary",
+    "Iceland",
+    "India",
+    "Indonesia",
+    "Iran",
+    "Iraq",
+    "Ireland",
+    "Israel",
+    "Italy",
+    "Ivory Coast",
+    "Jamaica",
+    "Japan",
+    "Jordan",
+    "Kazakhstan",
+    "Kenya",
+    "Kiribati",
+    "Kosovo",
+    "Kuwait",
+    "Kyrgyzstan",
+    "Laos",
+    "Latvia",
+    "Lebanon",
+    "Lesotho",
+    "Liberia",
+    "Libya",
+    "Liechtenstein",
+    "Lithuania",
+    "Luxembourg",
+    "Madagascar",
+    "Malawi",
+    "Malaysia",
+    "Maldives",
+    "Mali",
+    "Malta",
+    "Marshall Islands",
+    "Mauritania",
+    "Mauritius",
+    "Mexico",
+    "Micronesia",
+    "Moldova",
+    "Monaco",
+    "Mongolia",
+    "Montenegro",
+    "Morocco",
+    "Mozambique",
+    "Myanmar",
+    "Namibia",
+    "Nauru",
+    "Nepal",
+    "Netherlands",
+    "New Zealand",
+    "Nicaragua",
+    "Niger",
+    "Nigeria",
+    "North Korea",
+    "North Macedonia",
+    "Norway",
+    "Oman",
+    "Pakistan",
+    "Palau",
+    "Palestine",
+    "Panama",
+    "Papua New Guinea",
+    "Paraguay",
+    "Peru",
+    "Philippines",
+    "Poland",
+    "Portugal",
+    "Qatar",
+    "Romania",
+    "Russia",
+    "Rwanda",
+    "Saint Kitts and Nevis",
+    "Saint Lucia",
+    "Saint Vincent and the Grenadines",
+    "Samoa",
+    "San Marino",
+    "Sao Tome and Principe",
+    "Saudi Arabia",
+    "Senegal",
+    "Serbia",
+    "Seychelles",
+    "Sierra Leone",
+    "Singapore",
+    "Slovakia",
+    "Slovenia",
+    "Solomon Islands",
+    "Somalia",
+    "South Africa",
+    "South Korea",
+    "South Sudan",
+    "Spain",
+    "Sri Lanka",
+    "Sudan",
+    "Suriname",
+    "Sweden",
+    "Switzerland",
+    "Syria",
+    "Taiwan",
+    "Tajikistan",
+    "Tanzania",
+    "Thailand",
+    "Timor-Leste",
+    "Togo",
+    "Tonga",
+    "Trinidad and Tobago",
+    "Tunisia",
+    "Turkey",
+    "Turkmenistan",
+    "Tuvalu",
+    "Uganda",
+    "Ukraine",
+    "United Arab Emirates",
+    "United Kingdom",
+    "United States",
+    "Uruguay",
+    "Uzbekistan",
+    "Vanuatu",
+    "Vatican City",
+    "Venezuela",
+    "Vietnam",
+    "Yemen",
+    "Zambia",
+    "Zimbabwe",
+  ];
 
   // Internal admin permissions (for PropertyHub platform management)
   // These permissions map to actual dashboard pages and features
   const availablePermissions = [
     // Dashboard Pages (Main Navigation)
-    { id: 'overview', label: 'Dashboard Overview', category: 'Dashboard Pages', description: 'View main dashboard with metrics and stats' },
-    { id: 'customers', label: 'Customer Management Page', category: 'Dashboard Pages', description: 'Access customer management dashboard' },
-    { id: 'users', label: 'User Management Page', category: 'Dashboard Pages', description: 'Access internal user management' },
-    { id: 'billing', label: 'Billing & Plans Page', category: 'Dashboard Pages', description: 'Access billing plans management' },
-    { id: 'analytics', label: 'Analytics Page', category: 'Dashboard Pages', description: 'View analytics and reports dashboard' },
-    { id: 'system', label: 'System Health Page', category: 'Dashboard Pages', description: 'Monitor system health and performance' },
-    { id: 'support', label: 'Support Tickets Page', category: 'Dashboard Pages', description: 'Manage customer support tickets' },
-    { id: 'settings', label: 'Platform Settings Page', category: 'Dashboard Pages', description: 'Configure platform-wide settings' },
+    {
+      id: "overview",
+      label: "Dashboard Overview",
+      category: "Dashboard Pages",
+      description: "View main dashboard with metrics and stats",
+    },
+    {
+      id: "customers",
+      label: "Customer Management Page",
+      category: "Dashboard Pages",
+      description: "Access customer management dashboard",
+    },
+    {
+      id: "users",
+      label: "User Management Page",
+      category: "Dashboard Pages",
+      description: "Access internal user management",
+    },
+    {
+      id: "billing",
+      label: "Billing & Plans Page",
+      category: "Dashboard Pages",
+      description: "Access billing plans management",
+    },
+    {
+      id: "analytics",
+      label: "Analytics Page",
+      category: "Dashboard Pages",
+      description: "View analytics and reports dashboard",
+    },
+    {
+      id: "system",
+      label: "System Health Page",
+      category: "Dashboard Pages",
+      description: "Monitor system health and performance",
+    },
+    {
+      id: "support",
+      label: "Support Tickets Page",
+      category: "Dashboard Pages",
+      description: "Manage customer support tickets",
+    },
+    {
+      id: "settings",
+      label: "Platform Settings Page",
+      category: "Dashboard Pages",
+      description: "Configure platform-wide settings",
+    },
 
     // Customer Management Actions
-    { id: 'customer_view', label: 'View Customers', category: 'Customer Actions', description: 'View customer list and details' },
-    { id: 'customer_create', label: 'Create Customers', category: 'Customer Actions', description: 'Add new customers to the platform' },
-    { id: 'customer_edit', label: 'Edit Customers', category: 'Customer Actions', description: 'Modify customer information' },
-    { id: 'customer_delete', label: 'Delete Customers', category: 'Customer Actions', description: 'Remove customers from the platform' },
-    { id: 'customer_reset_password', label: 'Reset Customer Passwords', category: 'Customer Actions', description: 'Reset customer account passwords' },
-    { id: 'customer_deactivate', label: 'Activate/Deactivate Customers', category: 'Customer Actions', description: 'Change customer account status' },
+    {
+      id: "customer_view",
+      label: "View Customers",
+      category: "Customer Actions",
+      description: "View customer list and details",
+    },
+    {
+      id: "customer_create",
+      label: "Create Customers",
+      category: "Customer Actions",
+      description: "Add new customers to the platform",
+    },
+    {
+      id: "customer_edit",
+      label: "Edit Customers",
+      category: "Customer Actions",
+      description: "Modify customer information",
+    },
+    {
+      id: "customer_delete",
+      label: "Delete Customers",
+      category: "Customer Actions",
+      description: "Remove customers from the platform",
+    },
+    {
+      id: "customer_reset_password",
+      label: "Reset Customer Passwords",
+      category: "Customer Actions",
+      description: "Reset customer account passwords",
+    },
+    {
+      id: "customer_deactivate",
+      label: "Activate/Deactivate Customers",
+      category: "Customer Actions",
+      description: "Change customer account status",
+    },
 
     // Internal User Management Actions
-    { id: 'user_view', label: 'View Internal Users', category: 'User Management', description: 'View internal staff users' },
-    { id: 'user_create', label: 'Create Internal Users', category: 'User Management', description: 'Add new staff members' },
-    { id: 'user_edit', label: 'Edit Internal Users', category: 'User Management', description: 'Modify staff user information' },
-    { id: 'user_delete', label: 'Delete Internal Users', category: 'User Management', description: 'Remove staff users' },
-    { id: 'user_reset_password', label: 'Reset User Passwords', category: 'User Management', description: 'Reset staff user passwords' },
+    {
+      id: "user_view",
+      label: "View Internal Users",
+      category: "User Management",
+      description: "View internal staff users",
+    },
+    {
+      id: "user_create",
+      label: "Create Internal Users",
+      category: "User Management",
+      description: "Add new staff members",
+    },
+    {
+      id: "user_edit",
+      label: "Edit Internal Users",
+      category: "User Management",
+      description: "Modify staff user information",
+    },
+    {
+      id: "user_delete",
+      label: "Delete Internal Users",
+      category: "User Management",
+      description: "Remove staff users",
+    },
+    {
+      id: "user_reset_password",
+      label: "Reset User Passwords",
+      category: "User Management",
+      description: "Reset staff user passwords",
+    },
 
     // Role & Permission Management
-    { id: 'role_view', label: 'View Roles', category: 'Roles & Permissions', description: 'View all roles and their permissions' },
-    { id: 'role_create', label: 'Create Roles', category: 'Roles & Permissions', description: 'Create new user roles' },
-    { id: 'role_edit', label: 'Edit Roles', category: 'Roles & Permissions', description: 'Modify role permissions' },
-    { id: 'role_delete', label: 'Delete Roles', category: 'Roles & Permissions', description: 'Remove custom roles' },
+    {
+      id: "role_view",
+      label: "View Roles",
+      category: "Roles & Permissions",
+      description: "View all roles and their permissions",
+    },
+    {
+      id: "role_create",
+      label: "Create Roles",
+      category: "Roles & Permissions",
+      description: "Create new user roles",
+    },
+    {
+      id: "role_edit",
+      label: "Edit Roles",
+      category: "Roles & Permissions",
+      description: "Modify role permissions",
+    },
+    {
+      id: "role_delete",
+      label: "Delete Roles",
+      category: "Roles & Permissions",
+      description: "Remove custom roles",
+    },
 
     // Billing & Plans Management
-    { id: 'billing_management', label: 'Manage Billing Plans', category: 'Billing & Plans', description: 'Create and edit subscription plans' },
-    { id: 'plan_view', label: 'View Plans', category: 'Billing & Plans', description: 'View all subscription plans' },
-    { id: 'plan_create', label: 'Create Plans', category: 'Billing & Plans', description: 'Add new subscription plans' },
-    { id: 'plan_edit', label: 'Edit Plans', category: 'Billing & Plans', description: 'Modify existing plans' },
-    { id: 'plan_delete', label: 'Delete Plans', category: 'Billing & Plans', description: 'Remove subscription plans' },
-    { id: 'invoice_view', label: 'View Invoices', category: 'Billing & Plans', description: 'View customer invoices' },
-    { id: 'payment_view', label: 'View Payments', category: 'Billing & Plans', description: 'View payment transactions' },
+    {
+      id: "billing_management",
+      label: "Manage Billing Plans",
+      category: "Billing & Plans",
+      description: "Create and edit subscription plans",
+    },
+    {
+      id: "plan_view",
+      label: "View Plans",
+      category: "Billing & Plans",
+      description: "View all subscription plans",
+    },
+    {
+      id: "plan_create",
+      label: "Create Plans",
+      category: "Billing & Plans",
+      description: "Add new subscription plans",
+    },
+    {
+      id: "plan_edit",
+      label: "Edit Plans",
+      category: "Billing & Plans",
+      description: "Modify existing plans",
+    },
+    {
+      id: "plan_delete",
+      label: "Delete Plans",
+      category: "Billing & Plans",
+      description: "Remove subscription plans",
+    },
+    {
+      id: "invoice_view",
+      label: "View Invoices",
+      category: "Billing & Plans",
+      description: "View customer invoices",
+    },
+    {
+      id: "payment_view",
+      label: "View Payments",
+      category: "Billing & Plans",
+      description: "View payment transactions",
+    },
 
     // Analytics & Reports
-    { id: 'analytics_view', label: 'View Analytics', category: 'Analytics & Reports', description: 'Access analytics dashboard' },
-    { id: 'analytics_mrr', label: 'View MRR Analytics', category: 'Analytics & Reports', description: 'View monthly recurring revenue' },
-    { id: 'analytics_churn', label: 'View Churn Analytics', category: 'Analytics & Reports', description: 'View customer churn metrics' },
-    { id: 'analytics_export', label: 'Export Analytics Data', category: 'Analytics & Reports', description: 'Download analytics reports' },
+    {
+      id: "analytics_view",
+      label: "View Analytics",
+      category: "Analytics & Reports",
+      description: "Access analytics dashboard",
+    },
+    {
+      id: "analytics_mrr",
+      label: "View MRR Analytics",
+      category: "Analytics & Reports",
+      description: "View monthly recurring revenue",
+    },
+    {
+      id: "analytics_churn",
+      label: "View Churn Analytics",
+      category: "Analytics & Reports",
+      description: "View customer churn metrics",
+    },
+    {
+      id: "analytics_export",
+      label: "Export Analytics Data",
+      category: "Analytics & Reports",
+      description: "Download analytics reports",
+    },
 
     // System & Platform
-    { id: 'system_health', label: 'View System Health', category: 'System & Platform', description: 'Monitor system performance' },
-    { id: 'system_logs', label: 'View System Logs', category: 'System & Platform', description: 'Access system activity logs' },
-    { id: 'platform_settings', label: 'Manage Platform Settings', category: 'System & Platform', description: 'Configure platform settings' },
-    { id: 'cache_clear', label: 'Clear System Cache', category: 'System & Platform', description: 'Clear application cache' },
+    {
+      id: "system_health",
+      label: "View System Health",
+      category: "System & Platform",
+      description: "Monitor system performance",
+    },
+    {
+      id: "system_logs",
+      label: "View System Logs",
+      category: "System & Platform",
+      description: "Access system activity logs",
+    },
+    {
+      id: "platform_settings",
+      label: "Manage Platform Settings",
+      category: "System & Platform",
+      description: "Configure platform settings",
+    },
+    {
+      id: "cache_clear",
+      label: "Clear System Cache",
+      category: "System & Platform",
+      description: "Clear application cache",
+    },
 
     // Support & Tickets
-    { id: 'support_view', label: 'View Support Tickets', category: 'Support', description: 'View customer support tickets' },
-    { id: 'support_create', label: 'Create Support Tickets', category: 'Support', description: 'Create tickets on behalf of customers' },
-    { id: 'support_respond', label: 'Respond to Tickets', category: 'Support', description: 'Reply to customer tickets' },
-    { id: 'support_close', label: 'Close Support Tickets', category: 'Support', description: 'Resolve and close tickets' },
-    { id: 'support_assign', label: 'Assign Support Tickets', category: 'Support', description: 'Assign tickets to team members' },
+    {
+      id: "support_view",
+      label: "View Support Tickets",
+      category: "Support",
+      description: "View customer support tickets",
+    },
+    {
+      id: "support_create",
+      label: "Create Support Tickets",
+      category: "Support",
+      description: "Create tickets on behalf of customers",
+    },
+    {
+      id: "support_respond",
+      label: "Respond to Tickets",
+      category: "Support",
+      description: "Reply to customer tickets",
+    },
+    {
+      id: "support_close",
+      label: "Close Support Tickets",
+      category: "Support",
+      description: "Resolve and close tickets",
+    },
+    {
+      id: "support_assign",
+      label: "Assign Support Tickets",
+      category: "Support",
+      description: "Assign tickets to team members",
+    },
 
     // Activity & Audit
-    { id: 'activity_logs', label: 'View Activity Logs', category: 'Audit & Logs', description: 'View user activity history' },
-    { id: 'audit_reports', label: 'Generate Audit Reports', category: 'Audit & Logs', description: 'Create compliance audit reports' }
+    {
+      id: "activity_logs",
+      label: "View Activity Logs",
+      category: "Audit & Logs",
+      description: "View user activity history",
+    },
+    {
+      id: "audit_reports",
+      label: "Generate Audit Reports",
+      category: "Audit & Logs",
+      description: "Create compliance audit reports",
+    },
   ];
 
   // Filter users based on search and filters
-  const filteredUsers = users.filter(userItem => {
-    const matchesSearch = userItem.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         userItem.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         userItem.company?.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredUsers = users.filter((userItem) => {
+    const matchesSearch =
+      userItem.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      userItem.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      userItem.company?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus = statusFilter === 'all' || userItem.status === statusFilter;
-    const matchesRole = roleFilter === 'all' || userItem.role === roleFilter;
+    const matchesStatus =
+      statusFilter === "all" || userItem.status === statusFilter;
+    const matchesRole = roleFilter === "all" || userItem.role === roleFilter;
 
     return matchesSearch && matchesStatus && matchesRole;
   });
 
   // Filter roles to show only internal admin roles (exclude customer-facing roles)
-  const customerRoleNames = ['owner', 'manager', 'tenant', 'property owner', 'property manager'];
-  const filteredRoles = roles.filter(role =>
-    !customerRoleNames.includes(role.name.toLowerCase())
+  const customerRoleNames = [
+    "owner",
+    "manager",
+    "tenant",
+    "property owner",
+    "property manager",
+  ];
+  const filteredRoles = roles.filter(
+    (role) => !customerRoleNames.includes(role.name.toLowerCase())
   );
 
   // Helper function to get permission label from ID
   const getPermissionLabel = (permissionId: string | any) => {
     // Ensure permissionId is a string
-    if (!permissionId || typeof permissionId !== 'string') {
-      return 'Unknown Permission';
+    if (!permissionId || typeof permissionId !== "string") {
+      return "Unknown Permission";
     }
 
-    const permission = availablePermissions.find(p => p.id === permissionId);
-    return permission ? permission.label : permissionId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    const permission = availablePermissions.find((p) => p.id === permissionId);
+    return permission
+      ? permission.label
+      : permissionId
+          .replace(/_/g, " ")
+          .replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
   const handleAddUser = (e: React.FormEvent) => {
@@ -199,14 +667,14 @@ export function UserManagement({
 
     // Reset form
     setNewUser({
-      name: '',
-      email: '',
-      phone: '',
-      role: 'admin', // Default to admin role for internal users
-      company: 'PropertyHub Admin', // Internal admin company
-      department: '',
+      name: "",
+      email: "",
+      phone: "",
+      role: "admin", // Default to admin role for internal users
+      company: "PropertyHub Admin", // Internal admin company
+      department: "",
       isActive: true,
-      sendInvite: true
+      sendInvite: true,
     });
     setShowAddUser(false);
   };
@@ -219,27 +687,31 @@ export function UserManagement({
       name: newRole.name,
       description: newRole.description,
       permissions: newRole.permissions,
-      isActive: newRole.isActive
+      isActive: newRole.isActive,
     };
 
-    console.log('📤 Sending role data to backend:', roleData);
+    console.log("📤 Sending role data to backend:", roleData);
     onAddRole(roleData);
 
     setNewRole({
-      name: '',
-      description: '',
+      name: "",
+      description: "",
       permissions: [],
-      isActive: true
+      isActive: true,
     });
     setShowAddRole(false);
   };
 
   const toggleUserStatus = (userId: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    const newStatus = currentStatus === "active" ? "inactive" : "active";
     onUpdateUser(userId, { status: newStatus });
   };
 
-  const openResetConfirmation = (userId: string, userName: string, userEmail: string) => {
+  const openResetConfirmation = (
+    userId: string,
+    userName: string,
+    userEmail: string
+  ) => {
     setUserToReset({ id: userId, name: userName, email: userEmail });
     setShowResetConfirmation(true);
   };
@@ -249,40 +721,59 @@ export function UserManagement({
 
     try {
       const response = await resetUserPasswordAPI(userToReset.id);
-      console.log('🔐 Password reset API response:', response);
+      console.log("🔐 Password reset API response:", response);
 
       if (response.error) {
-        console.error('Password reset error:', response.error);
-        alert(`Failed to reset password: ${response.error.message || response.error.error}`);
+        console.error("Password reset error:", response.error);
+        alert(
+          `Failed to reset password: ${
+            response.error.message || response.error.error
+          }`
+        );
         setShowResetConfirmation(false);
         return;
       }
 
       if (response.data?.tempPassword) {
-        console.log('🔑 Temp password:', response.data.tempPassword);
+        console.log("🔑 Temp password:", response.data.tempPassword);
         setGeneratedPassword(response.data.tempPassword);
         setShowResetConfirmation(false);
         setShowResetPassword(true);
       } else {
-        console.error('No temp password in response:', response);
-        alert('Failed to generate password. Please try again.');
+        console.error("No temp password in response:", response);
+        alert("Failed to generate password. Please try again.");
         setShowResetConfirmation(false);
       }
     } catch (error) {
-      console.error('Reset password error:', error);
-      alert('Failed to reset password. Please try again.');
+      console.error("Reset password error:", error);
+      alert("Failed to reset password. Please try again.");
       setShowResetConfirmation(false);
     }
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'active':
-        return <Badge className="bg-green-100 text-green-800 flex items-center"><CheckCircle className="h-3 w-3 mr-1" />Active</Badge>;
-      case 'inactive':
-        return <Badge variant="secondary" className="flex items-center"><XCircle className="h-3 w-3 mr-1" />Inactive</Badge>;
-      case 'pending':
-        return <Badge className="bg-yellow-100 text-yellow-800 flex items-center"><AlertCircle className="h-3 w-3 mr-1" />Pending</Badge>;
+      case "active":
+        return (
+          <Badge className="bg-green-100 text-green-800 flex items-center">
+            <CheckCircle className="h-3 w-3 mr-1" />
+            Active
+          </Badge>
+        );
+      case "inactive":
+        return (
+          <Badge variant="secondary" className="flex items-center">
+            <XCircle className="h-3 w-3 mr-1" />
+            Inactive
+          </Badge>
+        );
+      case "pending":
+        return (
+          <Badge className="bg-yellow-100 text-yellow-800 flex items-center">
+            <AlertCircle className="h-3 w-3 mr-1" />
+            Pending
+          </Badge>
+        );
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -290,15 +781,19 @@ export function UserManagement({
 
   const getRoleBadge = (roleName: string) => {
     const colors: Record<string, string> = {
-      'Super Admin': 'bg-red-100 text-red-800',
-      'Property Owner': 'bg-blue-100 text-blue-800',
-      'Property Manager': 'bg-purple-100 text-purple-800',
-      'Tenant': 'bg-green-100 text-green-800',
-      'Support Staff': 'bg-orange-100 text-orange-800'
+      "Super Admin": "bg-red-100 text-red-800",
+      "Property Owner": "bg-blue-100 text-blue-800",
+      "Property Manager": "bg-purple-100 text-purple-800",
+      Tenant: "bg-green-100 text-green-800",
+      "Support Staff": "bg-orange-100 text-orange-800",
     };
 
     return (
-      <Badge className={`${colors[roleName] || 'bg-gray-100 text-gray-800'} flex items-center`}>
+      <Badge
+        className={`${
+          colors[roleName] || "bg-gray-100 text-gray-800"
+        } flex items-center`}
+      >
         <Shield className="h-3 w-3 mr-1" />
         {roleName}
       </Badge>
@@ -310,8 +805,13 @@ export function UserManagement({
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Internal User Management</h2>
-          <p className="text-gray-600">Manage internal admin users (staff, support team, etc.). Customer users are managed in Customer Management.</p>
+          <h2 className="text-2xl font-bold text-gray-900">
+            Internal User Management
+          </h2>
+          <p className="text-gray-600">
+            Manage internal admin users (staff, support team, etc.). Customer
+            users are managed in Customer Management.
+          </p>
         </div>
 
         <div className="flex items-center space-x-3">
@@ -320,7 +820,7 @@ export function UserManagement({
             Add Role
           </Button>
 
-          <Button onClick={() => setShowAddUserInline(prev => !prev)}>
+          <Button onClick={() => setShowAddUserInline((prev) => !prev)}>
             <UserPlus className="h-4 w-4 mr-2" />
             Add Internal User
           </Button>
@@ -329,7 +829,11 @@ export function UserManagement({
 
       {/* Main Content */}
       <div>
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="space-y-6"
+        >
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="users" className="flex items-center space-x-2">
               <Users className="h-4 w-4" />
@@ -394,7 +898,8 @@ export function UserManagement({
                 <CardHeader>
                   <CardTitle>Add Internal Admin User</CardTitle>
                   <CardDescription>
-                    Create a new internal admin user (staff, support team, etc.). This is NOT for customer users.
+                    Create a new internal admin user (staff, support team,
+                    etc.). This is NOT for customer users.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -405,7 +910,12 @@ export function UserManagement({
                         <Input
                           id="name"
                           value={newUser.name}
-                          onChange={(e) => setNewUser(prev => ({ ...prev, name: e.target.value }))}
+                          onChange={(e) =>
+                            setNewUser((prev) => ({
+                              ...prev,
+                              name: e.target.value,
+                            }))
+                          }
                           required
                         />
                       </div>
@@ -415,7 +925,12 @@ export function UserManagement({
                           id="email"
                           type="email"
                           value={newUser.email}
-                          onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
+                          onChange={(e) =>
+                            setNewUser((prev) => ({
+                              ...prev,
+                              email: e.target.value,
+                            }))
+                          }
                           required
                         />
                       </div>
@@ -427,13 +942,23 @@ export function UserManagement({
                         <Input
                           id="phone"
                           value={newUser.phone}
-                          onChange={(e) => setNewUser(prev => ({ ...prev, phone: e.target.value }))}
+                          onChange={(e) =>
+                            setNewUser((prev) => ({
+                              ...prev,
+                              phone: e.target.value,
+                            }))
+                          }
                           placeholder="+234 xxx xxx xxxx"
                         />
                       </div>
                       <div>
                         <Label htmlFor="role">Role *</Label>
-                        <Select value={newUser.role} onValueChange={(value) => setNewUser(prev => ({ ...prev, role: value }))}>
+                        <Select
+                          value={newUser.role}
+                          onValueChange={(value) =>
+                            setNewUser((prev) => ({ ...prev, role: value }))
+                          }
+                        >
                           <SelectTrigger>
                             <SelectValue placeholder="Select role" />
                           </SelectTrigger>
@@ -454,7 +979,12 @@ export function UserManagement({
                         <Input
                           id="company"
                           value={newUser.company}
-                          onChange={(e) => setNewUser(prev => ({ ...prev, company: e.target.value }))}
+                          onChange={(e) =>
+                            setNewUser((prev) => ({
+                              ...prev,
+                              company: e.target.value,
+                            }))
+                          }
                           placeholder="PropertyHub Admin"
                         />
                       </div>
@@ -463,7 +993,12 @@ export function UserManagement({
                         <Input
                           id="department"
                           value={newUser.department}
-                          onChange={(e) => setNewUser(prev => ({ ...prev, department: e.target.value }))}
+                          onChange={(e) =>
+                            setNewUser((prev) => ({
+                              ...prev,
+                              department: e.target.value,
+                            }))
+                          }
                           placeholder="e.g., Customer Support, IT, etc."
                         />
                       </div>
@@ -473,18 +1008,25 @@ export function UserManagement({
                       <Switch
                         id="sendInvite"
                         checked={newUser.sendInvite}
-                        onCheckedChange={(checked) => setNewUser(prev => ({ ...prev, sendInvite: checked }))}
+                        onCheckedChange={(checked) =>
+                          setNewUser((prev) => ({
+                            ...prev,
+                            sendInvite: checked,
+                          }))
+                        }
                       />
                       <Label htmlFor="sendInvite">Send invitation email</Label>
                     </div>
 
                     <div className="flex gap-2 justify-end">
-                      <Button type="button" variant="outline" onClick={() => setShowAddUserInline(false)}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowAddUserInline(false)}
+                      >
                         Cancel
                       </Button>
-                      <Button type="submit">
-                        Create User
-                      </Button>
+                      <Button type="submit">Create User</Button>
                     </div>
                   </form>
                 </CardContent>
@@ -514,7 +1056,10 @@ export function UserManagement({
                   <TableBody>
                     {filteredUsers.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                        <TableCell
+                          colSpan={6}
+                          className="text-center text-gray-500 py-8"
+                        >
                           No users found
                         </TableCell>
                       </TableRow>
@@ -525,27 +1070,44 @@ export function UserManagement({
                             <div className="flex items-center space-x-3">
                               <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center">
                                 <span className="text-white text-sm font-medium">
-                                  {userItem.name.split(' ').map((n: string) => n[0]).join('')}
+                                  {userItem.name
+                                    .split(" ")
+                                    .map((n: string) => n[0])
+                                    .join("")}
                                 </span>
                               </div>
                               <div>
-                                <div className="font-medium">{userItem.name}</div>
-                                <div className="text-sm text-gray-600">{userItem.email}</div>
+                                <div className="font-medium">
+                                  {userItem.name}
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                  {userItem.email}
+                                </div>
                               </div>
                             </div>
                           </TableCell>
                           <TableCell>{getRoleBadge(userItem.role)}</TableCell>
                           <TableCell>
                             <div>
-                              <div className="font-medium">{userItem.company || 'N/A'}</div>
+                              <div className="font-medium">
+                                {userItem.company || "N/A"}
+                              </div>
                               {userItem.department && (
-                                <div className="text-sm text-gray-600">{userItem.department}</div>
+                                <div className="text-sm text-gray-600">
+                                  {userItem.department}
+                                </div>
                               )}
                             </div>
                           </TableCell>
-                          <TableCell>{getStatusBadge(userItem.status)}</TableCell>
+                          <TableCell>
+                            {getStatusBadge(userItem.status)}
+                          </TableCell>
                           <TableCell className="text-sm text-gray-600">
-                            {userItem.lastLogin ? new Date(userItem.lastLogin).toLocaleDateString() : 'Never'}
+                            {userItem.lastLogin
+                              ? new Date(
+                                  userItem.lastLogin
+                                ).toLocaleDateString()
+                              : "Never"}
                           </TableCell>
                           <TableCell>
                             <DropdownMenu>
@@ -556,35 +1118,54 @@ export function UserManagement({
                               </DropdownMenuTrigger>
                               <DropdownMenuContent>
                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuItem onClick={() => {
-                                  setSelectedUser(userItem);
-                                  setShowUserDetails(true);
-                                }}>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedUser(userItem);
+                                    setShowUserDetails(true);
+                                  }}
+                                >
                                   <Eye className="h-4 w-4 mr-2" />
                                   View Details
                                 </DropdownMenuItem>
 
                                 {/* Disable edit for Super Admins */}
                                 {!(userItem as any).isSuperAdmin && (
-                                  <DropdownMenuItem onClick={() => {
-                                    setSelectedUser(userItem);
-                                    setShowEditUser(true);
-                                  }}>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setSelectedUser(userItem);
+                                      setShowEditUser(true);
+                                    }}
+                                  >
                                     <Edit className="h-4 w-4 mr-2" />
                                     Edit User
                                   </DropdownMenuItem>
                                 )}
 
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => openResetConfirmation(userItem.id, userItem.name, userItem.email)}>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    openResetConfirmation(
+                                      userItem.id,
+                                      userItem.name,
+                                      userItem.email
+                                    )
+                                  }
+                                >
                                   <Lock className="h-4 w-4 mr-2" />
                                   Reset Password
                                 </DropdownMenuItem>
 
                                 {/* Disable deactivate for Super Admins */}
                                 {!(userItem as any).isSuperAdmin && (
-                                  <DropdownMenuItem onClick={() => toggleUserStatus(userItem.id, userItem.status)}>
-                                    {userItem.status === 'active' ? (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      toggleUserStatus(
+                                        userItem.id,
+                                        userItem.status
+                                      )
+                                    }
+                                  >
+                                    {userItem.status === "active" ? (
                                       <>
                                         <XCircle className="h-4 w-4 mr-2" />
                                         Deactivate
@@ -605,7 +1186,11 @@ export function UserManagement({
                                     <DropdownMenuItem
                                       className="text-red-600"
                                       onClick={() => {
-                                        if (confirm('Are you sure you want to delete this user?')) {
+                                        if (
+                                          confirm(
+                                            "Are you sure you want to delete this user?"
+                                          )
+                                        ) {
                                           onDeleteUser(userItem.id);
                                         }
                                       }}
@@ -634,21 +1219,22 @@ export function UserManagement({
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-gray-600">
-                    {filteredRoles.length} role{filteredRoles.length !== 1 ? 's' : ''} available
+                    {filteredRoles.length} role
+                    {filteredRoles.length !== 1 ? "s" : ""} available
                   </div>
                   <div className="flex items-center space-x-2">
                     <Button
-                      variant={roleViewMode === 'grid' ? 'default' : 'outline'}
+                      variant={roleViewMode === "grid" ? "default" : "outline"}
                       size="sm"
-                      onClick={() => setRoleViewMode('grid')}
+                      onClick={() => setRoleViewMode("grid")}
                     >
                       <LayoutGrid className="h-4 w-4 mr-2" />
                       Grid
                     </Button>
                     <Button
-                      variant={roleViewMode === 'list' ? 'default' : 'outline'}
+                      variant={roleViewMode === "list" ? "default" : "outline"}
                       size="sm"
-                      onClick={() => setRoleViewMode('list')}
+                      onClick={() => setRoleViewMode("list")}
                     >
                       <List className="h-4 w-4 mr-2" />
                       List
@@ -659,7 +1245,7 @@ export function UserManagement({
             </Card>
 
             {/* Grid View */}
-            {roleViewMode === 'grid' && (
+            {roleViewMode === "grid" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {filteredRoles.map((role) => (
                   <Card key={role.id}>
@@ -679,17 +1265,21 @@ export function UserManagement({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>
-                            <DropdownMenuItem onClick={() => {
-                              setSelectedRole(role);
-                              setShowRoleDetails(true);
-                            }}>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSelectedRole(role);
+                                setShowRoleDetails(true);
+                              }}
+                            >
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              setSelectedRole(role);
-                              setShowEditRole(true);
-                            }}>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSelectedRole(role);
+                                setShowEditRole(true);
+                              }}
+                            >
                               <Edit className="h-4 w-4 mr-2" />
                               Edit Role
                             </DropdownMenuItem>
@@ -699,7 +1289,11 @@ export function UserManagement({
                                 <DropdownMenuItem
                                   className="text-red-600"
                                   onClick={() => {
-                                    if (confirm(`Are you sure you want to delete the "${role.name}" role?`)) {
+                                    if (
+                                      confirm(
+                                        `Are you sure you want to delete the "${role.name}" role?`
+                                      )
+                                    ) {
                                       onDeleteRole(role.id);
                                     }
                                   }}
@@ -718,12 +1312,16 @@ export function UserManagement({
                         <div>
                           <div className="flex justify-between items-center mb-2">
                             <span className="text-sm font-medium">Users</span>
-                            <Badge variant="secondary">{role.userCount || 0}</Badge>
+                            <Badge variant="secondary">
+                              {role.userCount || 0}
+                            </Badge>
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-sm font-medium">Status</span>
                             {role.isActive ? (
-                              <Badge className="bg-green-100 text-green-800">Active</Badge>
+                              <Badge className="bg-green-100 text-green-800">
+                                Active
+                              </Badge>
                             ) : (
                               <Badge variant="secondary">Inactive</Badge>
                             )}
@@ -731,13 +1329,21 @@ export function UserManagement({
                         </div>
 
                         <div>
-                          <div className="text-sm font-medium mb-2">Permissions</div>
+                          <div className="text-sm font-medium mb-2">
+                            Permissions
+                          </div>
                           <div className="flex flex-wrap gap-1">
-                            {role.permissions.slice(0, 3).map((permission: string) => (
-                              <Badge key={permission} variant="outline" className="text-xs">
-                                {getPermissionLabel(permission)}
-                              </Badge>
-                            ))}
+                            {role.permissions
+                              .slice(0, 3)
+                              .map((permission: string) => (
+                                <Badge
+                                  key={permission}
+                                  variant="outline"
+                                  className="text-xs"
+                                >
+                                  {getPermissionLabel(permission)}
+                                </Badge>
+                              ))}
                             {role.permissions.length > 3 && (
                               <Badge variant="outline" className="text-xs">
                                 +{role.permissions.length - 3} more
@@ -753,7 +1359,7 @@ export function UserManagement({
             )}
 
             {/* List View */}
-            {roleViewMode === 'list' && (
+            {roleViewMode === "list" && (
               <Card>
                 <CardHeader>
                   <CardTitle>Roles</CardTitle>
@@ -783,18 +1389,28 @@ export function UserManagement({
                             </div>
                           </TableCell>
                           <TableCell>
-                            <span className="text-sm text-gray-600">{role.description}</span>
+                            <span className="text-sm text-gray-600">
+                              {role.description}
+                            </span>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="secondary">{role.userCount || 0}</Badge>
+                            <Badge variant="secondary">
+                              {role.userCount || 0}
+                            </Badge>
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-wrap gap-1 max-w-xs">
-                              {role.permissions.slice(0, 2).map((permission: string) => (
-                                <Badge key={permission} variant="outline" className="text-xs">
-                                  {getPermissionLabel(permission)}
-                                </Badge>
-                              ))}
+                              {role.permissions
+                                .slice(0, 2)
+                                .map((permission: string) => (
+                                  <Badge
+                                    key={permission}
+                                    variant="outline"
+                                    className="text-xs"
+                                  >
+                                    {getPermissionLabel(permission)}
+                                  </Badge>
+                                ))}
                               {role.permissions.length > 2 && (
                                 <Badge variant="outline" className="text-xs">
                                   +{role.permissions.length - 2} more
@@ -804,7 +1420,9 @@ export function UserManagement({
                           </TableCell>
                           <TableCell>
                             {role.isActive ? (
-                              <Badge className="bg-green-100 text-green-800">Active</Badge>
+                              <Badge className="bg-green-100 text-green-800">
+                                Active
+                              </Badge>
                             ) : (
                               <Badge variant="secondary">Inactive</Badge>
                             )}
@@ -818,17 +1436,21 @@ export function UserManagement({
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuItem onClick={() => {
-                                  setSelectedRole(role);
-                                  setShowRoleDetails(true);
-                                }}>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedRole(role);
+                                    setShowRoleDetails(true);
+                                  }}
+                                >
                                   <Eye className="h-4 w-4 mr-2" />
                                   View Details
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => {
-                                  setSelectedRole(role);
-                                  setShowEditRole(true);
-                                }}>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedRole(role);
+                                    setShowEditRole(true);
+                                  }}
+                                >
                                   <Edit className="h-4 w-4 mr-2" />
                                   Edit Role
                                 </DropdownMenuItem>
@@ -838,7 +1460,11 @@ export function UserManagement({
                                     <DropdownMenuItem
                                       className="text-red-600"
                                       onClick={() => {
-                                        if (confirm(`Are you sure you want to delete the "${role.name}" role?`)) {
+                                        if (
+                                          confirm(
+                                            `Are you sure you want to delete the "${role.name}" role?`
+                                          )
+                                        ) {
                                           onDeleteRole(role.id);
                                         }
                                       }}
@@ -868,7 +1494,8 @@ export function UserManagement({
           <DialogHeader>
             <DialogTitle>Add Internal Admin User</DialogTitle>
             <DialogDescription>
-              Create a new internal admin user (staff, support team, etc.). This is NOT for customer users.
+              Create a new internal admin user (staff, support team, etc.). This
+              is NOT for customer users.
             </DialogDescription>
           </DialogHeader>
 
@@ -879,7 +1506,9 @@ export function UserManagement({
                 <Input
                   id="name"
                   value={newUser.name}
-                  onChange={(e) => setNewUser(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={(e) =>
+                    setNewUser((prev) => ({ ...prev, name: e.target.value }))
+                  }
                   required
                 />
               </div>
@@ -889,7 +1518,9 @@ export function UserManagement({
                   id="email"
                   type="email"
                   value={newUser.email}
-                  onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
+                  onChange={(e) =>
+                    setNewUser((prev) => ({ ...prev, email: e.target.value }))
+                  }
                   required
                 />
               </div>
@@ -901,13 +1532,20 @@ export function UserManagement({
                 <Input
                   id="phone"
                   value={newUser.phone}
-                  onChange={(e) => setNewUser(prev => ({ ...prev, phone: e.target.value }))}
+                  onChange={(e) =>
+                    setNewUser((prev) => ({ ...prev, phone: e.target.value }))
+                  }
                   placeholder="+234 xxx xxx xxxx"
                 />
               </div>
               <div>
                 <Label htmlFor="role">Role *</Label>
-                <Select value={newUser.role} onValueChange={(value) => setNewUser(prev => ({ ...prev, role: value }))}>
+                <Select
+                  value={newUser.role}
+                  onValueChange={(value) =>
+                    setNewUser((prev) => ({ ...prev, role: value }))
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
@@ -928,7 +1566,9 @@ export function UserManagement({
                 <Input
                   id="company"
                   value={newUser.company}
-                  onChange={(e) => setNewUser(prev => ({ ...prev, company: e.target.value }))}
+                  onChange={(e) =>
+                    setNewUser((prev) => ({ ...prev, company: e.target.value }))
+                  }
                   placeholder="PropertyHub Admin"
                 />
               </div>
@@ -937,7 +1577,12 @@ export function UserManagement({
                 <Input
                   id="department"
                   value={newUser.department}
-                  onChange={(e) => setNewUser(prev => ({ ...prev, department: e.target.value }))}
+                  onChange={(e) =>
+                    setNewUser((prev) => ({
+                      ...prev,
+                      department: e.target.value,
+                    }))
+                  }
                   placeholder="e.g., Customer Support, IT, etc."
                 />
               </div>
@@ -947,13 +1592,20 @@ export function UserManagement({
               <Switch
                 id="sendInvite"
                 checked={newUser.sendInvite}
-                onCheckedChange={(checked) => setNewUser(prev => ({ ...prev, sendInvite: checked }))}
+                onCheckedChange={(checked) =>
+                  setNewUser((prev) => ({ ...prev, sendInvite: checked }))
+                }
               />
               <Label htmlFor="sendInvite">Send invitation email</Label>
             </div>
 
             <div className="flex space-x-2">
-              <Button type="button" variant="outline" className="flex-1" onClick={() => setShowAddUser(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowAddUser(false)}
+              >
                 Cancel
               </Button>
               <Button type="submit" className="flex-1">
@@ -980,7 +1632,9 @@ export function UserManagement({
               <Input
                 id="roleName"
                 value={newRole.name}
-                onChange={(e) => setNewRole(prev => ({ ...prev, name: e.target.value }))}
+                onChange={(e) =>
+                  setNewRole((prev) => ({ ...prev, name: e.target.value }))
+                }
                 placeholder="e.g., Support Staff, Business Analyst, Developer"
                 required
                 className="mt-3"
@@ -992,7 +1646,12 @@ export function UserManagement({
               <Textarea
                 id="roleDescription"
                 value={newRole.description}
-                onChange={(e) => setNewRole(prev => ({ ...prev, description: e.target.value }))}
+                onChange={(e) =>
+                  setNewRole((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
                 placeholder="Describe what this role is responsible for..."
                 rows={3}
                 className="mt-3"
@@ -1003,7 +1662,9 @@ export function UserManagement({
               <Label>Permissions</Label>
               <div className="mt-2 space-y-4 max-h-96 overflow-y-auto border rounded-md p-4">
                 {/* Group permissions by category */}
-                {Array.from(new Set(availablePermissions.map(p => p.category))).map((category) => (
+                {Array.from(
+                  new Set(availablePermissions.map((p) => p.category))
+                ).map((category) => (
                   <div key={category}>
                     <div className="font-semibold text-sm text-gray-700 mb-2 flex items-center">
                       <Shield className="h-4 w-4 mr-2" />
@@ -1011,34 +1672,49 @@ export function UserManagement({
                     </div>
                     <div className="space-y-2 ml-6">
                       {availablePermissions
-                        .filter(p => p.category === category)
+                        .filter((p) => p.category === category)
                         .map((permission) => (
-                          <div key={permission.id} className="flex items-start space-x-2 py-1">
+                          <div
+                            key={permission.id}
+                            className="flex items-start space-x-2 py-1"
+                          >
                             <input
                               type="checkbox"
                               id={`perm-${permission.id}`}
-                              checked={newRole.permissions.includes(permission.id)}
+                              checked={newRole.permissions.includes(
+                                permission.id
+                              )}
                               onChange={(e) => {
                                 if (e.target.checked) {
-                                  setNewRole(prev => ({
+                                  setNewRole((prev) => ({
                                     ...prev,
-                                    permissions: [...prev.permissions, permission.id]
+                                    permissions: [
+                                      ...prev.permissions,
+                                      permission.id,
+                                    ],
                                   }));
                                 } else {
-                                  setNewRole(prev => ({
+                                  setNewRole((prev) => ({
                                     ...prev,
-                                    permissions: prev.permissions.filter(p => p !== permission.id)
+                                    permissions: prev.permissions.filter(
+                                      (p) => p !== permission.id
+                                    ),
                                   }));
                                 }
                               }}
                               className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mt-1"
                             />
                             <div className="flex-1">
-                              <Label htmlFor={`perm-${permission.id}`} className="text-sm font-medium text-gray-700 cursor-pointer">
+                              <Label
+                                htmlFor={`perm-${permission.id}`}
+                                className="text-sm font-medium text-gray-700 cursor-pointer"
+                              >
                                 {permission.label}
                               </Label>
                               {permission.description && (
-                                <p className="text-xs text-gray-500 mt-0.5">{permission.description}</p>
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  {permission.description}
+                                </p>
                               )}
                             </div>
                           </div>
@@ -1050,7 +1726,12 @@ export function UserManagement({
             </div>
 
             <div className="flex space-x-2">
-              <Button type="button" variant="outline" className="flex-1" onClick={() => setShowAddRole(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowAddRole(false)}
+              >
                 Cancel
               </Button>
               <Button type="submit" className="flex-1">
@@ -1077,11 +1758,16 @@ export function UserManagement({
                 <div className="flex items-center space-x-4">
                   <div className="h-16 w-16 rounded-full bg-blue-600 flex items-center justify-center">
                     <span className="text-white text-xl font-medium">
-                      {selectedUser.name.split(' ').map((n: string) => n[0]).join('')}
+                      {selectedUser.name
+                        .split(" ")
+                        .map((n: string) => n[0])
+                        .join("")}
                     </span>
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold">{selectedUser.name}</h3>
+                    <h3 className="text-lg font-semibold">
+                      {selectedUser.name}
+                    </h3>
                     <p className="text-gray-600">{selectedUser.email}</p>
                     <div className="flex items-center space-x-2 mt-1">
                       {getRoleBadge(selectedUser.role)}
@@ -1113,7 +1799,9 @@ export function UserManagement({
                       {selectedUser.company && (
                         <div className="flex items-center space-x-2">
                           <Building className="h-4 w-4 text-gray-500" />
-                          <span className="text-sm">{selectedUser.company}</span>
+                          <span className="text-sm">
+                            {selectedUser.company}
+                          </span>
                         </div>
                       )}
                       {selectedUser.department && (
@@ -1130,12 +1818,22 @@ export function UserManagement({
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="text-gray-600">Created:</span>
-                      <span className="ml-2">{selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString() : 'N/A'}</span>
+                      <span className="ml-2">
+                        {selectedUser.createdAt
+                          ? new Date(
+                              selectedUser.createdAt
+                            ).toLocaleDateString()
+                          : "N/A"}
+                      </span>
                     </div>
                     <div>
                       <span className="text-gray-600">Last Login:</span>
                       <span className="ml-2">
-                        {selectedUser.lastLogin ? new Date(selectedUser.lastLogin).toLocaleDateString() : 'Never'}
+                        {selectedUser.lastLogin
+                          ? new Date(
+                              selectedUser.lastLogin
+                            ).toLocaleDateString()
+                          : "Never"}
                       </span>
                     </div>
                   </div>
@@ -1158,18 +1856,26 @@ export function UserManagement({
                 </DialogDescription>
               </DialogHeader>
 
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                onUpdateUser(selectedUser.id, selectedUser);
-                setShowEditUser(false);
-              }} className="space-y-4">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  onUpdateUser(selectedUser.id, selectedUser);
+                  setShowEditUser(false);
+                }}
+                className="space-y-4"
+              >
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="edit-name">Full Name *</Label>
                     <Input
                       id="edit-name"
                       value={selectedUser.name}
-                      onChange={(e) => setSelectedUser({ ...selectedUser, name: e.target.value })}
+                      onChange={(e) =>
+                        setSelectedUser({
+                          ...selectedUser,
+                          name: e.target.value,
+                        })
+                      }
                       required
                     />
                   </div>
@@ -1179,7 +1885,12 @@ export function UserManagement({
                       id="edit-email"
                       type="email"
                       value={selectedUser.email}
-                      onChange={(e) => setSelectedUser({ ...selectedUser, email: e.target.value })}
+                      onChange={(e) =>
+                        setSelectedUser({
+                          ...selectedUser,
+                          email: e.target.value,
+                        })
+                      }
                       required
                     />
                   </div>
@@ -1190,13 +1901,23 @@ export function UserManagement({
                     <Label htmlFor="edit-phone">Phone</Label>
                     <Input
                       id="edit-phone"
-                      value={selectedUser.phone || ''}
-                      onChange={(e) => setSelectedUser({ ...selectedUser, phone: e.target.value })}
+                      value={selectedUser.phone || ""}
+                      onChange={(e) =>
+                        setSelectedUser({
+                          ...selectedUser,
+                          phone: e.target.value,
+                        })
+                      }
                     />
                   </div>
                   <div>
                     <Label htmlFor="edit-role">Role *</Label>
-                    <Select value={selectedUser.role} onValueChange={(value) => setSelectedUser({ ...selectedUser, role: value })}>
+                    <Select
+                      value={selectedUser.role}
+                      onValueChange={(value) =>
+                        setSelectedUser({ ...selectedUser, role: value })
+                      }
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select role" />
                       </SelectTrigger>
@@ -1216,35 +1937,77 @@ export function UserManagement({
                     <Label htmlFor="edit-company">Company</Label>
                     <Input
                       id="edit-company"
-                      value={selectedUser.company || ''}
-                      onChange={(e) => setSelectedUser({ ...selectedUser, company: e.target.value })}
+                      value={selectedUser.company || ""}
+                      onChange={(e) =>
+                        setSelectedUser({
+                          ...selectedUser,
+                          company: e.target.value,
+                        })
+                      }
                     />
                   </div>
                   <div>
                     <Label htmlFor="edit-department">Department</Label>
                     <Input
                       id="edit-department"
-                      value={selectedUser.department || ''}
-                      onChange={(e) => setSelectedUser({ ...selectedUser, department: e.target.value })}
+                      value={selectedUser.department || ""}
+                      onChange={(e) =>
+                        setSelectedUser({
+                          ...selectedUser,
+                          department: e.target.value,
+                        })
+                      }
                     />
                   </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="edit-status">Status</Label>
-                  <Select value={selectedUser.status} onValueChange={(value) => setSelectedUser({ ...selectedUser, status: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-country">Country</Label>
+                    <Select
+                      value={selectedUser.country || ""}
+                      onValueChange={(value) =>
+                        setSelectedUser({ ...selectedUser, country: value })
+                      }
+                    >
+                      <SelectTrigger id="edit-country">
+                        <SelectValue placeholder="Select country" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        {countries.map((country) => (
+                          <SelectItem key={country} value={country}>
+                            {country}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-status">Status</Label>
+                    <Select
+                      value={selectedUser.status}
+                      onValueChange={(value) =>
+                        setSelectedUser({ ...selectedUser, status: value })
+                      }
+                    >
+                      <SelectTrigger id="edit-status">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <div className="flex space-x-2">
-                  <Button type="button" variant="outline" className="flex-1" onClick={() => setShowEditUser(false)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setShowEditUser(false)}
+                  >
                     Cancel
                   </Button>
                   <Button type="submit" className="flex-1">
@@ -1258,7 +2021,10 @@ export function UserManagement({
       </Dialog>
 
       {/* Reset Password Confirmation Dialog */}
-      <Dialog open={showResetConfirmation} onOpenChange={setShowResetConfirmation}>
+      <Dialog
+        open={showResetConfirmation}
+        onOpenChange={setShowResetConfirmation}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1273,7 +2039,8 @@ export function UserManagement({
           <div className="space-y-4 py-4">
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
               <p className="text-sm text-orange-900 mb-2">
-                Are you sure you want to reset password for <strong className="font-semibold">{userToReset?.name}</strong>?
+                Are you sure you want to reset password for{" "}
+                <strong className="font-semibold">{userToReset?.name}</strong>?
               </p>
               <p className="text-xs text-orange-700">
                 Email: {userToReset?.email}
@@ -1281,7 +2048,8 @@ export function UserManagement({
             </div>
 
             <p className="text-sm text-gray-600">
-              A new temporary password will be generated and you'll need to share it with the user securely.
+              A new temporary password will be generated and you'll need to
+              share it with the user securely.
             </p>
           </div>
 
@@ -1317,10 +2085,12 @@ export function UserManagement({
 
           <div className="space-y-4">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm font-medium text-blue-900 mb-2">Temporary Password:</p>
+              <p className="text-sm font-medium text-blue-900 mb-2">
+                Temporary Password:
+              </p>
               <div className="flex items-center justify-between bg-white px-3 py-2 rounded border border-blue-300">
                 <code className="text-lg font-mono text-blue-600">
-                  {generatedPassword || 'Loading...'}
+                  {generatedPassword || "Loading..."}
                 </code>
                 {generatedPassword && (
                   <Button
@@ -1328,7 +2098,7 @@ export function UserManagement({
                     variant="ghost"
                     onClick={() => {
                       navigator.clipboard.writeText(generatedPassword);
-                      alert('Password copied to clipboard!');
+                      alert("Password copied to clipboard!");
                     }}
                   >
                     <Clipboard className="h-4 w-4" />
@@ -1344,16 +2114,15 @@ export function UserManagement({
 
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <p className="text-sm text-yellow-800">
-                <strong>Important:</strong> Copy this password now and share it securely with the user.
-                They should change it after their first login.
+                <strong>Important:</strong> Copy this password now and share it
+                securely with the user. They should change it after their first
+                login.
               </p>
             </div>
           </div>
 
           <div className="flex justify-end">
-            <Button onClick={() => setShowResetPassword(false)}>
-              Close
-            </Button>
+            <Button onClick={() => setShowResetPassword(false)}>Close</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1376,19 +2145,27 @@ export function UserManagement({
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-sm font-medium text-gray-700">Status</Label>
+                    <Label className="text-sm font-medium text-gray-700">
+                      Status
+                    </Label>
                     <div className="mt-1">
                       {selectedRole.isActive ? (
-                        <Badge className="bg-green-100 text-green-800">Active</Badge>
+                        <Badge className="bg-green-100 text-green-800">
+                          Active
+                        </Badge>
                       ) : (
                         <Badge variant="secondary">Inactive</Badge>
                       )}
                     </div>
                   </div>
                   <div>
-                    <Label className="text-sm font-medium text-gray-700">Users Assigned</Label>
+                    <Label className="text-sm font-medium text-gray-700">
+                      Users Assigned
+                    </Label>
                     <div className="mt-1">
-                      <Badge variant="secondary">{selectedRole.userCount || 0} users</Badge>
+                      <Badge variant="secondary">
+                        {selectedRole.userCount || 0} users
+                      </Badge>
                     </div>
                   </div>
                 </div>
@@ -1396,19 +2173,27 @@ export function UserManagement({
                 {selectedRole.isSystem && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                     <p className="text-sm text-blue-800">
-                      <strong>System Role:</strong> This is a protected role and cannot be deleted.
+                      <strong>System Role:</strong> This is a protected role and
+                      cannot be deleted.
                     </p>
                   </div>
                 )}
 
                 <div>
-                  <Label className="text-sm font-medium text-gray-700 mb-3 block">Permissions ({selectedRole.permissions.length})</Label>
+                  <Label className="text-sm font-medium text-gray-700 mb-3 block">
+                    Permissions ({selectedRole.permissions.length})
+                  </Label>
                   <div className="max-h-96 overflow-y-auto border rounded-lg p-4">
                     <div className="space-y-4">
-                      {Array.from(new Set(availablePermissions.map(p => p.category))).map((category) => {
-                        const categoryPermissions = selectedRole.permissions.filter((pId: string) =>
-                          availablePermissions.find(p => p.id === pId && p.category === category)
-                        );
+                      {Array.from(
+                        new Set(availablePermissions.map((p) => p.category))
+                      ).map((category) => {
+                        const categoryPermissions =
+                          selectedRole.permissions.filter((pId: string) =>
+                            availablePermissions.find(
+                              (p) => p.id === pId && p.category === category
+                            )
+                          );
 
                         if (categoryPermissions.length === 0) return null;
 
@@ -1419,12 +2204,19 @@ export function UserManagement({
                               {category}
                             </div>
                             <div className="space-y-1 ml-6">
-                              {categoryPermissions.map((permissionId: string) => (
-                                <div key={permissionId} className="flex items-center space-x-2 text-sm text-gray-700">
-                                  <CheckCircle className="h-3 w-3 text-green-600" />
-                                  <span>{getPermissionLabel(permissionId)}</span>
-                                </div>
-                              ))}
+                              {categoryPermissions.map(
+                                (permissionId: string) => (
+                                  <div
+                                    key={permissionId}
+                                    className="flex items-center space-x-2 text-sm text-gray-700"
+                                  >
+                                    <CheckCircle className="h-3 w-3 text-green-600" />
+                                    <span>
+                                      {getPermissionLabel(permissionId)}
+                                    </span>
+                                  </div>
+                                )
+                              )}
                             </div>
                           </div>
                         );
@@ -1434,20 +2226,29 @@ export function UserManagement({
                 </div>
 
                 <div className="text-xs text-gray-500">
-                  Created: {new Date(selectedRole.createdAt).toLocaleDateString()}
-                  {selectedRole.updatedAt && ` • Last updated: ${new Date(selectedRole.updatedAt).toLocaleDateString()}`}
+                  Created:{" "}
+                  {new Date(selectedRole.createdAt).toLocaleDateString()}
+                  {selectedRole.updatedAt &&
+                    ` • Last updated: ${new Date(
+                      selectedRole.updatedAt
+                    ).toLocaleDateString()}`}
                 </div>
               </div>
 
               <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setShowRoleDetails(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowRoleDetails(false)}
+                >
                   Close
                 </Button>
                 {!selectedRole.isSystem && (
-                  <Button onClick={() => {
-                    setShowRoleDetails(false);
-                    setShowEditRole(true);
-                  }}>
+                  <Button
+                    onClick={() => {
+                      setShowRoleDetails(false);
+                      setShowEditRole(true);
+                    }}
+                  >
                     <Edit className="h-4 w-4 mr-2" />
                     Edit Role
                   </Button>
@@ -1470,18 +2271,26 @@ export function UserManagement({
                 </DialogDescription>
               </DialogHeader>
 
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                onUpdateRole(selectedRole.id, selectedRole);
-                setShowEditRole(false);
-              }} className="space-y-6">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  onUpdateRole(selectedRole.id, selectedRole);
+                  setShowEditRole(false);
+                }}
+                className="space-y-6"
+              >
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="edit-role-name">Role Name *</Label>
                     <Input
                       id="edit-role-name"
                       value={selectedRole.name}
-                      onChange={(e) => setSelectedRole({ ...selectedRole, name: e.target.value })}
+                      onChange={(e) =>
+                        setSelectedRole({
+                          ...selectedRole,
+                          name: e.target.value,
+                        })
+                      }
                       required
                       disabled={selectedRole.isSystem}
                     />
@@ -1489,8 +2298,13 @@ export function UserManagement({
                   <div>
                     <Label htmlFor="edit-role-status">Status</Label>
                     <Select
-                      value={selectedRole.isActive ? 'active' : 'inactive'}
-                      onValueChange={(value) => setSelectedRole({ ...selectedRole, isActive: value === 'active' })}
+                      value={selectedRole.isActive ? "active" : "inactive"}
+                      onValueChange={(value) =>
+                        setSelectedRole({
+                          ...selectedRole,
+                          isActive: value === "active",
+                        })
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -1507,8 +2321,13 @@ export function UserManagement({
                   <Label htmlFor="edit-role-description">Description</Label>
                   <Input
                     id="edit-role-description"
-                    value={selectedRole.description || ''}
-                    onChange={(e) => setSelectedRole({ ...selectedRole, description: e.target.value })}
+                    value={selectedRole.description || ""}
+                    onChange={(e) =>
+                      setSelectedRole({
+                        ...selectedRole,
+                        description: e.target.value,
+                      })
+                    }
                     placeholder="Brief description of this role"
                   />
                 </div>
@@ -1516,7 +2335,9 @@ export function UserManagement({
                 <div>
                   <Label>Permissions *</Label>
                   <div className="mt-2 space-y-4 max-h-96 overflow-y-auto border rounded-md p-4">
-                    {Array.from(new Set(availablePermissions.map(p => p.category))).map((category) => (
+                    {Array.from(
+                      new Set(availablePermissions.map((p) => p.category))
+                    ).map((category) => (
                       <div key={category}>
                         <div className="font-semibold text-sm text-gray-700 mb-2 flex items-center">
                           <Shield className="h-4 w-4 mr-2" />
@@ -1524,29 +2345,43 @@ export function UserManagement({
                         </div>
                         <div className="space-y-2 ml-6">
                           {availablePermissions
-                            .filter(p => p.category === category)
+                            .filter((p) => p.category === category)
                             .map((permission) => (
-                              <div key={permission.id} className="flex items-center space-x-2">
+                              <div
+                                key={permission.id}
+                                className="flex items-center space-x-2"
+                              >
                                 <input
                                   type="checkbox"
                                   id={`edit-perm-${permission.id}`}
-                                  checked={selectedRole.permissions.includes(permission.id)}
+                                  checked={selectedRole.permissions.includes(
+                                    permission.id
+                                  )}
                                   onChange={(e) => {
                                     if (e.target.checked) {
                                       setSelectedRole({
                                         ...selectedRole,
-                                        permissions: [...selectedRole.permissions, permission.id]
+                                        permissions: [
+                                          ...selectedRole.permissions,
+                                          permission.id,
+                                        ],
                                       });
                                     } else {
                                       setSelectedRole({
                                         ...selectedRole,
-                                        permissions: selectedRole.permissions.filter((p: string) => p !== permission.id)
+                                        permissions:
+                                          selectedRole.permissions.filter(
+                                            (p: string) => p !== permission.id
+                                          ),
                                       });
                                     }
                                   }}
                                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                 />
-                                <Label htmlFor={`edit-perm-${permission.id}`} className="text-sm text-gray-700 cursor-pointer">
+                                <Label
+                                  htmlFor={`edit-perm-${permission.id}`}
+                                  className="text-sm text-gray-700 cursor-pointer"
+                                >
                                   {permission.label}
                                 </Label>
                               </div>
@@ -1558,12 +2393,14 @@ export function UserManagement({
                 </div>
 
                 <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setShowEditRole(false)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowEditRole(false)}
+                  >
                     Cancel
                   </Button>
-                  <Button type="submit">
-                    Save Changes
-                  </Button>
+                  <Button type="submit">Save Changes</Button>
                 </div>
               </form>
             </>

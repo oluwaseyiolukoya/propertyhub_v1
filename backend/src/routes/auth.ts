@@ -458,6 +458,34 @@ router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) =
       }
     }
 
+    // Get actual usage counts
+    let actualPropertiesCount = customer?.propertiesCount || 0;
+    let actualUnitsCount = customer?.unitsCount || 0;
+    let actualManagersCount = 0;
+
+    if (user.customerId) {
+      // Get actual counts from database
+      const [properties, units, managers] = await Promise.all([
+        prisma.properties.count({ where: { customerId: user.customerId } }),
+        prisma.units.count({
+          where: {
+            properties: { customerId: user.customerId }
+          }
+        }),
+        prisma.users.count({
+          where: {
+            customerId: user.customerId,
+            role: { in: ['manager', 'property_manager', 'property-manager'] },
+            isActive: true
+          }
+        })
+      ]);
+
+      actualPropertiesCount = properties;
+      actualUnitsCount = units;
+      actualManagersCount = managers;
+    }
+
     res.json({
       user: {
         id: user.id,
@@ -477,6 +505,14 @@ router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) =
         email: customer.email,
         phone: customer.phone,
         website: customer.website,
+        taxId: customer.taxId,
+        industry: customer.industry,
+        companySize: customer.companySize,
+        yearEstablished: customer.yearEstablished,
+        licenseNumber: customer.licenseNumber,
+        insuranceProvider: customer.insuranceProvider,
+        insurancePolicy: customer.insurancePolicy,
+        insuranceExpiration: customer.insuranceExpiration,
         // Address fields for owner profile autofill
         street: customer.street,
         city: customer.city,
@@ -492,6 +528,10 @@ router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) =
         storageLimit: customer.storageLimit,
         propertiesCount: customer.propertiesCount,
         unitsCount: customer.unitsCount,
+        // Actual usage counts
+        actualPropertiesCount: actualPropertiesCount,
+        actualUnitsCount: actualUnitsCount,
+        actualManagersCount: actualManagersCount,
         subscriptionStartDate: customer.subscriptionStartDate,
         trialEndsAt: customer.trialEndsAt,
         plan: plan ? {
@@ -544,7 +584,12 @@ router.put('/account', authMiddleware, async (req: AuthRequest, res: Response) =
       taxId,
       website,
       industry,
-      companySize
+      companySize,
+      yearEstablished,
+      licenseNumber,
+      insuranceProvider,
+      insurancePolicy,
+      insuranceExpiration
     } = req.body || {};
 
     const customerData: any = {};
@@ -561,6 +606,11 @@ router.put('/account', authMiddleware, async (req: AuthRequest, res: Response) =
     if (typeof website === 'string') customerData.website = website;
     if (typeof industry === 'string') customerData.industry = industry;
     if (typeof companySize === 'string') customerData.companySize = companySize;
+    if (typeof yearEstablished === 'string') customerData.yearEstablished = yearEstablished;
+    if (typeof licenseNumber === 'string') customerData.licenseNumber = licenseNumber;
+    if (typeof insuranceProvider === 'string') customerData.insuranceProvider = insuranceProvider;
+    if (typeof insurancePolicy === 'string') customerData.insurancePolicy = insurancePolicy;
+    if (typeof insuranceExpiration === 'string') customerData.insuranceExpiration = insuranceExpiration;
 
     const updatedCustomer = await prisma.customers.update({
       where: { id: customerId },

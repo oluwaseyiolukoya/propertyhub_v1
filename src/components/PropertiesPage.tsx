@@ -23,7 +23,7 @@ import { usePersistentState } from '../lib/usePersistentState';
 import { getExpenses, createExpense, updateExpense, deleteExpense, getExpenseStats, EXPENSE_CATEGORIES, EXPENSE_STATUSES, PAYMENT_METHODS, type Expense } from '../lib/api/expenses';
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
-import { 
+import {
   Building2,
   Users,
   DollarSign,
@@ -79,7 +79,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  
+
   // Calculate smart base currency based on properties
   const smartBaseCurrency = getSmartBaseCurrency(properties);
   const [unitsData, setUnitsData] = useState<any[]>([]);
@@ -117,7 +117,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
   const [isDeleting, setIsDeleting] = useState(false);
   const [showPropertyDeleteDialog, setShowPropertyDeleteDialog] = useState(false);
   const [propertyToDelete, setPropertyToDelete] = useState<any>(null);
-  
+
   // Expense management states
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [expenseStats, setExpenseStats] = useState<any>(null);
@@ -139,7 +139,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
   const [expenseSaving, setExpenseSaving] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
   const [showExpenseDeleteDialog, setShowExpenseDeleteDialog] = useState(false);
-  
+
   // View and Edit Unit states
   const [showViewUnitDialog, setShowViewUnitDialog] = useState(false);
   const [showEditUnitDialog, setShowEditUnitDialog] = useState(false);
@@ -184,19 +184,19 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
   // Handle delete unit
   const handleDeleteUnit = async () => {
     if (!unitToDelete) return;
-    
+
     try {
       setIsDeleting(true);
       const res = await deleteUnit(unitToDelete.id);
-      
+
       if ((res as any).error) {
         throw new Error((res as any).error.error || 'Failed to delete unit');
       }
-      
+
       toast.success('Unit deleted successfully');
       setShowDeleteDialog(false);
       setUnitToDelete(null);
-      
+
       // Refresh units list
       const uRes = await getUnits();
       if (!uRes.error && Array.isArray(uRes.data)) {
@@ -230,7 +230,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
       if (res.error) {
         throw new Error(res.error.error || 'Failed to fetch unit details');
       }
-      
+
       // Populate form with unit data
       setUnitForm({
         propertyId: res.data.propertyId || '',
@@ -266,10 +266,10 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
   // Handle save edited unit
   const handleSaveEditedUnit = async () => {
     if (!selectedUnit) return;
-    
+
     try {
       setEditingUnit(true);
-      
+
       const res = await updateUnit(selectedUnit.id, {
         propertyId: unitForm.propertyId,
         unitNumber: unitForm.unitNumber,
@@ -294,15 +294,15 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
         waterSource: unitForm.waterSource,
         parkingAvailable: unitForm.parkingAvailable
       });
-      
+
       if ((res as any).error) {
         throw new Error((res as any).error.error || 'Failed to update unit');
       }
-      
+
       toast.success('Unit updated successfully');
       setShowEditUnitDialog(false);
       setSelectedUnit(null);
-      
+
       // Refresh units list
       const uRes = await getUnits();
       if (!uRes.error && Array.isArray(uRes.data)) {
@@ -372,7 +372,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
   const handleSaveExpense = async () => {
     try {
       setExpenseSaving(true);
-      
+
       if (!expenseForm.propertyId || !expenseForm.category || !expenseForm.description || !expenseForm.amount) {
         toast.error('Please fill in all required fields');
         return;
@@ -404,7 +404,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
 
       setShowExpenseDialog(false);
       await loadExpenses();
-      
+
       // Refresh financial overview
       const fRes = await getFinancialOverview();
       if (!fRes.error && fRes.data) {
@@ -423,17 +423,17 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
 
   const handleDeleteExpense = async () => {
     if (!expenseToDelete) return;
-    
+
     try {
       setIsDeleting(true);
       const res = await deleteExpense(expenseToDelete.id);
       if (res.error) throw new Error(res.error);
-      
+
       toast.success('Expense deleted successfully');
       setShowExpenseDeleteDialog(false);
       setExpenseToDelete(null);
       await loadExpenses();
-      
+
       // Refresh financial overview
       const fRes = await getFinancialOverview();
       if (!fRes.error && fRes.data) {
@@ -472,7 +472,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
       return sum + Math.max(total - occ, 0);
     }, 0),
     totalRevenue: properties.reduce((sum, p) => sum + (p.totalMonthlyIncome || 0), 0),
-    avgOccupancy: properties.length > 0 ? 
+    avgOccupancy: properties.length > 0 ?
       properties.reduce((sum, p) => sum + (p.occupancyRate ?? (((p.occupiedUnits || 0) / ((p._count?.units || p.totalUnits || 1))) * 100)), 0) / properties.length : 0,
     maintenanceRequests: maintenanceData.length
   };
@@ -594,7 +594,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
             throw new Error((response as any).error);
           }
           toast.success('Property archived successfully');
-          
+
           // Refresh properties list if callback provided
           if (onUpdateProperty) {
             onUpdateProperty(propertyId as any, { status: 'archived' });
@@ -620,21 +620,21 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
 
   const handleConfirmDeleteProperty = async () => {
     if (!propertyToDelete) return;
-    
+
     try {
       setIsDeleting(true);
       const response = await deleteProperty(propertyToDelete.id);
-      
+
       if ((response as any).error) {
         // Extract the error message from the error object
         const errorMessage = (response as any).error.error || (response as any).error.message || 'Failed to delete property';
         throw new Error(errorMessage);
       }
-      
+
       toast.success('Property deleted successfully');
       setShowPropertyDeleteDialog(false);
       setPropertyToDelete(null);
-      
+
       // Refresh the properties list by removing the deleted property
       if (onUpdateProperty) {
         // Trigger a refresh by calling parent's update callback
@@ -659,7 +659,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               </Button>
               <h1 className="text-xl font-semibold text-gray-900">Properties</h1>
             </div>
-            
+
             <div className="flex items-center space-x-4">
               <Button variant="outline">
                 <Download className="h-4 w-4 mr-2" />
@@ -723,7 +723,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                   <CardContent>
                     <div className="text-2xl font-bold">{formatCurrency(Number(portfolioMetrics.totalRevenue) || 0, smartBaseCurrency)}</div>
                     <p className="text-xs text-muted-foreground">
-                      {properties.length > 1 && properties.some(p => p.currency !== smartBaseCurrency) && 
+                      {properties.length > 1 && properties.some(p => p.currency !== smartBaseCurrency) &&
                         <span className="text-orange-600 mr-2">Multi-currency · </span>
                       }
                       +8.2% from last month
@@ -844,7 +844,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         className="w-full"
                       />
                     </div>
-                    
+
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
                       <SelectTrigger className="w-full md:w-40">
                         <SelectValue placeholder="All Status" />
@@ -856,7 +856,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         <SelectItem value="vacant">Vacant</SelectItem>
                       </SelectContent>
                     </Select>
-                    
+
                     <div className="flex items-center space-x-2">
                       <Button
                         variant={viewMode === 'grid' ? 'default' : 'outline'}
@@ -884,8 +884,8 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     <Card key={property.id} className="overflow-hidden">
                       <div className="h-48 bg-gray-200 relative">
                         {Array.isArray(property.images) && property.images.length > 0 ? (
-                          <img 
-                            src={property.images[0]} 
+                          <img
+                            src={property.images[0]}
                             alt={property.name}
                             className="w-full h-full object-cover"
                           />
@@ -900,7 +900,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           </Badge>
                         </div>
                       </div>
-                      
+
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between mb-2">
                           <div>
@@ -935,7 +935,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                                 Archive
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem 
+                              <DropdownMenuItem
                                 onClick={() => handlePropertyAction('delete', property.id)}
                                 className="text-red-600 focus:text-red-600"
                               >
@@ -945,7 +945,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
-                        
+
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm">
                             <span>Units:</span>
@@ -968,7 +968,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                             <span>{property.property_managers?.[0]?.users?.name ?? 'Unassigned'}</span>
                           </div>
                         </div>
-                        
+
                         <div className="mt-4 flex items-center space-x-2">
                           {(Array.isArray(property.features) ? property.features : []).slice(0, 3).map((feature: string, index: number) => (
                             <Badge key={index} variant="outline" className="text-xs">
@@ -981,7 +981,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                             </Badge>
                           )}
                         </div>
-                        
+
                         <div className="mt-4 flex space-x-2">
                           <Button variant="outline" size="sm" className="flex-1" onClick={() => handlePropertyAction('view', property.id)}>
                             <Eye className="h-4 w-4 mr-2" />
@@ -1019,8 +1019,8 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                               <div className="flex items-center space-x-3">
                                 <div className="h-10 w-10 rounded-lg bg-gray-200 overflow-hidden">
                                   {Array.isArray(property.images) && property.images.length > 0 ? (
-                                    <img 
-                                      src={property.images[0]} 
+                                    <img
+                                      src={property.images[0]}
                                       alt={property.name}
                                       className="w-full h-full object-cover"
                                     />
@@ -1090,7 +1090,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                                       Archive
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem 
+                                    <DropdownMenuItem
                                       onClick={() => handlePropertyAction('delete', property.id)}
                                       className="text-red-600 focus:text-red-600"
                                     >
@@ -1155,9 +1155,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                   <CardContent>
                     <div className="text-2xl font-bold">
                       {formatCurrency(
-                        unitsData.length > 0 
-                          ? unitsData.reduce((sum, u) => sum + (u.monthlyRent || 0), 0) / unitsData.length 
-                          : 0, 
+                        unitsData.length > 0
+                          ? unitsData.reduce((sum, u) => sum + (u.monthlyRent || 0), 0) / unitsData.length
+                          : 0,
                         smartBaseCurrency
                       )}
                     </div>
@@ -1250,7 +1250,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                                 )}
                               </TableCell>
                               <TableCell>
-                                <Badge 
+                                <Badge
                                   variant={unit.status === 'occupied' ? 'default' : 'secondary'}
                                   className={getUnitStatusColor(unit.status)}
                                 >
@@ -1271,19 +1271,19 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                                   <DropdownMenuContent align="end" className="w-48">
                                     <DropdownMenuLabel>Unit Actions</DropdownMenuLabel>
                                     <DropdownMenuSeparator />
-                                    
+
                                     <DropdownMenuItem onClick={() => handleViewUnit(unit)}>
                                       <Eye className="h-4 w-4 mr-2" />
                                       View Details
                                     </DropdownMenuItem>
-                                    
+
                                     <DropdownMenuItem onClick={() => handleEditUnit(unit)}>
                                       <Edit className="h-4 w-4 mr-2" />
                                       Edit Unit
                                     </DropdownMenuItem>
-                                    
+
                                     <DropdownMenuSeparator />
-                                    
+
                                     <DropdownMenuItem
                                       onClick={() => {
                                         setUnitToDelete(unit);
@@ -1696,7 +1696,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           <p className="text-sm text-gray-600">33.9%</p>
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
                           <Shield className="h-4 w-4 text-green-600" />
@@ -1707,7 +1707,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           <p className="text-sm text-gray-600">16.7%</p>
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
                           <Users className="h-4 w-4 text-purple-600" />
@@ -1718,7 +1718,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           <p className="text-sm text-gray-600">15.1%</p>
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
                           <Zap className="h-4 w-4 text-yellow-600" />
@@ -1729,7 +1729,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           <p className="text-sm text-gray-600">12.7%</p>
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
                           <FileText className="h-4 w-4 text-gray-600" />
@@ -1740,9 +1740,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           <p className="text-sm text-gray-600">8.4%</p>
                         </div>
                       </div>
-                      
+
                       <div className="h-px bg-gray-200 my-4" />
-                      
+
                       <div className="flex items-center justify-between font-medium">
                         <span>Total Monthly Expenses</span>
                         <span>{formatCurrency(25100, smartBaseCurrency)}</span>
@@ -1768,7 +1768,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         </div>
                         <Progress value={84} className="h-2" />
                       </div>
-                      
+
                       <div className="p-4 border rounded-lg">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-medium">Occupancy Rate</span>
@@ -1779,7 +1779,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         </div>
                         <Progress value={92} className="h-2" />
                       </div>
-                      
+
                       <div className="p-4 border rounded-lg">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-medium">Operating Efficiency</span>
@@ -1790,7 +1790,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         </div>
                         <Progress value={78} className="h-2" />
                       </div>
-                      
+
                       <div className="p-4 border rounded-lg">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-medium">Maintenance Costs</span>
@@ -1831,7 +1831,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           <p className="text-xs text-muted-foreground">{expenseStats.totalCount || 0} transactions</p>
                         </CardContent>
                       </Card>
-                      
+
                       <Card>
                         <CardHeader className="pb-2">
                           <CardTitle className="text-sm font-medium">Paid</CardTitle>
@@ -1848,7 +1848,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           </p>
                         </CardContent>
                       </Card>
-                      
+
                       <Card>
                         <CardHeader className="pb-2">
                           <CardTitle className="text-sm font-medium">Pending</CardTitle>
@@ -1865,7 +1865,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           </p>
                         </CardContent>
                       </Card>
-                      
+
                       <Card>
                         <CardHeader className="pb-2">
                           <CardTitle className="text-sm font-medium">Top Category</CardTitle>
@@ -1929,11 +1929,11 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                                 {formatCurrency(expense.amount, expense.currency)}
                               </TableCell>
                               <TableCell>
-                                <Badge 
+                                <Badge
                                   variant={
-                                    expense.status === 'paid' ? 'default' : 
-                                    expense.status === 'pending' ? 'secondary' : 
-                                    expense.status === 'overdue' ? 'destructive' : 
+                                    expense.status === 'paid' ? 'default' :
+                                    expense.status === 'pending' ? 'secondary' :
+                                    expense.status === 'overdue' ? 'destructive' :
                                     'outline'
                                   }
                                 >
@@ -1953,7 +1953,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                                       Edit
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem 
+                                    <DropdownMenuItem
                                       className="text-red-600"
                                       onClick={() => {
                                         setExpenseToDelete(expense);
@@ -2156,7 +2156,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         <p className="text-xs text-gray-600">2 days</p>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center space-x-3">
                         <Droplets className="h-5 w-5 text-blue-600" />
@@ -2170,7 +2170,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         <p className="text-xs text-gray-600">5 days</p>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center space-x-3">
                         <Shield className="h-5 w-5 text-green-600" />
@@ -2254,7 +2254,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         Generate
                       </Button>
                     </div>
-                    
+
                     <div className="p-4 border rounded-lg text-center">
                       <PieChart className="h-8 w-8 text-green-600 mx-auto mb-2" />
                       <h4 className="font-medium">Occupancy Report</h4>
@@ -2264,7 +2264,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         Generate
                       </Button>
                     </div>
-                    
+
                     <div className="p-4 border rounded-lg text-center">
                       <LineChart className="h-8 w-8 text-purple-600 mx-auto mb-2" />
                       <h4 className="font-medium">Maintenance Report</h4>
@@ -2274,7 +2274,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         Generate
                       </Button>
                     </div>
-                    
+
                     <div className="p-4 border rounded-lg text-center">
                       <Users className="h-8 w-8 text-orange-600 mx-auto mb-2" />
                       <h4 className="font-medium">Tenant Report</h4>
@@ -2284,7 +2284,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         Generate
                       </Button>
                     </div>
-                    
+
                     <div className="p-4 border rounded-lg text-center">
                       <Activity className="h-8 w-8 text-red-600 mx-auto mb-2" />
                       <h4 className="font-medium">Portfolio Performance</h4>
@@ -2294,7 +2294,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         Generate
                       </Button>
                     </div>
-                    
+
                     <div className="p-4 border rounded-lg text-center">
                       <Target className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
                       <h4 className="font-medium">Market Analysis</h4>
@@ -2346,7 +2346,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           </div>
                         </TableCell>
                       </TableRow>
-                      
+
                       <TableRow>
                         <TableCell className="font-medium">Q1 2024 Occupancy Analysis</TableCell>
                         <TableCell>
@@ -2366,7 +2366,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           </div>
                         </TableCell>
                       </TableRow>
-                      
+
                       <TableRow>
                         <TableCell className="font-medium">Sunset Apartments Maintenance Summary</TableCell>
                         <TableCell>
@@ -2414,7 +2414,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         </Button>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center space-x-3">
                         <Clock className="h-5 w-5 text-green-600" />
@@ -2430,7 +2430,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         </Button>
                       </div>
                     </div>
-                    
+
                     <div className="flex justify-between items-center">
                       <p className="text-sm text-gray-600">Set up automatic report generation and email delivery</p>
                       <Button onClick={() => toast.info('Report scheduling coming soon...')}>
@@ -2457,7 +2457,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               Are you sure you want to delete this unit? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          
+
           {unitToDelete && (
             <div className="space-y-4">
               <div className="bg-gray-50 border rounded-lg p-4 space-y-2">
@@ -2554,7 +2554,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               )}
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedUnit && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -2677,25 +2677,25 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               Update unit information
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="grid gap-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
                 <label className="text-sm font-medium" htmlFor="editUnitNumber">Unit Number</label>
-                <Input 
-                  id="editUnitNumber" 
-                  value={unitForm.unitNumber} 
-                  onChange={(e) => setUnitForm({ ...unitForm, unitNumber: e.target.value })} 
-                  placeholder="A101" 
+                <Input
+                  id="editUnitNumber"
+                  value={unitForm.unitNumber}
+                  onChange={(e) => setUnitForm({ ...unitForm, unitNumber: e.target.value })}
+                  placeholder="A101"
                 />
               </div>
               <div className="grid gap-2">
                 <label className="text-sm font-medium" htmlFor="editType">Type</label>
-                <Input 
-                  id="editType" 
-                  value={unitForm.type} 
-                  onChange={(e) => setUnitForm({ ...unitForm, type: e.target.value })} 
-                  placeholder="Apartment, Studio, etc." 
+                <Input
+                  id="editType"
+                  value={unitForm.type}
+                  onChange={(e) => setUnitForm({ ...unitForm, type: e.target.value })}
+                  placeholder="Apartment, Studio, etc."
                 />
               </div>
             </div>
@@ -2703,32 +2703,32 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
             <div className="grid grid-cols-3 gap-3">
               <div className="grid gap-2">
                 <label className="text-sm font-medium" htmlFor="editFloor">Floor</label>
-                <Input 
-                  id="editFloor" 
-                  type="number" 
-                  value={unitForm.floor} 
-                  onChange={(e) => setUnitForm({ ...unitForm, floor: e.target.value })} 
-                  placeholder="1" 
+                <Input
+                  id="editFloor"
+                  type="number"
+                  value={unitForm.floor}
+                  onChange={(e) => setUnitForm({ ...unitForm, floor: e.target.value })}
+                  placeholder="1"
                 />
               </div>
               <div className="grid gap-2">
                 <label className="text-sm font-medium" htmlFor="editBedrooms">Bedrooms</label>
-                <Input 
-                  id="editBedrooms" 
-                  type="number" 
-                  value={unitForm.bedrooms} 
-                  onChange={(e) => setUnitForm({ ...unitForm, bedrooms: e.target.value })} 
-                  placeholder="2" 
+                <Input
+                  id="editBedrooms"
+                  type="number"
+                  value={unitForm.bedrooms}
+                  onChange={(e) => setUnitForm({ ...unitForm, bedrooms: e.target.value })}
+                  placeholder="2"
                 />
               </div>
               <div className="grid gap-2">
                 <label className="text-sm font-medium" htmlFor="editBathrooms">Bathrooms</label>
-                <Input 
-                  id="editBathrooms" 
-                  type="number" 
-                  value={unitForm.bathrooms} 
-                  onChange={(e) => setUnitForm({ ...unitForm, bathrooms: e.target.value })} 
-                  placeholder="1" 
+                <Input
+                  id="editBathrooms"
+                  type="number"
+                  value={unitForm.bathrooms}
+                  onChange={(e) => setUnitForm({ ...unitForm, bathrooms: e.target.value })}
+                  placeholder="1"
                 />
               </div>
             </div>
@@ -2736,12 +2736,12 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
                 <label className="text-sm font-medium" htmlFor="editSize">Size (sqft)</label>
-                <Input 
-                  id="editSize" 
-                  type="number" 
-                  value={unitForm.size} 
-                  onChange={(e) => setUnitForm({ ...unitForm, size: e.target.value })} 
-                  placeholder="850" 
+                <Input
+                  id="editSize"
+                  type="number"
+                  value={unitForm.size}
+                  onChange={(e) => setUnitForm({ ...unitForm, size: e.target.value })}
+                  placeholder="850"
                 />
               </div>
               <div className="grid gap-2">
@@ -2762,22 +2762,22 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
                 <label className="text-sm font-medium" htmlFor="editMonthlyRent">Monthly Rent</label>
-                <Input 
-                  id="editMonthlyRent" 
-                  type="number" 
-                  value={unitForm.monthlyRent} 
-                  onChange={(e) => setUnitForm({ ...unitForm, monthlyRent: e.target.value })} 
-                  placeholder="1200" 
+                <Input
+                  id="editMonthlyRent"
+                  type="number"
+                  value={unitForm.monthlyRent}
+                  onChange={(e) => setUnitForm({ ...unitForm, monthlyRent: e.target.value })}
+                  placeholder="1200"
                 />
               </div>
               <div className="grid gap-2">
                 <label className="text-sm font-medium" htmlFor="editSecurityDeposit">Security Deposit</label>
-                <Input 
-                  id="editSecurityDeposit" 
-                  type="number" 
-                  value={unitForm.securityDeposit} 
-                  onChange={(e) => setUnitForm({ ...unitForm, securityDeposit: e.target.value })} 
-                  placeholder="2400" 
+                <Input
+                  id="editSecurityDeposit"
+                  type="number"
+                  value={unitForm.securityDeposit}
+                  onChange={(e) => setUnitForm({ ...unitForm, securityDeposit: e.target.value })}
+                  placeholder="2400"
                 />
               </div>
             </div>
@@ -2823,7 +2823,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               Are you sure you want to permanently delete this property? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          
+
           {propertyToDelete && (
             <div className="space-y-4">
               <div className="bg-gray-50 border rounded-lg p-4 space-y-2">
@@ -2908,17 +2908,17 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               {editingExpense ? 'Update expense details' : 'Record a new property expense'}
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="expense-property">Property *</Label>
-                <Select 
-                  value={expenseForm.propertyId} 
+                <Select
+                  value={expenseForm.propertyId}
                   onValueChange={(value) => {
                     const property = properties.find(p => p.id === value);
-                    setExpenseForm({ 
-                      ...expenseForm, 
+                    setExpenseForm({
+                      ...expenseForm,
                       propertyId: value,
                       currency: property?.currency || 'NGN',
                       unitId: '' // Reset unit when property changes
@@ -2937,11 +2937,11 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="expense-unit">Unit (Optional)</Label>
-                <Select 
-                  value={expenseForm.unitId} 
+                <Select
+                  value={expenseForm.unitId}
                   onValueChange={(value) => setExpenseForm({ ...expenseForm, unitId: value })}
                 >
                   <SelectTrigger id="expense-unit">
@@ -2962,8 +2962,8 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="expense-category">Category *</Label>
-                <Select 
-                  value={expenseForm.category} 
+                <Select
+                  value={expenseForm.category}
                   onValueChange={(value) => setExpenseForm({ ...expenseForm, category: value })}
                 >
                   <SelectTrigger id="expense-category">
@@ -2978,11 +2978,11 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="expense-amount">Amount *</Label>
                 <div className="flex gap-2">
-                  <Input 
+                  <Input
                     id="expense-amount"
                     type="number"
                     step="0.01"
@@ -3012,17 +3012,17 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="expense-date">Date *</Label>
-                <Input 
+                <Input
                   id="expense-date"
                   type="date"
                   value={expenseForm.date}
                   onChange={(e) => setExpenseForm({ ...expenseForm, date: e.target.value })}
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="expense-due-date">Due Date (Optional)</Label>
-                <Input 
+                <Input
                   id="expense-due-date"
                   type="date"
                   value={expenseForm.dueDate}
@@ -3034,8 +3034,8 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="expense-status">Status *</Label>
-                <Select 
-                  value={expenseForm.status} 
+                <Select
+                  value={expenseForm.status}
                   onValueChange={(value) => setExpenseForm({ ...expenseForm, status: value })}
                 >
                   <SelectTrigger id="expense-status">
@@ -3050,11 +3050,11 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="expense-payment-method">Payment Method</Label>
-                <Select 
-                  value={expenseForm.paymentMethod} 
+                <Select
+                  value={expenseForm.paymentMethod}
                   onValueChange={(value) => setExpenseForm({ ...expenseForm, paymentMethod: value })}
                 >
                   <SelectTrigger id="expense-payment-method">
@@ -3112,7 +3112,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               Are you sure you want to delete this expense? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          
+
           {expenseToDelete && (
             <div className="py-4 space-y-2">
               <div className="flex justify-between">

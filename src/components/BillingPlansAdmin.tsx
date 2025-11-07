@@ -25,6 +25,8 @@ import {
 import { getInvoices, createRefund } from '../lib/api/invoices';
 import { getSystemSetting } from '../lib/api/system';
 import { initializeSocket, subscribeToCustomerEvents, unsubscribeFromCustomerEvents } from '../lib/socket';
+import { getBillingOverview, type BillingOverview } from '../lib/api/billing-analytics';
+import { getBillingTransactions, type BillingTransaction } from '../lib/api/billing-transactions';
 import {
   DollarSign,
   Users,
@@ -60,6 +62,9 @@ export function BillingPlansAdmin() {
   const [refundDialog, setRefundDialog] = useState<{ open: boolean; invoice?: any }>(() => ({ open: false }));
   const [viewDialog, setViewDialog] = useState<{ open: boolean; invoice?: any; transaction?: any }>(() => ({ open: false }));
   const [brandLogoUrl, setBrandLogoUrl] = useState<string | null>(null);
+  const [billingAnalytics, setBillingAnalytics] = useState<BillingOverview | null>(null);
+  const [realTransactions, setRealTransactions] = useState<BillingTransaction[]>([]);
+  const [transactionsLoading, setTransactionsLoading] = useState(false);
 
   // Transactions tab filters & controls
   const [txShowFilters, setTxShowFilters] = useState(false);
@@ -87,6 +92,8 @@ export function BillingPlansAdmin() {
     fetchPlans();
     fetchCustomersData();
     fetchInvoices();
+    fetchBillingAnalytics();
+    fetchTransactions();
     // Load brand logo from system settings (prefer platform_logo_url; fallback to brand_logo_url)
     (async () => {
       try {
@@ -157,17 +164,57 @@ export function BillingPlansAdmin() {
     } catch {}
   };
 
+  const fetchBillingAnalytics = async () => {
+    try {
+      const response = await getBillingOverview();
+      if (response.data) {
+        setBillingAnalytics(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch billing analytics:', error);
+    }
+  };
+
+  const fetchTransactions = async () => {
+    setTransactionsLoading(true);
+    try {
+      const response = await getBillingTransactions({ limit: 100 });
+      if (response.data) {
+        setRealTransactions(response.data.transactions);
+        console.log('✅ Fetched', response.data.transactions.length, 'transactions from database');
+      }
+    } catch (error) {
+      console.error('Failed to fetch transactions:', error);
+    } finally {
+      setTransactionsLoading(false);
+    }
+  };
+
   // Transform API plans to match component format
   const subscriptionPlans = plans.map((plan: any) => {
     const planCurrency = plan.currency || 'USD';
     const customersOnPlan = customers.filter(c => c.planId === plan.id && (c.status === 'active' || c.status === 'trial'));
     const monthlyRevenueFromPlan = customersOnPlan.reduce((sum, c) => sum + convertAmount((c.mrr || 0), planCurrency, selectedCurrency), 0);
+
+    // Use correct field names from database: monthlyPrice and annualPrice
+    const monthlyPrice = plan.monthlyPrice || 0;
+    const yearlyPrice = plan.annualPrice || (monthlyPrice * 10);
+
+    // Debug logging
+    if (monthlyPrice === 0) {
+      console.warn(`⚠️ Plan "${plan.name}" has monthlyPrice = 0. Raw plan data:`, {
+        monthlyPrice: plan.monthlyPrice,
+        annualPrice: plan.annualPrice,
+        currency: plan.currency
+      });
+    }
+
     return ({
       id: plan.id,
       name: plan.name,
       description: plan.description || '',
-      monthlyPrice: plan.priceMonthly || plan.monthlyPrice,
-      yearlyPrice: plan.priceYearly || plan.annualPrice || ((plan.priceMonthly || plan.monthlyPrice) * 10),
+      monthlyPrice: monthlyPrice,
+      yearlyPrice: yearlyPrice,
       maxProperties: plan.propertyLimit,
       maxUnits: plan.userLimit,
       currency: planCurrency,
@@ -223,7 +270,24 @@ export function BillingPlansAdmin() {
   );
 
   // Derive transactions from invoices if present; fallback to customers
-  const transactions = invoices.length > 0
+  // Use real transactions from database if available, otherwise fallback to old logic
+  const transactions = realTransactions.length > 0
+    ? realTransactions.map((tx: BillingTransaction, idx: number) => ({
+        id: idx + 1,
+        customer: tx.customer,
+        plan: tx.plan,
+        amount: tx.amount,
+        refundedAmount: 0, // TODO: Add refund tracking
+        status: tx.status,
+        date: new Date(tx.date).toISOString().split('T')[0],
+        type: tx.type,
+        invoice: tx.invoice,
+        description: tx.description,
+        currency: tx.currency,
+        _raw: tx._raw,
+        _invoiceId: tx.type === 'invoice' ? tx._raw?.id : undefined,
+      }))
+    : invoices.length > 0
     ? invoices.map((inv: any, idx: number) => ({
         id: idx + 1,
         customer: inv.customer?.company || customers.find((c: any) => c.id === inv.customerId)?.company || '—',
@@ -261,6 +325,12 @@ export function BillingPlansAdmin() {
 
   // Helpers for transactions filtering/export
   const getTxAmountInSelected = (tx: any) => {
+    // If transaction has currency field (from new API), use it directly
+    if (tx && tx.currency) {
+      return convertAmount(tx.amount || 0, tx.currency, selectedCurrency);
+    }
+
+    // Fallback to old logic for backwards compatibility
     if (tx && tx._invoiceId) {
       const inv = invoices.find((i: any) => i.id === tx._invoiceId);
       const src = inv?.currency || 'USD';
@@ -749,7 +819,11 @@ export function BillingPlansAdmin() {
               <CardContent>
                 <div className="text-2xl font-bold">{formatCurrency(billingOverview.monthlyRevenue, selectedCurrency)}</div>
                 <p className="text-xs text-muted-foreground">
-                  +8.2% from last month
+                  {billingAnalytics ? (
+                    billingAnalytics.growth.revenueGrowthPercent >= 0
+                      ? `+${billingAnalytics.growth.revenueGrowthPercent}% from last month`
+                      : `${billingAnalytics.growth.revenueGrowthPercent}% from last month`
+                  ) : 'Loading...'}
                 </p>
               </CardContent>
             </Card>
@@ -762,7 +836,7 @@ export function BillingPlansAdmin() {
               <CardContent>
                 <div className="text-2xl font-bold">{billingOverview.activeSubscriptions}</div>
                 <p className="text-xs text-muted-foreground">
-                  +12 new this month
+                  {billingAnalytics ? `+${billingAnalytics.currentMonth.newSubscriptions} new this month` : 'Loading...'}
                 </p>
               </CardContent>
             </Card>
@@ -838,7 +912,7 @@ export function BillingPlansAdmin() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-medium">{formatCurrency(transaction.amount)}</p>
+                        <p className="text-sm font-medium">{formatCurrency(getTxAmountInSelected(transaction), selectedCurrency)}</p>
                         <Badge variant={
                           transaction.status === 'completed' ? 'default' :
                           transaction.status === 'failed' ? 'destructive' :

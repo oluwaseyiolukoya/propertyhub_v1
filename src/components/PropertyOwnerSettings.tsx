@@ -86,6 +86,8 @@ import { toast } from 'sonner';
 import { getAccountInfo } from '../lib/api/auth';
 import { updateCustomer } from '../lib/api/customers';
 import { apiClient } from '../lib/api-client';
+import { getSubscriptionPlans, changePlan, changeBillingCycle, cancelSubscription, type Plan } from '../lib/api/subscriptions';
+import { SubscriptionManagement } from './SubscriptionManagement';
 import {
   initializeSocket,
   subscribeToAccountEvents,
@@ -120,6 +122,17 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
 
+  // Subscription management states
+  const [availablePlans, setAvailablePlans] = useState<Plan[]>([]);
+  const [loadingPlans, setLoadingPlans] = useState(true);
+  const [showChangePlanDialog, setShowChangePlanDialog] = useState(false);
+  const [showChangeBillingDialog, setShowChangeBillingDialog] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+  const [newBillingCycle, setNewBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelConfirmation, setCancelConfirmation] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+
   // Profile state
   const [profileData, setProfileData] = useState({
     name: user.name,
@@ -135,7 +148,7 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
   // Company state
   const [companyData, setCompanyData] = useState({
     companyName: user.company || '',
-    businessType: '',
+    businessType: '', // Maps to 'industry' in database
     taxId: '',
     website: '',
     businessAddress: '',
@@ -146,7 +159,6 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
     insuranceProvider: '',
     insurancePolicy: '',
     insuranceExpiration: '',
-    industry: '',
     companySize: ''
   });
 
@@ -207,18 +219,17 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
 
           setCompanyData({
             companyName: customer.company || '',
-            businessType: customer.industry || '', // Map to industry from customer database
-            taxId: customer.taxId || '', // Already correctly mapped
+            businessType: customer.industry || '', // Map industry from database to businessType
+            taxId: customer.taxId || '',
             website: customer.website || '',
             businessAddress: `${customer.street || ''}, ${customer.city || ''}, ${customer.state || ''} ${customer.zipCode || ''}`.trim(),
             businessPhone: customer.phone || '',
             businessEmail: customer.email || '',
-            yearEstablished: '',
-            licenseNumber: '',
-            insuranceProvider: '',
-            insurancePolicy: '',
-            insuranceExpiration: '',
-            industry: customer.industry || '',
+            yearEstablished: customer.yearEstablished || '',
+            licenseNumber: customer.licenseNumber || '',
+            insuranceProvider: customer.insuranceProvider || '',
+            insurancePolicy: customer.insurancePolicy || '',
+            insuranceExpiration: customer.insuranceExpiration || '',
             companySize: customer.companySize || ''
           });
 
@@ -227,23 +238,27 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
             taxId: customer.taxId || ''
           });
 
-          // Update subscription data
+          // Update subscription data with real usage counts
+          const nextBillingDate = customer.subscriptionStartDate
+            ? new Date(new Date(customer.subscriptionStartDate).setMonth(new Date(customer.subscriptionStartDate).getMonth() + 1)).toISOString().split('T')[0]
+            : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
           setSubscriptionData({
             plan: customer.plan?.name || 'Professional',
             status: customer.status || 'active',
             billingCycle: customer.billingCycle || 'monthly',
-            nextBillingDate: '2024-04-01',
+            nextBillingDate: nextBillingDate,
             amount: customer.billingCycle === 'annual'
               ? customer.plan?.annualPrice || 0
               : customer.plan?.monthlyPrice || 0,
             properties: customer.propertyLimit || 0,
-            units: customer.unitsCount || 0,
+            units: customer.propertyLimit ? (customer.propertyLimit * 20) : 0, // Estimate: 20 units per property
             managers: customer.userLimit || 0,
             usageStats: {
-              propertiesUsed: customer.propertiesCount || 0,
-              unitsUsed: customer.unitsCount || 0,
-              managersUsed: 0,
-              storageUsed: 0,
+              propertiesUsed: customer.actualPropertiesCount ?? customer.propertiesCount ?? 0,
+              unitsUsed: customer.actualUnitsCount ?? customer.unitsCount ?? 0,
+              managersUsed: customer.actualManagersCount ?? 0,
+              storageUsed: 0, // TODO: Calculate actual storage used
               storageLimit: customer.storageLimit || 0
             }
           });
@@ -310,6 +325,23 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
       }
     };
   }, [accountInfo]);
+
+  // Load available subscription plans
+  useEffect(() => {
+    const loadPlans = async () => {
+      try {
+        const response = await getSubscriptionPlans();
+        if (response.data) {
+          setAvailablePlans(response.data.plans);
+        }
+      } catch (error) {
+        console.error('Failed to load subscription plans:', error);
+      } finally {
+        setLoadingPlans(false);
+      }
+    };
+    loadPlans();
+  }, []);
 
   // Refresh data when window regains focus
   useEffect(() => {
@@ -553,27 +585,6 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
   ]);
 
   // Handler functions
-  const handleCancelSubscription = async () => {
-    if (!accountInfo?.customer?.id) {
-      toast.error('Customer information not found');
-      return;
-    }
-    try {
-      setIsSaving(true);
-      // Call owner-scoped endpoint to avoid admin-only restriction
-      const response = await apiClient.post('/api/dashboard/owner/subscription/cancel', {});
-      if (response.error) {
-        throw new Error(response.error.error || 'Failed to cancel subscription');
-      }
-      toast.success('Subscription cancelled');
-      setShowCancelDialog(false);
-      await fetchAccountData(true);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to cancel subscription');
-    } finally {
-      setIsSaving(false);
-    }
-  };
   const handleSaveProfile = async () => {
     if (!accountInfo?.customer?.id) {
       toast.error('Customer information not found');
@@ -621,10 +632,15 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
 
         updateData = {
           company: companyData.companyName,
-          taxId: companyData.taxId,
+          // taxId is read-only for owners, only admins can update it
           website: companyData.website,
-          industry: companyData.industry,
+          industry: companyData.businessType, // Map businessType to industry for backend
           companySize: companyData.companySize,
+          yearEstablished: companyData.yearEstablished,
+          licenseNumber: companyData.licenseNumber,
+          insuranceProvider: companyData.insuranceProvider,
+          insurancePolicy: companyData.insurancePolicy,
+          insuranceExpiration: companyData.insuranceExpiration,
           phone: companyData.businessPhone,
           street: companyAddressParts.street || accountInfo.customer.street,
           city: companyAddressParts.city || accountInfo.customer.city,
@@ -677,18 +693,17 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
       });
       setCompanyData({
         companyName: customer.company || '',
-        businessType: '',
+        businessType: customer.industry || '',
         taxId: customer.taxId || '',
         website: customer.website || '',
         businessAddress: `${customer.street || ''}, ${customer.city || ''}, ${customer.state || ''} ${customer.zipCode || ''}`.trim(),
         businessPhone: customer.phone || '',
         businessEmail: customer.email || '',
-        yearEstablished: '',
-        licenseNumber: '',
-        insuranceProvider: '',
-        insurancePolicy: '',
-        insuranceExpiration: '',
-        industry: customer.industry || '',
+        yearEstablished: customer.yearEstablished || '',
+        licenseNumber: customer.licenseNumber || '',
+        insuranceProvider: customer.insuranceProvider || '',
+        insurancePolicy: customer.insurancePolicy || '',
+        insuranceExpiration: customer.insuranceExpiration || '',
         companySize: customer.companySize || ''
       });
     }
@@ -716,6 +731,82 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
   const handleDeleteAccount = () => {
     toast.error('Account deletion requested. Please contact support.');
     setShowDeleteDialog(false);
+  };
+
+  // Subscription management handlers
+  const handleChangePlan = async () => {
+    if (!selectedPlan) return;
+
+    setIsProcessing(true);
+    try {
+      const response = await changePlan({ planId: selectedPlan.id });
+      if (response.error) {
+        toast.error(response.error.error || 'Failed to change plan');
+        return;
+      }
+
+      toast.success('Subscription plan updated successfully!');
+      setShowChangePlanDialog(false);
+      setSelectedPlan(null);
+      // Refresh account data
+      await fetchAccountData();
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to change plan');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleChangeBillingCycle = async () => {
+    setIsProcessing(true);
+    try {
+      const response = await changeBillingCycle({ billingCycle: newBillingCycle });
+      if (response.error) {
+        toast.error(response.error.error || 'Failed to change billing cycle');
+        return;
+      }
+
+      toast.success('Billing cycle updated successfully!');
+      setShowChangeBillingDialog(false);
+      // Refresh account data
+      await fetchAccountData();
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to change billing cycle');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (cancelConfirmation !== 'CANCEL_SUBSCRIPTION') {
+      toast.error('Please type "CANCEL_SUBSCRIPTION" to confirm');
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const response = await cancelSubscription({
+        reason: cancelReason,
+        confirmation: cancelConfirmation
+      });
+
+      if (response.error) {
+        toast.error(response.error.error || 'Failed to cancel subscription');
+        return;
+      }
+
+      toast.success('Subscription cancelled. Logging you out...');
+
+      // Wait 2 seconds then logout
+      setTimeout(() => {
+        onLogout();
+      }, 2000);
+
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to cancel subscription');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const getDeviceIcon = (device: string) => {
@@ -988,7 +1079,29 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
             )}
 
             {activeTab === 'subscription' && (
-              <SubscriptionSection subscriptionData={subscriptionData} onCancelClick={() => setShowCancelDialog(true)} />
+              <SubscriptionManagement
+                subscriptionData={subscriptionData}
+                availablePlans={availablePlans}
+                loadingPlans={loadingPlans}
+                showChangePlanDialog={showChangePlanDialog}
+                setShowChangePlanDialog={setShowChangePlanDialog}
+                showChangeBillingDialog={showChangeBillingDialog}
+                setShowChangeBillingDialog={setShowChangeBillingDialog}
+                showCancelDialog={showCancelDialog}
+                setShowCancelDialog={setShowCancelDialog}
+                selectedPlan={selectedPlan}
+                setSelectedPlan={setSelectedPlan}
+                newBillingCycle={newBillingCycle}
+                setNewBillingCycle={setNewBillingCycle}
+                cancelReason={cancelReason}
+                setCancelReason={setCancelReason}
+                cancelConfirmation={cancelConfirmation}
+                setCancelConfirmation={setCancelConfirmation}
+                isProcessing={isProcessing}
+                onChangePlan={handleChangePlan}
+                onChangeBillingCycle={handleChangeBillingCycle}
+                onCancelSubscription={handleCancelSubscription}
+              />
             )}
 
             {activeTab === 'billing' && (
@@ -1509,9 +1622,11 @@ function CompanySection({ companyData, setCompanyData, isEditing, setIsEditing, 
               <Input
                 id="taxId"
                 value={companyData.taxId}
-                onChange={(e) => updateFormData('taxId', e.target.value)}
-                disabled={!isEditing}
+                disabled={true}
+                className="bg-gray-50 cursor-not-allowed"
+                readOnly
               />
+              <p className="text-xs text-gray-500">Tax ID can only be updated by an administrator</p>
             </div>
 
             <div className="space-y-2">

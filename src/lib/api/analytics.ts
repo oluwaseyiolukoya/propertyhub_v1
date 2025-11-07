@@ -50,3 +50,7 @@ export const getActivityLogs = async (params?: { limit?: number; customerId?: st
   return apiClient.get<any[]>('/api/analytics/activity-logs', params);
 };
 
+export const getCustomerAnalytics = async (params?: { period?: string }) => {
+  return apiClient.get<any>('/api/analytics/customers', params);
+};
+

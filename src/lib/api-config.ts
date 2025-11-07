@@ -183,6 +183,14 @@ export const API_ENDPOINTS = {
     UPDATE: (id: string) => `/api/roles/${id}`,
     DELETE: (id: string) => `/api/roles/${id}`,
   },
+
+  // Subscriptions (Owner)
+  SUBSCRIPTIONS: {
+    PLANS: '/api/subscriptions/plans',
+    CHANGE_PLAN: '/api/subscriptions/change-plan',
+    CHANGE_BILLING_CYCLE: '/api/subscriptions/change-billing-cycle',
+    CANCEL: '/api/subscriptions/cancel',
+  },
 };
 
 // Request timeout (30 seconds)

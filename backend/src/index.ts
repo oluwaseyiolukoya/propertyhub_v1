@@ -48,8 +48,16 @@ import documentRoutes from './routes/documents';
 import settingsRoutes from './routes/settings';
 // Payment Methods routes
 import paymentMethodRoutes from './routes/payment-methods';
+// Subscription routes
+import subscriptionRoutes from './routes/subscriptions';
+// Billing Analytics routes
+import billingAnalyticsRoutes from './routes/billing-analytics';
+// Billing Transactions routes
+import billingTransactionsRoutes from './routes/billing-transactions';
 // Upload routes
 import uploadRoutes from './routes/uploads';
+// Cron jobs
+import { initializeCronJobs } from './lib/cron-jobs';
 
 // Create Express app
 const app: Express = express();
@@ -167,6 +175,12 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/settings', settingsRoutes);
 // Payment Methods routes
 app.use('/api/payment-methods', paymentMethodRoutes);
+// Subscription routes
+app.use('/api/subscriptions', subscriptionRoutes);
+// Billing Analytics routes
+app.use('/api/billing-analytics', billingAnalyticsRoutes);
+// Billing Transactions routes
+app.use('/api/billing-transactions', billingTransactionsRoutes);
 // Upload routes
 app.use('/api/uploads', uploadRoutes);
 
@@ -220,6 +234,9 @@ httpServer.listen(PORT, () => {
   console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🌐 CORS enabled for: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
   console.log(`🔌 Socket.io real-time updates enabled`);
+
+  // Initialize cron jobs for scheduled tasks
+  initializeCronJobs();
 });
 
 export default app;

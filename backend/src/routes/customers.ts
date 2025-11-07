@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import { authMiddleware, adminOnly, AuthRequest } from '../middleware/auth';
 import prisma from '../lib/db';
 import { emitToAdmins, emitToCustomer } from '../lib/socket';
+import { captureSnapshotOnChange } from '../lib/mrr-snapshot';
 
 const router = express.Router();
 
@@ -209,7 +210,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     });
 
     if (existingCustomer) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Email already exists',
         existingCustomer: {
           id: existingCustomer.id,
@@ -225,12 +226,12 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     // Get plan limits - lookup by planId or planName
     let plan = null as any;
     let finalPlanId = planId;
-    
+
     if (planName && !planId) {
       // Look up plan by name
       console.log('Looking up plan by name:', planName);
-      plan = await prisma.plans.findFirst({ 
-        where: { name: planName } 
+      plan = await prisma.plans.findFirst({
+        where: { name: planName }
       });
       if (plan) {
         console.log('Found plan:', plan.id, plan.name);
@@ -238,22 +239,22 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       } else {
         console.log('Plan not found with name:', planName);
         // If plan name provided but not found, return error
-        return res.status(400).json({ 
-          error: `Plan "${planName}" not found. Please select a valid subscription plan.` 
+        return res.status(400).json({
+          error: `Plan "${planName}" not found. Please select a valid subscription plan.`
         });
       }
     } else if (planId) {
       plan = await prisma.plans.findUnique({ where: { id: planId } });
       if (!plan) {
-        return res.status(400).json({ 
-          error: `Plan with ID "${planId}" not found.` 
+        return res.status(400).json({
+          error: `Plan with ID "${planId}" not found.`
         });
       }
     } else {
       // Neither planName nor planId provided
       console.log('No plan specified, using null planId');
     }
-    
+
     console.log('Final planId:', finalPlanId);
 
     // Calculate MRR based on plan and billing cycle
@@ -449,11 +450,11 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     // Get plan limits - lookup by planId or planName
     let finalPlanId = planId;
     let plan = null;
-    
+
     if (planName && !planId) {
       // Look up plan by name
-      plan = await prisma.plans.findFirst({ 
-        where: { name: planName } 
+      plan = await prisma.plans.findFirst({
+        where: { name: planName }
       });
       if (plan) {
         finalPlanId = plan.id;
@@ -493,12 +494,12 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       subscriptionStartDate = new Date(); // Set start date when activating
       trialEndsAt = null; // Clear trial end date
     }
-    
+
     // If already active but subscriptionStartDate is null, set it now
     if (status === 'active' && !subscriptionStartDate) {
       subscriptionStartDate = new Date(); // Fix missing subscription start date
     }
-    
+
     // If status is changing to 'trial'
     if (status === 'trial' && existingCustomer.status !== 'trial') {
       subscriptionStartDate = null; // Clear subscription start
@@ -587,6 +588,20 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
 
     // Emit to customer's users (so owner sees changes immediately)
     emitToCustomer(customer.id, 'account:updated', { customer });
+
+    // Capture MRR snapshot if MRR, status, or plan changed
+    if (
+      existingCustomer.mrr !== customer.mrr ||
+      existingCustomer.status !== customer.status ||
+      existingCustomer.planId !== customer.planId
+    ) {
+      try {
+        await captureSnapshotOnChange(customer.id);
+      } catch (snapshotError) {
+        console.error('Failed to capture MRR snapshot:', snapshotError);
+        // Don't fail the request if snapshot fails
+      }
+    }
 
     return res.json(customer);
 
@@ -696,18 +711,18 @@ router.post('/:id/action', async (req: AuthRequest, res: Response) => {
           // Generate new temporary password
           const newPassword = Math.random().toString(36).slice(-10) + Math.random().toString(36).slice(-2).toUpperCase();
           const hashedPassword = await bcrypt.hash(newPassword, 10);
-          
+
           // Update user password
           await prisma.users.update({
             where: { id: owner.id },
-            data: { 
+            data: {
               password: hashedPassword,
               status: 'active', // Set to active so they can log in
               updatedAt: new Date()
             }
           });
-          
-          result = { 
+
+          result = {
             message: 'New password generated successfully',
             tempPassword: newPassword,
             email: owner.email,

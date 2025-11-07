@@ -9,11 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Progress } from "./ui/progress";
 import { toast } from "sonner";
-import { getAnalyticsOverview, getAnalyticsDashboard, getSystemHealth, getActivityLogs } from '../lib/api/analytics';
+import { getAnalyticsOverview, getAnalyticsDashboard, getSystemHealth, getActivityLogs, getCustomerAnalytics } from '../lib/api/analytics';
 import { getCustomers } from '../lib/api/customers';
 import { getInvoices } from '../lib/api/invoices';
 import { computeCustomerChurn, computeMRRChurn, lastNDaysWindow } from '../lib/metrics';
-import { 
+import {
   BarChart3,
   TrendingUp,
   TrendingDown,
@@ -52,7 +52,14 @@ export function Analytics() {
   const [systemHealth, setSystemHealth] = useState<any>(null);
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
+  const [customerAnalytics, setCustomerAnalytics] = useState<any>(null);
   const { formatCurrency } = useCurrency();
+
+  // Pagination for Customer Growth Analysis
+  const [growthPage, setGrowthPage] = useState<number>(1);
+  const growthPageSize = 5;
+  // Independent range for Customer Growth Analysis
+  const [growthRange, setGrowthRange] = useState<string>('30d');
 
   // Custom Report builder state
   const [reportName, setReportName] = useState<string>('');
@@ -63,30 +70,59 @@ export function Analytics() {
   // Fetch analytics data
   useEffect(() => {
     fetchAnalytics();
-  }, [dateRange]);
+  }, [dateRange, growthRange]);
+
+  // Reset growth pagination when range or data changes
+  useEffect(() => {
+    setGrowthPage(1);
+  }, [dateRange, growthRange, analyticsData, customerAnalytics]);
 
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
-      const [overviewRes, dashboardRes, healthRes, logsRes, customersRes] = await Promise.all([
+      const [overviewRes, dashboardRes, healthRes, logsRes, customersRes, customerAnalyticsRes] = await Promise.all([
         getAnalyticsOverview({ period: dateRange }),
         getAnalyticsDashboard(),
         getSystemHealth(),
         getActivityLogs({ limit: 50 }),
         getCustomers(),
+        getCustomerAnalytics({ period: growthRange }),
       ]);
+
+      console.log('📊 Analytics API Responses:', {
+        overview: overviewRes,
+        dashboard: dashboardRes,
+        health: healthRes,
+        logs: logsRes?.data?.length || 0,
+        customers: customersRes?.data?.length || 0,
+        customerAnalytics: customerAnalyticsRes?.data
+      });
 
       if (overviewRes.error) toast.error(overviewRes.error.error || 'Failed to load analytics overview');
       if (dashboardRes.error) toast.error(dashboardRes.error.error || 'Failed to load analytics dashboard');
       if (healthRes.error) toast.error(healthRes.error.error || 'Failed to load system health');
       if (logsRes.error) toast.error(logsRes.error.error || 'Failed to load activity logs');
       if (customersRes.error) toast.error(customersRes.error.error || 'Failed to load customers');
+      if (customerAnalyticsRes.error) toast.error(customerAnalyticsRes.error.error || 'Failed to load customer analytics');
 
-      if (overviewRes.data) setAnalyticsData(overviewRes.data);
-      if (dashboardRes.data) setDashboardData(dashboardRes.data);
-      if (healthRes.data) setSystemHealth(healthRes.data);
+      if (overviewRes.data) {
+        console.log('✅ Setting analytics data:', overviewRes.data);
+        setAnalyticsData(overviewRes.data);
+      }
+      if (dashboardRes.data) {
+        console.log('✅ Setting dashboard data:', dashboardRes.data);
+        setDashboardData(dashboardRes.data);
+      }
+      if (healthRes.data) {
+        console.log('✅ Setting system health data:', healthRes.data);
+        setSystemHealth(healthRes.data);
+      }
       if (logsRes.data) setActivityLogs(logsRes.data);
       if (customersRes.data) setCustomers(customersRes.data);
+      if (customerAnalyticsRes.data) {
+        console.log('✅ Setting customer analytics data:', customerAnalyticsRes.data);
+        setCustomerAnalytics(customerAnalyticsRes.data);
+      }
     } catch (error) {
       toast.error('Failed to load analytics');
     } finally {
@@ -94,18 +130,62 @@ export function Analytics() {
     }
   };
 
-  // Derived metrics from DB-backed responses
+  // Manual refresh handler
+  const handleRefresh = async () => {
+    await fetchAnalytics();
+  };
+
+  // Derived metrics from DB-backed responses (with robust fallbacks)
   const overview = analyticsData?.overview || null;
   const dailyStats: Array<{ date: string; customers: number; revenue: number }>
     = (analyticsData?.dailyStats as any[]) || [];
 
-  const totalCustomers = overview?.totalCustomers || 0;
-  const activeCustomers = overview?.activeCustomers || 0;
-  const totalProperties = overview?.totalProperties || 0;
-  const totalUsers = overview?.totalUsers || 0;
-  const mrr = (dashboardData?.overview?.mrr ?? overview?.mrr) || 0;
-  const totalRevenuePeriod = overview?.revenue || 0;
-  const revenueGrowthPct = overview?.revenueGrowth ?? 0;
+  const toNumber = (v: any): number => {
+    if (typeof v === 'number') return v;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  // Base values from APIs
+  let apiTotalCustomers = toNumber(overview?.totalCustomers ?? dashboardData?.overview?.totalCustomers);
+  let apiActiveCustomers = toNumber(overview?.activeCustomers ?? dashboardData?.overview?.activeCustomers);
+  let apiTotalProperties = toNumber(overview?.totalProperties ?? dashboardData?.overview?.totalProperties);
+  let apiTotalUsers = toNumber(overview?.totalUsers ?? dashboardData?.overview?.totalUsers);
+  let apiMRR = toNumber((dashboardData?.overview?.mrr ?? overview?.mrr));
+  const totalRevenuePeriod = toNumber(overview?.revenue);
+  const revenueGrowthPct = toNumber(overview?.revenueGrowth);
+
+  // Fallbacks from customers list when API returns zeros (fresh DBs/mocks)
+  const customersCountFallback = Array.isArray(customers) ? customers.length : 0;
+  const activeCustomersFallback = Array.isArray(customers)
+    ? customers.filter((c: any) => ['active', 'trial'].includes((c.status || '').toLowerCase())).length
+    : 0;
+  const totalPropertiesFallback = Array.isArray(customers)
+    ? customers.reduce((sum: number, c: any) => sum + (toNumber(c.propertiesCount ?? c._count?.properties)), 0)
+    : 0;
+  const totalUsersFallback = Array.isArray(customers)
+    ? customers.reduce((sum: number, c: any) => sum + (toNumber(c._count?.users) || (Array.isArray(c.users) ? c.users.length : 0)), 0)
+    : 0;
+  const mrrFallback = Array.isArray(customers)
+    ? customers.reduce((sum: number, c: any) => sum + toNumber(c.mrr ?? c.plan?.monthlyPrice), 0)
+    : 0;
+
+  const totalCustomers = apiTotalCustomers || customersCountFallback;
+  const activeCustomers = apiActiveCustomers || activeCustomersFallback;
+  const totalProperties = apiTotalProperties || totalPropertiesFallback;
+  const totalUsers = apiTotalUsers || totalUsersFallback;
+  const mrr = apiMRR || mrrFallback;
+
+  console.log('📈 Computed Analytics Metrics:', {
+    totalCustomers,
+    activeCustomers,
+    totalProperties,
+    totalUsers,
+    mrr,
+    totalRevenuePeriod,
+    revenueGrowthPct,
+    overview
+  });
 
   const acquisitionCount = dailyStats.reduce((s, d: any) => s + (Number(d.customers) || 0), 0);
   const arpu = activeCustomers > 0 ? Math.round((mrr / activeCustomers) * 100) / 100 : null;
@@ -354,7 +434,7 @@ export function Analytics() {
               </SelectContent>
             </Select>
           </div>
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleRefresh}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
@@ -364,6 +444,31 @@ export function Analytics() {
           </Button>
         </div>
       </div>
+
+      {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading analytics…</p>
+          </div>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!loading && !overview && (!customers || customers.length === 0) && (
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center max-w-md">
+            <p className="text-lg font-semibold text-gray-900">No analytics data yet</p>
+            <p className="mt-2 text-gray-600">Once customers and invoices are created, your analytics will appear here. You can also try changing the date range.</p>
+            <div className="mt-4">
+              <Button variant="outline" onClick={handleRefresh}>
+                <RefreshCw className="h-4 w-4 mr-2" /> Refresh
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-6">
@@ -441,6 +546,14 @@ export function Analytics() {
               <CardHeader>
                 <CardTitle>Platform Health</CardTitle>
                 <CardDescription>System performance and reliability metrics</CardDescription>
+                {systemHealth && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-xs text-gray-600">{systemHealth.environment} • mode: {systemHealth.mode}{systemHealth.cached ? ' • cached' : ''}</span>
+                    {systemHealth.mode !== 'live' && (
+                      <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">Simulated in dev</span>
+                    )}
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -448,16 +561,24 @@ export function Analytics() {
                     <CheckCircle className="h-4 w-4 text-green-600" />
                     <span>System Uptime</span>
                   </div>
-                  <span className="font-medium">{systemHealth?.status === 'healthy' ? '99.9%' : '—'}</span>
+                  <span className="font-medium">
+                    {typeof systemHealth?.uptimePercent === 'number'
+                      ? `${systemHealth.uptimePercent.toFixed(2)}%`
+                      : (systemHealth?.status === 'healthy' ? '99.9%' : '—')}
+                  </span>
                 </div>
-                <Progress value={99.9} className="h-2" />
+                <Progress value={typeof systemHealth?.uptimePercent === 'number' ? systemHealth.uptimePercent : 99.9} className="h-2" />
 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <Clock className="h-4 w-4 text-blue-600" />
                     <span>Avg Response Time</span>
                   </div>
-                  <span className="font-medium">{systemHealth?.database?.latency ? `${systemHealth.database.latency}ms` : '—'}</span>
+                  <span className="font-medium">
+                    {typeof systemHealth?.database?.latency === 'number' && systemHealth.database.latency !== null
+                      ? `${systemHealth.database.latency}ms`
+                      : '—'}
+                  </span>
                 </div>
                 <Progress value={85} className="h-2" />
 
@@ -466,7 +587,11 @@ export function Analytics() {
                     <AlertTriangle className="h-4 w-4 text-yellow-600" />
                     <span>Open Support Tickets</span>
                   </div>
-                  <span className="font-medium">—</span>
+                  <span className="font-medium">
+                    {typeof systemHealth?.support?.open === 'number'
+                      ? systemHealth.support.open
+                      : '—'}
+                  </span>
                 </div>
                 <Progress value={25} className="h-2" />
               </CardContent>
@@ -509,35 +634,51 @@ export function Analytics() {
               <CardDescription>New customer acquisition and churn analysis</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {dailyRecent.map((data: any, index: number) => (
-                  <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <Calendar className="h-4 w-4 text-blue-600" />
-                      <div>
-                        <p className="font-medium">{new Date(data.date).toLocaleDateString()}</p>
-                        <p className="text-sm text-gray-600">{data.customers} new customers</p>
+              {dailyRecent.length > 0 ? (
+                <div className="space-y-4">
+                  {dailyRecent.map((data: any, index: number) => {
+                    const customerCount = Number(data.customers) || 0;
+                    const revenueAmount = Number(data.revenue) || 0;
+                    return (
+                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <Calendar className="h-4 w-4 text-blue-600" />
+                          <div>
+                            <p className="font-medium">{new Date(data.date).toLocaleDateString()}</p>
+                            <p className="text-sm text-gray-600">{customerCount} new customer{customerCount !== 1 ? 's' : ''}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="flex items-center space-x-4">
+                            <div className="text-center">
+                              <p className="text-sm text-green-600">+{customerCount}</p>
+                              <p className="text-xs text-gray-500">New</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-sm text-red-600">0</p>
+                              <p className="text-xs text-gray-500">Churned</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="font-medium text-blue-600">+{customerCount}</p>
+                              <p className="text-xs text-gray-500">Net Growth</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="font-medium text-gray-700">{formatCurrency(revenueAmount)}</p>
+                              <p className="text-xs text-gray-500">Revenue</p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="flex items-center space-x-4">
-                        <div className="text-center">
-                          <p className="text-sm text-green-600">+{data.customers}</p>
-                          <p className="text-xs text-gray-500">New</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-sm text-red-600">—</p>
-                          <p className="text-xs text-gray-500">Churned</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="font-medium text-blue-600">+{data.customers}</p>
-                          <p className="text-xs text-gray-500">Net Growth</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Calendar className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <p className="font-medium">No customer growth data yet</p>
+                  <p className="text-sm mt-1">Data will appear once customers are added within the selected period</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -551,8 +692,25 @@ export function Analytics() {
                 <UserCheck className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{acquisitionCount}</div>
-                <p className="text-xs text-muted-foreground">New customers in period</p>
+                <div className="text-2xl font-bold">
+                  {customerAnalytics?.acquisition?.current ?? acquisitionCount}
+                </div>
+                <div className="flex items-center space-x-1 text-xs mt-1">
+                  {customerAnalytics?.acquisition?.growth !== undefined && customerAnalytics.acquisition.growth > 0 ? (
+                    <>
+                      <ArrowUpRight className="h-3 w-3 text-green-600" />
+                      <span className="text-green-600">+{Math.round(customerAnalytics.acquisition.growth)}%</span>
+                    </>
+                  ) : customerAnalytics?.acquisition?.growth !== undefined && customerAnalytics.acquisition.growth < 0 ? (
+                    <>
+                      <ArrowDownRight className="h-3 w-3 text-red-600" />
+                      <span className="text-red-600">{Math.round(customerAnalytics.acquisition.growth)}%</span>
+                    </>
+                  ) : (
+                    <span className="text-gray-600">—</span>
+                  )}
+                  <span className="text-muted-foreground">vs previous period</span>
+                </div>
               </CardContent>
             </Card>
 
@@ -562,8 +720,16 @@ export function Analytics() {
                 <UserX className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{customerChurn.rate !== null ? `${customerChurn.rate}%` : '—'}</div>
-                <p className="text-xs text-muted-foreground">MRR churn: {mrrChurn.rate !== null ? `${mrrChurn.rate}%` : '—'}</p>
+                <div className="text-2xl font-bold">
+                  {customerAnalytics?.churn?.customerChurnRate !== undefined
+                    ? `${customerAnalytics.churn.customerChurnRate}%`
+                    : customerChurn.rate !== null ? `${customerChurn.rate}%` : '—'}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  MRR churn: {customerAnalytics?.churn?.mrrChurnRate !== undefined
+                    ? `${customerAnalytics.churn.mrrChurnRate}%`
+                    : mrrChurn.rate !== null ? `${mrrChurn.rate}%` : '—'}
+                </p>
               </CardContent>
             </Card>
 
@@ -573,7 +739,11 @@ export function Analytics() {
                 <Target className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{arpu !== null ? formatCurrency(arpu) : '—'}</div>
+                <div className="text-2xl font-bold">
+                  {customerAnalytics?.arpu !== undefined
+                    ? formatCurrency(customerAnalytics.arpu)
+                    : arpu !== null ? formatCurrency(arpu) : '—'}
+                </div>
                 <p className="text-xs text-muted-foreground">Avg revenue per active customer</p>
               </CardContent>
             </Card>
@@ -583,35 +753,146 @@ export function Analytics() {
           <Card>
             <CardHeader>
               <CardTitle>Customer Growth Analysis</CardTitle>
-              <CardDescription>Monthly customer acquisition and retention trends</CardDescription>
+              <CardDescription>Daily customer acquisition and retention trends</CardDescription>
+              <div className="flex items-center gap-3 pt-2">
+                <Label htmlFor="growth-range" className="text-xs text-gray-600">Range</Label>
+                <Select value={growthRange} onValueChange={(v) => setGrowthRange(v)}>
+                  <SelectTrigger id="growth-range" className="h-8 w-[140px]">
+                    <SelectValue placeholder="Select range" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="7d">Last 7 days</SelectItem>
+                    <SelectItem value="30d">Last 30 days</SelectItem>
+                    <SelectItem value="90d">Last 90 days</SelectItem>
+                    <SelectItem value="1y">Last 1 year</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {dailyStats.map((data: any, index: number) => (
-                  <div key={index} className="grid grid-cols-5 gap-4 p-3 border rounded-lg">
-                    <div className="text-center">
-                      <p className="font-medium">{new Date(data.date).toLocaleDateString()}</p>
-                      <p className="text-sm text-gray-600">Daily</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-lg font-bold text-green-600">+{data.customers}</p>
-                      <p className="text-xs text-gray-500">New Customers</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-lg font-bold text-red-600">—</p>
-                      <p className="text-xs text-gray-500">Churned</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-lg font-bold text-blue-600">+{data.customers}</p>
-                      <p className="text-xs text-gray-500">Net Growth</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-lg font-bold">{totalCustomers}</p>
-                      <p className="text-xs text-gray-500">Total</p>
-                    </div>
+              {customerAnalytics?.dailyGrowth && customerAnalytics.dailyGrowth.length > 0 ? (
+                <div className="space-y-4">
+                  {(() => {
+                    const total = customerAnalytics.dailyGrowth?.length || 0;
+                    const totalPages = Math.max(1, Math.ceil(total / growthPageSize));
+                    const currentPage = Math.min(growthPage, totalPages);
+                    const startIdx = (currentPage - 1) * growthPageSize;
+                    const endIdx = startIdx + growthPageSize;
+                    return customerAnalytics.dailyGrowth.slice(startIdx, endIdx).map((data: any, index: number) => (
+                      <div key={index} className="grid grid-cols-5 gap-4 p-3 border rounded-lg">
+                        <div className="text-center">
+                          <p className="font-medium">{new Date(data.date).toLocaleDateString()}</p>
+                          <p className="text-sm text-gray-600">Daily</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-lg font-bold text-green-600">+{data.newCustomers}</p>
+                          <p className="text-xs text-gray-500">New Customers</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-lg font-bold text-red-600">{data.churned > 0 ? `-${data.churned}` : '—'}</p>
+                          <p className="text-xs text-gray-500">Churned</p>
+                        </div>
+                        <div className="text-center">
+                          <p className={`text-lg font-bold ${data.netGrowth >= 0 ? 'text-blue-600' : 'text-red-600'}`}>{data.netGrowth >= 0 ? '+' : ''}{data.netGrowth}</p>
+                          <p className="text-xs text-gray-500">Net Growth</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-lg font-bold">{data.total}</p>
+                          <p className="text-xs text-gray-500">Total</p>
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                  <div className="flex items-center justify-between pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setGrowthPage((p) => Math.max(1, p - 1))}
+                      disabled={growthPage <= 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-xs text-gray-600">
+                      Page {Math.min(growthPage, Math.max(1, Math.ceil((customerAnalytics.dailyGrowth?.length || 0) / growthPageSize)))} of {Math.max(1, Math.ceil((customerAnalytics.dailyGrowth?.length || 0) / growthPageSize))}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const totalPages = Math.max(1, Math.ceil((customerAnalytics.dailyGrowth?.length || 0) / growthPageSize));
+                        setGrowthPage((p) => Math.min(totalPages, p + 1));
+                      }}
+                      disabled={growthPage >= Math.max(1, Math.ceil((customerAnalytics.dailyGrowth?.length || 0) / growthPageSize))}
+                    >
+                      Next
+                    </Button>
                   </div>
-                ))}
-              </div>
+                </div>
+              ) : dailyStats.length > 0 ? (
+                <div className="space-y-4">
+                  {(() => {
+                    const total = dailyStats?.length || 0;
+                    const totalPages = Math.max(1, Math.ceil(total / growthPageSize));
+                    const currentPage = Math.min(growthPage, totalPages);
+                    const startIdx = (currentPage - 1) * growthPageSize;
+                    const endIdx = startIdx + growthPageSize;
+                    return dailyStats.slice(startIdx, endIdx).map((data: any, index: number) => (
+                      <div key={index} className="grid grid-cols-5 gap-4 p-3 border rounded-lg">
+                        <div className="text-center">
+                          <p className="font-medium">{new Date(data.date).toLocaleDateString()}</p>
+                          <p className="text-sm text-gray-600">Daily</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-lg font-bold text-green-600">+{data.customers}</p>
+                          <p className="text-xs text-gray-500">New Customers</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-lg font-bold text-red-600">—</p>
+                          <p className="text-xs text-gray-500">Churned</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-lg font-bold text-blue-600">+{data.customers}</p>
+                          <p className="text-xs text-gray-500">Net Growth</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-lg font-bold">{totalCustomers}</p>
+                          <p className="text-xs text-gray-500">Total</p>
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                  <div className="flex items-center justify-between pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setGrowthPage((p) => Math.max(1, p - 1))}
+                      disabled={growthPage <= 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-xs text-gray-600">
+                      Page {Math.min(growthPage, Math.max(1, Math.ceil((dailyStats?.length || 0) / growthPageSize)))} of {Math.max(1, Math.ceil((dailyStats?.length || 0) / growthPageSize))}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const totalPages = Math.max(1, Math.ceil((dailyStats?.length || 0) / growthPageSize));
+                        setGrowthPage((p) => Math.min(totalPages, p + 1));
+                      }}
+                      disabled={growthPage >= Math.max(1, Math.ceil((dailyStats?.length || 0) / growthPageSize))}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Calendar className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <p className="font-medium">No customer growth data yet</p>
+                  <p className="text-sm mt-1">Data will appear once customers are added within the selected period</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -622,40 +903,48 @@ export function Analytics() {
               <CardDescription>Highest value customers and their performance</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Company</TableHead>
-                    <TableHead>Plan</TableHead>
-                    <TableHead>Monthly Revenue</TableHead>
-                    <TableHead>Properties</TableHead>
-                    <TableHead>Growth</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {topCustomersByRevenue.map((customer, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="font-medium">{customer.company}</TableCell>
-                      <TableCell>
-                        <Badge variant={
-                          customer.plan === 'Enterprise' ? 'default' :
-                          customer.plan === 'Professional' ? 'secondary' : 'outline'
-                        }>
-                          {customer.plan}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{formatCurrency(customer.revenue)}</TableCell>
-                      <TableCell>{customer.properties}</TableCell>
-                      <TableCell>
-                        <div className={`flex items-center space-x-1 ${getGrowthColor(customer.growth)}`}>
-                          {getGrowthIcon(customer.growth)}
-                          <span>{customer.growth > 0 ? '+' : ''}{customer.growth}%</span>
-                        </div>
-                      </TableCell>
+              {(customerAnalytics?.topCustomers && customerAnalytics.topCustomers.length > 0) || topCustomersByRevenue.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Company</TableHead>
+                      <TableHead>Plan</TableHead>
+                      <TableHead>Monthly Revenue</TableHead>
+                      <TableHead>Properties</TableHead>
+                      <TableHead>Growth</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {(customerAnalytics?.topCustomers || topCustomersByRevenue).map((customer: any, index: number) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium">{customer.company}</TableCell>
+                        <TableCell>
+                          <Badge variant={
+                            customer.plan?.toLowerCase().includes('enterprise') ? 'default' :
+                            customer.plan?.toLowerCase().includes('professional') ? 'secondary' : 'outline'
+                          }>
+                            {customer.plan}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{formatCurrency(customer.mrr || customer.revenue || 0)}</TableCell>
+                        <TableCell>{customer.properties}</TableCell>
+                        <TableCell>
+                          <div className={`flex items-center space-x-1 ${getGrowthColor(customer.growth)}`}>
+                            {getGrowthIcon(customer.growth)}
+                            <span>{customer.growth > 0 ? '+' : ''}{customer.growth}%</span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Users className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <p className="font-medium">No customer revenue data yet</p>
+                  <p className="text-sm mt-1">Top customers will appear once revenue data is available</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -781,7 +1070,7 @@ export function Analytics() {
                   </div>
                   <span className="font-medium">{arpu !== null ? formatCurrency(arpu) : '—'}</span>
                 </div>
-                
+
                 <div className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center space-x-2">
                     <TrendingUp className="h-4 w-4 text-green-600" />
@@ -789,7 +1078,7 @@ export function Analytics() {
                   </div>
                   <span className="font-medium">{ltv !== null ? formatCurrency(ltv) : '—'}</span>
                 </div>
-                
+
                 <div className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center space-x-2">
                     <TrendingDown className="h-4 w-4 text-red-600" />
@@ -797,7 +1086,7 @@ export function Analytics() {
                   </div>
                   <span className="font-medium">{mrrChurn.rate !== null ? `${mrrChurn.rate}%` : '—'}</span>
                 </div>
-                
+
                 <div className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center space-x-2">
                     <BarChart3 className="h-4 w-4 text-purple-600" />
@@ -890,7 +1179,7 @@ export function Analytics() {
                     </div>
                     <Progress value={0} className="h-2" />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <div className="flex items-center space-x-2">
@@ -918,7 +1207,7 @@ export function Analytics() {
                   </div>
                   <span className="font-medium">—</span>
                 </div>
-                
+
                 <div className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center space-x-2">
                     <Activity className="h-4 w-4 text-green-600" />
@@ -926,7 +1215,7 @@ export function Analytics() {
                   </div>
                   <span className="font-medium">—</span>
                 </div>
-                
+
                 <div className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center space-x-2">
                     <Clock className="h-4 w-4 text-purple-600" />
@@ -934,7 +1223,7 @@ export function Analytics() {
                   </div>
                   <span className="font-medium">—</span>
                 </div>
-                
+
                 <div className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center space-x-2">
                     <TrendingDown className="h-4 w-4 text-red-600" />
@@ -1011,7 +1300,7 @@ export function Analytics() {
                     </div>
                   <span className="font-medium">—</span>
                   </div>
-                  
+
                   <div className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center space-x-2">
                       <Clock className="h-4 w-4 text-yellow-600" />
@@ -1019,7 +1308,7 @@ export function Analytics() {
                     </div>
                   <span className="font-medium">—</span>
                   </div>
-                  
+
                   <div className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center space-x-2">
                       <CheckCircle className="h-4 w-4 text-green-600" />
@@ -1028,20 +1317,20 @@ export function Analytics() {
                   <span className="font-medium">—</span>
                   </div>
                 </div>
-                
+
                 <div className="space-y-4">
                   <div className="text-center p-4 border rounded-lg">
                     <h3 className="font-medium text-gray-600">Avg Resolution Time</h3>
                     <p className="text-2xl font-bold text-blue-600">—</p>
                     <p className="text-sm text-gray-500">—</p>
                   </div>
-                  
+
                   <div className="text-center p-4 border rounded-lg">
                     <h3 className="font-medium text-gray-600">Customer Satisfaction</h3>
                     <p className="text-2xl font-bold text-green-600">—</p>
                     <p className="text-sm text-gray-500">—</p>
                   </div>
-                  
+
                   <div className="text-center p-4 border rounded-lg">
                     <h3 className="font-medium text-gray-600">NPS Score</h3>
                     <p className="text-2xl font-bold text-purple-600">—</p>
@@ -1067,7 +1356,7 @@ export function Analytics() {
                   </div>
                   <Progress value={99.9} className="h-2" />
                 </div>
-                
+
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span>Page Load Performance</span>
@@ -1075,7 +1364,7 @@ export function Analytics() {
                   </div>
                   <Progress value={92} className="h-2" />
                 </div>
-                
+
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span>API Response Time</span>
@@ -1083,7 +1372,7 @@ export function Analytics() {
                   </div>
                   <Progress value={95} className="h-2" />
                 </div>
-                
+
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span>Error Rate (Inverted)</span>
@@ -1107,7 +1396,7 @@ export function Analytics() {
                   </div>
                   <span className="font-medium">99.2%</span>
                 </div>
-                
+
                 <div className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center space-x-2">
                     <Activity className="h-4 w-4 text-blue-600" />
@@ -1115,7 +1404,7 @@ export function Analytics() {
                   </div>
                   <span className="font-medium">99.8%</span>
                 </div>
-                
+
                 <div className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center space-x-2">
                     <Zap className="h-4 w-4 text-yellow-600" />
@@ -1123,7 +1412,7 @@ export function Analytics() {
                   </div>
                   <span className="font-medium">98.5%</span>
                 </div>
-                
+
                   <div className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center space-x-2">
                       <CheckCircle className="h-4 w-4 text-purple-600" />
@@ -1324,12 +1613,12 @@ export function Analytics() {
                   <FileText className="h-6 w-6 mb-2" />
                   <span>Export to PDF</span>
                 </Button>
-                
+
                 <Button variant="outline" className="h-16 flex-col">
                   <BarChart className="h-6 w-6 mb-2" />
                   <span>Export to Excel</span>
                 </Button>
-                
+
                 <Button variant="outline" className="h-16 flex-col">
                   <Download className="h-6 w-6 mb-2" />
                   <span>Export to CSV</span>
