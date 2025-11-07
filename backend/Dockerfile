@@ -29,6 +29,9 @@ COPY src ./src
 # Build JavaScript with SWC (no type checking during build)
 RUN npx swc src -d dist --copy-files
 
+# Prune dev dependencies to reduce image size
+RUN npm prune --omit=dev
+
 # Production stage
 FROM node:18-slim
 
@@ -39,19 +42,10 @@ RUN apt-get update -y && apt-get install -y openssl ca-certificates && \
     update-ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy package files
-COPY package*.json ./
+## Copy pre-built node_modules from builder (already pruned to production)
+COPY --from=builder /app/node_modules ./node_modules
 
-# Copy Prisma schema
-COPY prisma ./prisma
-
-# Set environment variable to skip Prisma binary download during install
-ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
-
-# Install production dependencies
-RUN npm ci --only=production
-
-# Copy pre-generated Prisma client from builder
+# Ensure Prisma client binaries are present
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
