@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { authMiddleware, adminOnly, AuthRequest } from '../middleware/auth';
 import prisma from '../lib/db';
 import { emitToAdmins, forceUserReauth } from '../lib/socket';
+import { v4 as uuidv4 } from 'uuid';
 
 const router = express.Router();
 
@@ -111,7 +112,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       let filteredUsers = allUsers;
       if (search) {
         const searchLower = (search as string).toLowerCase();
-        filteredUsers = allUsers.filter(user => 
+        filteredUsers = allUsers.filter(user =>
           user.name.toLowerCase().includes(searchLower) ||
           user.email.toLowerCase().includes(searchLower) ||
           (user.department && user.department.toLowerCase().includes(searchLower)) ||
@@ -210,6 +211,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     try {
       user = await prisma.users.create({
         data: {
+        id: uuidv4(),
         customerId: null, // INTERNAL ADMIN USER - not associated with any customer
         name,
         email,
@@ -312,7 +314,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       } else if (permissionsChanged) {
         reason = 'Your permissions have been updated';
       }
-      
+
       // Force user to re-authenticate
       forceUserReauth(id, reason);
       console.log(`🔐 Forcing re-auth for user ${user.email} - ${reason}`);
@@ -351,7 +353,7 @@ router.post('/:id/reset-password', async (req: AuthRequest, res: Response) => {
 
     // Generate a new temporary password
     const tempPassword = Math.random().toString(36).slice(-10) + Math.random().toString(36).slice(-10).toUpperCase();
-    
+
     // Hash the password
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
