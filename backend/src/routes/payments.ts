@@ -417,7 +417,7 @@ router.post('/subscription/initialize', async (req: AuthRequest, res: Response) 
       })
     } as any);
 
-    const json = await resp.json();
+    const json = await resp.json() as any;
     if (!resp.ok || !json?.status) {
       console.error('Paystack init (subscription) error:', json);
       return res.status(400).json({ error: json?.message || 'Failed to initialize subscription payment' });
@@ -470,7 +470,7 @@ router.get('/verify/:reference', async (req: AuthRequest, res: Response) => {
     const resp = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
       headers: { Authorization: `Bearer ${secretKey}` },
     } as any);
-    const json = await resp.json().catch(() => ({}));
+    const json = await resp.json().catch(() => ({})) as any;
     if (!resp.ok || !json?.status) {
       return res.status(400).json({ error: json?.message || 'Verification failed' });
     }
