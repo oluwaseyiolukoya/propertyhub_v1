@@ -8,7 +8,8 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  ECR_REPOSITORY: ph-dev-backend
+  # Must match Terraform ECR repository name
+  ECR_REPOSITORY: ph-backend-dev
   ECS_CLUSTER: ph-dev-cluster
   ECS_SERVICE: ph-dev-api
   CONTAINER_NAME: api
