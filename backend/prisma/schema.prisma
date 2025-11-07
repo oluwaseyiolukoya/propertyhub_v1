@@ -565,7 +565,7 @@ model users {
   permissions                                                                   Json?
   avatar                                                                        String?
   createdAt                                                                     DateTime                    @default(now())
-  updatedAt                                                                     DateTime
+  updatedAt                                                                     DateTime                    @updatedAt
   activity_logs                                                                 activity_logs[]
   customer_users                                                                customer_users[]
   documents_documents_managerIdTousers                                          documents[]                 @relation("documents_managerIdTousers")
