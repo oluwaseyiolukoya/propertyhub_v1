@@ -2,6 +2,51 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+  /* Custom animations for landing page */
+  @keyframes gradient {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+
+  .animate-gradient {
+    animation: gradient 8s ease infinite;
+  }
+
+  .delay-200 {
+    animation-delay: 200ms;
+  }
+
+  .delay-300 {
+    animation-delay: 300ms;
+  }
+
+  .delay-500 {
+    animation-delay: 500ms;
+  }
+
+  .delay-700 {
+    animation-delay: 700ms;
+  }
+
+  /* Smooth scroll behavior */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Custom shadow for elevated cards */
+  .shadow-3xl {
+    box-shadow: 0 35px 60px -15px rgba(0, 0, 0, 0.3);
+  }
+}
+
 /* Ensure Paystack inline overlay is clickable and above any app modal overlays */
 .paystack-overlay, .paystack-checkout, .paystack-popup, .paystack-modal {
   z-index: 999999 !important;

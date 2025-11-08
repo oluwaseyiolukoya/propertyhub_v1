@@ -1,5 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { LandingPage } from './components/LandingPage';
+import { GetStartedPage } from './components/GetStartedPage';
+import { AccountUnderReviewPage } from './components/AccountUnderReviewPage';
+import { APIDocumentation } from './components/APIDocumentation';
+import { IntegrationsPage } from './components/IntegrationsPage';
+import { AboutPage } from './components/AboutPage';
+import { ContactPage } from './components/ContactPage';
+import { ScheduleDemoPage } from './components/ScheduleDemoPage';
+import { BlogPage } from './components/BlogPage';
+import { CareersPage } from './components/CareersPage';
+import { HelpCenterPage } from './components/HelpCenterPage';
+import { CommunityPage } from './components/CommunityPage';
+import { NewDiscussionPage } from './components/NewDiscussionPage';
+import { StatusPage } from './components/StatusPage';
+import { SecurityPage } from './components/SecurityPage';
 import { LoginPage } from './components/LoginPage';
 import { PropertyOwnerDashboard } from './components/PropertyOwnerDashboard';
 import { SuperAdminDashboard } from './components/SuperAdminDashboard';
@@ -27,6 +41,21 @@ function App() {
   const [userType, setUserType] = useState<string>('');
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [showLanding, setShowLanding] = useState(true);
+  const [showGetStarted, setShowGetStarted] = useState(false);
+  const [showAccountReview, setShowAccountReview] = useState(false);
+  const [showAPIDocumentation, setShowAPIDocumentation] = useState(false);
+  const [showIntegrations, setShowIntegrations] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
+  const [showContact, setShowContact] = useState(false);
+  const [showScheduleDemo, setShowScheduleDemo] = useState(false);
+  const [showBlog, setShowBlog] = useState(false);
+  const [showCareers, setShowCareers] = useState(false);
+  const [showHelpCenter, setShowHelpCenter] = useState(false);
+  const [showCommunity, setShowCommunity] = useState(false);
+  const [showNewDiscussion, setShowNewDiscussion] = useState(false);
+  const [showStatus, setShowStatus] = useState(false);
+  const [showSecurity, setShowSecurity] = useState(false);
+  const [signupData, setSignupData] = useState<{ role: string; email: string; name: string } | null>(null);
 
   // Managers and assignments loaded from backend
   const [managers, setManagers] = useState<any[]>([]);
@@ -193,13 +222,308 @@ function App() {
 
   const handleBackToHome = () => {
     // Navigate to landing page
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     setCurrentUser(null);
     setUserType('');
     setShowLanding(true);
+    setShowGetStarted(false);
+    setShowAccountReview(false);
+    setShowAPIDocumentation(false);
+    setShowIntegrations(false);
+    setShowAbout(false);
+    setShowContact(false);
+    setShowScheduleDemo(false);
+    setShowBlog(false);
+    setShowCareers(false);
+    setShowHelpCenter(false);
+    setShowCommunity(false);
+    setShowNewDiscussion(false);
+    setShowStatus(false);
+    setShowSecurity(false);
+    setSignupData(null);
   };
 
   const handleNavigateToLogin = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     setShowLanding(false);
+    setShowGetStarted(false);
+    setShowAccountReview(false);
+    setShowAPIDocumentation(false);
+    setShowIntegrations(false);
+    setShowAbout(false);
+    setShowContact(false);
+    setShowScheduleDemo(false);
+    setShowBlog(false);
+    setShowCareers(false);
+    setShowHelpCenter(false);
+    setShowCommunity(false);
+    setShowNewDiscussion(false);
+    setShowStatus(false);
+    setShowSecurity(false);
+  };
+
+  const handleNavigateToGetStarted = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setShowLanding(false);
+    setShowGetStarted(true);
+    setShowAccountReview(false);
+    setShowAPIDocumentation(false);
+    setShowIntegrations(false);
+    setShowAbout(false);
+    setShowContact(false);
+    setShowScheduleDemo(false);
+    setShowBlog(false);
+    setShowCareers(false);
+    setShowHelpCenter(false);
+    setShowCommunity(false);
+    setShowNewDiscussion(false);
+    setShowStatus(false);
+    setShowSecurity(false);
+  };
+
+  const handleNavigateToAPIDocumentation = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setShowLanding(false);
+    setShowGetStarted(false);
+    setShowAccountReview(false);
+    setShowAPIDocumentation(true);
+    setShowIntegrations(false);
+    setShowAbout(false);
+    setShowContact(false);
+    setShowScheduleDemo(false);
+    setShowBlog(false);
+    setShowCareers(false);
+    setShowHelpCenter(false);
+    setShowCommunity(false);
+    setShowNewDiscussion(false);
+    setShowStatus(false);
+    setShowSecurity(false);
+  };
+
+  const handleNavigateToIntegrations = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setShowLanding(false);
+    setShowGetStarted(false);
+    setShowAccountReview(false);
+    setShowAPIDocumentation(false);
+    setShowIntegrations(true);
+    setShowAbout(false);
+    setShowContact(false);
+    setShowScheduleDemo(false);
+    setShowBlog(false);
+    setShowCareers(false);
+    setShowHelpCenter(false);
+    setShowCommunity(false);
+    setShowNewDiscussion(false);
+    setShowStatus(false);
+    setShowSecurity(false);
+  };
+
+  const handleNavigateToAbout = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setShowLanding(false);
+    setShowGetStarted(false);
+    setShowAccountReview(false);
+    setShowAPIDocumentation(false);
+    setShowIntegrations(false);
+    setShowAbout(true);
+    setShowContact(false);
+    setShowScheduleDemo(false);
+    setShowBlog(false);
+    setShowCareers(false);
+    setShowHelpCenter(false);
+    setShowCommunity(false);
+    setShowNewDiscussion(false);
+    setShowStatus(false);
+    setShowSecurity(false);
+  };
+
+  const handleNavigateToContact = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setShowLanding(false);
+    setShowGetStarted(false);
+    setShowAccountReview(false);
+    setShowAPIDocumentation(false);
+    setShowIntegrations(false);
+    setShowAbout(false);
+    setShowContact(true);
+    setShowScheduleDemo(false);
+    setShowBlog(false);
+    setShowCareers(false);
+    setShowHelpCenter(false);
+    setShowCommunity(false);
+    setShowNewDiscussion(false);
+    setShowStatus(false);
+    setShowSecurity(false);
+  };
+
+  const handleNavigateToScheduleDemo = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setShowLanding(false);
+    setShowGetStarted(false);
+    setShowAccountReview(false);
+    setShowAPIDocumentation(false);
+    setShowIntegrations(false);
+    setShowAbout(false);
+    setShowContact(false);
+    setShowScheduleDemo(true);
+    setShowBlog(false);
+    setShowCareers(false);
+    setShowHelpCenter(false);
+    setShowCommunity(false);
+    setShowNewDiscussion(false);
+    setShowStatus(false);
+    setShowSecurity(false);
+  };
+
+  const handleNavigateToBlog = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setShowLanding(false);
+    setShowGetStarted(false);
+    setShowAccountReview(false);
+    setShowAPIDocumentation(false);
+    setShowIntegrations(false);
+    setShowAbout(false);
+    setShowContact(false);
+    setShowScheduleDemo(false);
+    setShowBlog(true);
+    setShowCareers(false);
+    setShowHelpCenter(false);
+    setShowCommunity(false);
+    setShowNewDiscussion(false);
+    setShowStatus(false);
+    setShowSecurity(false);
+  };
+
+  const handleNavigateToCareers = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setShowLanding(false);
+    setShowGetStarted(false);
+    setShowAccountReview(false);
+    setShowAPIDocumentation(false);
+    setShowIntegrations(false);
+    setShowAbout(false);
+    setShowContact(false);
+    setShowScheduleDemo(false);
+    setShowBlog(false);
+    setShowCareers(true);
+    setShowHelpCenter(false);
+    setShowCommunity(false);
+    setShowNewDiscussion(false);
+    setShowStatus(false);
+    setShowSecurity(false);
+  };
+
+  const handleNavigateToHelpCenter = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setShowLanding(false);
+    setShowGetStarted(false);
+    setShowAccountReview(false);
+    setShowAPIDocumentation(false);
+    setShowIntegrations(false);
+    setShowAbout(false);
+    setShowContact(false);
+    setShowScheduleDemo(false);
+    setShowBlog(false);
+    setShowCareers(false);
+    setShowHelpCenter(true);
+    setShowCommunity(false);
+    setShowNewDiscussion(false);
+    setShowStatus(false);
+    setShowSecurity(false);
+  };
+
+  const handleNavigateToCommunity = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setShowLanding(false);
+    setShowGetStarted(false);
+    setShowAccountReview(false);
+    setShowAPIDocumentation(false);
+    setShowIntegrations(false);
+    setShowAbout(false);
+    setShowContact(false);
+    setShowScheduleDemo(false);
+    setShowBlog(false);
+    setShowCareers(false);
+    setShowHelpCenter(false);
+    setShowCommunity(true);
+    setShowNewDiscussion(false);
+    setShowStatus(false);
+    setShowSecurity(false);
+  };
+
+  const handleNavigateToNewDiscussion = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setShowLanding(false);
+    setShowGetStarted(false);
+    setShowAccountReview(false);
+    setShowAPIDocumentation(false);
+    setShowIntegrations(false);
+    setShowAbout(false);
+    setShowContact(false);
+    setShowScheduleDemo(false);
+    setShowBlog(false);
+    setShowCareers(false);
+    setShowHelpCenter(false);
+    setShowCommunity(false);
+    setShowNewDiscussion(true);
+    setShowStatus(false);
+    setShowSecurity(false);
+  };
+
+  const handleNavigateToStatus = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setShowLanding(false);
+    setShowGetStarted(false);
+    setShowAccountReview(false);
+    setShowAPIDocumentation(false);
+    setShowIntegrations(false);
+    setShowAbout(false);
+    setShowContact(false);
+    setShowScheduleDemo(false);
+    setShowBlog(false);
+    setShowCareers(false);
+    setShowHelpCenter(false);
+    setShowCommunity(false);
+    setShowStatus(true);
+    setShowSecurity(false);
+  };
+
+  const handleNavigateToSecurity = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setShowLanding(false);
+    setShowGetStarted(false);
+    setShowAccountReview(false);
+    setShowAPIDocumentation(false);
+    setShowIntegrations(false);
+    setShowAbout(false);
+    setShowContact(false);
+    setShowScheduleDemo(false);
+    setShowBlog(false);
+    setShowCareers(false);
+    setShowHelpCenter(false);
+    setShowCommunity(false);
+    setShowStatus(false);
+    setShowSecurity(true);
+  };
+
+  const handleSignupComplete = (role: string, email: string, name: string) => {
+    setSignupData({ role, email, name });
+    setShowLanding(false);
+    setShowGetStarted(false);
+    setShowAccountReview(true);
+    setShowAPIDocumentation(false);
+    setShowIntegrations(false);
+    setShowAbout(false);
+    setShowContact(false);
+    setShowScheduleDemo(false);
+    setShowBlog(false);
+    setShowCareers(false);
+    setShowHelpCenter(false);
+    setShowCommunity(false);
+    setShowNewDiscussion(false);
+    setShowStatus(false);
+    setShowSecurity(false);
   };
 
   // Global active-session validation on any user interaction
@@ -303,18 +627,310 @@ function App() {
     );
   }
 
-  // Show landing page if no user and showLanding is true
-  if (!currentUser && showLanding) {
+  // Show API Documentation if requested
+  if (!currentUser && showAPIDocumentation) {
     return (
       <>
-        <LandingPage onNavigateToLogin={handleNavigateToLogin} />
+        <APIDocumentation
+          onBackToHome={handleBackToHome}
+          onNavigateToStatus={handleNavigateToStatus}
+        />
+        <Toaster />
+      </>
+    );
+  }
+
+  // Show Integrations page if requested
+  if (!currentUser && showIntegrations) {
+    return (
+      <>
+        <IntegrationsPage
+          onBackToHome={handleBackToHome}
+          onNavigateToHelpCenter={handleNavigateToHelpCenter}
+          onNavigateToCommunity={handleNavigateToCommunity}
+          onNavigateToStatus={handleNavigateToStatus}
+          onNavigateToSecurity={handleNavigateToSecurity}
+        />
+        <Toaster />
+      </>
+    );
+  }
+
+  // Show About page if requested
+  if (!currentUser && showAbout) {
+    return (
+      <>
+        <AboutPage
+          onBackToHome={handleBackToHome}
+          onNavigateToContact={handleNavigateToContact}
+          onNavigateToScheduleDemo={handleNavigateToScheduleDemo}
+          onNavigateToCareers={handleNavigateToCareers}
+        />
+        <Toaster />
+      </>
+    );
+  }
+
+  // Show Contact page if requested
+  if (!currentUser && showContact) {
+    return (
+      <>
+        <ContactPage
+          onBackToHome={handleBackToHome}
+          onNavigateToLogin={handleNavigateToLogin}
+          onNavigateToGetStarted={handleNavigateToGetStarted}
+          onNavigateToAbout={handleNavigateToAbout}
+          onNavigateToBlog={handleNavigateToBlog}
+          onNavigateToContact={handleNavigateToContact}
+          onNavigateToScheduleDemo={handleNavigateToScheduleDemo}
+          onNavigateToAPIDocumentation={handleNavigateToAPIDocumentation}
+          onNavigateToIntegrations={handleNavigateToIntegrations}
+          onNavigateToCareers={handleNavigateToCareers}
+          onNavigateToHelpCenter={handleNavigateToHelpCenter}
+          onNavigateToCommunity={handleNavigateToCommunity}
+          onNavigateToStatus={handleNavigateToStatus}
+          onNavigateToSecurity={handleNavigateToSecurity}
+        />
+        <Toaster />
+      </>
+    );
+  }
+
+  // Show Schedule Demo page if requested
+  if (!currentUser && showScheduleDemo) {
+    return (
+      <>
+        <ScheduleDemoPage
+          onBackToHome={handleBackToHome}
+          onNavigateToContact={handleNavigateToContact}
+          onNavigateToCareers={handleNavigateToCareers}
+          onNavigateToHelpCenter={handleNavigateToHelpCenter}
+          onNavigateToCommunity={handleNavigateToCommunity}
+          onNavigateToStatus={handleNavigateToStatus}
+          onNavigateToSecurity={handleNavigateToSecurity}
+        />
+        <Toaster />
+      </>
+    );
+  }
+
+  // Show Blog page if requested
+  if (!currentUser && showBlog) {
+    return (
+      <>
+        <BlogPage
+          onBackToHome={handleBackToHome}
+          onNavigateToCareers={handleNavigateToCareers}
+          onNavigateToHelpCenter={handleNavigateToHelpCenter}
+          onNavigateToCommunity={handleNavigateToCommunity}
+          onNavigateToStatus={handleNavigateToStatus}
+          onNavigateToSecurity={handleNavigateToSecurity}
+        />
+        <Toaster />
+      </>
+    );
+  }
+
+  // Show Careers page if requested
+  if (!currentUser && showCareers) {
+    return (
+      <>
+        <CareersPage
+          onBackToHome={handleBackToHome}
+          onNavigateToLogin={handleNavigateToLogin}
+          onNavigateToGetStarted={handleNavigateToGetStarted}
+          onNavigateToAbout={handleNavigateToAbout}
+          onNavigateToBlog={handleNavigateToBlog}
+          onNavigateToContact={handleNavigateToContact}
+          onNavigateToScheduleDemo={handleNavigateToScheduleDemo}
+          onNavigateToAPIDocumentation={handleNavigateToAPIDocumentation}
+          onNavigateToIntegrations={handleNavigateToIntegrations}
+          onNavigateToHelpCenter={handleNavigateToHelpCenter}
+        />
+        <Toaster />
+      </>
+    );
+  }
+
+  // Show Help Center page if requested
+  if (!currentUser && showHelpCenter) {
+    return (
+      <>
+        <HelpCenterPage
+          onBackToHome={handleBackToHome}
+          onNavigateToLogin={handleNavigateToLogin}
+          onNavigateToGetStarted={handleNavigateToGetStarted}
+          onNavigateToAbout={handleNavigateToAbout}
+          onNavigateToBlog={handleNavigateToBlog}
+          onNavigateToContact={handleNavigateToContact}
+          onNavigateToScheduleDemo={handleNavigateToScheduleDemo}
+          onNavigateToAPIDocumentation={handleNavigateToAPIDocumentation}
+          onNavigateToIntegrations={handleNavigateToIntegrations}
+          onNavigateToCareers={handleNavigateToCareers}
+          onNavigateToHelpCenter={handleNavigateToHelpCenter}
+          onNavigateToCommunity={handleNavigateToCommunity}
+          onNavigateToStatus={handleNavigateToStatus}
+          onNavigateToSecurity={handleNavigateToSecurity}
+        />
+        <Toaster />
+      </>
+    );
+  }
+
+  // Show Community page if requested
+  if (!currentUser && showCommunity) {
+    return (
+      <>
+        <CommunityPage
+          onBackToHome={handleBackToHome}
+          onNavigateToLogin={handleNavigateToLogin}
+          onNavigateToGetStarted={handleNavigateToGetStarted}
+          onNavigateToAbout={handleNavigateToAbout}
+          onNavigateToBlog={handleNavigateToBlog}
+          onNavigateToContact={handleNavigateToContact}
+          onNavigateToScheduleDemo={handleNavigateToScheduleDemo}
+          onNavigateToAPIDocumentation={handleNavigateToAPIDocumentation}
+          onNavigateToIntegrations={handleNavigateToIntegrations}
+          onNavigateToCareers={handleNavigateToCareers}
+          onNavigateToHelpCenter={handleNavigateToHelpCenter}
+          onNavigateToCommunity={handleNavigateToCommunity}
+          onNavigateToStatus={handleNavigateToStatus}
+          onNavigateToSecurity={handleNavigateToSecurity}
+          onNavigateToNewDiscussion={handleNavigateToNewDiscussion}
+        />
+        <Toaster />
+      </>
+    );
+  }
+
+  // Show New Discussion page if requested
+  if (!currentUser && showNewDiscussion) {
+    return (
+      <>
+        <NewDiscussionPage
+          onBackToCommunity={handleNavigateToCommunity}
+          onNavigateToHome={handleBackToHome}
+          onNavigateToLogin={handleNavigateToLogin}
+          onNavigateToGetStarted={handleNavigateToGetStarted}
+          onNavigateToAbout={handleNavigateToAbout}
+          onNavigateToBlog={handleNavigateToBlog}
+          onNavigateToContact={handleNavigateToContact}
+          onNavigateToScheduleDemo={handleNavigateToScheduleDemo}
+          onNavigateToAPIDocumentation={handleNavigateToAPIDocumentation}
+          onNavigateToIntegrations={handleNavigateToIntegrations}
+          onNavigateToCareers={handleNavigateToCareers}
+          onNavigateToHelpCenter={handleNavigateToHelpCenter}
+        />
+        <Toaster />
+      </>
+    );
+  }
+
+  // Show Status page if requested
+  if (!currentUser && showStatus) {
+    return (
+      <>
+        <StatusPage
+          onBackToHome={handleBackToHome}
+          onNavigateToLogin={handleNavigateToLogin}
+          onNavigateToGetStarted={handleNavigateToGetStarted}
+          onNavigateToAbout={handleNavigateToAbout}
+          onNavigateToBlog={handleNavigateToBlog}
+          onNavigateToContact={handleNavigateToContact}
+          onNavigateToScheduleDemo={handleNavigateToScheduleDemo}
+          onNavigateToAPIDocumentation={handleNavigateToAPIDocumentation}
+          onNavigateToIntegrations={handleNavigateToIntegrations}
+          onNavigateToCareers={handleNavigateToCareers}
+          onNavigateToHelpCenter={handleNavigateToHelpCenter}
+          onNavigateToCommunity={handleNavigateToCommunity}
+          onNavigateToStatus={handleNavigateToStatus}
+          onNavigateToSecurity={handleNavigateToSecurity}
+        />
+        <Toaster />
+      </>
+    );
+  }
+
+  // Show Security page if requested
+  if (!currentUser && showSecurity) {
+    return (
+      <>
+        <SecurityPage
+          onBackToHome={handleBackToHome}
+          onNavigateToLogin={handleNavigateToLogin}
+          onNavigateToGetStarted={handleNavigateToGetStarted}
+          onNavigateToAbout={handleNavigateToAbout}
+          onNavigateToBlog={handleNavigateToBlog}
+          onNavigateToContact={handleNavigateToContact}
+          onNavigateToScheduleDemo={handleNavigateToScheduleDemo}
+          onNavigateToAPIDocumentation={handleNavigateToAPIDocumentation}
+          onNavigateToIntegrations={handleNavigateToIntegrations}
+          onNavigateToCareers={handleNavigateToCareers}
+          onNavigateToHelpCenter={handleNavigateToHelpCenter}
+          onNavigateToCommunity={handleNavigateToCommunity}
+          onNavigateToStatus={handleNavigateToStatus}
+          onNavigateToSecurity={handleNavigateToSecurity}
+        />
+        <Toaster />
+      </>
+    );
+  }
+
+  // Show landing page if no user and showLanding is true
+  if (!currentUser && showLanding && !showGetStarted) {
+    return (
+      <>
+        <LandingPage
+          onNavigateToLogin={handleNavigateToLogin}
+          onNavigateToGetStarted={handleNavigateToGetStarted}
+          onNavigateToAPIDocumentation={handleNavigateToAPIDocumentation}
+          onNavigateToIntegrations={handleNavigateToIntegrations}
+          onNavigateToAbout={handleNavigateToAbout}
+          onNavigateToContact={handleNavigateToContact}
+          onNavigateToScheduleDemo={handleNavigateToScheduleDemo}
+          onNavigateToBlog={handleNavigateToBlog}
+          onNavigateToCareers={handleNavigateToCareers}
+          onNavigateToHelpCenter={handleNavigateToHelpCenter}
+          onNavigateToCommunity={handleNavigateToCommunity}
+          onNavigateToStatus={handleNavigateToStatus}
+          onNavigateToSecurity={handleNavigateToSecurity}
+        />
+        <Toaster />
+      </>
+    );
+  }
+
+  // Show account under review page if signup completed
+  if (!currentUser && showAccountReview && signupData) {
+    return (
+      <>
+        <AccountUnderReviewPage
+          onBackToHome={handleBackToHome}
+          userRole={signupData.role as 'property-owner' | 'property-manager' | 'tenant'}
+          userEmail={signupData.email}
+          userName={signupData.name}
+        />
+        <Toaster />
+      </>
+    );
+  }
+
+  // Show get started page if no user and showGetStarted is true
+  if (!currentUser && showGetStarted) {
+    return (
+      <>
+        <GetStartedPage
+          onBackToHome={handleBackToHome}
+          onNavigateToLogin={handleNavigateToLogin}
+          onSignupComplete={handleSignupComplete}
+        />
         <Toaster />
       </>
     );
   }
 
   // Show login if no user but landing is dismissed
-  if (!currentUser && !showLanding) {
+  if (!currentUser && !showLanding && !showGetStarted && !showAccountReview && !showAPIDocumentation && !showIntegrations && !showAbout && !showContact && !showScheduleDemo && !showBlog && !showCareers && !showHelpCenter && !showCommunity && !showNewDiscussion && !showStatus && !showSecurity) {
     return (
       <>
         <LoginPage onLogin={handleLogin} onBackToHome={handleBackToHome} />
