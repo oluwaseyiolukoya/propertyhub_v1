@@ -74,7 +74,7 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <button
-              onClick={onNavigateToLogin}
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
               className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
             >
               <Building className="h-8 w-8 text-blue-600" />
