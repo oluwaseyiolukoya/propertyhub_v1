@@ -215,11 +215,14 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
       <header className="bg-white/80 backdrop-blur-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2">
+            <button
+              onClick={onBackToHome}
+              className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+            >
               <Building className="h-8 w-8 text-blue-600" />
               <h1 className="text-xl font-bold text-gray-900">Contrezz</h1>
               <Badge variant="secondary" className="ml-2">SaaS</Badge>
-            </div>
+            </button>
 
             <Button variant="ghost" onClick={onBackToHome} className="flex items-center space-x-2">
               <ArrowLeft className="h-4 w-4" />
