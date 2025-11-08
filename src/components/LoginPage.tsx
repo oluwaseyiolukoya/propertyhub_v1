@@ -7,14 +7,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Separator } from "./ui/separator";
 import { Badge } from "./ui/badge";
-import { 
-  Building, 
-  Users, 
-  Smartphone, 
-  Shield, 
-  Lock, 
-  Mail, 
-  Eye, 
+import {
+  Building,
+  Users,
+  Smartphone,
+  Shield,
+  Lock,
+  Mail,
+  Eye,
   EyeOff,
   ArrowLeft,
   CheckCircle,
@@ -50,7 +50,7 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
     const urlParams = new URLSearchParams(window.location.search);
     const invitationToken = urlParams.get('invitation');
     const email = urlParams.get('email');
-    
+
     if (invitationToken && email) {
       // Mock customer data lookup based on invitation token
       const mockCustomerData = {
@@ -60,7 +60,7 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
         plan: 'Professional',
         token: invitationToken
       };
-      
+
       setInvitationData(mockCustomerData);
       setShowPasswordSetup(true);
     }
@@ -70,7 +70,7 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
     e.preventDefault();
     setIsLoading(true);
     setError('');
-    
+
     try {
       // Map frontend user types to backend user types
       const userTypeMapping: Record<string, string> = {
@@ -110,14 +110,14 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
         toast.success('Login successful!');
         // Use userType returned by backend (derived from role/customerId)
         const resolvedUserType = response.data.user.userType || backendUserType;
-        
+
         console.log('📡 LoginPage - Backend Response:');
         console.log('   - backendUserType:', backendUserType);
         console.log('   - response.data.user.userType:', response.data.user.userType);
         console.log('   - resolvedUserType:', resolvedUserType);
         console.log('   - user.role:', response.data.user.role);
         console.log('   - Calling onLogin with:', { type: resolvedUserType, user: response.data.user });
-        
+
         onLogin(resolvedUserType, response.data.user);
       }
     } catch (err: any) {
@@ -145,10 +145,10 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
       }
 
       toast.success('Password setup successful! Please login.');
-      
+
       // Clear invitation from URL
       window.history.replaceState({}, document.title, window.location.pathname);
-      
+
       // Reset to login form
       setShowPasswordSetup(false);
       setInvitationData(null);
@@ -165,7 +165,7 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
   // Show password setup if invitation is detected
   if (showPasswordSetup && invitationData) {
     return (
-      <PasswordSetup 
+      <PasswordSetup
         customerData={invitationData}
         onPasswordSet={handlePasswordSetup}
       />
@@ -173,34 +173,34 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
   }
 
   const userTypes = [
-    { 
-      value: 'property-owner', 
-      label: 'Property Owner', 
-      icon: Building, 
+    {
+      value: 'property-owner',
+      label: 'Property Owner',
+      icon: Building,
       description: 'Manage your property portfolio',
       color: 'bg-blue-500',
       features: ['Property Management', 'Financial Reports', 'Tenant Overview']
     },
-    { 
-      value: 'property-manager', 
-      label: 'Property Manager', 
-      icon: Users, 
+    {
+      value: 'property-manager',
+      label: 'Property Manager',
+      icon: Users,
       description: 'Oversee day-to-day operations',
       color: 'bg-green-500',
       features: ['Daily Operations', 'Maintenance', 'Tenant Support']
     },
-    { 
-      value: 'tenant', 
-      label: 'Tenant', 
-      icon: Smartphone, 
+    {
+      value: 'tenant',
+      label: 'Tenant',
+      icon: Smartphone,
       description: 'Access your rental dashboard',
       color: 'bg-purple-500',
       features: ['Pay Rent', 'Request Maintenance', 'Access Keys']
     },
-    { 
-      value: 'super-admin', 
-      label: 'Super Admin', 
-      icon: Shield, 
+    {
+      value: 'super-admin',
+      label: 'Super Admin',
+      icon: Shield,
       description: 'Platform administration',
       color: 'bg-red-500',
       features: ['User Management', 'System Analytics', 'Full Access']
@@ -220,7 +220,7 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
               <h1 className="text-xl font-bold text-gray-900">Contrezz</h1>
               <Badge variant="secondary" className="ml-2">SaaS</Badge>
             </div>
-            
+
             <Button variant="ghost" onClick={onBackToHome} className="flex items-center space-x-2">
               <ArrowLeft className="h-4 w-4" />
               <span>Back to Home</span>
@@ -316,8 +316,8 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
                         {/* User Type Selection */}
                         <div className="space-y-2">
                           <Label htmlFor="userType">Select Your Role</Label>
-                          <Select 
-                            value={loginForm.userType} 
+                          <Select
+                            value={loginForm.userType}
                             onValueChange={(value) => setLoginForm(prev => ({ ...prev, userType: value }))}
                           >
                             <SelectTrigger id="userType" className="h-12">
@@ -398,9 +398,9 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <Label htmlFor="password">Password</Label>
-                            <Button 
-                              type="button" 
-                              variant="link" 
+                            <Button
+                              type="button"
+                              variant="link"
                               className="p-0 h-auto text-sm"
                             >
                               Forgot password?
@@ -432,8 +432,8 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
                         </div>
 
                         {/* Submit Button */}
-                        <Button 
-                          type="submit" 
+                        <Button
+                          type="submit"
                           className="w-full h-12"
                           disabled={isLoading || !loginForm.userType || !loginForm.email || !loginForm.password}
                         >
@@ -490,7 +490,7 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
           </div>
         </div>
       </main>
-      
+
       <Footer />
     </div>
   );

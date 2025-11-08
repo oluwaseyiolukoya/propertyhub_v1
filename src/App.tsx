@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { LandingPage } from './components/LandingPage';
 import { LoginPage } from './components/LoginPage';
 import { PropertyOwnerDashboard } from './components/PropertyOwnerDashboard';
 import { SuperAdminDashboard } from './components/SuperAdminDashboard';
@@ -25,6 +26,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userType, setUserType] = useState<string>('');
   const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [showLanding, setShowLanding] = useState(true);
 
   // Managers and assignments loaded from backend
   const [managers, setManagers] = useState<any[]>([]);
@@ -193,6 +195,11 @@ function App() {
     // Navigate to landing page
     setCurrentUser(null);
     setUserType('');
+    setShowLanding(true);
+  };
+
+  const handleNavigateToLogin = () => {
+    setShowLanding(false);
   };
 
   // Global active-session validation on any user interaction
@@ -296,8 +303,18 @@ function App() {
     );
   }
 
-  // Show login if no user
-  if (!currentUser) {
+  // Show landing page if no user and showLanding is true
+  if (!currentUser && showLanding) {
+    return (
+      <>
+        <LandingPage onNavigateToLogin={handleNavigateToLogin} />
+        <Toaster />
+      </>
+    );
+  }
+
+  // Show login if no user but landing is dismissed
+  if (!currentUser && !showLanding) {
     return (
       <>
         <LoginPage onLogin={handleLogin} onBackToHome={handleBackToHome} />

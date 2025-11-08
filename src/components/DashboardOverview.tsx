@@ -14,11 +14,11 @@ interface DashboardOverviewProps {
   onViewChange?: (view: string) => void;
 }
 
-export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ 
-  dashboardData, 
-  properties, 
+export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
+  dashboardData,
+  properties,
   user,
-  onViewChange 
+  onViewChange
 }) => {
   // State for paginated activities
   const [activities, setActivities] = useState<any[]>([]);
@@ -52,8 +52,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     totalRevenue: properties.reduce((sum: number, p: any) => sum + (p.totalMonthlyIncome || 0), 0),
     totalProperties: properties.length,
     totalUnits: properties.reduce((sum: number, p: any) => sum + (p.totalUnits || 0), 0),
-    occupancyRate: properties.length > 0 
-      ? properties.reduce((sum: number, p: any) => sum + (p.occupancyRate || 0), 0) / properties.length 
+    occupancyRate: properties.length > 0
+      ? properties.reduce((sum: number, p: any) => sum + (p.occupancyRate || 0), 0) / properties.length
       : 0,
     occupiedUnits: properties.reduce((sum: number, p: any) => sum + (p.occupiedUnits || 0), 0),
     maintenanceTickets: 0,
@@ -77,14 +77,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       console.log('🔍 [Owner Dashboard] Fetching activities for page:', page);
       setLoadingActivities(true);
       const response = await getOwnerActivities(page, 5);
-      
+
       console.log('📋 [Owner Dashboard] Activities response:', {
         hasError: !!response.error,
         hasData: !!response.data,
         activitiesCount: response.data?.activities?.length,
         pagination: response.data?.pagination
       });
-      
+
       if (response.error) {
         console.error('❌ Failed to load activities:', response.error);
         toast.error('Failed to load recent activities');
@@ -365,7 +365,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                     <p className="text-sm font-medium">₦{payment.amount}</p>
                     <div className="flex items-center space-x-2">
                       <p className="text-xs text-gray-500">{payment.dueDate}</p>
-                      <Badge 
+                      <Badge
                         variant={payment.status === 'due-soon' ? 'destructive' : 'secondary'}
                         className="text-xs"
                       >
@@ -463,7 +463,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               {pagination.totalPages > 1 && (
                 <div className="flex items-center justify-between mt-4 pt-4 border-t">
                   <div className="text-sm text-gray-600">
-                    Page {pagination.page} of {pagination.totalPages} 
+                    Page {pagination.page} of {pagination.totalPages}
                     <span className="text-gray-400 ml-1">
                       ({pagination.total} total)
                     </span>
