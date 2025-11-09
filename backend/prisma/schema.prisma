@@ -24,15 +24,75 @@ model activity_logs {
 }
 
 model admins {
-  id        String    @id
-  email     String    @unique
-  password  String
-  name      String
-  role      String    @default("super_admin")
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime
-  lastLogin DateTime?
+  id                     String                    @id
+  email                  String                    @unique
+  password               String
+  name                   String
+  role                   String                    @default("super_admin")
+  isActive               Boolean                   @default(true)
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime
+  lastLogin              DateTime?
+  reviewed_applications  onboarding_applications[] @relation("reviewed_by")
+  approved_applications  onboarding_applications[] @relation("approved_by")
+  activated_applications onboarding_applications[] @relation("activated_by")
+}
+
+model onboarding_applications {
+  id                   String     @id @default(uuid())
+  applicationType      String
+  name                 String
+  email                String     @unique
+  phone                String?
+  companyName          String?
+  businessType         String?
+  numberOfProperties   Int?
+  totalUnits           Int?
+  website              String?
+  taxId                String?
+  yearsOfExperience    Int?
+  managementCompany    String?
+  licenseNumber        String?
+  propertiesManaged    Int?
+  currentlyRenting     String?
+  moveInDate           DateTime?
+  employmentStatus     String?
+  street               String?
+  city                 String?
+  state                String?
+  postalCode           String?
+  country              String     @default("Nigeria")
+  status               String     @default("pending")
+  reviewStatus         String?
+  reviewNotes          String?
+  rejectionReason      String?
+  reviewedBy           String?
+  reviewedAt           DateTime?
+  approvedBy           String?
+  approvedAt           DateTime?
+  activatedBy          String?
+  activatedAt          DateTime?
+  selectedPlanId       String?
+  selectedBillingCycle String?
+  customerId           String?    @unique
+  userId               String?    @unique
+  ipAddress            String?
+  userAgent            String?
+  referralSource       String?
+  metadata             Json?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+  reviewer             admins?    @relation("reviewed_by", fields: [reviewedBy], references: [id])
+  approver             admins?    @relation("approved_by", fields: [approvedBy], references: [id])
+  activator            admins?    @relation("activated_by", fields: [activatedBy], references: [id])
+  customer             customers? @relation(fields: [customerId], references: [id])
+  plan                 plans?     @relation(fields: [selectedPlanId], references: [id])
+
+  @@index([status])
+  @@index([applicationType])
+  @@index([email])
+  @@index([createdAt])
+  @@index([reviewStatus])
 }
 
 model customer_users {
@@ -87,6 +147,14 @@ model customers {
   insuranceProvider         String?
   insurancePolicy           String?
   insuranceExpiration       String?
+  // Trial Management Fields
+  trialStartsAt             DateTime?
+  gracePeriodEndsAt         DateTime?
+  suspendedAt               DateTime?
+  suspensionReason          String?
+  lastTrialNotificationSentAt DateTime?
+  trialNotificationCount    Int                         @default(0)
+  // Relations
   activity_logs             activity_logs[]
   customer_users            customer_users[]
   plans                     plans?                      @relation(fields: [planId], references: [id])
@@ -101,19 +169,26 @@ model customers {
   support_tickets           support_tickets[]
   users                     users[]
   mrr_snapshots             mrr_snapshots[]
+  onboarding_application    onboarding_applications?
+  subscription_events       subscription_events[]
+  trial_notifications       trial_notifications[]
+
+  @@index([status])
+  @@index([trialEndsAt])
+  @@index([gracePeriodEndsAt])
 }
 
 model mrr_snapshots {
-  id          String    @id @default(uuid())
-  customerId  String
-  month       DateTime  // First day of the month
-  mrr         Float     @default(0)
-  planId      String?
-  planName    String?
-  status      String    // active, trial, cancelled
-  billingCycle String?  // monthly, annual
-  createdAt   DateTime  @default(now())
-  customers   customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  id           String    @id @default(uuid())
+  customerId   String
+  month        DateTime // First day of the month
+  mrr          Float     @default(0)
+  planId       String?
+  planName     String?
+  status       String // active, trial, cancelled
+  billingCycle String? // monthly, annual
+  createdAt    DateTime  @default(now())
+  customers    customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@unique([customerId, month])
   @@index([month])
@@ -316,21 +391,23 @@ model payments {
 }
 
 model plans {
-  id            String      @id
-  name          String      @unique
-  description   String?
-  monthlyPrice  Float
-  annualPrice   Float
-  currency      String      @default("NGN")
-  propertyLimit Int
-  userLimit     Int
-  storageLimit  Int
-  features      Json
-  isActive      Boolean     @default(true)
-  isPopular     Boolean     @default(false)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime
-  customers     customers[]
+  id                      String                    @id
+  name                    String                    @unique
+  description             String?
+  monthlyPrice            Float
+  annualPrice             Float
+  currency                String                    @default("NGN")
+  propertyLimit           Int
+  userLimit               Int
+  storageLimit            Int
+  features                Json
+  isActive                Boolean                   @default(true)
+  isPopular               Boolean                   @default(false)
+  trialDurationDays       Int?                      // Number of days for trial period (only used for Trial plan)
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime
+  customers               customers[]
+  onboarding_applications onboarding_applications[]
 }
 
 model properties {
@@ -629,4 +706,36 @@ model maintenance_updates {
   createdAt            DateTime             @default(now())
   maintenance_requests maintenance_requests @relation(fields: [requestId], references: [id], onDelete: Cascade)
   updatedBy            users                @relation(fields: [updatedById], references: [id])
+}
+
+model subscription_events {
+  id              String    @id @default(uuid())
+  customerId      String
+  eventType       String
+  previousStatus  String?
+  newStatus       String?
+  metadata        Json?
+  triggeredBy     String
+  createdAt       DateTime  @default(now())
+  customer        customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([eventType])
+  @@index([createdAt])
+}
+
+model trial_notifications {
+  id               String    @id @default(uuid())
+  customerId       String
+  notificationType String
+  daysRemaining    Int?
+  sentAt           DateTime  @default(now())
+  emailSent        Boolean   @default(false)
+  smsSent          Boolean   @default(false)
+  inAppSent        Boolean   @default(false)
+  customer         customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([notificationType])
+  @@index([sentAt])
 }

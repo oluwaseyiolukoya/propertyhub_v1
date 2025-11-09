@@ -21,7 +21,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    const { status, method, propertyId, startDate, endDate, search } = req.query as any;
+    const { status, method, propertyId, startDate, endDate, search, type } = req.query as any;
     const page = Math.max(1, parseInt((req.query as any).page || '1', 10));
     const pageSize = Math.min(100, Math.max(1, parseInt((req.query as any).pageSize || '10', 10)));
 
@@ -29,6 +29,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
     if (status) where.status = status;
     if (method) where.paymentMethod = method;
+    if (type) where.type = type;
     if (propertyId) where.propertyId = propertyId;
     if (startDate || endDate) {
       where.createdAt = {};
@@ -44,16 +45,30 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
     // Scope by role
     if (['owner', 'property owner', 'property_owner'].includes(role)) {
-      where.properties = { ownerId: userId };
+      // For subscription payments, they're already scoped by customerId (no propertyId)
+      // For rent/other payments, scope by property ownership
+      if (type !== 'subscription') {
+        where.properties = { ownerId: userId };
+      }
     } else if (['manager', 'property_manager'].includes(role)) {
+      // Managers can only see property-related payments, not subscriptions
+      if (type === 'subscription') {
+        return res.json({ items: [], total: 0, page, pageSize, totalPages: 0 });
+      }
       where.properties = {
         property_managers: {
           some: { managerId: userId, isActive: true }
         }
       };
     } else if (role === 'tenant') {
+      // Tenants can only see their own rent payments, not subscriptions
+      if (type === 'subscription') {
+        return res.json({ items: [], total: 0, page, pageSize, totalPages: 0 });
+      }
       where.tenantId = userId;
     }
+
+    console.log('[Payments API] Query where clause:', JSON.stringify(where, null, 2));
 
     const [total, list] = await Promise.all([
       prisma.payments.count({ where }),
@@ -75,6 +90,11 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         take: pageSize,
       })
     ]);
+
+    console.log('[Payments API] Found', total, 'payments, returning', list.length, 'items');
+    if (type === 'subscription') {
+      console.log('[Payments API] Subscription payments:', list.map(p => ({ id: p.id, amount: p.amount, status: p.status, paidAt: p.paidAt })));
+    }
 
     return res.json({
       items: list,

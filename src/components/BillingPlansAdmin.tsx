@@ -223,7 +223,14 @@ export function BillingPlansAdmin() {
       activeSubscriptions: customersOnPlan.length,
       revenue: monthlyRevenueFromPlan,
       status: plan.isActive ? 'active' : 'deprecated',
-      created: new Date(plan.createdAt).toISOString().split('T')[0]
+      created: new Date(plan.createdAt).toISOString().split('T')[0],
+      trialDurationDays: plan.trialDurationDays, // Include trial duration
+      isActive: plan.isActive,
+      isPopular: plan.isPopular,
+      storageLimit: plan.storageLimit,
+      annualPrice: plan.annualPrice,
+      propertyLimit: plan.propertyLimit,
+      userLimit: plan.userLimit
     });
   });
 
@@ -580,10 +587,13 @@ export function BillingPlansAdmin() {
       const featuresText = formData.get('features') as string;
       const features = featuresText.split('\n').filter(f => f.trim() !== '');
 
-      const planData = {
+      const monthlyPrice = parseFloat(formData.get('monthlyPrice') as string);
+      const trialDurationDaysValue = formData.get('trialDurationDays');
+
+      const planData: any = {
         name: formData.get('planName') as string,
         description: formData.get('planDescription') as string,
-        monthlyPrice: parseFloat(formData.get('monthlyPrice') as string),
+        monthlyPrice,
         annualPrice: parseFloat(formData.get('yearlyPrice') as string),
         currency: selectedCurrency,
         propertyLimit: parseInt(formData.get('maxProperties') as string),
@@ -593,6 +603,11 @@ export function BillingPlansAdmin() {
         isActive: formData.get('active') === 'on',
         isPopular: formData.get('popular') === 'on'
       };
+
+      // Only include trialDurationDays for Trial plans (monthlyPrice = 0)
+      if (monthlyPrice === 0 && trialDurationDaysValue) {
+        planData.trialDurationDays = parseInt(trialDurationDaysValue as string);
+      }
 
       let response;
       if (selectedPlan) {
@@ -701,6 +716,26 @@ export function BillingPlansAdmin() {
           />
         </div>
       </div>
+
+      {/* Trial Duration - Only show for Trial plans (monthlyPrice = 0) */}
+      {(selectedPlan?.monthlyPrice === 0 || (!selectedPlan && false)) && (
+        <div>
+          <Label htmlFor="trialDurationDays">Trial Duration (Days) *</Label>
+          <Input
+            id="trialDurationDays"
+            name="trialDurationDays"
+            type="number"
+            min="1"
+            max="365"
+            placeholder="14"
+            defaultValue={selectedPlan?.trialDurationDays || 14}
+            required={selectedPlan?.monthlyPrice === 0}
+          />
+          <p className="text-sm text-gray-500 mt-1">
+            Number of days for the trial period. This applies to all new customers.
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-4">
         <div>

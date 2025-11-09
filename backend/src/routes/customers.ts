@@ -5,6 +5,7 @@ import { authMiddleware, adminOnly, AuthRequest } from '../middleware/auth';
 import prisma from '../lib/db';
 import { emitToAdmins, emitToCustomer } from '../lib/socket';
 import { captureSnapshotOnChange } from '../lib/mrr-snapshot';
+import { calculateTrialEndDate } from '../lib/trial-config';
 
 const router = express.Router();
 
@@ -296,7 +297,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         notes: notes || null, // Add notes field
         status: status || 'trial',
         subscriptionStartDate: status === 'active' ? new Date() : null,
-        trialEndsAt: status === 'trial' ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) : null, // 14 days trial
+        trialEndsAt: status === 'trial' ? await calculateTrialEndDate() : null, // Get trial duration from Trial plan
         updatedAt: new Date()
       },
       include: {
@@ -444,7 +445,9 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       storageLimit,
       properties, // Accept properties count
       units, // Accept units count
-      notes // Accept notes
+      notes, // Accept notes
+      trialStartsAt, // Accept trial start date
+      trialEndsAt // Accept trial end date
     } = req.body;
 
     // Get plan limits - lookup by planId or planName
@@ -487,12 +490,14 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
 
     // Handle subscription date changes based on status
     let subscriptionStartDate = existingCustomer.subscriptionStartDate;
-    let trialEndsAt = existingCustomer.trialEndsAt;
+    let finalTrialStartsAt = existingCustomer.trialStartsAt;
+    let finalTrialEndsAt = existingCustomer.trialEndsAt;
 
     // If status is changing to 'active' and subscriptionStartDate is not set
     if (status === 'active' && existingCustomer.status !== 'active') {
       subscriptionStartDate = new Date(); // Set start date when activating
-      trialEndsAt = null; // Clear trial end date
+      finalTrialStartsAt = null; // Clear trial start date
+      finalTrialEndsAt = null; // Clear trial end date
     }
 
     // If already active but subscriptionStartDate is null, set it now
@@ -500,10 +505,24 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       subscriptionStartDate = new Date(); // Fix missing subscription start date
     }
 
-    // If status is changing to 'trial'
-    if (status === 'trial' && existingCustomer.status !== 'trial') {
-      subscriptionStartDate = null; // Clear subscription start
-      trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 days trial
+    // If status is 'trial', use provided dates or calculate defaults
+    if (status === 'trial') {
+      // If admin explicitly provided trial dates, use them
+      if (trialStartsAt) {
+        finalTrialStartsAt = new Date(trialStartsAt);
+      } else if (existingCustomer.status !== 'trial') {
+        // Status changing to trial without explicit start date
+        finalTrialStartsAt = new Date();
+      }
+
+      if (trialEndsAt) {
+        finalTrialEndsAt = new Date(trialEndsAt);
+      } else if (existingCustomer.status !== 'trial') {
+        // Status changing to trial without explicit end date
+        finalTrialEndsAt = await calculateTrialEndDate();
+      }
+
+      subscriptionStartDate = null; // Clear subscription start when in trial
     }
 
     const customer = await prisma.customers.update({
@@ -522,7 +541,8 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         mrr: calculatedMRR, // Set calculated MRR
         status,
         subscriptionStartDate, // Update subscription date based on status
-        trialEndsAt, // Update trial end date based on status
+        trialStartsAt: finalTrialStartsAt, // Update trial start date
+        trialEndsAt: finalTrialEndsAt, // Update trial end date based on status
         street,
         city,
         state,

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { LandingPage } from './components/LandingPage';
 import { GetStartedPage } from './components/GetStartedPage';
 import { AccountUnderReviewPage } from './components/AccountUnderReviewPage';
+import { ApplicationStatusPage } from './components/ApplicationStatusPage';
 import { APIDocumentation } from './components/APIDocumentation';
 import { IntegrationsPage } from './components/IntegrationsPage';
 import { AboutPage } from './components/AboutPage';
@@ -43,6 +44,7 @@ function App() {
   const [showLanding, setShowLanding] = useState(true);
   const [showGetStarted, setShowGetStarted] = useState(false);
   const [showAccountReview, setShowAccountReview] = useState(false);
+  const [showApplicationStatus, setShowApplicationStatus] = useState(false);
   const [showAPIDocumentation, setShowAPIDocumentation] = useState(false);
   const [showIntegrations, setShowIntegrations] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
@@ -228,6 +230,7 @@ function App() {
     setShowLanding(true);
     setShowGetStarted(false);
     setShowAccountReview(false);
+    setShowApplicationStatus(false);
     setShowAPIDocumentation(false);
     setShowIntegrations(false);
     setShowAbout(false);
@@ -267,6 +270,27 @@ function App() {
     setShowLanding(false);
     setShowGetStarted(true);
     setShowAccountReview(false);
+    setShowApplicationStatus(false);
+    setShowAPIDocumentation(false);
+    setShowIntegrations(false);
+    setShowAbout(false);
+    setShowContact(false);
+    setShowScheduleDemo(false);
+    setShowBlog(false);
+    setShowCareers(false);
+    setShowHelpCenter(false);
+    setShowCommunity(false);
+    setShowNewDiscussion(false);
+    setShowStatus(false);
+    setShowSecurity(false);
+  };
+
+  const handleNavigateToApplicationStatus = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setShowLanding(false);
+    setShowGetStarted(false);
+    setShowAccountReview(false);
+    setShowApplicationStatus(true);
     setShowAPIDocumentation(false);
     setShowIntegrations(false);
     setShowAbout(false);
@@ -286,6 +310,7 @@ function App() {
     setShowLanding(false);
     setShowGetStarted(false);
     setShowAccountReview(false);
+    setShowApplicationStatus(false);
     setShowAPIDocumentation(true);
     setShowIntegrations(false);
     setShowAbout(false);
@@ -909,6 +934,18 @@ function App() {
           userRole={signupData.role as 'property-owner' | 'property-manager' | 'tenant'}
           userEmail={signupData.email}
           userName={signupData.name}
+        />
+        <Toaster />
+      </>
+    );
+  }
+
+  // Show application status page if requested
+  if (!currentUser && showApplicationStatus) {
+    return (
+      <>
+        <ApplicationStatusPage
+          onBackToHome={handleBackToHome}
         />
         <Toaster />
       </>

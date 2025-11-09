@@ -3,6 +3,7 @@ import { authMiddleware, adminOnly, AuthRequest } from '../middleware/auth';
 import prisma from '../lib/db';
 import { emitToAdmins } from '../lib/socket';
 import { captureSnapshotOnChange } from '../lib/mrr-snapshot';
+import { v4 as uuidv4 } from 'uuid';
 
 const router = express.Router();
 
@@ -40,8 +41,11 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       storageLimit,
       features,
       isActive,
-      isPopular
+      isPopular,
+      trialDurationDays
     } = req.body;
+
+    console.log('[Plans] Creating plan with data:', req.body);
 
     if (!name || monthlyPrice === undefined) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -49,19 +53,24 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
     const plan = await prisma.plans.create({
       data: {
+        id: uuidv4(),
         name,
         description,
-        monthlyPrice,
-        annualPrice: annualPrice || monthlyPrice * 10,
-        currency: currency || 'USD',
-        propertyLimit: propertyLimit || 5,
-        userLimit: userLimit || 3,
-        storageLimit: storageLimit || 1000,
-        features: features || [],
+        monthlyPrice: parseFloat(monthlyPrice),
+        annualPrice: annualPrice ? parseFloat(annualPrice) : parseFloat(monthlyPrice) * 10,
+        currency: currency || 'NGN',
+        propertyLimit: parseInt(propertyLimit) || 5,
+        userLimit: parseInt(userLimit) || 3,
+        storageLimit: parseInt(storageLimit) || 1000,
+        features: features || {},
         isActive: isActive !== undefined ? isActive : true,
-        isPopular: isPopular || false
+        isPopular: isPopular || false,
+        trialDurationDays: trialDurationDays !== undefined ? parseInt(trialDurationDays) : undefined,
+        updatedAt: new Date()
       }
     });
+
+    console.log('[Plans] Plan created successfully:', plan.id);
 
     // Emit real-time event to all admins
     try {
@@ -70,7 +79,8 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
     return res.status(201).json(plan);
   } catch (error: any) {
-    return res.status(500).json({ error: 'Failed to create plan' });
+    console.error('[Plans] Failed to create plan:', error);
+    return res.status(500).json({ error: 'Failed to create plan', details: error.message });
   }
 });
 
@@ -89,7 +99,8 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       storageLimit,
       features,
       isActive,
-      isPopular
+      isPopular,
+      trialDurationDays
     } = req.body;
 
     const plan = await prisma.plans.update({
@@ -105,7 +116,9 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         storageLimit,
         features,
         isActive,
-        isPopular
+        isPopular,
+        trialDurationDays: trialDurationDays !== undefined ? trialDurationDays : undefined,
+        updatedAt: new Date()
       }
     });
 

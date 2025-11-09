@@ -289,7 +289,10 @@ router.post('/cancel', authMiddleware, async (req: AuthRequest, res: Response) =
 router.get('/plans', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const plans = await prisma.plans.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        monthlyPrice: { gt: 0 } // Exclude free/trial plans
+      },
       orderBy: [
         { monthlyPrice: 'asc' }
       ]

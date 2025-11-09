@@ -18,6 +18,7 @@ export interface BillingPlan {
   features: any;
   isActive: boolean;
   isPopular?: boolean;
+  trialDurationDays?: number; // Number of days for trial period (only used for Trial plan)
   displayOrder?: number;
   createdAt: string;
   updatedAt: string;
@@ -56,5 +57,18 @@ export const updateBillingPlan = async (id: string, data: Partial<BillingPlan>) 
  */
 export const deleteBillingPlan = async (id: string) => {
   return apiClient.delete<{ message: string }>(API_ENDPOINTS.PLANS.DELETE(id));
+};
+
+/**
+ * Get available plans for subscription (non-admin users)
+ * This endpoint is accessible to all authenticated users
+ */
+export const getAvailablePlans = async () => {
+  const response = await apiClient.get<{ plans: BillingPlan[] }>(API_ENDPOINTS.SUBSCRIPTIONS.PLANS);
+  // Return in same format as getBillingPlans for compatibility
+  return {
+    ...response,
+    data: response.data?.plans || []
+  };
 };
 

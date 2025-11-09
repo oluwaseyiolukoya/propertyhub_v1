@@ -6,6 +6,7 @@
 
 import cron from 'node-cron';
 import { captureMonthlySnapshots, captureSnapshotOnChange } from './mrr-snapshot';
+import { trialManagementService } from '../services/trial-management.service';
 import prisma from './db';
 
 /**
@@ -38,9 +39,45 @@ export function initializeCronJobs() {
     }
   });
 
+  // Trial Expiration Checker - Runs every day at 02:00 AM UTC
+  cron.schedule('0 2 * * *', async () => {
+    console.log('⏰ Trial expiration checker job triggered');
+    try {
+      await trialManagementService.checkTrialExpirations();
+      console.log('✅ Trial expiration check completed successfully');
+    } catch (error) {
+      console.error('❌ Trial expiration check failed:', error);
+    }
+  });
+
+  // Trial Notification Sender - Runs every day at 10:00 AM UTC
+  cron.schedule('0 10 * * *', async () => {
+    console.log('📧 Trial notification sender job triggered');
+    try {
+      await trialManagementService.sendTrialNotifications();
+      console.log('✅ Trial notifications sent successfully');
+    } catch (error) {
+      console.error('❌ Trial notification sender failed:', error);
+    }
+  });
+
+  // Cleanup Suspended Accounts - Runs every day at 03:00 AM UTC
+  cron.schedule('0 3 * * *', async () => {
+    console.log('🗑️  Suspended account cleanup job triggered');
+    try {
+      await trialManagementService.cleanupSuspendedAccounts();
+      console.log('✅ Suspended account cleanup completed successfully');
+    } catch (error) {
+      console.error('❌ Suspended account cleanup failed:', error);
+    }
+  });
+
   console.log('✅ Cron jobs initialized:');
   console.log('   - Monthly MRR Snapshot: 1st of every month at 00:05 AM');
   console.log('   - Daily MRR Update: Every day at 00:10 AM');
+  console.log('   - Trial Expiration Checker: Every day at 02:00 AM UTC');
+  console.log('   - Trial Notification Sender: Every day at 10:00 AM UTC');
+  console.log('   - Suspended Account Cleanup: Every day at 03:00 AM UTC');
 
   // Nightly MRR Reconciliation - ensure customer.mrr matches plan + billingCycle
   cron.schedule('20 0 * * *', async () => {

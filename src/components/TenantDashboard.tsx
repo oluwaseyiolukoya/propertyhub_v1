@@ -31,6 +31,11 @@ const TenantDashboard: React.FC = () => {
 
   const userData = getUserData();
 
+  // Reset to dashboard section on component mount (every login)
+  useEffect(() => {
+    setActiveSection('dashboard');
+  }, []);
+
   // Fetch tenant dashboard data
   useEffect(() => {
     const fetchDashboardData = async () => {

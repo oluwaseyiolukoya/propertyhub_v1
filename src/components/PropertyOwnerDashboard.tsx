@@ -24,6 +24,10 @@ import { useCurrency } from '../lib/CurrencyContext';
 import { getAccountInfo } from '../lib/api/auth';
 import { usePersistentState } from '../lib/usePersistentState';
 import { formatCurrency as formatCurrencyUtil, getSmartBaseCurrency } from '../lib/currency';
+import { TrialStatusBanner } from './TrialStatusBanner';
+import { UpgradeModal } from './UpgradeModal';
+import { getSubscriptionStatus } from '../lib/api/subscription';
+import { apiClient } from '../lib/api-client';
 
 interface PropertyOwnerDashboardProps {
   user: any;
@@ -186,6 +190,16 @@ export function PropertyOwnerDashboard({
   const [loading, setLoading] = useState(true);
   const [accountInfo, setAccountInfo] = useState<any>(null);
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [subscription, setSubscription] = useState<any>(null);
+  const [recentBills, setRecentBills] = useState<any[]>([]);
+  const [loadingBills, setLoadingBills] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<string | undefined>(undefined);
+
+  // Reset to dashboard view on component mount (every login)
+  useEffect(() => {
+    setCurrentView('dashboard');
+  }, []);
 
   // Calculate smart base currency based on properties
   const smartBaseCurrency = getSmartBaseCurrency(properties);
@@ -195,11 +209,12 @@ export function PropertyOwnerDashboard({
     try {
       if (!silent) setLoading(true);
 
-      const [dashResponse, propertiesResponse, unitsResponse, accountResponse] = await Promise.all([
+      const [dashResponse, propertiesResponse, unitsResponse, accountResponse, subStatus] = await Promise.all([
         getOwnerDashboardOverview(),
         getProperties(),
         getUnits(),
-        getAccountInfo()
+        getAccountInfo(),
+        getSubscriptionStatus().catch(() => null)
       ]);
 
       if (dashResponse.error) {
@@ -244,6 +259,11 @@ export function PropertyOwnerDashboard({
           }
         }
       }
+
+      // Subscription status
+      if (subStatus) {
+        setSubscription(subStatus);
+      }
     } catch (error) {
       if (!silent) toast.error('Failed to load data');
     } finally {
@@ -254,6 +274,29 @@ export function PropertyOwnerDashboard({
   // Initial data fetch
   useEffect(() => {
     fetchData();
+  }, []);
+
+  // Load recent billing history (subscriptions only)
+  useEffect(() => {
+    (async () => {
+      try {
+        setLoadingBills(true);
+        console.log('[PropertyOwnerDashboard] Fetching subscription payments...');
+        const res = await apiClient.get<any>('/api/payments', { page: 1, pageSize: 5, type: 'subscription' });
+        console.log('[PropertyOwnerDashboard] Payments API response:', res);
+        if (!(res as any).error) {
+          const items = (res as any).data?.items || [];
+          console.log('[PropertyOwnerDashboard] Subscription payments received:', items);
+          setRecentBills(items);
+        } else {
+          console.error('[PropertyOwnerDashboard] Error fetching payments:', (res as any).error);
+        }
+      } catch (e) {
+        console.error('[PropertyOwnerDashboard] Exception fetching payments:', e);
+      } finally {
+        setLoadingBills(false);
+      }
+    })();
   }, []);
 
   // Set up periodic refresh (every 30 seconds)
@@ -1105,6 +1148,7 @@ export function PropertyOwnerDashboard({
             <PropertyOwnerSettings
               user={user}
               onBack={() => setCurrentView('dashboard')}
+              initialTab={settingsInitialTab}
               onSave={(updates) => {
                 // Handle profile updates here
                 console.log('Profile updates:', updates);
@@ -1119,6 +1163,12 @@ export function PropertyOwnerDashboard({
                 <h2 className="text-2xl font-bold text-gray-900">Welcome back, {user.name.split(' ')[0]}!</h2>
                 <p className="text-gray-600">Here's an overview of your property portfolio</p>
               </div>
+
+              {/* Trial Status Banner */}
+              <TrialStatusBanner
+                onUpgradeClick={() => setShowUpgradeModal(true)}
+                onAddPaymentMethod={() => setCurrentView('settings')}
+              />
 
               {/* Key Metrics */}
               <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-6 md:mb-8">
@@ -1171,6 +1221,86 @@ export function PropertyOwnerDashboard({
                     <p className="text-xs text-muted-foreground">
                       Collected {formatCurrency(dashboardData?.collection?.collected || 0)} of {formatCurrency(dashboardData?.collection?.expected || 0)} this month
                     </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Active License & Billing */}
+              <div className="grid lg:grid-cols-2 gap-8 mb-8">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle>Subscription</CardTitle>
+                      <CardDescription>Your current license and renewal</CardDescription>
+                    </div>
+                    <Badge variant="outline" className={subscription?.status === 'active' ? 'text-green-700 border-green-300 bg-green-50' : 'text-blue-700 border-blue-300 bg-blue-50'}>
+                      {subscription?.status || '—'}
+                    </Badge>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-gray-600">Current Plan</p>
+                        <p className="font-medium">{subscription?.plan?.name || accountInfo?.customer?.plan?.name || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Billing Cycle</p>
+                        <p className="font-medium capitalize">{subscription?.billingCycle || accountInfo?.customer?.billingCycle || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Next Billing Date</p>
+                        <p className="font-medium">{subscription?.nextBillingDate ? new Date(subscription.nextBillingDate).toLocaleDateString() : '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">MRR</p>
+                        <p className="font-medium">{formatCurrencyUtil(subscription?.mrr || accountInfo?.customer?.mrr || 0, subscription?.plan?.currency || 'NGN')}</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex gap-3">
+                      <Button variant="outline" onClick={() => setShowUpgradeModal(true)}>Upgrade Plan</Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setSettingsInitialTab('billing');
+                          setCurrentView('settings');
+                        }}
+                      >
+                        View Billing History
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle>Recent Billing</CardTitle>
+                      <CardDescription>Your last subscription payments</CardDescription>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {loadingBills ? (
+                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Loading...
+                      </div>
+                    ) : recentBills.length === 0 ? (
+                      <p className="text-sm text-gray-500">No subscription payments yet.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {recentBills.map((p: any) => (
+                          <div key={p.id} className="flex items-center justify-between p-3 border rounded-lg">
+                            <div className="text-sm">
+                              <div className="font-medium">{(p.type || 'subscription').toString().toUpperCase()}</div>
+                              <div className="text-gray-500">{new Date(p.paidAt || p.createdAt).toLocaleString()}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-medium">{(p.currency || 'NGN')} {(Number(p.amount) || 0).toFixed(2)}</div>
+                              <Badge variant="outline" className="mt-1 capitalize">{p.status || 'success'}</Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -1279,7 +1409,19 @@ export function PropertyOwnerDashboard({
       </div>
 
       <Footer />
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        open={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        onSuccess={() => {
+          setShowUpgradeModal(false);
+          window.location.reload();
+        }}
+      />
     </div>
   );
 }
+
+export default PropertyOwnerDashboard;
 

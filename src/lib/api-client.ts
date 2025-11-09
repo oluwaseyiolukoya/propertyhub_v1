@@ -113,14 +113,31 @@ async function request<T>(
 
     clearTimeout(timeoutId);
 
-    const data = await response.json();
+    // Safely parse JSON; tolerate empty/non-JSON responses
+    const contentType = response.headers.get('content-type') || '';
+    let data: any = undefined;
+    if (response.status === 204 || response.status === 205) {
+      data = {};
+    } else {
+      const raw = await response.text().catch(() => '');
+      if (!raw || raw.trim() === '') {
+        data = {};
+      } else {
+        try {
+          data = contentType.includes('application/json') ? JSON.parse(raw) : { message: raw };
+        } catch {
+          // Fallback for non-JSON payloads
+          data = { message: raw };
+        }
+      }
+    }
 
     // Handle 401 Unauthorized - check for permissions update (unless suppressed)
     if (response.status === 401 && !extra?.suppressAuthRedirect) {
-      if (data.code === 'PERMISSIONS_UPDATED') {
+      if ((data as any)?.code === 'PERMISSIONS_UPDATED') {
         // Show a toast notification before redirecting
         const event = new CustomEvent('permissionsUpdated', {
-          detail: { message: data.error || 'Your permissions have been updated. Please log in again.' }
+          detail: { message: (data as any)?.error || 'Your permissions have been updated. Please log in again.' }
         });
         window.dispatchEvent(event);
 
@@ -142,26 +159,33 @@ async function request<T>(
     if (response.status === 401 && extra?.suppressAuthRedirect) {
       return {
         error: {
-          error: data.error || 'Unauthorized',
-          message: data.message,
+          error: (data as any)?.error || 'Unauthorized',
+          message: (data as any)?.message || (data as any)?.details,
           statusCode: response.status,
+          // Surface backend details and code when present
+          ...(typeof (data as any)?.details !== 'undefined' ? { details: (data as any).details } : {}),
+          ...(typeof (data as any)?.code !== 'undefined' ? { code: (data as any).code } : {}),
         },
       };
     }
 
     if (!response.ok) {
       // Only broadcast accountBlocked for explicit account deactivation cases
-      if (response.status === 403 && (data?.code === 'ACCOUNT_BLOCKED' || /deactivated|blocked/i.test(data?.error || ''))) {
+      if (response.status === 403 && (((data as any)?.code === 'ACCOUNT_BLOCKED') || /deactivated|blocked/i.test(((data as any)?.error || '') as string))) {
         const event = new CustomEvent('accountBlocked', {
-          detail: { message: data.error || 'Your account has been deactivated' }
+          detail: { message: (data as any)?.error || 'Your account has been deactivated' }
         });
         window.dispatchEvent(event);
       }
       return {
         error: {
-          error: data.error || 'Request failed',
-          message: data.message,
+          error: (data as any)?.error || 'Request failed',
+          // Prefer backend 'message', then 'details', then fall back to error string
+          message: (data as any)?.message || (data as any)?.details || (data as any)?.error,
           statusCode: response.status,
+          // Surface backend details and code when present
+          ...(typeof (data as any)?.details !== 'undefined' ? { details: (data as any).details } : {}),
+          ...(typeof (data as any)?.code !== 'undefined' ? { code: (data as any).code } : {}),
         },
       };
     }

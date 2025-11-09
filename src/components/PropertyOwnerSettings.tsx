@@ -108,10 +108,11 @@ interface PropertyOwnerSettingsProps {
   onBack: () => void;
   onSave: (updates: any) => void;
   onLogout: () => void;
+  initialTab?: string;
 }
 
-export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: PropertyOwnerSettingsProps) {
-  const [activeTab, setActiveTab] = useState('profile');
+export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialTab }: PropertyOwnerSettingsProps) {
+  const [activeTab, setActiveTab] = useState(initialTab || 'profile');
   const [isEditing, setIsEditing] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
@@ -472,33 +473,31 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout }: Proper
     chartType: 'line'
   });
 
-  // Billing history
-  const [billingHistory] = useState([
-    {
-      id: 'INV-2024-003',
-      date: '2024-03-01',
-      description: 'Professional Plan - Monthly',
-      amount: 750,
-      status: 'paid',
-      downloadUrl: '#'
-    },
-    {
-      id: 'INV-2024-002',
-      date: '2024-02-01',
-      description: 'Professional Plan - Monthly',
-      amount: 750,
-      status: 'paid',
-      downloadUrl: '#'
-    },
-    {
-      id: 'INV-2024-001',
-      date: '2024-01-01',
-      description: 'Professional Plan - Monthly',
-      amount: 750,
-      status: 'paid',
-      downloadUrl: '#'
+  // Billing history (loaded from backend)
+  const [billingHistory, setBillingHistory] = useState<any[]>([]);
+
+  // Load billing history when Billing tab is active
+  useEffect(() => {
+    const loadBilling = async () => {
+      try {
+        const res = await apiClient.get<any>('/api/payments', { page: 1, pageSize: 50, type: 'subscription' });
+        if ((res as any).error) return;
+        const items = (res as any).data?.items || [];
+        const transformed = items.map((p: any, idx: number) => ({
+          id: p.providerReference || p.id || `INV-${idx + 1}`,
+          date: new Date(p.paidAt || p.createdAt).toISOString().split('T')[0],
+          description: `${(accountInfo?.customer?.plan?.name || 'Subscription')} - ${(accountInfo?.customer?.billingCycle || 'monthly')}`,
+          amount: Number(p.amount) || 0,
+          status: (p.status === 'success' ? 'paid' : (p.status || 'pending')),
+          downloadUrl: '#'
+        }));
+        setBillingHistory(transformed);
+      } catch {}
+    };
+    if (activeTab === 'billing') {
+      loadBilling();
     }
-  ]);
+  }, [activeTab, accountInfo]);
 
   // Payment methods
   const [paymentMethods] = useState([

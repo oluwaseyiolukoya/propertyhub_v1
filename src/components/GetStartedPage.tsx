@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Checkbox } from "./ui/checkbox";
 import { Badge } from "./ui/badge";
 import { toast } from 'sonner';
+import { submitOnboardingApplication, OnboardingApplicationData } from '../lib/api/onboarding';
 import {
   Building,
   ArrowLeft,
@@ -16,7 +17,6 @@ import {
   Home,
   CheckCircle2,
   Mail,
-  Lock,
   User,
   Phone,
   MapPin,
@@ -178,23 +178,7 @@ export function GetStartedPage({ onBackToHome, onNavigateToLogin, onSignupComple
       return false;
     }
 
-    // Password validation only for Property Owner and Tenant (not Property Manager)
-    if (formData.role !== 'property-manager') {
-      if (!formData.password.trim() || !formData.confirmPassword.trim()) {
-        toast.error('Please fill in all required fields');
-        return false;
-      }
-
-      if (formData.password !== formData.confirmPassword) {
-        toast.error('Passwords do not match');
-        return false;
-      }
-
-      if (formData.password.length < 8) {
-        toast.error('Password must be at least 8 characters');
-        return false;
-      }
-    }
+    // Account Security removed: no password validation
 
     if (!formData.agreeToTerms) {
       toast.error('Please agree to the Terms of Service');
@@ -232,12 +216,90 @@ export function GetStartedPage({ onBackToHome, onNavigateToLogin, onSignupComple
 
     setIsSubmitting(true);
 
-    setTimeout(() => {
+    try {
       const fullName = `${formData.firstName} ${formData.lastName}`;
-      toast.success('Application submitted successfully!');
+
+      // Prepare application data based on role
+      const applicationData: OnboardingApplicationData = {
+        applicationType: formData.role as 'property-owner' | 'property-manager' | 'tenant',
+        name: fullName,
+        email: formData.email,
+        phone: formData.phone || undefined,
+        city: formData.city || undefined,
+        state: formData.state || undefined,
+        country: formData.country || 'Nigeria',
+        postalCode: formData.zipCode || undefined,
+        referralSource: formData.hearAboutUs || undefined,
+        // Capture non-schema UI fields in metadata so admins can view them
+        metadata: {
+          portfolioValue: formData.portfolioValue || undefined,
+          managementStyle: formData.managementStyle || undefined,
+          primaryGoal: formData.primaryGoal || undefined,
+          currentSoftware: formData.currentSoftware || undefined,
+          jobTitle: formData.jobTitle || undefined,
+          teamSize: formData.teamSize || undefined,
+          propertyType: formData.propertyType || undefined,
+          rentalBudget: formData.rentalBudget || undefined,
+          subscribeToNewsletter: formData.subscribeToNewsletter || undefined,
+        },
+      };
+
+      // Add role-specific fields
+      if (formData.role === 'property-owner') {
+        applicationData.companyName = formData.companyName;
+        // Map UI values to backend-accepted enum
+        const bt = (formData.businessType || '').toLowerCase();
+        const mappedBusinessType =
+          bt === 'individual' ? 'individual'
+          : bt === 'partnership' ? 'partnership'
+          : bt ? 'company'
+          : undefined;
+        if (mappedBusinessType) {
+          applicationData.businessType = mappedBusinessType as 'individual' | 'company' | 'partnership';
+        }
+        applicationData.numberOfProperties = formData.numberOfProperties ? parseInt(formData.numberOfProperties) : undefined;
+        applicationData.totalUnits = formData.totalUnits ? parseInt(formData.totalUnits) : undefined;
+      } else if (formData.role === 'property-manager') {
+        applicationData.managementCompany = formData.employerCompany;
+        applicationData.yearsOfExperience = formData.yearsOfExperience ? parseInt(formData.yearsOfExperience) : undefined;
+        applicationData.propertiesManaged = formData.propertiesManaged ? parseInt(formData.propertiesManaged) : undefined;
+      } else if (formData.role === 'tenant') {
+        // Map UI values to backend-accepted enum
+        const cr = formData.currentlyRenting;
+        const mappedCr: 'yes' | 'no' | 'looking' =
+          cr === 'yes-contrezz' || cr === 'yes-other' ? 'yes'
+          : cr === 'moving-soon' || cr === 'looking' ? 'looking'
+          : 'no';
+        applicationData.currentlyRenting = mappedCr;
+        // Convert date (YYYY-MM-DD) to ISO datetime if provided
+        applicationData.moveInDate = formData.moveInDate ? new Date(formData.moveInDate).toISOString() : undefined;
+      }
+
+      console.log('[GetStartedPage] Submitting application:', applicationData);
+
+      // Submit application to backend
+      const response = await submitOnboardingApplication(applicationData);
+
+      console.log('[GetStartedPage] Application submitted successfully:', response);
+
+      // Show success message
+      toast.success('Application submitted successfully! We will review your application within 24-48 hours.', {
+        duration: 5000,
+      });
+
+      // Navigate to account under review page
       setIsSubmitting(false);
       onSignupComplete(formData.role as UserRole, formData.email, fullName);
-    }, 2000);
+    } catch (error: any) {
+      console.error('[GetStartedPage] Submission error:', error);
+
+      setIsSubmitting(false);
+
+      // Show error message
+      toast.error(error.message || 'Failed to submit application. Please try again.', {
+        duration: 5000,
+      });
+    }
   };
 
   const renderRoleSelection = () => (
@@ -607,47 +669,7 @@ export function GetStartedPage({ onBackToHome, onNavigateToLogin, onSignupComple
         </CardContent>
       </Card>
 
-      {/* Security */}
-      <Card className="border-2 hover:border-blue-200 transition-colors">
-        <CardHeader>
-          <CardTitle className="flex items-center text-xl">
-            <Lock className="h-5 w-5 mr-2 text-blue-600" />
-            Account Security
-          </CardTitle>
-          <CardDescription>Create a strong password to protect your account</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="password">Password *</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Minimum 8 characters"
-                value={formData.password}
-                onChange={(e) => handleInputChange('password', e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password *</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="Re-enter password"
-                value={formData.confirmPassword}
-                onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-              />
-            </div>
-          </div>
-          {formData.password && (
-            <div className="text-xs space-y-1">
-              <p className={formData.password.length >= 8 ? "text-green-600" : "text-gray-500"}>
-                {formData.password.length >= 8 ? "✓" : "○"} At least 8 characters
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Account Security removed */}
     </div>
   );
 
@@ -1074,47 +1096,7 @@ export function GetStartedPage({ onBackToHome, onNavigateToLogin, onSignupComple
         </CardContent>
       </Card>
 
-      {/* Account Security */}
-      <Card className="border-2 hover:border-blue-200 transition-colors">
-        <CardHeader>
-          <CardTitle className="flex items-center text-xl">
-            <Lock className="h-5 w-5 mr-2 text-blue-600" />
-            Account Security
-          </CardTitle>
-          <CardDescription>Create a strong password to protect your account</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="password">Password *</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Minimum 8 characters"
-                value={formData.password}
-                onChange={(e) => handleInputChange('password', e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password *</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="Re-enter password"
-                value={formData.confirmPassword}
-                onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-              />
-            </div>
-          </div>
-          {formData.password && (
-            <div className="text-xs space-y-1">
-              <p className={formData.password.length >= 8 ? "text-green-600" : "text-gray-500"}>
-                {formData.password.length >= 8 ? "✓" : "○"} At least 8 characters
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Account Security removed */}
     </div>
   );
 

@@ -22,6 +22,8 @@ import { getUnits } from '../lib/api/units';
 import { getAuthToken } from '../lib/api-client';
 import { initializeSocket, subscribeToPermissionsUpdated, unsubscribeFromPermissionsUpdated } from '../lib/socket';
 import { usePersistentState } from '../lib/usePersistentState';
+import { TrialStatusBanner } from './TrialStatusBanner';
+import { UpgradeModal } from './UpgradeModal';
 
 interface PropertyManagerDashboardProps {
   user: any;
@@ -41,6 +43,12 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
   const [loading, setLoading] = useState(true);
   const [accountInfo, setAccountInfo] = useState<any>(null);
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  // Reset to overview tab on component mount (every login)
+  useEffect(() => {
+    setActiveTab('overview');
+  }, []);
 
   // Fetch dashboard data and account info
   const fetchDashboardData = async (silent = false) => {
@@ -306,6 +314,12 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
         {/* Main Content */}
         <main className="flex-1 lg:ml-0 p-4 lg:p-8 w-full overflow-x-hidden">
           <div className="max-w-7xl mx-auto w-full">
+            {/* Trial Status Banner */}
+            <TrialStatusBanner
+              onUpgradeClick={() => setShowUpgradeModal(true)}
+              onAddPaymentMethod={() => setActiveTab('settings')}
+            />
+
             {loading ? (
               <div className="flex items-center justify-center min-h-[400px]">
                 <div className="text-center">
@@ -359,6 +373,16 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
       </div>
 
       <Footer />
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        open={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        onSuccess={() => {
+          setShowUpgradeModal(false);
+          window.location.reload();
+        }}
+      />
     </div>
   );
 }

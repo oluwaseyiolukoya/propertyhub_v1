@@ -16,6 +16,7 @@ import { SystemHealth } from './SystemHealth';
 import { SupportTickets } from './SupportTickets';
 import { PlatformSettings } from './PlatformSettings';
 import { AddCustomerPage } from './AddCustomerPage';
+import { OnboardingManager } from './admin/OnboardingManager';
 import { Footer } from './Footer';
 import { toast } from "sonner";
 import {
@@ -76,7 +77,8 @@ import {
   Trash2,
   Copy,
   CheckCircle,
-  Key
+  Key,
+  ArrowLeft
 } from 'lucide-react';
 import { Textarea } from './ui/textarea';
 import { useCurrency } from '../lib/CurrencyContext';
@@ -101,7 +103,8 @@ export function SuperAdminDashboard({
   });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentView, setCurrentView] = useState<'dashboard' | 'add-customer'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'add-customer' | 'view-customer'>('dashboard');
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [confirmAction, setConfirmAction] = useState<{
     type: 'reset-password' | 'deactivate' | 'resend-invitation' | 'delete' | null;
     customer: any;
@@ -666,7 +669,8 @@ export function SuperAdminDashboard({
 
   // Customer action handlers
   const handleViewCustomer = (customer: any) => {
-    setViewCustomerDialog(customer);
+    setSelectedCustomer(customer);
+    setCurrentView('view-customer');
   };
 
   const handleEditCustomer = (customer: any) => {
@@ -691,7 +695,9 @@ export function SuperAdminDashboard({
       propertyLimit: customer.propertyLimit,
       userLimit: customer.userLimit,
       storageLimit: customer.storageLimit,
-      notes: customer.notes || '' // Add notes to form data
+      notes: customer.notes || '', // Add notes to form data
+      trialStartsAt: customer.trialStartsAt ? new Date(customer.trialStartsAt).toISOString().split('T')[0] : '',
+      trialEndsAt: customer.trialEndsAt ? new Date(customer.trialEndsAt).toISOString().split('T')[0] : ''
     });
   };
 
@@ -933,6 +939,7 @@ export function SuperAdminDashboard({
     // Overview is always visible to avoid a blank dashboard for restricted roles
     { id: 'overview', name: 'Overview', permission: null },
     // Show page if user has explicit page permission OR any action within that area
+    { id: 'onboarding', name: 'Onboarding', permission: null }, // Available to all admins
     { id: 'customers', name: 'Customers', permission: [PERMISSIONS.CUSTOMERS, PERMISSIONS.CUSTOMER_VIEW, PERMISSIONS.CUSTOMER_CREATE, PERMISSIONS.CUSTOMER_EDIT, PERMISSIONS.CUSTOMER_DELETE] },
     { id: 'users', name: 'User Management', permission: [PERMISSIONS.USERS, PERMISSIONS.USER_VIEW, PERMISSIONS.USER_CREATE, PERMISSIONS.USER_EDIT, PERMISSIONS.USER_DELETE] },
     { id: 'billing', name: 'Billing & Plans', permission: [PERMISSIONS.BILLING, PERMISSIONS.BILLING_MANAGEMENT, PERMISSIONS.PLAN_VIEW, PERMISSIONS.PLAN_CREATE, PERMISSIONS.PLAN_EDIT, PERMISSIONS.PLAN_DELETE, PERMISSIONS.INVOICE_VIEW, PERMISSIONS.PAYMENT_VIEW] },
@@ -1075,6 +1082,254 @@ export function SuperAdminDashboard({
         }
       }}
     />;
+  }
+
+  // Show View Customer Page
+  if (currentView === 'view-customer' && selectedCustomer) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        {/* Header */}
+        <header className="bg-white shadow-sm border-b sticky top-0 z-40">
+          <div className="px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setCurrentView('dashboard');
+                    setSelectedCustomer(null);
+                  }}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Customers
+                </Button>
+                <div>
+                  <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Customer Details</h1>
+                  <p className="text-sm text-gray-500">{selectedCustomer.company}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setCurrentView('dashboard');
+                    handleEditCustomer(selectedCustomer);
+                  }}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onLogout}
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Content */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8">
+          <div className="max-w-5xl mx-auto space-y-6">
+            {/* Company Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Company Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Company Name</p>
+                    <p className="font-medium text-gray-900">{selectedCustomer.company}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Owner</p>
+                    <p className="font-medium text-gray-900">{selectedCustomer.owner}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Email</p>
+                    <p className="font-medium text-gray-900">{selectedCustomer.email}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Phone</p>
+                    <p className="font-medium text-gray-900">{selectedCustomer.phone || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Website</p>
+                    <p className="font-medium text-gray-900">{selectedCustomer.website || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Tax ID</p>
+                    <p className="font-medium text-gray-900">{selectedCustomer.taxId || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Industry</p>
+                    <p className="font-medium text-gray-900">{selectedCustomer.industry || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Company Size</p>
+                    <p className="font-medium text-gray-900">{selectedCustomer.companySize || 'N/A'}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Subscription & Billing */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Subscription & Billing</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Status</p>
+                    <Badge variant={
+                      selectedCustomer.status === 'active' ? 'default' :
+                      selectedCustomer.status === 'trial' ? 'secondary' :
+                      selectedCustomer.status === 'suspended' ? 'destructive' : 'outline'
+                    }>
+                      {selectedCustomer.status}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Plan</p>
+                    <p className="font-medium text-gray-900">{selectedCustomer.plan?.name || 'No Plan'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Billing Cycle</p>
+                    <p className="font-medium text-gray-900 capitalize">{selectedCustomer.billingCycle || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">MRR</p>
+                    <p className="font-medium text-gray-900">${selectedCustomer.mrr?.toFixed(2) || '0.00'}</p>
+                  </div>
+                  {selectedCustomer.trialEndsAt && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Trial Ends</p>
+                      <p className="font-medium text-gray-900">
+                        {new Date(selectedCustomer.trialEndsAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  )}
+                  {selectedCustomer.subscriptionStartDate && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Subscription Start</p>
+                      <p className="font-medium text-gray-900">
+                        {new Date(selectedCustomer.subscriptionStartDate).toLocaleDateString()}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Usage & Limits */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Usage & Limits</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Properties</p>
+                    <p className="font-medium text-gray-900">
+                      {selectedCustomer.propertiesCount || 0} / {selectedCustomer.propertyLimit || 'Unlimited'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Users</p>
+                    <p className="font-medium text-gray-900">
+                      {selectedCustomer.usersCount || 0} / {selectedCustomer.userLimit || 'Unlimited'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Storage</p>
+                    <p className="font-medium text-gray-900">
+                      {selectedCustomer.storageUsed || 0} MB / {selectedCustomer.storageLimit || 'Unlimited'} MB
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Address */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Address</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Street</p>
+                    <p className="font-medium text-gray-900">{selectedCustomer.street || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">City</p>
+                    <p className="font-medium text-gray-900">{selectedCustomer.city || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">State</p>
+                    <p className="font-medium text-gray-900">{selectedCustomer.state || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Postal Code</p>
+                    <p className="font-medium text-gray-900">{selectedCustomer.postalCode || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Country</p>
+                    <p className="font-medium text-gray-900">{selectedCustomer.country || 'N/A'}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Account Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Account Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Created</p>
+                    <p className="font-medium text-gray-900">
+                      {new Date(selectedCustomer.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Last Updated</p>
+                    <p className="font-medium text-gray-900">
+                      {new Date(selectedCustomer.updatedAt).toLocaleString()}
+                    </p>
+                  </div>
+                  {selectedCustomer.lastLogin && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Last Login</p>
+                      <p className="font-medium text-gray-900">
+                        {new Date(selectedCustomer.lastLogin).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
+                  {selectedCustomer.notes && (
+                    <div className="md:col-span-2">
+                      <p className="text-sm text-gray-500 mb-1">Notes</p>
+                      <p className="font-medium text-gray-900 whitespace-pre-wrap">{selectedCustomer.notes}</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+
+        <Footer />
+      </div>
+    );
   }
 
   return (
@@ -1673,6 +1928,9 @@ export function SuperAdminDashboard({
               />
             )}
 
+            {/* Onboarding Tab */}
+            {activeTab === 'onboarding' && <OnboardingManager />}
+
             {/* Other tabs coming soon */}
             {activeTab === 'billing' && <BillingPlansAdmin />}
             {activeTab === 'analytics' && <Analytics />}
@@ -2194,6 +2452,59 @@ export function SuperAdminDashboard({
                     </Select>
                   </div>
                 </div>
+
+                {/* Trial Period Management - Only show if status is 'trial' */}
+                {editFormData.status === 'trial' && (
+                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h4 className="text-sm font-semibold mb-3 text-blue-900 flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Trial Period
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-trialStartsAt">Trial Start Date</Label>
+                        <Input
+                          id="edit-trialStartsAt"
+                          type="date"
+                          value={editFormData.trialStartsAt || ''}
+                          onChange={(e) => setEditFormData({ ...editFormData, trialStartsAt: e.target.value })}
+                        />
+                        <p className="text-xs text-gray-500">When the trial period started</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-trialEndsAt">Trial End Date</Label>
+                        <Input
+                          id="edit-trialEndsAt"
+                          type="date"
+                          value={editFormData.trialEndsAt || ''}
+                          onChange={(e) => setEditFormData({ ...editFormData, trialEndsAt: e.target.value })}
+                        />
+                        <p className="text-xs text-gray-500">When the trial period expires</p>
+                      </div>
+                    </div>
+                    {editFormData.trialStartsAt && editFormData.trialEndsAt && (
+                      <div className="mt-3 p-2 bg-white rounded border border-blue-200">
+                        <p className="text-sm text-gray-700">
+                          <strong>Trial Duration:</strong>{' '}
+                          {Math.ceil(
+                            (new Date(editFormData.trialEndsAt).getTime() -
+                             new Date(editFormData.trialStartsAt).getTime()) /
+                            (1000 * 60 * 60 * 24)
+                          )} days
+                        </p>
+                        <p className="text-sm text-gray-700 mt-1">
+                          <strong>Days Remaining:</strong>{' '}
+                          {Math.max(0, Math.floor(
+                            (new Date(editFormData.trialEndsAt).getTime() - new Date().getTime()) /
+                            (1000 * 60 * 60 * 24)
+                          ))} days
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Address */}

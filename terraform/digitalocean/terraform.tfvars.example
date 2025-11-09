@@ -1,0 +1,38 @@
+# Digital Ocean Terraform Variables
+# Copy this file to terraform.tfvars and fill in your values
+
+# Digital Ocean API token
+# Get from: https://cloud.digitalocean.com/account/api/tokens
+do_token = "dop_v1_your_token_here"
+
+# Project configuration
+project_name = "contrezz"
+environment  = "prod" # or "dev"
+
+# Region (choose closest to your users)
+# Options: nyc1, nyc3, sfo3, sgp1, lon1, fra1, tor1, blr1, ams3
+region = "nyc3"
+
+# Database size
+# Options:
+#   db-s-1vcpu-1gb    = $15/month  (1GB RAM, 10GB disk)
+#   db-s-1vcpu-2gb    = $30/month  (2GB RAM, 25GB disk)
+#   db-s-2vcpu-4gb    = $60/month  (4GB RAM, 38GB disk)
+database_size = "db-s-1vcpu-1gb"
+
+# App Platform instance size
+# Options:
+#   basic-xxs  = $12/month  (512MB RAM, 1 vCPU)
+#   basic-xs   = $24/month  (1GB RAM, 1 vCPU)
+#   basic-s    = $48/month  (2GB RAM, 1 vCPU)
+app_instance_size = "basic-xxs"
+
+# Your domain name (optional)
+# Leave empty if you don't have a domain yet
+domain_name = "" # e.g., "contrezz.com"
+
+# Application secrets
+jwt_secret           = "your-jwt-secret-here-change-this"
+paystack_secret_key  = "sk_test_your_paystack_secret_key"
+paystack_public_key  = "pk_test_your_paystack_public_key"
+

@@ -3,8 +3,11 @@
  * Centralized configuration for API endpoints and settings
  */
 
-// API Base URL - Update this based on environment
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// API Base URL - Best practice:
+// - In development, use Vite proxy by keeping base empty ('') so all calls go to '/api'
+// - In other environments, use explicit VITE_API_URL
+export const API_BASE_URL =
+  (import.meta.env.DEV ? '' : (import.meta.env.VITE_API_URL || ''));
 
 // API Endpoints
 export const API_ENDPOINTS = {

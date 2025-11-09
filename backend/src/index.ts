@@ -10,8 +10,17 @@ import dotenv from 'dotenv';
 import { initializeSocket, cleanupSocket } from './lib/socket';
 import paystackWebhookRoutes from './routes/paystack';
 
-// Load environment variables
-dotenv.config();
+// Load environment variables (.env.local overrides .env)
+try {
+  const envLocalPath = path.resolve(process.cwd(), '.env.local');
+  if (fs.existsSync(envLocalPath)) {
+    dotenv.config({ path: envLocalPath });
+  } else {
+    dotenv.config(); // fallback to .env
+  }
+} catch {
+  dotenv.config();
+}
 
 // Import routes
 import authRoutes from './routes/auth';
@@ -56,6 +65,11 @@ import billingAnalyticsRoutes from './routes/billing-analytics';
 import billingTransactionsRoutes from './routes/billing-transactions';
 // Upload routes
 import uploadRoutes from './routes/uploads';
+// Onboarding routes
+import onboardingRoutes from './routes/onboarding';
+import adminOnboardingRoutes from './routes/admin-onboarding';
+// Subscription management routes
+import subscriptionManagementRoutes from './routes/subscription';
 // Cron jobs
 import { initializeCronJobs } from './lib/cron-jobs';
 
@@ -142,7 +156,10 @@ app.get('/health', (req: Request, res: Response) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+// Onboarding routes (public)
+app.use('/api/onboarding', onboardingRoutes);
 // Admin routes
+app.use('/api/admin/onboarding', adminOnboardingRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/roles', roleRoutes);
@@ -177,6 +194,8 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/payment-methods', paymentMethodRoutes);
 // Subscription routes
 app.use('/api/subscriptions', subscriptionRoutes);
+// Subscription management routes (trial, upgrade, reactivate)
+app.use('/api/subscription', subscriptionManagementRoutes);
 // Billing Analytics routes
 app.use('/api/billing-analytics', billingAnalyticsRoutes);
 // Billing Transactions routes
