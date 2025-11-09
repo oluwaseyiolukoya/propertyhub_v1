@@ -3,9 +3,11 @@
 **Fast track guide to migrate from AWS to Digital Ocean in one day.**
 
 ## 🎯 Goal
+
 Reduce costs from $98/month (AWS) to $32/month (Digital Ocean) - **67% savings**
 
 ## ⏱️ Time Required
+
 - **Total: 4-6 hours**
 - Backup: 30 min
 - Setup: 1 hour
@@ -19,16 +21,19 @@ Reduce costs from $98/month (AWS) to $32/month (Digital Ocean) - **67% savings**
 ## 📋 Prerequisites (15 minutes)
 
 ### 1. Create Digital Ocean Account
+
 👉 https://www.digitalocean.com/
 
 ### 2. Install Tools
 
 **For macOS:**
+
 ```bash
 brew install doctl terraform postgresql@15
 ```
 
 **Verify installation:**
+
 ```bash
 doctl version
 terraform version
@@ -38,6 +43,7 @@ psql --version
 **Note:** All three should show version numbers if installed correctly.
 
 ### 3. Get API Token
+
 1. Go to: https://cloud.digitalocean.com/account/api/tokens
 2. Click "Generate New Token"
 3. Name: "Contrezz Migration"
@@ -45,6 +51,7 @@ psql --version
 5. Copy token (you'll need it soon)
 
 ### 4. Authenticate
+
 ```bash
 doctl auth init
 # Paste your token when prompted
@@ -83,6 +90,7 @@ nano terraform.tfvars
 ```
 
 **Minimum required:**
+
 ```hcl
 do_token            = "dop_v1_YOUR_TOKEN_HERE"
 jwt_secret          = "copy-from-backend/.env"
@@ -102,6 +110,7 @@ paystack_public_key = "copy-from-backend/.env"
 ```
 
 **What this does:**
+
 - Creates PostgreSQL database ($15/month)
 - Sets up App Platform for backend ($12/month)
 - Creates Spaces bucket for frontend ($5/month)
@@ -164,6 +173,7 @@ doctl apps create --spec .do/app.yaml
 ```
 
 **✅ Checkpoint:** Backend should respond to health check
+
 ```bash
 BACKEND_URL=$(cd ../terraform/digitalocean && terraform output -raw backend_url)
 curl $BACKEND_URL/health
@@ -197,6 +207,7 @@ doctl spaces bucket update $BUCKET --enable-static-site --index-document index.h
 ```
 
 **✅ Checkpoint:** Frontend should be accessible
+
 ```bash
 FRONTEND_URL=$(cd terraform/digitalocean && terraform output -raw spaces_cdn_endpoint)
 open $FRONTEND_URL
@@ -249,6 +260,7 @@ doctl compute domain records create contrezz.com \
 ```
 
 **Then update nameservers at your domain registrar:**
+
 ```
 ns1.digitalocean.com
 ns2.digitalocean.com
@@ -280,6 +292,7 @@ After migration, verify these work:
 **Keep AWS running as backup!**
 
 ### Daily checks:
+
 ```bash
 # Check app status
 doctl apps list
@@ -295,6 +308,7 @@ doctl balance get
 ```
 
 ### Set up alerts:
+
 1. Go to: https://cloud.digitalocean.com/account/billing
 2. Set budget alert at $35/month
 3. Enable email notifications
@@ -316,6 +330,7 @@ cd /Users/oluwaseyio/test_ui_figma_and_cursor
 ```
 
 **Verify in AWS Console:**
+
 - https://console.aws.amazon.com/
 - Check all resources are deleted
 - Verify billing drops to $0
@@ -325,6 +340,7 @@ cd /Users/oluwaseyio/test_ui_figma_and_cursor
 ## 💰 Cost Savings
 
 ### Before (AWS)
+
 ```
 ECS Fargate:        $30/month
 RDS PostgreSQL:     $15/month
@@ -336,6 +352,7 @@ Total:              $98/month
 ```
 
 ### After (Digital Ocean)
+
 ```
 App Platform:       $12/month
 PostgreSQL:         $15/month
@@ -352,6 +369,7 @@ Annual Savings:     $792/year
 ## 🆘 Quick Troubleshooting
 
 ### Backend won't start
+
 ```bash
 # Check logs
 doctl apps logs <app-id> --follow
@@ -363,6 +381,7 @@ doctl apps logs <app-id> --follow
 ```
 
 ### Frontend shows errors
+
 ```bash
 # Check if files uploaded
 doctl spaces list-objects <bucket-name>
@@ -372,6 +391,7 @@ doctl spaces upload dist <bucket-name> --recursive --acl public-read
 ```
 
 ### Database connection fails
+
 ```bash
 # Test connection
 psql "$(cd terraform/digitalocean && terraform output -raw database_connection_string)" -c "SELECT 1"
@@ -381,6 +401,7 @@ doctl databases firewalls list <db-id>
 ```
 
 ### Can't login
+
 ```bash
 # Check if users table has data
 psql "$DB_URL" -c "SELECT email FROM users LIMIT 5;"
@@ -407,7 +428,7 @@ Once everything works:
 ✅ Costs reduced by 67%  
 ✅ Simpler infrastructure  
 ✅ Predictable billing  
-✅ AWS resources destroyed  
+✅ AWS resources destroyed
 
 **Congratulations on a successful migration! 🚀**
 
@@ -455,7 +476,6 @@ terraform output spaces_cdn_endpoint
 
 **Time to migrate:** ~4-6 hours  
 **Savings:** $66/month ($792/year)  
-**Complexity reduction:** Massive  
+**Complexity reduction:** Massive
 
 **Let's do this! 🚀**
-

@@ -18,7 +18,7 @@ export interface BillingPlan {
   features: any;
   isActive: boolean;
   isPopular?: boolean;
-  trialDurationDays?: number; // Number of days for trial period (only used for Trial plan)
+-  trialDurationDays?: number; // Number of days for trial period (only used for Trial plan)
   displayOrder?: number;
   createdAt: string;
   updatedAt: string;

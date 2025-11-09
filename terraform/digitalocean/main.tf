@@ -172,19 +172,18 @@ resource "digitalocean_app" "backend" {
       instance_count     = 1
       instance_size_slug = var.app_instance_size
 
-      # Use Docker Hub image (we'll build and push manually)
-      image {
-        registry_type = "DOCKER_HUB"
-        registry      = "library"
-        repository    = "node"
-        tag           = "18-alpine"
+      # GitHub integration
+      github {
+        repo           = "oluwaseyiolukoya/propertyhub_v1"
+        branch         = var.environment == "prod" ? "main" : "dev"
+        deploy_on_push = true
       }
 
       # Build configuration
       source_dir = "/backend"
 
       build_command = "npm ci && npx prisma generate && npm run build"
-      run_command   = "npm start"
+      run_command   = "sh start.sh"
 
       # Health check
       health_check {
@@ -239,6 +238,11 @@ resource "digitalocean_app" "backend" {
       env {
         key   = "CORS_ORIGIN"
         value = var.domain_name != "" ? "https://${var.domain_name}" : "http://localhost:5173"
+      }
+
+      env {
+        key   = "SEED_ON_START"
+        value = "true"
       }
 
       # HTTP port

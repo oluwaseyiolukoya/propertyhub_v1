@@ -22,6 +22,15 @@ else
 fi
 
 echo "[start] Launching API..."
-exec node dist/src/index.js
+# Check which path the build output is in
+if [ -f "dist/index.js" ]; then
+  exec node dist/index.js
+elif [ -f "dist/src/index.js" ]; then
+  exec node dist/src/index.js
+else
+  echo "[start] ERROR: Could not find index.js in dist/ or dist/src/"
+  ls -la dist/ || true
+  exit 1
+fi
 
 
