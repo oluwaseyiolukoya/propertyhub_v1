@@ -93,7 +93,10 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
   'http://localhost:3000',
+  'https://contrezz.com',
+  'https://www.contrezz.com',
   process.env.FRONTEND_URL,
+  process.env.CORS_ORIGIN,
 ].filter(Boolean); // Remove undefined values
 
 app.use(cors({
@@ -103,6 +106,11 @@ app.use(cors({
 
     // Allow any Vercel deployment (production and preview URLs)
     if (origin.includes('vercel.app')) {
+      return callback(null, true);
+    }
+
+    // Allow any DigitalOcean App Platform deployment
+    if (origin.includes('ondigitalocean.app')) {
       return callback(null, true);
     }
 
