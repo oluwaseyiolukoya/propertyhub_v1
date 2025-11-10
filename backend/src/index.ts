@@ -154,6 +154,15 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
+// Health check alias under /api for environments that preserve the '/api' prefix at the ingress layer
+app.get('/api/health', (req: Request, res: Response) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 // API Routes
 app.use('/api/auth', authRoutes);
 // Onboarding routes (public)
