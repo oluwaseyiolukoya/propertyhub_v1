@@ -176,6 +176,7 @@ async function main() {
         updatedAt: new Date(),
       },
       create: {
+        id: `payment-settings-${customer.id}-paystack`,
         customerId: customer.id,
         provider: 'paystack',
         publicKey: paystackPublic,
@@ -440,6 +441,7 @@ async function main() {
   if (existingPayments === 0) {
     await prisma.payments.create({
       data: {
+        id: 'payment-metro-1',
         customerId: customer.id,
         propertyId: property.id,
         unitId: unitA.id,
@@ -456,11 +458,14 @@ async function main() {
         providerFee: 0,
         paidAt: new Date(),
         metadata: { note: 'Seeded payment (manual)' },
+        createdAt: new Date(),
+        updatedAt: new Date(),
       }
     });
 
     await prisma.payments.create({
       data: {
+        id: 'payment-metro-2',
         customerId: customer.id,
         propertyId: property.id,
         unitId: unitB.id,
@@ -475,6 +480,8 @@ async function main() {
         provider: 'paystack',
         providerReference: 'PSK-DEMO-PENDING-1',
         metadata: { note: 'Seeded payment (pending)' },
+        createdAt: new Date(),
+        updatedAt: new Date(),
       }
     });
     console.log('✅ Created Payments (1 success, 1 pending)');
