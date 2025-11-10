@@ -9,6 +9,7 @@ import compression from 'compression';
 import dotenv from 'dotenv';
 import { initializeSocket, cleanupSocket } from './lib/socket';
 import paystackWebhookRoutes from './routes/paystack';
+import prisma from './lib/db';
 
 // Load environment variables (.env.local overrides .env)
 try {
@@ -161,6 +162,37 @@ app.get('/api/health', (req: Request, res: Response) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime()
   });
+});
+
+// Deep health check that validates database connectivity and key tables
+app.get('/api/_diag/db', async (req: Request, res: Response) => {
+  try {
+    // Basic connectivity
+    await prisma.$queryRaw`SELECT 1`;
+    // Try to introspect a few critical tables, but ignore if not present
+    let adminsCount: number | null = null;
+    try {
+      adminsCount = await prisma.admins.count();
+    } catch (e) {
+      adminsCount = null;
+    }
+    res.json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      database: {
+        connected: true,
+        adminsCount,
+      },
+    });
+  } catch (e: any) {
+    res.status(500).json({
+      status: 'error',
+      message: 'Database check failed',
+      errorCode: e?.code,
+      error: e?.message || String(e),
+    });
+  }
 });
 
 // API Routes
