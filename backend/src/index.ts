@@ -71,6 +71,8 @@ import onboardingRoutes from "./routes/onboarding";
 import adminOnboardingRoutes from "./routes/admin-onboarding";
 // Subscription management routes
 import subscriptionManagementRoutes from "./routes/subscription";
+// Developer Dashboard routes
+import developerDashboardRoutes from "./routes/developer-dashboard";
 // Cron jobs
 import { initializeCronJobs } from "./lib/cron-jobs";
 
@@ -260,6 +262,8 @@ app.use("/api/billing-analytics", billingAnalyticsRoutes);
 app.use("/api/billing-transactions", billingTransactionsRoutes);
 // Upload routes
 app.use("/api/uploads", uploadRoutes);
+// Developer Dashboard routes
+app.use("/api/developer-dashboard", developerDashboardRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

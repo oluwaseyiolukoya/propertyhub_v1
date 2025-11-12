@@ -111,67 +111,69 @@ model customer_users {
 }
 
 model customers {
-  id                        String                      @id
-  company                   String
-  owner                     String
-  email                     String                      @unique
-  phone                     String?
-  website                   String?
-  taxId                     String?
-  industry                  String?
-  companySize               String?
-  planId                    String?
-  billingCycle              String                      @default("monthly")
-  mrr                       Float                       @default(0)
-  trialEndsAt               DateTime?
-  subscriptionStartDate     DateTime?
-  status                    String                      @default("trial")
-  lastLogin                 DateTime?
-  propertyLimit             Int                         @default(5)
-  userLimit                 Int                         @default(3)
-  storageLimit              Int                         @default(1000)
-  street                    String?
-  city                      String?
-  state                     String?
-  postalCode                String?
-  country                   String                      @default("Nigeria")
-  createdAt                 DateTime                    @default(now())
-  updatedAt                 DateTime
-  propertiesCount           Int                         @default(0)
-  unitsCount                Int                         @default(0)
-  notes                     String?
-  timezone                  String?
-  language                  String?
-  yearEstablished           String?
-  licenseNumber             String?
-  insuranceProvider         String?
-  insurancePolicy           String?
-  insuranceExpiration       String?
+  id                          String                      @id
+  company                     String
+  owner                       String
+  email                       String                      @unique
+  phone                       String?
+  website                     String?
+  taxId                       String?
+  industry                    String?
+  companySize                 String?
+  planId                      String?
+  billingCycle                String                      @default("monthly")
+  mrr                         Float                       @default(0)
+  trialEndsAt                 DateTime?
+  subscriptionStartDate       DateTime?
+  status                      String                      @default("trial")
+  lastLogin                   DateTime?
+  propertyLimit               Int                         @default(5)
+  userLimit                   Int                         @default(3)
+  storageLimit                Int                         @default(1000)
+  street                      String?
+  city                        String?
+  state                       String?
+  postalCode                  String?
+  country                     String                      @default("Nigeria")
+  createdAt                   DateTime                    @default(now())
+  updatedAt                   DateTime
+  propertiesCount             Int                         @default(0)
+  unitsCount                  Int                         @default(0)
+  notes                       String?
+  timezone                    String?
+  language                    String?
+  yearEstablished             String?
+  licenseNumber               String?
+  insuranceProvider           String?
+  insurancePolicy             String?
+  insuranceExpiration         String?
   // Trial Management Fields
-  trialStartsAt             DateTime?
-  gracePeriodEndsAt         DateTime?
-  suspendedAt               DateTime?
-  suspensionReason          String?
+  trialStartsAt               DateTime?
+  gracePeriodEndsAt           DateTime?
+  suspendedAt                 DateTime?
+  suspensionReason            String?
   lastTrialNotificationSentAt DateTime?
-  trialNotificationCount    Int                         @default(0)
+  trialNotificationCount      Int                         @default(0)
   // Relations
-  activity_logs             activity_logs[]
-  customer_users            customer_users[]
-  plans                     plans?                      @relation(fields: [planId], references: [id])
-  documents                 documents[]
-  invoices                  invoices[]
-  payment_methods           payment_methods[]
-  payment_settings          payment_settings[]
-  payments                  payments[]
-  properties                properties[]
-  property_key_transactions property_key_transactions[]
-  property_keys             property_keys[]
-  support_tickets           support_tickets[]
-  users                     users[]
-  mrr_snapshots             mrr_snapshots[]
-  onboarding_application    onboarding_applications?
-  subscription_events       subscription_events[]
-  trial_notifications       trial_notifications[]
+  activity_logs               activity_logs[]
+  customer_users              customer_users[]
+  plans                       plans?                      @relation(fields: [planId], references: [id])
+  documents                   documents[]
+  invoices                    invoices[]
+  payment_methods             payment_methods[]
+  payment_settings            payment_settings[]
+  payments                    payments[]
+  properties                  properties[]
+  property_key_transactions   property_key_transactions[]
+  property_keys               property_keys[]
+  support_tickets             support_tickets[]
+  users                       users[]
+  mrr_snapshots               mrr_snapshots[]
+  onboarding_application      onboarding_applications?
+  subscription_events         subscription_events[]
+  trial_notifications         trial_notifications[]
+  developer_projects          developer_projects[]
+  project_vendors             project_vendors[]
 
   @@index([status])
   @@index([trialEndsAt])
@@ -403,7 +405,7 @@ model plans {
   features                Json
   isActive                Boolean                   @default(true)
   isPopular               Boolean                   @default(false)
-  trialDurationDays       Int?                      // Number of days for trial period (only used for Trial plan)
+  trialDurationDays       Int? // Number of days for trial period (only used for Trial plan)
   createdAt               DateTime                  @default(now())
   updatedAt               DateTime
   customers               customers[]
@@ -664,6 +666,8 @@ model users {
   maintenance_requests_maintenance_requests_assignedToIdTousers                 maintenance_requests[]      @relation("maintenance_requests_assignedToIdTousers")
   maintenance_updates                                                           maintenance_updates[]
   customers                                                                     customers?                  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  developer_projects                                                            developer_projects[]
+  project_invoices                                                              project_invoices[]
 }
 
 model maintenance_requests {
@@ -709,15 +713,15 @@ model maintenance_updates {
 }
 
 model subscription_events {
-  id              String    @id @default(uuid())
-  customerId      String
-  eventType       String
-  previousStatus  String?
-  newStatus       String?
-  metadata        Json?
-  triggeredBy     String
-  createdAt       DateTime  @default(now())
-  customer        customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  id             String    @id @default(uuid())
+  customerId     String
+  eventType      String
+  previousStatus String?
+  newStatus      String?
+  metadata       Json?
+  triggeredBy    String
+  createdAt      DateTime  @default(now())
+  customer       customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@index([customerId])
   @@index([eventType])
@@ -738,4 +742,162 @@ model trial_notifications {
   @@index([customerId])
   @@index([notificationType])
   @@index([sentAt])
+}
+
+// ============================================
+// Property Developer Dashboard Models
+// ============================================
+
+model developer_projects {
+  id                 String               @id @default(uuid())
+  customerId         String
+  developerId        String
+  name               String
+  description        String?
+  projectType        String // residential, commercial, mixed-use, infrastructure
+  stage              String               @default("planning") // planning, design, pre-construction, construction, completion
+  status             String               @default("active") // active, on-hold, completed, cancelled
+  startDate          DateTime?
+  estimatedEndDate   DateTime?
+  actualEndDate      DateTime?
+  location           String?
+  city               String?
+  state              String?
+  country            String               @default("Nigeria")
+  totalBudget        Float                @default(0)
+  actualSpend        Float                @default(0)
+  currency           String               @default("NGN")
+  progress           Float                @default(0) // percentage 0-100
+  coverImage         String?
+  images             Json?
+  metadata           Json?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  customer           customers            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  developer          users                @relation(fields: [developerId], references: [id])
+  budget_line_items  budget_line_items[]
+  project_invoices   project_invoices[]
+  project_forecasts  project_forecasts[]
+  project_milestones project_milestones[]
+
+  @@index([customerId])
+  @@index([developerId])
+  @@index([status])
+  @@index([stage])
+}
+
+model budget_line_items {
+  id              String             @id @default(uuid())
+  projectId       String
+  category        String // labor, materials, equipment, permits, professional-fees, contingency, etc.
+  subcategory     String?
+  description     String
+  plannedAmount   Float              @default(0)
+  actualAmount    Float              @default(0)
+  variance        Float              @default(0) // actualAmount - plannedAmount
+  variancePercent Float              @default(0) // (variance / plannedAmount) * 100
+  status          String             @default("pending") // pending, in-progress, completed, overrun
+  notes           String?
+  startDate       DateTime?
+  endDate         DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  project         developer_projects @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([category])
+  @@index([status])
+}
+
+model project_vendors {
+  id             String             @id @default(uuid())
+  customerId     String
+  name           String
+  contactPerson  String?
+  email          String?
+  phone          String?
+  address        String?
+  vendorType     String // contractor, supplier, consultant, subcontractor
+  specialization String?
+  rating         Float? // 0-5 stars
+  totalContracts Int                @default(0)
+  totalValue     Float              @default(0)
+  currency       String             @default("NGN")
+  status         String             @default("active") // active, inactive, blacklisted
+  notes          String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  customer       customers          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  invoices       project_invoices[]
+
+  @@index([customerId])
+  @@index([vendorType])
+  @@index([status])
+}
+
+model project_invoices {
+  id            String             @id @default(uuid())
+  projectId     String
+  vendorId      String?
+  invoiceNumber String             @unique
+  description   String
+  category      String // matches budget categories
+  amount        Float
+  currency      String             @default("NGN")
+  status        String             @default("pending") // pending, approved, paid, rejected
+  dueDate       DateTime?
+  paidDate      DateTime?
+  paymentMethod String?
+  approvedBy    String?
+  approvedAt    DateTime?
+  attachments   Json?
+  notes         String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  project       developer_projects @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  vendor        project_vendors?   @relation(fields: [vendorId], references: [id])
+  approver      users?             @relation(fields: [approvedBy], references: [id])
+
+  @@index([projectId])
+  @@index([vendorId])
+  @@index([status])
+  @@index([category])
+}
+
+model project_forecasts {
+  id             String             @id @default(uuid())
+  projectId      String
+  forecastDate   DateTime // Date this forecast was made
+  forecastType   String // completion-date, budget, cash-flow
+  predictedValue Float?
+  predictedDate  DateTime?
+  confidence     Float? // 0-100 percentage
+  methodology    String? // manual, trend-analysis, ml-model
+  notes          String?
+  metadata       Json?
+  createdAt      DateTime           @default(now())
+  project        developer_projects @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([forecastType])
+  @@index([forecastDate])
+}
+
+model project_milestones {
+  id            String             @id @default(uuid())
+  projectId     String
+  name          String
+  description   String?
+  targetDate    DateTime
+  completedDate DateTime?
+  status        String             @default("pending") // pending, in-progress, completed, delayed
+  progress      Float              @default(0) // 0-100
+  dependencies  Json? // Array of milestone IDs
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  project       developer_projects @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
+  @@index([targetDate])
 }

@@ -13,12 +13,13 @@ import {
   MessageSquare,
   Building2,
   UserCog,
-  Home
+  Home,
+  Hammer
 } from 'lucide-react';
 
 interface AccountUnderReviewPageProps {
   onBackToHome: () => void;
-  userRole: 'property-owner' | 'property-manager' | 'tenant';
+  userRole: 'property-owner' | 'property-manager' | 'property-developer' | 'developer' | 'tenant';
   userEmail: string;
   userName: string;
 }
@@ -55,6 +56,28 @@ export function AccountUnderReviewPage({
         'Tenant communication tools',
         'Maintenance coordination',
         'Assignment to properties'
+      ]
+    },
+    'property-developer': {
+      icon: Hammer,
+      title: 'Property Developer',
+      reviewTime: '24-48 hours',
+      benefits: [
+        'Real-time project budget tracking',
+        'Vendor and invoice management',
+        'Multi-project portfolio overview',
+        'Financial forecasting and analytics'
+      ]
+    },
+    'developer': {
+      icon: Hammer,
+      title: 'Property Developer',
+      reviewTime: '24-48 hours',
+      benefits: [
+        'Real-time project budget tracking',
+        'Vendor and invoice management',
+        'Multi-project portfolio overview',
+        'Financial forecasting and analytics'
       ]
     },
     'tenant': {

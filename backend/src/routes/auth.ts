@@ -176,7 +176,9 @@ router.post('/login', async (req: Request, res: Response) => {
           ? 'manager'
           : roleLower === 'tenant'
             ? 'tenant'
-            : 'owner'; // default to owner for customer users
+            : roleLower === 'developer' || roleLower === 'property-developer'
+              ? 'developer'
+              : 'owner'; // default to owner for customer users
 
       const token = (jwt as any).sign(
         { id: user.id, email: user.email, role: user.role, customerId: user.customerId },
@@ -437,7 +439,9 @@ router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) =
         ? 'manager'
         : roleLower === 'tenant'
           ? 'tenant'
-          : user.customerId ? 'owner' : 'admin'; // default to owner for customer users, admin for internal
+          : roleLower === 'developer' || roleLower === 'property-developer'
+            ? 'developer'
+            : user.customerId ? 'owner' : 'admin'; // default to owner for customer users, admin for internal
 
     // Compute owner-derived permissions for managers so changes reflect without re-login
     let effectivePermissions: any = user.permissions || {};

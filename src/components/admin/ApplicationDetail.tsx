@@ -446,6 +446,202 @@ export function ApplicationDetail({ applicationId, onBack, onUpdate }: Applicati
             </Card>
           )}
 
+          {(application.applicationType === 'property-developer' || application.applicationType === 'developer') && (
+            <>
+              {/* Company Information */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Development Company Information</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    {application.companyName && (
+                      <div>
+                        <Label className="text-gray-600">Company Name</Label>
+                        <p className="font-medium">{application.companyName}</p>
+                      </div>
+                    )}
+                    {application.businessType && (
+                      <div>
+                        <Label className="text-gray-600">Business Type</Label>
+                        <p className="font-medium capitalize">{application.businessType}</p>
+                      </div>
+                    )}
+                    {application.metadata?.companyRegistration && (
+                      <div>
+                        <Label className="text-gray-600">Company Registration</Label>
+                        <p className="font-medium">{application.metadata.companyRegistration}</p>
+                      </div>
+                    )}
+                    {application.metadata?.yearsInDevelopment && (
+                      <div>
+                        <Label className="text-gray-600">Years in Development</Label>
+                        <p className="font-medium">{application.metadata.yearsInDevelopment}</p>
+                      </div>
+                    )}
+                    {application.metadata?.developmentType && (
+                      <div>
+                        <Label className="text-gray-600">Primary Development Type</Label>
+                        <p className="font-medium capitalize">{application.metadata.developmentType}</p>
+                      </div>
+                    )}
+                    {application.metadata?.specialization && (
+                      <div>
+                        <Label className="text-gray-600">Specialization</Label>
+                        <p className="font-medium capitalize">{application.metadata.specialization}</p>
+                      </div>
+                    )}
+                    {application.metadata?.primaryMarket && (
+                      <div className="col-span-2">
+                        <Label className="text-gray-600">Primary Market/City</Label>
+                        <p className="font-medium">{application.metadata.primaryMarket}</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Project Portfolio */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Project Portfolio</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    {application.metadata?.activeProjects !== undefined && (
+                      <div>
+                        <Label className="text-gray-600">Active Projects</Label>
+                        <p className="font-medium text-2xl text-blue-600">{application.metadata.activeProjects}</p>
+                      </div>
+                    )}
+                    {application.metadata?.completedProjects !== undefined && (
+                      <div>
+                        <Label className="text-gray-600">Completed Projects</Label>
+                        <p className="font-medium text-2xl text-green-600">{application.metadata.completedProjects}</p>
+                      </div>
+                    )}
+                    {application.metadata?.projectsInPlanning !== undefined && (
+                      <div>
+                        <Label className="text-gray-600">In Planning</Label>
+                        <p className="font-medium text-2xl text-orange-600">{application.metadata.projectsInPlanning}</p>
+                      </div>
+                    )}
+                  </div>
+                  {application.metadata?.totalProjectValue && (
+                    <div>
+                      <Label className="text-gray-600">Total Project Value</Label>
+                      <p className="font-medium">{application.metadata.totalProjectValue}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Licensing & Compliance */}
+              {(application.metadata?.developmentLicense || application.metadata?.licenseNumber) && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Licensing & Compliance</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      {application.metadata?.developmentLicense && (
+                        <div>
+                          <Label className="text-gray-600">License Status</Label>
+                          <p className="font-medium capitalize">{application.metadata.developmentLicense}</p>
+                        </div>
+                      )}
+                      {application.metadata?.licenseNumber && (
+                        <div>
+                          <Label className="text-gray-600">License Number</Label>
+                          <p className="font-medium">{application.metadata.licenseNumber}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Team & Resources */}
+              {(application.metadata?.teamSize || application.metadata?.inHouseArchitect !== undefined || application.metadata?.inHouseEngineer !== undefined) && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Team & Resources</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      {application.metadata?.teamSize && (
+                        <div>
+                          <Label className="text-gray-600">Team Size</Label>
+                          <p className="font-medium">{application.metadata.teamSize}</p>
+                        </div>
+                      )}
+                      {application.metadata?.inHouseArchitect !== undefined && (
+                        <div>
+                          <Label className="text-gray-600">In-House Architect</Label>
+                          <p className="font-medium">{application.metadata.inHouseArchitect ? 'Yes' : 'No'}</p>
+                        </div>
+                      )}
+                      {application.metadata?.inHouseEngineer !== undefined && (
+                        <div>
+                          <Label className="text-gray-600">In-House Engineer</Label>
+                          <p className="font-medium">{application.metadata.inHouseEngineer ? 'Yes' : 'No'}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Funding & Finance */}
+              {(application.metadata?.fundingSources || application.metadata?.primaryFundingMethod) && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Funding & Finance</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      {application.metadata?.fundingSources && (
+                        <div className="col-span-2">
+                          <Label className="text-gray-600">Funding Sources</Label>
+                          <p className="font-medium">{application.metadata.fundingSources}</p>
+                        </div>
+                      )}
+                      {application.metadata?.primaryFundingMethod && (
+                        <div className="col-span-2">
+                          <Label className="text-gray-600">Primary Funding Method</Label>
+                          <p className="font-medium capitalize">{application.metadata.primaryFundingMethod}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Technology & Pain Points */}
+              {(application.metadata?.softwareUsed || application.metadata?.painPoints) && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Technology & Challenges</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {application.metadata?.softwareUsed && (
+                      <div>
+                        <Label className="text-gray-600">Current Software Used</Label>
+                        <p className="font-medium">{application.metadata.softwareUsed}</p>
+                      </div>
+                    )}
+                    {application.metadata?.painPoints && (
+                      <div>
+                        <Label className="text-gray-600">Current Pain Points</Label>
+                        <p className="font-medium text-gray-700">{application.metadata.painPoints}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
+
           {/* Address */}
           {(application.street || application.city || application.state) && (
             <Card>

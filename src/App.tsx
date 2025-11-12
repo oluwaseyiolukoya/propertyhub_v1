@@ -20,6 +20,7 @@ import { PropertyOwnerDashboard } from './components/PropertyOwnerDashboard';
 import { SuperAdminDashboard } from './components/SuperAdminDashboard';
 import { PropertyManagerDashboard } from './components/PropertyManagerDashboard';
 import TenantDashboard from './components/TenantDashboard';
+import { DeveloperDashboardRefactored } from './modules/developer-dashboard';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
 import { getUserData, getUserType, removeAuthToken, verifyToken } from './lib/api';
@@ -1034,6 +1035,16 @@ function App() {
     );
   }
 
+  // Show Developer Dashboard if developer
+  if (userType === 'developer' || userType === 'property-developer') {
+    return (
+      <>
+        <DeveloperDashboardRefactored user={currentUser} onLogout={handleLogout} />
+        <Toaster />
+      </>
+    );
+  }
+
   // For other user types, show coming soon
   return (
     <>
@@ -1095,6 +1106,10 @@ function deriveUserTypeFromUser(user: any): string {
   if (role === 'tenant') {
     console.log('   → Matched: tenant');
     return 'tenant';
+  }
+  if (role === 'developer' || role === 'property-developer' || role === 'property developer') {
+    console.log('   → Matched: developer');
+    return 'developer';
   }
 
   console.log('   → No match! Returning empty string');

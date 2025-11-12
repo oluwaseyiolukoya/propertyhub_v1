@@ -9,6 +9,8 @@ export type ApplicationStatus =
 export type ApplicationType =
   | 'property-owner'
   | 'property-manager'
+  | 'property-developer'
+  | 'developer'
   | 'tenant';
 
 export type ReviewStatus =

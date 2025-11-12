@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 // Base application schema
 export const baseApplicationSchema = z.object({
-  applicationType: z.enum(['property-owner', 'property-manager', 'tenant']),
+  applicationType: z.enum(['property-owner', 'property-manager', 'property-developer', 'developer', 'tenant']),
   name: z.string().min(2, 'Name must be at least 2 characters').max(100),
   email: z.string().email('Invalid email address'),
   phone: z.string().optional(),
@@ -40,6 +40,24 @@ export const propertyManagerSchema = baseApplicationSchema.extend({
   propertiesManaged: z.number().int().min(0),
 });
 
+// Property Developer specific fields (property-developer variant)
+export const propertyDeveloperSchema = baseApplicationSchema.extend({
+  applicationType: z.literal('property-developer'),
+  companyName: z.string().min(2, 'Company name is required'),
+  businessType: z.enum(['individual', 'company', 'partnership']).optional(),
+  website: z.string().url().optional().or(z.literal('')),
+  taxId: z.string().optional(),
+});
+
+// Property Developer specific fields (developer variant)
+export const developerSchema = baseApplicationSchema.extend({
+  applicationType: z.literal('developer'),
+  companyName: z.string().min(2, 'Company name is required'),
+  businessType: z.enum(['individual', 'company', 'partnership']).optional(),
+  website: z.string().url().optional().or(z.literal('')),
+  taxId: z.string().optional(),
+});
+
 // Tenant specific fields
 export const tenantSchema = baseApplicationSchema.extend({
   applicationType: z.literal('tenant'),
@@ -52,6 +70,8 @@ export const tenantSchema = baseApplicationSchema.extend({
 export const applicationSchema = z.discriminatedUnion('applicationType', [
   propertyOwnerSchema,
   propertyManagerSchema,
+  propertyDeveloperSchema,
+  developerSchema,
   tenantSchema,
 ]);
 
@@ -84,7 +104,7 @@ export const requestInfoSchema = z.object({
 // Query filters schema
 export const applicationFiltersSchema = z.object({
   status: z.enum(['pending', 'under_review', 'info_requested', 'approved', 'rejected', 'activated']).optional(),
-  applicationType: z.enum(['property-owner', 'property-manager', 'tenant']).optional(),
+  applicationType: z.enum(['property-owner', 'property-manager', 'property-developer', 'developer', 'tenant']).optional(),
   page: z.number().int().min(1).default(1),
   limit: z.number().int().min(1).max(100).default(20),
   sortBy: z.enum(['createdAt', 'updatedAt', 'name', 'email']).default('createdAt'),
@@ -96,6 +116,8 @@ export const applicationFiltersSchema = z.object({
 export type ApplicationInput = z.infer<typeof applicationSchema>;
 export type PropertyOwnerInput = z.infer<typeof propertyOwnerSchema>;
 export type PropertyManagerInput = z.infer<typeof propertyManagerSchema>;
+export type PropertyDeveloperInput = z.infer<typeof propertyDeveloperSchema>;
+export type DeveloperInput = z.infer<typeof developerSchema>;
 export type TenantInput = z.infer<typeof tenantSchema>;
 export type ReviewApplicationInput = z.infer<typeof reviewApplicationSchema>;
 export type ApproveApplicationInput = z.infer<typeof approveApplicationSchema>;

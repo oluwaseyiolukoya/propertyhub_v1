@@ -405,12 +405,18 @@ export class OnboardingService {
 
     // Create primary user for the customer
     const userId = uuidv4();
-    // Note: Both property-owner and property-manager get 'owner' role
-    // Property managers registering from Get Started page have full control over their properties
+    // Note: property-owner, property-manager, and property-developer get 'owner' role
+    // Property managers and developers registering from Get Started page have full control over their properties
     // They are essentially owners of their own customer account
-    const userRole = (application.applicationType === 'property-owner' || application.applicationType === 'property-manager')
-      ? 'owner'
-      : 'tenant';
+    // Developers get 'developer' role for access to developer-specific features
+    let userRole: string;
+    if (application.applicationType === 'property-developer' || application.applicationType === 'developer') {
+      userRole = 'developer';
+    } else if (application.applicationType === 'property-owner' || application.applicationType === 'property-manager') {
+      userRole = 'owner';
+    } else {
+      userRole = 'tenant';
+    }
 
     await prisma.users.create({
       data: {

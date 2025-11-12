@@ -190,6 +190,14 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
       features: ['Daily Operations', 'Maintenance', 'Tenant Support']
     },
     {
+      value: 'developer',
+      label: 'Property Developer',
+      icon: Building,
+      description: 'Manage construction projects',
+      color: 'bg-orange-500',
+      features: ['Project Management', 'Budget Tracking', 'Cost Analytics']
+    },
+    {
       value: 'tenant',
       label: 'Tenant',
       icon: Smartphone,

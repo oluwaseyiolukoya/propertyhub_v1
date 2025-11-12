@@ -242,23 +242,49 @@ resource "digitalocean_app" "backend" {
 
       env {
         key   = "SEED_ON_START"
-        value = "true"
+        value = "false"
       }
 
       # HTTP port
       http_port = 8080
+    }
 
-      # Routes
-      routes {
-        path = "/api"
+    # Frontend static site
+    static_site {
+      name = "frontend"
+
+      # GitHub integration
+      github {
+        repo           = "oluwaseyiolukoya/propertyhub_v1"
+        branch         = var.environment == "prod" ? "main" : "dev"
+        deploy_on_push = true
+      }
+
+      # Build configuration
+      build_command = "npm ci && npm run build"
+      output_dir    = "dist"
+
+      # Environment variables for frontend build
+      env {
+        key   = "VITE_API_URL"
+        value = var.domain_name != "" ? "https://api.${var.domain_name}/api" : "https://clownfish-app-mh6k4.ondigitalocean.app"
       }
     }
 
-    # Domain configuration (optional)
+    # Domain configuration for backend API
     dynamic "domain" {
       for_each = var.domain_name != "" ? [1] : []
       content {
         name = "api.${var.domain_name}"
+        type = "PRIMARY"
+      }
+    }
+
+    # Domain configuration for frontend
+    dynamic "domain" {
+      for_each = var.domain_name != "" ? [1] : []
+      content {
+        name = var.domain_name
         type = "PRIMARY"
       }
     }

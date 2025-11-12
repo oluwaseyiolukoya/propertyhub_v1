@@ -22,7 +22,10 @@ import {
   MapPin,
   Briefcase,
   TrendingUp,
-  Zap
+  Zap,
+  Shield,
+  Lock,
+  Users
 } from 'lucide-react';
 
 interface GetStartedPageProps {
@@ -61,6 +64,24 @@ interface FormData {
   propertiesManaged: string;
   certifications: string;
   teamSize: string;
+
+  // Property Developer specific
+  developmentCompany: string;
+  companyRegistration: string;
+  yearsInDevelopment: string;
+  developmentType: string; // residential, commercial, mixed-use, infrastructure
+  projectsCompleted: string;
+  projectsOngoing: string;
+  totalProjectValue: string;
+  averageProjectSize: string;
+  developmentLicense: string;
+  licenseNumber: string;
+  primaryMarket: string; // city/region focus
+  fundingSource: string; // self-funded, bank loans, investors, mixed
+  teamSize_dev: string;
+  hasArchitect: string;
+  hasEngineer: string;
+  specialization: string; // luxury, affordable, commercial, industrial
 
   // Tenant specific
   currentlyRenting: string;
@@ -109,6 +130,22 @@ export function GetStartedPage({ onBackToHome, onNavigateToLogin, onSignupComple
     propertiesManaged: '',
     certifications: '',
     teamSize: '',
+    developmentCompany: '',
+    companyRegistration: '',
+    yearsInDevelopment: '',
+    developmentType: '',
+    projectsCompleted: '',
+    projectsOngoing: '',
+    totalProjectValue: '',
+    averageProjectSize: '',
+    developmentLicense: '',
+    licenseNumber: '',
+    primaryMarket: '',
+    fundingSource: '',
+    teamSize_dev: '',
+    hasArchitect: '',
+    hasEngineer: '',
+    specialization: '',
     currentlyRenting: '',
     moveInDate: '',
     propertyType: '',
@@ -142,12 +179,13 @@ export function GetStartedPage({ onBackToHome, onNavigateToLogin, onSignupComple
       action: 'signup'
     },
     {
-      value: 'tenant',
-      icon: Home,
-      title: 'Tenant',
-      description: 'I rent a property managed through Contrezz',
-      features: ['Online rent payments', 'Maintenance requests', 'Document access'],
-      action: 'login'
+      value: 'developer',
+      icon: Building2,
+      title: 'Property Developer',
+      description: 'I develop and construct properties',
+      features: ['Project management', 'Budget tracking', 'Cost analytics'],
+      badge: 'New',
+      action: 'signup'
     }
   ];
 
@@ -263,6 +301,35 @@ export function GetStartedPage({ onBackToHome, onNavigateToLogin, onSignupComple
         applicationData.managementCompany = formData.employerCompany;
         applicationData.yearsOfExperience = formData.yearsOfExperience ? parseInt(formData.yearsOfExperience) : undefined;
         applicationData.propertiesManaged = formData.propertiesManaged ? parseInt(formData.propertiesManaged) : undefined;
+      } else if (formData.role === 'developer' || formData.role === 'property-developer') {
+        // Property Developer specific fields
+        applicationData.companyName = formData.developmentCompany;
+        // Business type is optional for developers, default to 'company' if company name is provided
+        if (formData.developmentCompany) {
+          applicationData.businessType = 'company';
+        }
+        // Store developer-specific data in metadata
+        applicationData.metadata = {
+          ...applicationData.metadata,
+          companyRegistration: formData.companyRegistration,
+          yearsInDevelopment: formData.yearsInDevelopment,
+          developmentType: formData.developmentType,
+          specialization: formData.specialization,
+          primaryMarket: formData.primaryMarket,
+          activeProjects: formData.activeProjects ? parseInt(formData.activeProjects) : undefined,
+          completedProjects: formData.completedProjects ? parseInt(formData.completedProjects) : undefined,
+          projectsInPlanning: formData.projectsInPlanning ? parseInt(formData.projectsInPlanning) : undefined,
+          totalProjectValue: formData.totalProjectValue,
+          developmentLicense: formData.developmentLicense,
+          licenseNumber: formData.licenseNumber,
+          teamSize: formData.teamSize,
+          inHouseArchitect: formData.inHouseArchitect,
+          inHouseEngineer: formData.inHouseEngineer,
+          fundingSources: formData.fundingSources,
+          primaryFundingMethod: formData.primaryFundingMethod,
+          softwareUsed: formData.softwareUsed,
+          painPoints: formData.painPoints,
+        };
       } else if (formData.role === 'tenant') {
         // Map UI values to backend-accepted enum
         const cr = formData.currentlyRenting;
@@ -321,12 +388,12 @@ export function GetStartedPage({ onBackToHome, onNavigateToLogin, onSignupComple
           return (
             <Card
               key={option.value}
-              className="group cursor-pointer transition-all duration-300 hover:shadow-2xl hover:scale-105 border-2 hover:border-blue-500 relative overflow-hidden"
+              className="group cursor-pointer transition-all duration-300 hover:shadow-2xl hover:scale-105 border-2 hover:border-blue-500 relative overflow-visible"
               onClick={() => handleRoleSelect(option.value as UserRole, option.action)}
             >
               {option.badge && (
                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
-                  <Badge className="bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 shadow-lg">
+                  <Badge className="bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 shadow-lg px-3 py-1">
                     {option.badge}
                   </Badge>
                 </div>
@@ -889,6 +956,450 @@ export function GetStartedPage({ onBackToHome, onNavigateToLogin, onSignupComple
     </div>
   );
 
+  const renderPropertyDeveloperForm = () => (
+    <div className="space-y-6">
+      {/* Personal Information Section */}
+      <Card className="border-2 hover:border-blue-200 transition-colors">
+        <CardHeader>
+          <CardTitle className="flex items-center text-xl">
+            <User className="h-5 w-5 mr-2 text-orange-600" />
+            Personal Information
+          </CardTitle>
+          <CardDescription>Let's start with the basics about you</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="firstName">First Name *</Label>
+              <Input
+                id="firstName"
+                placeholder="John"
+                value={formData.firstName}
+                onChange={(e) => handleInputChange('firstName', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Last Name *</Label>
+              <Input
+                id="lastName"
+                placeholder="Builder"
+                value={formData.lastName}
+                onChange={(e) => handleInputChange('lastName', e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email Address *</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="john@constructionco.com"
+                  className="pl-10"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number *</Label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="+234 xxx xxx xxxx"
+                  className="pl-10"
+                  value={formData.phone}
+                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="password">Password *</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  className="pl-10"
+                  value={formData.password}
+                  onChange={(e) => handleInputChange('password', e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password *</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="••••••••"
+                  className="pl-10"
+                  value={formData.confirmPassword}
+                  onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Company Information */}
+      <Card className="border-2 hover:border-blue-200 transition-colors">
+        <CardHeader>
+          <CardTitle className="flex items-center text-xl">
+            <Building2 className="h-5 w-5 mr-2 text-orange-600" />
+            Development Company Information
+          </CardTitle>
+          <CardDescription>Tell us about your development company</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="developmentCompany">Company Name *</Label>
+              <Input
+                id="developmentCompany"
+                placeholder="ABC Construction & Development Ltd"
+                value={formData.developmentCompany}
+                onChange={(e) => handleInputChange('developmentCompany', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="companyRegistration">Company Registration Number</Label>
+              <Input
+                id="companyRegistration"
+                placeholder="RC123456"
+                value={formData.companyRegistration}
+                onChange={(e) => handleInputChange('companyRegistration', e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="yearsInDevelopment">Years in Development *</Label>
+              <Select
+                value={formData.yearsInDevelopment}
+                onValueChange={(value) => handleInputChange('yearsInDevelopment', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select experience" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0-2">0-2 years (New Developer)</SelectItem>
+                  <SelectItem value="3-5">3-5 years</SelectItem>
+                  <SelectItem value="6-10">6-10 years</SelectItem>
+                  <SelectItem value="11-20">11-20 years</SelectItem>
+                  <SelectItem value="20+">20+ years (Veteran)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="developmentType">Primary Development Type *</Label>
+              <Select
+                value={formData.developmentType}
+                onValueChange={(value) => handleInputChange('developmentType', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="residential">Residential</SelectItem>
+                  <SelectItem value="commercial">Commercial</SelectItem>
+                  <SelectItem value="mixed-use">Mixed-Use</SelectItem>
+                  <SelectItem value="infrastructure">Infrastructure</SelectItem>
+                  <SelectItem value="industrial">Industrial</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="specialization">Specialization</Label>
+              <Select
+                value={formData.specialization}
+                onValueChange={(value) => handleInputChange('specialization', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select specialization" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="luxury">Luxury/High-End</SelectItem>
+                  <SelectItem value="affordable">Affordable Housing</SelectItem>
+                  <SelectItem value="commercial">Commercial Buildings</SelectItem>
+                  <SelectItem value="industrial">Industrial Facilities</SelectItem>
+                  <SelectItem value="mixed">Mixed Portfolio</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="primaryMarket">Primary Market/City *</Label>
+              <Input
+                id="primaryMarket"
+                placeholder="Lagos, Abuja, Port Harcourt"
+                value={formData.primaryMarket}
+                onChange={(e) => handleInputChange('primaryMarket', e.target.value)}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Project Portfolio */}
+      <Card className="border-2 hover:border-blue-200 transition-colors">
+        <CardHeader>
+          <CardTitle className="flex items-center text-xl">
+            <TrendingUp className="h-5 w-5 mr-2 text-orange-600" />
+            Project Portfolio
+          </CardTitle>
+          <CardDescription>Share your development track record</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="projectsCompleted">Projects Completed</Label>
+              <Input
+                id="projectsCompleted"
+                type="number"
+                placeholder="5"
+                value={formData.projectsCompleted}
+                onChange={(e) => handleInputChange('projectsCompleted', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="projectsOngoing">Ongoing Projects</Label>
+              <Input
+                id="projectsOngoing"
+                type="number"
+                placeholder="2"
+                value={formData.projectsOngoing}
+                onChange={(e) => handleInputChange('projectsOngoing', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="averageProjectSize">Avg Project Size (units)</Label>
+              <Input
+                id="averageProjectSize"
+                type="number"
+                placeholder="20"
+                value={formData.averageProjectSize}
+                onChange={(e) => handleInputChange('averageProjectSize', e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="totalProjectValue">Total Project Value (₦)</Label>
+            <Select
+              value={formData.totalProjectValue}
+              onValueChange={(value) => handleInputChange('totalProjectValue', value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0-100M">Under ₦100 Million</SelectItem>
+                <SelectItem value="100M-500M">₦100M - ₦500M</SelectItem>
+                <SelectItem value="500M-1B">₦500M - ₦1 Billion</SelectItem>
+                <SelectItem value="1B-5B">₦1B - ₦5 Billion</SelectItem>
+                <SelectItem value="5B+">Over ₦5 Billion</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Licensing & Compliance */}
+      <Card className="border-2 hover:border-blue-200 transition-colors">
+        <CardHeader>
+          <CardTitle className="flex items-center text-xl">
+            <Shield className="h-5 w-5 mr-2 text-orange-600" />
+            Licensing & Compliance
+          </CardTitle>
+          <CardDescription>Professional credentials and certifications</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="developmentLicense">Development License Status</Label>
+              <Select
+                value={formData.developmentLicense}
+                onValueChange={(value) => handleInputChange('developmentLicense', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="licensed">Fully Licensed</SelectItem>
+                  <SelectItem value="pending">License Pending</SelectItem>
+                  <SelectItem value="renewal">Renewal in Progress</SelectItem>
+                  <SelectItem value="not-required">Not Required</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="licenseNumber">License Number (if applicable)</Label>
+              <Input
+                id="licenseNumber"
+                placeholder="DEV-2024-XXXX"
+                value={formData.licenseNumber}
+                onChange={(e) => handleInputChange('licenseNumber', e.target.value)}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Team & Resources */}
+      <Card className="border-2 hover:border-blue-200 transition-colors">
+        <CardHeader>
+          <CardTitle className="flex items-center text-xl">
+            <Users className="h-5 w-5 mr-2 text-orange-600" />
+            Team & Resources
+          </CardTitle>
+          <CardDescription>Your development team structure</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="teamSize_dev">Team Size</Label>
+              <Select
+                value={formData.teamSize_dev}
+                onValueChange={(value) => handleInputChange('teamSize_dev', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select size" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1-5">1-5 people</SelectItem>
+                  <SelectItem value="6-10">6-10 people</SelectItem>
+                  <SelectItem value="11-25">11-25 people</SelectItem>
+                  <SelectItem value="26-50">26-50 people</SelectItem>
+                  <SelectItem value="50+">50+ people</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="hasArchitect">In-house Architect?</Label>
+              <Select
+                value={formData.hasArchitect}
+                onValueChange={(value) => handleInputChange('hasArchitect', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="yes">Yes</SelectItem>
+                  <SelectItem value="no">No (Outsourced)</SelectItem>
+                  <SelectItem value="both">Both</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="hasEngineer">In-house Engineer?</Label>
+              <Select
+                value={formData.hasEngineer}
+                onValueChange={(value) => handleInputChange('hasEngineer', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="yes">Yes</SelectItem>
+                  <SelectItem value="no">No (Outsourced)</SelectItem>
+                  <SelectItem value="both">Both</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="fundingSource">Primary Funding Source</Label>
+            <Select
+              value={formData.fundingSource}
+              onValueChange={(value) => handleInputChange('fundingSource', value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select funding source" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="self-funded">Self-Funded</SelectItem>
+                <SelectItem value="bank-loans">Bank Loans</SelectItem>
+                <SelectItem value="investors">Private Investors</SelectItem>
+                <SelectItem value="mixed">Mixed Sources</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Location */}
+      <Card className="border-2 hover:border-blue-200 transition-colors">
+        <CardHeader>
+          <CardTitle className="flex items-center text-xl">
+            <MapPin className="h-5 w-5 mr-2 text-orange-600" />
+            Business Location
+          </CardTitle>
+          <CardDescription>Where is your company based?</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="city">City *</Label>
+              <Input
+                id="city"
+                placeholder="Lagos"
+                value={formData.city}
+                onChange={(e) => handleInputChange('city', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="state">State *</Label>
+              <Input
+                id="state"
+                placeholder="Lagos State"
+                value={formData.state}
+                onChange={(e) => handleInputChange('state', e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="country">Country *</Label>
+              <Input
+                id="country"
+                placeholder="Nigeria"
+                value={formData.country}
+                onChange={(e) => handleInputChange('country', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="zipCode">Postal/Zip Code</Label>
+              <Input
+                id="zipCode"
+                placeholder="100001"
+                value={formData.zipCode}
+                onChange={(e) => handleInputChange('zipCode', e.target.value)}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+
   const renderTenantForm = () => (
     <div className="space-y-6">
       {/* Personal Information Section */}
@@ -1125,6 +1636,7 @@ export function GetStartedPage({ onBackToHome, onNavigateToLogin, onSignupComple
           {/* Role-specific form */}
           {selectedRole === 'property-owner' && renderPropertyOwnerForm()}
           {selectedRole === 'property-manager' && renderPropertyManagerForm()}
+          {selectedRole === 'developer' && renderPropertyDeveloperForm()}
           {selectedRole === 'tenant' && renderTenantForm()}
 
           {/* Terms and Preferences */}
