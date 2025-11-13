@@ -38,6 +38,7 @@ import { ForecastsPage } from './ForecastsPage';
 import { useProjects } from '../hooks/useDeveloperDashboardData';
 import { Footer } from '../../../components/Footer';
 import { toast } from 'sonner';
+import { PlatformLogo } from '../../../components/PlatformLogo';
 
 interface DeveloperDashboardRefactoredProps {
   user?: any;
@@ -60,6 +61,7 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
 }) => {
   const [currentPage, setCurrentPage] = useState<Page>('portfolio');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [hasCustomLogo, setHasCustomLogo] = useState(false);
 
   // Fetch actual projects from API
   const { data: projects, loading: projectsLoading } = useProjects({}, {}, 1, 100);
@@ -222,8 +224,14 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <Building2 className="h-6 w-6 text-orange-600 mr-2" />
-              <h1 className="text-xl font-semibold text-gray-900">Contrezz Developer</h1>
+              <PlatformLogo
+                showText={false}
+                iconClassName={hasCustomLogo ? "h-8 w-auto max-w-[200px] object-contain" : "h-6 w-6 text-orange-600 mr-2"}
+                onLogoLoad={(hasLogo) => setHasCustomLogo(hasLogo)}
+              />
+              {!hasCustomLogo && (
+                <h1 className="text-xl font-semibold text-gray-900">Contrezz Developer</h1>
+              )}
             </div>
 
             <div className="flex items-center gap-3">

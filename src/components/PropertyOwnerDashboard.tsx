@@ -28,6 +28,7 @@ import { TrialStatusBanner } from './TrialStatusBanner';
 import { UpgradeModal } from './UpgradeModal';
 import { getSubscriptionStatus } from '../lib/api/subscription';
 import { apiClient } from '../lib/api-client';
+import { PlatformLogo } from './PlatformLogo';
 
 interface PropertyOwnerDashboardProps {
   user: any;
@@ -195,6 +196,7 @@ export function PropertyOwnerDashboard({
   const [recentBills, setRecentBills] = useState<any[]>([]);
   const [loadingBills, setLoadingBills] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<string | undefined>(undefined);
+  const [hasCustomLogo, setHasCustomLogo] = useState(false);
 
   // Reset to dashboard view on component mount (every login)
   useEffect(() => {
@@ -586,8 +588,14 @@ export function PropertyOwnerDashboard({
               >
                 <Menu className="h-5 w-5" />
               </Button>
-              <Building className="h-6 w-6 text-blue-600 mr-2" />
-              <h1 className="text-xl font-semibold text-gray-900">Contrezz Owner</h1>
+              <PlatformLogo
+                showText={false}
+                iconClassName={hasCustomLogo ? "h-8 w-auto max-w-[200px] object-contain" : "h-6 w-6 text-blue-600 mr-2"}
+                onLogoLoad={(hasLogo) => setHasCustomLogo(hasLogo)}
+              />
+              {!hasCustomLogo && (
+                <span className="text-xl font-semibold text-gray-900">Contrezz Owner</span>
+              )}
             </div>
 
             <div className="flex items-center space-x-4">

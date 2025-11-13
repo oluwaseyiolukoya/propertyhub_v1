@@ -24,6 +24,7 @@ import { initializeSocket, subscribeToPermissionsUpdated, unsubscribeFromPermiss
 import { usePersistentState } from '../lib/usePersistentState';
 import { TrialStatusBanner } from './TrialStatusBanner';
 import { UpgradeModal } from './UpgradeModal';
+import { PlatformLogo } from './PlatformLogo';
 
 interface PropertyManagerDashboardProps {
   user: any;
@@ -44,6 +45,7 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
   const [accountInfo, setAccountInfo] = useState<any>(null);
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [hasCustomLogo, setHasCustomLogo] = useState(false);
 
   // Reset to overview tab on component mount (every login)
   useEffect(() => {
@@ -227,7 +229,14 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
               >
                 <Menu className="h-5 w-5" />
               </Button>
-              <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Contrezz Manager</h1>
+              <PlatformLogo
+                showText={false}
+                iconClassName={hasCustomLogo ? "h-8 w-auto max-w-[200px] object-contain" : "h-6 w-6 text-blue-600 mr-2"}
+                onLogoLoad={(hasLogo) => setHasCustomLogo(hasLogo)}
+              />
+              {!hasCustomLogo && (
+                <span className="text-lg sm:text-xl font-semibold text-gray-900">Contrezz Manager</span>
+              )}
             </div>
 
             <div className="flex items-center space-x-2 sm:space-x-4">

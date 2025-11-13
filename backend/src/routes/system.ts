@@ -8,10 +8,11 @@ import fs from 'fs';
 const router = express.Router();
 
 router.use(authMiddleware);
-router.use(adminOnly);
+// Note: Read-only endpoints are available to all authenticated users.
+// Write endpoints (create/update/delete/upload) require adminOnly middleware per-route.
 
 // Multer storage for logo uploads
-const storage = multer.diskStorage({
+const logoStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     const logosDir = path.resolve(__dirname, '../../uploads/logos');
     fs.mkdirSync(logosDir, { recursive: true });
@@ -19,15 +20,44 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname) || '.png';
-    cb(null, `platform-logo${ext}`);
+    const timestamp = Date.now();
+    cb(null, `platform-logo-${timestamp}${ext}`);
   }
 });
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+
+// Multer storage for favicon uploads
+const faviconStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const faviconsDir = path.resolve(__dirname, '../../uploads/favicons');
+    fs.mkdirSync(faviconsDir, { recursive: true });
+    cb(null, faviconsDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || '.ico';
+    const timestamp = Date.now();
+    cb(null, `platform-favicon-${timestamp}${ext}`);
+  }
+});
+
+const uploadLogo = multer({
+  storage: logoStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   fileFilter: (req, file, cb) => {
-    if (!file.mimetype.startsWith('image/')) {
-      return cb(new Error('Only image files are allowed'));
+    const allowedTypes = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    if (!allowedTypes.includes(file.mimetype)) {
+      return cb(new Error('Only SVG, PNG, JPG, JPEG, and WEBP files are allowed for logo'));
+    }
+    cb(null, true);
+  }
+});
+
+const uploadFavicon = multer({
+  storage: faviconStorage,
+  limits: { fileSize: 1 * 1024 * 1024 }, // 1MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/x-icon', 'image/vnd.microsoft.icon', 'image/png', 'image/svg+xml'];
+    if (!allowedTypes.includes(file.mimetype)) {
+      return cb(new Error('Only ICO, PNG, and SVG files are allowed for favicon'));
     }
     cb(null, true);
   }
@@ -82,7 +112,7 @@ router.get('/settings/:key', async (req: AuthRequest, res: Response) => {
 });
 
 // Create or update setting
-router.post('/settings', async (req: AuthRequest, res: Response) => {
+router.post('/settings', adminOnly, async (req: AuthRequest, res: Response) => {
   try {
     const { key, value, category, description } = req.body;
 
@@ -108,28 +138,63 @@ router.post('/settings', async (req: AuthRequest, res: Response) => {
 });
 
 // Delete setting
-router.delete('/settings/:key', async (req: AuthRequest, res: Response) => {
+router.delete('/settings/:key', adminOnly, async (req: AuthRequest, res: Response) => {
   try {
-    const { key } = req.params;
+    let { key } = req.params;
+    // Normalize aliases to real keys
+    const aliasMap: Record<string, string> = {
+      logo: 'platform_logo_url',
+      favicon: 'platform_favicon_url',
+      brand_logo_url: 'platform_logo_url',
+    };
+    const normalizedKey = aliasMap[key] || key;
+
+    // If deleting logo or favicon, attempt file cleanup first
+    if (normalizedKey === 'platform_logo_url' || normalizedKey === 'platform_favicon_url') {
+      try {
+        const existing = await prisma.system_settings.findUnique({ where: { key: normalizedKey } });
+        if (existing && existing.value && typeof existing.value === 'string') {
+          const filePath = path.resolve(__dirname, '../..', existing.value.substring(1));
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        }
+      } catch (fileErr) {
+        // Non-fatal; continue with DB delete
+        console.error(`[DELETE ${normalizedKey}] File cleanup error:`, fileErr);
+      }
+    }
 
     await prisma.system_settings.delete({
-      where: { key }
+      where: { key: normalizedKey }
     });
 
-    return res.json({ message: 'Setting deleted successfully' });
+    return res.json({ message: 'Setting deleted successfully', key: normalizedKey });
   } catch (error: any) {
-    return res.status(500).json({ error: 'Failed to delete setting' });
+    return res.status(500).json({ error: 'Failed to delete setting', details: error?.message });
   }
 });
 
-export default router;
-
 // Upload platform logo
-router.post('/settings/upload-logo', upload.single('logo'), async (req: AuthRequest, res: Response) => {
+router.post('/settings/upload-logo', adminOnly, uploadLogo.single('logo'), async (req: AuthRequest, res: Response) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
+
+    // Delete old logo file if exists
+    try {
+      const oldSetting = await prisma.system_settings.findUnique({ where: { key: 'platform_logo_url' } });
+      if (oldSetting && oldSetting.value) {
+        const oldPath = path.resolve(__dirname, '../..', (oldSetting.value as string).substring(1));
+        if (fs.existsSync(oldPath)) {
+          fs.unlinkSync(oldPath);
+        }
+      }
+    } catch (err) {
+      console.error('Error deleting old logo:', err);
+    }
+
     // Build public URL for the uploaded logo
     const relativePath = path.join('uploads', 'logos', req.file.filename).replace(/\\/g, '/');
     const logoUrl = `/` + relativePath;
@@ -137,14 +202,178 @@ router.post('/settings/upload-logo', upload.single('logo'), async (req: AuthRequ
     // Save to system settings
     const setting = await prisma.system_settings.upsert({
       where: { key: 'platform_logo_url' },
-      update: { value: logoUrl, category: 'branding', description: 'Platform logo URL' },
-      create: { key: 'platform_logo_url', value: logoUrl, category: 'branding', description: 'Platform logo URL' }
+      update: {
+        value: logoUrl,
+        category: 'branding',
+        description: 'Platform logo URL',
+        updatedAt: new Date()
+      },
+      create: {
+        id: `setting-logo-${Date.now()}`,
+        key: 'platform_logo_url',
+        value: logoUrl,
+        category: 'branding',
+        description: 'Platform logo URL',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
     });
 
     return res.json({ url: logoUrl, setting });
   } catch (error: any) {
-    return res.status(500).json({ error: 'Failed to upload logo' });
+    console.error('Logo upload error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to upload logo' });
   }
 });
 
+// Upload platform favicon
+router.post('/settings/upload-favicon', adminOnly, uploadFavicon.single('favicon'), async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    // Delete old favicon file if exists
+    try {
+      const oldSetting = await prisma.system_settings.findUnique({ where: { key: 'platform_favicon_url' } });
+      if (oldSetting && oldSetting.value) {
+        const oldPath = path.resolve(__dirname, '../..', (oldSetting.value as string).substring(1));
+        if (fs.existsSync(oldPath)) {
+          fs.unlinkSync(oldPath);
+        }
+      }
+    } catch (err) {
+      console.error('Error deleting old favicon:', err);
+    }
+
+    // Build public URL for the uploaded favicon
+    const relativePath = path.join('uploads', 'favicons', req.file.filename).replace(/\\/g, '/');
+    const faviconUrl = `/` + relativePath;
+
+    // Save to system settings
+    const setting = await prisma.system_settings.upsert({
+      where: { key: 'platform_favicon_url' },
+      update: {
+        value: faviconUrl,
+        category: 'branding',
+        description: 'Platform favicon URL',
+        updatedAt: new Date()
+      },
+      create: {
+        id: `setting-favicon-${Date.now()}`,
+        key: 'platform_favicon_url',
+        value: faviconUrl,
+        category: 'branding',
+        description: 'Platform favicon URL',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    });
+
+    return res.json({ url: faviconUrl, setting });
+  } catch (error: any) {
+    console.error('Favicon upload error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to upload favicon' });
+  }
+});
+
+// Delete platform logo (reset to default)
+router.delete('/settings/logo', adminOnly, async (req: AuthRequest, res: Response) => {
+  try {
+    console.log('[DELETE LOGO] Starting logo deletion...');
+
+    // Find the setting
+    const setting = await prisma.system_settings.findUnique({
+      where: { key: 'platform_logo_url' }
+    });
+
+    if (!setting) {
+      console.log('[DELETE LOGO] No logo setting found');
+      return res.json({ message: 'Logo deleted successfully' });
+    }
+
+    console.log('[DELETE LOGO] Found setting:', setting);
+
+    // Delete the file first (non-critical)
+    if (setting.value && typeof setting.value === 'string') {
+      try {
+        const filePath = path.resolve(__dirname, '../..', setting.value.substring(1));
+        console.log('[DELETE LOGO] Attempting to delete file:', filePath);
+
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          console.log('[DELETE LOGO] File deleted successfully');
+        } else {
+          console.log('[DELETE LOGO] File does not exist');
+        }
+      } catch (fileError) {
+        console.error('[DELETE LOGO] File deletion error (continuing anyway):', fileError);
+      }
+    }
+
+    // Delete the database record using the unique key
+    console.log('[DELETE LOGO] Deleting database record with key: platform_logo_url');
+    await prisma.system_settings.delete({
+      where: { key: 'platform_logo_url' }
+    });
+    console.log('[DELETE LOGO] Database record deleted successfully');
+
+    return res.json({ message: 'Logo deleted successfully' });
+  } catch (error: any) {
+    console.error('[DELETE LOGO] Unexpected error:', error);
+    console.error('[DELETE LOGO] Error stack:', error.stack);
+    return res.status(500).json({
+      error: 'Failed to delete logo',
+      details: error.message,
+      code: error.code
+    });
+  }
+});
+
+// Delete platform favicon (reset to default)
+router.delete('/settings/favicon', adminOnly, async (req: AuthRequest, res: Response) => {
+  try {
+    console.log('[DELETE FAVICON] Starting favicon deletion...');
+    const key = 'platform_favicon_url';
+    const setting = await prisma.system_settings.findUnique({ where: { key } });
+
+    if (!setting) {
+      console.log('[DELETE FAVICON] No favicon setting found');
+      return res.json({ message: 'Favicon deleted successfully' });
+    }
+
+    console.log('[DELETE FAVICON] Found setting:', setting);
+
+    // Attempt to delete file if value contains a path string
+    try {
+      const value = setting.value as any;
+      const pathStr = typeof value === 'string' ? value : null;
+      if (pathStr) {
+        const filePath = path.resolve(__dirname, '../..', pathStr.substring(1));
+        console.log('[DELETE FAVICON] Attempting to delete file:', filePath);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          console.log('[DELETE FAVICON] File deleted successfully');
+        } else {
+          console.log('[DELETE FAVICON] File does not exist, skipping');
+        }
+      } else {
+        console.log('[DELETE FAVICON] Setting value not a string path, skipping file deletion');
+      }
+    } catch (fileErr) {
+      console.error('[DELETE FAVICON] File deletion error (continuing anyway):', fileErr);
+    }
+
+    // Always delete the DB record
+    await prisma.system_settings.delete({ where: { key } });
+    console.log('[DELETE FAVICON] Database record deleted successfully');
+
+    return res.json({ message: 'Favicon deleted successfully' });
+  } catch (error: any) {
+    console.error('[DELETE FAVICON] Error:', error);
+    return res.status(500).json({ error: 'Failed to delete favicon', details: error?.message, code: error?.code });
+  }
+});
+
+export default router;
 

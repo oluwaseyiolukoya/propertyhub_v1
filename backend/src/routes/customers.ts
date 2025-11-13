@@ -722,19 +722,22 @@ router.post('/:id/action', async (req: AuthRequest, res: Response) => {
         break;
 
       case 'reset-password':
-        // Find owner user
-        const owner = await prisma.users.findFirst({
-          where: { customerId: id, role: 'owner' }
+        // Find primary user (owner or developer)
+        const primaryUser = await prisma.users.findFirst({
+          where: {
+            customerId: id,
+            role: { in: ['owner', 'developer'] }
+          }
         });
 
-        if (owner) {
+        if (primaryUser) {
           // Generate new temporary password
           const newPassword = Math.random().toString(36).slice(-10) + Math.random().toString(36).slice(-2).toUpperCase();
           const hashedPassword = await bcrypt.hash(newPassword, 10);
 
           // Update user password
           await prisma.users.update({
-            where: { id: owner.id },
+            where: { id: primaryUser.id },
             data: {
               password: hashedPassword,
               status: 'active', // Set to active so they can log in
@@ -745,11 +748,11 @@ router.post('/:id/action', async (req: AuthRequest, res: Response) => {
           result = {
             message: 'New password generated successfully',
             tempPassword: newPassword,
-            email: owner.email,
-            name: owner.name
+            email: primaryUser.email,
+            name: primaryUser.name
           };
         } else {
-          return res.status(404).json({ error: 'Owner user not found for this customer' });
+          return res.status(404).json({ error: 'Primary user not found for this customer' });
         }
         break;
 

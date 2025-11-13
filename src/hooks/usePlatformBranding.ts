@@ -1,0 +1,130 @@
+import { useEffect, useState } from 'react';
+
+interface BrandingSettings {
+  logoUrl: string | null;
+  faviconUrl: string | null;
+}
+
+export function usePlatformBranding() {
+  const [branding, setBranding] = useState<BrandingSettings>({
+    logoUrl: null,
+    faviconUrl: null
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchBranding();
+  }, []);
+
+  useEffect(() => {
+    if (branding.faviconUrl) {
+      updateFavicon(branding.faviconUrl);
+    } else {
+      // Reset to default favicon
+      updateFavicon('/favicon.ico');
+    }
+  }, [branding.faviconUrl]);
+
+  const fetchBranding = async () => {
+    try {
+      const token =
+        localStorage.getItem('auth_token') ||
+        localStorage.getItem('token') ||
+        localStorage.getItem('admin_token') ||
+        sessionStorage.getItem('auth_token') ||
+        sessionStorage.getItem('token') ||
+        sessionStorage.getItem('admin_token');
+
+      let logoUrl: string | null = null;
+      let faviconUrl: string | null = null;
+
+      // Try authenticated fetch first, if token is present
+      if (token) {
+        const headers = { 'Authorization': `Bearer ${token}` };
+
+        try {
+          const [logoResponse, faviconResponse] = await Promise.all([
+            fetch('http://localhost:5000/api/system/settings/platform_logo_url', { headers }),
+            fetch('http://localhost:5000/api/system/settings/platform_favicon_url', { headers }),
+          ]);
+
+          if (logoResponse.ok) {
+            const logoData = await logoResponse.json();
+            if (logoData.value && typeof logoData.value === 'string') {
+              logoUrl = `http://localhost:5000${logoData.value}`;
+            }
+          }
+
+          if (faviconResponse.ok) {
+            const faviconData = await faviconResponse.json();
+            if (faviconData.value && typeof faviconData.value === 'string') {
+              faviconUrl = `http://localhost:5000${faviconData.value}`;
+            }
+          }
+        } catch (e) {
+          // will fallback to public endpoint
+        }
+      }
+
+      // If missing either, try public endpoint
+      if (!logoUrl || !faviconUrl) {
+        try {
+          const pubRes = await fetch('http://localhost:5000/api/public/branding');
+          if (pubRes.ok) {
+            const pubData = await pubRes.json();
+            if (!logoUrl && pubData.logoUrl && typeof pubData.logoUrl === 'string') {
+              logoUrl = `http://localhost:5000${pubData.logoUrl}`;
+            }
+            if (!faviconUrl && pubData.faviconUrl && typeof pubData.faviconUrl === 'string') {
+              faviconUrl = `http://localhost:5000${pubData.faviconUrl}`;
+            }
+          }
+        } catch (e) {
+          // ignore; leave nulls
+        }
+      }
+
+      setBranding({ logoUrl, faviconUrl });
+    } catch (error) {
+      console.error('Failed to fetch branding:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateFavicon = (url: string) => {
+    // Cache-busting parameter to force refresh in browsers
+    const cacheBustedUrl = `${url}${url.includes('?') ? '&' : '?'}cb=${Date.now()}`;
+
+    // Remove existing favicon links of multiple types
+    const selectors = [
+      'link[rel="icon"]',
+      'link[rel="shortcut icon"]',
+      'link[rel="apple-touch-icon"]',
+      'link[rel*="icon"]',
+    ];
+    document.querySelectorAll(selectors.join(',')).forEach((el) => el.parentNode?.removeChild(el));
+
+    // Create standard icon
+    const icon = document.createElement('link');
+    icon.rel = 'icon';
+    icon.type = 'image/x-icon';
+    icon.href = cacheBustedUrl;
+    document.head.appendChild(icon);
+
+    // Create shortcut icon for broader compatibility
+    const shortcut = document.createElement('link');
+    shortcut.rel = 'shortcut icon';
+    shortcut.type = 'image/x-icon';
+    shortcut.href = cacheBustedUrl;
+    document.head.appendChild(shortcut);
+  };
+
+  const refreshBranding = () => {
+    setLoading(true);
+    fetchBranding();
+  };
+
+  return { branding, loading, refreshBranding };
+}
+

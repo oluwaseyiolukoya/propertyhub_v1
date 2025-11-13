@@ -18,6 +18,7 @@ import { PlatformSettings } from './PlatformSettings';
 import { AddCustomerPage } from './AddCustomerPage';
 import { OnboardingManager } from './admin/OnboardingManager';
 import { Footer } from './Footer';
+import { PlatformLogo } from './PlatformLogo';
 import { toast } from "sonner";
 import {
   initializeSocket,
@@ -105,6 +106,7 @@ export function SuperAdminDashboard({
   const [searchTerm, setSearchTerm] = useState('');
   const [currentView, setCurrentView] = useState<'dashboard' | 'add-customer' | 'view-customer'>('dashboard');
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [hasCustomLogo, setHasCustomLogo] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{
     type: 'reset-password' | 'deactivate' | 'resend-invitation' | 'delete' | null;
     customer: any;
@@ -1347,7 +1349,14 @@ export function SuperAdminDashboard({
               >
                 <Menu className="h-5 w-5" />
               </Button>
-              <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Contrezz Admin</h1>
+              <PlatformLogo
+                iconClassName={hasCustomLogo ? "h-10 w-auto max-w-[200px] object-contain" : "h-6 w-6 text-blue-600 mr-2"}
+                showText={false}
+                onLogoLoad={(hasLogo) => setHasCustomLogo(hasLogo)}
+              />
+              {!hasCustomLogo && (
+                <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Contrezz Admin</h1>
+              )}
               <Badge variant="destructive" className="ml-2 text-xs">ADMIN</Badge>
             </div>
 

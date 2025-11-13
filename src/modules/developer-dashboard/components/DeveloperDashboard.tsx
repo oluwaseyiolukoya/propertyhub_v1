@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Avatar, AvatarFallback } from '../../../components/ui/avatar';
+import { PlatformLogo } from '../../../components/PlatformLogo';
 import PortfolioOverview from './PortfolioOverview';
 import AllProjectsPage from './AllProjectsPage';
 import ProjectDashboard from './ProjectDashboard';
@@ -31,6 +32,7 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({ user, on
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentView, setCurrentView] = useState<ViewMode>('portfolio');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [hasCustomLogo, setHasCustomLogo] = useState(false);
 
   // Reset to portfolio view on mount
   useEffect(() => {
@@ -184,9 +186,14 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({ user, on
               {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
             <div className="flex items-center gap-2">
-              <Building2 className="h-6 w-6 text-orange-600" />
-              <span className="text-xl font-bold text-gray-900">Contrezz</span>
-              <span className="hidden sm:inline text-sm text-gray-500 ml-2">Developer Dashboard</span>
+              <PlatformLogo
+                showText={false}
+                iconClassName={hasCustomLogo ? "h-8 w-auto max-w-[200px] object-contain" : "h-6 w-6 text-orange-600 mr-2"}
+                onLogoLoad={(hasLogo) => setHasCustomLogo(hasLogo)}
+              />
+              {!hasCustomLogo && (
+                <span className="text-xl font-bold text-gray-900">Contrezz Developer</span>
+              )}
             </div>
           </div>
 

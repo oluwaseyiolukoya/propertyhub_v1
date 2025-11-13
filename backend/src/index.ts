@@ -160,9 +160,21 @@ app.use(
       res.setHeader("Access-Control-Allow-Origin", process.env.FRONTEND_URL);
     }
     res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    // Prevent aggressive browser caching for brand assets (logos/favicons)
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     next();
   },
-  express.static(uploadsDir)
+  express.static(uploadsDir, {
+    etag: false,
+    lastModified: true,
+    cacheControl: true,
+    maxAge: 0,
+    setHeaders: (res) => {
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    },
+  })
 );
 
 // Health check
@@ -181,6 +193,26 @@ app.get("/api/health", (req: Request, res: Response) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
   });
+});
+
+// Public branding endpoint (no auth) - used by login pages and non-admin dashboards to fetch logo/favicon
+app.get("/api/public/branding", async (req: Request, res: Response) => {
+  try {
+    const [logo, favicon] = await Promise.all([
+      prisma.system_settings.findUnique({ where: { key: "platform_logo_url" } }),
+      prisma.system_settings.findUnique({ where: { key: "platform_favicon_url" } }),
+    ]);
+
+    res.json({
+      logoUrl: logo && typeof logo.value === "string" ? logo.value : null,
+      faviconUrl: favicon && typeof favicon.value === "string" ? favicon.value : null,
+    });
+  } catch (e: any) {
+    res.status(500).json({
+      error: "Failed to load branding",
+      message: e?.message,
+    });
+  }
 });
 
 // Deep health check that validates database connectivity and key tables

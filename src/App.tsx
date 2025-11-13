@@ -37,8 +37,11 @@ import {
   updateManager as apiUpdateManager,
   deactivateManager as apiDeactivateManager,
 } from './lib/api/property-managers';
+import { usePlatformBranding } from './hooks/usePlatformBranding';
 
 function App() {
+  // Load platform branding (logo and favicon)
+  usePlatformBranding();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userType, setUserType] = useState<string>('');
   const [isAuthChecking, setIsAuthChecking] = useState(true);

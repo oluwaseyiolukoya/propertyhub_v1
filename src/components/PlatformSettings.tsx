@@ -13,7 +13,7 @@ import { Separator } from "./ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Checkbox } from "./ui/checkbox";
 import { toast } from "sonner";
-import { 
+import {
   Settings,
   Shield,
   Users,
@@ -83,7 +83,9 @@ export function PlatformSettings() {
       language: 'English',
       maintenanceMode: false,
       allowRegistration: true,
-      requireEmailVerification: true
+      requireEmailVerification: true,
+      logoUrl: null as string | null,
+      faviconUrl: null as string | null
     },
     smtp: {
       host: 'smtp.gmail.com',
@@ -277,6 +279,246 @@ export function PlatformSettings() {
     { id: 'manage_settings', name: 'Manage Settings', category: 'Settings' }
   ];
 
+  // Load branding on component mount
+  React.useEffect(() => {
+    loadBranding();
+  }, []);
+
+  const loadBranding = async () => {
+    try {
+      // Try multiple token sources (auth_token is the correct key used by the app)
+      const token = localStorage.getItem('auth_token') ||
+                    localStorage.getItem('token') ||
+                    localStorage.getItem('admin_token') ||
+                    sessionStorage.getItem('auth_token') ||
+                    sessionStorage.getItem('token') ||
+                    sessionStorage.getItem('admin_token');
+
+      if (!token) {
+        console.log('No authentication token found for loading branding');
+        return;
+      }
+
+      const headers = { 'Authorization': `Bearer ${token}` };
+
+      // Load logo
+      const logoResponse = await fetch('http://localhost:5000/api/system/settings/platform_logo_url', { headers });
+      if (logoResponse.ok) {
+        const logoData = await logoResponse.json();
+        if (logoData.value) {
+          setSettings(prev => ({
+            ...prev,
+            general: { ...prev.general, logoUrl: `http://localhost:5000${logoData.value}` }
+          }));
+        }
+      }
+
+      // Load favicon
+      const faviconResponse = await fetch('http://localhost:5000/api/system/settings/platform_favicon_url', { headers });
+      if (faviconResponse.ok) {
+        const faviconData = await faviconResponse.json();
+        if (faviconData.value) {
+          setSettings(prev => ({
+            ...prev,
+            general: { ...prev.general, faviconUrl: `http://localhost:5000${faviconData.value}` }
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load branding:', error);
+    }
+  };
+
+  const handleLogoUpload = async (file: File | undefined) => {
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('logo', file);
+
+    try {
+      // Try multiple token sources (auth_token is the correct key used by the app)
+      const token = localStorage.getItem('auth_token') ||
+                    localStorage.getItem('token') ||
+                    localStorage.getItem('admin_token') ||
+                    sessionStorage.getItem('auth_token') ||
+                    sessionStorage.getItem('token') ||
+                    sessionStorage.getItem('admin_token');
+
+      if (!token) {
+        toast.error('Authentication token not found. Please login again.');
+        return;
+      }
+
+      console.log('Uploading logo with token:', token.substring(0, 20) + '...');
+
+      const response = await fetch('http://localhost:5000/api/system/settings/upload-logo', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSettings(prev => ({
+          ...prev,
+          general: { ...prev.general, logoUrl: `http://localhost:5000${data.url}` }
+        }));
+        toast.success('Logo uploaded successfully');
+        // Trigger a page reload to update logo across all components
+        window.location.reload();
+      } else {
+        const error = await response.json();
+        console.error('Upload error:', error);
+        toast.error(error.error || 'Failed to upload logo');
+      }
+    } catch (error) {
+      console.error('Logo upload error:', error);
+      toast.error('Failed to upload logo');
+    }
+  };
+
+  const handleFaviconUpload = async (file: File | undefined) => {
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('favicon', file);
+
+    try {
+      // Try multiple token sources (auth_token is the correct key used by the app)
+      const token = localStorage.getItem('auth_token') ||
+                    localStorage.getItem('token') ||
+                    localStorage.getItem('admin_token') ||
+                    sessionStorage.getItem('auth_token') ||
+                    sessionStorage.getItem('token') ||
+                    sessionStorage.getItem('admin_token');
+
+      if (!token) {
+        toast.error('Authentication token not found. Please login again.');
+        return;
+      }
+
+      const response = await fetch('http://localhost:5000/api/system/settings/upload-favicon', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSettings(prev => ({
+          ...prev,
+          general: { ...prev.general, faviconUrl: `http://localhost:5000${data.url}` }
+        }));
+        toast.success('Favicon uploaded successfully');
+        // Update favicon immediately with cache-busting
+        updateFavicon(`http://localhost:5000${data.url}?cb=${Date.now()}`);
+      } else {
+        const error = await response.json();
+        console.error('Upload error:', error);
+        toast.error(error.error || 'Failed to upload favicon');
+      }
+    } catch (error) {
+      console.error('Favicon upload error:', error);
+      toast.error('Failed to upload favicon');
+    }
+  };
+
+  const handleRemoveLogo = async () => {
+    try {
+      // Try multiple token sources (auth_token is the correct key used by the app)
+      const token = localStorage.getItem('auth_token') ||
+                    localStorage.getItem('token') ||
+                    localStorage.getItem('admin_token') ||
+                    sessionStorage.getItem('auth_token') ||
+                    sessionStorage.getItem('token') ||
+                    sessionStorage.getItem('admin_token');
+
+      if (!token) {
+        toast.error('Authentication token not found. Please login again.');
+        return;
+      }
+
+      const response = await fetch('http://localhost:5000/api/system/settings/logo', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        setSettings(prev => ({
+          ...prev,
+          general: { ...prev.general, logoUrl: null }
+        }));
+        toast.success('Logo removed successfully');
+        // Trigger a page reload to update logo across all components
+        window.location.reload();
+      } else {
+        const error = await response.json();
+        console.error('Remove error:', error);
+        toast.error(error.error || 'Failed to remove logo');
+      }
+    } catch (error) {
+      console.error('Logo removal error:', error);
+      toast.error('Failed to remove logo');
+    }
+  };
+
+  const handleRemoveFavicon = async () => {
+    try {
+      // Try multiple token sources (auth_token is the correct key used by the app)
+      const token = localStorage.getItem('auth_token') ||
+                    localStorage.getItem('token') ||
+                    localStorage.getItem('admin_token') ||
+                    sessionStorage.getItem('auth_token') ||
+                    sessionStorage.getItem('token') ||
+                    sessionStorage.getItem('admin_token');
+
+      if (!token) {
+        toast.error('Authentication token not found. Please login again.');
+        return;
+      }
+
+      const response = await fetch('http://localhost:5000/api/system/settings/favicon', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        setSettings(prev => ({
+          ...prev,
+          general: { ...prev.general, faviconUrl: null }
+        }));
+        toast.success('Favicon removed successfully');
+        // Reset to default favicon with cache-busting to force refresh
+        updateFavicon(`/favicon.ico?cb=${Date.now()}`);
+      } else {
+        const error = await response.json();
+        console.error('Remove error:', error);
+        toast.error(error.error || 'Failed to remove favicon');
+      }
+    } catch (error) {
+      console.error('Favicon removal error:', error);
+      toast.error('Failed to remove favicon');
+    }
+  };
+
+  const updateFavicon = (url: string) => {
+    const existingLinks = document.querySelectorAll('link[rel*="icon"]');
+    existingLinks.forEach(link => link.remove());
+
+    const link = document.createElement('link');
+    link.rel = 'icon';
+    link.href = url;
+    document.head.appendChild(link);
+  };
+
   const handleSaveSettings = (category: string) => {
     toast.success(`${category} settings saved successfully`);
   };
@@ -390,8 +632,8 @@ export function PlatformSettings() {
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="platform-name">Platform Name</Label>
-                    <Input 
-                      id="platform-name" 
+                    <Input
+                      id="platform-name"
                       value={settings.general.platformName}
                       onChange={(e) => setSettings(prev => ({
                         ...prev,
@@ -399,11 +641,11 @@ export function PlatformSettings() {
                       }))}
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="platform-url">Platform URL</Label>
-                    <Input 
-                      id="platform-url" 
+                    <Input
+                      id="platform-url"
                       value={settings.general.platformUrl}
                       onChange={(e) => setSettings(prev => ({
                         ...prev,
@@ -411,11 +653,11 @@ export function PlatformSettings() {
                       }))}
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="support-email">Support Email</Label>
-                    <Input 
-                      id="support-email" 
+                    <Input
+                      id="support-email"
                       type="email"
                       value={settings.general.supportEmail}
                       onChange={(e) => setSettings(prev => ({
@@ -424,10 +666,10 @@ export function PlatformSettings() {
                       }))}
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="timezone">Default Timezone</Label>
-                    <Select value={settings.general.timezone} onValueChange={(value) => 
+                    <Select value={settings.general.timezone} onValueChange={(value) =>
                       setSettings(prev => ({
                         ...prev,
                         general: { ...prev.general, timezone: value }
@@ -446,11 +688,11 @@ export function PlatformSettings() {
                     </Select>
                   </div>
                 </div>
-                
+
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="date-format">Date Format</Label>
-                    <Select value={settings.general.dateFormat} onValueChange={(value) => 
+                    <Select value={settings.general.dateFormat} onValueChange={(value) =>
                       setSettings(prev => ({
                         ...prev,
                         general: { ...prev.general, dateFormat: value }
@@ -466,10 +708,10 @@ export function PlatformSettings() {
                       </SelectContent>
                     </Select>
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="currency">Default Currency</Label>
-                    <Select value={settings.general.currency} onValueChange={(value) => 
+                    <Select value={settings.general.currency} onValueChange={(value) =>
                       setSettings(prev => ({
                         ...prev,
                         general: { ...prev.general, currency: value }
@@ -487,10 +729,10 @@ export function PlatformSettings() {
                       </SelectContent>
                     </Select>
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="language">Default Language</Label>
-                    <Select value={settings.general.language} onValueChange={(value) => 
+                    <Select value={settings.general.language} onValueChange={(value) =>
                       setSettings(prev => ({
                         ...prev,
                         general: { ...prev.general, language: value }
@@ -509,9 +751,142 @@ export function PlatformSettings() {
                   </div>
                 </div>
               </div>
-              
+
               <Separator />
-              
+
+              <div className="space-y-4">
+                <h4 className="font-medium">Platform Branding</h4>
+                <p className="text-sm text-gray-600">Customize your platform's logo and favicon</p>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Logo Upload */}
+                  <div className="space-y-3">
+                    <Label>Platform Logo</Label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                      {settings.general.logoUrl ? (
+                        <div className="space-y-3">
+                          <img
+                            src={settings.general.logoUrl}
+                            alt="Platform Logo"
+                            className="h-16 mx-auto object-contain"
+                          />
+                          <div className="flex gap-2 justify-center">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const input = document.createElement('input');
+                                input.type = 'file';
+                                input.accept = 'image/svg+xml,image/png,image/jpeg,image/jpg,image/webp';
+                                input.onchange = (e) => handleLogoUpload((e.target as HTMLInputElement).files?.[0]);
+                                input.click();
+                              }}
+                            >
+                              <Upload className="h-4 w-4 mr-2" />
+                              Change
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleRemoveLogo}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Remove
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <Upload className="h-12 w-12 mx-auto text-gray-400" />
+                          <div>
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                const input = document.createElement('input');
+                                input.type = 'file';
+                                input.accept = 'image/svg+xml,image/png,image/jpeg,image/jpg,image/webp';
+                                input.onchange = (e) => handleLogoUpload((e.target as HTMLInputElement).files?.[0]);
+                                input.click();
+                              }}
+                            >
+                              <Upload className="h-4 w-4 mr-2" />
+                              Upload Logo
+                            </Button>
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            SVG, PNG, JPG, JPEG, or WEBP (max 5MB)
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Favicon Upload */}
+                  <div className="space-y-3">
+                    <Label>Platform Favicon</Label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                      {settings.general.faviconUrl ? (
+                        <div className="space-y-3">
+                          <img
+                            src={settings.general.faviconUrl}
+                            alt="Platform Favicon"
+                            className="h-16 mx-auto object-contain"
+                          />
+                          <div className="flex gap-2 justify-center">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const input = document.createElement('input');
+                                input.type = 'file';
+                                input.accept = 'image/x-icon,image/vnd.microsoft.icon,image/png,image/svg+xml';
+                                input.onchange = (e) => handleFaviconUpload((e.target as HTMLInputElement).files?.[0]);
+                                input.click();
+                              }}
+                            >
+                              <Upload className="h-4 w-4 mr-2" />
+                              Change
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleRemoveFavicon}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Remove
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <Upload className="h-12 w-12 mx-auto text-gray-400" />
+                          <div>
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                const input = document.createElement('input');
+                                input.type = 'file';
+                                input.accept = 'image/x-icon,image/vnd.microsoft.icon,image/png,image/svg+xml';
+                                input.onchange = (e) => handleFaviconUpload((e.target as HTMLInputElement).files?.[0]);
+                                input.click();
+                              }}
+                            >
+                              <Upload className="h-4 w-4 mr-2" />
+                              Upload Favicon
+                            </Button>
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            ICO, PNG, or SVG (max 1MB)
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
               <div className="space-y-4">
                 <h4 className="font-medium">Platform Access</h4>
                 <div className="space-y-3">
@@ -520,7 +895,7 @@ export function PlatformSettings() {
                       <Label htmlFor="maintenance-mode">Maintenance Mode</Label>
                       <p className="text-sm text-gray-600">Temporarily disable platform access</p>
                     </div>
-                    <Switch 
+                    <Switch
                       id="maintenance-mode"
                       checked={settings.general.maintenanceMode}
                       onCheckedChange={(checked) => setSettings(prev => ({
@@ -529,13 +904,13 @@ export function PlatformSettings() {
                       }))}
                     />
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div>
                       <Label htmlFor="allow-registration">Allow Registration</Label>
                       <p className="text-sm text-gray-600">Allow new user registrations</p>
                     </div>
-                    <Switch 
+                    <Switch
                       id="allow-registration"
                       checked={settings.general.allowRegistration}
                       onCheckedChange={(checked) => setSettings(prev => ({
@@ -544,13 +919,13 @@ export function PlatformSettings() {
                       }))}
                     />
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div>
                       <Label htmlFor="email-verification">Require Email Verification</Label>
                       <p className="text-sm text-gray-600">Users must verify email before access</p>
                     </div>
-                    <Switch 
+                    <Switch
                       id="email-verification"
                       checked={settings.general.requireEmailVerification}
                       onCheckedChange={(checked) => setSettings(prev => ({
@@ -561,7 +936,7 @@ export function PlatformSettings() {
                   </div>
                 </div>
               </div>
-              
+
               <div className="flex justify-end">
                 <Button onClick={() => handleSaveSettings('General')}>
                   <Save className="h-4 w-4 mr-2" />
@@ -593,7 +968,7 @@ export function PlatformSettings() {
                     Add Role
                   </Button>
                 </div>
-                
+
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -662,8 +1037,8 @@ export function PlatformSettings() {
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="session-timeout">Session Timeout (minutes)</Label>
-                    <Input 
-                      id="session-timeout" 
+                    <Input
+                      id="session-timeout"
                       type="number"
                       value={settings.security.sessionTimeout}
                       onChange={(e) => setSettings(prev => ({
@@ -672,11 +1047,11 @@ export function PlatformSettings() {
                       }))}
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="max-login-attempts">Max Login Attempts</Label>
-                    <Input 
-                      id="max-login-attempts" 
+                    <Input
+                      id="max-login-attempts"
                       type="number"
                       value={settings.security.maxLoginAttempts}
                       onChange={(e) => setSettings(prev => ({
@@ -685,11 +1060,11 @@ export function PlatformSettings() {
                       }))}
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="password-min-length">Minimum Password Length</Label>
-                    <Input 
-                      id="password-min-length" 
+                    <Input
+                      id="password-min-length"
                       type="number"
                       value={settings.security.passwordMinLength}
                       onChange={(e) => setSettings(prev => ({
@@ -699,14 +1074,14 @@ export function PlatformSettings() {
                     />
                   </div>
                 </div>
-                
+
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <Label>Require Special Characters</Label>
                       <p className="text-sm text-gray-600">Password must contain special characters</p>
                     </div>
-                    <Switch 
+                    <Switch
                       checked={settings.security.requireSpecialChars}
                       onCheckedChange={(checked) => setSettings(prev => ({
                         ...prev,
@@ -714,13 +1089,13 @@ export function PlatformSettings() {
                       }))}
                     />
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div>
                       <Label>Require Numbers</Label>
                       <p className="text-sm text-gray-600">Password must contain numbers</p>
                     </div>
-                    <Switch 
+                    <Switch
                       checked={settings.security.requireNumbers}
                       onCheckedChange={(checked) => setSettings(prev => ({
                         ...prev,
@@ -728,13 +1103,13 @@ export function PlatformSettings() {
                       }))}
                     />
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div>
                       <Label>Two-Factor Authentication</Label>
                       <p className="text-sm text-gray-600">Require 2FA for all users</p>
                     </div>
-                    <Switch 
+                    <Switch
                       checked={settings.security.twoFactorAuth}
                       onCheckedChange={(checked) => setSettings(prev => ({
                         ...prev,
@@ -744,7 +1119,7 @@ export function PlatformSettings() {
                   </div>
                 </div>
               </div>
-              
+
               <div className="flex justify-end">
                 <Button onClick={() => handleSaveSettings('User Authentication')}>
                   <Save className="h-4 w-4 mr-2" />
@@ -770,7 +1145,7 @@ export function PlatformSettings() {
                       <Label>Enforce SSL/HTTPS</Label>
                       <p className="text-sm text-gray-600">Require secure connections</p>
                     </div>
-                    <Switch 
+                    <Switch
                       checked={settings.security.enforceSSL}
                       onCheckedChange={(checked) => setSettings(prev => ({
                         ...prev,
@@ -778,11 +1153,11 @@ export function PlatformSettings() {
                       }))}
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="api-rate-limit">API Rate Limit (requests/hour)</Label>
-                    <Input 
-                      id="api-rate-limit" 
+                    <Input
+                      id="api-rate-limit"
                       type="number"
                       value={settings.security.apiRateLimit}
                       onChange={(e) => setSettings(prev => ({
@@ -791,10 +1166,10 @@ export function PlatformSettings() {
                       }))}
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="ip-whitelist">IP Whitelist</Label>
-                    <Textarea 
+                    <Textarea
                       id="ip-whitelist"
                       placeholder="Enter IP addresses (one per line)"
                       value={settings.security.ipWhitelist}
@@ -805,12 +1180,12 @@ export function PlatformSettings() {
                     />
                   </div>
                 </div>
-                
+
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="data-retention">Data Retention (days)</Label>
-                    <Input 
-                      id="data-retention" 
+                    <Input
+                      id="data-retention"
                       type="number"
                       value={settings.security.dataRetention}
                       onChange={(e) => setSettings(prev => ({
@@ -819,7 +1194,7 @@ export function PlatformSettings() {
                       }))}
                     />
                   </div>
-                  
+
                   <div className="p-4 border rounded-lg">
                     <h4 className="font-medium mb-2">Security Status</h4>
                     <div className="space-y-2">
@@ -868,7 +1243,7 @@ export function PlatformSettings() {
                   {showApiKey ? 'pk_live_51234567890abcdef...' : '••••••••••••••••••••••••••••••••'}
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <h4 className="font-medium">Webhook Endpoints</h4>
@@ -877,7 +1252,7 @@ export function PlatformSettings() {
                     Add Webhook
                   </Button>
                 </div>
-                
+
                 <div className="space-y-2">
                   <div className="flex items-center justify-between p-3 border rounded">
                     <div>
@@ -891,7 +1266,7 @@ export function PlatformSettings() {
                       </Button>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center justify-between p-3 border rounded">
                     <div>
                       <p className="font-medium">User Events</p>
@@ -1066,14 +1441,14 @@ export function PlatformSettings() {
                   <p className="text-sm text-gray-600 mt-1">Alternative payment processing</p>
                   <Button variant="outline" className="mt-3 w-full">Connect</Button>
                 </div>
-                
+
                 <div className="p-4 border rounded-lg text-center">
                   <Building2 className="h-8 w-8 text-green-600 mx-auto mb-2" />
                   <h4 className="font-medium">Yardi</h4>
                   <p className="text-sm text-gray-600 mt-1">Property management sync</p>
                   <Button variant="outline" className="mt-3 w-full">Connect</Button>
                 </div>
-                
+
                 <div className="p-4 border rounded-lg text-center">
                   <Bell className="h-8 w-8 text-purple-600 mx-auto mb-2" />
                   <h4 className="font-medium">Slack</h4>
@@ -1099,7 +1474,7 @@ export function PlatformSettings() {
                     <Label>Email Notifications</Label>
                     <p className="text-sm text-gray-600">Send notifications via email</p>
                   </div>
-                  <Switch 
+                  <Switch
                     checked={settings.notifications.emailNotifications}
                     onCheckedChange={(checked) => setSettings(prev => ({
                       ...prev,
@@ -1107,13 +1482,13 @@ export function PlatformSettings() {
                     }))}
                   />
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>SMS Notifications</Label>
                     <p className="text-sm text-gray-600">Send notifications via SMS</p>
                   </div>
-                  <Switch 
+                  <Switch
                     checked={settings.notifications.smsNotifications}
                     onCheckedChange={(checked) => setSettings(prev => ({
                       ...prev,
@@ -1121,13 +1496,13 @@ export function PlatformSettings() {
                     }))}
                   />
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Push Notifications</Label>
                     <p className="text-sm text-gray-600">Send push notifications to mobile apps</p>
                   </div>
-                  <Switch 
+                  <Switch
                     checked={settings.notifications.pushNotifications}
                     onCheckedChange={(checked) => setSettings(prev => ({
                       ...prev,
@@ -1136,9 +1511,9 @@ export function PlatformSettings() {
                   />
                 </div>
               </div>
-              
+
               <Separator />
-              
+
               <div className="space-y-4">
                 <h4 className="font-medium">Notification Types</h4>
                 <div className="space-y-3">
@@ -1147,7 +1522,7 @@ export function PlatformSettings() {
                       <Label>Maintenance Alerts</Label>
                       <p className="text-sm text-gray-600">System maintenance notifications</p>
                     </div>
-                    <Switch 
+                    <Switch
                       checked={settings.notifications.maintenanceAlerts}
                       onCheckedChange={(checked) => setSettings(prev => ({
                         ...prev,
@@ -1155,13 +1530,13 @@ export function PlatformSettings() {
                       }))}
                     />
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div>
                       <Label>Billing Alerts</Label>
                       <p className="text-sm text-gray-600">Payment and billing notifications</p>
                     </div>
-                    <Switch 
+                    <Switch
                       checked={settings.notifications.billingAlerts}
                       onCheckedChange={(checked) => setSettings(prev => ({
                         ...prev,
@@ -1169,13 +1544,13 @@ export function PlatformSettings() {
                       }))}
                     />
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div>
                       <Label>Security Alerts</Label>
                       <p className="text-sm text-gray-600">Security-related notifications</p>
                     </div>
-                    <Switch 
+                    <Switch
                       checked={settings.notifications.securityAlerts}
                       onCheckedChange={(checked) => setSettings(prev => ({
                         ...prev,
@@ -1183,13 +1558,13 @@ export function PlatformSettings() {
                       }))}
                     />
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div>
                       <Label>System Updates</Label>
                       <p className="text-sm text-gray-600">Feature updates and announcements</p>
                     </div>
-                    <Switch 
+                    <Switch
                       checked={settings.notifications.systemUpdates}
                       onCheckedChange={(checked) => setSettings(prev => ({
                         ...prev,
@@ -1217,8 +1592,8 @@ export function PlatformSettings() {
                     <p className="text-sm text-green-700">Email server is configured and working</p>
                   </div>
                 </div>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   disabled={smtpTesting}
                   onClick={() => {
@@ -1237,8 +1612,8 @@ export function PlatformSettings() {
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="smtp-host">SMTP Host</Label>
-                    <Input 
-                      id="smtp-host" 
+                    <Input
+                      id="smtp-host"
                       placeholder="smtp.gmail.com"
                       value={settings.smtp.host}
                       onChange={(e) => setSettings(prev => ({
@@ -1247,11 +1622,11 @@ export function PlatformSettings() {
                       }))}
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="smtp-port">SMTP Port</Label>
-                    <Input 
-                      id="smtp-port" 
+                    <Input
+                      id="smtp-port"
                       type="number"
                       placeholder="587"
                       value={settings.smtp.port}
@@ -1261,11 +1636,11 @@ export function PlatformSettings() {
                       }))}
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="smtp-username">SMTP Username</Label>
-                    <Input 
-                      id="smtp-username" 
+                    <Input
+                      id="smtp-username"
                       type="email"
                       placeholder="noreply@contrezz.com"
                       value={settings.smtp.username}
@@ -1275,12 +1650,12 @@ export function PlatformSettings() {
                       }))}
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="smtp-password">SMTP Password</Label>
                     <div className="relative">
-                      <Input 
-                        id="smtp-password" 
+                      <Input
+                        id="smtp-password"
                         type={showSmtpPassword ? "text" : "password"}
                         placeholder="Enter password"
                         value={settings.smtp.password}
@@ -1306,13 +1681,13 @@ export function PlatformSettings() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="smtp-encryption">Encryption</Label>
-                    <Select 
-                      value={settings.smtp.encryption} 
-                      onValueChange={(value) => 
+                    <Select
+                      value={settings.smtp.encryption}
+                      onValueChange={(value) =>
                         setSettings(prev => ({
                           ...prev,
                           smtp: { ...prev.smtp, encryption: value }
@@ -1329,11 +1704,11 @@ export function PlatformSettings() {
                       </SelectContent>
                     </Select>
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="smtp-from-email">From Email Address</Label>
-                    <Input 
-                      id="smtp-from-email" 
+                    <Input
+                      id="smtp-from-email"
                       type="email"
                       placeholder="noreply@contrezz.com"
                       value={settings.smtp.fromEmail}
@@ -1343,11 +1718,11 @@ export function PlatformSettings() {
                       }))}
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="smtp-from-name">From Name</Label>
-                    <Input 
-                      id="smtp-from-name" 
+                    <Input
+                      id="smtp-from-name"
                       placeholder="Contrezz"
                       value={settings.smtp.fromName}
                       onChange={(e) => setSettings(prev => ({
@@ -1356,7 +1731,7 @@ export function PlatformSettings() {
                       }))}
                     />
                   </div>
-                  
+
                   <div className="p-4 border rounded-lg bg-blue-50">
                     <h4 className="font-medium text-blue-900 mb-2">Common SMTP Ports</h4>
                     <div className="space-y-1 text-sm text-blue-700">
@@ -1367,9 +1742,9 @@ export function PlatformSettings() {
                   </div>
                 </div>
               </div>
-              
+
               <Separator />
-              
+
               <div className="space-y-4">
                 <h4 className="font-medium">Popular SMTP Providers</h4>
                 <div className="grid md:grid-cols-3 gap-4">
@@ -1387,7 +1762,7 @@ export function PlatformSettings() {
                   </div>
                 </div>
               </div>
-              
+
               <div className="flex justify-end space-x-3">
                 <Button variant="outline" onClick={() => toast.info('Configuration reset to defaults')}>
                   Reset to Defaults
@@ -1419,7 +1794,7 @@ export function PlatformSettings() {
                     <p className="text-sm text-gray-600">Sent to new users upon registration</p>
                     <Badge variant="default" className="mt-2">Active</Badge>
                   </div>
-                  
+
                   <div className="p-4 border rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-medium">Password Reset</h4>
@@ -1430,7 +1805,7 @@ export function PlatformSettings() {
                     <p className="text-sm text-gray-600">Password reset instructions</p>
                     <Badge variant="default" className="mt-2">Active</Badge>
                   </div>
-                  
+
                   <div className="p-4 border rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-medium">Payment Receipt</h4>
@@ -1441,7 +1816,7 @@ export function PlatformSettings() {
                     <p className="text-sm text-gray-600">Payment confirmation email</p>
                     <Badge variant="default" className="mt-2">Active</Badge>
                   </div>
-                  
+
                   <div className="p-4 border rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-medium">Maintenance Alert</h4>
@@ -1453,7 +1828,7 @@ export function PlatformSettings() {
                     <Badge variant="default" className="mt-2">Active</Badge>
                   </div>
                 </div>
-                
+
                 <div className="flex justify-between items-center">
                   <Button variant="outline">
                     <Plus className="h-4 w-4 mr-2" />
@@ -1481,7 +1856,7 @@ export function PlatformSettings() {
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="payment-processor">Payment Processor</Label>
-                    <Select value={settings.billing.paymentProcessor} onValueChange={(value) => 
+                    <Select value={settings.billing.paymentProcessor} onValueChange={(value) =>
                       setSettings(prev => ({
                         ...prev,
                         billing: { ...prev.billing, paymentProcessor: value }
@@ -1497,11 +1872,11 @@ export function PlatformSettings() {
                       </SelectContent>
                     </Select>
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="webhook-url">Webhook URL</Label>
-                    <Input 
-                      id="webhook-url" 
+                    <Input
+                      id="webhook-url"
                       value={settings.billing.webhookUrl}
                       onChange={(e) => setSettings(prev => ({
                         ...prev,
@@ -1509,11 +1884,11 @@ export function PlatformSettings() {
                       }))}
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="grace-period">Grace Period (days)</Label>
-                    <Input 
-                      id="grace-period" 
+                    <Input
+                      id="grace-period"
                       type="number"
                       value={settings.billing.gracePeriod}
                       onChange={(e) => setSettings(prev => ({
@@ -1523,14 +1898,14 @@ export function PlatformSettings() {
                     />
                   </div>
                 </div>
-                
+
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <Label>Tax Calculation</Label>
                       <p className="text-sm text-gray-600">Automatically calculate taxes</p>
                     </div>
-                    <Switch 
+                    <Switch
                       checked={settings.billing.taxCalculation}
                       onCheckedChange={(checked) => setSettings(prev => ({
                         ...prev,
@@ -1538,13 +1913,13 @@ export function PlatformSettings() {
                       }))}
                     />
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div>
                       <Label>Auto Suspend</Label>
                       <p className="text-sm text-gray-600">Suspend accounts for non-payment</p>
                     </div>
-                    <Switch 
+                    <Switch
                       checked={settings.billing.autoSuspend}
                       onCheckedChange={(checked) => setSettings(prev => ({
                         ...prev,
@@ -1552,13 +1927,13 @@ export function PlatformSettings() {
                       }))}
                     />
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div>
                       <Label>Proration Enabled</Label>
                       <p className="text-sm text-gray-600">Prorate charges for plan changes</p>
                     </div>
-                    <Switch 
+                    <Switch
                       checked={settings.billing.prorationEnabled}
                       onCheckedChange={(checked) => setSettings(prev => ({
                         ...prev,
@@ -1588,7 +1963,7 @@ export function PlatformSettings() {
                   </div>
                   <Switch defaultChecked />
                 </div>
-                
+
                 <div className="flex items-center justify-between p-3 border rounded">
                   <div className="flex items-center space-x-2">
                     <Banknote className="h-4 w-4" />
@@ -1596,7 +1971,7 @@ export function PlatformSettings() {
                   </div>
                   <Switch defaultChecked />
                 </div>
-                
+
                 <div className="flex items-center justify-between p-3 border rounded">
                   <div className="flex items-center space-x-2">
                     <Receipt className="h-4 w-4" />
@@ -1670,12 +2045,12 @@ export function PlatformSettings() {
                     <Label htmlFor="max-file-size">Max File Upload Size (MB)</Label>
                     <Input id="max-file-size" type="number" defaultValue="50" />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="cache-duration">Cache Duration (hours)</Label>
                     <Input id="cache-duration" type="number" defaultValue="24" />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="backup-frequency">Backup Frequency</Label>
                     <Select defaultValue="daily">
@@ -1690,18 +2065,18 @@ export function PlatformSettings() {
                     </Select>
                   </div>
                 </div>
-                
+
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="log-retention">Log Retention (days)</Label>
                     <Input id="log-retention" type="number" defaultValue="90" />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="concurrent-users">Max Concurrent Users</Label>
                     <Input id="concurrent-users" type="number" defaultValue="5000" />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="database-pool">Database Connection Pool</Label>
                     <Input id="database-pool" type="number" defaultValue="20" />
@@ -1727,7 +2102,7 @@ export function PlatformSettings() {
                     </div>
                     <Switch defaultChecked />
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div>
                       <Label>Mobile Push Notifications</Label>
@@ -1735,7 +2110,7 @@ export function PlatformSettings() {
                     </div>
                     <Switch defaultChecked />
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div>
                       <Label>AI-Powered Insights</Label>
@@ -1744,7 +2119,7 @@ export function PlatformSettings() {
                     <Switch />
                   </div>
                 </div>
-                
+
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1753,7 +2128,7 @@ export function PlatformSettings() {
                     </div>
                     <Switch />
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div>
                       <Label>Dark Mode</Label>
@@ -1761,7 +2136,7 @@ export function PlatformSettings() {
                     </div>
                     <Switch defaultChecked />
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div>
                       <Label>Real-time Chat Support</Label>
@@ -1791,7 +2166,7 @@ export function PlatformSettings() {
                       Download
                     </Button>
                   </div>
-                  
+
                   <div className="p-4 border rounded-lg">
                     <h4 className="font-medium mb-2">Next Maintenance</h4>
                     <p className="text-sm text-gray-600">{new Date(systemMetrics.nextMaintenance).toLocaleString()}</p>
@@ -1801,7 +2176,7 @@ export function PlatformSettings() {
                     </Button>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className="font-medium">Database Size: {systemMetrics.databaseSize}GB</h4>
@@ -1878,7 +2253,7 @@ export function PlatformSettings() {
                     <p className="text-sm text-gray-600">Last updated: March 1, 2024</p>
                     <Badge variant="default" className="mt-2">Version 2.1</Badge>
                   </div>
-                  
+
                   <div className="p-4 border rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-medium">Privacy Policy</h4>
@@ -1894,7 +2269,7 @@ export function PlatformSettings() {
                     <p className="text-sm text-gray-600">Last updated: February 15, 2024</p>
                     <Badge variant="default" className="mt-2">Version 3.0</Badge>
                   </div>
-                  
+
                   <div className="p-4 border rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-medium">Cookie Policy</h4>
@@ -1910,7 +2285,7 @@ export function PlatformSettings() {
                     <p className="text-sm text-gray-600">Last updated: January 10, 2024</p>
                     <Badge variant="default" className="mt-2">Version 1.2</Badge>
                   </div>
-                  
+
                   <div className="p-4 border rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-medium">Data Processing Agreement</h4>
@@ -1944,12 +2319,12 @@ export function PlatformSettings() {
                     <Label htmlFor="data-retention-period">Data Retention Period (days)</Label>
                     <Input id="data-retention-period" type="number" defaultValue="365" />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="backup-retention">Backup Retention (days)</Label>
                     <Input id="backup-retention" type="number" defaultValue="90" />
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div>
                       <Label>Auto-delete Inactive Accounts</Label>
@@ -1958,7 +2333,7 @@ export function PlatformSettings() {
                     <Switch />
                   </div>
                 </div>
-                
+
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1967,7 +2342,7 @@ export function PlatformSettings() {
                     </div>
                     <Switch defaultChecked />
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div>
                       <Label>Anonymize Deleted Data</Label>
@@ -1975,7 +2350,7 @@ export function PlatformSettings() {
                     </div>
                     <Switch defaultChecked />
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <div>
                       <Label>Right to be Forgotten</Label>
@@ -2005,7 +2380,7 @@ export function PlatformSettings() {
                     Generate
                   </Button>
                 </div>
-                
+
                 <div className="p-4 border rounded-lg text-center">
                   <Shield className="h-8 w-8 text-green-600 mx-auto mb-2" />
                   <h4 className="font-medium">SOC 2 Report</h4>
@@ -2015,7 +2390,7 @@ export function PlatformSettings() {
                     Generate
                   </Button>
                 </div>
-                
+
                 <div className="p-4 border rounded-lg text-center">
                   <FileText className="h-8 w-8 text-purple-600 mx-auto mb-2" />
                   <h4 className="font-medium">Audit Trail</h4>
@@ -2070,7 +2445,7 @@ export function PlatformSettings() {
             <div>
               <Label className="text-base font-semibold">Permissions <span className="text-red-500">*</span></Label>
               <p className="text-sm text-gray-600 mb-4">Select the permissions this role should have</p>
-              
+
               <div className="space-y-4">
                 {['Properties', 'Tenants', 'Payments', 'Reports', 'Maintenance', 'Users', 'Settings'].map((category) => (
                   <div key={category} className="p-4 border rounded-lg">

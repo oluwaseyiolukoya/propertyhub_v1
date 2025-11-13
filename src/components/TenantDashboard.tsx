@@ -22,12 +22,14 @@ import TenantSettings from './TenantSettings';
 import { Footer } from './Footer';
 import { getTenantDashboardOverview, getUserData, removeAuthToken } from '../lib/api';
 import { usePersistentState } from '../lib/usePersistentState';
+import { PlatformLogo } from './PlatformLogo';
 
 const TenantDashboard: React.FC = () => {
   const [activeSection, setActiveSection] = usePersistentState('tenant-dashboard-section', 'dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [hasCustomLogo, setHasCustomLogo] = useState(false);
 
   const userData = getUserData();
 
@@ -119,7 +121,12 @@ const TenantDashboard: React.FC = () => {
           >
             {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
-          <h2 className="font-semibold">Contrezz</h2>
+          <PlatformLogo
+            showText={false}
+            iconClassName={hasCustomLogo ? "h-6 w-auto max-w-[150px] object-contain" : "h-6 w-6 text-blue-600"}
+            onLogoLoad={(hasLogo) => setHasCustomLogo(hasLogo)}
+          />
+          {!hasCustomLogo && <h2 className="font-semibold">Contrezz</h2>}
         </div>
         <div className="flex items-center space-x-2">
           <Button variant="ghost" size="icon" className="relative">
@@ -151,7 +158,12 @@ const TenantDashboard: React.FC = () => {
         <div className="flex flex-col h-full">
           {/* Logo - Desktop only */}
           <div className="hidden lg:block p-6 border-b">
-            <h1 className="text-2xl font-bold text-blue-600">Contrezz</h1>
+            <PlatformLogo
+              showText={false}
+              iconClassName={hasCustomLogo ? "h-8 w-auto max-w-[180px] object-contain" : "h-6 w-6 text-blue-600"}
+              onLogoLoad={(hasLogo) => setHasCustomLogo(hasLogo)}
+            />
+            {!hasCustomLogo && <h1 className="text-2xl font-bold text-blue-600">Contrezz</h1>}
             <p className="text-sm text-muted-foreground mt-1">Tenant Portal</p>
           </div>
 
