@@ -5,6 +5,9 @@ interface BrandingSettings {
   faviconUrl: string | null;
 }
 
+// Get API base URL from environment
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '' : '');
+
 export function usePlatformBranding() {
   const [branding, setBranding] = useState<BrandingSettings>({
     logoUrl: null,
@@ -44,21 +47,21 @@ export function usePlatformBranding() {
 
         try {
           const [logoResponse, faviconResponse] = await Promise.all([
-            fetch('http://localhost:5000/api/system/settings/platform_logo_url', { headers }),
-            fetch('http://localhost:5000/api/system/settings/platform_favicon_url', { headers }),
+            fetch(`${API_BASE_URL}/api/system/settings/platform_logo_url`, { headers }),
+            fetch(`${API_BASE_URL}/api/system/settings/platform_favicon_url`, { headers }),
           ]);
 
           if (logoResponse.ok) {
             const logoData = await logoResponse.json();
             if (logoData.value && typeof logoData.value === 'string') {
-              logoUrl = `http://localhost:5000${logoData.value}`;
+              logoUrl = `${API_BASE_URL}${logoData.value}`;
             }
           }
 
           if (faviconResponse.ok) {
             const faviconData = await faviconResponse.json();
             if (faviconData.value && typeof faviconData.value === 'string') {
-              faviconUrl = `http://localhost:5000${faviconData.value}`;
+              faviconUrl = `${API_BASE_URL}${faviconData.value}`;
             }
           }
         } catch (e) {
@@ -69,14 +72,14 @@ export function usePlatformBranding() {
       // If missing either, try public endpoint
       if (!logoUrl || !faviconUrl) {
         try {
-          const pubRes = await fetch('http://localhost:5000/api/public/branding');
+          const pubRes = await fetch(`${API_BASE_URL}/api/public/branding`);
           if (pubRes.ok) {
             const pubData = await pubRes.json();
             if (!logoUrl && pubData.logoUrl && typeof pubData.logoUrl === 'string') {
-              logoUrl = `http://localhost:5000${pubData.logoUrl}`;
+              logoUrl = `${API_BASE_URL}${pubData.logoUrl}`;
             }
             if (!faviconUrl && pubData.faviconUrl && typeof pubData.faviconUrl === 'string') {
-              faviconUrl = `http://localhost:5000${pubData.faviconUrl}`;
+              faviconUrl = `${API_BASE_URL}${pubData.faviconUrl}`;
             }
           }
         } catch (e) {

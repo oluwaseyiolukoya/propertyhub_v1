@@ -13,6 +13,9 @@ import { Separator } from "./ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Checkbox } from "./ui/checkbox";
 import { toast } from "sonner";
+
+// Get API base URL from environment
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '' : '');
 import {
   Settings,
   Shield,
@@ -302,25 +305,25 @@ export function PlatformSettings() {
       const headers = { 'Authorization': `Bearer ${token}` };
 
       // Load logo
-      const logoResponse = await fetch('http://localhost:5000/api/system/settings/platform_logo_url', { headers });
+      const logoResponse = await fetch(`${API_BASE_URL}/api/system/settings/platform_logo_url`, { headers });
       if (logoResponse.ok) {
         const logoData = await logoResponse.json();
         if (logoData.value) {
           setSettings(prev => ({
             ...prev,
-            general: { ...prev.general, logoUrl: `http://localhost:5000${logoData.value}` }
+            general: { ...prev.general, logoUrl: `${API_BASE_URL}${logoData.value}` }
           }));
         }
       }
 
       // Load favicon
-      const faviconResponse = await fetch('http://localhost:5000/api/system/settings/platform_favicon_url', { headers });
+      const faviconResponse = await fetch(`${API_BASE_URL}/api/system/settings/platform_favicon_url`, { headers });
       if (faviconResponse.ok) {
         const faviconData = await faviconResponse.json();
         if (faviconData.value) {
           setSettings(prev => ({
             ...prev,
-            general: { ...prev.general, faviconUrl: `http://localhost:5000${faviconData.value}` }
+            general: { ...prev.general, faviconUrl: `${API_BASE_URL}${faviconData.value}` }
           }));
         }
       }
@@ -351,7 +354,7 @@ export function PlatformSettings() {
 
       console.log('Uploading logo with token:', token.substring(0, 20) + '...');
 
-      const response = await fetch('http://localhost:5000/api/system/settings/upload-logo', {
+      const response = await fetch(`${API_BASE_URL}/api/system/settings/upload-logo`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -363,7 +366,7 @@ export function PlatformSettings() {
         const data = await response.json();
         setSettings(prev => ({
           ...prev,
-          general: { ...prev.general, logoUrl: `http://localhost:5000${data.url}` }
+          general: { ...prev.general, logoUrl: `${API_BASE_URL}${data.url}` }
         }));
         toast.success('Logo uploaded successfully');
         // Trigger a page reload to update logo across all components
@@ -399,7 +402,7 @@ export function PlatformSettings() {
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/system/settings/upload-favicon', {
+      const response = await fetch(`${API_BASE_URL}/api/system/settings/upload-favicon`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -442,7 +445,7 @@ export function PlatformSettings() {
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/system/settings/logo', {
+      const response = await fetch(`${API_BASE_URL}/api/system/settings/logo`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -483,7 +486,7 @@ export function PlatformSettings() {
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/system/settings/favicon', {
+      const response = await fetch(`${API_BASE_URL}/api/system/settings/favicon`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

@@ -9,6 +9,9 @@ interface PlatformLogoProps {
   onLogoLoad?: (hasCustomLogo: boolean) => void;
 }
 
+// Get API base URL from environment
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '' : '');
+
 export function PlatformLogo({
   className = "flex items-center",
   iconClassName = "h-6 w-6 text-orange-600 mr-2",
@@ -39,7 +42,7 @@ export function PlatformLogo({
       // Attempt authenticated fetch first (if token exists)
       if (token) {
         try {
-          const response = await fetch('http://localhost:5000/api/system/settings/platform_logo_url', {
+          const response = await fetch(`${API_BASE_URL}/api/system/settings/platform_logo_url`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -58,7 +61,7 @@ export function PlatformLogo({
       // Fallback to public branding endpoint if no token or no setting found
       if (!valuePath) {
         try {
-          const pubRes = await fetch('http://localhost:5000/api/public/branding');
+          const pubRes = await fetch(`${API_BASE_URL}/api/public/branding`);
           if (pubRes.ok) {
             const pubData = await pubRes.json();
             if (pubData.logoUrl && typeof pubData.logoUrl === 'string') {
@@ -71,7 +74,7 @@ export function PlatformLogo({
       }
 
       if (valuePath) {
-        const fullUrl = `http://localhost:5000${valuePath}`;
+        const fullUrl = `${API_BASE_URL}${valuePath}`;
         console.log('[PlatformLogo] Loaded custom logo:', fullUrl);
         setLogoUrl(fullUrl);
         if (onLogoLoad) onLogoLoad(true);
