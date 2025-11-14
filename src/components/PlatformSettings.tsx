@@ -417,8 +417,8 @@ export function PlatformSettings() {
           general: { ...prev.general, faviconUrl: `http://localhost:5000${data.url}` }
         }));
         toast.success('Favicon uploaded successfully');
-        // Update favicon immediately with cache-busting
-        updateFavicon(`http://localhost:5000${data.url}?cb=${Date.now()}`);
+        // Update favicon immediately with cache-busting (use API base URL)
+        updateFavicon(`${API_BASE_URL}${data.url}?cb=${Date.now()}`);
       } else {
         const error = await response.json();
         console.error('Upload error:', error);
@@ -499,8 +499,9 @@ export function PlatformSettings() {
           general: { ...prev.general, faviconUrl: null }
         }));
         toast.success('Favicon removed successfully');
-        // Reset to default favicon with cache-busting to force refresh
-        updateFavicon(`/favicon.ico?cb=${Date.now()}`);
+        // Reset to an inline default favicon to avoid 404s
+        const defaultFavicon = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%23ff7a00'/></svg>";
+        updateFavicon(defaultFavicon);
       } else {
         const error = await response.json();
         console.error('Remove error:', error);

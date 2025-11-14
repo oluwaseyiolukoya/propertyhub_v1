@@ -41,17 +41,20 @@ After adding the secret, the next push to `main` will:
 ## Workflow Jobs
 
 ### 1. Build & Test
+
 - Installs dependencies
 - Builds frontend with production config
 - Builds backend
 - Validates code compiles without errors
 
 ### 2. Deploy to DigitalOcean
+
 - Triggers deployment via DigitalOcean API
 - Only runs on `main` branch
 - Requires `DIGITALOCEAN_ACCESS_TOKEN` secret
 
 ### 3. Verify Deployment
+
 - Waits 60 seconds for deployment
 - Checks backend health endpoint
 - Checks frontend accessibility
@@ -60,11 +63,13 @@ After adding the secret, the next push to `main` will:
 ## Monitoring Deployments
 
 ### GitHub Actions
+
 - View workflow runs: https://github.com/oluwaseyiolukoya/propertyhub_v1/actions
 - See real-time logs for each job
 - Get notified of failures
 
 ### DigitalOcean Dashboard
+
 - View app status: https://cloud.digitalocean.com/apps
 - See detailed deployment logs
 - Monitor resource usage
@@ -72,15 +77,18 @@ After adding the secret, the next push to `main` will:
 ## Troubleshooting
 
 ### "Secret not found" Error
+
 - Make sure you added `DIGITALOCEAN_ACCESS_TOKEN` to GitHub secrets
 - Check the secret name is exactly: `DIGITALOCEAN_ACCESS_TOKEN`
 
 ### Deployment Fails
+
 1. Check DigitalOcean dashboard for detailed logs
 2. Verify environment variables are set correctly
 3. Check if there are any build errors
 
 ### Health Check Fails
+
 - Backend might still be starting (increase wait time)
 - Check if environment variables are correct
 - Verify database connection
@@ -97,19 +105,20 @@ This way, DigitalOcean will still auto-deploy on every push, but GitHub Actions 
 ## Current Setup
 
 **With GitHub Actions** (Recommended):
+
 - ✅ Build validation before deployment
 - ✅ Deployment status in GitHub
 - ✅ Automated health checks
 - ✅ Clear deployment logs
 
 **Without GitHub Actions** (Simpler):
+
 - ✅ Automatic deployment via webhook
-- ⚠️  No pre-deployment validation
-- ⚠️  Check DigitalOcean for status
+- ⚠️ No pre-deployment validation
+- ⚠️ Check DigitalOcean for status
 
 ## Support
 
 - **GitHub Actions Docs**: https://docs.github.com/en/actions
 - **DigitalOcean App Platform**: https://docs.digitalocean.com/products/app-platform/
 - **Workflow File**: `.github/workflows/deploy-dev.yml`
-
