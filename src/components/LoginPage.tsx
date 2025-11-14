@@ -45,6 +45,7 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
   const [invitationData, setInvitationData] = useState<any>(null);
   const [showPasswordSetup, setShowPasswordSetup] = useState(false);
   const [error, setError] = useState<string>('');
+  const [hasCustomLogo, setHasCustomLogo] = useState(false);
 
   // Check for invitation parameters on component mount
   useEffect(() => {
@@ -230,9 +231,10 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
             >
               <div className="flex items-center space-x-2">
                 <PlatformLogo
-                  iconClassName="h-8 w-8 text-blue-600"
+                  iconClassName={hasCustomLogo ? "h-10 w-auto max-w-[200px] object-contain" : "h-8 w-8 text-blue-600"}
                   textClassName="text-xl font-bold text-gray-900"
-                  showText={true}
+                  showText={!hasCustomLogo}
+                  onLogoLoad={(hasLogo) => setHasCustomLogo(hasLogo)}
                 />
                 <Badge variant="secondary">SaaS</Badge>
               </div>
