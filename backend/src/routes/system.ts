@@ -168,12 +168,15 @@ router.post('/settings/upload-logo', adminOnly, uploadLogo.single('logo'), async
     if ('location' in req.file) {
       // S3/Spaces upload - replace Spaces URL with CDN URL
       const spacesUrl = (req.file as any).location;
-      const cdnEndpoint = process.env.SPACES_CDN_ENDPOINT;
-      const spacesEndpoint = process.env.SPACES_ENDPOINT || 'https://nyc3.digitaloceanspaces.com';
       const bucket = process.env.SPACES_BUCKET || 'contrezz-uploads';
-      
+      const region = process.env.SPACES_REGION || 'nyc3';
+
+      // Build CDN endpoint (use env var or construct from region/bucket)
+      const cdnEndpoint = process.env.SPACES_CDN_ENDPOINT ||
+                         `https://${bucket}.${region}.cdn.digitaloceanspaces.com`;
+
       // Replace Spaces endpoint with CDN endpoint
-      if (cdnEndpoint && spacesUrl.includes(bucket)) {
+      if (spacesUrl.includes(bucket)) {
         // Extract the path after the bucket name
         const urlParts = spacesUrl.split(`${bucket}/`);
         if (urlParts.length > 1) {
@@ -239,11 +242,15 @@ router.post('/settings/upload-favicon', adminOnly, uploadFavicon.single('favicon
     if ('location' in req.file) {
       // S3/Spaces upload - replace Spaces URL with CDN URL
       const spacesUrl = (req.file as any).location;
-      const cdnEndpoint = process.env.SPACES_CDN_ENDPOINT;
       const bucket = process.env.SPACES_BUCKET || 'contrezz-uploads';
-      
+      const region = process.env.SPACES_REGION || 'nyc3';
+
+      // Build CDN endpoint (use env var or construct from region/bucket)
+      const cdnEndpoint = process.env.SPACES_CDN_ENDPOINT ||
+                         `https://${bucket}.${region}.cdn.digitaloceanspaces.com`;
+
       // Replace Spaces endpoint with CDN endpoint
-      if (cdnEndpoint && spacesUrl.includes(bucket)) {
+      if (spacesUrl.includes(bucket)) {
         // Extract the path after the bucket name
         const urlParts = spacesUrl.split(`${bucket}/`);
         if (urlParts.length > 1) {
