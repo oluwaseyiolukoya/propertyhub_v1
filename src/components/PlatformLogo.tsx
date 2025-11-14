@@ -74,7 +74,11 @@ export function PlatformLogo({
       }
 
       if (valuePath) {
-        const fullUrl = `${API_BASE_URL}${valuePath}`;
+        // If valuePath is already a full URL (starts with http:// or https://), use it as-is
+        // Otherwise, prepend API_BASE_URL for relative paths
+        const fullUrl = (valuePath.startsWith('http://') || valuePath.startsWith('https://'))
+          ? valuePath
+          : `${API_BASE_URL}${valuePath}`;
         console.log('[PlatformLogo] Loaded custom logo:', fullUrl);
         setLogoUrl(fullUrl);
         if (onLogoLoad) onLogoLoad(true);
