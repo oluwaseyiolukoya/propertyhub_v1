@@ -95,6 +95,7 @@ export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCus
     taxId: '',
     industry: '',
     companySize: '',
+    customerType: '', // 'property_owner' | 'property_manager' | 'property_developer'
     plan: '',
     billingCycle: 'monthly',
     properties: '',
@@ -124,6 +125,7 @@ export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCus
           .map((plan: any) => ({
             id: plan.id,
             name: plan.name,
+            category: plan.category || 'property_management',
             price: plan.monthlyPrice,
             annualPrice: plan.annualPrice,
             currency: plan.currency || 'USD',
@@ -131,6 +133,7 @@ export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCus
             popular: plan.isPopular || false,
             isActive: plan.isActive !== false,
             propertyLimit: plan.propertyLimit,
+            projectLimit: plan.projectLimit,
             userLimit: plan.userLimit,
             storageLimit: plan.storageLimit
           }));
@@ -165,6 +168,18 @@ export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCus
       } catch {}
     };
   }, []);
+
+  // Filter plans based on customer type
+  const filteredPlans = subscriptionPlans.filter(plan => {
+    if (!newCustomer.customerType) return true; // Show all if no type selected
+
+    if (newCustomer.customerType === 'property_developer') {
+      return plan.category === 'development';
+    } else {
+      // property_owner and property_manager see property_management plans
+      return plan.category === 'property_management';
+    }
+  });
 
   const selectedPlan = subscriptionPlans.find(plan => plan.name === newCustomer.plan);
 
@@ -209,6 +224,7 @@ export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCus
         taxId: newCustomer.taxId,
         industry: newCustomer.industry,
         companySize: newCustomer.companySize,
+        customerType: newCustomer.customerType, // Send customer type to determine user role
         plan: newCustomer.plan, // Send plan name - backend will handle lookup
         billingCycle: newCustomer.billingCycle,
         status: 'trial',
@@ -451,6 +467,33 @@ This is an automated message. Please do not reply to this email.
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
+                        <Label htmlFor="customerType">Customer Type *</Label>
+                        <Select
+                          value={newCustomer.customerType}
+                          onValueChange={(value) => {
+                            // Reset plan selection when customer type changes
+                            setNewCustomer({
+                              ...newCustomer,
+                              customerType: value,
+                              plan: '' // Clear plan selection
+                            });
+                          }}
+                          required
+                        >
+                          <SelectTrigger id="customerType">
+                            <SelectValue placeholder="Select customer type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="property_owner">Property Owner</SelectItem>
+                            <SelectItem value="property_manager">Property Manager</SelectItem>
+                            <SelectItem value="property_developer">Property Developer</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-gray-500 mt-1">
+                          This determines which subscription plans are available
+                        </p>
+                      </div>
+                      <div>
                         <Label htmlFor="industry">Industry</Label>
                         <Input
                           id="industry"
@@ -459,6 +502,9 @@ This is an automated message. Please do not reply to this email.
                           onChange={(e) => setNewCustomer({...newCustomer, industry: e.target.value})}
                         />
                       </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="companySize">Company Size</Label>
                         <Select
@@ -545,7 +591,11 @@ This is an automated message. Please do not reply to this email.
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="properties">Number of Properties</Label>
+                        <Label htmlFor="properties">
+                          {newCustomer.customerType === 'property_developer'
+                            ? 'Number of Projects'
+                            : 'Number of Properties'}
+                        </Label>
                         <Input
                           id="properties"
                           type="number"
@@ -553,6 +603,11 @@ This is an automated message. Please do not reply to this email.
                           value={newCustomer.properties}
                           readOnly
                         />
+                        <p className="text-xs text-gray-500 mt-1">
+                          {newCustomer.customerType === 'property_developer'
+                            ? 'Automatically set based on selected development plan'
+                            : 'Automatically set based on selected property management plan'}
+                        </p>
                       </div>
                       <div>
                         <Label htmlFor="units">Total Units</Label>
@@ -593,6 +648,15 @@ This is an automated message. Please do not reply to this email.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {!newCustomer.customerType && (
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                        <p className="text-sm text-blue-800 flex items-center gap-2">
+                          <Info className="h-4 w-4" />
+                          Please select a customer type first to see available plans
+                        </p>
+                      </div>
+                    )}
+
                     <div>
                       <Label htmlFor="plan">Select Plan *</Label>
                       <Select
@@ -600,36 +664,64 @@ This is an automated message. Please do not reply to this email.
                         onValueChange={(value) => {
                           const plan = subscriptionPlans.find(p => p.name === value);
                           if (plan) {
-                            setNewCustomer({
-                              ...newCustomer,
+                            // Set appropriate limits based on plan category
+                            const updates: any = {
                               plan: value,
-                              propertyLimit: plan.propertyLimit?.toString() || '5',
                               userLimit: plan.userLimit?.toString() || '3',
                               storageLimit: plan.storageLimit?.toString() || '1000',
-                              properties: plan.propertyLimit?.toString() || ''
+                            };
+
+                            if (plan.category === 'property_management') {
+                              updates.propertyLimit = plan.propertyLimit?.toString() || '5';
+                              updates.properties = plan.propertyLimit?.toString() || '';
+                            } else if (plan.category === 'development') {
+                              // For developers, we use propertyLimit field to store projectLimit value
+                              // This is because the form field is reused for both
+                              updates.propertyLimit = plan.projectLimit?.toString() || '3';
+                              updates.properties = plan.projectLimit?.toString() || '3';
+                            }
+
+                            setNewCustomer({
+                              ...newCustomer,
+                              ...updates
                             });
                           } else {
                             setNewCustomer({...newCustomer, plan: value});
                           }
                         }}
                         required
-                        disabled={loadingPlans}
+                        disabled={loadingPlans || !newCustomer.customerType}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder={loadingPlans ? "Loading plans..." : "Choose a subscription plan"} />
+                          <SelectValue placeholder={
+                            loadingPlans ? "Loading plans..." :
+                            !newCustomer.customerType ? "Select customer type first" :
+                            "Choose a subscription plan"
+                          } />
                         </SelectTrigger>
                         <SelectContent>
-                          {subscriptionPlans.map((plan) => (
-                            <SelectItem key={plan.id || plan.name} value={plan.name}>
-                              <div className="flex items-center gap-2">
-                                <span>{plan.name}</span>
-                                <span className="text-sm text-gray-500">{formatCurrency(plan.price, plan.currency)}/mo</span>
-                                {plan.popular && <Badge variant="secondary" className="text-xs">Popular</Badge>}
-                              </div>
-                            </SelectItem>
-                          ))}
+                          {filteredPlans.length === 0 ? (
+                            <div className="p-2 text-sm text-gray-500">No plans available</div>
+                          ) : (
+                            filteredPlans.map((plan) => (
+                              <SelectItem key={plan.id || plan.name} value={plan.name}>
+                                <div className="flex items-center gap-2">
+                                  <span>{plan.name}</span>
+                                  <span className="text-sm text-gray-500">{formatCurrency(plan.price, plan.currency)}/mo</span>
+                                  {plan.popular && <Badge variant="secondary" className="text-xs">Popular</Badge>}
+                                </div>
+                              </SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
+                      {newCustomer.customerType && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          {newCustomer.customerType === 'property_developer'
+                            ? 'Showing development plans (based on projects)'
+                            : 'Showing property management plans (based on properties)'}
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -653,7 +745,11 @@ This is an automated message. Please do not reply to this email.
                       <div className="space-y-4">
                         <div className="grid grid-cols-1 gap-4">
                           <div>
-                            <Label htmlFor="propertyLimit">Property Limit</Label>
+                            <Label htmlFor="propertyLimit">
+                              {newCustomer.customerType === 'property_developer'
+                                ? 'Project Limit'
+                                : 'Property Limit'}
+                            </Label>
                             <Input
                               id="propertyLimit"
                               type="number"
@@ -663,7 +759,9 @@ This is an automated message. Please do not reply to this email.
                               readOnly
                             />
                             <p className="text-xs text-gray-500 mt-1">
-                              Maximum number of properties this customer can manage
+                              {newCustomer.customerType === 'property_developer'
+                                ? 'Maximum number of development projects this customer can manage'
+                                : 'Maximum number of properties this customer can manage'}
                             </p>
                           </div>
                           <div>

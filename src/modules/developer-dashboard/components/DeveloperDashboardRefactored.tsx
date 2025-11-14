@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   Wallet,
@@ -39,6 +39,11 @@ import { useProjects } from '../hooks/useDeveloperDashboardData';
 import { Footer } from '../../../components/Footer';
 import { toast } from 'sonner';
 import { PlatformLogo } from '../../../components/PlatformLogo';
+import { TrialStatusBanner } from '../../../components/TrialStatusBanner';
+import { UpgradeModal } from '../../../components/UpgradeModal';
+import { getAccountInfo } from '../../../lib/api/auth';
+import { getSubscriptionStatus } from '../../../lib/api/subscription';
+import { DeveloperSettings } from './DeveloperSettings';
 
 interface DeveloperDashboardRefactoredProps {
   user?: any;
@@ -62,9 +67,36 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
   const [currentPage, setCurrentPage] = useState<Page>('portfolio');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [hasCustomLogo, setHasCustomLogo] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [accountInfo, setAccountInfo] = useState<any>(null);
+  const [subscription, setSubscription] = useState<any>(null);
 
   // Fetch actual projects from API
   const { data: projects, loading: projectsLoading } = useProjects({}, {}, 1, 100);
+
+  // Fetch account info and subscription status
+  useEffect(() => {
+    const fetchAccountData = async () => {
+      try {
+        const [acctResponse, subResponse] = await Promise.all([
+          getAccountInfo(),
+          getSubscriptionStatus()
+        ]);
+
+        if (acctResponse.data) {
+          setAccountInfo(acctResponse.data);
+        }
+
+        if (subResponse.data) {
+          setSubscription(subResponse.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch account data:', error);
+      }
+    };
+
+    fetchAccountData();
+  }, []);
 
   const handleProjectSelect = (projectId: string) => {
     if (projectId === 'all-projects') {
@@ -143,10 +175,17 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
     switch (currentPage) {
       case 'portfolio':
         return (
-          <PortfolioOverview
-            onViewProject={handleProjectSelect}
-            onCreateProject={handleCreateProject}
-          />
+          <>
+            {/* Trial Status Banner */}
+            <TrialStatusBanner
+              onUpgradeClick={() => setShowUpgradeModal(true)}
+              onAddPaymentMethod={() => setCurrentPage('settings')}
+            />
+            <PortfolioOverview
+              onViewProject={handleProjectSelect}
+              onCreateProject={handleCreateProject}
+            />
+          </>
         );
       case 'project-dashboard':
         return selectedProjectId ? (
@@ -193,15 +232,7 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
           </div>
         );
       case 'settings':
-        return (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <Settings className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Settings</h3>
-              <p className="text-gray-600">Coming soon</p>
-            </div>
-          </div>
-        );
+        return <DeveloperSettings user={user} />;
       default:
         return (
           <PortfolioOverview
@@ -414,6 +445,16 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
 
       {/* Footer */}
       <Footer />
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        open={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        onSuccess={() => {
+          setShowUpgradeModal(false);
+          window.location.reload();
+        }}
+      />
     </div>
   );
 };

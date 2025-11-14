@@ -130,6 +130,7 @@ export const getAccountInfo = async () => {
       plan: {
         name: string;
         description: string;
+        category?: string;
         monthlyPrice: number;
         annualPrice: number;
         currency: string;

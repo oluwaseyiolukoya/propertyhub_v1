@@ -260,7 +260,12 @@ export function SubscriptionManagement({
                   <span className="text-sm font-normal text-gray-600">/mo</span>
                 </p>
                 <ul className="space-y-2 text-sm text-gray-600">
-                  <li>Up to {plan.propertyLimit} properties</li>
+                  {plan.category === 'property_management' && plan.propertyLimit && (
+                    <li>Up to {plan.propertyLimit} properties</li>
+                  )}
+                  {plan.category === 'development' && plan.projectLimit && (
+                    <li>Up to {plan.projectLimit} projects</li>
+                  )}
                   <li>{plan.userLimit} users</li>
                   <li>{plan.storageLimit} MB storage</li>
                 </ul>

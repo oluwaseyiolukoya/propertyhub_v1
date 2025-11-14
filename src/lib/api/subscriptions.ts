@@ -2,17 +2,19 @@
  * Subscription Management API
  */
 
-import { apiClient } from '../api-client';
-import { API_ENDPOINTS } from '../api-config';
+import { apiClient } from "../api-client";
+import { API_ENDPOINTS } from "../api-config";
 
 export interface Plan {
   id: string;
   name: string;
   description?: string;
+  category?: string; // 'property_management' | 'development'
   monthlyPrice: number;
   annualPrice: number;
   currency: string;
-  propertyLimit: number;
+  propertyLimit?: number;
+  projectLimit?: number;
   userLimit: number;
   storageLimit: number;
   features: any;
@@ -25,7 +27,7 @@ export interface ChangePlanRequest {
 }
 
 export interface ChangeBillingCycleRequest {
-  billingCycle: 'monthly' | 'annual';
+  billingCycle: "monthly" | "annual";
 }
 
 export interface CancelSubscriptionRequest {
@@ -61,5 +63,66 @@ export const cancelSubscription = async (data: CancelSubscriptionRequest) => {
   return apiClient.post(API_ENDPOINTS.SUBSCRIPTIONS.CANCEL, data);
 };
 
+/**
+ * Get billing history for current user
+ */
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  amount: number;
+  currency: string;
+  status: string;
+  dueDate: string;
+  paidAt: string | null;
+  billingPeriod: string | null;
+  description: string | null;
+  createdAt: string;
+}
 
+export const getBillingHistory = async () => {
+  return apiClient.get<{ invoices: Invoice[] }>(
+    "/api/subscriptions/billing-history"
+  );
+};
 
+/**
+ * Initialize upgrade payment
+ */
+export interface InitializeUpgradeResponse {
+  authorizationUrl: string;
+  reference: string;
+  publicKey: string;
+  invoiceId: string;
+}
+
+export const initializeUpgrade = async (planId: string) => {
+  return apiClient.post<InitializeUpgradeResponse>(
+    "/api/subscriptions/upgrade/initialize",
+    { planId }
+  );
+};
+
+/**
+ * Verify upgrade payment
+ */
+export interface VerifyUpgradeResponse {
+  success: boolean;
+  message: string;
+  customer: {
+    id: string;
+    plan: string;
+    limits: {
+      projects?: number;
+      properties?: number;
+      users: number;
+      storage: number;
+    };
+  };
+}
+
+export const verifyUpgrade = async (reference: string) => {
+  return apiClient.post<VerifyUpgradeResponse>(
+    "/api/subscriptions/upgrade/verify",
+    { reference }
+  );
+};

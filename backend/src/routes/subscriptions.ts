@@ -48,6 +48,17 @@ router.post('/change-plan', authMiddleware, async (req: AuthRequest, res: Respon
       return res.status(404).json({ error: 'Customer not found' });
     }
 
+    // Validate plan category matches user role
+    const userPlanCategory = (user.role === 'developer' || user.role === 'property-developer')
+      ? 'development'
+      : 'property_management';
+
+    if (newPlan.category !== userPlanCategory) {
+      return res.status(400).json({
+        error: `Invalid plan category. ${user.role === 'developer' || user.role === 'property-developer' ? 'Developers' : 'Property owners/managers'} can only select ${userPlanCategory} plans.`
+      });
+    }
+
     // Calculate new MRR based on billing cycle
     const billingCycle = customer.billingCycle || 'monthly';
     const newMRR = billingCycle === 'annual'
@@ -55,16 +66,25 @@ router.post('/change-plan', authMiddleware, async (req: AuthRequest, res: Respon
       : newPlan.monthlyPrice;
 
     // Update customer with new plan
+    const updateData: any = {
+      planId: newPlan.id,
+      planCategory: newPlan.category,
+      userLimit: newPlan.userLimit,
+      storageLimit: newPlan.storageLimit,
+      mrr: newMRR,
+      updatedAt: new Date()
+    };
+
+    // Set limits based on plan category
+    if (newPlan.category === 'property_management') {
+      updateData.propertyLimit = newPlan.propertyLimit;
+    } else if (newPlan.category === 'development') {
+      updateData.projectLimit = newPlan.projectLimit;
+    }
+
     const updatedCustomer = await prisma.customers.update({
       where: { id: user.customerId },
-      data: {
-        planId: newPlan.id,
-        propertyLimit: newPlan.propertyLimit,
-        userLimit: newPlan.userLimit,
-        storageLimit: newPlan.storageLimit,
-        mrr: newMRR,
-        updatedAt: new Date()
-      },
+      data: updateData,
       include: { plans: true }
     });
 
@@ -222,9 +242,9 @@ router.post('/cancel', authMiddleware, async (req: AuthRequest, res: Response) =
       return res.status(403).json({ error: 'Only customer owners can cancel subscription' });
     }
 
-    // Verify user is owner
-    if (user.role !== 'owner') {
-      return res.status(403).json({ error: 'Only owners can cancel subscription' });
+    // Verify user is owner or developer
+    if (user.role !== 'owner' && user.role !== 'developer' && user.role !== 'property-developer') {
+      return res.status(403).json({ error: 'Only account owners can cancel subscription' });
     }
 
     const customer = user.customers;
@@ -285,11 +305,41 @@ router.post('/cancel', authMiddleware, async (req: AuthRequest, res: Response) =
   }
 });
 
-// Get available plans for owner
+// Get available plans for owner (filtered by user role/category)
 router.get('/plans', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Get user to determine plan category
+    const user = await prisma.users.findUnique({
+      where: { id: userId },
+      include: {
+        customers: {
+          select: { planCategory: true }
+        }
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Determine plan category based on user role
+    let planCategory = (user.role === 'developer' || user.role === 'property-developer')
+      ? 'development'
+      : 'property_management';
+
+    // If customer has a plan category set, use that
+    if (user.customers?.planCategory) {
+      planCategory = user.customers.planCategory;
+    }
+
     const plans = await prisma.plans.findMany({
       where: {
+        category: planCategory,
         isActive: true,
         monthlyPrice: { gt: 0 } // Exclude free/trial plans
       },
@@ -298,11 +348,470 @@ router.get('/plans', authMiddleware, async (req: AuthRequest, res: Response) => 
       ]
     });
 
-    res.json({ plans });
+    res.json({ plans, category: planCategory });
 
   } catch (error: any) {
     console.error('Get plans error:', error);
     res.status(500).json({ error: 'Failed to fetch plans' });
+  }
+});
+
+// Get billing history for current user
+router.get('/billing-history', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Get user's customer ID
+    const user = await prisma.users.findUnique({
+      where: { id: userId },
+      select: { customerId: true }
+    });
+
+    if (!user || !user.customerId) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    // Fetch invoices for this customer
+    const invoices = await prisma.invoices.findMany({
+      where: {
+        customerId: user.customerId,
+        status: { in: ['paid', 'pending', 'overdue'] } // Exclude cancelled/draft
+      },
+      select: {
+        id: true,
+        invoiceNumber: true,
+        amount: true,
+        currency: true,
+        status: true,
+        dueDate: true,
+        paidAt: true,
+        billingPeriod: true,
+        description: true,
+        createdAt: true
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 12 // Last 12 invoices
+    });
+
+    res.json({ invoices });
+
+  } catch (error: any) {
+    console.error('Get billing history error:', error);
+    res.status(500).json({ error: 'Failed to fetch billing history' });
+  }
+});
+
+// Initialize upgrade payment
+router.post('/upgrade/initialize', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { planId } = req.body;
+    if (!planId) {
+      return res.status(400).json({ error: 'Plan ID is required' });
+    }
+
+    console.log('[Upgrade] Initialize payment for user:', userId, 'plan:', planId);
+
+    // Get user and customer
+    const user = await prisma.users.findUnique({
+      where: { id: userId },
+      include: {
+        customers: {
+          include: { plans: true }
+        }
+      }
+    });
+
+    if (!user || !user.customerId || !user.customers) {
+      return res.status(403).json({ error: 'Customer not found' });
+    }
+
+    const customer = user.customers;
+
+    // Get the new plan
+    const newPlan = await prisma.plans.findUnique({
+      where: { id: planId }
+    });
+
+    if (!newPlan || !newPlan.isActive) {
+      return res.status(404).json({ error: 'Plan not found or inactive' });
+    }
+
+    // Validate plan category matches user role
+    const userPlanCategory = (user.role === 'developer' || user.role === 'property-developer')
+      ? 'development'
+      : 'property_management';
+
+    if (newPlan.category !== userPlanCategory) {
+      return res.status(400).json({
+        error: `Invalid plan category. ${user.role === 'developer' || user.role === 'property-developer' ? 'Developers' : 'Property owners/managers'} can only select ${userPlanCategory} plans.`
+      });
+    }
+
+    // Calculate amount based on billing cycle
+    const billingCycle = customer.billingCycle || 'monthly';
+    const amount = billingCycle === 'annual' ? newPlan.annualPrice : newPlan.monthlyPrice;
+    const currency = newPlan.currency || 'NGN';
+
+    // Resolve Paystack keys (customer-level → system-level → env)
+    console.log('[Upgrade] Resolving Paystack configuration...');
+    let paystackSecretKey: string | undefined;
+    let paystackPublicKey: string | undefined;
+
+    try {
+      // Try customer-level settings first
+      const customerSettings = await prisma.payment_settings.findFirst({
+        where: { customerId: customer.id, provider: 'paystack', isEnabled: true },
+        select: { secretKey: true, publicKey: true }
+      });
+
+      // Try system-level settings
+      const systemSettings = await prisma.system_settings.findUnique({
+        where: { key: 'payments.paystack' }
+      });
+      const systemConf = (systemSettings?.value as any) || {};
+
+      // Fallback chain
+      paystackSecretKey =
+        customerSettings?.secretKey ||
+        systemConf?.secretKey ||
+        process.env.PAYSTACK_SECRET_KEY;
+
+      paystackPublicKey =
+        customerSettings?.publicKey ||
+        systemConf?.publicKey ||
+        process.env.PAYSTACK_PUBLIC_KEY;
+
+      console.log('[Upgrade] Paystack keys resolved:', {
+        hasSecretKey: !!paystackSecretKey,
+        hasPublicKey: !!paystackPublicKey,
+        source: customerSettings ? 'customer' : systemConf?.secretKey ? 'system' : 'env'
+      });
+    } catch (settingsErr) {
+      console.warn('[Upgrade] Failed to read payment settings, falling back to env:', (settingsErr as any)?.message);
+      paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
+      paystackPublicKey = process.env.PAYSTACK_PUBLIC_KEY;
+    }
+
+    if (!paystackSecretKey || !paystackPublicKey) {
+      console.error('[Upgrade] Paystack keys not configured at any level (customer/system/env)');
+      return res.status(400).json({
+        error: 'Payment gateway not configured. Please contact support.',
+        details: 'Missing Paystack API keys'
+      });
+    }
+
+    // Generate unique reference
+    const reference = `UPG-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    // Create invoice for the upgrade
+    const invoice = await prisma.invoices.create({
+      data: {
+        id: require('crypto').randomUUID(),
+        customerId: customer.id,
+        invoiceNumber: `INV-UPG-${Date.now()}`,
+        amount,
+        currency,
+        status: 'pending',
+        dueDate: new Date(),
+        billingPeriod: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+        description: `Plan upgrade to ${newPlan.name}`,
+        items: JSON.stringify([{
+          description: `${newPlan.name} - ${billingCycle} subscription`,
+          quantity: 1,
+          unitPrice: amount,
+          total: amount
+        }]),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    });
+
+    console.log('[Upgrade] Invoice created:', invoice.id);
+
+    // Initialize Paystack payment
+    const paystackResponse = await fetch('https://api.paystack.co/transaction/initialize', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${paystackSecretKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        email: customer.email,
+        amount: Math.round(amount * 100), // Paystack expects amount in kobo/cents
+        currency,
+        reference,
+        metadata: {
+          customerId: customer.id,
+          invoiceId: invoice.id,
+          planId: newPlan.id,
+          type: 'upgrade',
+          userId: user.id
+        },
+        callback_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/upgrade/callback`
+      })
+    });
+
+    const paystackData = await paystackResponse.json() as any;
+
+    if (!paystackResponse.ok || !paystackData?.status) {
+      console.error('[Upgrade] Paystack initialization failed:', paystackData);
+      return res.status(400).json({
+        error: paystackData?.message || 'Failed to initialize payment'
+      });
+    }
+
+    console.log('[Upgrade] Paystack initialized successfully:', reference);
+
+    // Create payment record
+    await prisma.payments.create({
+      data: {
+        id: require('crypto').randomUUID(),
+        customerId: customer.id,
+        invoiceId: invoice.id,
+        amount,
+        currency,
+        status: 'pending',
+        type: 'subscription',
+        provider: 'paystack',
+        providerReference: reference,
+        metadata: JSON.stringify({
+          planId: newPlan.id,
+          billingCycle,
+          type: 'upgrade'
+        }),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    });
+
+    res.json({
+      authorizationUrl: paystackData.data?.authorization_url,
+      reference,
+      publicKey: paystackPublicKey,
+      invoiceId: invoice.id
+    });
+
+  } catch (error: any) {
+    console.error('[Upgrade] Initialize payment error:', error);
+    res.status(500).json({ error: 'Failed to initialize upgrade payment' });
+  }
+});
+
+// Verify upgrade payment and complete upgrade
+router.post('/upgrade/verify', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { reference } = req.body;
+    if (!reference) {
+      return res.status(400).json({ error: 'Payment reference is required' });
+    }
+
+    console.log('[Upgrade] Verify payment:', reference);
+
+    // Get user and customer
+    const user = await prisma.users.findUnique({
+      where: { id: userId },
+      include: { customers: { include: { plans: true } } }
+    });
+
+    if (!user || !user.customerId || !user.customers) {
+      return res.status(403).json({ error: 'Customer not found' });
+    }
+
+    const customer = user.customers;
+
+    // Resolve Paystack secret key (customer-level → system-level → env)
+    console.log('[Upgrade] Resolving Paystack configuration for verification...');
+    let paystackSecretKey: string | undefined;
+
+    try {
+      const customerSettings = await prisma.payment_settings.findFirst({
+        where: { customerId: customer.id, provider: 'paystack', isEnabled: true },
+        select: { secretKey: true }
+      });
+
+      const systemSettings = await prisma.system_settings.findUnique({
+        where: { key: 'payments.paystack' }
+      });
+      const systemConf = (systemSettings?.value as any) || {};
+
+      paystackSecretKey =
+        customerSettings?.secretKey ||
+        systemConf?.secretKey ||
+        process.env.PAYSTACK_SECRET_KEY;
+
+      console.log('[Upgrade] Paystack key resolved for verification:', {
+        hasSecretKey: !!paystackSecretKey,
+        source: customerSettings ? 'customer' : systemConf?.secretKey ? 'system' : 'env'
+      });
+    } catch (settingsErr) {
+      console.warn('[Upgrade] Failed to read payment settings, falling back to env:', (settingsErr as any)?.message);
+      paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
+    }
+
+    if (!paystackSecretKey) {
+      console.error('[Upgrade] Paystack secret key not configured');
+      return res.status(400).json({ error: 'Payment gateway not configured' });
+    }
+
+    // Verify payment with Paystack
+    const verifyResponse = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${paystackSecretKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const verifyData = await verifyResponse.json() as any;
+
+    if (!verifyResponse.ok || !verifyData?.status) {
+      console.error('[Upgrade] Paystack verification failed:', verifyData);
+      return res.status(400).json({
+        error: verifyData?.message || 'Payment verification failed'
+      });
+    }
+
+    const transaction = verifyData.data;
+
+    if (transaction.status !== 'success') {
+      return res.status(400).json({ error: 'Payment was not successful' });
+    }
+
+    console.log('[Upgrade] Payment verified successfully');
+
+    // Get metadata
+    const metadata = transaction.metadata || {};
+    const planId = metadata.planId;
+    const invoiceId = metadata.invoiceId;
+
+    if (!planId) {
+      return res.status(400).json({ error: 'Invalid payment metadata' });
+    }
+
+    // Get the new plan
+    const newPlan = await prisma.plans.findUnique({
+      where: { id: planId }
+    });
+
+    if (!newPlan) {
+      return res.status(404).json({ error: 'Plan not found' });
+    }
+
+    // Calculate new MRR
+    const billingCycle = customer.billingCycle || 'monthly';
+    const newMRR = billingCycle === 'annual'
+      ? newPlan.annualPrice / 12
+      : newPlan.monthlyPrice;
+
+    // Update customer with new plan
+    const updateData: any = {
+      planId: newPlan.id,
+      planCategory: newPlan.category,
+      userLimit: newPlan.userLimit,
+      storageLimit: newPlan.storageLimit,
+      mrr: newMRR,
+      status: 'active',
+      subscriptionStartDate: customer.subscriptionStartDate || new Date(),
+      updatedAt: new Date()
+    };
+
+    // Set limits based on plan category
+    if (newPlan.category === 'property_management') {
+      updateData.propertyLimit = newPlan.propertyLimit;
+    } else if (newPlan.category === 'development') {
+      updateData.projectLimit = newPlan.projectLimit;
+    }
+
+    const updatedCustomer = await prisma.customers.update({
+      where: { id: customer.id },
+      data: updateData,
+      include: { plans: true }
+    });
+
+    console.log('[Upgrade] Customer updated with new plan');
+
+    // Update invoice status
+    if (invoiceId) {
+      await prisma.invoices.update({
+        where: { id: invoiceId },
+        data: {
+          status: 'paid',
+          paidAt: new Date(),
+          updatedAt: new Date()
+        }
+      });
+    }
+
+    // Update payment record
+    await prisma.payments.updateMany({
+      where: {
+        providerReference: reference,
+        customerId: customer.id
+      },
+      data: {
+        status: 'completed',
+        paidAt: new Date(),
+        updatedAt: new Date()
+      }
+    });
+
+    // Emit real-time event to admins
+    emitToAdmins('subscription:plan-upgraded', {
+      customerId: updatedCustomer.id,
+      customerName: updatedCustomer.company,
+      oldPlan: customer.plans?.name,
+      newPlan: newPlan.name,
+      amount: transaction.amount / 100,
+      currency: transaction.currency
+    });
+
+    // Emit to customer
+    emitToCustomer(updatedCustomer.id, 'subscription:upgraded', {
+      plan: newPlan.name,
+      limits: {
+        projects: updateData.projectLimit,
+        properties: updateData.propertyLimit,
+        users: updateData.userLimit,
+        storage: updateData.storageLimit
+      }
+    });
+
+    // Capture MRR snapshot
+    await captureSnapshotOnChange(updatedCustomer.id, 'upgrade', customer.mrr || 0, newMRR);
+
+    console.log('[Upgrade] Upgrade completed successfully');
+
+    res.json({
+      success: true,
+      message: 'Plan upgraded successfully',
+      customer: {
+        id: updatedCustomer.id,
+        plan: newPlan.name,
+        limits: {
+          projects: updateData.projectLimit,
+          properties: updateData.propertyLimit,
+          users: updateData.userLimit,
+          storage: updateData.storageLimit
+        }
+      }
+    });
+
+  } catch (error: any) {
+    console.error('[Upgrade] Verify payment error:', error);
+    res.status(500).json({ error: 'Failed to verify upgrade payment' });
   }
 });
 

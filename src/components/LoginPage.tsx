@@ -47,11 +47,21 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
   const [error, setError] = useState<string>('');
   const [hasCustomLogo, setHasCustomLogo] = useState(false);
 
-  // Check for invitation parameters on component mount
+  // Check for invitation parameters and messages on component mount
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const invitationToken = urlParams.get('invitation');
     const email = urlParams.get('email');
+    const message = urlParams.get('message');
+
+    // Handle account cancellation message
+    if (message === 'account_cancelled') {
+      toast.error('Your subscription has been cancelled and your account has been deactivated.', {
+        duration: 5000,
+      });
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
 
     if (invitationToken && email) {
       // Mock customer data lookup based on invitation token

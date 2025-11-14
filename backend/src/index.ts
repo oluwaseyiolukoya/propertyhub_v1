@@ -73,6 +73,8 @@ import adminOnboardingRoutes from "./routes/admin-onboarding";
 import subscriptionManagementRoutes from "./routes/subscription";
 // Developer Dashboard routes
 import developerDashboardRoutes from "./routes/developer-dashboard";
+// Available Plans routes (category-filtered)
+import availablePlansRoutes from "./routes/available-plans";
 // Cron jobs
 import { initializeCronJobs } from "./lib/cron-jobs";
 
@@ -256,6 +258,7 @@ app.use("/api/customers", customerRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/plans", planRoutes);
+app.use("/api/available-plans", availablePlansRoutes);
 app.use("/api/invoices", invoiceRoutes);
 app.use("/api/support-tickets", supportTicketRoutes);
 app.use("/api/analytics", analyticsRoutes);
