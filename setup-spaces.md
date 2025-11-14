@@ -47,7 +47,7 @@ Fix the 404 error for platform logo in production by setting up persistent stora
 
 1. **Go to**: https://cloud.digitalocean.com/apps
 
-2. **Select**: `clownfish-app` (your backend)
+2. **Select**: `contrezz-backend-prod` (your backend)
 
 3. **Click**: "Settings" → "App-Level Environment Variables"
 
