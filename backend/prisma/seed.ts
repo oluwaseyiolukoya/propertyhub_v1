@@ -22,7 +22,11 @@ async function main() {
   });
   console.log("✅ Created Super Admin:", admin.email);
 
-  // Create Plans
+  // ========================================
+  // Property Management Plans
+  // ========================================
+  console.log("📦 Creating Property Management Plans...");
+
   const starterPlan = await prisma.plans.upsert({
     where: { name: "Starter" },
     update: {},
@@ -30,10 +34,12 @@ async function main() {
       id: "plan-starter-1",
       name: "Starter",
       description: "Perfect for small property owners",
+      category: "property_management",
       monthlyPrice: 500,
       annualPrice: 5000,
       currency: "NGN",
       propertyLimit: 5,
+      projectLimit: null,
       userLimit: 3,
       storageLimit: 1000,
       features: [
@@ -55,10 +61,12 @@ async function main() {
       id: "plan-professional-1",
       name: "Professional",
       description: "For growing property portfolios",
+      category: "property_management",
       monthlyPrice: 1200,
       annualPrice: 12000,
       currency: "NGN",
       propertyLimit: 20,
+      projectLimit: null,
       userLimit: 10,
       storageLimit: 5000,
       features: [
@@ -82,10 +90,12 @@ async function main() {
       id: "plan-enterprise-1",
       name: "Enterprise",
       description: "For large property management companies",
+      category: "property_management",
       monthlyPrice: 2500,
       annualPrice: 25000,
       currency: "NGN",
       propertyLimit: 100,
+      projectLimit: null,
       userLimit: 50,
       storageLimit: 20000,
       features: [
@@ -102,6 +112,107 @@ async function main() {
       updatedAt: new Date(),
     },
   });
+
+  console.log("✅ Property Management Plans Created");
+
+  // ========================================
+  // Development Plans
+  // ========================================
+  console.log("🏗️  Creating Development Plans...");
+
+  const devStarterPlan = await prisma.plans.upsert({
+    where: { name: "Developer Starter" },
+    update: {},
+    create: {
+      id: "plan-dev-starter-1",
+      name: "Developer Starter",
+      description: "Perfect for small development firms",
+      category: "development",
+      monthlyPrice: 800,
+      annualPrice: 8000,
+      currency: "NGN",
+      propertyLimit: null,
+      projectLimit: 3,
+      userLimit: 5,
+      storageLimit: 2000,
+      features: [
+        "Up to 3 active projects",
+        "Up to 5 team members",
+        "2GB storage",
+        "Project tracking",
+        "Basic analytics",
+        "Email support",
+      ],
+      isActive: true,
+      updatedAt: new Date(),
+    },
+  });
+
+  const devProfessionalPlan = await prisma.plans.upsert({
+    where: { name: "Developer Professional" },
+    update: {},
+    create: {
+      id: "plan-dev-professional-1",
+      name: "Developer Professional",
+      description: "For growing development companies",
+      category: "development",
+      monthlyPrice: 1800,
+      annualPrice: 18000,
+      currency: "NGN",
+      propertyLimit: null,
+      projectLimit: 10,
+      userLimit: 15,
+      storageLimit: 10000,
+      features: [
+        "Up to 10 active projects",
+        "Up to 15 team members",
+        "10GB storage",
+        "Advanced project management",
+        "Financial tracking",
+        "Vendor management",
+        "Priority support",
+        "Custom branding",
+      ],
+      isActive: true,
+      isPopular: true,
+      updatedAt: new Date(),
+    },
+  });
+
+  const devEnterprisePlan = await prisma.plans.upsert({
+    where: { name: "Developer Enterprise" },
+    update: {},
+    create: {
+      id: "plan-dev-enterprise-1",
+      name: "Developer Enterprise",
+      description: "For large development corporations",
+      category: "development",
+      monthlyPrice: 3500,
+      annualPrice: 35000,
+      currency: "NGN",
+      propertyLimit: null,
+      projectLimit: 50,
+      userLimit: 100,
+      storageLimit: 50000,
+      features: [
+        "Up to 50 active projects",
+        "Up to 100 team members",
+        "50GB storage",
+        "Enterprise project management",
+        "Advanced financial analytics",
+        "Multi-project dashboards",
+        "Vendor & contractor management",
+        "Dedicated support",
+        "Custom branding",
+        "API access",
+        "White-label options",
+      ],
+      isActive: true,
+      updatedAt: new Date(),
+    },
+  });
+
+  console.log("✅ Development Plans Created");
 
   console.log("✅ Created Plans");
 

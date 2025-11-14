@@ -1,341 +1,361 @@
-# 💳 Paystack Payment Setup Guide
+# Paystack Setup Guide for Plan Upgrades
 
-This guide explains how to set up Paystack for local development and testing.
+## Issue
+Getting error: **"Failed to initialize upgrade payment"**
 
----
+## Root Cause
+The Paystack payment gateway is not configured in the `system_settings` table.
 
-## 🎯 Understanding the Errors
+## Solution
 
-The errors you're seeing are because:
+### Step 1: Get Paystack API Keys
 
-1. **CORS Errors** (pusher.min.js, paystack.jpg):
+1. **Sign up/Login to Paystack:**
+   - Go to https://paystack.com
+   - Create an account or login
+   - Navigate to Settings → API Keys & Webhooks
 
-   - These are from Paystack's checkout popup
-   - They're **cosmetic** and don't affect functionality
-   - They happen because Paystack loads resources from S3
+2. **Get Your Keys:**
+   - **Test Mode Keys** (for development):
+     - Public Key: `pk_test_xxxxxxxxxxxxx`
+     - Secret Key: `sk_test_xxxxxxxxxxxxx`
+   - **Live Mode Keys** (for production):
+     - Public Key: `pk_live_xxxxxxxxxxxxx`
+     - Secret Key: `sk_live_xxxxxxxxxxxxx`
 
-2. **500 Error** (/api/payment-methods):
-   - This happens because **Paystack API keys are not configured**
-   - The backend can't communicate with Paystack without valid keys
+### Step 2: Configure Paystack in Database
 
----
+#### Option A: Using Prisma Studio (Recommended)
 
-## 🔑 Get Paystack Test Keys
-
-### Step 1: Create Paystack Account (If you don't have one)
-
-1. Go to: https://paystack.com/
-2. Click "Get Started"
-3. Sign up for a free account
-
-### Step 2: Get Test API Keys
-
-1. Log in to Paystack Dashboard: https://dashboard.paystack.com/
-2. Click on **Settings** (gear icon)
-3. Click on **API Keys & Webhooks**
-4. You'll see two test keys:
-   - **Public Key**: `pk_test_...`
-   - **Secret Key**: `sk_test_...`
-
----
-
-## 🛠️ Configure for Local Development
-
-### Option 1: Quick Setup (For Testing)
-
-Add Paystack test keys to your backend `.env` file:
-
+1. **Start Prisma Studio:**
 ```bash
-cd /Users/oluwaseyio/test_ui_figma_and_cursor/backend
-
-# Add these lines to .env (not .env.local)
-cat >> .env <<EOF
-
-# Paystack Test Keys
-PAYSTACK_TEST_PUBLIC_KEY=pk_test_YOUR_PUBLIC_KEY_HERE
-PAYSTACK_TEST_SECRET_KEY=sk_test_YOUR_SECRET_KEY_HERE
-EOF
+cd backend
+npx prisma studio
 ```
 
-### Option 2: Configure via Frontend (Recommended)
+2. **Navigate to `system_settings` table**
 
-1. **Log in as Property Owner**:
-
-   - Email: `john@metro-properties.com`
-   - Password: `owner123`
-
-2. **Go to Settings**:
-
-   - Click on your name (top right)
-   - Click "Settings"
-
-3. **Configure Payment Gateway**:
-   - Scroll to "Payment Gateway Settings"
-   - Select "Paystack"
-   - Enter your test keys:
-     - **Public Key**: `pk_test_...`
-     - **Secret Key**: `sk_test_...`
-   - Click "Save"
-
----
-
-## 🧪 Testing Payments
-
-### Test Card Numbers (Paystack)
-
-Use these test cards to simulate different scenarios:
-
-#### Successful Payment
-
+3. **Add New Record:**
+   - Click "Add record"
+   - Fill in the fields:
+     - **key:** `payments.paystack`
+     - **value:** (Click "Edit JSON" and paste):
+```json
+{
+  "secretKey": "sk_test_your_secret_key_here",
+  "publicKey": "pk_test_your_public_key_here",
+  "testMode": true
+}
 ```
-Card Number: 4084084084084081
-CVV: 408
-Expiry: Any future date
-PIN: 0000
-OTP: 123456
+   - Click "Save 1 change"
+
+#### Option B: Using SQL Query
+
+```sql
+INSERT INTO system_settings (key, value, createdAt, updatedAt)
+VALUES (
+  'payments.paystack',
+  '{"secretKey":"sk_test_your_secret_key_here","publicKey":"pk_test_your_public_key_here","testMode":true}',
+  NOW(),
+  NOW()
+);
 ```
 
-#### Declined Payment
+#### Option C: Using Node.js Script
 
+Create a file `backend/scripts/setup-paystack.js`:
+
+```javascript
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+
+async function setupPaystack() {
+  try {
+    // Check if already exists
+    const existing = await prisma.system_settings.findUnique({
+      where: { key: 'payments.paystack' }
+    });
+
+    if (existing) {
+      console.log('⚠️  Paystack configuration already exists');
+      console.log('Current value:', existing.value);
+      
+      const readline = require('readline').createInterface({
+        input: process.stdin,
+        output: process.stdout
+      });
+      
+      readline.question('Do you want to update it? (yes/no): ', async (answer) => {
+        if (answer.toLowerCase() === 'yes') {
+          await updatePaystack();
+        } else {
+          console.log('Cancelled');
+          process.exit(0);
+        }
+        readline.close();
+      });
+    } else {
+      await createPaystack();
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    process.exit(1);
+  }
+}
+
+async function createPaystack() {
+  const paystackConfig = {
+    secretKey: process.env.PAYSTACK_SECRET_KEY || 'sk_test_your_secret_key_here',
+    publicKey: process.env.PAYSTACK_PUBLIC_KEY || 'pk_test_your_public_key_here',
+    testMode: true
+  };
+
+  await prisma.system_settings.create({
+    data: {
+      key: 'payments.paystack',
+      value: paystackConfig,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  });
+
+  console.log('✅ Paystack configuration created successfully!');
+  console.log('Configuration:', paystackConfig);
+  
+  await prisma.$disconnect();
+  process.exit(0);
+}
+
+async function updatePaystack() {
+  const paystackConfig = {
+    secretKey: process.env.PAYSTACK_SECRET_KEY || 'sk_test_your_secret_key_here',
+    publicKey: process.env.PAYSTACK_PUBLIC_KEY || 'pk_test_your_public_key_here',
+    testMode: true
+  };
+
+  await prisma.system_settings.update({
+    where: { key: 'payments.paystack' },
+    data: {
+      value: paystackConfig,
+      updatedAt: new Date()
+    }
+  });
+
+  console.log('✅ Paystack configuration updated successfully!');
+  console.log('Configuration:', paystackConfig);
+  
+  await prisma.$disconnect();
+  process.exit(0);
+}
+
+setupPaystack();
 ```
-Card Number: 5060666666666666666
-CVV: 123
-Expiry: Any future date
-```
 
-#### Insufficient Funds
-
-```
-Card Number: 5060666666666666666
-CVV: 123
-Expiry: Any future date
-PIN: 0000
-```
-
----
-
-## 🔄 Restart Backend After Configuration
-
-After adding Paystack keys:
-
+**Run the script:**
 ```bash
-# Stop backend
-pkill -f "tsx watch src/index.ts"
-
-# Start backend
-cd /Users/oluwaseyio/test_ui_figma_and_cursor/backend
-export PATH="/opt/homebrew/opt/postgresql@15/bin:$PATH"
-npm run dev
+cd backend
+node scripts/setup-paystack.js
 ```
 
----
-
-## 🎯 How Paystack Integration Works
-
-### Architecture
-
-```
-Tenant (Frontend)
-    ↓
-Get Owner's Paystack Public Key
-    ↓
-Paystack Checkout Popup (Client-side)
-    ↓
-Card Tokenization (Paystack)
-    ↓
-Send Token to Backend
-    ↓
-Backend Charges Card (using Owner's Secret Key)
-    ↓
-Payment Recorded
-```
-
-### Multi-Tenant Setup
-
-- Each **Property Owner** configures their own Paystack keys
-- **Tenants** pay using their owner's Paystack account
-- **Platform** doesn't handle money directly
-- **Owners** receive payments in their Paystack account
-
----
-
-## 🐛 Troubleshooting
-
-### Issue 1: CORS Errors (pusher.min.js, paystack.jpg)
-
-**Status**: ⚠️ Cosmetic only
-
-**Explanation**:
-
-- These are from Paystack's checkout popup
-- They don't affect functionality
-- They happen in development mode
-- They won't appear in production
-
-**Solution**: Ignore them - they're harmless!
-
----
-
-### Issue 2: 500 Error on /api/payment-methods
-
-**Status**: ❌ Blocks functionality
-
-**Cause**: Paystack keys not configured
-
-**Solution**:
-
-1. Add test keys to backend `.env` file, OR
-2. Configure via frontend (Property Owner Settings)
-3. Restart backend
-
----
-
-### Issue 3: "Invalid API Key"
-
-**Cause**: Using wrong keys or mixing test/live keys
-
-**Solution**:
-
-- Ensure you're using **test keys** (`pk_test_...` and `sk_test_...`)
-- Don't mix test and live keys
-- Copy keys carefully (no extra spaces)
-
----
-
-### Issue 4: Card Authorization Fails
-
-**Cause**: Using real card instead of test card
-
-**Solution**:
-
-- Use Paystack test card: `4084084084084081`
-- Never use real cards in test mode
-
----
-
-## 📝 Environment Variables
-
-### Backend `.env` (Optional - for platform-level payments)
-
+**Or with environment variables:**
 ```bash
-# Paystack Test Keys (Optional)
-PAYSTACK_TEST_PUBLIC_KEY=pk_test_...
-PAYSTACK_TEST_SECRET_KEY=sk_test_...
-
-# Paystack Live Keys (Production only)
-PAYSTACK_PUBLIC_KEY=pk_live_...
-PAYSTACK_SECRET_KEY=sk_live_...
+PAYSTACK_SECRET_KEY=sk_test_xxx PAYSTACK_PUBLIC_KEY=pk_test_xxx node scripts/setup-paystack.js
 ```
 
-### Owner-Level Configuration (Recommended)
+### Step 3: Verify Configuration
 
-Property owners configure their keys via:
+1. **Check in Prisma Studio:**
+   - Open `system_settings` table
+   - Look for key `payments.paystack`
+   - Verify the value contains your keys
 
-- Frontend → Settings → Payment Gateway Settings
-- Stored in database (`payment_settings` table)
+2. **Check in Backend Logs:**
+   - Restart your backend server
+   - Try to upgrade a plan
+   - Check backend logs for:
+```
+[Upgrade] Initialize payment for user: xxx plan: xxx
+[Upgrade] Invoice created: xxx
+[Upgrade] Paystack initialized successfully: xxx
+```
 
----
+### Step 4: Test the Integration
 
-## 🎯 Quick Test Flow
+1. **Login as Developer**
+2. **Go to Settings → Billing**
+3. **Click "Change Plan"**
+4. **Select an upgrade plan**
+5. **Click "Upgrade Plan"**
+6. **You should be redirected to Paystack**
 
-### 1. Configure Paystack (One-time)
+### Test Cards (Paystack)
 
+**Successful Payment:**
+- Card Number: `4084084084084081`
+- CVV: `408`
+- Expiry: Any future date
+- PIN: `0000`
+
+**Declined Payment:**
+- Card Number: `5060666666666666666`
+- CVV: Any 3 digits
+- Expiry: Any future date
+
+## Troubleshooting
+
+### Error: "Payment gateway not configured"
+
+**Cause:** Paystack keys not found in `system_settings`
+
+**Solution:**
+1. Follow Step 2 above to add configuration
+2. Restart backend server
+3. Try again
+
+### Error: "Failed to initialize payment"
+
+**Possible Causes:**
+1. **Invalid API Keys:**
+   - Verify keys are correct
+   - Check if using test keys in test mode
+   - Check if using live keys in live mode
+
+2. **Paystack API Down:**
+   - Check https://status.paystack.com
+   - Try again later
+
+3. **Network Issues:**
+   - Check internet connection
+   - Check firewall settings
+
+**Debug Steps:**
+1. Check backend logs for detailed error
+2. Verify Paystack configuration in database
+3. Test API keys using curl:
 ```bash
-# Add to backend/.env
-echo "PAYSTACK_TEST_PUBLIC_KEY=pk_test_YOUR_KEY" >> backend/.env
-echo "PAYSTACK_TEST_SECRET_KEY=sk_test_YOUR_KEY" >> backend/.env
-
-# Restart backend
-pkill -f "tsx watch src/index.ts"
-cd backend && npm run dev
+curl https://api.paystack.co/transaction/initialize \
+  -H "Authorization: Bearer YOUR_SECRET_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","amount":"10000"}' \
+  -X POST
 ```
 
-### 2. Test as Tenant
+### Error: "Invalid plan category"
 
-1. Log in as tenant: `tenant1@metro-properties.com` / `tenant123`
-2. Go to **Payments** → **Payment Methods**
-3. Click **Add Card**
-4. Enter test card: `4084084084084081`
-5. CVV: `408`, Expiry: `12/25`
-6. PIN: `0000`, OTP: `123456`
-7. Card should be added successfully!
+**Cause:** Trying to upgrade to wrong plan type
 
----
+**Solution:**
+- Developers can only upgrade to development plans
+- Property owners/managers can only upgrade to property management plans
+- Check plan category in database
 
-## 🚀 Production Setup
+### Error: "Customer not found"
 
-### When Deploying to AWS
+**Cause:** User has no associated customer record
 
-1. **Get Live Paystack Keys**:
+**Solution:**
+1. Check if user has `customerId` field populated
+2. Check if customer record exists in `customers` table
+3. Verify user was created properly
 
-   - Go to Paystack Dashboard
-   - Switch to "Live Mode"
-   - Copy live keys (`pk_live_...` and `sk_live_...`)
+## Production Setup
 
-2. **Add to AWS Secrets Manager**:
+### For Production (Live Mode):
 
-   ```bash
-   aws secretsmanager update-secret \
-     --secret-id ph-dev-app-secrets \
-     --secret-string '{
-       "DATABASE_URL": "...",
-       "JWT_SECRET": "...",
-       "PAYSTACK_PUBLIC_KEY": "pk_live_...",
-       "PAYSTACK_SECRET_KEY": "sk_live_..."
-     }'
-   ```
+1. **Get Live API Keys from Paystack**
+2. **Update system_settings:**
+```json
+{
+  "secretKey": "sk_live_your_live_secret_key",
+  "publicKey": "pk_live_your_live_public_key",
+  "testMode": false
+}
+```
 
-3. **Property Owners Configure Their Keys**:
-   - Each owner logs in
-   - Goes to Settings → Payment Gateway
-   - Enters their live Paystack keys
+3. **Set Environment Variable:**
+```env
+FRONTEND_URL=https://contrezz.com
+```
 
----
+4. **Configure Webhook (Optional but Recommended):**
+   - Go to Paystack Dashboard → Settings → Webhooks
+   - Add webhook URL: `https://api.contrezz.com/api/webhooks/paystack`
+   - This allows automatic payment verification
 
-## 💡 Best Practices
+## Security Best Practices
 
-### For Development
+1. **Never commit API keys to git**
+   - Use environment variables
+   - Add to `.gitignore`
 
-- ✅ Use test keys
-- ✅ Use test cards
-- ✅ Test all payment scenarios
-- ❌ Never use real cards
-- ❌ Never use live keys
+2. **Use test keys in development**
+   - Set `testMode: true`
+   - Use test cards
 
-### For Production
+3. **Use live keys only in production**
+   - Set `testMode: false`
+   - Use real cards
 
-- ✅ Use live keys
-- ✅ Enable webhooks
-- ✅ Test with small amounts first
-- ✅ Monitor transactions
-- ❌ Never commit keys to git
+4. **Rotate keys periodically**
+   - Generate new keys every 6 months
+   - Update in database
 
----
+5. **Monitor transactions**
+   - Check Paystack dashboard regularly
+   - Set up alerts for failed payments
 
-## 📚 Additional Resources
+## Quick Fix Script
 
-- **Paystack Documentation**: https://paystack.com/docs
-- **Test Cards**: https://paystack.com/docs/payments/test-payments
-- **API Reference**: https://paystack.com/docs/api
-- **Webhooks**: https://paystack.com/docs/payments/webhooks
+Save this as `backend/scripts/quick-setup-paystack.js`:
 
----
+```javascript
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
-## 🎉 Summary
+async function quickSetup() {
+  const config = {
+    secretKey: 'sk_test_your_secret_key_here',  // ← REPLACE THIS
+    publicKey: 'pk_test_your_public_key_here',  // ← REPLACE THIS
+    testMode: true
+  };
 
-**To fix the 500 error:**
+  try {
+    await prisma.system_settings.upsert({
+      where: { key: 'payments.paystack' },
+      update: { value: config, updatedAt: new Date() },
+      create: {
+        key: 'payments.paystack',
+        value: config,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    });
 
-1. Get Paystack test keys from https://dashboard.paystack.com/
-2. Add to `backend/.env`:
-   ```
-   PAYSTACK_TEST_PUBLIC_KEY=pk_test_...
-   PAYSTACK_TEST_SECRET_KEY=sk_test_...
-   ```
-3. Restart backend
-4. Test with card: `4084084084084081`
+    console.log('✅ Paystack configured successfully!');
+    console.log('You can now test plan upgrades.');
+  } catch (error) {
+    console.error('❌ Error:', error.message);
+  } finally {
+    await prisma.$disconnect();
+  }
+}
 
-**The CORS errors are harmless and can be ignored!**
+quickSetup();
+```
 
----
+**Run:**
+```bash
+cd backend
+node scripts/quick-setup-paystack.js
+```
 
-**Need help?** Check the Paystack documentation or contact their support!
+## Summary
+
+To fix the "Failed to initialize upgrade payment" error:
+
+1. ✅ Get Paystack API keys from https://paystack.com
+2. ✅ Add to `system_settings` table with key `payments.paystack`
+3. ✅ Restart backend server
+4. ✅ Test upgrade flow
+
+That's it! The payment gateway should now work. 🚀

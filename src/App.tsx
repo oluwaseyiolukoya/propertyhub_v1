@@ -44,6 +44,7 @@ function App() {
   usePlatformBranding();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userType, setUserType] = useState<string>('');
+  const [customerData, setCustomerData] = useState<any>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [showLanding, setShowLanding] = useState(true);
   const [showGetStarted, setShowGetStarted] = useState(false);
@@ -82,6 +83,7 @@ function App() {
             const acct = await getAccountInfo();
             const refreshedUser = acct.data?.user ? { ...storedUser, ...acct.data.user } : storedUser;
             setCurrentUser(refreshedUser);
+            setCustomerData(acct.data?.customer || null);
             // Prefer backend-provided userType, then fall back to derived
             const backendUserType = (acct.data?.user as any)?.userType;
             const derivedType = deriveUserTypeFromUser(refreshedUser);
@@ -203,7 +205,7 @@ function App() {
     };
   }, []);
 
-  const handleLogin = (type: string, userData: any) => {
+  const handleLogin = async (type: string, userData: any) => {
     console.log('🔐 Login - Initial Type:', type);
     console.log('👤 User Data:', userData);
     console.log('📋 User Role:', userData?.role);
@@ -218,12 +220,22 @@ function App() {
     console.log('✅ Final UserType:', finalType);
 
     setUserType(finalType);
+
+    // Fetch customer data to check plan category
+    try {
+      const acct = await getAccountInfo();
+      setCustomerData(acct.data?.customer || null);
+      console.log('📦 Customer Plan Category:', acct.data?.customer?.plan?.category);
+    } catch (error) {
+      console.error('Failed to fetch customer data:', error);
+    }
   };
 
   const handleLogout = () => {
     sessionManager.clearSessionManually();
     setCurrentUser(null);
     setUserType('');
+    setCustomerData(null);
   };
 
   const handleBackToHome = () => {
@@ -1038,7 +1050,8 @@ function App() {
     );
   }
 
-  // Show Developer Dashboard if developer
+  // Show Developer Dashboard ONLY if user role is developer or property-developer
+  // Property owners/managers with development plans should NOT be routed here
   if (userType === 'developer' || userType === 'property-developer') {
     return (
       <>

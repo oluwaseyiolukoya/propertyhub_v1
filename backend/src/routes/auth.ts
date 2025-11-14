@@ -158,7 +158,19 @@ router.post('/login', async (req: Request, res: Response) => {
 
       // Block inactive or non-active customer users
       if (user.isActive === false || (user.status && user.status !== 'active')) {
-        return res.status(403).json({ error: 'Account is inactive' });
+        console.log('❌ Login blocked - User inactive:', {
+          email: user.email,
+          isActive: user.isActive,
+          status: user.status,
+          customerId: user.customerId
+        });
+        return res.status(403).json({
+          error: 'Your account has been deactivated. Please contact your administrator.',
+          details: {
+            isActive: user.isActive,
+            status: user.status
+          }
+        });
       }
 
       // Update last login
@@ -541,6 +553,7 @@ router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) =
         plan: plan ? {
           name: plan.name,
           description: plan.description,
+          category: plan.category,
           monthlyPrice: plan.monthlyPrice,
           annualPrice: plan.annualPrice,
           currency: plan.currency,

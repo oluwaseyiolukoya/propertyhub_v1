@@ -29,6 +29,7 @@ interface Plan {
   id: string;
   name: string;
   description?: string;
+  category?: string; // 'property_management' | 'development'
   monthlyPrice: number;
   annualPrice?: number;
   currency: string;
@@ -36,6 +37,7 @@ interface Plan {
   isActive?: boolean;
   isPopular?: boolean;
   propertyLimit?: number;
+  projectLimit?: number;
   userLimit?: number;
   storageLimit?: number;
 }
@@ -343,11 +345,17 @@ export function UpgradeModal({ open, onClose, onSuccess }: UpgradeModalProps) {
                     ))
                   ) : null}
 
-                  {/* Show limits */}
-                  {plan.propertyLimit && (
+                  {/* Show limits based on plan category */}
+                  {plan.category === 'property_management' && plan.propertyLimit && (
                     <li className="flex items-start gap-2 text-sm">
                       <Check className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
                       <span>Up to {plan.propertyLimit} properties</span>
+                    </li>
+                  )}
+                  {plan.category === 'development' && plan.projectLimit && (
+                    <li className="flex items-start gap-2 text-sm">
+                      <Check className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
+                      <span>Up to {plan.projectLimit} projects</span>
                     </li>
                   )}
                   {plan.userLimit && (

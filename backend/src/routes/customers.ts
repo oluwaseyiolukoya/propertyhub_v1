@@ -1,11 +1,11 @@
-import express, { Request, Response } from 'express';
-import bcrypt from 'bcryptjs';
-import { randomUUID } from 'crypto';
-import { authMiddleware, adminOnly, AuthRequest } from '../middleware/auth';
-import prisma from '../lib/db';
-import { emitToAdmins, emitToCustomer } from '../lib/socket';
-import { captureSnapshotOnChange } from '../lib/mrr-snapshot';
-import { calculateTrialEndDate } from '../lib/trial-config';
+import express, { Request, Response } from "express";
+import bcrypt from "bcryptjs";
+import { randomUUID } from "crypto";
+import { authMiddleware, adminOnly, AuthRequest } from "../middleware/auth";
+import prisma from "../lib/db";
+import { emitToAdmins, emitToCustomer } from "../lib/socket";
+import { captureSnapshotOnChange } from "../lib/mrr-snapshot";
+import { calculateTrialEndDate } from "../lib/trial-config";
 
 const router = express.Router();
 
@@ -16,52 +16,55 @@ router.use(adminOnly);
 // Mock data for development
 const mockCustomers = [
   {
-    id: 'customer-1',
-    company: 'Metro Properties LLC',
-    owner: 'John Smith',
-    email: 'john@metro-properties.com',
-    phone: '+1-555-0123',
-    status: 'active',
-    plan: { id: 'plan-1', name: 'Professional', monthlyPrice: 99 },
+    id: "customer-1",
+    company: "Metro Properties LLC",
+    owner: "John Smith",
+    email: "john@metro-properties.com",
+    phone: "+1-555-0123",
+    status: "active",
+    plan: { id: "plan-1", name: "Professional", monthlyPrice: 99 },
     mrr: 99,
-    createdAt: new Date('2024-01-15'),
+    createdAt: new Date("2024-01-15"),
     lastLogin: new Date(),
-    _count: { properties: 5, users: 3 }
+    _count: { properties: 5, users: 3 },
   },
   {
-    id: 'customer-2',
-    company: 'Sunset Realty Group',
-    owner: 'Sarah Chen',
-    email: 'sarah@sunsetrealty.com',
-    phone: '+1-555-0124',
-    status: 'active',
-    plan: { id: 'plan-2', name: 'Enterprise', monthlyPrice: 299 },
+    id: "customer-2",
+    company: "Sunset Realty Group",
+    owner: "Sarah Chen",
+    email: "sarah@sunsetrealty.com",
+    phone: "+1-555-0124",
+    status: "active",
+    plan: { id: "plan-2", name: "Enterprise", monthlyPrice: 299 },
     mrr: 299,
-    createdAt: new Date('2024-02-01'),
+    createdAt: new Date("2024-02-01"),
     lastLogin: new Date(),
-    _count: { properties: 12, users: 8 }
-  }
+    _count: { properties: 12, users: 8 },
+  },
 ];
 
 // Get all customers
-router.get('/', async (req: AuthRequest, res: Response) => {
+router.get("/", async (req: AuthRequest, res: Response) => {
   try {
     const { search, status, plan } = req.query;
 
     // Try database first
     try {
       // Best practice: prevent caching to avoid UI 304 flicker on admin tables
-      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-      res.set('Pragma', 'no-cache');
-      res.set('Expires', '0');
+      res.set(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate, proxy-revalidate"
+      );
+      res.set("Pragma", "no-cache");
+      res.set("Expires", "0");
 
       const where: any = {};
 
       if (search) {
         where.OR = [
-          { company: { contains: search as string, mode: 'insensitive' } },
-          { owner: { contains: search as string, mode: 'insensitive' } },
-          { email: { contains: search as string, mode: 'insensitive' } }
+          { company: { contains: search as string, mode: "insensitive" } },
+          { owner: { contains: search as string, mode: "insensitive" } },
+          { email: { contains: search as string, mode: "insensitive" } },
         ];
       }
 
@@ -84,41 +87,46 @@ router.get('/', async (req: AuthRequest, res: Response) => {
               email: true,
               role: true,
               status: true,
-              lastLogin: true
-            }
+              lastLogin: true,
+            },
           },
           _count: {
             select: {
               properties: true,
-              users: true
-            }
-          }
+              users: true,
+            },
+          },
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: "desc" },
       });
 
-      const customers = customersRaw.map((c: any) => ({ ...c, plan: c.plans || null }));
+      const customers = customersRaw.map((c: any) => ({
+        ...c,
+        plan: c.plans || null,
+      }));
 
-      console.log('✅ Customers fetched from database:', customers.length);
+      console.log("✅ Customers fetched from database:", customers.length);
       if (customers.length > 0) {
-        console.log('✅ First customer data:', JSON.stringify(customers[0], null, 2));
+        console.log(
+          "✅ First customer data:",
+          JSON.stringify(customers[0], null, 2)
+        );
       }
 
       return res.json(customers);
     } catch (dbError) {
       // Database not available, return mock data
-      console.log('📝 Using mock customers data');
+      console.log("📝 Using mock customers data");
       return res.json(mockCustomers);
     }
-
   } catch (error: any) {
-    console.error('Get customers error:', error);
-    return res.status(500).json({ error: 'Failed to fetch customers' });
+    console.error("Get customers error:", error);
+    return res.status(500).json({ error: "Failed to fetch customers" });
   }
 });
 
 // Get single customer
-router.get('/:id', async (req: AuthRequest, res: Response) => {
+router.get("/:id", async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -133,8 +141,8 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
             email: true,
             role: true,
             status: true,
-            lastLogin: true
-          }
+            lastLogin: true,
+          },
         },
         properties: {
           select: {
@@ -142,35 +150,37 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
             name: true,
             propertyType: true,
             totalUnits: true,
-            status: true
-          }
+            status: true,
+          },
         },
         invoices: {
-          orderBy: { createdAt: 'desc' },
-          take: 10
+          orderBy: { createdAt: "desc" },
+          take: 10,
         },
         support_tickets: {
-          orderBy: { createdAt: 'desc' },
-          take: 10
-        }
-      }
+          orderBy: { createdAt: "desc" },
+          take: 10,
+        },
+      },
     });
 
     if (!customerRaw) {
-      return res.status(404).json({ error: 'Customer not found' });
+      return res.status(404).json({ error: "Customer not found" });
     }
 
-    const customer = { ...customerRaw, plan: (customerRaw as any).plans || null };
+    const customer = {
+      ...customerRaw,
+      plan: (customerRaw as any).plans || null,
+    };
     return res.json(customer);
-
   } catch (error: any) {
-    console.error('Get customer error:', error);
-    return res.status(500).json({ error: 'Failed to fetch customer' });
+    console.error("Get customer error:", error);
+    return res.status(500).json({ error: "Failed to fetch customer" });
   }
 });
 
 // Create customer
-router.post('/', async (req: AuthRequest, res: Response) => {
+router.post("/", async (req: AuthRequest, res: Response) => {
   try {
     const {
       company,
@@ -181,6 +191,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       taxId,
       industry,
       companySize,
+      customerType, // 'property_owner' | 'property_manager' | 'property_developer'
       planId,
       plan: planName, // Accept plan name as well
       billingCycle,
@@ -196,31 +207,31 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       units, // Accept units count
       status,
       sendInvitation,
-      notes
+      notes,
     } = req.body;
 
     // Validate required fields
     if (!company || !owner || !email) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      return res.status(400).json({ error: "Missing required fields" });
     }
 
     // Check if email already exists
     const existingCustomer = await prisma.customers.findUnique({
       where: { email },
-      include: { plans: true }
+      include: { plans: true },
     });
 
     if (existingCustomer) {
       return res.status(400).json({
-        error: 'Email already exists',
+        error: "Email already exists",
         existingCustomer: {
           id: existingCustomer.id,
           company: existingCustomer.company,
           owner: existingCustomer.owner,
           email: existingCustomer.email,
           status: existingCustomer.status,
-          plan: (existingCustomer as any).plans?.name
-        }
+          plan: (existingCustomer as any).plans?.name,
+        },
       });
     }
 
@@ -230,44 +241,59 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
     if (planName && !planId) {
       // Look up plan by name
-      console.log('Looking up plan by name:', planName);
+      console.log("Looking up plan by name:", planName);
       plan = await prisma.plans.findFirst({
-        where: { name: planName }
+        where: { name: planName },
       });
       if (plan) {
-        console.log('Found plan:', plan.id, plan.name);
+        console.log("Found plan:", plan.id, plan.name);
         finalPlanId = plan.id;
       } else {
-        console.log('Plan not found with name:', planName);
+        console.log("Plan not found with name:", planName);
         // If plan name provided but not found, return error
         return res.status(400).json({
-          error: `Plan "${planName}" not found. Please select a valid subscription plan.`
+          error: `Plan "${planName}" not found. Please select a valid subscription plan.`,
         });
       }
     } else if (planId) {
       plan = await prisma.plans.findUnique({ where: { id: planId } });
       if (!plan) {
         return res.status(400).json({
-          error: `Plan with ID "${planId}" not found.`
+          error: `Plan with ID "${planId}" not found.`,
         });
       }
     } else {
       // Neither planName nor planId provided
-      console.log('No plan specified, using null planId');
+      console.log("No plan specified, using null planId");
     }
 
-    console.log('Final planId:', finalPlanId);
+    console.log("Final planId:", finalPlanId);
 
     // Calculate MRR based on plan and billing cycle
     let calculatedMRR = 0;
-    if (plan && (status === 'active' || status === 'trial')) {
-      if ((billingCycle || 'monthly') === 'monthly') {
+    if (plan && (status === "active" || status === "trial")) {
+      if ((billingCycle || "monthly") === "monthly") {
         calculatedMRR = plan.monthlyPrice;
-      } else if (billingCycle === 'annual') {
+      } else if (billingCycle === "annual") {
         calculatedMRR = plan.annualPrice / 12; // Convert annual to monthly
       }
     }
-    console.log('Calculated MRR:', calculatedMRR);
+    console.log("Calculated MRR:", calculatedMRR);
+
+    // Determine plan category and limits based on plan
+    const planCategory = plan?.category || "property_management";
+    const finalPropertyLimit =
+      plan?.category === "property_management"
+        ? propertyLimit || plan?.propertyLimit || 5
+        : 0; // Set to 0 for developers (they use projectLimit instead)
+    const finalProjectLimit =
+      plan?.category === "development"
+        ? propertyLimit || plan?.projectLimit || 3 // propertyLimit field is reused for projectLimit
+        : 0; // Set to 0 for property owners/managers
+
+    console.log("Plan category:", planCategory);
+    console.log("Property limit:", finalPropertyLimit);
+    console.log("Project limit:", finalProjectLimit);
 
     // Create customer
     const customer = await prisma.customers.create({
@@ -282,28 +308,48 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         industry,
         companySize,
         planId: finalPlanId, // Use finalPlanId which could be from planName lookup
-        billingCycle: billingCycle || 'monthly',
+        planCategory: planCategory, // Set plan category
+        billingCycle: billingCycle || "monthly",
         mrr: calculatedMRR, // Set calculated MRR
         street,
         city,
         state,
-        postalCode: (postalCode || (req.body as any).zipCode) || null,
-        country: country || 'Nigeria',
-        propertyLimit: propertyLimit || plan?.propertyLimit || 5,
+        postalCode: postalCode || (req.body as any).zipCode || null,
+        country: country || "Nigeria",
+        propertyLimit: finalPropertyLimit,
+        projectLimit: finalProjectLimit,
         userLimit: userLimit || plan?.userLimit || 3,
         storageLimit: storageLimit || plan?.storageLimit || 1000,
         propertiesCount: properties || 0, // Add properties count
+        projectsCount: plan?.category === "development" ? properties || 0 : 0, // Use properties field for projects count if developer
         unitsCount: units || 0, // Add units count
         notes: notes || null, // Add notes field
-        status: status || 'trial',
-        subscriptionStartDate: status === 'active' ? new Date() : null,
-        trialEndsAt: status === 'trial' ? await calculateTrialEndDate() : null, // Get trial duration from Trial plan
-        updatedAt: new Date()
+        status: status || "trial",
+        subscriptionStartDate: status === "active" ? new Date() : null,
+        trialEndsAt: status === "trial" ? await calculateTrialEndDate() : null, // Get trial duration from Trial plan
+        updatedAt: new Date(),
       },
       include: {
-        plans: true
-      }
+        plans: true,
+      },
     });
+
+    // Determine user role based on customer type
+    let userRole = "owner"; // Default to owner
+    if (customerType === "property_developer") {
+      userRole = "developer";
+    } else if (customerType === "property_manager") {
+      userRole = "manager";
+    } else if (customerType === "property_owner") {
+      userRole = "owner";
+    }
+
+    console.log(
+      "Creating user with role:",
+      userRole,
+      "for customer type:",
+      customerType
+    );
 
     // Create owner user
     const tempPassword = Math.random().toString(36).slice(-8);
@@ -317,63 +363,91 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         email,
         password: sendInvitation ? null : hashedPassword,
         phone,
-        role: 'owner',
-        status: sendInvitation ? 'pending' : 'active',
+        role: userRole,
+        status: sendInvitation ? "pending" : "active",
         invitedAt: sendInvitation ? new Date() : null,
-        updatedAt: new Date()
-      }
+        updatedAt: new Date(),
+      },
     });
 
     // Generate initial invoice
     let invoice = null;
-    if (plan && status === 'trial') {
+    if (plan && status === "trial") {
       // Create invoice for trial period (due when trial ends)
       const trialEndDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
       invoice = await prisma.invoices.create({
         data: {
           id: randomUUID(),
           customerId: customer.id,
-          invoiceNumber: `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
+          invoiceNumber: `INV-${Date.now()}-${Math.random()
+            .toString(36)
+            .substr(2, 9)
+            .toUpperCase()}`,
           dueDate: trialEndDate,
-          amount: billingCycle === 'annual' ? plan.annualPrice : plan.monthlyPrice,
+          amount:
+            billingCycle === "annual" ? plan.annualPrice : plan.monthlyPrice,
           currency: plan.currency,
-          status: 'pending',
-          billingPeriod: billingCycle === 'annual' ? 'Annual' : 'Monthly',
-          description: `${plan.name} Plan - ${billingCycle === 'annual' ? 'Annual' : 'Monthly'} Subscription (Trial period invoice - Payment due at end of trial)`,
+          status: "pending",
+          billingPeriod: billingCycle === "annual" ? "Annual" : "Monthly",
+          description: `${plan.name} Plan - ${
+            billingCycle === "annual" ? "Annual" : "Monthly"
+          } Subscription (Trial period invoice - Payment due at end of trial)`,
           items: [
             {
-              description: `${plan.name} Plan - ${billingCycle === 'annual' ? 'Annual' : 'Monthly'} Subscription`,
+              description: `${plan.name} Plan - ${
+                billingCycle === "annual" ? "Annual" : "Monthly"
+              } Subscription`,
               quantity: 1,
-              unitPrice: billingCycle === 'annual' ? plan.annualPrice : plan.monthlyPrice,
-              amount: billingCycle === 'annual' ? plan.annualPrice : plan.monthlyPrice
-            }
+              unitPrice:
+                billingCycle === "annual"
+                  ? plan.annualPrice
+                  : plan.monthlyPrice,
+              amount:
+                billingCycle === "annual"
+                  ? plan.annualPrice
+                  : plan.monthlyPrice,
+            },
           ],
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       });
-    } else if (plan && status === 'active') {
+    } else if (plan && status === "active") {
       // Create invoice for active subscription (due immediately)
       invoice = await prisma.invoices.create({
         data: {
           id: randomUUID(),
           customerId: customer.id,
-          invoiceNumber: `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
+          invoiceNumber: `INV-${Date.now()}-${Math.random()
+            .toString(36)
+            .substr(2, 9)
+            .toUpperCase()}`,
           dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Due in 7 days
-          amount: billingCycle === 'annual' ? plan.annualPrice : plan.monthlyPrice,
+          amount:
+            billingCycle === "annual" ? plan.annualPrice : plan.monthlyPrice,
           currency: plan.currency,
-          status: 'pending',
-          billingPeriod: billingCycle === 'annual' ? 'Annual' : 'Monthly',
-          description: `${plan.name} Plan - ${billingCycle === 'annual' ? 'Annual' : 'Monthly'} Subscription (Initial subscription invoice)`,
+          status: "pending",
+          billingPeriod: billingCycle === "annual" ? "Annual" : "Monthly",
+          description: `${plan.name} Plan - ${
+            billingCycle === "annual" ? "Annual" : "Monthly"
+          } Subscription (Initial subscription invoice)`,
           items: [
             {
-              description: `${plan.name} Plan - ${billingCycle === 'annual' ? 'Annual' : 'Monthly'} Subscription`,
+              description: `${plan.name} Plan - ${
+                billingCycle === "annual" ? "Annual" : "Monthly"
+              } Subscription`,
               quantity: 1,
-              unitPrice: billingCycle === 'annual' ? plan.annualPrice : plan.monthlyPrice,
-              amount: billingCycle === 'annual' ? plan.annualPrice : plan.monthlyPrice
-            }
+              unitPrice:
+                billingCycle === "annual"
+                  ? plan.annualPrice
+                  : plan.monthlyPrice,
+              amount:
+                billingCycle === "annual"
+                  ? plan.annualPrice
+                  : plan.monthlyPrice,
+            },
           ],
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       });
     }
 
@@ -384,42 +458,43 @@ router.post('/', async (req: AuthRequest, res: Response) => {
           id: randomUUID(),
           customerId: customer.id,
           userId: ownerUser.id, // Use the newly created owner's ID instead of admin's ID
-          action: 'CUSTOMER_CREATED',
-          entity: 'Customer',
+          action: "CUSTOMER_CREATED",
+          entity: "Customer",
           entityId: customer.id,
-          description: `Customer ${company} created by ${req.user?.email || 'system'}`
-        }
+          description: `Customer ${company} created by ${
+            req.user?.email || "system"
+          }`,
+        },
       });
     } catch (logError: any) {
-      console.error('Failed to log activity:', logError);
+      console.error("Failed to log activity:", logError);
       // Continue anyway - don't fail customer creation
     }
 
     // TODO: Send invitation email if sendInvitation is true
 
     // Emit real-time event to all admins
-    emitToAdmins('customer:created', {
+    emitToAdmins("customer:created", {
       customer: {
         ...customer,
-        _count: { properties: 0, users: 1 }
-      }
+        _count: { properties: 0, users: 1 },
+      },
     });
 
     return res.status(201).json({
       customer,
       owner: ownerUser,
       invoice, // Include invoice in response
-      ...(!sendInvitation && { tempPassword })
+      ...(!sendInvitation && { tempPassword }),
     });
-
   } catch (error: any) {
-    console.error('Create customer error:', error);
-    return res.status(500).json({ error: 'Failed to create customer' });
+    console.error("Create customer error:", error);
+    return res.status(500).json({ error: "Failed to create customer" });
   }
 });
 
 // Update customer
-router.put('/:id', async (req: AuthRequest, res: Response) => {
+router.put("/:id", async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const {
@@ -447,43 +522,47 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       units, // Accept units count
       notes, // Accept notes
       trialStartsAt, // Accept trial start date
-      trialEndsAt // Accept trial end date
+      trialEndsAt, // Accept trial end date
     } = req.body;
 
+    // Get existing customer first
+    const existingCustomer = await prisma.customers.findUnique({
+      where: { id },
+    });
+
+    if (!existingCustomer) {
+      return res.status(404).json({ error: "Customer not found" });
+    }
+
     // Get plan limits - lookup by planId or planName
-    let finalPlanId = planId;
+    let finalPlanId = planId || existingCustomer.planId; // Use existing plan if not provided
     let plan = null;
 
     if (planName && !planId) {
       // Look up plan by name
       plan = await prisma.plans.findFirst({
-        where: { name: planName }
+        where: { name: planName },
       });
       if (plan) {
         finalPlanId = plan.id;
       }
     } else if (finalPlanId) {
-      // Fetch plan for MRR calculation
+      // Fetch plan for MRR calculation (either new plan or existing plan)
       plan = await prisma.plans.findUnique({
-        where: { id: finalPlanId }
+        where: { id: finalPlanId },
       });
     }
 
-    // Get existing customer to check status change
-    const existingCustomer = await prisma.customers.findUnique({
-      where: { id }
-    });
-
-    if (!existingCustomer) {
-      return res.status(404).json({ error: 'Customer not found' });
-    }
-
     // Calculate MRR based on plan and billing cycle
-    let calculatedMRR = 0;
-    if (plan && (status === 'active' || status === 'trial')) {
-      if ((billingCycle || 'monthly') === 'monthly') {
+    let calculatedMRR = existingCustomer.mrr || 0; // Default to existing MRR
+    const finalStatus = status || existingCustomer.status;
+    const finalBillingCycle =
+      billingCycle || existingCustomer.billingCycle || "monthly";
+
+    if (plan && (finalStatus === "active" || finalStatus === "trial")) {
+      if (finalBillingCycle === "monthly") {
         calculatedMRR = plan.monthlyPrice;
-      } else if (billingCycle === 'annual') {
+      } else if (finalBillingCycle === "annual") {
         calculatedMRR = plan.annualPrice / 12; // Convert annual to monthly
       }
     }
@@ -494,30 +573,30 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     let finalTrialEndsAt = existingCustomer.trialEndsAt;
 
     // If status is changing to 'active' and subscriptionStartDate is not set
-    if (status === 'active' && existingCustomer.status !== 'active') {
+    if (status === "active" && existingCustomer.status !== "active") {
       subscriptionStartDate = new Date(); // Set start date when activating
       finalTrialStartsAt = null; // Clear trial start date
       finalTrialEndsAt = null; // Clear trial end date
     }
 
     // If already active but subscriptionStartDate is null, set it now
-    if (status === 'active' && !subscriptionStartDate) {
+    if (status === "active" && !subscriptionStartDate) {
       subscriptionStartDate = new Date(); // Fix missing subscription start date
     }
 
     // If status is 'trial', use provided dates or calculate defaults
-    if (status === 'trial') {
+    if (status === "trial") {
       // If admin explicitly provided trial dates, use them
       if (trialStartsAt) {
         finalTrialStartsAt = new Date(trialStartsAt);
-      } else if (existingCustomer.status !== 'trial') {
+      } else if (existingCustomer.status !== "trial") {
         // Status changing to trial without explicit start date
         finalTrialStartsAt = new Date();
       }
 
       if (trialEndsAt) {
         finalTrialEndsAt = new Date(trialEndsAt);
-      } else if (existingCustomer.status !== 'trial') {
+      } else if (existingCustomer.status !== "trial") {
         // Status changing to trial without explicit end date
         finalTrialEndsAt = await calculateTrialEndDate();
       }
@@ -546,35 +625,70 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         street,
         city,
         state,
-        postalCode: (postalCode || (req.body as any).zipCode) || null,
+        postalCode: postalCode || (req.body as any).zipCode || null,
         country,
         propertyLimit,
         userLimit,
         storageLimit,
         propertiesCount: properties, // Add properties count
         unitsCount: units, // Add units count
-        notes: notes // Add notes field
+        notes: notes, // Add notes field
       },
       include: {
-        plans: true
-      }
+        plans: true,
+      },
     });
 
-  // Also keep owner's user record in sync if name/email/phone changed
-  try {
-    if (owner || email || phone) {
-      await prisma.users.updateMany({
-        where: { customerId: id, role: 'owner' },
-        data: {
-          ...(owner && { name: owner }),
-          ...(email && { email }),
-          ...(phone && { phone })
-        }
-      });
+    // Also keep owner's user record in sync if name/email/phone changed
+    try {
+      if (owner || email || phone) {
+        await prisma.users.updateMany({
+          where: { customerId: id, role: "owner" },
+          data: {
+            ...(owner && { name: owner }),
+            ...(email && { email }),
+            ...(phone && { phone }),
+          },
+        });
+      }
+    } catch (syncError) {
+      console.warn(
+        "⚠️ Failed to sync owner user with customer changes:",
+        syncError
+      );
     }
-  } catch (syncError) {
-    console.warn('⚠️ Failed to sync owner user with customer changes:', syncError);
-  }
+
+    // Sync user activation status with customer status
+    try {
+      const userUpdateData: any = {};
+
+      // If customer is active, ensure all users are active
+      if (finalStatus === "active") {
+        userUpdateData.isActive = true;
+        userUpdateData.status = "active";
+      }
+      // If customer is suspended/cancelled, deactivate users
+      else if (finalStatus === "suspended" || finalStatus === "cancelled") {
+        userUpdateData.isActive = false;
+        userUpdateData.status = finalStatus;
+      }
+
+      // Only update if there are changes
+      if (Object.keys(userUpdateData).length > 0) {
+        await prisma.users.updateMany({
+          where: { customerId: id },
+          data: {
+            ...userUpdateData,
+            updatedAt: new Date(),
+          },
+        });
+        console.log(
+          `✅ Synced user activation status with customer status: ${finalStatus}`
+        );
+      }
+    } catch (syncError) {
+      console.warn("⚠️ Failed to sync user activation status:", syncError);
+    }
 
     // Log activity (don't fail customer update if logging fails)
     try {
@@ -582,8 +696,8 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       const ownerUser = await prisma.users.findFirst({
         where: {
           customerId: customer.id,
-          role: 'owner'
-        }
+          role: "owner",
+        },
       });
 
       if (ownerUser) {
@@ -591,23 +705,25 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
           data: {
             customerId: customer.id,
             userId: ownerUser.id, // Use customer's owner ID
-            action: 'CUSTOMER_UPDATED',
-            entity: 'Customer',
+            action: "CUSTOMER_UPDATED",
+            entity: "Customer",
             entityId: customer.id,
-            description: `Customer ${company} updated by ${req.user?.email || 'admin'}`
-          }
+            description: `Customer ${company} updated by ${
+              req.user?.email || "admin"
+            }`,
+          },
         });
       }
     } catch (logError: any) {
-      console.error('Failed to log activity:', logError);
+      console.error("Failed to log activity:", logError);
       // Continue anyway - don't fail customer update
     }
 
     // Emit real-time event to admins
-    emitToAdmins('customer:updated', { customer });
+    emitToAdmins("customer:updated", { customer });
 
     // Emit to customer's users (so owner sees changes immediately)
-    emitToCustomer(customer.id, 'account:updated', { customer });
+    emitToCustomer(customer.id, "account:updated", { customer });
 
     // Capture MRR snapshot if MRR, status, or plan changed
     if (
@@ -618,38 +734,162 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       try {
         await captureSnapshotOnChange(customer.id);
       } catch (snapshotError) {
-        console.error('Failed to capture MRR snapshot:', snapshotError);
+        console.error("Failed to capture MRR snapshot:", snapshotError);
         // Don't fail the request if snapshot fails
       }
     }
 
     return res.json(customer);
-
   } catch (error: any) {
-    console.error('Update customer error:', error);
-    return res.status(500).json({ error: 'Failed to update customer' });
+    console.error("Update customer error:", error);
+    return res.status(500).json({ error: "Failed to update customer" });
+  }
+});
+
+// Reactivate customer account
+router.post("/:id/reactivate", async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { planId, notes } = req.body;
+
+    // Get existing customer
+    const existingCustomer = await prisma.customers.findUnique({
+      where: { id },
+      include: { plans: true },
+    });
+
+    if (!existingCustomer) {
+      return res.status(404).json({ error: "Customer not found" });
+    }
+
+    // Get plan for MRR calculation
+    const finalPlanId = planId || existingCustomer.planId;
+    const plan = await prisma.plans.findUnique({
+      where: { id: finalPlanId },
+    });
+
+    if (!plan) {
+      return res.status(404).json({ error: "Plan not found" });
+    }
+
+    // Calculate MRR based on billing cycle
+    const billingCycle = existingCustomer.billingCycle || "monthly";
+    const calculatedMRR =
+      billingCycle === "monthly" ? plan.monthlyPrice : plan.annualPrice / 12;
+
+    // Reactivate customer
+    const updatedCustomer = await prisma.customers.update({
+      where: { id },
+      data: {
+        status: "active",
+        mrr: calculatedMRR,
+        planId: finalPlanId,
+        subscriptionStartDate: new Date(), // Reset subscription start date
+        trialStartsAt: null, // Clear trial dates
+        trialEndsAt: null,
+        notes: notes
+          ? `${
+              existingCustomer.notes || ""
+            }\n\nAccount reactivated on ${new Date().toISOString()}. ${notes}`
+          : `${
+              existingCustomer.notes || ""
+            }\n\nAccount reactivated on ${new Date().toISOString()}.`,
+        updatedAt: new Date(),
+      },
+      include: {
+        plans: true,
+        _count: {
+          select: {
+            properties: true,
+            users: true,
+          },
+        },
+      },
+    });
+
+    // Reactivate all users associated with this customer
+    await prisma.users.updateMany({
+      where: { customerId: id },
+      data: {
+        isActive: true,
+        status: "active",
+        updatedAt: new Date(),
+      },
+    });
+
+    // Log activity
+    try {
+      await prisma.activity_logs.create({
+        data: {
+          id: randomUUID(),
+          userId: req.user!.id,
+          action: "customer_reactivated",
+          entityType: "customer",
+          entityId: id,
+          details: {
+            customerName: updatedCustomer.company,
+            plan: plan.name,
+            mrr: calculatedMRR,
+            notes: notes || "Account reactivated by admin",
+          },
+          ipAddress: req.ip || req.socket.remoteAddress || null,
+          userAgent: req.headers["user-agent"] || null,
+          createdAt: new Date(),
+        },
+      });
+    } catch (logError: any) {
+      console.error("Failed to log activity:", logError);
+    }
+
+    // Emit real-time events
+    emitToAdmins("customer:reactivated", {
+      customerId: updatedCustomer.id,
+      customerName: updatedCustomer.company,
+      plan: plan.name,
+      mrr: calculatedMRR,
+    });
+
+    emitToCustomer(updatedCustomer.id, "account:reactivated", {
+      message: "Your account has been reactivated. You now have full access.",
+      plan: plan.name,
+    });
+
+    // Capture MRR snapshot
+    try {
+      await captureSnapshotOnChange(updatedCustomer.id);
+    } catch (snapshotError) {
+      console.error("Failed to capture MRR snapshot:", snapshotError);
+    }
+
+    return res.json({
+      message: "Customer account reactivated successfully",
+      customer: updatedCustomer,
+    });
+  } catch (error: any) {
+    console.error("Reactivate customer error:", error);
+    return res.status(500).json({ error: "Failed to reactivate customer" });
   }
 });
 
 // Delete customer
-router.delete('/:id', async (req: AuthRequest, res: Response) => {
+router.delete("/:id", async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
     const customer = await prisma.customers.findUnique({
-      where: { id }
+      where: { id },
     });
 
     if (!customer) {
-      return res.status(404).json({ error: 'Customer not found' });
+      return res.status(404).json({ error: "Customer not found" });
     }
 
     // Get owner user BEFORE deleting (for activity log)
     const ownerUser = await prisma.users.findFirst({
       where: {
         customerId: id,
-        role: 'owner'
-      }
+        role: "owner",
+      },
     });
 
     // Log activity BEFORE deleting (so user references still exist)
@@ -659,34 +899,35 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
           data: {
             customerId: id,
             userId: ownerUser.id, // Use customer's owner ID
-            action: 'CUSTOMER_DELETED',
-            entity: 'Customer',
+            action: "CUSTOMER_DELETED",
+            entity: "Customer",
             entityId: id,
-            description: `Customer ${customer.company} deleted by ${req.user?.email || 'admin'}`
-          }
+            description: `Customer ${customer.company} deleted by ${
+              req.user?.email || "admin"
+            }`,
+          },
         });
       }
     } catch (logError) {
       // If activity log fails, continue with deletion anyway
-      console.error('Failed to create activity log:', logError);
+      console.error("Failed to create activity log:", logError);
     }
 
     // Now delete the customer (cascade will delete all related records)
     await prisma.customers.delete({ where: { id } });
 
     // Emit real-time event to admins
-    emitToAdmins('customer:deleted', { customerId: id });
+    emitToAdmins("customer:deleted", { customerId: id });
 
-    return res.json({ message: 'Customer deleted successfully' });
-
+    return res.json({ message: "Customer deleted successfully" });
   } catch (error: any) {
-    console.error('Delete customer error:', error);
-    return res.status(500).json({ error: 'Failed to delete customer' });
+    console.error("Delete customer error:", error);
+    return res.status(500).json({ error: "Failed to delete customer" });
   }
 });
 
 // Customer actions
-router.post('/:id/action', async (req: AuthRequest, res: Response) => {
+router.post("/:id/action", async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { action } = req.body;
@@ -694,45 +935,47 @@ router.post('/:id/action', async (req: AuthRequest, res: Response) => {
     const customer = await prisma.customers.findUnique({ where: { id } });
 
     if (!customer) {
-      return res.status(404).json({ error: 'Customer not found' });
+      return res.status(404).json({ error: "Customer not found" });
     }
 
     let result: any = {};
 
     switch (action) {
-      case 'suspend':
+      case "suspend":
         result = await prisma.customer.update({
           where: { id },
-          data: { status: 'suspended' }
+          data: { status: "suspended" },
         });
         break;
 
-      case 'activate':
+      case "activate":
         result = await prisma.customer.update({
           where: { id },
-          data: { status: 'active' }
+          data: { status: "active" },
         });
         break;
 
-      case 'cancel':
+      case "cancel":
         result = await prisma.customer.update({
           where: { id },
-          data: { status: 'cancelled' }
+          data: { status: "cancelled" },
         });
         break;
 
-      case 'reset-password':
+      case "reset-password":
         // Find primary user (owner or developer)
         const primaryUser = await prisma.users.findFirst({
           where: {
             customerId: id,
-            role: { in: ['owner', 'developer'] }
-          }
+            role: { in: ["owner", "developer"] },
+          },
         });
 
         if (primaryUser) {
           // Generate new temporary password
-          const newPassword = Math.random().toString(36).slice(-10) + Math.random().toString(36).slice(-2).toUpperCase();
+          const newPassword =
+            Math.random().toString(36).slice(-10) +
+            Math.random().toString(36).slice(-2).toUpperCase();
           const hashedPassword = await bcrypt.hash(newPassword, 10);
 
           // Update user password
@@ -740,36 +983,38 @@ router.post('/:id/action', async (req: AuthRequest, res: Response) => {
             where: { id: primaryUser.id },
             data: {
               password: hashedPassword,
-              status: 'active', // Set to active so they can log in
-              updatedAt: new Date()
-            }
+              status: "active", // Set to active so they can log in
+              updatedAt: new Date(),
+            },
           });
 
           result = {
-            message: 'New password generated successfully',
+            message: "New password generated successfully",
             tempPassword: newPassword,
             email: primaryUser.email,
-            name: primaryUser.name
+            name: primaryUser.name,
           };
         } else {
-          return res.status(404).json({ error: 'Primary user not found for this customer' });
+          return res
+            .status(404)
+            .json({ error: "Primary user not found for this customer" });
         }
         break;
 
-      case 'resend-invitation':
+      case "resend-invitation":
         // Find pending owner user
         const pendingOwner = await prisma.user.findFirst({
-          where: { customerId: id, role: 'owner', status: 'pending' }
+          where: { customerId: id, role: "owner", status: "pending" },
         });
 
         if (pendingOwner) {
           // TODO: Resend invitation email
-          result = { message: 'Invitation email resent' };
+          result = { message: "Invitation email resent" };
         }
         break;
 
       default:
-        return res.status(400).json({ error: 'Invalid action' });
+        return res.status(400).json({ error: "Invalid action" });
     }
 
     // Log activity
@@ -778,35 +1023,34 @@ router.post('/:id/action', async (req: AuthRequest, res: Response) => {
       const ownerUser = await prisma.user.findFirst({
         where: {
           customerId: id,
-          role: 'owner'
-        }
+          role: "owner",
+        },
       });
 
       if (ownerUser) {
-      await prisma.activity_logs.create({
+        await prisma.activity_logs.create({
           data: {
             customerId: id,
-          userId: ownerUser.id, // Use customer's owner ID
+            userId: ownerUser.id, // Use customer's owner ID
             action: action,
-            entity: 'customer',
+            entity: "customer",
             entityId: id,
-            description: `Customer ${customer.company} ${action} by ${req.user?.email || 'admin'}`
-          }
+            description: `Customer ${customer.company} ${action} by ${
+              req.user?.email || "admin"
+            }`,
+          },
         });
       }
     } catch (logError) {
-      console.error('Failed to log activity:', logError);
+      console.error("Failed to log activity:", logError);
       // Continue anyway
     }
 
     return res.json(result);
-
   } catch (error: any) {
-    console.error('Customer action error:', error);
-    return res.status(500).json({ error: 'Failed to perform action' });
+    console.error("Customer action error:", error);
+    return res.status(500).json({ error: "Failed to perform action" });
   }
 });
 
 export default router;
-
-

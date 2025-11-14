@@ -10,10 +10,18 @@ const router = express.Router();
 router.use(authMiddleware);
 router.use(adminOnly);
 
-// Get all plans
+// Get all plans (with optional category filter)
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
+    const { category } = req.query;
+
+    const whereClause: any = {};
+    if (category && (category === 'property_management' || category === 'development')) {
+      whereClause.category = category;
+    }
+
     const plans = await prisma.plans.findMany({
+      where: whereClause,
       include: {
         _count: {
           select: { customers: true }
@@ -33,10 +41,12 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     const {
       name,
       description,
+      category,
       monthlyPrice,
       annualPrice,
       currency,
       propertyLimit,
+      projectLimit,
       userLimit,
       storageLimit,
       features,
@@ -51,15 +61,31 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    // Validate category
+    const planCategory = category || 'property_management';
+    if (planCategory !== 'property_management' && planCategory !== 'development') {
+      return res.status(400).json({ error: 'Invalid plan category. Must be property_management or development' });
+    }
+
+    // Validate limits based on category
+    if (planCategory === 'property_management' && !propertyLimit) {
+      return res.status(400).json({ error: 'Property limit is required for property_management plans' });
+    }
+    if (planCategory === 'development' && !projectLimit) {
+      return res.status(400).json({ error: 'Project limit is required for development plans' });
+    }
+
     const plan = await prisma.plans.create({
       data: {
         id: uuidv4(),
         name,
         description,
+        category: planCategory,
         monthlyPrice: parseFloat(monthlyPrice),
         annualPrice: annualPrice ? parseFloat(annualPrice) : parseFloat(monthlyPrice) * 10,
         currency: currency || 'NGN',
-        propertyLimit: parseInt(propertyLimit) || 5,
+        propertyLimit: propertyLimit ? parseInt(propertyLimit) : null,
+        projectLimit: projectLimit ? parseInt(projectLimit) : null,
         userLimit: parseInt(userLimit) || 3,
         storageLimit: parseInt(storageLimit) || 1000,
         features: features || {},
@@ -91,10 +117,12 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     const {
       name,
       description,
+      category,
       monthlyPrice,
       annualPrice,
       currency,
       propertyLimit,
+      projectLimit,
       userLimit,
       storageLimit,
       features,
@@ -103,15 +131,22 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       trialDurationDays
     } = req.body;
 
+    // Validate category if provided
+    if (category && category !== 'property_management' && category !== 'development') {
+      return res.status(400).json({ error: 'Invalid plan category. Must be property_management or development' });
+    }
+
     const plan = await prisma.plans.update({
       where: { id },
       data: {
         name,
         description,
+        category,
         monthlyPrice,
         annualPrice,
         currency,
-        propertyLimit,
+        propertyLimit: propertyLimit !== undefined ? (propertyLimit ? parseInt(propertyLimit) : null) : undefined,
+        projectLimit: projectLimit !== undefined ? (projectLimit ? parseInt(projectLimit) : null) : undefined,
         userLimit,
         storageLimit,
         features,
