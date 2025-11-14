@@ -2,8 +2,7 @@ import express, { Response } from 'express';
 import { authMiddleware, adminOnly, AuthRequest } from '../middleware/auth';
 import prisma from '../lib/db';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
+import { createLogoStorage, createFaviconStorage, getPublicUrl, deleteFile } from '../lib/storage';
 
 const router = express.Router();
 
@@ -11,36 +10,9 @@ router.use(authMiddleware);
 // Note: Read-only endpoints are available to all authenticated users.
 // Write endpoints (create/update/delete/upload) require adminOnly middleware per-route.
 
-// Multer storage for logo uploads
-const logoStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const logosDir = path.resolve(__dirname, '../../uploads/logos');
-    fs.mkdirSync(logosDir, { recursive: true });
-    cb(null, logosDir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname) || '.png';
-    const timestamp = Date.now();
-    cb(null, `platform-logo-${timestamp}${ext}`);
-  }
-});
-
-// Multer storage for favicon uploads
-const faviconStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const faviconsDir = path.resolve(__dirname, '../../uploads/favicons');
-    fs.mkdirSync(faviconsDir, { recursive: true });
-    cb(null, faviconsDir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname) || '.ico';
-    const timestamp = Date.now();
-    cb(null, `platform-favicon-${timestamp}${ext}`);
-  }
-});
-
+// Create multer instances with storage abstraction
 const uploadLogo = multer({
-  storage: logoStorage,
+  storage: createLogoStorage(),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   fileFilter: (req, file, cb) => {
     const allowedTypes = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
@@ -52,7 +24,7 @@ const uploadLogo = multer({
 });
 
 const uploadFavicon = multer({
-  storage: faviconStorage,
+  storage: createFaviconStorage(),
   limits: { fileSize: 1 * 1024 * 1024 }, // 1MB
   fileFilter: (req, file, cb) => {
     const allowedTypes = ['image/x-icon', 'image/vnd.microsoft.icon', 'image/png', 'image/svg+xml'];
@@ -154,10 +126,7 @@ router.delete('/settings/:key', adminOnly, async (req: AuthRequest, res: Respons
       try {
         const existing = await prisma.system_settings.findUnique({ where: { key: normalizedKey } });
         if (existing && existing.value && typeof existing.value === 'string') {
-          const filePath = path.resolve(__dirname, '../..', existing.value.substring(1));
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-          }
+          await deleteFile(existing.value);
         }
       } catch (fileErr) {
         // Non-fatal; continue with DB delete
@@ -186,18 +155,24 @@ router.post('/settings/upload-logo', adminOnly, uploadLogo.single('logo'), async
     try {
       const oldSetting = await prisma.system_settings.findUnique({ where: { key: 'platform_logo_url' } });
       if (oldSetting && oldSetting.value) {
-        const oldPath = path.resolve(__dirname, '../..', (oldSetting.value as string).substring(1));
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
-        }
+        await deleteFile(oldSetting.value as string);
       }
     } catch (err) {
       console.error('Error deleting old logo:', err);
     }
 
-    // Build public URL for the uploaded logo
-    const relativePath = path.join('uploads', 'logos', req.file.filename).replace(/\\/g, '/');
-    const logoUrl = `/` + relativePath;
+    // Get the public URL for the uploaded file
+    // For S3/Spaces, req.file will have a 'location' property from multer-s3
+    // For local storage, we build the path manually
+    let logoUrl: string;
+    if ('location' in req.file) {
+      // S3/Spaces upload - use the location URL
+      logoUrl = (req.file as any).location;
+    } else {
+      // Local storage - build relative path
+      const relativePath = `logos/${req.file.filename}`;
+      logoUrl = getPublicUrl(`/${relativePath}`);
+    }
 
     // Save to system settings
     const setting = await prisma.system_settings.upsert({
@@ -237,18 +212,22 @@ router.post('/settings/upload-favicon', adminOnly, uploadFavicon.single('favicon
     try {
       const oldSetting = await prisma.system_settings.findUnique({ where: { key: 'platform_favicon_url' } });
       if (oldSetting && oldSetting.value) {
-        const oldPath = path.resolve(__dirname, '../..', (oldSetting.value as string).substring(1));
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
-        }
+        await deleteFile(oldSetting.value as string);
       }
     } catch (err) {
       console.error('Error deleting old favicon:', err);
     }
 
-    // Build public URL for the uploaded favicon
-    const relativePath = path.join('uploads', 'favicons', req.file.filename).replace(/\\/g, '/');
-    const faviconUrl = `/` + relativePath;
+    // Get the public URL for the uploaded file
+    let faviconUrl: string;
+    if ('location' in req.file) {
+      // S3/Spaces upload - use the location URL
+      faviconUrl = (req.file as any).location;
+    } else {
+      // Local storage - build relative path
+      const relativePath = `favicons/${req.file.filename}`;
+      faviconUrl = getPublicUrl(`/${relativePath}`);
+    }
 
     // Save to system settings
     const setting = await prisma.system_settings.upsert({
