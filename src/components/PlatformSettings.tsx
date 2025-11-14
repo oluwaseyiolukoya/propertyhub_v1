@@ -372,9 +372,14 @@ export function PlatformSettings() {
 
       if (response.ok) {
         const data = await response.json();
+        // If data.url is already a full URL, use it as-is; otherwise prepend API_BASE_URL
+        const logoUrl = (data.url.startsWith('http://') || data.url.startsWith('https://'))
+          ? data.url
+          : `${API_BASE_URL}${data.url}`;
+        
         setSettings(prev => ({
           ...prev,
-          general: { ...prev.general, logoUrl: `${API_BASE_URL}${data.url}` }
+          general: { ...prev.general, logoUrl }
         }));
         toast.success('Logo uploaded successfully');
         // Trigger a page reload to update logo across all components
@@ -420,13 +425,18 @@ export function PlatformSettings() {
 
       if (response.ok) {
         const data = await response.json();
+        // If data.url is already a full URL, use it as-is; otherwise prepend API_BASE_URL
+        const faviconUrl = (data.url.startsWith('http://') || data.url.startsWith('https://'))
+          ? data.url
+          : `${API_BASE_URL}${data.url}`;
+        
         setSettings(prev => ({
           ...prev,
-          general: { ...prev.general, faviconUrl: `http://localhost:5000${data.url}` }
+          general: { ...prev.general, faviconUrl }
         }));
         toast.success('Favicon uploaded successfully');
-        // Update favicon immediately with cache-busting (use API base URL)
-        updateFavicon(`${API_BASE_URL}${data.url}?cb=${Date.now()}`);
+        // Update favicon immediately with cache-busting
+        updateFavicon(`${faviconUrl}?cb=${Date.now()}`);
       } else {
         const error = await response.json();
         console.error('Upload error:', error);
