@@ -24,6 +24,23 @@ export const initializeSocket = (token: string): Socket => {
   }
 
   const serverUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const isProduction = import.meta.env.PROD;
+
+  // In production, disable WebSocket unless explicitly enabled
+  if (isProduction && !import.meta.env.VITE_ENABLE_WEBSOCKET) {
+    console.log('ℹ️ WebSocket disabled in production (set VITE_ENABLE_WEBSOCKET=true to enable)');
+    // Return a mock socket that won't try to connect
+    socket = {
+      connected: false,
+      on: () => socket,
+      off: () => socket,
+      emit: () => socket,
+      disconnect: () => {},
+      removeAllListeners: () => socket,
+      connect: () => socket,
+    } as any;
+    return socket;
+  }
 
   console.log('🔌 Initializing Socket.io connection...');
 
