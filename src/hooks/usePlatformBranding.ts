@@ -55,14 +55,20 @@ export function usePlatformBranding() {
           if (logoResponse.ok) {
             const logoData = await logoResponse.json();
             if (logoData.value && typeof logoData.value === 'string') {
-              logoUrl = `${API_BASE_URL}${logoData.value}`;
+              // If value is already a full URL, use it as-is; otherwise prepend API_BASE_URL
+              logoUrl = (logoData.value.startsWith('http://') || logoData.value.startsWith('https://'))
+                ? logoData.value
+                : `${API_BASE_URL}${logoData.value}`;
             }
           }
 
           if (faviconResponse.ok) {
             const faviconData = await faviconResponse.json();
             if (faviconData.value && typeof faviconData.value === 'string') {
-              faviconUrl = `${API_BASE_URL}${faviconData.value}`;
+              // If value is already a full URL, use it as-is; otherwise prepend API_BASE_URL
+              faviconUrl = (faviconData.value.startsWith('http://') || faviconData.value.startsWith('https://'))
+                ? faviconData.value
+                : `${API_BASE_URL}${faviconData.value}`;
             }
           }
         } catch (e) {
@@ -77,10 +83,16 @@ export function usePlatformBranding() {
           if (pubRes.ok) {
             const pubData = await pubRes.json();
             if (!logoUrl && pubData.logoUrl && typeof pubData.logoUrl === 'string') {
-              logoUrl = `${API_BASE_URL}${pubData.logoUrl}`;
+              // If value is already a full URL, use it as-is; otherwise prepend API_BASE_URL
+              logoUrl = (pubData.logoUrl.startsWith('http://') || pubData.logoUrl.startsWith('https://'))
+                ? pubData.logoUrl
+                : `${API_BASE_URL}${pubData.logoUrl}`;
             }
             if (!faviconUrl && pubData.faviconUrl && typeof pubData.faviconUrl === 'string') {
-              faviconUrl = `${API_BASE_URL}${pubData.faviconUrl}`;
+              // If value is already a full URL, use it as-is; otherwise prepend API_BASE_URL
+              faviconUrl = (pubData.faviconUrl.startsWith('http://') || pubData.faviconUrl.startsWith('https://'))
+                ? pubData.faviconUrl
+                : `${API_BASE_URL}${pubData.faviconUrl}`;
             }
           }
         } catch (e) {
