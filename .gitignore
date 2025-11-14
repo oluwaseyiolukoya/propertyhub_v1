@@ -32,9 +32,16 @@ dist-ssr
 *.db
 *.db-journal
 
-# Uploads
-uploads/
-!uploads/.gitkeep
+# Uploads (ignore uploaded files but keep directory structure)
+backend/uploads/*
+!backend/uploads/.gitkeep
+!backend/uploads/logos/
+!backend/uploads/logos/.gitkeep
+!backend/uploads/favicons/
+!backend/uploads/favicons/.gitkeep
+!backend/uploads/avatars/
+!backend/uploads/documents/
+!backend/uploads/maintenance/
 
 # Build artifacts
 build/

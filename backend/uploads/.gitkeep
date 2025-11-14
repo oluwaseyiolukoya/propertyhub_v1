@@ -1,0 +1,8 @@
+# This directory stores uploaded files
+# Subdirectories:
+# - logos/: Platform header logos
+# - favicons/: Platform favicons
+# - avatars/: User profile pictures
+# - documents/: Document uploads
+# - maintenance/: Maintenance ticket attachments
+
