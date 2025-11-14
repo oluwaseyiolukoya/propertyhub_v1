@@ -38,6 +38,8 @@ if (useCloudStorage && spacesAccessKey && spaceSecretKey) {
 export const createLogoStorage = () => {
   if (s3Client) {
     // Use DigitalOcean Spaces
+    const cdnEndpoint = process.env.SPACES_CDN_ENDPOINT || `https://${spacesBucket}.${spacesRegion}.cdn.digitaloceanspaces.com`;
+    
     return multerS3({
       s3: s3Client,
       bucket: spacesBucket,
@@ -48,13 +50,18 @@ export const createLogoStorage = () => {
         const ext = path.extname(file.originalname);
         cb(null, `logos/platform-logo-${uniqueSuffix}${ext}`);
       },
+      // Override the default URL to use CDN endpoint instead of Spaces endpoint
+      contentDisposition: 'inline',
+      metadata: (req, file, cb) => {
+        cb(null, { fieldName: file.fieldname });
+      },
     });
   }
 
   // Fallback to local storage (development)
   const uploadsDir = path.resolve(__dirname, '../../uploads');
   const logosDir = path.resolve(uploadsDir, 'logos');
-  
+
   // Ensure directory exists
   try {
     fs.mkdirSync(logosDir, { recursive: true });
@@ -96,7 +103,7 @@ export const createFaviconStorage = () => {
   // Fallback to local storage (development)
   const uploadsDir = path.resolve(__dirname, '../../uploads');
   const faviconsDir = path.resolve(uploadsDir, 'favicons');
-  
+
   // Ensure directory exists
   try {
     fs.mkdirSync(faviconsDir, { recursive: true });
@@ -127,7 +134,7 @@ export const getPublicUrl = (filePath: string): string => {
     const cleanPath = filePath.startsWith('/') ? filePath.slice(1) : filePath;
     return `${spacesUrl}/${cleanPath}`;
   }
-  
+
   // Return local URL (for development)
   return filePath;
 };
@@ -141,7 +148,7 @@ export const deleteFile = async (filePath: string): Promise<void> => {
     const { DeleteObjectCommand } = await import('@aws-sdk/client-s3');
     // Remove leading slash and any URL prefix
     const key = filePath.replace(/^\//, '').replace(/^https?:\/\/[^/]+\//, '');
-    
+
     try {
       await s3Client.send(
         new DeleteObjectCommand({
@@ -158,7 +165,7 @@ export const deleteFile = async (filePath: string): Promise<void> => {
     // Delete from local filesystem
     const uploadsDir = path.resolve(__dirname, '../../uploads');
     const fullPath = path.join(uploadsDir, filePath.replace(/^\/uploads\//, ''));
-    
+
     try {
       if (fs.existsSync(fullPath)) {
         fs.unlinkSync(fullPath);

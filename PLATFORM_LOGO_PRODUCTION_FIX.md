@@ -22,6 +22,7 @@ The file existed temporarily after upload but was lost on the next deployment/re
 ## Root Cause
 
 **Ephemeral Storage in DigitalOcean App Platform:**
+
 - Containers are stateless and can be replaced at any time
 - Local file system is wiped on each deployment
 - Files uploaded during runtime don't persist
@@ -32,6 +33,7 @@ The file existed temporarily after upload but was lost on the next deployment/re
 ### 1. Storage Abstraction Layer
 
 Created `/backend/src/lib/storage.ts` that automatically switches between:
+
 - **Local Storage** (development) - Files stored in `backend/uploads/`
 - **DigitalOcean Spaces** (production) - S3-compatible object storage
 
@@ -60,12 +62,22 @@ const uploadLogo = multer({
   storage: createLogoStorage(), // Automatically uses Spaces in production
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    const allowedTypes = [
+      "image/svg+xml",
+      "image/png",
+      "image/jpeg",
+      "image/jpg",
+      "image/webp",
+    ];
     if (!allowedTypes.includes(file.mimetype)) {
-      return cb(new Error('Only SVG, PNG, JPG, JPEG, and WEBP files are allowed for logo'));
+      return cb(
+        new Error(
+          "Only SVG, PNG, JPG, JPEG, and WEBP files are allowed for logo"
+        )
+      );
     }
     cb(null, true);
-  }
+  },
 });
 ```
 
@@ -76,7 +88,9 @@ const uploadLogo = multer({
 export const getPublicUrl = (filePath: string): string => {
   if (s3Client && useCloudStorage) {
     // Return Spaces CDN URL
-    const spacesUrl = process.env.SPACES_CDN_ENDPOINT || `https://${spacesBucket}.${spacesRegion}.cdn.digitaloceanspaces.com`;
+    const spacesUrl =
+      process.env.SPACES_CDN_ENDPOINT ||
+      `https://${spacesBucket}.${spacesRegion}.cdn.digitaloceanspaces.com`;
     return `${spacesUrl}/${filePath}`;
   }
   // Return local URL (for development)
@@ -91,10 +105,12 @@ export const getPublicUrl = (filePath: string): string => {
 export const deleteFile = async (filePath: string): Promise<void> => {
   if (s3Client && useCloudStorage) {
     // Delete from Spaces using AWS SDK
-    await s3Client.send(new DeleteObjectCommand({
-      Bucket: spacesBucket,
-      Key: filePath,
-    }));
+    await s3Client.send(
+      new DeleteObjectCommand({
+        Bucket: spacesBucket,
+        Key: filePath,
+      })
+    );
   } else {
     // Delete from local filesystem
     fs.unlinkSync(fullPath);
@@ -109,6 +125,7 @@ export const deleteFile = async (filePath: string): Promise<void> => {
 1. **Log in to DigitalOcean**: https://cloud.digitalocean.com/
 2. **Navigate to Spaces**: Click "Spaces" in the left sidebar
 3. **Create a Space**:
+
    - Click "Create a Space"
    - Choose region: **NYC3** (or closest to your users)
    - Name: `contrezz-uploads`
@@ -172,6 +189,7 @@ SPACES_CDN_ENDPOINT=https://contrezz-uploads.nyc3.cdn.digitaloceanspaces.com
 3. **Go to Platform Settings**
 4. **Upload a new logo**
 5. **Verify**:
+
    - Logo appears immediately
    - Logo URL starts with `https://contrezz-uploads.nyc3.cdn.digitaloceanspaces.com/`
    - Logo persists after page refresh
@@ -190,14 +208,15 @@ All should show the new logo!
 
 ### DigitalOcean Spaces Pricing
 
-| Item | Cost | Notes |
-|------|------|-------|
-| Storage | $5/month | Includes 250 GB storage |
-| Bandwidth | Free | First 1 TB/month included |
-| CDN | Included | Free with Spaces |
-| **Total** | **$5/month** | Very affordable! |
+| Item      | Cost         | Notes                     |
+| --------- | ------------ | ------------------------- |
+| Storage   | $5/month     | Includes 250 GB storage   |
+| Bandwidth | Free         | First 1 TB/month included |
+| CDN       | Included     | Free with Spaces          |
+| **Total** | **$5/month** | Very affordable!          |
 
 **Comparison**:
+
 - AWS S3: ~$0.023/GB storage + $0.09/GB transfer = ~$8-15/month
 - DigitalOcean Spaces: **$5/month flat rate** (much simpler!)
 
@@ -215,6 +234,7 @@ All should show the new logo!
 ## Development vs Production
 
 ### Development (Local)
+
 ```bash
 # .env.local
 USE_CLOUD_STORAGE=false
@@ -223,6 +243,7 @@ USE_CLOUD_STORAGE=false
 ```
 
 ### Production (DigitalOcean)
+
 ```bash
 # App Platform Environment Variables
 USE_CLOUD_STORAGE=true
@@ -257,6 +278,7 @@ doctl spaces upload backend/uploads/favicons/* contrezz-uploads/favicons/ --recu
 ### Logo Still Shows 404
 
 1. **Check environment variables**:
+
    ```bash
    # In DigitalOcean App Platform
    Settings → Environment Variables
@@ -264,6 +286,7 @@ doctl spaces upload backend/uploads/favicons/* contrezz-uploads/favicons/ --recu
    ```
 
 2. **Check Spaces credentials**:
+
    ```bash
    # Test with doctl
    doctl spaces list
@@ -271,6 +294,7 @@ doctl spaces upload backend/uploads/favicons/* contrezz-uploads/favicons/ --recu
    ```
 
 3. **Check CORS configuration**:
+
    - Go to Spaces → Settings → CORS
    - Ensure `contrezz.com` is in AllowedOrigins
 
@@ -284,10 +308,12 @@ doctl spaces upload backend/uploads/favicons/* contrezz-uploads/favicons/ --recu
 ### Logo Uploads But Doesn't Display
 
 1. **Check the logo URL in database**:
+
    - Should start with `https://contrezz-uploads.nyc3.cdn.digitaloceanspaces.com/`
    - Not `/uploads/logos/...`
 
 2. **Check browser console**:
+
    - Look for CORS errors
    - Look for 403 Forbidden (permissions issue)
 
@@ -298,6 +324,7 @@ doctl spaces upload backend/uploads/favicons/* contrezz-uploads/favicons/ --recu
 ### Credentials Not Working
 
 1. **Regenerate Spaces keys**:
+
    - Go to API → Spaces Keys
    - Delete old key
    - Generate new key
@@ -313,6 +340,7 @@ doctl spaces upload backend/uploads/favicons/* contrezz-uploads/favicons/ --recu
 If something goes wrong:
 
 1. **Disable cloud storage**:
+
    ```bash
    # In DigitalOcean App Platform
    USE_CLOUD_STORAGE=false
@@ -334,6 +362,7 @@ If something goes wrong:
 ## Future Enhancements
 
 ### Potential Improvements:
+
 1. **Image Optimization**: Automatically resize/compress uploaded logos
 2. **Multiple Formats**: Generate WebP, PNG, and SVG versions
 3. **Backup Strategy**: Periodic backups of Spaces to another region
@@ -341,6 +370,7 @@ If something goes wrong:
 5. **Versioning**: Keep history of previous logos
 
 ### Additional File Types:
+
 - User profile pictures
 - Property images
 - Document uploads
@@ -362,6 +392,6 @@ All can use the same storage abstraction!
 ---
 
 **Questions?** Check the troubleshooting section or review the code in:
+
 - `/backend/src/lib/storage.ts` - Storage abstraction
 - `/backend/src/routes/system.ts` - Upload endpoints
-
