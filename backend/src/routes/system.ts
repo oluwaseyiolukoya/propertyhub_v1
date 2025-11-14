@@ -163,11 +163,27 @@ router.post('/settings/upload-logo', adminOnly, uploadLogo.single('logo'), async
 
     // Get the public URL for the uploaded file
     // For S3/Spaces, req.file will have a 'location' property from multer-s3
-    // For local storage, we build the path manually
+    // But we need to replace the Spaces endpoint with CDN endpoint
     let logoUrl: string;
     if ('location' in req.file) {
-      // S3/Spaces upload - use the location URL
-      logoUrl = (req.file as any).location;
+      // S3/Spaces upload - replace Spaces URL with CDN URL
+      const spacesUrl = (req.file as any).location;
+      const cdnEndpoint = process.env.SPACES_CDN_ENDPOINT;
+      const spacesEndpoint = process.env.SPACES_ENDPOINT || 'https://nyc3.digitaloceanspaces.com';
+      const bucket = process.env.SPACES_BUCKET || 'contrezz-uploads';
+      
+      // Replace Spaces endpoint with CDN endpoint
+      if (cdnEndpoint && spacesUrl.includes(bucket)) {
+        // Extract the path after the bucket name
+        const urlParts = spacesUrl.split(`${bucket}/`);
+        if (urlParts.length > 1) {
+          logoUrl = `${cdnEndpoint}/${urlParts[1]}`;
+        } else {
+          logoUrl = spacesUrl;
+        }
+      } else {
+        logoUrl = spacesUrl;
+      }
     } else {
       // Local storage - build relative path
       const relativePath = `logos/${req.file.filename}`;
@@ -221,8 +237,23 @@ router.post('/settings/upload-favicon', adminOnly, uploadFavicon.single('favicon
     // Get the public URL for the uploaded file
     let faviconUrl: string;
     if ('location' in req.file) {
-      // S3/Spaces upload - use the location URL
-      faviconUrl = (req.file as any).location;
+      // S3/Spaces upload - replace Spaces URL with CDN URL
+      const spacesUrl = (req.file as any).location;
+      const cdnEndpoint = process.env.SPACES_CDN_ENDPOINT;
+      const bucket = process.env.SPACES_BUCKET || 'contrezz-uploads';
+      
+      // Replace Spaces endpoint with CDN endpoint
+      if (cdnEndpoint && spacesUrl.includes(bucket)) {
+        // Extract the path after the bucket name
+        const urlParts = spacesUrl.split(`${bucket}/`);
+        if (urlParts.length > 1) {
+          faviconUrl = `${cdnEndpoint}/${urlParts[1]}`;
+        } else {
+          faviconUrl = spacesUrl;
+        }
+      } else {
+        faviconUrl = spacesUrl;
+      }
     } else {
       // Local storage - build relative path
       const relativePath = `favicons/${req.file.filename}`;
