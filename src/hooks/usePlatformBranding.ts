@@ -23,8 +23,9 @@ export function usePlatformBranding() {
     if (branding.faviconUrl) {
       updateFavicon(branding.faviconUrl);
     } else {
-      // Reset to default favicon
-      updateFavicon('/favicon.ico');
+      // Set a lightweight inline default favicon to avoid 404s in production
+      const defaultFavicon = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%23ff7a00'/></svg>";
+      updateFavicon(defaultFavicon);
     }
   }, [branding.faviconUrl]);
 

@@ -27,11 +27,13 @@ export const initializeSocket = (token: string): Socket => {
 
   console.log('🔌 Initializing Socket.io connection...');
 
+  const transports = import.meta.env.PROD ? ['polling'] : ['websocket', 'polling'];
+
   socket = io(serverUrl, {
     auth: {
       token
     },
-    transports: ['websocket', 'polling'],
+    transports,
     reconnection: true,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
