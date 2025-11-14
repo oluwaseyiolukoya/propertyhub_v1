@@ -26,6 +26,7 @@ import {
 import { toast } from 'sonner';
 import { PasswordSetup } from './PasswordSetup';
 import { Footer } from './Footer';
+import { PlatformLogo } from './PlatformLogo';
 import { login, setupPassword } from '../lib/api';
 
 interface LoginPageProps {
@@ -225,11 +226,16 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
           <div className="flex justify-between items-center h-16">
             <button
               onClick={onBackToHome}
-              className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+              className="hover:opacity-80 transition-opacity"
             >
-              <Building className="h-8 w-8 text-blue-600" />
-              <h1 className="text-xl font-bold text-gray-900">Contrezz</h1>
-              <Badge variant="secondary" className="ml-2">SaaS</Badge>
+              <div className="flex items-center space-x-2">
+                <PlatformLogo
+                  iconClassName="h-8 w-8 text-blue-600"
+                  textClassName="text-xl font-bold text-gray-900"
+                  showText={true}
+                />
+                <Badge variant="secondary">SaaS</Badge>
+              </div>
             </button>
 
             <Button variant="ghost" onClick={onBackToHome} className="flex items-center space-x-2">
