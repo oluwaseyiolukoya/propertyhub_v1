@@ -309,9 +309,13 @@ export function PlatformSettings() {
       if (logoResponse.ok) {
         const logoData = await logoResponse.json();
         if (logoData.value) {
+          // If value is already a full URL, use it as-is; otherwise prepend API_BASE_URL
+          const logoUrl = (logoData.value.startsWith('http://') || logoData.value.startsWith('https://'))
+            ? logoData.value
+            : `${API_BASE_URL}${logoData.value}`;
           setSettings(prev => ({
             ...prev,
-            general: { ...prev.general, logoUrl: `${API_BASE_URL}${logoData.value}` }
+            general: { ...prev.general, logoUrl }
           }));
         }
       }
@@ -321,9 +325,13 @@ export function PlatformSettings() {
       if (faviconResponse.ok) {
         const faviconData = await faviconResponse.json();
         if (faviconData.value) {
+          // If value is already a full URL, use it as-is; otherwise prepend API_BASE_URL
+          const faviconUrl = (faviconData.value.startsWith('http://') || faviconData.value.startsWith('https://'))
+            ? faviconData.value
+            : `${API_BASE_URL}${faviconData.value}`;
           setSettings(prev => ({
             ...prev,
-            general: { ...prev.general, faviconUrl: `${API_BASE_URL}${faviconData.value}` }
+            general: { ...prev.general, faviconUrl }
           }));
         }
       }
