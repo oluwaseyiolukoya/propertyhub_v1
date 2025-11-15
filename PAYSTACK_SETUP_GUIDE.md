@@ -270,7 +270,7 @@ curl https://api.paystack.co/transaction/initialize \
   "publicKey": "pk_live_your_live_public_key",
   "testMode": false
 }
-```
+   ```
 
 3. **Set Environment Variable:**
 ```env

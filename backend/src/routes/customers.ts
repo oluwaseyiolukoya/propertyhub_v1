@@ -6,6 +6,7 @@ import prisma from "../lib/db";
 import { emitToAdmins, emitToCustomer } from "../lib/socket";
 import { captureSnapshotOnChange } from "../lib/mrr-snapshot";
 import { calculateTrialEndDate } from "../lib/trial-config";
+import { sendCustomerInvitation } from "../lib/email";
 
 const router = express.Router();
 
@@ -161,6 +162,14 @@ router.get("/:id", async (req: AuthRequest, res: Response) => {
           orderBy: { createdAt: "desc" },
           take: 10,
         },
+        onboarding_applications: {
+          select: {
+            id: true,
+            applicationType: true,
+            companyName: true,
+            metadata: true,
+          },
+        },
       },
     });
 
@@ -207,6 +216,7 @@ router.post("/", async (req: AuthRequest, res: Response) => {
       units, // Accept units count
       status,
       sendInvitation,
+      temporaryPassword, // Password from frontend
       notes,
     } = req.body;
 
@@ -352,8 +362,16 @@ router.post("/", async (req: AuthRequest, res: Response) => {
     );
 
     // Create owner user
-    const tempPassword = Math.random().toString(36).slice(-8);
+    // Use password from frontend if provided, otherwise generate one
+    const tempPassword =
+      temporaryPassword || Math.random().toString(36).slice(-8);
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+    console.log("🔐 Using password for customer creation:", {
+      providedByFrontend: !!temporaryPassword,
+      passwordLength: tempPassword.length,
+      email: email,
+    });
 
     const ownerUser = await prisma.users.create({
       data: {
@@ -361,7 +379,7 @@ router.post("/", async (req: AuthRequest, res: Response) => {
         customerId: customer.id,
         name: owner,
         email,
-        password: sendInvitation ? null : hashedPassword,
+        password: hashedPassword, // Always store password (required for login)
         phone,
         role: userRole,
         status: sendInvitation ? "pending" : "active",
@@ -471,7 +489,65 @@ router.post("/", async (req: AuthRequest, res: Response) => {
       // Continue anyway - don't fail customer creation
     }
 
-    // TODO: Send invitation email if sendInvitation is true
+    // Send invitation email if requested
+    if (sendInvitation) {
+      try {
+        // Validate email configuration before attempting to send
+        if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+          console.error(
+            "❌ Email configuration missing: SMTP_USER or SMTP_PASS not set"
+          );
+          console.error(
+            "⚠️ Customer created but invitation email NOT sent. Please configure SMTP settings."
+          );
+        } else {
+          console.log("📧 Attempting to send invitation email to:", email);
+          console.log(
+            "🔐 Password being sent in email:",
+            tempPassword.substring(0, 4) + "****"
+          );
+          console.log("📋 Customer type:", customerType || "property_owner");
+          console.log(
+            "📧 SMTP Host:",
+            process.env.SMTP_HOST || "mail.privateemail.com"
+          );
+          console.log("📧 SMTP Port:", process.env.SMTP_PORT || "465");
+
+          const emailSent = await sendCustomerInvitation({
+            customerName: owner,
+            customerEmail: email,
+            companyName: company,
+            tempPassword: tempPassword,
+            planName: plan?.name,
+            customerType: customerType || "property_owner",
+          });
+
+          if (emailSent) {
+            console.log(
+              "✅ Customer invitation email sent successfully to:",
+              email
+            );
+          } else {
+            console.error("❌ Email function returned false for:", email);
+          }
+        }
+      } catch (emailError: any) {
+        console.error(
+          "❌ Failed to send customer invitation email to:",
+          email,
+          "Error:",
+          emailError?.message || emailError
+        );
+        console.error("📧 Email error details:", {
+          code: emailError?.code,
+          command: emailError?.command,
+          response: emailError?.response,
+          responseCode: emailError?.responseCode,
+          stack: emailError?.stack,
+        });
+        // Don't fail customer creation if email fails
+      }
+    }
 
     // Emit real-time event to all admins
     emitToAdmins("customer:created", {
@@ -481,11 +557,13 @@ router.post("/", async (req: AuthRequest, res: Response) => {
       },
     });
 
+    // Return customer data in the format expected by frontend
+    // Frontend expects response.data to be the Customer object directly
     return res.status(201).json({
-      customer,
+      ...customer,
       owner: ownerUser,
-      invoice, // Include invoice in response
-      ...(!sendInvitation && { tempPassword }),
+      invoice,
+      tempPassword: !sendInvitation ? tempPassword : undefined,
     });
   } catch (error: any) {
     console.error("Create customer error:", error);
