@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Plus,
-  Upload,
-  Download,
   Filter,
   Search,
   Trash2,
-  Wallet,
   Edit,
+  MoreVertical,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -30,13 +30,6 @@ import {
   SelectValue,
 } from '../../../components/ui/select';
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '../../../components/ui/sheet';
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -54,133 +47,74 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../../../components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../../components/ui/dropdown-menu';
 import { Textarea } from '../../../components/ui/textarea';
 import { toast } from 'sonner';
-
-interface BudgetLine {
-  id: number;
-  category: string;
-  planned: number;
-  actual: number;
-  variance: number;
-  status: string;
-  phase: string;
-}
+import { useBudgetLineItems } from '../hooks/useDeveloperDashboardData';
+import {
+  createBudgetLineItem,
+  updateBudgetLineItem,
+  deleteBudgetLineItem,
+} from '../services/developerDashboard.api';
+import type { BudgetLineItem } from '../types';
 
 interface BudgetManagementPageProps {
   projectId: string;
 }
 
-// Mock project data - will be replaced with API call
-const mockProject = {
-  id: 'proj-1',
-  name: 'Lekki Heights Residential',
-  stage: 'Construction Phase',
-  region: 'Lagos, Nigeria',
-  status: 'Active',
-  budget: 3500000000,
-};
-
-// Initial budget data
-const initialBudgetData: BudgetLine[] = [
-  {
-    id: 1,
-    category: 'Foundation & Structure',
-    planned: 950000000,
-    actual: 920000000,
-    variance: -3.2,
-    status: 'On Track',
-    phase: 'Construction',
-  },
-  {
-    id: 2,
-    category: 'MEP Systems',
-    planned: 620000000,
-    actual: 714000000,
-    variance: 15.2,
-    status: 'Over Budget',
-    phase: 'Construction',
-  },
-  {
-    id: 3,
-    category: 'Interior Finishing',
-    planned: 480000000,
-    actual: 518400000,
-    variance: 8.0,
-    status: 'Warning',
-    phase: 'Construction',
-  },
-  {
-    id: 4,
-    category: 'Exterior & Sitework',
-    planned: 320000000,
-    actual: 304000000,
-    variance: -5.0,
-    status: 'Under Budget',
-    phase: 'Construction',
-  },
-  {
-    id: 5,
-    category: 'Equipment & Fixtures',
-    planned: 280000000,
-    actual: 294000000,
-    variance: 5.0,
-    status: 'Warning',
-    phase: 'Completion',
-  },
-  {
-    id: 6,
-    category: 'Landscaping',
-    planned: 150000000,
-    actual: 0,
-    variance: 0,
-    status: 'Not Started',
-    phase: 'Planning',
-  },
-  {
-    id: 7,
-    category: 'Permits & Fees',
-    planned: 85000000,
-    actual: 82500000,
-    variance: -2.9,
-    status: 'On Track',
-    phase: 'Planning',
-  },
-  {
-    id: 8,
-    category: 'Contingency',
-    planned: 350000000,
-    actual: 120000000,
-    variance: -65.7,
-    status: 'Reserve',
-    phase: 'All Phases',
-  },
+// Budget categories
+const BUDGET_CATEGORIES = [
+  'labor',
+  'materials',
+  'equipment',
+  'permits',
+  'professional-fees',
+  'contingency',
+  'utilities',
+  'insurance',
+  'other',
 ];
 
+// Budget status types
+type BudgetStatus = 'on-track' | 'warning' | 'over-budget' | 'under-budget' | 'not-started';
+
 export const BudgetManagementPage: React.FC<BudgetManagementPageProps> = ({ projectId }) => {
-  const [budgetData, setBudgetData] = useState<BudgetLine[]>(initialBudgetData);
-  const [selectedBudget, setSelectedBudget] = useState<BudgetLine | null>(null);
-  const [filterPhase, setFilterPhase] = useState('all');
+  const { data: budgetItems, loading, error, refetch } = useBudgetLineItems(projectId);
+
+  const [selectedBudget, setSelectedBudget] = useState<BudgetLineItem | null>(null);
+  const [filterCategory, setFilterCategory] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [budgetToDelete, setBudgetToDelete] = useState<BudgetLineItem | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   const [newBudgetLine, setNewBudgetLine] = useState({
     category: '',
-    planned: '',
-    actual: '',
-    phase: '',
-    notes: '',
-  });
-  const [editBudgetLine, setEditBudgetLine] = useState({
-    category: '',
-    planned: '',
-    actual: '',
-    phase: '',
+    subcategory: '',
+    description: '',
+    plannedAmount: '',
+    startDate: '',
+    endDate: '',
     notes: '',
   });
 
-  const project = mockProject;
+  const [editBudgetLine, setEditBudgetLine] = useState({
+    category: '',
+    subcategory: '',
+    description: '',
+    plannedAmount: '',
+    startDate: '',
+    endDate: '',
+    notes: '',
+  });
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-NG', {
@@ -190,269 +124,284 @@ export const BudgetManagementPage: React.FC<BudgetManagementPageProps> = ({ proj
     }).format(value);
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'On Track':
-        return <Badge className="bg-green-500 hover:bg-green-600 text-white">On Track</Badge>;
-      case 'Over Budget':
-        return <Badge variant="destructive">Over Budget</Badge>;
-      case 'Warning':
-        return <Badge className="bg-amber-500 hover:bg-amber-600 text-white">Warning</Badge>;
-      case 'Under Budget':
-        return <Badge className="bg-blue-500 hover:bg-blue-600 text-white">Under Budget</Badge>;
-      case 'Not Started':
-        return <Badge variant="outline">Not Started</Badge>;
-      case 'Reserve':
-        return <Badge variant="secondary">Reserve</Badge>;
-      default:
-        return <Badge>{status}</Badge>;
+  const formatCategoryName = (category: string) => {
+    const categoryMap: Record<string, string> = {
+      'labor': 'Labor',
+      'materials': 'Materials',
+      'equipment': 'Equipment',
+      'permits': 'Permits',
+      'professional-fees': 'Professional Fees',
+      'contingency': 'Contingency',
+      'utilities': 'Utilities',
+      'insurance': 'Insurance',
+      'other': 'Other',
+    };
+    return categoryMap[category] || category.charAt(0).toUpperCase() + category.slice(1);
+  };
+
+  const getStatusBadge = (item: BudgetLineItem) => {
+    const variance = item.variance || 0;
+    const variancePercent = item.variancePercent || 0;
+
+    if (item.actualAmount === 0) {
+      return <Badge variant="outline">Not Started</Badge>;
+    } else if (variancePercent <= -10) {
+      return <Badge className="bg-blue-500 hover:bg-blue-600 text-white">Under Budget</Badge>;
+    } else if (variancePercent < 0) {
+      return <Badge className="bg-green-500 hover:bg-green-600 text-white">On Track</Badge>;
+    } else if (variancePercent <= 10) {
+      return <Badge className="bg-amber-500 hover:bg-amber-600 text-white">Warning</Badge>;
+    } else {
+      return <Badge variant="destructive">Over Budget</Badge>;
     }
   };
 
-  const filteredData = budgetData.filter((item) => {
-    const matchesPhase = filterPhase === 'all' || item.phase === filterPhase;
+  const filteredData = budgetItems.filter((item) => {
+    const matchesCategory = filterCategory === 'all' || item.category === filterCategory;
     const matchesSearch =
-      !searchTerm ||
-      item.category.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesPhase && matchesSearch;
+      item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.subcategory && item.subcategory.toLowerCase().includes(searchTerm.toLowerCase()));
+    return matchesCategory && matchesSearch;
   });
 
-  const handleAddBudgetLine = () => {
-    const planned = parseFloat(newBudgetLine.planned);
-    const actual = parseFloat(newBudgetLine.actual) || 0;
-    const variance = planned > 0 ? ((actual - planned) / planned) * 100 : 0;
-
-    let status = 'Not Started';
-    if (actual === 0) {
-      status = 'Not Started';
-    } else if (variance > 10) {
-      status = 'Over Budget';
-    } else if (variance > 5) {
-      status = 'Warning';
-    } else if (variance < -5) {
-      status = 'Under Budget';
-    } else {
-      status = 'On Track';
-    }
-
-    const newLine: BudgetLine = {
-      id: Math.max(...budgetData.map((b) => b.id), 0) + 1,
-      category: newBudgetLine.category,
-      planned,
-      actual,
-      variance,
-      status,
-      phase: newBudgetLine.phase,
-    };
-
-    setBudgetData([...budgetData, newLine]);
-    setIsAddDialogOpen(false);
-    setNewBudgetLine({
-      category: '',
-      planned: '',
-      actual: '',
-      phase: '',
-      notes: '',
-    });
-
-    toast.success('Budget line added successfully', {
-      description: `${newBudgetLine.category} has been added to ${project.name}.`,
-    });
-  };
-
-  const handleEditBudgetLine = () => {
-    if (!selectedBudget) return;
-
-    const planned = parseFloat(editBudgetLine.planned);
-    const actual = parseFloat(editBudgetLine.actual) || 0;
-    const variance = planned > 0 ? ((actual - planned) / planned) * 100 : 0;
-
-    let status = 'Not Started';
-    if (actual === 0) {
-      status = 'Not Started';
-    } else if (variance > 10) {
-      status = 'Over Budget';
-    } else if (variance > 5) {
-      status = 'Warning';
-    } else if (variance < -5) {
-      status = 'Under Budget';
-    } else {
-      status = 'On Track';
-    }
-
-    const updatedLine: BudgetLine = {
-      id: selectedBudget.id,
-      category: editBudgetLine.category,
-      planned,
-      actual,
-      variance,
-      status,
-      phase: editBudgetLine.phase,
-    };
-
-    setBudgetData(budgetData.map((b) => (b.id === selectedBudget.id ? updatedLine : b)));
-    setIsEditDialogOpen(false);
-    setSelectedBudget(null);
-
-    toast.success('Budget line updated successfully', {
-      description: `${editBudgetLine.category} has been updated.`,
-    });
-  };
-
-  const openEditDialog = () => {
-    if (selectedBudget) {
-      setEditBudgetLine({
-        category: selectedBudget.category,
-        planned: selectedBudget.planned.toString(),
-        actual: selectedBudget.actual.toString(),
-        phase: selectedBudget.phase,
-        notes: '',
-      });
-      setIsEditDialogOpen(true);
-    }
-  };
-
-  const handleDeleteBudgetLine = () => {
-    if (!selectedBudget) return;
-
-    setBudgetData(budgetData.filter((b) => b.id !== selectedBudget.id));
-    setIsDeleteDialogOpen(false);
-    setSelectedBudget(null);
-
-    toast.success('Budget line deleted successfully', {
-      description: `${selectedBudget.category} has been removed from ${project.name}.`,
-    });
-  };
-
-  const isFormValid = () => {
-    return (
-      newBudgetLine.category.trim() !== '' &&
-      newBudgetLine.planned.trim() !== '' &&
-      !isNaN(parseFloat(newBudgetLine.planned)) &&
-      parseFloat(newBudgetLine.planned) > 0 &&
-      newBudgetLine.phase !== ''
-    );
-  };
-
-  const isEditFormValid = () => {
-    return (
-      editBudgetLine.category.trim() !== '' &&
-      editBudgetLine.planned.trim() !== '' &&
-      !isNaN(parseFloat(editBudgetLine.planned)) &&
-      parseFloat(editBudgetLine.planned) > 0 &&
-      editBudgetLine.phase !== ''
-    );
-  };
-
   // Calculate totals
-  const totalPlanned = budgetData.reduce((sum, item) => sum + item.planned, 0);
-  const totalActual = budgetData.reduce((sum, item) => sum + item.actual, 0);
-  const totalVariance = totalPlanned - totalActual;
-  const budgetUtilization = totalPlanned > 0 ? (totalActual / totalPlanned) * 100 : 0;
+  const totalPlanned = budgetItems.reduce((sum, item) => sum + item.plannedAmount, 0);
+  const totalActual = budgetItems.reduce((sum, item) => sum + item.actualAmount, 0);
+  const totalVariance = totalActual - totalPlanned;
+  const totalVariancePercent = totalPlanned > 0 ? (totalVariance / totalPlanned) * 100 : 0;
+
+  const handleAddBudget = async () => {
+    if (!newBudgetLine.category || !newBudgetLine.description || !newBudgetLine.plannedAmount) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const response = await createBudgetLineItem(projectId, {
+        category: newBudgetLine.category,
+        subcategory: newBudgetLine.subcategory || undefined,
+        description: newBudgetLine.description,
+        plannedAmount: parseFloat(newBudgetLine.plannedAmount),
+        startDate: newBudgetLine.startDate || undefined,
+        endDate: newBudgetLine.endDate || undefined,
+        notes: newBudgetLine.notes || undefined,
+      });
+
+      if (response.success) {
+        toast.success('Budget line item created successfully');
+        setIsAddDialogOpen(false);
+        setNewBudgetLine({
+          category: '',
+          subcategory: '',
+          description: '',
+          plannedAmount: '',
+          startDate: '',
+          endDate: '',
+          notes: '',
+        });
+        refetch();
+      } else {
+        toast.error(response.error || 'Failed to create budget line item');
+      }
+    } catch (error) {
+      console.error('Error creating budget line item:', error);
+      toast.error('Failed to create budget line item');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleEditBudget = async () => {
+    if (!selectedBudget) return;
+
+    if (!editBudgetLine.category || !editBudgetLine.description || !editBudgetLine.plannedAmount) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const response = await updateBudgetLineItem(projectId, selectedBudget.id, {
+        category: editBudgetLine.category,
+        subcategory: editBudgetLine.subcategory || undefined,
+        description: editBudgetLine.description,
+        plannedAmount: parseFloat(editBudgetLine.plannedAmount),
+        startDate: editBudgetLine.startDate || undefined,
+        endDate: editBudgetLine.endDate || undefined,
+        notes: editBudgetLine.notes || undefined,
+      });
+
+      if (response.success) {
+        toast.success('Budget line item updated successfully');
+        setIsEditDialogOpen(false);
+        setSelectedBudget(null);
+        refetch();
+      } else {
+        toast.error(response.error || 'Failed to update budget line item');
+      }
+    } catch (error) {
+      console.error('Error updating budget line item:', error);
+      toast.error('Failed to update budget line item');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteClick = (item: BudgetLineItem) => {
+    setBudgetToDelete(item);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!budgetToDelete) return;
+
+    setDeleting(true);
+    try {
+      const response = await deleteBudgetLineItem(projectId, budgetToDelete.id);
+
+      if (response.success) {
+        toast.success('Budget line item deleted successfully');
+        setIsDeleteDialogOpen(false);
+        setBudgetToDelete(null);
+        refetch();
+      } else {
+        toast.error(response.error || 'Failed to delete budget line item');
+      }
+    } catch (error) {
+      console.error('Error deleting budget line item:', error);
+      toast.error('Failed to delete budget line item');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const openEditDialog = (item: BudgetLineItem) => {
+    setSelectedBudget(item);
+    setEditBudgetLine({
+      category: item.category,
+      subcategory: item.subcategory || '',
+      description: item.description,
+      plannedAmount: item.plannedAmount.toString(),
+      startDate: item.startDate ? new Date(item.startDate).toISOString().split('T')[0] : '',
+      endDate: item.endDate ? new Date(item.endDate).toISOString().split('T')[0] : '',
+      notes: item.notes || '',
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <span className="ml-2 text-gray-600">Loading budget data...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to load budget data</h3>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <Button onClick={() => refetch()}>Try Again</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Budget Management</h1>
-          <p className="text-gray-600">Manage and track project budget allocations</p>
+          <h1 className="text-2xl font-bold text-gray-900">Budget Management</h1>
+          <p className="text-gray-600 mt-1">Track and manage project budget allocations</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="gap-2">
-            <Upload className="w-4 h-4" />
-            Import CSV
-          </Button>
-          <Button variant="outline" className="gap-2">
-            <Download className="w-4 h-4" />
-            Export
-          </Button>
-          <Button className="gap-2 bg-blue-600 hover:bg-blue-700" onClick={() => setIsAddDialogOpen(true)}>
-            <Plus className="w-4 h-4" />
-            Add Budget Line
-          </Button>
-        </div>
+        <Button onClick={() => setIsAddDialogOpen(true)} className="bg-blue-600 hover:bg-blue-700">
+          <Plus className="h-4 w-4 mr-2" />
+          Add Budget Line
+        </Button>
       </div>
 
-      {/* Project Info Card */}
-      <Card className="bg-gradient-to-r from-blue-50 to-teal-50 border-blue-200">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600 mb-1">Current Project</p>
-              <h3 className="text-xl font-bold text-gray-900 mb-1">{project.name}</h3>
-              <div className="flex items-center gap-4 text-sm text-gray-600">
-                <span>{project.stage}</span>
-                <span>•</span>
-                <span>{project.region}</span>
-                <span>•</span>
-                <Badge variant="outline">{project.status}</Badge>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-600 mb-1">Total Project Budget</p>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(project.budget)}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-gray-600 mb-1">Total Planned</p>
-            <p className="text-xl font-bold text-gray-900">{formatCurrency(totalPlanned)}</p>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Total Budget</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-900">{formatCurrency(totalPlanned)}</div>
           </CardContent>
         </Card>
+
         <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-gray-600 mb-1">Total Actual</p>
-            <p className="text-xl font-bold text-gray-900">{formatCurrency(totalActual)}</p>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Actual Spend</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-900">{formatCurrency(totalActual)}</div>
           </CardContent>
         </Card>
+
         <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-gray-600 mb-1">Total Variance</p>
-            <p className={`text-xl font-bold ${totalVariance < 0 ? 'text-red-600' : 'text-green-600'}`}>
-              {formatCurrency(Math.abs(totalVariance))}
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Variance</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${totalVariance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+              {totalVariance > 0 ? '+' : ''}{formatCurrency(totalVariance)}
+            </div>
+            <p className={`text-sm ${totalVariancePercent > 0 ? 'text-red-600' : 'text-green-600'}`}>
+              {totalVariancePercent > 0 ? '+' : ''}{totalVariancePercent.toFixed(1)}%
             </p>
           </CardContent>
         </Card>
+
         <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-gray-600 mb-1">Budget Utilization</p>
-            <p className="text-xl font-bold text-gray-900">{budgetUtilization.toFixed(1)}%</p>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Budget Items</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-900">{budgetItems.length}</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
       <Card>
-        <CardContent className="p-4">
-          <div className="flex gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Search budget categories..."
-                className="pl-10"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+        <CardContent className="pt-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search budget items..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </div>
-            <Select value={filterPhase} onValueChange={setFilterPhase}>
-              <SelectTrigger className="w-48">
-                <Filter className="w-4 h-4 mr-2" />
-                <SelectValue placeholder="Filter by phase" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Phases</SelectItem>
-                <SelectItem value="Planning">Planning</SelectItem>
-                <SelectItem value="Construction">Construction</SelectItem>
-                <SelectItem value="Completion">Completion</SelectItem>
-                <SelectItem value="All Phases">All Phases</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="w-full md:w-64">
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger>
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Filter by category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {BUDGET_CATEGORIES.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {formatCategoryName(category)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -460,345 +409,329 @@ export const BudgetManagementPage: React.FC<BudgetManagementPageProps> = ({ proj
       {/* Budget Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Budget Lines</CardTitle>
+          <CardTitle>Budget Line Items</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Category</TableHead>
-                <TableHead>Phase</TableHead>
-                <TableHead className="text-right">Planned Amount</TableHead>
-                <TableHead className="text-right">Actual Amount</TableHead>
-                <TableHead className="text-right">Variance</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredData.length > 0 ? (
-                filteredData.map((item) => (
-                  <TableRow
-                    key={item.id}
-                    className="cursor-pointer hover:bg-gray-50"
-                    onClick={() => setSelectedBudget(item)}
-                  >
-                    <TableCell className="font-medium">{item.category}</TableCell>
-                    <TableCell>{item.phase}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(item.planned)}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(item.actual)}</TableCell>
-                    <TableCell
-                      className={`text-right font-medium ${
-                        item.variance > 0 ? 'text-red-600' : 'text-green-600'
-                      }`}
-                    >
-                      {item.variance > 0 ? '+' : ''}
-                      {item.variance.toFixed(1)}%
-                    </TableCell>
-                    <TableCell>{getStatusBadge(item.status)}</TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm">
-                        View
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12">
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
-                        <Wallet className="w-8 h-8 text-gray-400" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900 mb-1">No budget lines yet</p>
-                        <p className="text-sm text-gray-500">
-                          Click "Add Budget Line" to create your first budget item
-                        </p>
-                      </div>
-                      <Button onClick={() => setIsAddDialogOpen(true)} className="mt-2 gap-2">
-                        <Plus className="w-4 h-4" />
-                        Add Budget Line
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
+          {filteredData.length === 0 ? (
+            <div className="text-center py-12">
+              <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No budget items found</h3>
+              <p className="text-gray-600 mb-4">
+                {searchTerm || filterCategory !== 'all'
+                  ? 'Try adjusting your filters'
+                  : 'Get started by adding your first budget line item'}
+              </p>
+              {!searchTerm && filterCategory === 'all' && (
+                <Button onClick={() => setIsAddDialogOpen(true)} className="bg-blue-600 hover:bg-blue-700">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Budget Line
+                </Button>
               )}
-            </TableBody>
-          </Table>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="text-right">Planned</TableHead>
+                    <TableHead className="text-right">Actual</TableHead>
+                    <TableHead className="text-right">Variance</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredData.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{formatCategoryName(item.category)}</div>
+                          {item.subcategory && (
+                            <div className="text-sm text-gray-500">{item.subcategory}</div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="max-w-xs">
+                          <div className="font-medium">{item.description}</div>
+                          {item.notes && (
+                            <div className="text-sm text-gray-500 truncate">{item.notes}</div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {formatCurrency(item.plannedAmount)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(item.actualAmount)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className={item.variance > 0 ? 'text-red-600' : 'text-green-600'}>
+                          {item.variance > 0 ? '+' : ''}{formatCurrency(item.variance)}
+                          <div className="text-xs">
+                            ({item.variancePercent > 0 ? '+' : ''}{item.variancePercent.toFixed(1)}%)
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{getStatusBadge(item)}</TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEditDialog(item)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteClick(item)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Side Panel */}
-      <Sheet open={!!selectedBudget} onOpenChange={() => setSelectedBudget(null)}>
-        <SheetContent className="w-[400px] sm:w-[540px]">
-          <SheetHeader>
-            <SheetTitle>Budget Line Details</SheetTitle>
-            <SheetDescription>{selectedBudget?.category}</SheetDescription>
-          </SheetHeader>
-          {selectedBudget && (
-            <div className="mt-6 space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Planned Amount</p>
-                  <p className="font-semibold text-gray-900">{formatCurrency(selectedBudget.planned)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Actual Amount</p>
-                  <p className="font-semibold text-gray-900">{formatCurrency(selectedBudget.actual)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Variance</p>
-                  <p
-                    className={`font-semibold ${
-                      selectedBudget.variance > 0 ? 'text-red-600' : 'text-green-600'
-                    }`}
-                  >
-                    {selectedBudget.variance > 0 ? '+' : ''}
-                    {selectedBudget.variance.toFixed(1)}%
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Status</p>
-                  {getStatusBadge(selectedBudget.status)}
-                </div>
-              </div>
-
-              <div>
-                <p className="text-sm text-gray-600 mb-2">Phase</p>
-                <Badge variant="outline">{selectedBudget.phase}</Badge>
-              </div>
-
-              <div>
-                <p className="text-sm text-gray-600 mb-2">Notes</p>
-                <p className="text-sm text-gray-700">
-                  This budget line includes all costs associated with {selectedBudget.category.toLowerCase()}.
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-2 pt-4">
-                <div className="flex gap-2">
-                  <Button className="flex-1" onClick={openEditDialog}>
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit Budget Line
-                  </Button>
-                  <Button variant="outline" className="flex-1">
-                    View Transactions
-                  </Button>
-                </div>
-                <Button
-                  variant="destructive"
-                  className="w-full gap-2"
-                  onClick={() => setIsDeleteDialogOpen(true)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Delete Budget Line
-                </Button>
-              </div>
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
-
-      {/* Add Budget Line Dialog */}
+      {/* Add Budget Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Add Budget Line</DialogTitle>
-            <DialogDescription>Create a new budget line item for your project.</DialogDescription>
+            <DialogTitle>Add Budget Line Item</DialogTitle>
+            <DialogDescription>
+              Create a new budget line item for this project
+            </DialogDescription>
           </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="category">
-                Category <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="category"
-                placeholder="e.g., HVAC Installation"
-                value={newBudgetLine.category}
-                onChange={(e) => setNewBudgetLine({ ...newBudgetLine, category: e.target.value })}
-              />
-            </div>
-
+          <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="planned">
-                  Planned Amount (₦) <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="planned"
-                  type="number"
-                  placeholder="250000000"
-                  value={newBudgetLine.planned}
-                  onChange={(e) => setNewBudgetLine({ ...newBudgetLine, planned: e.target.value })}
-                />
+                <Label htmlFor="category">Category *</Label>
+                <Select
+                  value={newBudgetLine.category}
+                  onValueChange={(value) => setNewBudgetLine({ ...newBudgetLine, category: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BUDGET_CATEGORIES.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {formatCategoryName(category)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="actual">Actual Amount (₦)</Label>
+                <Label htmlFor="subcategory">Subcategory</Label>
                 <Input
-                  id="actual"
-                  type="number"
-                  placeholder="0"
-                  value={newBudgetLine.actual}
-                  onChange={(e) => setNewBudgetLine({ ...newBudgetLine, actual: e.target.value })}
+                  id="subcategory"
+                  value={newBudgetLine.subcategory}
+                  onChange={(e) => setNewBudgetLine({ ...newBudgetLine, subcategory: e.target.value })}
+                  placeholder="e.g., Skilled labor"
                 />
               </div>
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="phase">
-                Phase <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={newBudgetLine.phase}
-                onValueChange={(value) => setNewBudgetLine({ ...newBudgetLine, phase: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select project phase" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Planning">Planning</SelectItem>
-                  <SelectItem value="Construction">Construction</SelectItem>
-                  <SelectItem value="Completion">Completion</SelectItem>
-                  <SelectItem value="All Phases">All Phases</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="description">Description *</Label>
+              <Input
+                id="description"
+                value={newBudgetLine.description}
+                onChange={(e) => setNewBudgetLine({ ...newBudgetLine, description: e.target.value })}
+                placeholder="e.g., Construction labor costs"
+              />
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="notes">Notes (Optional)</Label>
+              <Label htmlFor="plannedAmount">Planned Amount *</Label>
+              <Input
+                id="plannedAmount"
+                type="number"
+                value={newBudgetLine.plannedAmount}
+                onChange={(e) => setNewBudgetLine({ ...newBudgetLine, plannedAmount: e.target.value })}
+                placeholder="0"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="startDate">Start Date</Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  value={newBudgetLine.startDate}
+                  onChange={(e) => setNewBudgetLine({ ...newBudgetLine, startDate: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="endDate">End Date</Label>
+                <Input
+                  id="endDate"
+                  type="date"
+                  value={newBudgetLine.endDate}
+                  onChange={(e) => setNewBudgetLine({ ...newBudgetLine, endDate: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
               <Textarea
                 id="notes"
-                placeholder="Add any additional notes or details..."
-                rows={3}
                 value={newBudgetLine.notes}
                 onChange={(e) => setNewBudgetLine({ ...newBudgetLine, notes: e.target.value })}
+                placeholder="Additional notes..."
+                rows={3}
               />
             </div>
           </div>
-
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsAddDialogOpen(false);
-                setNewBudgetLine({
-                  category: '',
-                  planned: '',
-                  actual: '',
-                  phase: '',
-                  notes: '',
-                });
-              }}
-            >
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={submitting}>
               Cancel
             </Button>
-            <Button onClick={handleAddBudgetLine} disabled={!isFormValid()}>
-              Add Budget Line
+            <Button onClick={handleAddBudget} disabled={submitting}>
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Create Budget Line'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Edit Budget Line Dialog */}
+      {/* Edit Budget Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Edit Budget Line</DialogTitle>
-            <DialogDescription>Update the budget line item details.</DialogDescription>
+            <DialogTitle>Edit Budget Line Item</DialogTitle>
+            <DialogDescription>
+              Update the budget line item details
+            </DialogDescription>
           </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-category">
-                Category <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="edit-category"
-                placeholder="e.g., HVAC Installation"
-                value={editBudgetLine.category}
-                onChange={(e) => setEditBudgetLine({ ...editBudgetLine, category: e.target.value })}
-              />
-            </div>
-
+          <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-planned">
-                  Planned Amount (₦) <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="edit-planned"
-                  type="number"
-                  placeholder="250000000"
-                  value={editBudgetLine.planned}
-                  onChange={(e) => setEditBudgetLine({ ...editBudgetLine, planned: e.target.value })}
-                />
+                <Label htmlFor="edit-category">Category *</Label>
+                <Select
+                  value={editBudgetLine.category}
+                  onValueChange={(value) => setEditBudgetLine({ ...editBudgetLine, category: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BUDGET_CATEGORIES.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {formatCategoryName(category)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="edit-actual">Actual Amount (₦)</Label>
+                <Label htmlFor="edit-subcategory">Subcategory</Label>
                 <Input
-                  id="edit-actual"
-                  type="number"
-                  placeholder="0"
-                  value={editBudgetLine.actual}
-                  onChange={(e) => setEditBudgetLine({ ...editBudgetLine, actual: e.target.value })}
+                  id="edit-subcategory"
+                  value={editBudgetLine.subcategory}
+                  onChange={(e) => setEditBudgetLine({ ...editBudgetLine, subcategory: e.target.value })}
+                  placeholder="e.g., Skilled labor"
                 />
               </div>
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="edit-phase">
-                Phase <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={editBudgetLine.phase}
-                onValueChange={(value) => setEditBudgetLine({ ...editBudgetLine, phase: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select project phase" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Planning">Planning</SelectItem>
-                  <SelectItem value="Construction">Construction</SelectItem>
-                  <SelectItem value="Completion">Completion</SelectItem>
-                  <SelectItem value="All Phases">All Phases</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="edit-description">Description *</Label>
+              <Input
+                id="edit-description"
+                value={editBudgetLine.description}
+                onChange={(e) => setEditBudgetLine({ ...editBudgetLine, description: e.target.value })}
+                placeholder="e.g., Construction labor costs"
+              />
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="edit-notes">Notes (Optional)</Label>
+              <Label htmlFor="edit-plannedAmount">Planned Amount *</Label>
+              <Input
+                id="edit-plannedAmount"
+                type="number"
+                value={editBudgetLine.plannedAmount}
+                onChange={(e) => setEditBudgetLine({ ...editBudgetLine, plannedAmount: e.target.value })}
+                placeholder="0"
+              />
+            </div>
+            {selectedBudget && (
+              <div className="space-y-2">
+                <Label>Actual Amount (Auto-calculated from Expenses)</Label>
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Current Actual Spend:</span>
+                    <span className="text-lg font-semibold text-gray-900">
+                      {formatCurrency(selectedBudget.actualAmount)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    This amount is automatically calculated from paid expenses in the "{formatCategoryName(selectedBudget.category)}" category.
+                  </p>
+                </div>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-startDate">Start Date</Label>
+                <Input
+                  id="edit-startDate"
+                  type="date"
+                  value={editBudgetLine.startDate}
+                  onChange={(e) => setEditBudgetLine({ ...editBudgetLine, startDate: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-endDate">End Date</Label>
+                <Input
+                  id="edit-endDate"
+                  type="date"
+                  value={editBudgetLine.endDate}
+                  onChange={(e) => setEditBudgetLine({ ...editBudgetLine, endDate: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-notes">Notes</Label>
               <Textarea
                 id="edit-notes"
-                placeholder="Add any additional notes or details..."
-                rows={3}
                 value={editBudgetLine.notes}
                 onChange={(e) => setEditBudgetLine({ ...editBudgetLine, notes: e.target.value })}
+                placeholder="Additional notes..."
+                rows={3}
               />
             </div>
           </div>
-
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsEditDialogOpen(false);
-                setEditBudgetLine({
-                  category: '',
-                  planned: '',
-                  actual: '',
-                  phase: '',
-                  notes: '',
-                });
-              }}
-            >
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={submitting}>
               Cancel
             </Button>
-            <Button onClick={handleEditBudgetLine} disabled={!isEditFormValid()}>
-              Save Changes
+            <Button onClick={handleEditBudget} disabled={submitting}>
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                'Update Budget Line'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -808,19 +741,35 @@ export const BudgetManagementPage: React.FC<BudgetManagementPageProps> = ({ proj
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete Budget Line Item</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the budget line "{selectedBudget?.category}". This action
-              cannot be undone.
+              Are you sure you want to delete this budget line item? This action cannot be undone.
+              {budgetToDelete && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                  <p className="font-medium">{formatCategoryName(budgetToDelete.category)}</p>
+                  <p className="text-sm text-gray-600">{budgetToDelete.description}</p>
+                  <p className="text-sm font-medium mt-2">
+                    Planned: {formatCurrency(budgetToDelete.plannedAmount)}
+                  </p>
+                </div>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteBudgetLine}
+              onClick={handleDeleteConfirm}
+              disabled={deleting}
               className="bg-red-600 hover:bg-red-700"
             >
-              Delete
+              {deleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -828,6 +777,3 @@ export const BudgetManagementPage: React.FC<BudgetManagementPageProps> = ({ proj
     </div>
   );
 };
-
-export default BudgetManagementPage;
-

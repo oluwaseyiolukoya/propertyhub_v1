@@ -7,6 +7,7 @@
 import cron from 'node-cron';
 import { captureMonthlySnapshots, captureSnapshotOnChange } from './mrr-snapshot';
 import { trialManagementService } from '../services/trial-management.service';
+import { initializeCashFlowJobs } from '../jobs/cashflow-snapshots.job';
 import prisma from './db';
 
 /**
@@ -14,6 +15,9 @@ import prisma from './db';
  */
 export function initializeCronJobs() {
   console.log('⏰ Initializing cron jobs...');
+
+  // Initialize cash flow snapshot jobs
+  initializeCashFlowJobs();
 
   // Monthly MRR Snapshot - Runs on the 1st of every month at 00:05 AM
   cron.schedule('5 0 1 * *', async () => {
