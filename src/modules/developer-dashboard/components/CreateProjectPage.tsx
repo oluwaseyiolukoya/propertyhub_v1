@@ -24,6 +24,7 @@ import { Badge } from '../../../components/ui/badge';
 import { Card, CardContent } from '../../../components/ui/card';
 import { Separator } from '../../../components/ui/separator';
 import { toast } from 'sonner';
+import { getProgressFromStage } from '../utils/projectProgress';
 
 interface CreateProjectPageProps {
   onCancel: () => void;
@@ -66,21 +67,60 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
 
   const handleCreate = async () => {
     try {
-      // TODO: Call API to create project
-      const newProjectId = `project-${Date.now()}`;
+      console.log('[CreateProject] Creating project with data:', projectData);
+
+      // Get auth token
+      const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+      if (!token) {
+        toast.error('Authentication required', {
+          description: 'Please log in again.',
+        });
+        return;
+      }
+
+      // Call API to create project
+      const response = await fetch('/api/developer-dashboard/projects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: projectData.name,
+          projectType: projectData.projectType,
+          location: projectData.location,
+          city: projectData.city,
+          state: projectData.state,
+          description: projectData.description,
+          currency: projectData.currency,
+          totalBudget: parseFloat(projectData.totalBudget) || 0,
+          startDate: projectData.startDate,
+          estimatedEndDate: projectData.estimatedEndDate,
+          stage: projectData.stage,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create project');
+      }
+
+      const newProject = await response.json();
+      console.log('[CreateProject] Project created successfully:', newProject);
 
       toast.success('Project Created Successfully', {
         description: `${projectData.name} has been created and is ready to use.`,
       });
 
       if (onProjectCreated) {
-        onProjectCreated(newProjectId);
+        onProjectCreated(newProject.id);
       }
 
       onCancel(); // Go back to portfolio
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[CreateProject] Error creating project:', error);
       toast.error('Failed to create project', {
-        description: 'Please try again or contact support.',
+        description: error.message || 'Please try again or contact support.',
       });
     }
   };
@@ -229,21 +269,29 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                     <Label htmlFor="stage">Project Stage</Label>
                     <Select
                       value={projectData.stage}
-                      onValueChange={(value) =>
-                        setProjectData({ ...projectData, stage: value })
-                      }
+                      onValueChange={(value) => {
+                        const autoProgress = getProgressFromStage(value);
+                        setProjectData({
+                          ...projectData,
+                          stage: value,
+                          progress: autoProgress.toString()
+                        });
+                      }}
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="planning">Planning</SelectItem>
-                        <SelectItem value="design">Design</SelectItem>
-                        <SelectItem value="pre-construction">Pre-Construction</SelectItem>
-                        <SelectItem value="construction">Construction</SelectItem>
-                        <SelectItem value="completion">Completion</SelectItem>
+                        <SelectItem value="planning">Planning (10% progress)</SelectItem>
+                        <SelectItem value="design">Design (30% progress)</SelectItem>
+                        <SelectItem value="pre-construction">Pre-Construction (50% progress)</SelectItem>
+                        <SelectItem value="construction">Construction (75% progress)</SelectItem>
+                        <SelectItem value="completion">Completion (95% progress)</SelectItem>
                       </SelectContent>
                     </Select>
+                    <p className="text-sm text-gray-500">
+                      Progress auto-updates based on stage
+                    </p>
                   </div>
                 </div>
 

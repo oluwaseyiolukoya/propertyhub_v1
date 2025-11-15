@@ -114,7 +114,11 @@ function App() {
     if (!currentUser) return;
     const token = safeStorage.getItem('auth_token');
     if (token) {
-      try { initializeSocket(token); } catch {}
+      // Initialize socket asynchronously without blocking the app
+      initializeSocket(token).catch((error) => {
+        // Silently handle socket initialization errors - app works without WebSocket
+        console.debug('WebSocket initialization skipped:', error?.message || 'Server unavailable');
+      });
     }
   }, [currentUser]);
 

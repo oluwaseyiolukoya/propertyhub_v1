@@ -12,6 +12,11 @@ import {
   DollarSign,
   TrendingUp,
   AlertCircle,
+  MoreVertical,
+  Edit,
+  Trash2,
+  CheckCircle,
+  RotateCcw,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -32,6 +37,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../../components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../../components/ui/dropdown-menu';
 import { Progress } from '../../../components/ui/progress';
 import KPICard from './KPICard';
 import ProjectCard from './ProjectCard';
@@ -40,11 +51,19 @@ import type { ProjectFilters, ProjectSortOptions } from '../types';
 
 interface AllProjectsPageProps {
   onViewProject: (projectId: string) => void;
+  onEditProject?: (projectId: string) => void;
+  onDeleteProject?: (projectId: string) => void;
+  onMarkAsCompleted?: (projectId: string) => void;
+  onReactivateProject?: (projectId: string) => void;
   onCreateProject: () => void;
 }
 
 export const AllProjectsPage: React.FC<AllProjectsPageProps> = ({
   onViewProject,
+  onEditProject,
+  onDeleteProject,
+  onMarkAsCompleted,
+  onReactivateProject,
   onCreateProject,
 }) => {
   const { data: overview, loading: overviewLoading } = usePortfolioOverview();
@@ -369,7 +388,7 @@ export const AllProjectsPage: React.FC<AllProjectsPageProps> = ({
                   <TableHead className="text-center">Progress</TableHead>
                   <TableHead>Health</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead></TableHead>
+                  <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -416,19 +435,77 @@ export const AllProjectsPage: React.FC<AllProjectsPageProps> = ({
                       </TableCell>
                       <TableCell>{getHealthBadge(variance)}</TableCell>
                       <TableCell>{getStatusBadge(project.status)}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="gap-2"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onViewProject(project.id);
-                          }}
-                        >
-                          <Eye className="w-4 h-4" />
-                          View
-                        </Button>
+                      <TableCell className="text-center">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onViewProject(project.id);
+                              }}
+                            >
+                              <Eye className="mr-2 h-4 w-4" />
+                              View
+                            </DropdownMenuItem>
+                            {onEditProject && (
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onEditProject(project.id);
+                                }}
+                              >
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                            )}
+                            {onMarkAsCompleted && project.status !== 'completed' && (
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onMarkAsCompleted(project.id);
+                                }}
+                                className="text-green-600 focus:text-green-600"
+                              >
+                                <CheckCircle className="mr-2 h-4 w-4" />
+                                Mark as Completed
+                              </DropdownMenuItem>
+                            )}
+                            {onReactivateProject && project.status === 'completed' && (
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onReactivateProject(project.id);
+                                }}
+                                className="text-blue-600 focus:text-blue-600"
+                              >
+                                <RotateCcw className="mr-2 h-4 w-4" />
+                                Reactivate Project
+                              </DropdownMenuItem>
+                            )}
+                            {onDeleteProject && (
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteProject(project.id);
+                                }}
+                                className="text-red-600 focus:text-red-600"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   );

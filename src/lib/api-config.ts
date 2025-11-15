@@ -17,6 +17,7 @@ export const API_ENDPOINTS = {
     VERIFY: '/api/auth/verify',
     SETUP_PASSWORD: '/api/auth/setup-password',
     ACCOUNT: '/api/auth/account',
+    CHANGE_PASSWORD: '/api/auth/change-password',
   },
 
   // Dashboard

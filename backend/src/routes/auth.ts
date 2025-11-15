@@ -479,27 +479,33 @@ router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) =
     let actualUnitsCount = customer?.unitsCount || 0;
     let actualManagersCount = 0;
 
-    if (user.customerId) {
-      // Get actual counts from database
-      const [properties, units, managers] = await Promise.all([
-        prisma.properties.count({ where: { customerId: user.customerId } }),
-        prisma.units.count({
-          where: {
-            properties: { customerId: user.customerId }
-          }
-        }),
-        prisma.users.count({
-          where: {
-            customerId: user.customerId,
-            role: { in: ['manager', 'property_manager', 'property-manager'] },
-            isActive: true
-          }
-        })
-      ]);
+    // Only count properties/units/managers for non-developer users
+    if (user.customerId && derivedUserType !== 'developer') {
+      try {
+        // Get actual counts from database
+        const [properties, units, managers] = await Promise.all([
+          prisma.properties.count({ where: { customerId: user.customerId } }),
+          prisma.units.count({
+            where: {
+              properties: { customerId: user.customerId }
+            }
+          }),
+          prisma.users.count({
+            where: {
+              customerId: user.customerId,
+              role: { in: ['manager', 'property_manager', 'property-manager'] },
+              isActive: true
+            }
+          })
+        ]);
 
-      actualPropertiesCount = properties;
-      actualUnitsCount = units;
-      actualManagersCount = managers;
+        actualPropertiesCount = properties;
+        actualUnitsCount = units;
+        actualManagersCount = managers;
+      } catch (error) {
+        console.warn('⚠️ Error counting properties/units/managers for customer:', error);
+        // Continue with default values if counting fails
+      }
     }
 
     res.json({
@@ -657,6 +663,63 @@ router.put('/account', authMiddleware, async (req: AuthRequest, res: Response) =
   } catch (error: any) {
     console.error('Update account error:', error);
     return res.status(500).json({ error: 'Failed to update account' });
+  }
+});
+
+// Change password for authenticated users
+router.post('/change-password', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { currentPassword, newPassword } = req.body;
+
+    // Validate input
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current password and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters' });
+    }
+
+    // Get current user
+    const user = await prisma.users.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Verify current password
+    const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password
+    await prisma.users.update({
+      where: { id: userId },
+      data: {
+        password: hashedPassword,
+        updatedAt: new Date()
+      }
+    });
+
+    console.log('✅ Password changed successfully for user:', user.email);
+
+    return res.json({ message: 'Password changed successfully' });
+
+  } catch (error: any) {
+    console.error('Change password error:', error);
+    return res.status(500).json({ error: 'Failed to change password' });
   }
 });
 

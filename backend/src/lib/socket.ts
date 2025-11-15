@@ -30,13 +30,32 @@ export const initializeSocket = async (httpServer: HttpServer) => {
     // Create Redis clients for pub/sub
     const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 
-    redisPublisher = createClient({ url: redisUrl });
+    redisPublisher = createClient({
+      url: redisUrl,
+      socket: {
+        reconnectStrategy: (retries) => {
+          if (retries > 3) {
+            console.warn('⚠️ Redis reconnection failed after 3 attempts, falling back to single-server mode');
+            return new Error('Redis connection failed');
+          }
+          return Math.min(retries * 50, 1000);
+        }
+      }
+    });
     redisSubscriber = redisPublisher.duplicate();
 
-    // Connect Redis clients
-    await redisPublisher.connect();
-    await redisSubscriber.connect();
+    // Connect Redis clients with timeout
+    const connectPromise = Promise.all([
+      redisPublisher.connect(),
+      redisSubscriber.connect()
+    ]);
 
+    // Set a timeout for Redis connection (5 seconds)
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Redis connection timeout')), 5000);
+    });
+
+    await Promise.race([connectPromise, timeoutPromise]);
     console.log('✅ Redis clients connected for Socket.io');
 
     // Initialize Socket.io with Redis adapter
@@ -125,9 +144,28 @@ export const initializeSocket = async (httpServer: HttpServer) => {
 
     console.log('✅ Socket.io server initialized');
     return io;
-  } catch (error) {
-    console.error('❌ Failed to initialize Socket.io with Redis:', error);
+  } catch (error: any) {
+    console.warn('⚠️ Redis connection failed, initializing Socket.io without Redis adapter:', error?.message || error);
     // If Redis fails, initialize without Redis adapter (fallback)
+    // Clean up any partial Redis connections
+    try {
+      if (redisPublisher) {
+        try {
+          await redisPublisher.quit();
+        } catch {
+          // Ignore quit errors
+        }
+      }
+      if (redisSubscriber) {
+        try {
+          await redisSubscriber.quit();
+        } catch {
+          // Ignore quit errors
+        }
+      }
+    } catch (cleanupError) {
+      // Ignore cleanup errors
+    }
     io = new Server(httpServer, {
       cors: {
         origin: process.env.FRONTEND_URL || 'http://localhost:5173',

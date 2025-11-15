@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Building2, DollarSign, TrendingUp, AlertCircle, Plus, Search, Filter, LayoutGrid, ArrowUpDown, Eye, CheckCircle2, Clock } from 'lucide-react';
+import { Building2, DollarSign, TrendingUp, AlertCircle, Plus, Search, Filter, LayoutGrid, ArrowUpDown, Eye, CheckCircle2, Clock, MoreVertical, Edit, Trash2, CheckCircle, XCircle, Pause, RotateCcw } from 'lucide-react';
+import { toast } from 'sonner';
+import { apiClient } from '../../../lib/api-client';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Badge } from '../../../components/ui/badge';
@@ -19,6 +21,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../../components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../../components/ui/dropdown-menu';
 import KPICard from './KPICard';
 import ProjectCard from './ProjectCard';
 import { usePortfolioOverview, useProjects, useDebounce } from '../hooks/useDeveloperDashboardData';
@@ -26,11 +34,19 @@ import type { ProjectFilters, ProjectSortOptions } from '../types';
 
 interface PortfolioOverviewProps {
   onViewProject: (projectId: string) => void;
+  onEditProject?: (projectId: string) => void;
+  onDeleteProject?: (projectId: string) => void;
+  onMarkAsCompleted?: (projectId: string) => void;
+  onReactivateProject?: (projectId: string) => void;
   onCreateProject: () => void;
 }
 
 export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
   onViewProject,
+  onEditProject,
+  onDeleteProject,
+  onMarkAsCompleted,
+  onReactivateProject,
   onCreateProject,
 }) => {
   const { data: overview, loading: overviewLoading } = usePortfolioOverview();
@@ -131,17 +147,17 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
           loading={overviewLoading}
         />
         <KPICard
-          title="Active Projects"
-          value={`${overview?.activeProjects || 0} / ${overview?.completedProjects || 0}`}
-          subtitle="Active vs Completed"
-          icon={TrendingUp}
-          loading={overviewLoading}
-        />
-        <KPICard
           title="Total Portfolio Budget"
           value={overview ? formatCurrency(overview.totalBudget) : '₦0'}
           subtitle="Across all projects"
           icon={DollarSign}
+          loading={overviewLoading}
+        />
+        <KPICard
+          title="Total Spend"
+          value={overview ? formatCurrency(overview.totalActualSpend) : '₦0'}
+          subtitle="Actual expenditure"
+          icon={TrendingUp}
           loading={overviewLoading}
         />
         <KPICard
@@ -153,6 +169,73 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
           change={overview ? Math.abs(overview.variancePercent) : 0}
           loading={overviewLoading}
         />
+      </div>
+
+      {/* Project Status Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter('active')}>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Active</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">
+                  {projects.filter(p => p.status === 'active').length}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
+                <Clock className="h-6 w-6 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter('on-hold')}>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">On Hold</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">
+                  {projects.filter(p => p.status === 'on-hold').length}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-amber-100 rounded-full flex items-center justify-center">
+                <Pause className="h-6 w-6 text-amber-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter('completed')}>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Completed</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">
+                  {projects.filter(p => p.status === 'completed').length}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
+                <CheckCircle className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setStatusFilter('cancelled')}>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Cancelled</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">
+                  {projects.filter(p => p.status === 'cancelled').length}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-red-100 rounded-full flex items-center justify-center">
+                <XCircle className="h-6 w-6 text-red-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters and View Toggle */}
@@ -264,7 +347,7 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
                   <TableHead className="text-right">Variance</TableHead>
                   <TableHead>Health</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead></TableHead>
+                  <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -306,19 +389,77 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
                       </TableCell>
                       <TableCell>{getHealthBadge(variance)}</TableCell>
                       <TableCell>{getStatusBadge(project.status)}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="gap-2"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onViewProject(project.id);
-                          }}
-                        >
-                          <Eye className="w-4 h-4" />
-                          View
-                        </Button>
+                      <TableCell className="text-center">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onViewProject(project.id);
+                              }}
+                            >
+                              <Eye className="mr-2 h-4 w-4" />
+                              View
+                            </DropdownMenuItem>
+                            {onEditProject && (
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onEditProject(project.id);
+                                }}
+                              >
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                            )}
+                            {onMarkAsCompleted && project.status !== 'completed' && (
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onMarkAsCompleted(project.id);
+                                }}
+                                className="text-green-600 focus:text-green-600"
+                              >
+                                <CheckCircle className="mr-2 h-4 w-4" />
+                                Mark as Completed
+                              </DropdownMenuItem>
+                            )}
+                            {onReactivateProject && project.status === 'completed' && (
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onReactivateProject(project.id);
+                                }}
+                                className="text-blue-600 focus:text-blue-600"
+                              >
+                                <RotateCcw className="mr-2 h-4 w-4" />
+                                Reactivate Project
+                              </DropdownMenuItem>
+                            )}
+                            {onDeleteProject && (
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteProject(project.id);
+                                }}
+                                className="text-red-600 focus:text-red-600"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   );

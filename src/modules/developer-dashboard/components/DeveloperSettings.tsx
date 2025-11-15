@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import { Badge } from "../../../components/ui/badge";
 import { toast } from "sonner";
-import { getAccountInfo } from '../../../lib/api/auth';
+import { getAccountInfo, changePassword, type ChangePasswordRequest } from '../../../lib/api/auth';
 import { getSubscriptionStatus } from '../../../lib/api/subscription';
 import { formatCurrency as formatCurrencyUtil } from '../../../lib/currency';
 import { getSubscriptionPlans, changePlan, changeBillingCycle, cancelSubscription, getBillingHistory, initializeUpgrade, verifyUpgrade, type Plan, type Invoice } from '../../../lib/api/subscriptions';
@@ -64,6 +64,12 @@ export function DeveloperSettings({ user }: DeveloperSettingsProps) {
   const [cancelReason, setCancelReason] = useState('');
   const [cancelConfirmation, setCancelConfirmation] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   useEffect(() => {
     fetchAccountData();
@@ -301,6 +307,49 @@ export function DeveloperSettings({ user }: DeveloperSettingsProps) {
       toast.error(error.response?.data?.error || error.message || 'Failed to cancel subscription');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    // Validation
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast.error('Please fill in all password fields');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast.error('New password must be at least 6 characters');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+
+    try {
+      setIsChangingPassword(true);
+      console.log('[DeveloperSettings] Changing password...');
+
+      const response = await changePassword({
+        currentPassword,
+        newPassword
+      });
+
+      if (response.error) {
+        toast.error(response.error.error || 'Failed to change password');
+      } else {
+        toast.success('Password changed successfully!');
+        // Clear password fields
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      }
+    } catch (error: any) {
+      console.error('[DeveloperSettings] Change password error:', error);
+      toast.error(error.response?.data?.error || error.message || 'Failed to change password');
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -664,21 +713,53 @@ export function DeveloperSettings({ user }: DeveloperSettingsProps) {
             <CardContent className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="current-password">Current Password</Label>
-                <Input id="current-password" type="password" />
+                <Input
+                  id="current-password"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Enter your current password"
+                  disabled={isChangingPassword}
+                />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="new-password">New Password</Label>
-                <Input id="new-password" type="password" />
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Enter new password (min. 6 characters)"
+                  disabled={isChangingPassword}
+                />
+                <p className="text-xs text-gray-500">
+                  Password must be at least 6 characters long
+                </p>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="confirm-password">Confirm New Password</Label>
-                <Input id="confirm-password" type="password" />
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm your new password"
+                  disabled={isChangingPassword}
+                />
+                {confirmPassword && newPassword !== confirmPassword && (
+                  <p className="text-xs text-red-500">
+                    Passwords do not match
+                  </p>
+                )}
               </div>
 
-              <Button onClick={() => toast.success('Password updated successfully!')}>
-                Update Password
+              <Button
+                onClick={handleChangePassword}
+                disabled={isChangingPassword || !currentPassword || !newPassword || !confirmPassword}
+              >
+                {isChangingPassword ? 'Updating Password...' : 'Update Password'}
               </Button>
             </CardContent>
           </Card>

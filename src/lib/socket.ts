@@ -9,9 +9,38 @@ interface SocketEventCallback {
 }
 
 /**
+ * Check if the API server is reachable
+ */
+async function checkServerAvailability(serverUrl: string): Promise<boolean> {
+  try {
+    const apiUrl = serverUrl.replace(/^ws:/, 'http:').replace(/^wss:/, 'https:');
+
+    // Create an AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+
+    try {
+      const response = await fetch(`${apiUrl}/api/health`, {
+        method: 'GET',
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      return response.ok;
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      // Network errors or timeouts mean server is not available
+      return false;
+    }
+  } catch (error) {
+    // Any other error means server is not available
+    return false;
+  }
+}
+
+/**
  * Initialize Socket.io client with authentication
  */
-export const initializeSocket = (token: string): Socket => {
+export const initializeSocket = async (token: string): Promise<Socket> => {
   // Don't create multiple connections
   if (socket?.connected) {
     console.log('✅ Socket already connected');
@@ -29,6 +58,24 @@ export const initializeSocket = (token: string): Socket => {
   // In production, disable WebSocket unless explicitly enabled
   if (isProduction && !import.meta.env.VITE_ENABLE_WEBSOCKET) {
     console.log('ℹ️ WebSocket disabled in production (set VITE_ENABLE_WEBSOCKET=true to enable)');
+    // Return a mock socket that won't try to connect
+    socket = {
+      connected: false,
+      on: () => socket,
+      off: () => socket,
+      emit: () => socket,
+      disconnect: () => {},
+      removeAllListeners: () => socket,
+      connect: () => socket,
+    } as any;
+    return socket;
+  }
+
+  // Check if server is available before attempting WebSocket connection
+  const serverAvailable = await checkServerAvailability(serverUrl);
+  if (!serverAvailable) {
+    console.warn('⚠️ API server not available, skipping WebSocket connection');
+    console.info('ℹ️ The application will work without real-time updates');
     // Return a mock socket that won't try to connect
     socket = {
       connected: false,
@@ -87,10 +134,18 @@ export const initializeSocket = (token: string): Socket => {
   });
 
   socket.on('connect_error', (error) => {
-    console.error('❌ Connection error:', error.message);
+    reconnectAttempts++;
+
+    // Only log errors occasionally to reduce console spam
+    if (reconnectAttempts === 1 || reconnectAttempts % 5 === 0) {
+      console.warn(`⚠️ WebSocket connection error (attempt ${reconnectAttempts}):`, error.message);
+    }
 
     if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-      console.error('❌ Max reconnection attempts reached. Please refresh the page.');
+      console.error('❌ Max reconnection attempts reached. WebSocket features disabled.');
+      console.info('ℹ️ The application will continue to work without real-time updates.');
+      // Disable further reconnection attempts
+      socket.removeAllListeners();
     }
   });
 

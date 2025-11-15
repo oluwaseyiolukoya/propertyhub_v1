@@ -967,31 +967,22 @@ export function SuperAdminDashboard({
 
   const handleSaveCustomer = async (customerData: any) => {
     try {
-      // Call the API to create the customer
-      const response = await createCustomer({
-        company: customerData.company,
-        owner: customerData.owner,
-        email: customerData.email,
-        phone: customerData.phone,
-        planId: null, // Can be set later
-        status: 'trial',
-        sendInvitation: false // Already handled in the form
-      });
+      // Customer is already created by AddCustomerPage component
+      // This function just needs to refresh the list and navigate back
+      console.log('✅ Customer already created, refreshing list:', customerData.id || customerData.email);
 
-      if (response.error) {
-        toast.error(response.error.error || 'Failed to create customer');
-        return;
-      }
-
-      toast.success('Customer created successfully!');
+      // Navigate back to dashboard
       setCurrentView('dashboard');
       setActiveTab('customers');
 
-      // Refetch customers to get the latest data
+      // Refetch customers to get the latest data (including the newly created customer)
       await fetchCustomersData();
+
+      // Show success message (customer creation success was already shown in AddCustomerPage)
+      toast.success('Customer list refreshed');
     } catch (error) {
-      console.error('Error creating customer:', error);
-      toast.error('Failed to create customer');
+      console.error('Error refreshing customer list:', error);
+      toast.error('Failed to refresh customer list');
     }
   };
 
@@ -2229,10 +2220,18 @@ export function SuperAdminDashboard({
               <div>
                 <h3 className="text-sm font-semibold mb-3 text-gray-900">Usage & Limits</h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Properties</p>
-                    <p className="font-medium">{viewCustomerDialog._count?.properties || 0} / {viewCustomerDialog.propertyLimit}</p>
-                  </div>
+                  {/* Show Projects for developers, Properties for others */}
+                  {viewCustomerDialog.planCategory === 'development' ? (
+                    <div>
+                      <p className="text-sm text-gray-500">Projects</p>
+                      <p className="font-medium">{viewCustomerDialog.projectsCount || 0} / {viewCustomerDialog.projectLimit || 'N/A'}</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-sm text-gray-500">Properties</p>
+                      <p className="font-medium">{viewCustomerDialog._count?.properties || 0} / {viewCustomerDialog.propertyLimit}</p>
+                    </div>
+                  )}
                   <div>
                     <p className="text-sm text-gray-500">Users</p>
                     <p className="font-medium">{viewCustomerDialog._count?.users || 0} / {viewCustomerDialog.userLimit}</p>
@@ -2273,6 +2272,69 @@ export function SuperAdminDashboard({
                       <p className="text-sm text-gray-500">Country</p>
                       <p className="font-medium">{viewCustomerDialog.country || 'Nigeria'}</p>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Developer Information (from Get Started application) */}
+              {viewCustomerDialog.planCategory === 'development' && viewCustomerDialog.onboarding_applications?.[0]?.metadata && (
+                <div>
+                  <h3 className="text-sm font-semibold mb-3 text-gray-900">Developer Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    {viewCustomerDialog.onboarding_applications[0].metadata.yearsInDevelopment && (
+                      <div>
+                        <p className="text-sm text-gray-500">Years in Development</p>
+                        <p className="font-medium">{viewCustomerDialog.onboarding_applications[0].metadata.yearsInDevelopment}</p>
+                      </div>
+                    )}
+                    {viewCustomerDialog.onboarding_applications[0].metadata.developmentType && (
+                      <div>
+                        <p className="text-sm text-gray-500">Development Type</p>
+                        <p className="font-medium capitalize">{viewCustomerDialog.onboarding_applications[0].metadata.developmentType}</p>
+                      </div>
+                    )}
+                    {viewCustomerDialog.onboarding_applications[0].metadata.specialization && (
+                      <div>
+                        <p className="text-sm text-gray-500">Specialization</p>
+                        <p className="font-medium capitalize">{viewCustomerDialog.onboarding_applications[0].metadata.specialization}</p>
+                      </div>
+                    )}
+                    {viewCustomerDialog.onboarding_applications[0].metadata.primaryMarket && (
+                      <div>
+                        <p className="text-sm text-gray-500">Primary Market</p>
+                        <p className="font-medium">{viewCustomerDialog.onboarding_applications[0].metadata.primaryMarket}</p>
+                      </div>
+                    )}
+                    {viewCustomerDialog.onboarding_applications[0].metadata.totalProjectValue && (
+                      <div>
+                        <p className="text-sm text-gray-500">Total Project Value</p>
+                        <p className="font-medium">{viewCustomerDialog.onboarding_applications[0].metadata.totalProjectValue}</p>
+                      </div>
+                    )}
+                    {viewCustomerDialog.onboarding_applications[0].metadata.teamSize && (
+                      <div>
+                        <p className="text-sm text-gray-500">Team Size</p>
+                        <p className="font-medium">{viewCustomerDialog.onboarding_applications[0].metadata.teamSize}</p>
+                      </div>
+                    )}
+                    {viewCustomerDialog.onboarding_applications[0].metadata.developmentLicense && (
+                      <div>
+                        <p className="text-sm text-gray-500">Development License</p>
+                        <p className="font-medium capitalize">{viewCustomerDialog.onboarding_applications[0].metadata.developmentLicense}</p>
+                      </div>
+                    )}
+                    {viewCustomerDialog.onboarding_applications[0].metadata.licenseNumber && (
+                      <div>
+                        <p className="text-sm text-gray-500">License Number</p>
+                        <p className="font-medium">{viewCustomerDialog.onboarding_applications[0].metadata.licenseNumber}</p>
+                      </div>
+                    )}
+                    {viewCustomerDialog.onboarding_applications[0].metadata.companyRegistration && (
+                      <div>
+                        <p className="text-sm text-gray-500">Company Registration</p>
+                        <p className="font-medium">{viewCustomerDialog.onboarding_applications[0].metadata.companyRegistration}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
