@@ -186,6 +186,35 @@ router.get('/portfolio/overview', async (req: Request, res: Response) => {
       });
     }
 
+    // ============================================
+    // PRODUCTION DEBUG: Verify customer exists
+    // ============================================
+    console.log('🔍 [DEBUG] Fetching portfolio overview:', {
+      userId,
+      customerId,
+      userEmail: (req as any).user?.email
+    });
+
+    // Check if customer exists
+    const customerExists = await prisma.customers.findUnique({
+      where: { id: customerId },
+      select: { id: true, name: true }
+    });
+
+    if (!customerExists) {
+      console.error('❌ [ERROR] Customer not found for portfolio overview:', {
+        customerId,
+        userId
+      });
+      return res.status(400).json({
+        error: 'Customer account not found',
+        details: 'Your customer account does not exist in the database',
+        debugInfo: { customerId, userId }
+      });
+    }
+
+    console.log('✅ [DEBUG] Customer found:', customerExists.name);
+
     // Get all projects for this developer
     const projects = await prisma.developer_projects.findMany({
       where: {
@@ -247,7 +276,7 @@ router.get('/portfolio/overview', async (req: Request, res: Response) => {
       currency: projectsWithActualSpend[0]?.currency || 'NGN',
     });
   } catch (error: any) {
-    console.error('Error fetching portfolio overview:', {
+    console.error('❌ [CRITICAL ERROR] Error fetching portfolio overview:', {
       message: error.message,
       code: error.code,
       stack: error.stack,
@@ -256,9 +285,13 @@ router.get('/portfolio/overview', async (req: Request, res: Response) => {
     });
     res.status(500).json({
       error: 'Failed to fetch portfolio overview',
-      details: process.env.NODE_ENV === 'production'
-        ? 'Please try again or contact support'
-        : error.message
+      details: error.message, // Show error message for debugging
+      code: error.code,
+      debugInfo: {
+        userId: (req as any).user?.id,
+        customerId: (req as any).user?.customerId,
+        timestamp: new Date().toISOString()
+      }
     });
   }
 });
@@ -393,7 +426,7 @@ router.get('/projects', async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('Error fetching projects:', {
+    console.error('❌ [CRITICAL ERROR] Error fetching projects:', {
       message: error.message,
       code: error.code,
       stack: error.stack,
@@ -403,9 +436,13 @@ router.get('/projects', async (req: Request, res: Response) => {
     });
     res.status(500).json({
       error: 'Failed to fetch projects',
-      details: process.env.NODE_ENV === 'production'
-        ? 'Please try again or contact support'
-        : error.message
+      details: error.message, // Show error message for debugging
+      code: error.code,
+      debugInfo: {
+        userId: (req as any).user?.id,
+        customerId: (req as any).user?.customerId,
+        timestamp: new Date().toISOString()
+      }
     });
   }
 });
@@ -719,6 +756,83 @@ router.post('/projects', async (req: Request, res: Response) => {
       });
     }
 
+    // ============================================
+    // PRODUCTION DEBUG: Verify customer and user exist
+    // ============================================
+    console.log('🔍 [DEBUG] Attempting to create project:', {
+      userId,
+      customerId,
+      userEmail: (req as any).user?.email,
+      projectName: req.body.name
+    });
+
+    // Check if customer exists in database
+    const customerExists = await prisma.customers.findUnique({
+      where: { id: customerId },
+      select: { id: true, name: true }
+    });
+
+    if (!customerExists) {
+      console.error('❌ [ERROR] Customer not found in database:', {
+        customerId,
+        userId,
+        userEmail: (req as any).user?.email
+      });
+      return res.status(400).json({
+        error: 'Customer account not found',
+        details: 'Your customer account does not exist in the database. Please contact support.',
+        debugInfo: {
+          customerId,
+          userId
+        }
+      });
+    }
+
+    // Check if user/developer exists in database
+    const userExists = await prisma.users.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, role: true, customerId: true }
+    });
+
+    if (!userExists) {
+      console.error('❌ [ERROR] User not found in database:', {
+        userId,
+        customerId
+      });
+      return res.status(400).json({
+        error: 'User account not found',
+        details: 'Your user account does not exist in the database. Please contact support.',
+        debugInfo: {
+          userId,
+          customerId
+        }
+      });
+    }
+
+    // Verify user is associated with the customer
+    if (userExists.customerId !== customerId) {
+      console.error('❌ [ERROR] User-Customer mismatch:', {
+        userId,
+        tokenCustomerId: customerId,
+        dbCustomerId: userExists.customerId,
+        userEmail: userExists.email
+      });
+      return res.status(400).json({
+        error: 'Account mismatch',
+        details: 'Your user account is not associated with the specified customer. Please log out and log in again.',
+        debugInfo: {
+          tokenCustomerId: customerId,
+          dbCustomerId: userExists.customerId
+        }
+      });
+    }
+
+    console.log('✅ [DEBUG] Customer and user validation passed:', {
+      customerName: customerExists.name,
+      userEmail: userExists.email,
+      userRole: userExists.role
+    });
+
     const {
       name,
       description,
@@ -759,9 +873,16 @@ router.post('/projects', async (req: Request, res: Response) => {
       },
     });
 
+    console.log('✅ [SUCCESS] Project created:', {
+      projectId: project.id,
+      projectName: project.name,
+      customerId,
+      userId
+    });
+
     res.status(201).json(project);
   } catch (error: any) {
-    console.error('Error creating project:', {
+    console.error('❌ [CRITICAL ERROR] Error creating project:', {
       message: error.message,
       code: error.code,
       meta: error.meta,
@@ -782,15 +903,24 @@ router.post('/projects', async (req: Request, res: Response) => {
     if (error.code === 'P2003') {
       return res.status(400).json({
         error: 'Invalid reference',
-        details: 'The customer or developer ID does not exist'
+        details: 'The customer or developer ID does not exist in the database',
+        debugInfo: {
+          code: error.code,
+          target: error.meta?.target,
+          field_name: error.meta?.field_name
+        }
       });
     }
 
     res.status(500).json({
       error: 'Failed to create project',
-      details: process.env.NODE_ENV === 'production'
-        ? 'Please try again or contact support'
-        : error.message
+      details: error.message, // Now show error message in production for debugging
+      code: error.code,
+      debugInfo: {
+        userId: (req as any).user?.id,
+        customerId: (req as any).user?.customerId,
+        timestamp: new Date().toISOString()
+      }
     });
   }
 });
