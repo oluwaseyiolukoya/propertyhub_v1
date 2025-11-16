@@ -198,7 +198,7 @@ router.get('/portfolio/overview', async (req: Request, res: Response) => {
     // Check if customer exists
     const customerExists = await prisma.customers.findUnique({
       where: { id: customerId },
-      select: { id: true, name: true }
+      select: { id: true, company: true }
     });
 
     if (!customerExists) {
@@ -213,7 +213,7 @@ router.get('/portfolio/overview', async (req: Request, res: Response) => {
       });
     }
 
-    console.log('✅ [DEBUG] Customer found:', customerExists.name);
+    console.log('✅ [DEBUG] Customer found:', customerExists.company);
 
     // Get all projects for this developer
     const projects = await prisma.developer_projects.findMany({
@@ -769,7 +769,7 @@ router.post('/projects', async (req: Request, res: Response) => {
     // Check if customer exists in database
     const customerExists = await prisma.customers.findUnique({
       where: { id: customerId },
-      select: { id: true, name: true }
+      select: { id: true, company: true }
     });
 
     if (!customerExists) {
@@ -828,7 +828,7 @@ router.post('/projects', async (req: Request, res: Response) => {
     }
 
     console.log('✅ [DEBUG] Customer and user validation passed:', {
-      customerName: customerExists.name,
+      customerCompany: customerExists.company,
       userEmail: userExists.email,
       userRole: userExists.role
     });
