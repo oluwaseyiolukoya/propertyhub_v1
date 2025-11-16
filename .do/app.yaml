@@ -122,7 +122,7 @@ static_sites:
 
     catchall_document: index.html
 
-# Jobs (for database seeding and migrations)
+# Jobs (for database migrations - PRODUCTION SAFE)
 jobs:
   - name: db-migrate
     kind: PRE_DEPLOY
@@ -133,7 +133,9 @@ jobs:
       repo: YOUR_GITHUB_USERNAME/YOUR_REPO_NAME
 
     build_command: npm install
-    run_command: npx prisma generate && npx prisma db push --accept-data-loss
+    # PRODUCTION SAFE: Uses migrations to preserve all data
+    # NEVER use db push or seed in production!
+    run_command: npx prisma generate && npx prisma migrate deploy
 
     environment_slug: node-js
     instance_size_slug: basic-xxs

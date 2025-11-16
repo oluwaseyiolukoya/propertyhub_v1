@@ -23,6 +23,60 @@ try {
   dotenv.config();
 }
 
+// ============================================
+// Environment Variables Validation
+// ============================================
+console.log('🔍 Validating environment variables...');
+
+const REQUIRED_ENV_VARS = [
+  'DATABASE_URL',
+  'JWT_SECRET',
+  'NODE_ENV',
+];
+
+const RECOMMENDED_ENV_VARS = [
+  'FRONTEND_URL',
+  'PORT',
+];
+
+// Check required variables
+const missingRequired = REQUIRED_ENV_VARS.filter(key => !process.env[key]);
+if (missingRequired.length > 0) {
+  console.error('❌ CRITICAL: Missing required environment variables:');
+  missingRequired.forEach(key => console.error(`   - ${key}`));
+  console.error('\n📖 Please set these in your .env file or environment configuration.');
+  console.error('   See backend/env.example for reference.\n');
+  process.exit(1);
+}
+
+// Check recommended variables
+const missingRecommended = RECOMMENDED_ENV_VARS.filter(key => !process.env[key]);
+if (missingRecommended.length > 0) {
+  console.warn('⚠️  WARNING: Missing recommended environment variables:');
+  missingRecommended.forEach(key => console.warn(`   - ${key}`));
+  console.warn('   The application may not work correctly without these.\n');
+}
+
+// Validate JWT_SECRET strength (production only)
+if (process.env.NODE_ENV === 'production') {
+  const jwtSecret = process.env.JWT_SECRET || '';
+  if (jwtSecret.length < 32) {
+    console.error('❌ CRITICAL: JWT_SECRET is too short (< 32 characters)');
+    console.error('   Generate a strong secret with:');
+    console.error('   node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"\n');
+    process.exit(1);
+  }
+  if (jwtSecret.includes('CHANGE_ME') || jwtSecret === 'secret' || jwtSecret.includes('your-')) {
+    console.error('❌ CRITICAL: JWT_SECRET appears to be a placeholder value');
+    console.error('   You MUST set a real secret in production!');
+    console.error('   Generate one with:');
+    console.error('   node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"\n');
+    process.exit(1);
+  }
+}
+
+console.log('✅ Environment variables validated successfully\n');
+
 // Import routes
 import authRoutes from "./routes/auth";
 import customerRoutes from "./routes/customers";
