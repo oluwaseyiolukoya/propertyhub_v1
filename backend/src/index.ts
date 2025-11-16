@@ -75,6 +75,8 @@ import subscriptionManagementRoutes from "./routes/subscription";
 import developerDashboardRoutes from "./routes/developer-dashboard";
 // Available Plans routes (category-filtered)
 import availablePlansRoutes from "./routes/available-plans";
+// Email Test routes
+import emailTestRoutes from "./routes/email-test";
 // Cron jobs
 import { initializeCronJobs } from "./lib/cron-jobs";
 
@@ -299,6 +301,8 @@ app.use("/api/billing-transactions", billingTransactionsRoutes);
 app.use("/api/uploads", uploadRoutes);
 // Developer Dashboard routes
 app.use("/api/developer-dashboard", developerDashboardRoutes);
+// Email Test routes
+app.use("/api/email-test", emailTestRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
@@ -320,10 +324,15 @@ app.use((err: any, req: Request, res: Response, next: any) => {
 // Create HTTP server
 const httpServer = createServer(app);
 
-// Initialize Socket.io
-initializeSocket(httpServer).catch((error) => {
-  console.error("❌ Failed to initialize Socket.io:", error);
-});
+// Initialize Socket.io (non-blocking)
+initializeSocket(httpServer)
+  .then(() => {
+    console.log("✅ Socket.io initialized successfully");
+  })
+  .catch((error) => {
+    console.error("❌ Failed to initialize Socket.io:", error);
+    console.warn("⚠️ Server will continue without Socket.io real-time features");
+  });
 
 // Graceful shutdown
 process.on("SIGTERM", async () => {

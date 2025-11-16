@@ -174,6 +174,7 @@ model customers {
   trial_notifications         trial_notifications[]
   developer_projects          developer_projects[]
   project_vendors             project_vendors[]
+  project_funding             project_funding[]
 
   @@index([status])
   @@index([trialEndsAt])
@@ -668,6 +669,9 @@ model users {
   customers                                                                     customers?                  @relation(fields: [customerId], references: [id], onDelete: Cascade)
   developer_projects                                                            developer_projects[]
   project_invoices                                                              project_invoices[]
+  project_funding_created                                                       project_funding[]           @relation("FundingCreator")
+  project_funding_approved                                                      project_funding[]           @relation("FundingApprover")
+  project_expenses_approved                                                     project_expenses[]          @relation("ExpenseApprover")
 }
 
 model maintenance_requests {
@@ -749,36 +753,39 @@ model trial_notifications {
 // ============================================
 
 model developer_projects {
-  id                 String               @id @default(uuid())
-  customerId         String
-  developerId        String
-  name               String
-  description        String?
-  projectType        String // residential, commercial, mixed-use, infrastructure
-  stage              String               @default("planning") // planning, design, pre-construction, construction, completion
-  status             String               @default("active") // active, on-hold, completed, cancelled
-  startDate          DateTime?
-  estimatedEndDate   DateTime?
-  actualEndDate      DateTime?
-  location           String?
-  city               String?
-  state              String?
-  country            String               @default("Nigeria")
-  totalBudget        Float                @default(0)
-  actualSpend        Float                @default(0)
-  currency           String               @default("NGN")
-  progress           Float                @default(0) // percentage 0-100
-  coverImage         String?
-  images             Json?
-  metadata           Json?
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
-  customer           customers            @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  developer          users                @relation(fields: [developerId], references: [id])
-  budget_line_items  budget_line_items[]
-  project_invoices   project_invoices[]
-  project_forecasts  project_forecasts[]
-  project_milestones project_milestones[]
+  id                          String                        @id @default(uuid())
+  customerId                  String
+  developerId                 String
+  name                        String
+  description                 String?
+  projectType                 String // residential, commercial, mixed-use, infrastructure
+  stage                       String                        @default("planning") // planning, design, pre-construction, construction, completion
+  status                      String                        @default("active") // active, on-hold, completed, cancelled
+  startDate                   DateTime?
+  estimatedEndDate            DateTime?
+  actualEndDate               DateTime?
+  location                    String?
+  city                        String?
+  state                       String?
+  country                     String                        @default("Nigeria")
+  totalBudget                 Float                         @default(0)
+  actualSpend                 Float                         @default(0)
+  currency                    String                        @default("NGN")
+  progress                    Float                         @default(0) // percentage 0-100
+  coverImage                  String?
+  images                      Json?
+  metadata                    Json?
+  createdAt                   DateTime                      @default(now())
+  updatedAt                   DateTime                      @updatedAt
+  customer                    customers                     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  developer                   users                         @relation(fields: [developerId], references: [id])
+  budget_line_items           budget_line_items[]
+  project_invoices            project_invoices[]
+  project_forecasts           project_forecasts[]
+  project_milestones          project_milestones[]
+  project_funding             project_funding[]
+  project_expenses            project_expenses[]
+  project_cash_flow_snapshots project_cash_flow_snapshots[]
 
   @@index([customerId])
   @@index([developerId])
@@ -787,22 +794,23 @@ model developer_projects {
 }
 
 model budget_line_items {
-  id              String             @id @default(uuid())
-  projectId       String
-  category        String // labor, materials, equipment, permits, professional-fees, contingency, etc.
-  subcategory     String?
-  description     String
-  plannedAmount   Float              @default(0)
-  actualAmount    Float              @default(0)
-  variance        Float              @default(0) // actualAmount - plannedAmount
-  variancePercent Float              @default(0) // (variance / plannedAmount) * 100
-  status          String             @default("pending") // pending, in-progress, completed, overrun
-  notes           String?
-  startDate       DateTime?
-  endDate         DateTime?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  project         developer_projects @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id               String             @id @default(uuid())
+  projectId        String
+  category         String // labor, materials, equipment, permits, professional-fees, contingency, etc.
+  subcategory      String?
+  description      String
+  plannedAmount    Float              @default(0)
+  actualAmount     Float              @default(0)
+  variance         Float              @default(0) // actualAmount - plannedAmount
+  variancePercent  Float              @default(0) // (variance / plannedAmount) * 100
+  status           String             @default("pending") // pending, in-progress, completed, overrun
+  notes            String?
+  startDate        DateTime?
+  endDate          DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  project          developer_projects @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project_expenses project_expenses[]
 
   @@index([projectId])
   @@index([category])
@@ -810,25 +818,26 @@ model budget_line_items {
 }
 
 model project_vendors {
-  id             String             @id @default(uuid())
-  customerId     String
-  name           String
-  contactPerson  String?
-  email          String?
-  phone          String?
-  address        String?
-  vendorType     String // contractor, supplier, consultant, subcontractor
-  specialization String?
-  rating         Float? // 0-5 stars
-  totalContracts Int                @default(0)
-  totalValue     Float              @default(0)
-  currency       String             @default("NGN")
-  status         String             @default("active") // active, inactive, blacklisted
-  notes          String?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  customer       customers          @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  invoices       project_invoices[]
+  id               String             @id @default(uuid())
+  customerId       String
+  name             String
+  contactPerson    String?
+  email            String?
+  phone            String?
+  address          String?
+  vendorType       String // contractor, supplier, consultant, subcontractor
+  specialization   String?
+  rating           Float? // 0-5 stars
+  totalContracts   Int                @default(0)
+  totalValue       Float              @default(0)
+  currency         String             @default("NGN")
+  status           String             @default("active") // active, inactive, blacklisted
+  notes            String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  customer         customers          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  invoices         project_invoices[]
+  project_expenses project_expenses[]
 
   @@index([customerId])
   @@index([vendorType])
@@ -900,4 +909,104 @@ model project_milestones {
   @@index([projectId])
   @@index([status])
   @@index([targetDate])
+}
+
+// ============================================
+// Enhanced Cash Flow Management Tables
+// ============================================
+
+model project_funding {
+  id              String             @id @default(uuid())
+  projectId       String
+  customerId      String
+  amount          Float
+  currency        String             @default("NGN")
+  fundingType     String // client_payment, bank_loan, equity_investment, grant, internal_budget, advance_payment
+  fundingSource   String? // Bank name, investor name, client name
+  expectedDate    DateTime?
+  receivedDate    DateTime?
+  status          String             @default("pending") // pending, received, partial, cancelled
+  referenceNumber String?            @unique
+  description     String?
+  attachments     Json?
+  notes           String?
+  metadata        Json?
+  createdBy       String?
+  approvedBy      String?
+  approvedAt      DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  project         developer_projects @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  customer        customers          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  creator         users?             @relation("FundingCreator", fields: [createdBy], references: [id])
+  approver        users?             @relation("FundingApprover", fields: [approvedBy], references: [id])
+
+  @@index([projectId])
+  @@index([customerId])
+  @@index([status])
+  @@index([receivedDate])
+  @@index([fundingType])
+}
+
+model project_expenses {
+  id               String             @id @default(uuid())
+  projectId        String
+  vendorId         String?
+  amount           Float
+  currency         String             @default("NGN")
+  taxAmount        Float              @default(0)
+  totalAmount      Float // amount + taxAmount
+  expenseType      String // invoice, purchase_order, payroll, overhead, material, equipment, subcontractor
+  category         String // labor, materials, equipment, permits, professional-fees, contingency
+  subcategory      String?
+  invoiceNumber    String?            @unique
+  description      String
+  invoiceDate      DateTime?
+  dueDate          DateTime?
+  paidDate         DateTime?
+  status           String             @default("pending") // pending, approved, paid, partial, rejected, cancelled
+  paymentStatus    String             @default("unpaid") // unpaid, partial, paid, overdue
+  paymentMethod    String?
+  paymentReference String?
+  approvedBy       String?
+  approvedAt       DateTime?
+  attachments      Json?
+  notes            String?
+  budgetLineItemId String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  project          developer_projects @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  vendor           project_vendors?   @relation(fields: [vendorId], references: [id])
+  approver         users?             @relation("ExpenseApprover", fields: [approvedBy], references: [id])
+  budgetLineItem   budget_line_items? @relation(fields: [budgetLineItemId], references: [id])
+
+  @@index([projectId])
+  @@index([vendorId])
+  @@index([status])
+  @@index([paidDate])
+  @@index([category])
+  @@index([expenseType])
+}
+
+model project_cash_flow_snapshots {
+  id                    String             @id @default(uuid())
+  projectId             String
+  periodType            String // daily, weekly, monthly, quarterly
+  periodStart           DateTime
+  periodEnd             DateTime
+  totalInflow           Float              @default(0)
+  totalOutflow          Float              @default(0)
+  netCashFlow           Float              @default(0)
+  cumulativeInflow      Float              @default(0)
+  cumulativeOutflow     Float              @default(0)
+  cumulativeNetCashFlow Float              @default(0)
+  inflowByType          Json? // { "client_payment": 1000000, "loan": 500000 }
+  outflowByCategory     Json? // { "labor": 300000, "materials": 200000 }
+  calculatedAt          DateTime           @default(now())
+  project               developer_projects @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, periodType, periodStart])
+  @@index([projectId])
+  @@index([periodStart])
+  @@index([periodType])
 }

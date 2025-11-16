@@ -66,21 +66,60 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
 
   const handleCreate = async () => {
     try {
-      // TODO: Call API to create project
-      const newProjectId = `project-${Date.now()}`;
+      console.log('[CreateProject] Creating project with data:', projectData);
+
+      // Get auth token
+      const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+      if (!token) {
+        toast.error('Authentication required', {
+          description: 'Please log in again.',
+        });
+        return;
+      }
+
+      // Call API to create project
+      const response = await fetch('/api/developer-dashboard/projects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: projectData.name,
+          projectType: projectData.projectType,
+          location: projectData.location,
+          city: projectData.city,
+          state: projectData.state,
+          description: projectData.description,
+          currency: projectData.currency,
+          totalBudget: parseFloat(projectData.totalBudget) || 0,
+          startDate: projectData.startDate,
+          estimatedEndDate: projectData.estimatedEndDate,
+          stage: projectData.stage,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create project');
+      }
+
+      const newProject = await response.json();
+      console.log('[CreateProject] Project created successfully:', newProject);
 
       toast.success('Project Created Successfully', {
         description: `${projectData.name} has been created and is ready to use.`,
       });
 
       if (onProjectCreated) {
-        onProjectCreated(newProjectId);
+        onProjectCreated(newProject.id);
       }
 
       onCancel(); // Go back to portfolio
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[CreateProject] Error creating project:', error);
       toast.error('Failed to create project', {
-        description: 'Please try again or contact support.',
+        description: error.message || 'Please try again or contact support.',
       });
     }
   };

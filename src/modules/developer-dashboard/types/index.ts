@@ -182,8 +182,11 @@ export interface ProjectDashboardData {
 
   // Aggregated data
   budgetByCategory: CategorySpend[];
+  spendByCategory?: SpendByCategoryData[]; // Real spend data from expenses
+  budgetVsActual?: BudgetVsActualData[]; // Monthly budget vs actual spend
   spendTrend: SpendTrendData[];
   cashFlowForecast: CashFlowData[];
+  cashFlowData?: CashFlowData[]; // Monthly cash flow from invoices
 }
 
 export interface CategorySpend {
@@ -192,6 +195,17 @@ export interface CategorySpend {
   actual: number;
   variance: number;
   variancePercent: number;
+}
+
+export interface SpendByCategoryData {
+  category: string;
+  amount: number;
+}
+
+export interface BudgetVsActualData {
+  month: string;
+  budget: number;
+  actual: number;
 }
 
 export interface SpendTrendData {

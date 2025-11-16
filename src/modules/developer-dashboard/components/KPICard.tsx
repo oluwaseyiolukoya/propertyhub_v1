@@ -1,7 +1,12 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Badge } from '../../../components/ui/badge';
-import { TrendingUp, TrendingDown, Minus, LucideIcon } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '../../../components/ui/tooltip';
+import { TrendingUp, TrendingDown, Minus, LucideIcon, Info } from 'lucide-react';
 
 interface KPICardProps {
   title: string;
@@ -19,6 +24,7 @@ interface KPICardProps {
   };
   loading?: boolean;
   className?: string;
+  tooltip?: string;
 }
 
 export const KPICard: React.FC<KPICardProps> = ({
@@ -30,6 +36,7 @@ export const KPICard: React.FC<KPICardProps> = ({
   status,
   loading = false,
   className = '',
+  tooltip,
 }) => {
   const getTrendIcon = () => {
     if (!trend) return null;
@@ -73,7 +80,19 @@ export const KPICard: React.FC<KPICardProps> = ({
       <CardContent className="p-6">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <p className="text-sm font-medium text-gray-600 mb-2">{title}</p>
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-sm font-medium text-gray-600">{title}</p>
+              {tooltip && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p>{tooltip}</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
             {loading ? (
               <div className="space-y-2">
                 <div className="h-8 w-24 bg-gray-200 animate-pulse rounded" />

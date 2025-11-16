@@ -11,7 +11,7 @@ export { default as CreateProjectPage } from './components/CreateProjectPage';
 export { default as InvoicesPage } from './components/InvoicesPage';
 export { default as CreateInvoiceModal } from './components/CreateInvoiceModal';
 export { default as InvoiceDetailModal } from './components/InvoiceDetailModal';
-export { default as BudgetManagementPage } from './components/BudgetManagementPage';
+export { BudgetManagementPage } from './components/BudgetManagementPage';
 export { PurchaseOrdersPage } from './components/PurchaseOrdersPage';
 export { ReportsPage } from './components/ReportsPage';
 export { ForecastsPage } from './components/ForecastsPage';

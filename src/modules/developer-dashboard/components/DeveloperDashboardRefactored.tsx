@@ -30,11 +30,13 @@ import {
 import PortfolioOverview from './PortfolioOverview';
 import ProjectDashboard from './ProjectDashboard';
 import CreateProjectPage from './CreateProjectPage';
+import { EditProjectPage } from './EditProjectPage';
 import InvoicesPage from './InvoicesPage';
-import BudgetManagementPage from './BudgetManagementPage';
+import { BudgetManagementPage } from './BudgetManagementPage';
 import { PurchaseOrdersPage } from './PurchaseOrdersPage';
 import { ReportsPage } from './ReportsPage';
 import { ForecastsPage } from './ForecastsPage';
+import { ExpenseManagementPage } from './ExpenseManagementPage';
 import { useProjects } from '../hooks/useDeveloperDashboardData';
 import { Footer } from '../../../components/Footer';
 import { toast } from 'sonner';
@@ -58,7 +60,9 @@ type Page =
   | 'reports'
   | 'forecasts'
   | 'settings'
-  | 'create-project';
+  | 'create-project'
+  | 'edit-project'
+  | 'expense-management';
 
 export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactoredProps> = ({
   user,
@@ -118,12 +122,28 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
 
   const handleCancelCreateProject = () => {
     setCurrentPage('portfolio');
+    setSelectedProjectId(null);
   };
 
   const handleProjectCreated = (projectId: string) => {
-    setSelectedProjectId(projectId);
+    // Go back to portfolio to show the new project in the list
+    setCurrentPage('portfolio');
+    setSelectedProjectId(null);
+    // The portfolio page will automatically refresh and show the new project
+  };
+
+  const handleEditProject = () => {
+    setCurrentPage('edit-project');
+  };
+
+  const handleCancelEditProject = () => {
     setCurrentPage('project-dashboard');
-    toast.success('Project created successfully!');
+  };
+
+  const handleProjectUpdated = (projectId: string) => {
+    // Go back to project dashboard to show updated data
+    setCurrentPage('project-dashboard');
+    // The project dashboard will automatically refresh
   };
 
   const handleGenerateReport = () => {
@@ -156,8 +176,9 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
   // Project-specific menu items (only visible when project is selected)
   const projectMenuItems = [
     { id: 'project-dashboard' as Page, label: 'Project Dashboard', icon: LayoutDashboard },
+    { id: 'expense-management' as Page, label: 'Expenses', icon: Receipt },
     { id: 'budgets' as Page, label: 'Budgets', icon: Wallet },
-    { id: 'purchase-orders' as Page, label: 'Purchase Orders', icon: Receipt },
+    { id: 'purchase-orders' as Page, label: 'Purchase Orders', icon: CreditCard },
     { id: 'reports' as Page, label: 'Reports', icon: BarChart3 },
     { id: 'forecasts' as Page, label: 'Forecasts', icon: TrendingUp },
   ];
@@ -168,6 +189,16 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
         <CreateProjectPage
           onCancel={handleCancelCreateProject}
           onProjectCreated={handleProjectCreated}
+        />
+      );
+    }
+
+    if (currentPage === 'edit-project' && selectedProjectId) {
+      return (
+        <EditProjectPage
+          projectId={selectedProjectId}
+          onCancel={handleCancelEditProject}
+          onProjectUpdated={handleProjectUpdated}
         />
       );
     }
@@ -193,10 +224,24 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
             projectId={selectedProjectId}
             onBack={handleBackToPortfolio}
             onGenerateReport={handleGenerateReport}
+            onEditProject={handleEditProject}
           />
         ) : (
           <div className="flex items-center justify-center h-full">
             <p className="text-gray-500">Please select a project</p>
+          </div>
+        );
+      case 'expense-management':
+        return selectedProjectId ? (
+          <ExpenseManagementPage
+            projectId={selectedProjectId}
+            projectName={projects.find((p) => p.id === selectedProjectId)?.name || 'Project'}
+            projectCurrency={projects.find((p) => p.id === selectedProjectId)?.currency || 'NGN'}
+            onBack={handleBackToPortfolio}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-gray-500">Please select a project to manage expenses</p>
           </div>
         );
       case 'budgets':

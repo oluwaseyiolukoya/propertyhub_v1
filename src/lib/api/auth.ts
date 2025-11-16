@@ -150,3 +150,18 @@ export const logout = () => {
   window.location.href = '/';
 };
 
+/**
+ * Change password for authenticated user
+ */
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export const changePassword = async (data: ChangePasswordRequest) => {
+  return apiClient.post<{ message: string }>(
+    API_ENDPOINTS.AUTH.CHANGE_PASSWORD,
+    data
+  );
+};
+

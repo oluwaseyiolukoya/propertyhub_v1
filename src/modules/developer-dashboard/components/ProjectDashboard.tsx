@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ArrowLeft,
   Download,
@@ -9,13 +9,22 @@ import {
   AlertTriangle,
   Target,
   ArrowRight,
+  Plus,
+  Info,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Progress } from '../../../components/ui/progress';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../../components/ui/tooltip';
 import KPICard from './KPICard';
 import { useProjectDashboard } from '../hooks/useDeveloperDashboardData';
+import { CashFlowChart } from './CashFlowChart';
 import {
   LineChart,
   Line,
@@ -26,7 +35,7 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   Legend,
   ResponsiveContainer,
 } from 'recharts';
@@ -35,34 +44,13 @@ interface ProjectDashboardProps {
   projectId: string;
   onBack: () => void;
   onGenerateReport?: () => void;
+  onEditProject?: () => void;
 }
 
-// Mock data for charts (will be replaced with real data from API)
-const budgetVsActualData = [
-  { month: 'Jan', budget: 450000000, actual: 420000000 },
-  { month: 'Feb', budget: 480000000, actual: 495000000 },
-  { month: 'Mar', budget: 520000000, actual: 510000000 },
-  { month: 'Apr', budget: 550000000, actual: 570000000 },
-  { month: 'May', budget: 580000000, actual: 600000000 },
-  { month: 'Jun', budget: 620000000, actual: 640000000 },
-];
+// budgetVsActualData is now fetched from API (removed mock data)
+// spendByCategoryData is now fetched from API (removed mock data)
 
-const spendByCategoryData = [
-  { category: 'Structure', amount: 850000000 },
-  { category: 'MEP', amount: 620000000 },
-  { category: 'Finishing', amount: 480000000 },
-  { category: 'Sitework', amount: 320000000 },
-  { category: 'Equipment', amount: 280000000 },
-];
-
-const cashFlowData = [
-  { month: 'Jan', inflow: 500000000, outflow: 420000000 },
-  { month: 'Feb', inflow: 450000000, outflow: 495000000 },
-  { month: 'Mar', inflow: 600000000, outflow: 510000000 },
-  { month: 'Apr', inflow: 550000000, outflow: 570000000 },
-  { month: 'May', inflow: 700000000, outflow: 600000000 },
-  { month: 'Jun', inflow: 650000000, outflow: 640000000 },
-];
+// Cash flow data is now fetched from API (removed mock data)
 
 const recentActivity = [
   {
@@ -103,8 +91,9 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
   projectId,
   onBack,
   onGenerateReport,
+  onEditProject,
 }) => {
-  const { data, loading, error } = useProjectDashboard(projectId);
+  const { data, loading, error, refetch } = useProjectDashboard(projectId);
 
   if (loading) {
     return (
@@ -134,8 +123,12 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
     );
   }
 
-  const { project, alerts } = data;
+  const { project, alerts, cashFlowData } = data;
 
+  // Use real cash flow data from API, or fallback to empty array
+  const monthlyCashFlow = cashFlowData || [];
+
+  // Helper function to format currency
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
@@ -145,17 +138,44 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
     }).format(amount);
   };
 
-  const variance = project.actualSpend - project.totalBudget;
-  const variancePercent =
-    project.totalBudget > 0 ? ((variance / project.totalBudget) * 100).toFixed(1) : '0.0';
+  // Helper function to format category names
+  const formatCategoryName = (category: string) => {
+    const categoryMap: Record<string, string> = {
+      'labor': 'Labor',
+      'materials': 'Materials',
+      'equipment': 'Equipment',
+      'permits': 'Permits',
+      'professional-fees': 'Professional Fees',
+      'contingency': 'Contingency',
+      'utilities': 'Utilities',
+      'insurance': 'Insurance',
+      'other': 'Other',
+    };
+    return categoryMap[category] || category.charAt(0).toUpperCase() + category.slice(1);
+  };
 
-  // Calculate forecasted completion (example: 3.4% over budget)
-  const forecastedCompletion = project.totalBudget * 1.034;
+  // Format spend by category data with proper category names
+  const formattedSpendByCategory = data.spendByCategory?.map(item => ({
+    ...item,
+    category: formatCategoryName(item.category),
+  })) || [];
+
+  // Use calculated values from backend
+  const totalBudget = project.totalBudget || 0;
+  const actualSpend = project.actualSpend || 0;
+  const variance = project.variance || 0;
+  const variancePercent = project.variancePercent || 0;
+  const forecastedCompletion = project.forecastedCompletion || totalBudget;
+
+  // Calculate forecast variance
+  const forecastVariance = forecastedCompletion - totalBudget;
+  const forecastVariancePercent = totalBudget > 0 ? (forecastVariance / totalBudget) * 100 : 0;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="space-y-4">
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="space-y-4">
         <Button variant="ghost" className="gap-2 -ml-2" onClick={onBack}>
           <ArrowLeft className="w-4 h-4" />
           Back to Portfolio
@@ -185,7 +205,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
               <Share2 className="w-4 h-4" />
               Share
             </Button>
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2" onClick={onEditProject}>
               <Edit className="w-4 h-4" />
               Edit Project
             </Button>
@@ -201,39 +221,52 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <KPICard
           title="Total Budget"
-          value={formatCurrency(project.totalBudget)}
+          value={formatCurrency(totalBudget)}
+          subtitle="From budget line items"
           icon={DollarSign}
+          tooltip="Total planned budget across all budget line items for this project"
         />
         <KPICard
           title="Actual Spend"
-          value={formatCurrency(project.actualSpend)}
-          subtitle="vs last month"
+          value={formatCurrency(actualSpend)}
+          subtitle="From paid expenses"
           icon={TrendingUp}
           trend={{
-            value: 8.5,
-            direction: 'up',
-            label: 'vs last month',
+            value: Math.abs(variancePercent),
+            direction: variance < 0 ? 'up' : 'down',
+            label: variance < 0 ? 'under budget' : 'over budget',
           }}
+          tooltip="Total amount spent from paid expenses. Only expenses marked as 'Paid' are included in this calculation"
         />
         <KPICard
           title="Variance"
           value={`${variance >= 0 ? '+' : ''}${formatCurrency(Math.abs(variance))}`}
+          subtitle={`${variancePercent >= 0 ? '+' : ''}${variancePercent.toFixed(1)}%`}
           icon={AlertTriangle}
           trend={{
-            value: parseFloat(variancePercent),
+            value: Math.abs(variancePercent),
             direction: variance > 0 ? 'down' : 'up',
+            label: variance > 0 ? 'over budget' : 'under budget',
           }}
+          tooltip="Difference between actual spend and total budget. Negative values indicate under budget, positive values indicate over budget"
         />
         <KPICard
           title="Forecasted Completion"
           value={formatCurrency(forecastedCompletion)}
-          subtitle="over budget"
+          subtitle={
+            forecastVariance > 0
+              ? `${forecastVariancePercent.toFixed(1)}% over budget`
+              : forecastVariance < 0
+              ? `${Math.abs(forecastVariancePercent).toFixed(1)}% under budget`
+              : 'on budget'
+          }
           icon={Target}
           trend={{
-            value: 3.4,
-            direction: 'down',
-            label: 'over budget',
+            value: Math.abs(forecastVariancePercent),
+            direction: forecastVariance > 0 ? 'down' : 'up',
+            label: forecastVariance > 0 ? 'over forecast' : 'under forecast',
           }}
+          tooltip="Projected total cost at project completion based on current progress and spend rate. Calculated as (Actual Spend ÷ Progress) × 100"
         />
       </div>
 
@@ -242,130 +275,145 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
         {/* Budget vs Actual Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Budget vs Actual Spend</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Budget vs Actual Spend</CardTitle>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="w-4 h-4 text-gray-400 cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Cumulative comparison of planned budget vs actual expenses over time. Helps track spending trends and identify budget deviations early</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={budgetVsActualData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="month" stroke="#6b7280" />
-                <YAxis stroke="#6b7280" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#fff',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                  }}
-                  formatter={(value: number) => formatCurrency(value)}
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="budget"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  dot={{ fill: '#3b82f6' }}
-                  name="Budget"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="actual"
-                  stroke="#14b8a6"
-                  strokeWidth={2}
-                  dot={{ fill: '#14b8a6' }}
-                  name="Actual"
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {loading ? (
+              <div className="flex items-center justify-center h-[300px]">
+                <div className="text-gray-500">Loading budget data...</div>
+              </div>
+            ) : data.budgetVsActual && data.budgetVsActual.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={data.budgetVsActual}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="month" stroke="#6b7280" />
+                  <YAxis stroke="#6b7280" />
+                  <RechartsTooltip
+                    contentStyle={{
+                      backgroundColor: '#fff',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                    }}
+                    formatter={(value: number) => formatCurrency(value)}
+                  />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="budget"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    dot={{ fill: '#3b82f6' }}
+                    name="Budget"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="actual"
+                    stroke="#14b8a6"
+                    strokeWidth={2}
+                    dot={{ fill: '#14b8a6' }}
+                    name="Actual"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-[300px] text-gray-500">
+                <p className="mb-2">No budget data available</p>
+                <p className="text-sm">Add budget line items to see budget vs actual</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
         {/* Spend by Category Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Spend by Category</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Spend by Category</CardTitle>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="w-4 h-4 text-gray-400 cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Breakdown of total paid expenses by category (Labor, Materials, Equipment, etc.). Only includes expenses with 'Paid' status</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={spendByCategoryData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="category" stroke="#6b7280" />
-                <YAxis stroke="#6b7280" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#fff',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                  }}
-                  formatter={(value: number) => formatCurrency(value)}
-                />
-                <Bar dataKey="amount" fill="#3b82f6" radius={[8, 8, 0, 0]} name="Amount" />
-              </BarChart>
-            </ResponsiveContainer>
+            {loading ? (
+              <div className="flex items-center justify-center h-[300px]">
+                <div className="text-gray-500">Loading spend data...</div>
+              </div>
+            ) : formattedSpendByCategory.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={formattedSpendByCategory}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis
+                    dataKey="category"
+                    stroke="#6b7280"
+                    tick={{ fontSize: 12 }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                  />
+                  <YAxis stroke="#6b7280" />
+                  <RechartsTooltip
+                    contentStyle={{
+                      backgroundColor: '#fff',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                    }}
+                    formatter={(value: number) => formatCurrency(value)}
+                  />
+                  <Bar dataKey="amount" fill="#3b82f6" radius={[8, 8, 0, 0]} name="Amount" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-[300px] text-gray-500">
+                <p className="mb-2">No spend data available</p>
+                <p className="text-sm">Add expenses to see spend by category</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Charts Row 2 - Cash Flow */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Monthly Cash Flow</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={cashFlowData}>
-              <defs>
-                <linearGradient id="colorInflow" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#14b8a6" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="colorOutflow" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="month" stroke="#6b7280" />
-              <YAxis stroke="#6b7280" />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#fff',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                }}
-                formatter={(value: number) => formatCurrency(value)}
-              />
-              <Legend />
-              <Area
-                type="monotone"
-                dataKey="inflow"
-                stroke="#14b8a6"
-                fill="url(#colorInflow)"
-                strokeWidth={2}
-                name="Inflow"
-              />
-              <Area
-                type="monotone"
-                dataKey="outflow"
-                stroke="#ef4444"
-                fill="url(#colorOutflow)"
-                strokeWidth={2}
-                name="Outflow"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+      {/* Charts Row 2 - Enhanced Cash Flow with Date Filters */}
+      <CashFlowChart
+        projectId={projectId}
+        periodType="monthly"
+        height={350}
+      />
 
       {/* Alerts and Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Alerts */}
         <Card className="lg:col-span-1">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-amber-500" />
-              Budget Alerts
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-500" />
+                Budget Alerts
+              </CardTitle>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="w-4 h-4 text-gray-400 cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Critical notifications about budget overruns, pending approvals, and other important project financial events</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {alerts && alerts.length > 0 ? (
@@ -425,7 +473,17 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
         <Card className="lg:col-span-2">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Recent Activity</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle>Recent Activity</CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="w-4 h-4 text-gray-400 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p>Latest financial transactions and activities on this project, including invoices, purchase orders, and approvals</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
               <Button variant="link" className="gap-1">
                 View All
                 <ArrowRight className="w-4 h-4" />
@@ -459,7 +517,8 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
           </CardContent>
         </Card>
       </div>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 };
 
