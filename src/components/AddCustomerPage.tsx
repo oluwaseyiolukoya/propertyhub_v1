@@ -160,7 +160,7 @@ export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCus
           .map((plan: any) => ({
             id: plan.id,
             name: plan.name,
-            category: plan.category || 'property_management', // Ensure category is always set
+            category: plan.category || null, // Keep null if not set, don't default
             price: plan.monthlyPrice,
             annualPrice: plan.annualPrice,
             currency: plan.currency || 'USD',
@@ -172,6 +172,9 @@ export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCus
             userLimit: plan.userLimit,
             storageLimit: plan.storageLimit
           }));
+
+        console.log('[AddCustomerPage] Loaded plans:', transformedPlans.length);
+        console.log('[AddCustomerPage] Plans with categories:', transformedPlans.map(p => ({ name: p.name, category: p.category })));
         setSubscriptionPlans(transformedPlans);
       }
     } catch (error) {
@@ -208,16 +211,21 @@ export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCus
   const filteredPlans = subscriptionPlans.filter(plan => {
     if (!newCustomer.customerType) return true; // Show all if no type selected
 
-    // Normalize category - handle both null/undefined and default values
-    const planCategory = plan.category || 'property_management';
+    // If plan doesn't have a category, show it for all customer types (backward compatibility)
+    if (!plan.category || plan.category === null) {
+      console.log(`[AddCustomerPage] Plan "${plan.name}" has no category, showing for all types`);
+      return true;
+    }
 
     if (newCustomer.customerType === 'developer') {
-      return planCategory === 'development';
+      return plan.category === 'development';
     } else {
       // property_owner and property_manager see property_management plans
-      return planCategory === 'property_management';
+      return plan.category === 'property_management';
     }
   });
+
+  console.log(`[AddCustomerPage] Customer type: ${newCustomer.customerType}, Filtered plans: ${filteredPlans.length}`);
 
   const selectedPlan = subscriptionPlans.find(plan => plan.name === newCustomer.plan);
 
@@ -735,13 +743,7 @@ This is an automated message. Please do not reply to this email.
                           </SelectTrigger>
                           <SelectContent>
                             {filteredPlans.length === 0 ? (
-                              <div className="p-2 text-sm text-gray-500">
-                                {loadingPlans
-                                  ? "Loading plans..."
-                                  : newCustomer.customerType === 'developer'
-                                    ? "No development plans available. Please create a development plan in Billing Plans settings."
-                                    : "No plans available"}
-                              </div>
+                              <div className="p-2 text-sm text-gray-500">No plans available</div>
                             ) : (
                               filteredPlans.map((plan) => (
                                 <SelectItem key={plan.id || plan.name} value={plan.name}>

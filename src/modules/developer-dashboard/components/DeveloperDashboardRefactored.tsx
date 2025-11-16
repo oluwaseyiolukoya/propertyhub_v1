@@ -15,6 +15,7 @@ import {
   LogOut,
   ChevronDown,
   Bell,
+  DollarSign,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Avatar, AvatarFallback } from '../../../components/ui/avatar';
@@ -37,6 +38,7 @@ import { PurchaseOrdersPage } from './PurchaseOrdersPage';
 import { ReportsPage } from './ReportsPage';
 import { ForecastsPage } from './ForecastsPage';
 import { ExpenseManagementPage } from './ExpenseManagementPage';
+import ProjectFundingPage from './ProjectFundingPage';
 import { useProjects } from '../hooks/useDeveloperDashboardData';
 import { Footer } from '../../../components/Footer';
 import { toast } from 'sonner';
@@ -45,6 +47,7 @@ import { TrialStatusBanner } from '../../../components/TrialStatusBanner';
 import { UpgradeModal } from '../../../components/UpgradeModal';
 import { getAccountInfo } from '../../../lib/api/auth';
 import { getSubscriptionStatus } from '../../../lib/api/subscription';
+import { apiClient } from '../../../lib/api-client';
 import { DeveloperSettings } from './DeveloperSettings';
 
 interface DeveloperDashboardRefactoredProps {
@@ -62,7 +65,8 @@ type Page =
   | 'settings'
   | 'create-project'
   | 'edit-project'
-  | 'expense-management';
+  | 'expense-management'
+  | 'project-funding';
 
 export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactoredProps> = ({
   user,
@@ -146,6 +150,89 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
     // The project dashboard will automatically refresh
   };
 
+  const handleDeleteProject = async (projectId: string) => {
+    if (!window.confirm('Are you sure you want to delete this project? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const response = await apiClient.delete<{ message: string}>(
+        `/api/developer-dashboard/projects/${projectId}`
+      );
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to delete project');
+      }
+
+      toast.success('Project deleted successfully');
+
+      // If we're viewing the deleted project, go back to portfolio
+      if (selectedProjectId === projectId) {
+        setCurrentPage('portfolio');
+        setSelectedProjectId(null);
+      }
+
+      // Refresh the projects list
+      window.location.reload();
+    } catch (error: any) {
+      console.error('Error deleting project:', error);
+      toast.error(error?.message || 'Failed to delete project');
+    }
+  };
+
+  const handleMarkAsCompleted = async (projectId: string) => {
+    if (!window.confirm('Mark this project as completed? This will set the status to completed and progress to 100%.')) {
+      return;
+    }
+
+    try {
+      const response = await apiClient.patch<any>(
+        `/api/developer-dashboard/projects/${projectId}`,
+        {
+          status: 'completed',
+          actualEndDate: new Date().toISOString(),
+          progress: 100,
+        }
+      );
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to update project');
+      }
+
+      toast.success('Project marked as completed');
+      window.location.reload(); // Refresh to show updated status
+    } catch (error: any) {
+      console.error('Error marking project as completed:', error);
+      toast.error(error?.message || 'Failed to update project');
+    }
+  };
+
+  const handleReactivateProject = async (projectId: string) => {
+    if (!window.confirm('Reactivate this project? This will set the status back to active.')) {
+      return;
+    }
+
+    try {
+      const response = await apiClient.patch<any>(
+        `/api/developer-dashboard/projects/${projectId}`,
+        {
+          status: 'active',
+          actualEndDate: null,
+        }
+      );
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to reactivate project');
+      }
+
+      toast.success('Project reactivated successfully');
+      window.location.reload(); // Refresh to show updated status
+    } catch (error: any) {
+      console.error('Error reactivating project:', error);
+      toast.error(error?.message || 'Failed to reactivate project');
+    }
+  };
+
   const handleGenerateReport = () => {
     toast.info('Report generation feature coming soon!');
   };
@@ -176,6 +263,7 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
   // Project-specific menu items (only visible when project is selected)
   const projectMenuItems = [
     { id: 'project-dashboard' as Page, label: 'Project Dashboard', icon: LayoutDashboard },
+    { id: 'project-funding' as Page, label: 'Project Funding', icon: DollarSign },
     { id: 'expense-management' as Page, label: 'Expenses', icon: Receipt },
     { id: 'budgets' as Page, label: 'Budgets', icon: Wallet },
     { id: 'purchase-orders' as Page, label: 'Purchase Orders', icon: CreditCard },
@@ -214,6 +302,13 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
             />
             <PortfolioOverview
               onViewProject={handleProjectSelect}
+              onEditProject={(projectId) => {
+                setSelectedProjectId(projectId);
+                handleEditProject();
+              }}
+              onDeleteProject={handleDeleteProject}
+              onMarkAsCompleted={handleMarkAsCompleted}
+              onReactivateProject={handleReactivateProject}
               onCreateProject={handleCreateProject}
             />
           </>
@@ -225,10 +320,25 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
             onBack={handleBackToPortfolio}
             onGenerateReport={handleGenerateReport}
             onEditProject={handleEditProject}
+            onMarkAsCompleted={() => handleMarkAsCompleted(selectedProjectId)}
+            onReactivateProject={() => handleReactivateProject(selectedProjectId)}
           />
         ) : (
           <div className="flex items-center justify-center h-full">
             <p className="text-gray-500">Please select a project</p>
+          </div>
+        );
+      case 'project-funding':
+        return selectedProjectId ? (
+          <ProjectFundingPage
+            projectId={selectedProjectId}
+            projectName={projects.find((p) => p.id === selectedProjectId)?.name || 'Project'}
+            projectCurrency={projects.find((p) => p.id === selectedProjectId)?.currency || 'NGN'}
+            onBack={handleBackToPortfolio}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-gray-500">Please select a project to manage funding</p>
           </div>
         );
       case 'expense-management':
@@ -282,6 +392,13 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
         return (
           <PortfolioOverview
             onViewProject={handleProjectSelect}
+            onEditProject={(projectId) => {
+              setSelectedProjectId(projectId);
+              handleEditProject();
+            }}
+            onDeleteProject={handleDeleteProject}
+            onMarkAsCompleted={handleMarkAsCompleted}
+            onReactivateProject={handleReactivateProject}
             onCreateProject={handleCreateProject}
           />
         );

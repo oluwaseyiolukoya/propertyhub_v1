@@ -162,19 +162,43 @@ router.get('/portfolio/overview', async (req: Request, res: Response) => {
       },
     });
 
-    const totalProjects = projects.length;
-    const activeProjects = projects.filter(p => p.status === 'active').length;
-    const completedProjects = projects.filter(p => p.status === 'completed').length;
-    const totalBudget = projects.reduce((sum, p) => sum + p.totalBudget, 0);
-    const totalActualSpend = projects.reduce((sum, p) => sum + p.actualSpend, 0);
+    // Calculate actual spend from expenses for each project
+    const projectsWithActualSpend = await Promise.all(
+      projects.map(async (project) => {
+        // Get paid expenses for this project
+        const expenses = await prisma.project_expenses.findMany({
+          where: {
+            projectId: project.id,
+            paymentStatus: 'paid',
+          },
+        });
+
+        // Calculate actual spend from paid expenses
+        const actualSpend = expenses.reduce((sum, expense) => {
+          const amount = Number(expense.totalAmount) || 0;
+          return sum + amount;
+        }, 0);
+
+        return {
+          ...project,
+          actualSpend,
+        };
+      })
+    );
+
+    const totalProjects = projectsWithActualSpend.length;
+    const activeProjects = projectsWithActualSpend.filter(p => p.status === 'active').length;
+    const completedProjects = projectsWithActualSpend.filter(p => p.status === 'completed').length;
+    const totalBudget = projectsWithActualSpend.reduce((sum, p) => sum + p.totalBudget, 0);
+    const totalActualSpend = projectsWithActualSpend.reduce((sum, p) => sum + p.actualSpend, 0);
     const totalVariance = totalActualSpend - totalBudget;
     const variancePercent = totalBudget > 0 ? (totalVariance / totalBudget) * 100 : 0;
-    const averageProgress = projects.length > 0
-      ? projects.reduce((sum, p) => sum + p.progress, 0) / projects.length
+    const averageProgress = projectsWithActualSpend.length > 0
+      ? projectsWithActualSpend.reduce((sum, p) => sum + p.progress, 0) / projectsWithActualSpend.length
       : 0;
-    const projectsOnTrack = projects.filter(p => p.actualSpend <= p.totalBudget).length;
-    const projectsDelayed = projects.filter(p => p.status === 'active' && p.progress < 50).length;
-    const projectsOverBudget = projects.filter(p => p.actualSpend > p.totalBudget).length;
+    const projectsOnTrack = projectsWithActualSpend.filter(p => p.actualSpend <= p.totalBudget).length;
+    const projectsDelayed = projectsWithActualSpend.filter(p => p.status === 'active' && p.progress < 50).length;
+    const projectsOverBudget = projectsWithActualSpend.filter(p => p.actualSpend > p.totalBudget).length;
 
     res.json({
       totalProjects,
@@ -188,7 +212,7 @@ router.get('/portfolio/overview', async (req: Request, res: Response) => {
       projectsOnTrack,
       projectsDelayed,
       projectsOverBudget,
-      currency: projects[0]?.currency || 'NGN',
+      currency: projectsWithActualSpend[0]?.currency || 'NGN',
     });
   } catch (error: any) {
     console.error('Error fetching portfolio overview:', error);
@@ -263,8 +287,32 @@ router.get('/projects', async (req: Request, res: Response) => {
       take: limitNum,
     });
 
+    // Calculate actual spend from expenses for each project
+    const projectsWithActualSpend = await Promise.all(
+      projects.map(async (project) => {
+        // Get paid expenses for this project
+        const expenses = await prisma.project_expenses.findMany({
+          where: {
+            projectId: project.id,
+            paymentStatus: 'paid',
+          },
+        });
+
+        // Calculate actual spend from paid expenses
+        const actualSpend = expenses.reduce((sum, expense) => {
+          const amount = Number(expense.totalAmount) || 0;
+          return sum + amount;
+        }, 0);
+
+        return {
+          ...project,
+          actualSpend, // Override with calculated value
+        };
+      })
+    );
+
     res.json({
-      data: projects,
+      data: projectsWithActualSpend,
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -442,10 +490,24 @@ router.get('/projects/:projectId/dashboard', async (req: Request, res: Response)
     }
 
     // Calculate monthly cash flow from invoices
-    const cashFlowData = calculateMonthlyCashFlow(invoices, project.startDate);
+    // Handle null startDate safely
+    let cashFlowData: any[] = [];
+    try {
+      cashFlowData = calculateMonthlyCashFlow(invoices, project.startDate || null);
+    } catch (err: any) {
+      console.error('Error calculating cash flow:', err);
+      cashFlowData = [];
+    }
 
     // Calculate budget vs actual spend by month
-    const budgetVsActual = calculateBudgetVsActual(budgetLineItems, expenses, project.startDate);
+    // Handle null startDate safely
+    let budgetVsActual: any[] = [];
+    try {
+      budgetVsActual = calculateBudgetVsActual(budgetLineItems, expenses, project.startDate || null);
+    } catch (err: any) {
+      console.error('Error calculating budget vs actual:', err);
+      budgetVsActual = [];
+    }
 
     // Calculate KPI values from real data
     const totalBudget = budgetLineItems.reduce((sum, item) => {
@@ -453,32 +515,66 @@ router.get('/projects/:projectId/dashboard', async (req: Request, res: Response)
       return sum + amount;
     }, 0);
 
-    const actualSpend = expenses.reduce((sum, expense) => {
+    // Calculate Gross Spend (total expenses)
+    const grossSpend = expenses.reduce((sum, expense) => {
       const amount = Number(expense.totalAmount) || 0;
       return sum + amount;
     }, 0);
 
-    const variance = actualSpend - totalBudget;
+    // Fetch funding received for this project
+    const fundingReceived = await prisma.project_funding.aggregate({
+      where: {
+        projectId,
+        status: 'received',
+        receivedDate: { not: null }
+      },
+      _sum: {
+        amount: true
+      }
+    });
+
+    const totalFundingReceived = fundingReceived._sum.amount || 0;
+
+    // Calculate Net Spend (expenses - funding)
+    const netSpend = grossSpend - totalFundingReceived;
+
+    // Calculate Available Budget (budget + funding - expenses)
+    const availableBudget = totalBudget + totalFundingReceived - grossSpend;
+
+    // Calculate variances
+    const variance = grossSpend - totalBudget; // Gross variance (for backward compatibility)
     const variancePercent = totalBudget > 0 ? (variance / totalBudget) * 100 : 0;
+
+    const netVariance = netSpend - totalBudget; // Net variance (after funding)
+    const netVariancePercent = totalBudget > 0 ? (netVariance / totalBudget) * 100 : 0;
+
+    // Keep actualSpend for backward compatibility
+    const actualSpend = grossSpend;
 
     // Calculate forecasted completion based on current progress and spend rate
     let forecastedCompletion = totalBudget;
     const progress = project.progress || 0;
-    if (progress > 0 && progress <= 100 && actualSpend > 0) {
-      // Forecast = (actualSpend / progress) * 100
+    if (progress > 0 && progress <= 100 && grossSpend > 0) {
+      // Forecast = (grossSpend / progress) * 100
       // This estimates total cost based on current spend rate
       // Convert progress percentage to decimal (e.g., 25% -> 0.25)
       const progressDecimal = progress / 100;
-      forecastedCompletion = actualSpend / progressDecimal;
+      forecastedCompletion = grossSpend / progressDecimal;
     }
 
     // Enhanced project object with calculated values
     const projectWithCalculations = {
       ...project,
       totalBudget,
-      actualSpend,
-      variance,
-      variancePercent,
+      actualSpend,              // Keep for backward compatibility
+      grossSpend,               // NEW: Total expenses
+      netSpend,                 // NEW: Expenses - Funding
+      totalFundingReceived,     // NEW: Total funding received
+      availableBudget,          // NEW: Budget + Funding - Expenses
+      variance,                 // Keep for backward compatibility (gross variance)
+      variancePercent,          // Keep for backward compatibility
+      netVariance,              // NEW: Net variance after funding
+      netVariancePercent,       // NEW: Net variance percentage
       forecastedCompletion,
     };
 
@@ -592,6 +688,64 @@ router.patch('/projects/:projectId', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error updating project:', error);
     res.status(500).json({ error: 'Failed to update project' });
+  }
+});
+
+// ============================================
+// Delete Project
+// ============================================
+
+router.delete('/projects/:projectId', async (req: Request, res: Response) => {
+  try {
+    const { projectId } = req.params;
+    const userId = (req as any).user.id;
+    const customerId = (req as any).user.customerId;
+
+    // Verify ownership
+    const existing = await prisma.developer_projects.findFirst({
+      where: {
+        id: projectId,
+        customerId,
+        developerId: userId,
+      },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Delete related records in a transaction
+    await prisma.$transaction(async (tx) => {
+      // Delete budget line items
+      await tx.budget_line_items.deleteMany({
+        where: { projectId },
+      });
+
+      // Delete expenses
+      await tx.project_expenses.deleteMany({
+        where: { projectId },
+      });
+
+      // Delete funding
+      await tx.project_funding.deleteMany({
+        where: { projectId },
+      });
+
+      // Delete cash flow snapshots
+      await tx.project_cash_flow_snapshots.deleteMany({
+        where: { projectId },
+      });
+
+      // Delete the project itself
+      await tx.developer_projects.delete({
+        where: { id: projectId },
+      });
+    });
+
+    res.json({ message: 'Project deleted successfully' });
+  } catch (error: any) {
+    console.error('Error deleting project:', error);
+    res.status(500).json({ error: 'Failed to delete project' });
   }
 });
 
@@ -923,6 +1077,237 @@ router.get('/projects/:projectId/invoices', async (req: Request, res: Response) 
   } catch (error: any) {
     console.error('Error fetching invoices:', error);
     res.status(500).json({ error: 'Failed to fetch invoices' });
+  }
+});
+
+// Create invoice for a project
+router.post('/projects/:projectId/invoices', async (req: Request, res: Response) => {
+  try {
+    const { projectId } = req.params;
+    const userId = (req as any).user.id;
+    const customerId = (req as any).user.customerId;
+    const {
+      purchaseOrderId,
+      vendorId,
+      description,
+      category,
+      amount,
+      currency,
+      dueDate,
+      paymentMethod,
+      notes,
+      attachments,
+    } = req.body;
+
+    // Verify project ownership
+    const project = await prisma.developer_projects.findFirst({
+      where: {
+        id: projectId,
+        customerId,
+        developerId: userId,
+      },
+    });
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Validate required fields
+    if (!description || !category || !amount) {
+      return res.status(400).json({ error: 'Missing required fields: description, category, amount' });
+    }
+
+    // If purchaseOrderId provided, verify it exists and belongs to this project
+    if (purchaseOrderId) {
+      const po = await prisma.purchase_orders.findFirst({
+        where: {
+          id: purchaseOrderId,
+          projectId,
+          customerId,
+        },
+      });
+
+      if (!po) {
+        return res.status(404).json({ error: 'Purchase order not found' });
+      }
+    }
+
+    // Generate invoice number (INV-YYYY-###)
+    const year = new Date().getFullYear();
+    const lastInvoice = await prisma.project_invoices.findFirst({
+      where: {
+        invoiceNumber: {
+          startsWith: `INV-${year}-`,
+        },
+      },
+      orderBy: {
+        invoiceNumber: 'desc',
+      },
+    });
+
+    let invoiceNumber: string;
+    if (lastInvoice) {
+      const lastNumber = parseInt(lastInvoice.invoiceNumber.split('-')[2]);
+      invoiceNumber = `INV-${year}-${String(lastNumber + 1).padStart(3, '0')}`;
+    } else {
+      invoiceNumber = `INV-${year}-001`;
+    }
+
+    // Create invoice
+    const invoice = await prisma.project_invoices.create({
+      data: {
+        projectId,
+        purchaseOrderId: purchaseOrderId || null,
+        vendorId: vendorId || null,
+        invoiceNumber,
+        description,
+        category,
+        amount: parseFloat(amount),
+        currency: currency || 'NGN',
+        status: 'pending',
+        dueDate: dueDate ? new Date(dueDate) : null,
+        paymentMethod: paymentMethod || null,
+        notes: notes || null,
+        attachments: attachments || null,
+      },
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            name: true,
+            contactPerson: true,
+            email: true,
+            phone: true,
+          },
+        },
+        purchaseOrder: {
+          select: {
+            id: true,
+            poNumber: true,
+            totalAmount: true,
+            status: true,
+          },
+        },
+      },
+    });
+
+    res.status(201).json(invoice);
+  } catch (error: any) {
+    console.error('Error creating invoice:', error);
+    res.status(500).json({ error: 'Failed to create invoice', details: error.message });
+  }
+});
+
+// ============================================
+// Mark Invoice as Paid and Create Expense
+// ============================================
+router.post('/projects/:projectId/invoices/:invoiceId/mark-paid', async (req: Request, res: Response) => {
+  try {
+    const { projectId, invoiceId } = req.params;
+    const userId = (req as any).user.id;
+    const customerId = (req as any).user.customerId;
+    const {
+      paymentMethod,
+      paymentReference,
+      paidDate,
+      notes,
+    } = req.body;
+
+    // Verify project ownership
+    const project = await prisma.developer_projects.findFirst({
+      where: {
+        id: projectId,
+        customerId,
+        developerId: userId,
+      },
+    });
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Get the invoice
+    const invoice = await prisma.project_invoices.findFirst({
+      where: {
+        id: invoiceId,
+        projectId,
+      },
+      include: {
+        vendor: true,
+        purchaseOrder: true,
+      },
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    if (invoice.status === 'paid') {
+      return res.status(400).json({ error: 'Invoice is already marked as paid' });
+    }
+
+    // Use transaction to ensure atomicity
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Update invoice status to paid
+      const updatedInvoice = await tx.project_invoices.update({
+        where: { id: invoiceId },
+        data: {
+          status: 'paid',
+          paidDate: paidDate ? new Date(paidDate) : new Date(),
+          paymentMethod: paymentMethod || null,
+        },
+      });
+
+      // 2. Check if expense already exists for this invoice
+      const existingExpense = await tx.project_expenses.findFirst({
+        where: {
+          projectId,
+          invoiceNumber: invoice.invoiceNumber,
+        },
+      });
+
+      let expense;
+      if (!existingExpense) {
+        // 3. Create expense automatically
+        expense = await tx.project_expenses.create({
+          data: {
+            projectId,
+            vendorId: invoice.vendorId || null,
+            amount: invoice.amount,
+            currency: invoice.currency,
+            taxAmount: 0,
+            totalAmount: invoice.amount,
+            expenseType: 'invoice',
+            category: invoice.category,
+            invoiceNumber: invoice.invoiceNumber,
+            description: invoice.description || `Payment for invoice ${invoice.invoiceNumber}`,
+            invoiceDate: invoice.createdAt,
+            dueDate: invoice.dueDate,
+            paidDate: paidDate ? new Date(paidDate) : new Date(),
+            status: 'approved',
+            paymentStatus: 'paid',
+            paymentMethod: paymentMethod || null,
+            paymentReference: paymentReference || null,
+            approvedBy: userId,
+            approvedAt: new Date(),
+            notes: notes || `Auto-created from invoice ${invoice.invoiceNumber}`,
+          },
+        });
+      } else {
+        expense = existingExpense;
+      }
+
+      return { invoice: updatedInvoice, expense };
+    });
+
+    res.json({
+      message: 'Invoice marked as paid and expense created successfully',
+      invoice: result.invoice,
+      expense: result.expense,
+    });
+  } catch (error: any) {
+    console.error('Error marking invoice as paid:', error);
+    res.status(500).json({ error: 'Failed to mark invoice as paid', details: error.message });
   }
 });
 
@@ -1458,6 +1843,166 @@ router.delete('/projects/:projectId/expenses/:expenseId', async (req: Request, r
   } catch (error: any) {
     console.error('Error deleting expense:', error);
     res.status(500).json({ error: 'Failed to delete expense record' });
+  }
+});
+
+// ============================================
+// Recent Activity
+// ============================================
+
+router.get('/projects/:projectId/recent-activity', async (req: Request, res: Response) => {
+  try {
+    const { projectId } = req.params;
+    const userId = (req as any).user.id;
+    const customerId = (req as any).user.customerId;
+    const limit = parseInt(req.query.limit as string) || 5;
+    const skip = parseInt(req.query.skip as string) || 0;
+
+    // Verify project ownership
+    const project = await prisma.developer_projects.findFirst({
+      where: {
+        id: projectId,
+        customerId,
+        developerId: userId,
+      },
+    });
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Fetch ALL recent activities first (we'll paginate after combining)
+    // Fetch recent expenses
+    const recentExpenses = await prisma.project_expenses.findMany({
+      where: { projectId },
+      include: {
+        approver: { select: { name: true, email: true } }
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Fetch recent funding
+    const recentFunding = await prisma.project_funding.findMany({
+      where: { projectId },
+      include: {
+        creator: { select: { name: true, email: true } }
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Fetch recent budget changes (newly created or updated budget items)
+    const recentBudgetItems = await prisma.budget_line_items.findMany({
+      where: { projectId },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    // Combine and format all activities
+    const activities: any[] = [];
+
+    // Add expenses
+    recentExpenses.forEach(expense => {
+      activities.push({
+        id: `expense-${expense.id}`,
+        type: 'expense',
+        description: `Expense: ${expense.description || expense.category}`,
+        amount: expense.totalAmount,
+        currency: expense.currency,
+        user: expense.approver?.name || 'System',
+        timestamp: expense.createdAt,
+        status: expense.paymentStatus,
+        metadata: {
+          category: expense.category,
+          paymentStatus: expense.paymentStatus,
+          paidDate: expense.paidDate,
+        }
+      });
+    });
+
+    // Add funding
+    recentFunding.forEach(funding => {
+      activities.push({
+        id: `funding-${funding.id}`,
+        type: 'funding',
+        description: `Funding: ${funding.description || funding.fundingType}`,
+        amount: funding.amount,
+        currency: funding.currency,
+        user: funding.creator?.name || 'Unknown',
+        timestamp: funding.createdAt,
+        status: funding.status,
+        metadata: {
+          fundingType: funding.fundingType,
+          fundingSource: funding.fundingSource,
+          status: funding.status,
+          receivedDate: funding.receivedDate,
+        }
+      });
+    });
+
+    // Add budget items
+    recentBudgetItems.forEach(item => {
+      const isNew = item.createdAt.getTime() === item.updatedAt.getTime();
+      activities.push({
+        id: `budget-${item.id}`,
+        type: 'budget',
+        description: isNew
+          ? `Budget created: ${item.category}`
+          : `Budget updated: ${item.category}`,
+        amount: item.plannedAmount,
+        currency: project.currency,
+        user: 'System',
+        timestamp: item.updatedAt,
+        status: 'completed',
+        metadata: {
+          category: item.category,
+          plannedAmount: item.plannedAmount,
+          actualAmount: item.actualAmount,
+          variance: item.variance,
+        }
+      });
+    });
+
+    // Sort by timestamp (most recent first)
+    // Handle both Date objects and ISO strings
+    activities.sort((a, b) => {
+      const dateA = a.timestamp instanceof Date ? a.timestamp : new Date(a.timestamp);
+      const dateB = b.timestamp instanceof Date ? b.timestamp : new Date(b.timestamp);
+      return dateB.getTime() - dateA.getTime();
+    });
+
+    // Convert Date objects to ISO strings for JSON serialization
+    activities.forEach(activity => {
+      if (activity.timestamp instanceof Date) {
+        activity.timestamp = activity.timestamp.toISOString();
+      }
+    });
+
+    // Apply pagination
+    const totalActivities = activities.length;
+    const paginatedActivities = activities.slice(skip, skip + limit);
+    const totalPages = Math.ceil(totalActivities / limit);
+    const currentPage = Math.floor(skip / limit) + 1;
+
+    res.json({
+      activities: paginatedActivities,
+      total: totalActivities,
+      page: currentPage,
+      limit: limit,
+      totalPages: totalPages,
+      hasMore: skip + limit < totalActivities,
+    });
+
+  } catch (error: any) {
+    console.error('Error fetching recent activity:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      meta: error.meta
+    });
+    res.status(500).json({
+      error: 'Failed to fetch recent activity',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

@@ -24,6 +24,7 @@ import { Badge } from '../../../components/ui/badge';
 import { Card, CardContent } from '../../../components/ui/card';
 import { Separator } from '../../../components/ui/separator';
 import { toast } from 'sonner';
+import { getProgressFromStage } from '../utils/projectProgress';
 
 interface CreateProjectPageProps {
   onCancel: () => void;
@@ -268,21 +269,29 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                     <Label htmlFor="stage">Project Stage</Label>
                     <Select
                       value={projectData.stage}
-                      onValueChange={(value) =>
-                        setProjectData({ ...projectData, stage: value })
-                      }
+                      onValueChange={(value) => {
+                        const autoProgress = getProgressFromStage(value);
+                        setProjectData({
+                          ...projectData,
+                          stage: value,
+                          progress: autoProgress.toString()
+                        });
+                      }}
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="planning">Planning</SelectItem>
-                        <SelectItem value="design">Design</SelectItem>
-                        <SelectItem value="pre-construction">Pre-Construction</SelectItem>
-                        <SelectItem value="construction">Construction</SelectItem>
-                        <SelectItem value="completion">Completion</SelectItem>
+                        <SelectItem value="planning">Planning (10% progress)</SelectItem>
+                        <SelectItem value="design">Design (30% progress)</SelectItem>
+                        <SelectItem value="pre-construction">Pre-Construction (50% progress)</SelectItem>
+                        <SelectItem value="construction">Construction (75% progress)</SelectItem>
+                        <SelectItem value="completion">Completion (95% progress)</SelectItem>
                       </SelectContent>
                     </Select>
+                    <p className="text-sm text-gray-500">
+                      Progress auto-updates based on stage
+                    </p>
                   </div>
                 </div>
 

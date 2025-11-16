@@ -15,6 +15,8 @@ export { BudgetManagementPage } from './components/BudgetManagementPage';
 export { PurchaseOrdersPage } from './components/PurchaseOrdersPage';
 export { ReportsPage } from './components/ReportsPage';
 export { ForecastsPage } from './components/ForecastsPage';
+export { ProjectFundingPage } from './components/ProjectFundingPage';
+export { AddFundingModal } from './components/AddFundingModal';
 export { default as KPICard } from './components/KPICard';
 export { default as BudgetTable } from './components/BudgetTable';
 export { default as BudgetVsActualChart } from './components/BudgetVsActualChart';

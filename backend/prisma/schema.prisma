@@ -139,9 +139,6 @@ model customers {
   updatedAt                   DateTime
   propertiesCount             Int                         @default(0)
   unitsCount                  Int                         @default(0)
-  projectsCount               Int                         @default(0)
-  planCategory                String? // 'property_management' | 'development'
-  projectLimit                Int? // For developer plans
   notes                       String?
   timezone                    String?
   language                    String?
@@ -178,6 +175,7 @@ model customers {
   developer_projects          developer_projects[]
   project_vendors             project_vendors[]
   project_funding             project_funding[]
+  purchase_orders             purchase_orders[]
 
   @@index([status])
   @@index([trialEndsAt])
@@ -400,12 +398,10 @@ model plans {
   id                      String                    @id
   name                    String                    @unique
   description             String?
-  category                String                    @default("property_management") // 'property_management' | 'development'
   monthlyPrice            Float
   annualPrice             Float
   currency                String                    @default("NGN")
-  propertyLimit           Int?
-  projectLimit            Int? // For development plans
+  propertyLimit           Int
   userLimit               Int
   storageLimit            Int
   features                Json
@@ -677,6 +673,8 @@ model users {
   project_funding_created                                                       project_funding[]           @relation("FundingCreator")
   project_funding_approved                                                      project_funding[]           @relation("FundingApprover")
   project_expenses_approved                                                     project_expenses[]          @relation("ExpenseApprover")
+  purchase_orders_requested                                                     purchase_orders[]          @relation("PORequester")
+  purchase_orders_approved                                                      purchase_orders[]          @relation("POApprover")
 }
 
 model maintenance_requests {
@@ -791,6 +789,7 @@ model developer_projects {
   project_funding             project_funding[]
   project_expenses            project_expenses[]
   project_cash_flow_snapshots project_cash_flow_snapshots[]
+  purchase_orders             purchase_orders[]
 
   @@index([customerId])
   @@index([developerId])
@@ -843,6 +842,7 @@ model project_vendors {
   customer         customers          @relation(fields: [customerId], references: [id], onDelete: Cascade)
   invoices         project_invoices[]
   project_expenses project_expenses[]
+  purchase_orders  purchase_orders[]
 
   @@index([customerId])
   @@index([vendorType])
@@ -850,30 +850,33 @@ model project_vendors {
 }
 
 model project_invoices {
-  id            String             @id @default(uuid())
-  projectId     String
-  vendorId      String?
-  invoiceNumber String             @unique
-  description   String
-  category      String // matches budget categories
-  amount        Float
-  currency      String             @default("NGN")
-  status        String             @default("pending") // pending, approved, paid, rejected
-  dueDate       DateTime?
-  paidDate      DateTime?
-  paymentMethod String?
-  approvedBy    String?
-  approvedAt    DateTime?
-  attachments   Json?
-  notes         String?
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  project       developer_projects @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  vendor        project_vendors?   @relation(fields: [vendorId], references: [id])
-  approver      users?             @relation(fields: [approvedBy], references: [id])
+  id              String             @id @default(uuid())
+  projectId       String
+  vendorId        String?
+  purchaseOrderId String? // Link to purchase order
+  invoiceNumber   String             @unique
+  description     String
+  category        String // matches budget categories
+  amount          Float
+  currency        String             @default("NGN")
+  status          String             @default("pending") // pending, approved, paid, rejected, matched
+  dueDate         DateTime?
+  paidDate        DateTime?
+  paymentMethod   String?
+  approvedBy      String?
+  approvedAt      DateTime?
+  attachments     Json?
+  notes           String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  project         developer_projects @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  vendor          project_vendors?   @relation(fields: [vendorId], references: [id])
+  purchaseOrder   purchase_orders?   @relation(fields: [purchaseOrderId], references: [id])
+  approver        users?             @relation(fields: [approvedBy], references: [id])
 
   @@index([projectId])
   @@index([vendorId])
+  @@index([purchaseOrderId])
   @@index([status])
   @@index([category])
 }
@@ -914,6 +917,65 @@ model project_milestones {
   @@index([projectId])
   @@index([status])
   @@index([targetDate])
+}
+
+// ============================================
+// Purchase Orders Management
+// ============================================
+
+model purchase_orders {
+  id              String                 @id @default(uuid())
+  projectId       String
+  customerId      String
+  vendorId        String?
+  poNumber        String                 @unique
+  description     String
+  category        String // matches budget categories
+  totalAmount     Float
+  currency        String                 @default("NGN")
+  status          String                 @default("pending") // draft, pending, approved, rejected, closed
+  itemCount       Int                    @default(0)
+  requestedBy     String? // user ID
+  approvedBy      String? // user ID
+  approvedAt      DateTime?
+  expiryDate      DateTime?
+  deliveryDate    DateTime?
+  terms           String? // payment terms
+  notes           String?
+  attachments     Json? // array of file URLs
+  metadata        Json?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  project         developer_projects     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  customer        customers              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  vendor          project_vendors?       @relation(fields: [vendorId], references: [id])
+  requester       users?                 @relation("PORequester", fields: [requestedBy], references: [id])
+  approver        users?                 @relation("POApprover", fields: [approvedBy], references: [id])
+  items           purchase_order_items[]
+  invoices        project_invoices[]
+
+  @@index([projectId])
+  @@index([customerId])
+  @@index([vendorId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model purchase_order_items {
+  id              String          @id @default(uuid())
+  purchaseOrderId String
+  description     String
+  quantity        Float
+  unitPrice       Float
+  totalPrice      Float
+  unit            String? // e.g., "pcs", "kg", "m2"
+  category        String?
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  purchaseOrder   purchase_orders @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  @@index([purchaseOrderId])
 }
 
 // ============================================

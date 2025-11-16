@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   Download,
@@ -6,12 +6,18 @@ import {
   Share2,
   DollarSign,
   TrendingUp,
+  TrendingDown,
   AlertTriangle,
   Target,
   ArrowRight,
   Plus,
   Info,
+  ChevronLeft,
+  ChevronRight,
+  CheckCircle,
+  RotateCcw,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Progress } from '../../../components/ui/progress';
@@ -25,6 +31,7 @@ import {
 import KPICard from './KPICard';
 import { useProjectDashboard } from '../hooks/useDeveloperDashboardData';
 import { CashFlowChart } from './CashFlowChart';
+import { apiClient } from '../../../lib/api-client';
 import {
   LineChart,
   Line,
@@ -45,55 +52,73 @@ interface ProjectDashboardProps {
   onBack: () => void;
   onGenerateReport?: () => void;
   onEditProject?: () => void;
+  onMarkAsCompleted?: () => void;
+  onReactivateProject?: () => void;
 }
 
 // budgetVsActualData is now fetched from API (removed mock data)
 // spendByCategoryData is now fetched from API (removed mock data)
-
 // Cash flow data is now fetched from API (removed mock data)
+// Recent activity is now fetched from API (removed mock data)
 
-const recentActivity = [
-  {
-    id: 1,
-    type: 'invoice',
-    description: 'Invoice INV-1238 approved',
-    amount: '₦41,200,000',
-    user: 'John Davis',
-    time: '2 hours ago',
-  },
-  {
-    id: 2,
-    type: 'po',
-    description: 'Purchase Order PO-2025-006 created',
-    amount: '₦125,000,000',
-    user: 'Sarah Anderson',
-    time: '5 hours ago',
-  },
-  {
-    id: 3,
-    type: 'approval',
-    description: 'Budget revision approved',
-    amount: '₦50,000,000',
-    user: 'Michael Chen',
-    time: '1 day ago',
-  },
-  {
-    id: 4,
-    type: 'invoice',
-    description: 'Invoice INV-1237 matched to PO',
-    amount: '₦28,400,000',
-    user: 'System',
-    time: '1 day ago',
-  },
-];
+interface RecentActivity {
+  id: string;
+  type: 'expense' | 'funding' | 'budget';
+  description: string;
+  amount: number;
+  currency: string;
+  user: string;
+  timestamp: string;
+  status: string;
+  metadata?: any;
+}
 
 export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
   projectId,
   onBack,
   onGenerateReport,
   onEditProject,
+  onMarkAsCompleted,
+  onReactivateProject,
 }) => {
   const { data, loading, error, refetch } = useProjectDashboard(projectId);
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+  const [activityLoading, setActivityLoading] = useState(true);
+  const [activityPage, setActivityPage] = useState(1);
+  const [activityTotal, setActivityTotal] = useState(0);
+  const [activityTotalPages, setActivityTotalPages] = useState(0);
+  const activityPerPage = 5;
+
+  // Fetch recent activity with pagination
+  useEffect(() => {
+    const fetchRecentActivity = async () => {
+      try {
+        setActivityLoading(true);
+        const skip = (activityPage - 1) * activityPerPage;
+        const response = await apiClient.get(
+          `/api/developer-dashboard/projects/${projectId}/recent-activity?limit=${activityPerPage}&skip=${skip}`
+        );
+        // apiClient.get returns { data: ... }, so access response.data
+        const activities = response?.data?.activities || [];
+        const total = response?.data?.total || 0;
+        const totalPages = response?.data?.totalPages || 0;
+        setRecentActivity(activities);
+        setActivityTotal(total);
+        setActivityTotalPages(totalPages);
+      } catch (err: any) {
+        console.error('Failed to fetch recent activity:', err);
+        setRecentActivity([]);
+        setActivityTotal(0);
+        setActivityTotalPages(0);
+      } finally {
+        setActivityLoading(false);
+      }
+    };
+
+    if (projectId) {
+      fetchRecentActivity();
+    }
+  }, [projectId, activityPage]);
 
   if (loading) {
     return (
@@ -154,6 +179,22 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
     return categoryMap[category] || category.charAt(0).toUpperCase() + category.slice(1);
   };
 
+  // Helper function to format relative time
+  const formatRelativeTime = (timestamp: string) => {
+    const now = new Date();
+    const date = new Date(timestamp);
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    return date.toLocaleDateString();
+  };
+
   // Format spend by category data with proper category names
   const formattedSpendByCategory = data.spendByCategory?.map(item => ({
     ...item,
@@ -163,8 +204,14 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
   // Use calculated values from backend
   const totalBudget = project.totalBudget || 0;
   const actualSpend = project.actualSpend || 0;
-  const variance = project.variance || 0;
+  const grossSpend = project.grossSpend || actualSpend; // Gross spend (total expenses)
+  const netSpend = project.netSpend || 0; // Net spend (expenses - funding)
+  const totalFundingReceived = project.totalFundingReceived || 0; // Total funding received
+  const availableBudget = project.availableBudget || 0; // Budget + Funding - Expenses
+  const variance = project.variance || 0; // Gross variance
   const variancePercent = project.variancePercent || 0;
+  const netVariance = project.netVariance || 0; // Net variance (after funding)
+  const netVariancePercent = project.netVariancePercent || 0;
   const forecastedCompletion = project.forecastedCompletion || totalBudget;
 
   // Calculate forecast variance
@@ -201,6 +248,26 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
           </div>
 
           <div className="flex gap-2">
+            {onMarkAsCompleted && project.status !== 'completed' && (
+              <Button
+                variant="default"
+                className="gap-2 bg-green-600 hover:bg-green-700"
+                onClick={onMarkAsCompleted}
+              >
+                <CheckCircle className="w-4 h-4" />
+                Mark as Completed
+              </Button>
+            )}
+            {onReactivateProject && project.status === 'completed' && (
+              <Button
+                variant="default"
+                className="gap-2 bg-blue-600 hover:bg-blue-700"
+                onClick={onReactivateProject}
+              >
+                <RotateCcw className="w-4 h-4" />
+                Reactivate Project
+              </Button>
+            )}
             <Button variant="outline" className="gap-2">
               <Share2 className="w-4 h-4" />
               Share
@@ -217,7 +284,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
         </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards - Row 1 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <KPICard
           title="Total Budget"
@@ -227,28 +294,63 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
           tooltip="Total planned budget across all budget line items for this project"
         />
         <KPICard
-          title="Actual Spend"
-          value={formatCurrency(actualSpend)}
-          subtitle="From paid expenses"
+          title="Gross Spend"
+          value={formatCurrency(grossSpend)}
+          subtitle="Total expenses paid"
           icon={TrendingUp}
           trend={{
-            value: Math.abs(variancePercent),
+            value: parseFloat(Math.abs(variancePercent).toFixed(1)),
             direction: variance < 0 ? 'up' : 'down',
             label: variance < 0 ? 'under budget' : 'over budget',
           }}
           tooltip="Total amount spent from paid expenses. Only expenses marked as 'Paid' are included in this calculation"
         />
         <KPICard
-          title="Variance"
-          value={`${variance >= 0 ? '+' : ''}${formatCurrency(Math.abs(variance))}`}
-          subtitle={`${variancePercent >= 0 ? '+' : ''}${variancePercent.toFixed(1)}%`}
+          title="Funding Received"
+          value={formatCurrency(totalFundingReceived)}
+          subtitle="Total funding"
+          icon={DollarSign}
+          tooltip="Total funding received for this project. Only funding with status 'received' is included"
+        />
+        <KPICard
+          title="Net Spend"
+          value={formatCurrency(Math.abs(netSpend))}
+          subtitle={netSpend >= 0 ? 'After funding' : 'Net positive'}
+          icon={netSpend >= 0 ? TrendingUp : TrendingDown}
+          trend={{
+            value: parseFloat(Math.abs(netVariancePercent).toFixed(1)),
+            direction: netSpend >= 0 ? 'up' : 'down',
+            label: netSpend >= 0 ? 'net outflow' : 'net inflow',
+          }}
+          tooltip="Net spend after deducting funding received. Calculated as Gross Spend - Funding Received"
+        />
+      </div>
+
+      {/* KPI Cards - Row 2 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <KPICard
+          title="Available Budget"
+          value={formatCurrency(Math.abs(availableBudget))}
+          subtitle={availableBudget >= 0 ? 'Remaining' : 'Over budget'}
+          icon={DollarSign}
+          trend={{
+            value: Math.abs((availableBudget / totalBudget) * 100),
+            direction: availableBudget >= 0 ? 'up' : 'down',
+            label: availableBudget >= 0 ? 'available' : 'exceeded',
+          }}
+          tooltip="Available budget including funding. Calculated as Total Budget + Funding Received - Gross Spend"
+        />
+        <KPICard
+          title="Net Variance"
+          value={`${netVariance >= 0 ? '+' : ''}${formatCurrency(Math.abs(netVariance))}`}
+          subtitle={`${netVariancePercent >= 0 ? '+' : ''}${netVariancePercent.toFixed(1)}%`}
           icon={AlertTriangle}
           trend={{
-            value: Math.abs(variancePercent),
-            direction: variance > 0 ? 'down' : 'up',
-            label: variance > 0 ? 'over budget' : 'under budget',
+            value: Math.abs(netVariancePercent),
+            direction: netVariance > 0 ? 'down' : 'up',
+            label: netVariance > 0 ? 'over budget' : 'under budget',
           }}
-          tooltip="Difference between actual spend and total budget. Negative values indicate under budget, positive values indicate over budget"
+          tooltip="Net variance after funding. Calculated as Net Spend - Total Budget. Negative values indicate under budget"
         />
         <KPICard
           title="Forecasted Completion"
@@ -266,7 +368,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
             direction: forecastVariance > 0 ? 'down' : 'up',
             label: forecastVariance > 0 ? 'over forecast' : 'under forecast',
           }}
-          tooltip="Projected total cost at project completion based on current progress and spend rate. Calculated as (Actual Spend ÷ Progress) × 100"
+          tooltip="Projected total cost at project completion based on current progress and spend rate. Calculated as (Gross Spend ÷ Progress) × 100"
         />
       </div>
 
@@ -491,29 +593,118 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {recentActivity.map((activity) => (
-                <div
-                  key={activity.id}
-                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900 mb-1">{activity.description}</p>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <span>{activity.user}</span>
-                      <span>•</span>
-                      <span>{activity.time}</span>
+            {activityLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-20 bg-gray-200 animate-pulse rounded" />
+                ))}
+              </div>
+            ) : recentActivity.length > 0 ? (
+              <div className="space-y-3">
+                {recentActivity.map((activity) => {
+                  // Format currency for this activity
+                  const activityAmount = new Intl.NumberFormat('en-NG', {
+                    style: 'currency',
+                    currency: activity.currency || project.currency,
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  }).format(activity.amount);
+
+                  // Determine badge color based on type
+                  const badgeColor =
+                    activity.type === 'expense' ? 'bg-red-50 text-red-700 border-red-200' :
+                    activity.type === 'funding' ? 'bg-green-50 text-green-700 border-green-200' :
+                    'bg-blue-50 text-blue-700 border-blue-200';
+
+                  return (
+                    <div
+                      key={activity.id}
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900 mb-1">{activity.description}</p>
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <span>{activity.user}</span>
+                          <span>•</span>
+                          <span>{formatRelativeTime(activity.timestamp)}</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium text-gray-900 mb-1">{activityAmount}</p>
+                        <Badge variant="outline" className={`capitalize ${badgeColor}`}>
+                          {activity.type}
+                        </Badge>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium text-gray-900 mb-1">{activity.amount}</p>
-                    <Badge variant="outline" className="capitalize">
-                      {activity.type}
-                    </Badge>
-                  </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500 text-sm">No recent activity</p>
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {!activityLoading && activityTotal > activityPerPage && (
+              <div className="mt-4 flex items-center justify-between border-t pt-4">
+                <div className="text-sm text-gray-600">
+                  Showing {Math.min((activityPage - 1) * activityPerPage + 1, activityTotal)} to{' '}
+                  {Math.min(activityPage * activityPerPage, activityTotal)} of {activityTotal} activities
                 </div>
-              ))}
-            </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setActivityPage(prev => Math.max(1, prev - 1))}
+                    disabled={activityPage === 1}
+                    className="gap-1"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  <div className="flex items-center gap-1">
+                    {[...Array(activityTotalPages)].map((_, idx) => {
+                      const pageNum = idx + 1;
+                      // Show first page, last page, current page, and pages around current
+                      if (
+                        pageNum === 1 ||
+                        pageNum === activityTotalPages ||
+                        (pageNum >= activityPage - 1 && pageNum <= activityPage + 1)
+                      ) {
+                        return (
+                          <Button
+                            key={pageNum}
+                            variant={pageNum === activityPage ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setActivityPage(pageNum)}
+                            className="w-8 h-8 p-0"
+                          >
+                            {pageNum}
+                          </Button>
+                        );
+                      } else if (
+                        (pageNum === activityPage - 2 && pageNum > 1) ||
+                        (pageNum === activityPage + 2 && pageNum < activityTotalPages)
+                      ) {
+                        return <span key={pageNum} className="text-gray-400">...</span>;
+                      }
+                      return null;
+                    })}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setActivityPage(prev => Math.min(activityTotalPages, prev + 1))}
+                    disabled={activityPage === activityTotalPages}
+                    className="gap-1"
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

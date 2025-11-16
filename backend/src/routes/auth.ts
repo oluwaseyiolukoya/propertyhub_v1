@@ -496,27 +496,33 @@ router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) =
     let actualUnitsCount = customer?.unitsCount || 0;
     let actualManagersCount = 0;
 
-    if (user.customerId) {
-      // Get actual counts from database
-      const [properties, units, managers] = await Promise.all([
-        prisma.properties.count({ where: { customerId: user.customerId } }),
-        prisma.units.count({
-          where: {
-            properties: { customerId: user.customerId }
-          }
-        }),
-        prisma.users.count({
-          where: {
-            customerId: user.customerId,
-            role: { in: ['manager', 'property_manager', 'property-manager'] },
-            isActive: true
-          }
-        })
-      ]);
+    // Only count properties/units/managers for non-developer users
+    if (user.customerId && derivedUserType !== 'developer') {
+      try {
+        // Get actual counts from database
+        const [properties, units, managers] = await Promise.all([
+          prisma.properties.count({ where: { customerId: user.customerId } }),
+          prisma.units.count({
+            where: {
+              properties: { customerId: user.customerId }
+            }
+          }),
+          prisma.users.count({
+            where: {
+              customerId: user.customerId,
+              role: { in: ['manager', 'property_manager', 'property-manager'] },
+              isActive: true
+            }
+          })
+        ]);
 
-      actualPropertiesCount = properties;
-      actualUnitsCount = units;
-      actualManagersCount = managers;
+        actualPropertiesCount = properties;
+        actualUnitsCount = units;
+        actualManagersCount = managers;
+      } catch (error) {
+        console.warn('⚠️ Error counting properties/units/managers for customer:', error);
+        // Continue with default values if counting fails
+      }
     }
 
     res.json({

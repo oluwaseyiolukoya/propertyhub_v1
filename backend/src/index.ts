@@ -73,6 +73,10 @@ import adminOnboardingRoutes from "./routes/admin-onboarding";
 import subscriptionManagementRoutes from "./routes/subscription";
 // Developer Dashboard routes
 import developerDashboardRoutes from "./routes/developer-dashboard";
+// Purchase Orders routes
+import purchaseOrdersRoutes from "./routes/purchase-orders";
+// Vendors routes
+import vendorsRoutes from "./routes/vendors";
 // Available Plans routes (category-filtered)
 import availablePlansRoutes from "./routes/available-plans";
 // Email Test routes
@@ -212,16 +216,9 @@ app.get("/api/public/branding", async (req: Request, res: Response) => {
       faviconUrl: favicon && typeof favicon.value === "string" ? favicon.value : null,
     });
   } catch (e: any) {
-    console.error("❌ Branding endpoint error:", {
-      message: e?.message,
-      code: e?.code,
-      meta: e?.meta,
-      stack: e?.stack,
-    });
     res.status(500).json({
       error: "Failed to load branding",
-      message: e?.message || "Unknown error",
-      code: e?.code || "UNKNOWN_ERROR",
+      message: e?.message,
     });
   }
 });
@@ -308,6 +305,10 @@ app.use("/api/billing-transactions", billingTransactionsRoutes);
 app.use("/api/uploads", uploadRoutes);
 // Developer Dashboard routes
 app.use("/api/developer-dashboard", developerDashboardRoutes);
+// Purchase Orders routes
+app.use("/api/developer-dashboard", purchaseOrdersRoutes);
+// Vendors routes
+app.use("/api/developer-dashboard", vendorsRoutes);
 // Email Test routes
 app.use("/api/email-test", emailTestRoutes);
 

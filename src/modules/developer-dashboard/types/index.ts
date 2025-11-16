@@ -61,6 +61,15 @@ export interface DeveloperProject {
   daysRemaining?: number;
   isOverBudget?: boolean;
   isDelayed?: boolean;
+
+  // Funding-related computed fields
+  grossSpend?: number;              // Total expenses
+  netSpend?: number;                // Expenses - Funding
+  totalFundingReceived?: number;    // Total funding received
+  availableBudget?: number;         // Budget + Funding - Expenses
+  netVariance?: number;             // Net variance after funding
+  netVariancePercent?: number;      // Net variance percentage
+  forecastedCompletion?: number;    // Forecasted total cost at completion
 }
 
 export interface BudgetLineItem {
