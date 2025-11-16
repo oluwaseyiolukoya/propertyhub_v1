@@ -122,12 +122,34 @@ Or visit: https://whatismyipaddress.com/
 
 ### Step 3: Try Original Script Again
 
+### Step 1: Add Production URL to .env File
+
+Create or update your `.env` file in the project root:
+
+```bash
+# .env (in project root)
+PROD_DB_URL="postgresql://contrezz_user:YOUR_PASSWORD@contrezz-db-prod-do-user-18499071-0.d.db.ondigitalocean.com:25060/contrezz?sslmode=require"
+```
+
+**⚠️ Important:** Make sure `.env` is in your `.gitignore` file!
+
+### Step 2: Load and Use Environment Variable
+
 ```bash
 cd /Users/oluwaseyio/test_ui_figma_and_cursor
 
-export PROD_DB_URL="postgresql://contrezz_user:YOUR_PASSWORD_HERE@contrezz-db-prod-do-user-18499071-0.d.db.ondigitalocean.com:25060/contrezz?sslmode=require"
+# Load .env file
+source .env
 
+# Run sync script
 ./sync-production-to-local.sh
+```
+
+**Or use a single command:**
+
+```bash
+# Load .env and run script in one line
+cd /Users/oluwaseyio/test_ui_figma_and_cursor && source .env && ./sync-production-to-local.sh
 ```
 
 ---
@@ -136,13 +158,22 @@ export PROD_DB_URL="postgresql://contrezz_user:YOUR_PASSWORD_HERE@contrezz-db-pr
 
 If you have a small amount of data:
 
-### Step 1: Connect Prisma Studio to Production
+### Step 1: Add Production URL to Backend .env
+
+Create or update `.env` in the backend directory:
+
+```bash
+# backend/.env
+PRODUCTION_DATABASE_URL="postgresql://contrezz_user:YOUR_PASSWORD@contrezz-db-prod-do-user-18499071-0.d.db.ondigitalocean.com:25060/contrezz?sslmode=require"
+```
+
+### Step 2: Connect Prisma Studio to Production
 
 ```bash
 cd /Users/oluwaseyio/test_ui_figma_and_cursor/backend
 
-# Temporarily set production URL
-DATABASE_URL="postgresql://contrezz_user:YOUR_PASSWORD_HERE@contrezz-db-prod-do-user-18499071-0.d.db.ondigitalocean.com:25060/contrezz?sslmode=require" npx prisma studio
+# Load production URL from .env and open Prisma Studio
+source .env && DATABASE_URL=$PRODUCTION_DATABASE_URL npx prisma studio
 ```
 
 **⚠️ Warning:** This will also fail if your IP isn't whitelisted.
