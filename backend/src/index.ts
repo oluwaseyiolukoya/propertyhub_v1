@@ -73,6 +73,7 @@ import adminOnboardingRoutes from "./routes/admin-onboarding";
 import subscriptionManagementRoutes from "./routes/subscription";
 // Developer Dashboard routes
 import developerDashboardRoutes from "./routes/developer-dashboard";
+import developerProjectsProgressRoutes from "./routes/developer-projects-progress";
 // Purchase Orders routes
 import purchaseOrdersRoutes from "./routes/purchase-orders";
 // Vendors routes
@@ -305,6 +306,7 @@ app.use("/api/billing-transactions", billingTransactionsRoutes);
 app.use("/api/uploads", uploadRoutes);
 // Developer Dashboard routes
 app.use("/api/developer-dashboard", developerDashboardRoutes);
+app.use("/api/developer-dashboard/projects", developerProjectsProgressRoutes);
 // Purchase Orders routes
 app.use("/api/developer-dashboard", purchaseOrdersRoutes);
 // Vendors routes
