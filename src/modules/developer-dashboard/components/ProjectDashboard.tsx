@@ -240,7 +240,25 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
 
             <div className="mt-4 space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Overall Progress</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-600">Overall Progress</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="w-3 h-3 text-gray-400 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-semibold mb-2">Automatic Progress Calculation</p>
+                      <p className="text-xs">Progress is automatically calculated based on:</p>
+                      <ul className="text-xs list-disc list-inside mt-1 space-y-1">
+                        <li>Milestones completion (40%)</li>
+                        <li>Budget progress (30%)</li>
+                        <li>Time elapsed (20%)</li>
+                        <li>Project stage (10%)</li>
+                      </ul>
+                      <p className="text-xs mt-2 text-gray-500">Updates automatically when milestones, budget, or expenses change</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 <span className="font-medium text-gray-900">{project.progress}%</span>
               </div>
               <Progress value={project.progress} className="h-2" />

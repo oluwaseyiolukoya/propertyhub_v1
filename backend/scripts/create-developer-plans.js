@@ -1,6 +1,6 @@
 /**
  * Create Developer Plans in Production
- * 
+ *
  * This script creates development plans for property developer customers
  */
 
@@ -172,7 +172,7 @@ async function createDeveloperPlans() {
     });
 
     console.log('📊 All Plans in Database:\n');
-    
+
     const devPlans = allPlans.filter(p => p.category === 'development');
     const propPlans = allPlans.filter(p => p.category === 'property_management');
 

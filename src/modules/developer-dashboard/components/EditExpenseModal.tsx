@@ -171,6 +171,20 @@ export function EditExpenseModal({
       const updatedExpense = await response.json();
       console.log("[EditExpense] Expense updated successfully:", updatedExpense.id);
 
+      // Update project progress automatically
+      try {
+        await fetch(`/api/developer-dashboard/projects/${projectId}/progress/update`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        console.log("[EditExpense] Project progress updated automatically");
+      } catch (progressError) {
+        console.warn("[EditExpense] Failed to update progress:", progressError);
+        // Don't fail the whole operation if progress update fails
+      }
+
       toast.success("Expense Updated Successfully!", {
         description: `${formData.description} has been updated.`,
       });
@@ -469,6 +483,7 @@ export function EditExpenseModal({
     </Dialog>
   );
 }
+
 
 
 

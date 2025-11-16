@@ -149,6 +149,20 @@ export const EditProjectPage: React.FC<EditProjectPageProps> = ({
       const updatedProject = await response.json();
       console.log('[EditProject] Project updated successfully:', updatedProject);
 
+      // Update project progress automatically
+      try {
+        await fetch(`/api/developer-dashboard/projects/${projectId}/progress/update`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        console.log("[EditProject] Project progress updated automatically");
+      } catch (progressError) {
+        console.warn("[EditProject] Failed to update progress:", progressError);
+        // Don't fail the whole operation if progress update fails
+      }
+
       toast.success('Project Updated Successfully', {
         description: `${projectData.name} has been updated.`,
       });
@@ -489,12 +503,11 @@ export const EditProjectPage: React.FC<EditProjectPageProps> = ({
                   max="100"
                   placeholder="0"
                   value={projectData.progress}
-                  onChange={(e) =>
-                    setProjectData({ ...projectData, progress: e.target.value })
-                  }
+                  disabled
+                  className="bg-gray-50 cursor-not-allowed"
                 />
-                <p className="text-sm text-gray-500">
-                  Current progress: {projectData.progress}%
+                <p className="text-sm text-blue-600">
+                  ℹ️ Progress is automatically calculated based on milestones, budget, time, and stage
                 </p>
               </div>
             </div>
@@ -600,6 +613,7 @@ export const EditProjectPage: React.FC<EditProjectPageProps> = ({
     </div>
   );
 };
+
 
 
 

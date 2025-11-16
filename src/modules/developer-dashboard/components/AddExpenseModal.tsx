@@ -145,6 +145,20 @@ export function AddExpenseModal({
       const newExpense = await response.json();
       console.log("[AddExpense] Expense created successfully:", newExpense.id);
 
+      // Update project progress automatically
+      try {
+        await fetch(`/api/developer-dashboard/projects/${projectId}/progress/update`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        console.log("[AddExpense] Project progress updated automatically");
+      } catch (progressError) {
+        console.warn("[AddExpense] Failed to update progress:", progressError);
+        // Don't fail the whole operation if progress update fails
+      }
+
       toast.success("Expense Created Successfully!", {
         description: `${formData.description} has been added to the project.`,
       });
@@ -478,6 +492,7 @@ export function AddExpenseModal({
     </Dialog>
   );
 }
+
 
 
 

@@ -270,11 +270,9 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                     <Select
                       value={projectData.stage}
                       onValueChange={(value) => {
-                        const autoProgress = getProgressFromStage(value);
                         setProjectData({
                           ...projectData,
                           stage: value,
-                          progress: autoProgress.toString()
                         });
                       }}
                     >
@@ -282,15 +280,15 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="planning">Planning (10% progress)</SelectItem>
-                        <SelectItem value="design">Design (30% progress)</SelectItem>
-                        <SelectItem value="pre-construction">Pre-Construction (50% progress)</SelectItem>
-                        <SelectItem value="construction">Construction (75% progress)</SelectItem>
-                        <SelectItem value="completion">Completion (95% progress)</SelectItem>
+                        <SelectItem value="planning">Planning</SelectItem>
+                        <SelectItem value="design">Design</SelectItem>
+                        <SelectItem value="pre-construction">Pre-Construction</SelectItem>
+                        <SelectItem value="construction">Construction</SelectItem>
+                        <SelectItem value="completion">Completion</SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-sm text-gray-500">
-                      Progress auto-updates based on stage
+                    <p className="text-sm text-blue-600">
+                      ℹ️ Progress will be automatically calculated based on milestones, budget, time, and stage
                     </p>
                   </div>
                 </div>

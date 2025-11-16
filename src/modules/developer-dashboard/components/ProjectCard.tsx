@@ -3,7 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
 import { Progress } from '../../../components/ui/progress';
-import { Eye, MapPin, Calendar, TrendingUp, TrendingDown } from 'lucide-react';
+import { Eye, MapPin, Calendar, TrendingUp, TrendingDown, Info } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../../components/ui/tooltip';
 import type { DeveloperProject, ProjectStage, ProjectStatus } from '../types';
 
 interface ProjectCardProps {
@@ -66,6 +72,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
   const isOverBudget = variance > 0;
 
   return (
+    <TooltipProvider>
     <Card className="hover:shadow-lg transition-shadow">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
@@ -106,7 +113,24 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
         {/* Progress */}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600">Progress</span>
+            <div className="flex items-center gap-1">
+              <span className="text-gray-600">Progress</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="w-3 h-3 text-gray-400 cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="font-semibold mb-2">Automatic Progress Calculation</p>
+                  <p className="text-xs">Based on:</p>
+                  <ul className="text-xs list-disc list-inside mt-1 space-y-1">
+                    <li>Milestones completion (40%)</li>
+                    <li>Budget progress (30%)</li>
+                    <li>Time elapsed (20%)</li>
+                    <li>Project stage (10%)</li>
+                  </ul>
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <span className="font-semibold">{project.progress}%</span>
           </div>
           <Progress value={project.progress} className="h-2" />
@@ -148,6 +172,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
         </div>
       </CardContent>
     </Card>
+    </TooltipProvider>
   );
 };
 

@@ -32,3 +32,4 @@ echo "4. cd backend && npx prisma generate"
 echo "5. pm2 restart backend"
 echo ""
 
+

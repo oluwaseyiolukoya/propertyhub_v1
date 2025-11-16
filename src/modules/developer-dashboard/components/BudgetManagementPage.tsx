@@ -202,6 +202,23 @@ export const BudgetManagementPage: React.FC<BudgetManagementPageProps> = ({ proj
           notes: '',
         });
         refetch();
+
+        // Update project progress automatically
+        try {
+          const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+          if (token) {
+            await fetch(`/api/developer-dashboard/projects/${projectId}/progress/update`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+              },
+            });
+            console.log("[BudgetManagement] Project progress updated automatically");
+          }
+        } catch (progressError) {
+          console.warn("[BudgetManagement] Failed to update progress:", progressError);
+          // Don't fail the whole operation if progress update fails
+        }
       } else {
         toast.error(response.error || 'Failed to create budget line item');
       }
@@ -238,6 +255,23 @@ export const BudgetManagementPage: React.FC<BudgetManagementPageProps> = ({ proj
         setIsEditDialogOpen(false);
         setSelectedBudget(null);
         refetch();
+
+        // Update project progress automatically
+        try {
+          const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+          if (token) {
+            await fetch(`/api/developer-dashboard/projects/${projectId}/progress/update`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+              },
+            });
+            console.log("[BudgetManagement] Project progress updated automatically after edit");
+          }
+        } catch (progressError) {
+          console.warn("[BudgetManagement] Failed to update progress:", progressError);
+          // Don't fail the whole operation if progress update fails
+        }
       } else {
         toast.error(response.error || 'Failed to update budget line item');
       }

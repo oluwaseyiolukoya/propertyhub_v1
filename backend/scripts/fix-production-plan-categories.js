@@ -1,9 +1,9 @@
 /**
  * Fix Production Plan Categories
- * 
+ *
  * This script updates plan categories in the production database
  * to ensure developer plans have category='development'
- * 
+ *
  * Run this script AFTER deploying the Prisma schema fix
  */
 
@@ -43,7 +43,7 @@ async function fixPlanCategories() {
 
     // Step 3: Identify plans that need fixing
     const developmentKeywords = ['developer', 'development', 'dev', 'project'];
-    
+
     const plansToFix = allPlans.filter(plan => {
       const nameLower = plan.name.toLowerCase();
       const isDevelopmentPlan = developmentKeywords.some(keyword => nameLower.includes(keyword));
@@ -68,7 +68,7 @@ async function fixPlanCategories() {
 
       for (const plan of plansToFix) {
         console.log(`  Updating: ${plan.name}...`);
-        
+
         await prisma.plans.update({
           where: { id: plan.id },
           data: {
@@ -88,7 +88,7 @@ async function fixPlanCategories() {
     console.log('\n🔧 Step 3: Ensuring property management plans have correct category...\n');
 
     const propertyKeywords = ['property', 'owner', 'manager', 'management', 'basic', 'standard', 'premium', 'enterprise'];
-    
+
     const propertyPlans = allPlans.filter(plan => {
       const nameLower = plan.name.toLowerCase();
       const isPropertyPlan = propertyKeywords.some(keyword => nameLower.includes(keyword));
@@ -101,7 +101,7 @@ async function fixPlanCategories() {
     } else {
       for (const plan of propertyPlans) {
         console.log(`  Updating: ${plan.name}...`);
-        
+
         await prisma.plans.update({
           where: { id: plan.id },
           data: {
@@ -117,7 +117,7 @@ async function fixPlanCategories() {
     // Step 6: Display final state
     console.log('\n📊 Final Plan Categories:');
     console.log('─────────────────────────────────────────────────────────');
-    
+
     const updatedPlans = await prisma.plans.findMany({
       select: {
         id: true,

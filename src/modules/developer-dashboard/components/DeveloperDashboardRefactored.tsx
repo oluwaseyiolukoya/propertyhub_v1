@@ -181,7 +181,7 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
   };
 
   const handleMarkAsCompleted = async (projectId: string) => {
-    if (!window.confirm('Mark this project as completed? This will set the status to completed and progress to 100%.')) {
+    if (!window.confirm('Mark this project as completed? This will set the status to completed.')) {
       return;
     }
 
@@ -191,12 +191,27 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
         {
           status: 'completed',
           actualEndDate: new Date().toISOString(),
-          progress: 100,
         }
       );
 
       if (response.error) {
         throw new Error(response.error.message || 'Failed to update project');
+      }
+
+      // Update project progress automatically
+      try {
+        const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+        if (token) {
+          await fetch(`/api/developer-dashboard/projects/${projectId}/progress/update`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+          console.log("[MarkCompleted] Project progress updated automatically");
+        }
+      } catch (progressError) {
+        console.warn("[MarkCompleted] Failed to update progress:", progressError);
       }
 
       toast.success('Project marked as completed');

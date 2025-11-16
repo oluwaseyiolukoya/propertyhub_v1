@@ -1,6 +1,6 @@
 /**
  * Automatic Project Progress Calculator
- * 
+ *
  * Calculates project progress based on multiple factors:
  * 1. Milestones completion (40% weight)
  * 2. Budget spend vs planned (30% weight)
@@ -146,7 +146,7 @@ function calculateBudgetProgress(
       (item) => item.status === 'completed'
     ).length;
     const totalItems = budgetLineItems.length;
-    
+
     if (totalItems > 0) {
       return Math.round((completedItems / totalItems) * 100);
     }
@@ -203,7 +203,7 @@ function getStageProgress(stage: string): number {
  */
 export async function updateProjectProgress(projectId: string): Promise<number> {
   const result = await calculateProjectProgress(projectId);
-  
+
   await prisma.developer_projects.update({
     where: { id: projectId },
     data: { progress: result.overallProgress },
@@ -217,7 +217,7 @@ export async function updateProjectProgress(projectId: string): Promise<number> 
  */
 export async function updateAllProjectsProgress(customerId?: string): Promise<void> {
   const whereClause = customerId ? { customerId } : {};
-  
+
   const projects = await prisma.developer_projects.findMany({
     where: {
       ...whereClause,
