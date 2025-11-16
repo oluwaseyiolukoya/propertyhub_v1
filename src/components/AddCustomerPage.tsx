@@ -160,7 +160,7 @@ export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCus
           .map((plan: any) => ({
             id: plan.id,
             name: plan.name,
-            category: plan.category || 'property_management',
+            category: plan.category || null, // Keep null if not set, don't default
             price: plan.monthlyPrice,
             annualPrice: plan.annualPrice,
             currency: plan.currency || 'USD',
@@ -172,6 +172,9 @@ export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCus
             userLimit: plan.userLimit,
             storageLimit: plan.storageLimit
           }));
+
+        console.log('[AddCustomerPage] Loaded plans:', transformedPlans.length);
+        console.log('[AddCustomerPage] Plans with categories:', transformedPlans.map(p => ({ name: p.name, category: p.category })));
         setSubscriptionPlans(transformedPlans);
       }
     } catch (error) {
@@ -208,6 +211,12 @@ export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCus
   const filteredPlans = subscriptionPlans.filter(plan => {
     if (!newCustomer.customerType) return true; // Show all if no type selected
 
+    // If plan doesn't have a category, show it for all customer types (backward compatibility)
+    if (!plan.category || plan.category === null) {
+      console.log(`[AddCustomerPage] Plan "${plan.name}" has no category, showing for all types`);
+      return true;
+    }
+
     if (newCustomer.customerType === 'developer') {
       return plan.category === 'development';
     } else {
@@ -215,6 +224,8 @@ export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCus
       return plan.category === 'property_management';
     }
   });
+
+  console.log(`[AddCustomerPage] Customer type: ${newCustomer.customerType}, Filtered plans: ${filteredPlans.length}`);
 
   const selectedPlan = subscriptionPlans.find(plan => plan.name === newCustomer.plan);
 
