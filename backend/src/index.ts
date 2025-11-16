@@ -212,9 +212,16 @@ app.get("/api/public/branding", async (req: Request, res: Response) => {
       faviconUrl: favicon && typeof favicon.value === "string" ? favicon.value : null,
     });
   } catch (e: any) {
+    console.error("❌ Branding endpoint error:", {
+      message: e?.message,
+      code: e?.code,
+      meta: e?.meta,
+      stack: e?.stack,
+    });
     res.status(500).json({
       error: "Failed to load branding",
-      message: e?.message,
+      message: e?.message || "Unknown error",
+      code: e?.code || "UNKNOWN_ERROR",
     });
   }
 });

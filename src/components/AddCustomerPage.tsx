@@ -160,7 +160,7 @@ export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCus
           .map((plan: any) => ({
             id: plan.id,
             name: plan.name,
-            category: plan.category || 'property_management',
+            category: plan.category || 'property_management', // Ensure category is always set
             price: plan.monthlyPrice,
             annualPrice: plan.annualPrice,
             currency: plan.currency || 'USD',
@@ -208,11 +208,14 @@ export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCus
   const filteredPlans = subscriptionPlans.filter(plan => {
     if (!newCustomer.customerType) return true; // Show all if no type selected
 
+    // Normalize category - handle both null/undefined and default values
+    const planCategory = plan.category || 'property_management';
+
     if (newCustomer.customerType === 'developer') {
-      return plan.category === 'development';
+      return planCategory === 'development';
     } else {
       // property_owner and property_manager see property_management plans
-      return plan.category === 'property_management';
+      return planCategory === 'property_management';
     }
   });
 
@@ -732,7 +735,13 @@ This is an automated message. Please do not reply to this email.
                           </SelectTrigger>
                           <SelectContent>
                             {filteredPlans.length === 0 ? (
-                              <div className="p-2 text-sm text-gray-500">No plans available</div>
+                              <div className="p-2 text-sm text-gray-500">
+                                {loadingPlans
+                                  ? "Loading plans..."
+                                  : newCustomer.customerType === 'developer'
+                                    ? "No development plans available. Please create a development plan in Billing Plans settings."
+                                    : "No plans available"}
+                              </div>
                             ) : (
                               filteredPlans.map((plan) => (
                                 <SelectItem key={plan.id || plan.name} value={plan.name}>

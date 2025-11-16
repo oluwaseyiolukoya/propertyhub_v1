@@ -497,3 +497,5 @@ totalVariancePercent = (totalVariance / totalPlanned) * 100
 **UI/UX:** ✅ Professional and Intuitive
 
 
+
+

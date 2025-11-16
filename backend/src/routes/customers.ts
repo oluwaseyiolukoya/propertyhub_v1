@@ -567,7 +567,17 @@ router.post("/", async (req: AuthRequest, res: Response) => {
     });
   } catch (error: any) {
     console.error("Create customer error:", error);
-    return res.status(500).json({ error: "Failed to create customer" });
+    console.error("Error details:", {
+      message: error?.message,
+      code: error?.code,
+      meta: error?.meta,
+      stack: error?.stack,
+    });
+    return res.status(500).json({
+      error: "Failed to create customer",
+      details: error?.message || "Unknown error",
+      code: error?.code || "UNKNOWN_ERROR"
+    });
   }
 });
 
@@ -645,6 +655,17 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
       }
     }
 
+    // Determine plan category and limits based on plan (similar to create route)
+    const planCategory = plan?.category || existingCustomer.planCategory || "property_management";
+    const finalPropertyLimit =
+      plan?.category === "property_management"
+        ? propertyLimit !== undefined ? propertyLimit : (existingCustomer.propertyLimit || plan?.propertyLimit || 5)
+        : 0; // Set to 0 for developers (they use projectLimit instead)
+    const finalProjectLimit =
+      plan?.category === "development"
+        ? propertyLimit !== undefined ? propertyLimit : (existingCustomer.projectLimit || plan?.projectLimit || 3)
+        : 0; // Set to 0 for property owners/managers
+
     // Handle subscription date changes based on status
     let subscriptionStartDate = existingCustomer.subscriptionStartDate;
     let finalTrialStartsAt = existingCustomer.trialStartsAt;
@@ -694,6 +715,7 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
         industry,
         companySize,
         planId: finalPlanId,
+        planCategory: planCategory, // Update plan category
         billingCycle,
         mrr: calculatedMRR, // Set calculated MRR
         status,
@@ -705,12 +727,14 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
         state,
         postalCode: postalCode || (req.body as any).zipCode || null,
         country,
-        propertyLimit,
+        propertyLimit: finalPropertyLimit,
+        projectLimit: finalProjectLimit, // Update project limit
         userLimit,
         storageLimit,
-        propertiesCount: properties, // Add properties count
-        unitsCount: units, // Add units count
-        notes: notes, // Add notes field
+        propertiesCount: properties !== undefined ? properties : existingCustomer.propertiesCount, // Update properties count
+        projectsCount: plan?.category === "development" && properties !== undefined ? properties : (existingCustomer.projectsCount || 0), // Update projects count
+        unitsCount: units !== undefined ? units : existingCustomer.unitsCount, // Update units count
+        notes: notes !== undefined ? notes : existingCustomer.notes, // Update notes field
       },
       include: {
         plans: true,

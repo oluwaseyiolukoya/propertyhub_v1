@@ -454,3 +454,5 @@ The "Spend by Category" chart is now **fully connected to the database** and fet
 **Filter:** Only `paymentStatus = 'paid'`
 
 
+
+

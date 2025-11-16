@@ -235,15 +235,32 @@ router.post('/login', async (req: Request, res: Response) => {
           permissions: permissions
         }
       });
-    } catch (dbError) {
+    } catch (dbError: any) {
       // Database error - log and return generic error
-      console.error('❌ Database authentication error:', dbError);
-      return res.status(500).json({ error: 'Authentication service unavailable. Please try again later.' });
+      console.error('❌ Database authentication error:', {
+        message: dbError?.message,
+        code: dbError?.code,
+        meta: dbError?.meta,
+        stack: dbError?.stack,
+      });
+      return res.status(500).json({
+        error: 'Authentication service unavailable. Please try again later.',
+        details: dbError?.message || "Unknown error",
+        code: dbError?.code || "UNKNOWN_ERROR"
+      });
     }
 
   } catch (error: any) {
-    console.error('❌ Login error:', error);
-    return res.status(500).json({ error: 'Login failed' });
+    console.error('❌ Login error:', {
+      message: error?.message,
+      code: error?.code,
+      stack: error?.stack,
+    });
+    return res.status(500).json({
+      error: 'Login failed',
+      details: error?.message || "Unknown error",
+      code: error?.code || "UNKNOWN_ERROR"
+    });
   }
 });
 

@@ -442,3 +442,5 @@ Frontend Groups by Category → Calculate Totals → Display Chart
 **Sample Data:** Victoria Island Commercial Complex  
 **Total Spend:** ₦517,000,000 across 6 categories
 
+
+

@@ -222,3 +222,5 @@ Once Gmail is working, you can:
 **Next Action:** Create Gmail App-Specific Password and update .env! 🔑
 
 
+
+

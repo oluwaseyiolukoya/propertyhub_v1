@@ -373,3 +373,5 @@ Before going live with email:
 
 Please add your Namecheap SMTP credentials to the `.env` file and test the connection!
 
+
+

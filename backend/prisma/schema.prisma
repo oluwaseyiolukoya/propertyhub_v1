@@ -139,6 +139,9 @@ model customers {
   updatedAt                   DateTime
   propertiesCount             Int                         @default(0)
   unitsCount                  Int                         @default(0)
+  projectsCount               Int                         @default(0)
+  planCategory                String? // 'property_management' | 'development'
+  projectLimit                Int? // For developer plans
   notes                       String?
   timezone                    String?
   language                    String?
@@ -397,10 +400,12 @@ model plans {
   id                      String                    @id
   name                    String                    @unique
   description             String?
+  category                String                    @default("property_management") // 'property_management' | 'development'
   monthlyPrice            Float
   annualPrice             Float
   currency                String                    @default("NGN")
-  propertyLimit           Int
+  propertyLimit           Int?
+  projectLimit            Int? // For development plans
   userLimit               Int
   storageLimit            Int
   features                Json
