@@ -31,6 +31,7 @@ import {
 import KPICard from './KPICard';
 import { useProjectDashboard } from '../hooks/useDeveloperDashboardData';
 import { CashFlowChart } from './CashFlowChart';
+import { ProjectStagesChecklist } from './ProjectStagesChecklist';
 import { apiClient } from '../../../lib/api-client';
 import {
   LineChart,
@@ -237,32 +238,6 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
               </Badge>
             </div>
             <p className="text-gray-600">Track your project performance and financial metrics</p>
-
-            <div className="mt-4 space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-1">
-                  <span className="text-gray-600">Overall Progress</span>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="w-3 h-3 text-gray-400 cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p className="font-semibold mb-2">Automatic Progress Calculation</p>
-                      <p className="text-xs">Progress is automatically calculated based on:</p>
-                      <ul className="text-xs list-disc list-inside mt-1 space-y-1">
-                        <li>Milestones completion (40%)</li>
-                        <li>Budget progress (30%)</li>
-                        <li>Time elapsed (20%)</li>
-                        <li>Project stage (10%)</li>
-                      </ul>
-                      <p className="text-xs mt-2 text-gray-500">Updates automatically when milestones, budget, or expenses change</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-                <span className="font-medium text-gray-900">{project.progress}%</span>
-              </div>
-              <Progress value={project.progress} className="h-2" />
-            </div>
           </div>
 
           <div className="flex gap-2">
@@ -309,7 +284,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
           value={formatCurrency(totalBudget)}
           subtitle="From budget line items"
           icon={DollarSign}
-          tooltip="Total planned budget across all budget line items for this project"
+          tooltip="Total planned budget for this project. Shows sum of budget line items if available, otherwise shows the initial project budget."
         />
         <KPICard
           title="Gross Spend"
@@ -389,6 +364,18 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
           tooltip="Projected total cost at project completion based on current progress and spend rate. Calculated as (Gross Spend ÷ Progress) × 100"
         />
       </div>
+
+      {/* Project Stages Checklist */}
+      <ProjectStagesChecklist
+        projectId={projectId}
+        userId={project.developerId}
+        onProgressUpdate={(progress) => {
+          // Update the project progress in the UI
+          if (data?.project) {
+            data.project.progress = progress;
+          }
+        }}
+      />
 
       {/* Charts Row 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

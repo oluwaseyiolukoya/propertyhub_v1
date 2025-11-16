@@ -74,6 +74,7 @@ import subscriptionManagementRoutes from "./routes/subscription";
 // Developer Dashboard routes
 import developerDashboardRoutes from "./routes/developer-dashboard";
 import developerProjectsProgressRoutes from "./routes/developer-projects-progress";
+import projectStagesRoutes from "./routes/project-stages";
 // Purchase Orders routes
 import purchaseOrdersRoutes from "./routes/purchase-orders";
 // Vendors routes
@@ -305,8 +306,11 @@ app.use("/api/billing-transactions", billingTransactionsRoutes);
 // Upload routes
 app.use("/api/uploads", uploadRoutes);
 // Developer Dashboard routes
-app.use("/api/developer-dashboard", developerDashboardRoutes);
+// IMPORTANT: Mount specific project routes BEFORE the general developer-dashboard routes
+// to prevent wildcard routes like /projects/:projectId from matching /projects/stage-templates
+app.use("/api/developer-dashboard/projects", projectStagesRoutes);
 app.use("/api/developer-dashboard/projects", developerProjectsProgressRoutes);
+app.use("/api/developer-dashboard", developerDashboardRoutes);
 // Purchase Orders routes
 app.use("/api/developer-dashboard", purchaseOrdersRoutes);
 // Vendors routes

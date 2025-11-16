@@ -795,6 +795,7 @@ model developer_projects {
   project_expenses            project_expenses[]
   project_cash_flow_snapshots project_cash_flow_snapshots[]
   purchase_orders             purchase_orders[]
+  project_stages              project_stages[]
 
   @@index([customerId])
   @@index([developerId])
@@ -1081,4 +1082,57 @@ model project_cash_flow_snapshots {
   @@index([projectId])
   @@index([periodStart])
   @@index([periodType])
+}
+
+// ============================================
+// Project Stages Checklist System
+// ============================================
+
+model project_stage_templates {
+  id          String   @id @default(uuid())
+  name        String   @unique // e.g., "Residential Construction", "Commercial Development"
+  description String?
+  projectType String // residential, commercial, mixed-use, infrastructure
+  isDefault   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  stages      project_stage_template_items[]
+}
+
+model project_stage_template_items {
+  id          String                    @id @default(uuid())
+  templateId  String
+  name        String
+  description String?
+  order       Int // Display order (1, 2, 3...)
+  weight      Float                     @default(1) // How much this stage contributes to overall progress (default equal weight)
+  isOptional  Boolean                   @default(false)
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
+  template    project_stage_templates   @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+  @@index([order])
+}
+
+model project_stages {
+  id              String             @id @default(uuid())
+  projectId       String
+  name            String
+  description     String?
+  order           Int // Display order (1, 2, 3...)
+  weight          Float              @default(1) // How much this stage contributes to overall progress
+  isCompleted     Boolean            @default(false)
+  completedAt     DateTime?
+  completedBy     String? // User ID who marked it complete
+  isOptional      Boolean            @default(false)
+  notes           String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  project         developer_projects @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([order])
+  @@index([isCompleted])
 }

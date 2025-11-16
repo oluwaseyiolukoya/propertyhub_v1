@@ -214,17 +214,40 @@ router.post('/projects/:projectId/purchase-orders', async (req: Request, res: Re
       });
     }
 
-    // Generate PO number
-    const year = new Date().getFullYear();
-    const count = await prisma.purchase_orders.count({
-      where: {
-        projectId,
-        createdAt: {
-          gte: new Date(`${year}-01-01`),
-        },
-      },
-    });
-    const poNumber = `PO-${year}-${String(count + 1).padStart(3, '0')}`;
+    // Generate unique PO number with retry logic to handle race conditions
+    let poNumber: string;
+    let attempts = 0;
+    const maxAttempts = 5;
+
+    while (attempts < maxAttempts) {
+      const year = new Date().getFullYear();
+      const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
+      const random = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+
+      // Get count for this project (more specific than year-based)
+      const count = await prisma.purchase_orders.count({
+        where: { projectId },
+      });
+
+      // Generate PO number: PO-YEAR-COUNT-TIMESTAMP-RANDOM
+      poNumber = `PO-${year}-${String(count + 1).padStart(3, '0')}-${timestamp}${random}`;
+
+      // Check if this PO number already exists
+      const existing = await prisma.purchase_orders.findUnique({
+        where: { poNumber },
+      });
+
+      if (!existing) {
+        break; // Unique PO number found
+      }
+
+      attempts++;
+      if (attempts >= maxAttempts) {
+        return res.status(500).json({
+          error: 'Failed to generate unique PO number after multiple attempts',
+        });
+      }
+    }
 
     // Create purchase order with items in a transaction
     const purchaseOrder = await prisma.$transaction(async (tx) => {

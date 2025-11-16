@@ -510,10 +510,15 @@ router.get('/projects/:projectId/dashboard', async (req: Request, res: Response)
     }
 
     // Calculate KPI values from real data
-    const totalBudget = budgetLineItems.reduce((sum, item) => {
+    // Use budget line items total if available, otherwise use project's totalBudget
+    const budgetLineItemsTotal = budgetLineItems.reduce((sum, item) => {
       const amount = Number(item.plannedAmount) || 0;
       return sum + amount;
     }, 0);
+
+    // If no budget line items exist, use the project's initial totalBudget
+    // Otherwise, use the sum of budget line items (more accurate breakdown)
+    const totalBudget = budgetLineItemsTotal > 0 ? budgetLineItemsTotal : (project.totalBudget || 0);
 
     // Calculate Gross Spend (total expenses)
     const grossSpend = expenses.reduce((sum, expense) => {

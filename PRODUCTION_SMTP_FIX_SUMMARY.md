@@ -292,4 +292,3 @@ Set up alerts if email failures exceed threshold:
 3. Test customer creation
 4. Monitor logs for email status
 5. If emails still not sending, check firewall/network
-

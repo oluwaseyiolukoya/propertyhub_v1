@@ -125,7 +125,7 @@ Or visit: https://whatismyipaddress.com/
 ```bash
 cd /Users/oluwaseyio/test_ui_figma_and_cursor
 
-export PROD_DB_URL="postgresql://contrezz_user:YOUR_PASSWORD@contrezz-db-prod-do-user-18499071-0.d.db.ondigitalocean.com:25060/contrezz?sslmode=require"
+export PROD_DB_URL="postgresql://contrezz_user:YOUR_PASSWORD_HERE@contrezz-db-prod-do-user-18499071-0.d.db.ondigitalocean.com:25060/contrezz?sslmode=require"
 
 ./sync-production-to-local.sh
 ```
@@ -142,7 +142,7 @@ If you have a small amount of data:
 cd /Users/oluwaseyio/test_ui_figma_and_cursor/backend
 
 # Temporarily set production URL
-DATABASE_URL="postgresql://contrezz_user:YOUR_PASSWORD@contrezz-db-prod-do-user-18499071-0.d.db.ondigitalocean.com:25060/contrezz?sslmode=require" npx prisma studio
+DATABASE_URL="postgresql://contrezz_user:YOUR_PASSWORD_HERE@contrezz-db-prod-do-user-18499071-0.d.db.ondigitalocean.com:25060/contrezz?sslmode=require" npx prisma studio
 ```
 
 **⚠️ Warning:** This will also fail if your IP isn't whitelisted.
