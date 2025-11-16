@@ -121,6 +121,7 @@ model customers {
   industry                    String?
   companySize                 String?
   planId                      String?
+  planCategory                String?                     // 'property_management' | 'development'
   billingCycle                String                      @default("monthly")
   mrr                         Float                       @default(0)
   trialEndsAt                 DateTime?
@@ -128,6 +129,7 @@ model customers {
   status                      String                      @default("trial")
   lastLogin                   DateTime?
   propertyLimit               Int                         @default(5)
+  projectLimit                Int?                        // For developer plans
   userLimit                   Int                         @default(3)
   storageLimit                Int                         @default(1000)
   street                      String?
@@ -138,6 +140,7 @@ model customers {
   createdAt                   DateTime                    @default(now())
   updatedAt                   DateTime
   propertiesCount             Int                         @default(0)
+  projectsCount               Int                         @default(0)
   unitsCount                  Int                         @default(0)
   notes                       String?
   timezone                    String?
@@ -398,16 +401,18 @@ model plans {
   id                      String                    @id
   name                    String                    @unique
   description             String?
+  category                String                    @default("property_management") // 'property_management' | 'development'
   monthlyPrice            Float
   annualPrice             Float
   currency                String                    @default("NGN")
-  propertyLimit           Int
+  propertyLimit           Int?                      // Nullable for development plans
+  projectLimit            Int?                      // For development plans
   userLimit               Int
   storageLimit            Int
   features                Json
   isActive                Boolean                   @default(true)
   isPopular               Boolean                   @default(false)
-  trialDurationDays       Int? // Number of days for trial period (only used for Trial plan)
+  trialDurationDays       Int?                      // Number of days for trial period (only used for Trial plan)
   createdAt               DateTime                  @default(now())
   updatedAt               DateTime
   customers               customers[]
