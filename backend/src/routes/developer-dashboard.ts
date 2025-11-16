@@ -151,8 +151,40 @@ function calculateBudgetVsActual(budgetLineItems: any[], expenses: any[], projec
 
 router.get('/portfolio/overview', async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
-    const customerId = (req as any).user.customerId;
+    const userId = (req as any).user?.id;
+    const customerId = (req as any).user?.customerId;
+
+    // Validate required authentication data
+    if (!userId) {
+      console.error('Error fetching portfolio overview: Missing userId');
+      return res.status(401).json({
+        error: 'Unauthorized: User ID not found',
+        details: 'Please log in again'
+      });
+    }
+
+    if (!customerId) {
+      console.error('Error fetching portfolio overview: Missing customerId', {
+        userId,
+        userEmail: (req as any).user?.email,
+        userRole: (req as any).user?.role
+      });
+      // Return empty portfolio if no customerId (developer without customer)
+      return res.json({
+        totalProjects: 0,
+        activeProjects: 0,
+        completedProjects: 0,
+        totalBudget: 0,
+        totalActualSpend: 0,
+        totalVariance: 0,
+        variancePercent: 0,
+        averageProgress: 0,
+        projectsOnTrack: 0,
+        projectsDelayed: 0,
+        projectsOverBudget: 0,
+        currency: 'NGN',
+      });
+    }
 
     // Get all projects for this developer
     const projects = await prisma.developer_projects.findMany({
@@ -215,8 +247,19 @@ router.get('/portfolio/overview', async (req: Request, res: Response) => {
       currency: projectsWithActualSpend[0]?.currency || 'NGN',
     });
   } catch (error: any) {
-    console.error('Error fetching portfolio overview:', error);
-    res.status(500).json({ error: 'Failed to fetch portfolio overview' });
+    console.error('Error fetching portfolio overview:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack,
+      userId: (req as any).user?.id,
+      customerId: (req as any).user?.customerId
+    });
+    res.status(500).json({
+      error: 'Failed to fetch portfolio overview',
+      details: process.env.NODE_ENV === 'production'
+        ? 'Please try again or contact support'
+        : error.message
+    });
   }
 });
 
@@ -226,8 +269,36 @@ router.get('/portfolio/overview', async (req: Request, res: Response) => {
 
 router.get('/projects', async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
-    const customerId = (req as any).user.customerId;
+    const userId = (req as any).user?.id;
+    const customerId = (req as any).user?.customerId;
+
+    // Validate required authentication data
+    if (!userId) {
+      console.error('Error fetching projects: Missing userId');
+      return res.status(401).json({
+        error: 'Unauthorized: User ID not found',
+        details: 'Please log in again'
+      });
+    }
+
+    if (!customerId) {
+      console.error('Error fetching projects: Missing customerId', {
+        userId,
+        userEmail: (req as any).user?.email,
+        userRole: (req as any).user?.role
+      });
+      // Return empty list if no customerId
+      return res.json({
+        data: [],
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: 0,
+          totalPages: 0,
+          hasMore: false,
+        },
+      });
+    }
 
     const {
       search,
@@ -322,8 +393,20 @@ router.get('/projects', async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('Error fetching projects:', error);
-    res.status(500).json({ error: 'Failed to fetch projects' });
+    console.error('Error fetching projects:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack,
+      userId: (req as any).user?.id,
+      customerId: (req as any).user?.customerId,
+      query: req.query
+    });
+    res.status(500).json({
+      error: 'Failed to fetch projects',
+      details: process.env.NODE_ENV === 'production'
+        ? 'Please try again or contact support'
+        : error.message
+    });
   }
 });
 
@@ -612,8 +695,29 @@ router.get('/projects/:projectId/dashboard', async (req: Request, res: Response)
 
 router.post('/projects', async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.id;
-    const customerId = (req as any).user.customerId;
+    const userId = (req as any).user?.id;
+    const customerId = (req as any).user?.customerId;
+
+    // Validate required authentication data
+    if (!userId) {
+      console.error('Error creating project: Missing userId in request');
+      return res.status(401).json({
+        error: 'Unauthorized: User ID not found',
+        details: 'Please log in again'
+      });
+    }
+
+    if (!customerId) {
+      console.error('Error creating project: Missing customerId', {
+        userId,
+        userEmail: (req as any).user?.email,
+        userRole: (req as any).user?.role
+      });
+      return res.status(400).json({
+        error: 'Cannot create project: Customer ID is required',
+        details: 'Your account must be associated with a customer to create projects'
+      });
+    }
 
     const {
       name,
@@ -628,6 +732,14 @@ router.post('/projects', async (req: Request, res: Response) => {
       totalBudget,
       currency = 'NGN',
     } = req.body;
+
+    // Validate required fields
+    if (!name || !projectType) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        details: 'Project name and type are required'
+      });
+    }
 
     const project = await prisma.developer_projects.create({
       data: {
@@ -649,8 +761,37 @@ router.post('/projects', async (req: Request, res: Response) => {
 
     res.status(201).json(project);
   } catch (error: any) {
-    console.error('Error creating project:', error);
-    res.status(500).json({ error: 'Failed to create project' });
+    console.error('Error creating project:', {
+      message: error.message,
+      code: error.code,
+      meta: error.meta,
+      stack: error.stack,
+      userId: (req as any).user?.id,
+      customerId: (req as any).user?.customerId,
+      body: req.body
+    });
+
+    // Return more specific error messages
+    if (error.code === 'P2002') {
+      return res.status(409).json({
+        error: 'Project already exists',
+        details: error.meta?.target
+      });
+    }
+
+    if (error.code === 'P2003') {
+      return res.status(400).json({
+        error: 'Invalid reference',
+        details: 'The customer or developer ID does not exist'
+      });
+    }
+
+    res.status(500).json({
+      error: 'Failed to create project',
+      details: process.env.NODE_ENV === 'production'
+        ? 'Please try again or contact support'
+        : error.message
+    });
   }
 });
 
