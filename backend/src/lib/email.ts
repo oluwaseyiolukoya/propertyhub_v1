@@ -44,12 +44,25 @@ function getTransporter(): Transporter {
   if (!transporter) {
     const config = getEmailConfig();
 
+    // Check if credentials are configured
+    if (!config.auth.user || !config.auth.pass) {
+      console.error('❌ SMTP credentials not configured!');
+      console.error('⚠️  Please set SMTP_USER and SMTP_PASS environment variables');
+      console.error('📧 Current config:', {
+        host: config.host,
+        port: config.port,
+        user: config.auth.user || 'NOT SET',
+        hasPassword: !!config.auth.pass
+      });
+    }
+
     console.log('📧 Initializing email transporter with config:', {
       host: config.host,
       port: config.port,
       secure: config.secure,
       user: config.auth.user,
-      from: config.from
+      from: config.from,
+      hasPassword: !!config.auth.pass
     });
 
     transporter = nodemailer.createTransport({
@@ -347,7 +360,15 @@ This is an automated email. Please do not reply to this message.
     return true;
   } catch (error: any) {
     console.error('❌ Failed to send tenant invitation email:', error);
-    throw new Error(`Failed to send tenant invitation email: ${error.message}`);
+    console.error('📧 Email error details:', {
+      code: error?.code,
+      command: error?.command,
+      response: error?.response,
+      responseCode: error?.responseCode,
+      message: error?.message
+    });
+    // Return false instead of throwing to prevent tenant creation from failing
+    return false;
   }
 }
 
@@ -529,7 +550,15 @@ This is an automated email. Please do not reply to this message.
     return true;
   } catch (error: any) {
     console.error('❌ Failed to send customer invitation email:', error);
-    throw new Error(`Failed to send customer invitation email: ${error.message}`);
+    console.error('📧 Email error details:', {
+      code: error?.code,
+      command: error?.command,
+      response: error?.response,
+      responseCode: error?.responseCode,
+      message: error?.message
+    });
+    // Return false instead of throwing to prevent customer creation from failing
+    return false;
   }
 }
 
