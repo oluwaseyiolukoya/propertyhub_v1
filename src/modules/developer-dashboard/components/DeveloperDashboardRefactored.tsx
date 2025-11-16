@@ -426,9 +426,9 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 w-full">
       {/* Top Navigation Bar */}
-      <header className="bg-white shadow-sm border-b sticky top-0 z-40">
+      <header className="bg-white shadow-sm border-b sticky top-0 z-40 w-full">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
@@ -516,9 +516,9 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
         </div>
       </header>
 
-      <div className="flex">
+      <div className="flex w-full">
         {/* Left Sidebar */}
-        <aside className="w-64 bg-white border-r min-h-screen p-6 sticky top-16 self-start">
+        <aside className="hidden lg:block w-64 bg-white border-r min-h-screen p-6 sticky top-16 self-start flex-shrink-0 overflow-y-auto">
           <div className="mb-6">
             <h2 className="text-gray-900 px-3 mb-1 font-semibold">
               Developer Cost & Reporting
@@ -617,7 +617,7 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
         </aside>
 
         {/* Main Content Area */}
-        <main className="flex-1 p-8">{renderPage()}</main>
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 w-full min-w-0">{renderPage()}</main>
       </div>
 
       {/* Footer */}

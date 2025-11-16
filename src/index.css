@@ -101,23 +101,26 @@
 @layer base {
   * {
     @apply border-border;
+    box-sizing: border-box;
   }
   html {
-    overflow-x: hidden;
     width: 100%;
+    max-width: 100%;
   }
   body {
     @apply bg-background text-foreground;
-    overflow-x: hidden;
     width: 100%;
+    max-width: 100%;
     position: relative;
+    margin: 0;
+    padding: 0;
   }
 
-  /* Prevent horizontal overflow globally */
+  /* Prevent horizontal overflow globally but allow scrolling when needed */
   #root {
-    overflow-x: hidden;
     width: 100%;
-    max-width: 100vw;
+    max-width: 100%;
+    min-width: 0;
   }
 
   /* Make sure specific elements respect viewport width */
@@ -126,6 +129,72 @@
   iframe {
     max-width: 100%;
     height: auto;
+  }
+
+  /* Ensure all direct children of body respect viewport */
+  body > * {
+    max-width: 100%;
+  }
+
+  /* Fix for containers - allow natural width constraints but prevent overflow */
+  .container {
+    max-width: 100%;
+  }
+
+  /* Mobile-specific fixes */
+  @media (max-width: 768px) {
+    /* Ensure main containers fit viewport */
+    main,
+    section,
+    article {
+      max-width: 100%;
+      width: 100%;
+    }
+
+    /* Prevent text from causing overflow */
+    h1, h2, h3, h4, h5, h6, p, span {
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      max-width: 100%;
+    }
+
+    /* Make all table wrappers scrollable on mobile */
+    .overflow-x-auto,
+    [class*="overflow-x-auto"] {
+      -webkit-overflow-scrolling: touch;
+      display: block;
+      width: 100%;
+      max-width: 100%;
+    }
+
+    /* Ensure table containers are scrollable */
+    table {
+      min-width: max-content;
+    }
+
+    /* Reduce padding on mobile for better fit */
+    .p-8 {
+      @apply p-4;
+    }
+
+    .px-8 {
+      @apply px-4;
+    }
+
+    .p-6 {
+      @apply p-4;
+    }
+
+    .px-6 {
+      @apply px-4;
+    }
+
+    /* Make cards full width on mobile */
+    [class*="max-w-7xl"],
+    [class*="max-w-6xl"],
+    [class*="max-w-5xl"] {
+      max-width: 100% !important;
+    }
   }
 
   /* Enable text selection globally */

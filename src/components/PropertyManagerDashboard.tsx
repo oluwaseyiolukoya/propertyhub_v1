@@ -321,8 +321,8 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
         )}
 
         {/* Main Content */}
-        <main className="flex-1 lg:ml-0 p-4 lg:p-8 w-full overflow-x-hidden">
-          <div className="max-w-7xl mx-auto w-full">
+        <main className="flex-1 lg:ml-0 p-4 lg:p-8 w-full min-w-0">
+          <div className="max-w-7xl mx-auto w-full min-w-0">
             {/* Trial Status Banner */}
             <TrialStatusBanner
               onUpgradeClick={() => setShowUpgradeModal(true)}

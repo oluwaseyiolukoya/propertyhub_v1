@@ -34,8 +34,8 @@ export const DeveloperDashboardPage: React.FC<DeveloperDashboardPageProps> = ({ 
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen bg-gray-50 w-full">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full min-w-0">
         {viewMode === 'portfolio' ? (
           <PortfolioOverview
             onViewProject={handleViewProject}

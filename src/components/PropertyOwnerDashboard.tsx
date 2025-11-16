@@ -574,7 +574,7 @@ export function PropertyOwnerDashboard({
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col overflow-x-hidden">
+    <div className="min-h-screen bg-gray-50 flex flex-col w-full">
       {/* Header */}
       <header className="bg-white shadow-sm border-b sticky top-0 z-40">
         <div className="px-4 sm:px-6 lg:px-8">
@@ -688,7 +688,7 @@ export function PropertyOwnerDashboard({
         )}
 
         {/* Main Content */}
-        <main className="flex-1 lg:ml-0 w-full overflow-x-hidden">
+        <main className="flex-1 lg:ml-0 w-full min-w-0">
           {currentView === 'properties' ? (
             <PropertiesPage
               user={user}

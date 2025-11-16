@@ -171,9 +171,9 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({ user, on
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 w-full">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b fixed top-0 left-0 right-0 z-40">
+      <header className="bg-white shadow-sm border-b fixed top-0 left-0 right-0 z-40 w-full">
         <div className="flex items-center justify-between px-4 py-3">
           {/* Left: Logo and Menu Toggle */}
           <div className="flex items-center gap-4">
@@ -265,7 +265,7 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({ user, on
         </div>
 
         {/* Main Content */}
-        <main className="flex-1 lg:ml-0 p-4 lg:p-8">
+        <main className="flex-1 lg:ml-0 p-4 lg:p-8 w-full min-w-0">
           {renderContent()}
         </main>
       </div>
