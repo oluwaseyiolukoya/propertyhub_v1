@@ -559,11 +559,12 @@ router.post("/", async (req: AuthRequest, res: Response) => {
 
     // Return customer data in the format expected by frontend
     // Frontend expects response.data to be the Customer object directly
+    // ALWAYS return tempPassword so admin UI shows the actual password that was stored
     return res.status(201).json({
       ...customer,
       owner: ownerUser,
       invoice,
-      tempPassword: !sendInvitation ? tempPassword : undefined,
+      tempPassword: tempPassword, // Always return actual password used (even if invitation sent)
     });
   } catch (error: any) {
     console.error("Create customer error:", error);

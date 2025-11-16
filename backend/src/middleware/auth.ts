@@ -31,16 +31,16 @@ export const authMiddleware = async (
     }
 
     console.log('🔑 Verifying token for:', req.method, req.path);
-    
+
     // Fail fast if JWT_SECRET is not configured (security best practice)
     if (!process.env.JWT_SECRET) {
       console.error('❌ CRITICAL: JWT_SECRET environment variable is not set');
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: 'Server configuration error',
         details: 'Authentication service is not properly configured'
       });
     }
-    
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET) as any;
     req.user = decoded;
     console.log('✅ Auth success:', decoded.role, decoded.email, 'accessing', req.method, req.path);

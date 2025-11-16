@@ -412,6 +412,13 @@ export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCus
         return;
       }
 
+      // Update password display with actual password from backend
+      // This ensures UI shows the password that was actually stored in database
+      if (response.data.tempPassword) {
+        setTemporaryPassword(response.data.tempPassword);
+        console.log('✅ Updated displayed password from backend response');
+      }
+
       // Success! Redirect to customer management
       toast.success('Customer created successfully! Invitation email sent.');
       setIsSubmitting(false);
