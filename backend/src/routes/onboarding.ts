@@ -75,7 +75,18 @@ router.post('/apply', rateLimitMiddleware, async (req: Request, res: Response) =
     // Send confirmation email
     let emailSent = false;
     try {
-      console.log('[Onboarding] Sending confirmation email to:', application.email);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[Onboarding] 📧 Starting confirmation email process...');
+      console.log('[Onboarding] Recipient:', application.email);
+      console.log('[Onboarding] Application ID:', application.id);
+      console.log('[Onboarding] Application Type:', application.applicationType);
+      console.log('[Onboarding] Applicant Name:', application.name);
+      console.log('[Onboarding] SMTP Host:', process.env.SMTP_HOST || 'NOT SET');
+      console.log('[Onboarding] SMTP Port:', process.env.SMTP_PORT || 'NOT SET');
+      console.log('[Onboarding] SMTP User:', process.env.SMTP_USER || 'NOT SET');
+      console.log('[Onboarding] SMTP From:', process.env.SMTP_FROM || 'NOT SET');
+      console.log('[Onboarding] Has SMTP Password:', !!process.env.SMTP_PASS);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
       emailSent = await sendOnboardingConfirmation({
         applicantName: application.name,
@@ -86,17 +97,20 @@ router.post('/apply', rateLimitMiddleware, async (req: Request, res: Response) =
       });
 
       if (emailSent) {
-        console.log('[Onboarding] ✅ Confirmation email sent successfully to:', application.email);
+        console.log('[Onboarding] ✅✅✅ Confirmation email sent successfully to:', application.email);
       } else {
-        console.error('[Onboarding] ❌ Failed to send confirmation email to:', application.email);
+        console.error('[Onboarding] ❌❌❌ Failed to send confirmation email to:', application.email);
+        console.error('[Onboarding] Email function returned false - check email.ts logs above for details');
       }
     } catch (emailError: any) {
-      console.error('[Onboarding] ❌ Error sending confirmation email:', emailError);
+      console.error('[Onboarding] ❌❌❌ EXCEPTION while sending confirmation email:', emailError);
       console.error('📧 Email error details:', {
         message: emailError?.message,
         code: emailError?.code,
         command: emailError?.command,
+        stack: emailError?.stack?.substring(0, 500), // First 500 chars of stack
       });
+      console.error('[Onboarding] Full error object:', JSON.stringify(emailError, null, 2));
       // Don't fail the application submission if email fails
     }
 
