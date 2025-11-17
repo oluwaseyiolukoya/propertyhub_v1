@@ -765,8 +765,57 @@ Application ID: ${applicationId}
   `.trim();
 
   try {
+    console.log('📧 [Onboarding Email] Step 1: Getting transporter...');
     const transporter = getTransporter();
 
+    // Verify connection before sending (fixes EAUTH connection lost issue)
+    console.log('📧 [Onboarding Email] Step 2: Verifying SMTP connection...');
+    try {
+      await transporter.verify();
+      console.log('✅ [Onboarding Email] SMTP connection verified successfully');
+    } catch (verifyError: any) {
+      console.error('❌ [Onboarding Email] SMTP verification failed:', verifyError.message);
+      console.error('🔄 [Onboarding Email] Attempting to create fresh transporter...');
+      
+      // Reset transporter and try again
+      const freshTransporter = nodemailer.createTransport({
+        host: config.host,
+        port: config.port,
+        secure: config.secure,
+        auth: {
+          user: config.auth.user,
+          pass: config.auth.pass,
+        },
+        pool: false, // Disable connection pooling for onboarding emails
+        tls: {
+          rejectUnauthorized: false,
+          minVersion: 'TLSv1.2'
+        },
+        connectionTimeout: 10000,
+        greetingTimeout: 5000,
+        socketTimeout: 30000,
+      });
+      
+      console.log('✅ [Onboarding Email] Fresh transporter created');
+      
+      // Use the fresh transporter for sending
+      console.log('📧 [Onboarding Email] Step 3: Sending email with fresh connection...');
+      const info = await freshTransporter.sendMail({
+        from: `"Contrezz Platform" <${config.from}>`,
+        to: applicantEmail,
+        subject: emailSubject,
+        text: emailBody,
+        html: generateOnboardingConfirmationHtml(params)
+      });
+
+      console.log('✅ Onboarding confirmation email sent successfully!');
+      console.log('📬 Message ID:', info.messageId);
+      console.log('📧 Sent to:', applicantEmail);
+
+      return true;
+    }
+
+    console.log('📧 [Onboarding Email] Step 3: Sending email with verified connection...');
     const info = await transporter.sendMail({
       from: `"Contrezz Platform" <${config.from}>`,
       to: applicantEmail,
