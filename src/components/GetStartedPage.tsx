@@ -733,10 +733,21 @@ export function GetStartedPage({ onBackToHome, onNavigateToLogin, onSignupComple
               </div>
             </div>
           </div>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+            <div className="flex items-start gap-3">
+              <Mail className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-blue-900">Account Setup via Email</p>
+                <p className="text-sm text-blue-700">
+                  You'll receive an email invitation with instructions to set up your password and access your dashboard after approval.
+                </p>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Account Security removed */}
+      {/* Account Security removed - Password setup via email */}
     </div>
   );
 
@@ -950,6 +961,18 @@ export function GetStartedPage({ onBackToHome, onNavigateToLogin, onSignupComple
                 />
               </div>
             </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+              <div className="flex items-start gap-3">
+                <Mail className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-blue-900">Account Setup via Email</p>
+                  <p className="text-sm text-blue-700">
+                    You'll receive an email invitation with instructions to set up your password and access your dashboard after approval.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -1020,33 +1043,14 @@ export function GetStartedPage({ onBackToHome, onNavigateToLogin, onSignupComple
             </div>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="password">Password *</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  className="pl-10"
-                  value={formData.password}
-                  onChange={(e) => handleInputChange('password', e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password *</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  placeholder="••••••••"
-                  className="pl-10"
-                  value={formData.confirmPassword}
-                  onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                />
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+            <div className="flex items-start gap-3">
+              <Mail className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-blue-900">Account Setup via Email</p>
+                <p className="text-sm text-blue-700">
+                  You'll receive an email invitation with instructions to set up your password and access your developer dashboard after approval.
+                </p>
               </div>
             </div>
           </div>
