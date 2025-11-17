@@ -48,6 +48,7 @@ export interface OnboardingApplicationResponse {
     status: string;
     estimatedReviewTime: string;
     submittedAt: string;
+    emailSent: boolean; // Added: Track if confirmation email was sent
   };
 }
 

@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { onboardingService } from '../services/onboarding.service';
 import { applicationSchema } from '../validators/onboarding.validator';
+import { sendOnboardingConfirmation } from '../lib/email';
 import { z } from 'zod';
 
 const router = express.Router();
@@ -71,7 +72,33 @@ router.post('/apply', rateLimitMiddleware, async (req: Request, res: Response) =
       email: application.email,
     });
 
-    // TODO: Send confirmation email
+    // Send confirmation email
+    let emailSent = false;
+    try {
+      console.log('[Onboarding] Sending confirmation email to:', application.email);
+
+      emailSent = await sendOnboardingConfirmation({
+        applicantName: application.name,
+        applicantEmail: application.email,
+        applicationType: application.applicationType as 'property-owner' | 'property-manager' | 'developer',
+        applicationId: application.id,
+        estimatedReviewTime: '24-48 hours'
+      });
+
+      if (emailSent) {
+        console.log('[Onboarding] ✅ Confirmation email sent successfully to:', application.email);
+      } else {
+        console.error('[Onboarding] ❌ Failed to send confirmation email to:', application.email);
+      }
+    } catch (emailError: any) {
+      console.error('[Onboarding] ❌ Error sending confirmation email:', emailError);
+      console.error('📧 Email error details:', {
+        message: emailError?.message,
+        code: emailError?.code,
+        command: emailError?.command,
+      });
+      // Don't fail the application submission if email fails
+    }
 
     res.status(201).json({
       success: true,
@@ -81,6 +108,7 @@ router.post('/apply', rateLimitMiddleware, async (req: Request, res: Response) =
         status: application.status,
         estimatedReviewTime: '24-48 hours',
         submittedAt: application.createdAt,
+        emailSent: emailSent,
       },
     });
   } catch (error) {

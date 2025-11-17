@@ -349,10 +349,33 @@ export function GetStartedPage({ onBackToHome, onNavigateToLogin, onSignupComple
 
       console.log('[GetStartedPage] Application submitted successfully:', response);
 
-      // Show success message
-      toast.success('Application submitted successfully! We will review your application within 24-48 hours.', {
-        duration: 5000,
-      });
+      // Check if confirmation email was sent
+      const emailSent = response?.data?.emailSent ?? false;
+
+      // Show success message with email status
+      if (emailSent) {
+        toast.success(
+          `Application submitted successfully! A confirmation email has been sent to ${formData.email}. We will review your application within 24-48 hours.`,
+          {
+            duration: 6000,
+          }
+        );
+      } else {
+        // Application submitted but email failed
+        toast.success('Application submitted successfully! We will review your application within 24-48 hours.', {
+          duration: 5000,
+        });
+
+        // Show warning about email
+        setTimeout(() => {
+          toast.warning(
+            `Note: We couldn't send a confirmation email to ${formData.email}. Please check your email address and spam folder. You can contact support@contrezz.com if you don't hear from us.`,
+            {
+              duration: 8000,
+            }
+          );
+        }, 1000);
+      }
 
       // Navigate to account under review page
       setIsSubmitting(false);

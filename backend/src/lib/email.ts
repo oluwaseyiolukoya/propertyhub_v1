@@ -689,9 +689,232 @@ function generateCustomerInvitationHtml(params: CustomerInvitationParams): strin
   `.trim();
 }
 
+/**
+ * Onboarding application confirmation email parameters
+ */
+interface OnboardingConfirmationParams {
+  applicantName: string;
+  applicantEmail: string;
+  applicationType: 'property-owner' | 'property-manager' | 'developer';
+  applicationId: string;
+  estimatedReviewTime?: string;
+}
+
+/**
+ * Send onboarding application confirmation email
+ */
+export async function sendOnboardingConfirmation(params: OnboardingConfirmationParams): Promise<boolean> {
+  const {
+    applicantName,
+    applicantEmail,
+    applicationType,
+    applicationId,
+    estimatedReviewTime = '24-48 hours'
+  } = params;
+
+  // Map application type to friendly name
+  const roleNames = {
+    'property-owner': 'Property Owner',
+    'property-manager': 'Property Manager',
+    'developer': 'Property Developer'
+  };
+  const roleName = roleNames[applicationType] || applicationType;
+
+  const config = getEmailConfig();
+  const emailSubject = `Application Received - ${roleName} | Contrezz Platform`;
+
+  const emailBody = `
+Hello ${applicantName},
+
+Thank you for your interest in joining Contrezz Platform as a ${roleName}!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+APPLICATION DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Application ID: ${applicationId}
+Role: ${roleName}
+Email: ${applicantEmail}
+Status: Under Review
+Estimated Review Time: ${estimatedReviewTime}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+WHAT HAPPENS NEXT?
+
+1. Our team will review your application
+2. You'll receive an email with the approval decision
+3. Once approved, you'll get login credentials to access your dashboard
+4. You can then set up your account and start using the platform
+
+IMPORTANT NOTES:
+
+• Please check your spam/junk folder for our emails
+• Add no-reply@contrezz.com to your contacts
+• Your application will be reviewed within ${estimatedReviewTime}
+• You'll receive an email invitation with password setup instructions after approval
+
+If you have any questions or need assistance, please contact our support team at support@contrezz.com.
+
+Best regards,
+Contrezz Platform Team
+
+---
+This is an automated email. Please do not reply to this message.
+Application ID: ${applicationId}
+  `.trim();
+
+  try {
+    const transporter = getTransporter();
+
+    const info = await transporter.sendMail({
+      from: `"Contrezz Platform" <${config.from}>`,
+      to: applicantEmail,
+      subject: emailSubject,
+      text: emailBody,
+      html: generateOnboardingConfirmationHtml(params)
+    });
+
+    console.log('✅ Onboarding confirmation email sent successfully!');
+    console.log('📬 Message ID:', info.messageId);
+    console.log('📧 Sent to:', applicantEmail);
+
+    return true;
+  } catch (error: any) {
+    console.error('❌ Failed to send onboarding confirmation email:', error);
+    console.error('📧 Email error details:', {
+      code: error?.code,
+      command: error?.command,
+      response: error?.response,
+      responseCode: error?.responseCode,
+      message: error?.message
+    });
+    return false;
+  }
+}
+
+/**
+ * Generate HTML version of onboarding confirmation email
+ */
+function generateOnboardingConfirmationHtml(params: OnboardingConfirmationParams): string {
+  const {
+    applicantName,
+    applicantEmail,
+    applicationType,
+    applicationId,
+    estimatedReviewTime = '24-48 hours'
+  } = params;
+
+  const roleNames = {
+    'property-owner': 'Property Owner',
+    'property-manager': 'Property Manager',
+    'developer': 'Property Developer'
+  };
+  const roleName = roleNames[applicationType] || applicationType;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Application Received - Contrezz Platform</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <!-- Header -->
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; text-align: center; border-radius: 10px 10px 0 0;">
+      <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600;">Application Received!</h1>
+      <p style="color: #ffffff; margin: 10px 0 0; font-size: 16px; opacity: 0.9;">Thank you for your interest in Contrezz Platform</p>
+    </div>
+
+    <!-- Main Content -->
+    <div style="background-color: #ffffff; padding: 40px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+      <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+        Hello <strong>${applicantName}</strong>,
+      </p>
+
+      <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 30px;">
+        Thank you for your interest in joining Contrezz Platform as a <strong>${roleName}</strong>!
+      </p>
+
+      <!-- Application Details Box -->
+      <div style="background-color: #f8f9fa; border-left: 4px solid #667eea; padding: 20px; margin: 0 0 30px; border-radius: 4px;">
+        <h2 style="color: #667eea; margin: 0 0 15px; font-size: 18px; font-weight: 600;">Application Details</h2>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 8px 0; color: #666666; font-size: 14px; width: 40%;">Application ID:</td>
+            <td style="padding: 8px 0; color: #333333; font-size: 14px; font-weight: 500;">${applicationId}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #666666; font-size: 14px;">Role:</td>
+            <td style="padding: 8px 0; color: #333333; font-size: 14px; font-weight: 500;">${roleName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #666666; font-size: 14px;">Email:</td>
+            <td style="padding: 8px 0; color: #333333; font-size: 14px; font-weight: 500;">${applicantEmail}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #666666; font-size: 14px;">Status:</td>
+            <td style="padding: 8px 0;">
+              <span style="background-color: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;">Under Review</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #666666; font-size: 14px;">Review Time:</td>
+            <td style="padding: 8px 0; color: #333333; font-size: 14px; font-weight: 500;">${estimatedReviewTime}</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- What Happens Next -->
+      <h2 style="color: #333333; margin: 0 0 15px; font-size: 18px; font-weight: 600;">What Happens Next?</h2>
+      <ol style="color: #666666; font-size: 15px; line-height: 1.8; margin: 0 0 30px; padding-left: 20px;">
+        <li style="margin-bottom: 10px;">Our team will review your application</li>
+        <li style="margin-bottom: 10px;">You'll receive an email with the approval decision</li>
+        <li style="margin-bottom: 10px;">Once approved, you'll get login credentials to access your dashboard</li>
+        <li style="margin-bottom: 10px;">You can then set up your account and start using the platform</li>
+      </ol>
+
+      <!-- Important Notes -->
+      <div style="background-color: #fef3c7; border: 1px solid #fbbf24; padding: 20px; margin: 0 0 30px; border-radius: 4px;">
+        <h3 style="color: #92400e; margin: 0 0 10px; font-size: 16px; font-weight: 600;">⚠️ Important Notes</h3>
+        <ul style="color: #92400e; font-size: 14px; line-height: 1.6; margin: 0; padding-left: 20px;">
+          <li style="margin-bottom: 8px;">Please check your spam/junk folder for our emails</li>
+          <li style="margin-bottom: 8px;">Add no-reply@contrezz.com to your contacts</li>
+          <li style="margin-bottom: 8px;">Your application will be reviewed within ${estimatedReviewTime}</li>
+          <li>You'll receive an email invitation with password setup instructions after approval</li>
+        </ul>
+      </div>
+
+      <p style="color: #666666; font-size: 14px; line-height: 1.6; margin: 0 0 20px;">
+        If you have any questions or need assistance, please contact our support team at
+        <a href="mailto:support@contrezz.com" style="color: #667eea; text-decoration: none; font-weight: 500;">support@contrezz.com</a>.
+      </p>
+
+      <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0;">
+        Best regards,<br>
+        <strong>Contrezz Platform Team</strong>
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="text-align: center; padding: 20px; color: #999999; font-size: 12px;">
+      <p style="margin: 0 0 5px;">This is an automated email. Please do not reply to this message.</p>
+      <p style="margin: 0;">Application ID: ${applicationId}</p>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+
+  return html;
+}
+
 export default {
   testEmailConnection,
   sendTestEmail,
   sendTenantInvitation,
-  sendCustomerInvitation
+  sendCustomerInvitation,
+  sendOnboardingConfirmation
 };
