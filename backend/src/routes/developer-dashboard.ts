@@ -576,18 +576,62 @@ router.get('/projects/:projectId/dashboard', async (req: Request, res: Response)
     // Sort by amount descending
     spendByCategory.sort((a, b) => b.amount - a.amount);
 
-    // Generate alerts
+    // Generate alerts based on real data
     const alerts: any[] = [];
 
-    // Budget overrun alerts
+    console.log(`🚨 Generating alerts for project: ${projectId}`);
+
+    // Get all expenses for more accurate budget tracking
+    const allExpenses = await prisma.project_expenses.findMany({
+      where: { projectId },
+      select: {
+        category: true,
+        totalAmount: true,
+        paymentStatus: true,
+        status: true,
+        dueDate: true,
+      },
+    });
+
+    console.log(`📊 Found ${allExpenses.length} expenses for alert generation`);
+    console.log(`📋 Budget line items: ${budgetLineItems.length}`);
+
+    // Calculate actual spend per category
+    const categorySpend: { [key: string]: number } = {};
+    allExpenses
+      .filter(e => e.paymentStatus === 'paid')
+      .forEach(expense => {
+        categorySpend[expense.category] = (categorySpend[expense.category] || 0) + expense.totalAmount;
+      });
+
+    console.log(`💰 Category spend:`, categorySpend);
+
+    // 1. Budget overrun alerts (compare budget vs actual spend)
     budgetLineItems.forEach(item => {
-      if (item.variancePercent > 10) {
+      const actualSpend = categorySpend[item.category] || 0;
+      const budgetAmount = item.plannedAmount;
+      const variance = actualSpend - budgetAmount;
+      const variancePercent = budgetAmount > 0 ? (variance / budgetAmount) * 100 : 0;
+
+      if (variancePercent > 10) {
         alerts.push({
           id: `budget-${item.id}`,
           type: 'budget-overrun',
-          severity: item.variancePercent > 25 ? 'critical' : 'high',
+          severity: variancePercent > 25 ? 'critical' : 'high',
           title: `Budget Overrun: ${item.category}`,
-          message: `${item.category} is ${item.variancePercent.toFixed(1)}% over budget`,
+          message: `${item.category} is ${variancePercent.toFixed(1)}% over budget (₦${variance.toLocaleString()})`,
+          projectId,
+          entityId: item.id,
+          createdAt: new Date().toISOString(),
+        });
+      } else if (variancePercent > 5 && variancePercent <= 10) {
+        // Warning for approaching budget limit
+        alerts.push({
+          id: `budget-warning-${item.id}`,
+          type: 'budget-overrun',
+          severity: 'medium',
+          title: `Budget Warning: ${item.category}`,
+          message: `${item.category} is ${variancePercent.toFixed(1)}% over budget`,
           projectId,
           entityId: item.id,
           createdAt: new Date().toISOString(),
@@ -595,19 +639,92 @@ router.get('/projects/:projectId/dashboard', async (req: Request, res: Response)
       }
     });
 
-    // Pending invoice alerts
+    // 2. Pending expense approvals
+    const pendingExpenses = allExpenses.filter(e => e.status === 'pending');
+    if (pendingExpenses.length > 0) {
+      const totalPending = pendingExpenses.reduce((sum, e) => sum + e.totalAmount, 0);
+      alerts.push({
+        id: 'pending-expenses',
+        type: 'pending-approval',
+        severity: pendingExpenses.length > 5 ? 'high' : 'medium',
+        title: 'Pending Expense Approvals',
+        message: `${pendingExpenses.length} expense(s) awaiting approval (₦${totalPending.toLocaleString()})`,
+        projectId,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    // 3. Overdue payments
+    const now = new Date();
+    const overdueExpenses = allExpenses.filter(e =>
+      e.paymentStatus !== 'paid' &&
+      e.dueDate &&
+      new Date(e.dueDate) < now
+    );
+    if (overdueExpenses.length > 0) {
+      const totalOverdue = overdueExpenses.reduce((sum, e) => sum + e.totalAmount, 0);
+      alerts.push({
+        id: 'overdue-payments',
+        type: 'payment-due',
+        severity: 'critical',
+        title: 'Overdue Payments',
+        message: `${overdueExpenses.length} payment(s) are overdue (₦${totalOverdue.toLocaleString()})`,
+        projectId,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    // 4. Pending invoice alerts
     const pendingInvoices = invoices.filter(inv => inv.status === 'pending');
     if (pendingInvoices.length > 0) {
+      const totalPendingInvoices = pendingInvoices.reduce((sum, inv) => sum + inv.amount, 0);
       alerts.push({
         id: 'pending-invoices',
         type: 'pending-approval',
         severity: 'medium',
         title: 'Pending Invoices',
-        message: `${pendingInvoices.length} invoice(s) awaiting approval`,
+        message: `${pendingInvoices.length} invoice(s) awaiting approval (₦${totalPendingInvoices.toLocaleString()})`,
         projectId,
         createdAt: new Date().toISOString(),
       });
     }
+
+    // 5. Upcoming milestones (within 7 days)
+    const upcomingMilestones = milestones.filter(m => {
+      if (!m.targetDate || m.status === 'completed') return false;
+      const daysUntil = Math.ceil((new Date(m.targetDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      return daysUntil > 0 && daysUntil <= 7;
+    });
+    if (upcomingMilestones.length > 0) {
+      alerts.push({
+        id: 'upcoming-milestones',
+        type: 'milestone-due',
+        severity: 'medium',
+        title: 'Upcoming Milestones',
+        message: `${upcomingMilestones.length} milestone(s) due within 7 days`,
+        projectId,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    // If no alerts, add a positive status message (only if project has budget items)
+    if (alerts.length === 0 && budgetLineItems.length > 0) {
+      alerts.push({
+        id: 'all-good',
+        type: 'status',
+        severity: 'low',
+        title: 'All Systems Good',
+        message: 'No budget overruns or pending approvals. Project is on track!',
+        projectId,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    // Sort alerts by severity (critical > high > medium > low)
+    const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+    alerts.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+
+    console.log(`🚨 Generated ${alerts.length} alerts:`, alerts.map(a => ({ type: a.type, severity: a.severity, title: a.title })));
 
     // Calculate monthly cash flow from invoices
     // Handle null startDate safely
@@ -1807,6 +1924,10 @@ router.post('/projects/:projectId/funding', async (req: Request, res: Response) 
     const userId = (req as any).user.id;
     const customerId = (req as any).user.customerId;
 
+    console.log('💰 Creating funding for project:', projectId);
+    console.log('👤 User ID:', userId, 'Customer ID:', customerId);
+    console.log('📦 Request body:', req.body);
+
     // Verify project ownership
     const project = await prisma.developer_projects.findFirst({
       where: {
@@ -1817,8 +1938,11 @@ router.post('/projects/:projectId/funding', async (req: Request, res: Response) 
     });
 
     if (!project) {
+      console.log('❌ Project not found:', projectId);
       return res.status(404).json({ error: 'Project not found' });
     }
+
+    console.log('✅ Project found:', project.name);
 
     const {
       amount,
@@ -1833,6 +1957,32 @@ router.post('/projects/:projectId/funding', async (req: Request, res: Response) 
       notes
     } = req.body;
 
+    // Validate required fields
+    if (!amount || !fundingType) {
+      console.log('❌ Missing required fields:', { amount, fundingType });
+      return res.status(400).json({
+        error: 'Missing required fields',
+        details: 'Amount and funding type are required'
+      });
+    }
+
+    // If referenceNumber is provided, check if it already exists
+    if (referenceNumber) {
+      const existingFunding = await prisma.project_funding.findUnique({
+        where: { referenceNumber }
+      });
+
+      if (existingFunding) {
+        console.log('❌ Duplicate reference number:', referenceNumber);
+        return res.status(409).json({
+          error: 'Duplicate reference number',
+          details: 'A funding record with this reference number already exists'
+        });
+      }
+    }
+
+    console.log('📝 Creating funding record...');
+
     const funding = await prisma.project_funding.create({
       data: {
         projectId,
@@ -1840,21 +1990,49 @@ router.post('/projects/:projectId/funding', async (req: Request, res: Response) 
         amount: parseFloat(amount),
         currency,
         fundingType,
-        fundingSource,
+        fundingSource: fundingSource || null,
         expectedDate: expectedDate ? new Date(expectedDate) : null,
         receivedDate: receivedDate ? new Date(receivedDate) : null,
         status,
-        referenceNumber,
-        description,
-        notes,
+        referenceNumber: referenceNumber || null,
+        description: description || null,
+        notes: notes || null,
         createdBy: userId
       }
     });
 
+    console.log('✅ Funding created successfully:', funding.id);
+
     res.status(201).json(funding);
   } catch (error: any) {
-    console.error('Error creating funding:', error);
-    res.status(500).json({ error: 'Failed to create funding record' });
+    console.error('❌ Error creating funding:', error);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error code:', error.code);
+    console.error('Error meta:', error.meta);
+    console.error('Error stack:', error.stack);
+
+    // Handle Prisma-specific errors
+    if (error.code === 'P2002') {
+      return res.status(409).json({
+        error: 'Duplicate entry',
+        details: `A funding record with this ${error.meta?.target?.[0]} already exists`,
+        field: error.meta?.target
+      });
+    }
+
+    if (error.code === 'P2003') {
+      return res.status(400).json({
+        error: 'Invalid reference',
+        details: 'The project or customer ID does not exist',
+        field: error.meta?.field_name
+      });
+    }
+
+    res.status(500).json({
+      error: 'Failed to create funding record',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
@@ -2279,6 +2457,337 @@ router.get('/projects/:projectId/recent-activity', async (req: Request, res: Res
       error: 'Failed to fetch recent activity',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
+  }
+});
+
+// ============================================
+// Reports & Analytics
+// ============================================
+
+/**
+ * GET /api/developer-dashboard/projects/:projectId/reports
+ * Get comprehensive reports data for a project
+ */
+router.get('/projects/:projectId/reports', async (req: Request, res: Response) => {
+  try {
+    const { projectId } = req.params;
+    const { period = 'last-6-months' } = req.query;
+    const userId = (req as any).user.id;
+    const customerId = (req as any).user.customerId;
+
+    console.log(`📊 Fetching reports for project: ${projectId}`);
+    console.log(`👤 User ID: ${userId}, Customer ID: ${customerId}`);
+
+    // Verify project ownership
+    const project = await prisma.developer_projects.findFirst({
+      where: {
+        id: projectId,
+        customerId,
+        developerId: userId,
+      },
+    });
+
+    if (!project) {
+      console.log(`❌ Project not found: ${projectId}`);
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    console.log(`✅ Project found: ${project.name}`);
+
+    // Get budget items
+    const budgetItems = await prisma.budget_line_items.findMany({
+      where: { projectId },
+    });
+
+    console.log(`📋 Budget items found: ${budgetItems.length}`);
+
+    // Get all expenses
+    const expenses = await prisma.project_expenses.findMany({
+      where: { projectId },
+      include: {
+        vendor: true,
+      },
+    });
+
+    console.log(`💰 Expenses found: ${expenses.length}`);
+
+    // Calculate summary
+    const totalBudget = budgetItems.reduce((sum, item) => sum + item.plannedAmount, 0);
+    const totalSpent = expenses
+      .filter(e => e.paymentStatus === 'paid')
+      .reduce((sum, e) => sum + e.totalAmount, 0);
+    const remaining = totalBudget - totalSpent;
+    const percentageUsed = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+
+    const summary = {
+      totalBudget,
+      totalSpent,
+      remaining,
+      percentageUsed,
+      totalExpenses: expenses.length,
+      paidExpenses: expenses.filter(e => e.paymentStatus === 'paid').length,
+      pendingExpenses: expenses.filter(e => e.paymentStatus === 'pending').length,
+      overdueExpenses: expenses.filter(e => {
+        return e.paymentStatus !== 'paid' && e.dueDate && new Date(e.dueDate) < new Date();
+      }).length,
+    };
+
+    // Calculate cash flow (last 6 months) - convert expenses to invoice format
+    const expensesAsInvoices = expenses.map(expense => ({
+      amount: expense.totalAmount,
+      status: expense.paymentStatus === 'paid' ? 'paid' : (expense.status === 'approved' ? 'approved' : 'pending'),
+      paidDate: expense.paidDate,
+      dueDate: expense.dueDate,
+      createdAt: expense.createdAt,
+    }));
+    const cashFlow = calculateMonthlyCashFlow(expensesAsInvoices, project.startDate);
+
+    // Calculate cost breakdown by category
+    const categoryTotals: { [key: string]: number } = {};
+    expenses
+      .filter(e => e.paymentStatus === 'paid')
+      .forEach(expense => {
+        if (!categoryTotals[expense.category]) {
+          categoryTotals[expense.category] = 0;
+        }
+        categoryTotals[expense.category] += expense.totalAmount;
+      });
+
+    const colors = ['#3b82f6', '#14b8a6', '#f59e0b', '#8b5cf6', '#ef4444', '#10b981', '#6b7280'];
+    const costBreakdown = Object.entries(categoryTotals).map(([name, value], index) => ({
+      name,
+      value,
+      color: colors[index % colors.length],
+      percentage: totalSpent > 0 ? (value / totalSpent) * 100 : 0,
+    }));
+
+    // Calculate vendor performance with real metrics
+    const vendorStats: { [key: string]: any } = {};
+
+    // Get vendor details including ratings
+    const projectVendors = await prisma.project_vendors.findMany({
+      where: {
+        customerId,
+      },
+      select: {
+        id: true,
+        name: true,
+        rating: true,
+        status: true,
+      },
+    });
+
+    // Create vendor lookup map
+    const vendorMap: { [key: string]: any } = {};
+    projectVendors.forEach(v => {
+      vendorMap[v.id] = v;
+    });
+
+    expenses.forEach(expense => {
+      if (!expense.vendorId || !expense.vendor) return;
+
+      if (!vendorStats[expense.vendorId]) {
+        const vendorInfo = vendorMap[expense.vendorId];
+        vendorStats[expense.vendorId] = {
+          vendor: expense.vendor.name,
+          vendorId: expense.vendorId,
+          rating: vendorInfo?.rating || null,
+          totalOrders: 0,
+          totalSpent: 0,
+          budgetedAmount: 0,
+          onTimeDeliveries: 0,
+          lateDeliveries: 0,
+          approvedExpenses: 0,
+          rejectedExpenses: 0,
+        };
+      }
+
+      vendorStats[expense.vendorId].totalOrders += 1;
+
+      if (expense.paymentStatus === 'paid') {
+        vendorStats[expense.vendorId].totalSpent += expense.totalAmount;
+      }
+
+      // Track approval status for quality metric
+      if (expense.status === 'approved' || expense.status === 'paid') {
+        vendorStats[expense.vendorId].approvedExpenses += 1;
+      } else if (expense.status === 'rejected') {
+        vendorStats[expense.vendorId].rejectedExpenses += 1;
+      }
+
+      // Check if delivered on time
+      if (expense.dueDate && expense.paidDate) {
+        if (new Date(expense.paidDate) <= new Date(expense.dueDate)) {
+          vendorStats[expense.vendorId].onTimeDeliveries += 1;
+        } else {
+          vendorStats[expense.vendorId].lateDeliveries += 1;
+        }
+      }
+
+      // Track budgeted amount for cost efficiency
+      if (expense.budgetLineItemId) {
+        const budgetItem = budgetItems.find(b => b.id === expense.budgetLineItemId);
+        if (budgetItem) {
+          vendorStats[expense.vendorId].budgetedAmount += budgetItem.plannedAmount;
+        }
+      }
+    });
+
+    const vendorPerformance = Object.values(vendorStats).map((vendor: any) => {
+      // 1. On-Time Delivery % (Real data from due dates vs paid dates)
+      const totalDeliveries = vendor.onTimeDeliveries + vendor.lateDeliveries;
+      const onTimePercent = totalDeliveries > 0
+        ? (vendor.onTimeDeliveries / totalDeliveries) * 100
+        : 0;
+
+      // 2. Quality Score (Based on vendor rating and approval rate)
+      let qualityScore = 0;
+      if (vendor.rating) {
+        // Convert 5-star rating to percentage (e.g., 4.5 stars = 90%)
+        qualityScore = (vendor.rating / 5) * 100;
+      } else {
+        // Fallback: Calculate from approval rate
+        const totalProcessed = vendor.approvedExpenses + vendor.rejectedExpenses;
+        if (totalProcessed > 0) {
+          qualityScore = (vendor.approvedExpenses / totalProcessed) * 100;
+        } else {
+          qualityScore = 85; // Default for new vendors with no history
+        }
+      }
+
+      // 3. Cost Efficiency % (Actual cost vs budgeted cost)
+      let costEfficiency = 0;
+      if (vendor.budgetedAmount > 0 && vendor.totalSpent > 0) {
+        // If spent less than budget, efficiency is high
+        // If spent more than budget, efficiency is low
+        const costRatio = vendor.totalSpent / vendor.budgetedAmount;
+        if (costRatio <= 1) {
+          // Under or on budget: 90-100% efficiency
+          costEfficiency = 100 - (costRatio * 10);
+        } else {
+          // Over budget: decreasing efficiency
+          costEfficiency = Math.max(0, 100 - ((costRatio - 1) * 50));
+        }
+      } else {
+        // Default: assume good cost efficiency if no budget data
+        costEfficiency = 88;
+      }
+
+      return {
+        vendor: vendor.vendor,
+        vendorId: vendor.vendorId,
+        onTime: Math.round(onTimePercent),
+        quality: Math.round(qualityScore),
+        cost: Math.round(costEfficiency),
+        totalOrders: vendor.totalOrders,
+        totalSpent: vendor.totalSpent,
+      };
+    });
+
+    console.log(`👥 Vendor performance calculated for ${vendorPerformance.length} vendors`);
+
+    // Calculate phase spending
+    const phaseSpending = budgetItems.map(item => {
+      const actualAmount = expenses
+        .filter(e => e.category === item.category && e.paymentStatus === 'paid')
+        .reduce((sum, e) => sum + e.totalAmount, 0);
+
+      const variance = actualAmount - item.plannedAmount;
+      const variancePercent = item.plannedAmount > 0 ? (variance / item.plannedAmount) * 100 : 0;
+
+      return {
+        phase: item.category,
+        budget: item.plannedAmount,
+        actual: actualAmount,
+        variance,
+        variancePercent,
+      };
+    });
+
+    // Safely construct response data
+    const responseData = {
+      summary: summary || {},
+      cashFlow: cashFlow || [],
+      costBreakdown: costBreakdown || [],
+      vendorPerformance: vendorPerformance || [],
+      phaseSpend: phaseSpending || [],
+      currency: project?.currency || 'NGN', // Include project currency with safe access
+      projectName: project?.name || 'Unknown Project', // Include project name with safe access
+    };
+
+    console.log(`📊 Reports summary:`, {
+      totalBudget: summary?.totalBudget || 0,
+      totalSpent: summary?.totalSpent || 0,
+      remaining: summary?.remaining || 0,
+      totalExpenses: summary?.totalExpenses || 0,
+      cashFlowMonths: cashFlow?.length || 0,
+      costCategories: costBreakdown?.length || 0,
+      vendors: vendorPerformance?.length || 0,
+      phases: phaseSpending?.length || 0,
+      currency: project?.currency || 'NGN',
+    });
+
+    res.json(responseData);
+  } catch (error: any) {
+    console.error('❌ Error fetching reports data:', error);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+
+    // Return detailed error in development
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+    res.status(500).json({
+      error: 'Failed to fetch reports data',
+      ...(isDevelopment && {
+        details: error.message,
+        stack: error.stack
+      })
+    });
+  }
+});
+
+/**
+ * GET /api/developer-dashboard/projects/:projectId/reports/cashflow
+ * Get cash flow data for a project
+ */
+router.get('/projects/:projectId/reports/cashflow', async (req: Request, res: Response) => {
+  try {
+    const { projectId } = req.params;
+    const userId = (req as any).user.id;
+    const customerId = (req as any).user.customerId;
+
+    // Verify project ownership
+    const project = await prisma.developer_projects.findFirst({
+      where: {
+        id: projectId,
+        customerId,
+        developerId: userId,
+      },
+    });
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const expenses = await prisma.project_expenses.findMany({
+      where: { projectId },
+    });
+
+    // Convert expenses to invoice format for calculateMonthlyCashFlow
+    const expensesAsInvoices = expenses.map(expense => ({
+      amount: expense.totalAmount,
+      status: expense.paymentStatus === 'paid' ? 'paid' : expense.status,
+      paidDate: expense.paidDate,
+      dueDate: expense.dueDate,
+      createdAt: expense.createdAt,
+    }));
+
+    const cashFlow = calculateMonthlyCashFlow(expensesAsInvoices, project.startDate);
+
+    res.json(cashFlow);
+  } catch (error: any) {
+    console.error('Error fetching cash flow data:', error);
+    res.status(500).json({ error: 'Failed to fetch cash flow data' });
   }
 });
 

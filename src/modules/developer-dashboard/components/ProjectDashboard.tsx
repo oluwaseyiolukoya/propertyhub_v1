@@ -531,30 +531,43 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
                       ? 'bg-red-50 border-red-200'
                       : alert.severity === 'high'
                       ? 'bg-amber-50 border-amber-200'
-                      : 'bg-blue-50 border-blue-200';
+                      : alert.severity === 'medium'
+                      ? 'bg-blue-50 border-blue-200'
+                      : 'bg-green-50 border-green-200';
 
                   const textColor =
                     alert.severity === 'critical'
                       ? 'text-red-900'
                       : alert.severity === 'high'
                       ? 'text-amber-900'
-                      : 'text-blue-900';
+                      : alert.severity === 'medium'
+                      ? 'text-blue-900'
+                      : 'text-green-900';
 
                   const badgeVariant =
                     alert.severity === 'critical' ? 'destructive' : 'default';
                   const badgeClass =
-                    alert.severity === 'high' ? 'bg-amber-500 hover:bg-amber-600' : '';
+                    alert.severity === 'high'
+                      ? 'bg-amber-500 hover:bg-amber-600'
+                      : alert.severity === 'low'
+                      ? 'bg-green-500 hover:bg-green-600 text-white'
+                      : '';
+
+                  const badgeLabel =
+                    alert.severity === 'critical'
+                      ? 'Critical'
+                      : alert.severity === 'high'
+                      ? 'Warning'
+                      : alert.severity === 'medium'
+                      ? 'Info'
+                      : 'Good';
 
                   return (
                     <div key={alert.id} className={`p-3 border rounded-lg ${bgColor}`}>
                       <div className="flex items-start justify-between mb-1">
                         <span className={`font-medium ${textColor}`}>{alert.title}</span>
                         <Badge variant={badgeVariant} className={badgeClass}>
-                          {alert.severity === 'critical'
-                            ? 'Critical'
-                            : alert.severity === 'high'
-                            ? 'Warning'
-                            : 'Info'}
+                          {badgeLabel}
                         </Badge>
                       </div>
                       <p className={`text-sm ${textColor.replace('900', '700')}`}>

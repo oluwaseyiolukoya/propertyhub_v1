@@ -15,7 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../../../components/ui/dropdown-menu";
-import { Calendar, Download, Mail, FileText, ChevronDown } from "lucide-react";
+import { Calendar, Download, Mail, FileText, ChevronDown, AlertCircle } from "lucide-react";
 import {
   AreaChart,
   Area,
@@ -31,6 +31,16 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import { toast } from "sonner";
+import {
+  getProjectReports,
+  ReportsData,
+  CashFlowData,
+  CostBreakdownData,
+  VendorPerformanceData,
+  PhaseSpendData,
+  ReportSummary
+} from "../../../lib/api/developer-reports";
 
 interface ReportsPageProps {
   projectId: string;
@@ -38,56 +48,66 @@ interface ReportsPageProps {
 
 export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState("last-6-months");
   const [selectedPhase, setSelectedPhase] = useState("all-phases");
 
-  // Mock data - replace with API calls
-  const cashFlowData = [
-    { month: "Jan", inflow: 500000, outflow: 420000 },
-    { month: "Feb", inflow: 450000, outflow: 495000 },
-    { month: "Mar", inflow: 600000, outflow: 510000 },
-    { month: "Apr", inflow: 550000, outflow: 570000 },
-    { month: "May", inflow: 700000, outflow: 600000 },
-    { month: "Jun", inflow: 650000, outflow: 640000 },
-    { month: "Jul", inflow: 600000, outflow: 580000 },
-  ];
+  // Real data from API
+  const [reportsData, setReportsData] = useState<ReportsData | null>(null);
+  const [cashFlowData, setCashFlowData] = useState<CashFlowData[]>([]);
+  const [costBreakdownData, setCostBreakdownData] = useState<CostBreakdownData[]>([]);
+  const [vendorPerformanceData, setVendorPerformanceData] = useState<VendorPerformanceData[]>([]);
+  const [phaseSpendData, setPhaseSpendData] = useState<PhaseSpendData[]>([]);
+  const [summary, setSummary] = useState<ReportSummary | null>(null);
+  const [currency, setCurrency] = useState<string>('NGN'); // Default to NGN
 
-  const costBreakdownData = [
-    { name: "Labor", value: 1200000, color: "#3b82f6" },
-    { name: "Materials", value: 950000, color: "#14b8a6" },
-    { name: "Equipment", value: 450000, color: "#f59e0b" },
-    { name: "Subcontractors", value: 680000, color: "#8b5cf6" },
-    { name: "Other", value: 270000, color: "#6b7280" },
-  ];
-
-  const vendorPerformanceData = [
-    { vendor: "ABC Construction", onTime: 95, quality: 92, cost: 88 },
-    { vendor: "XYZ Electrical", onTime: 88, quality: 90, cost: 85 },
-    { vendor: "BuildRight Materials", onTime: 92, quality: 85, cost: 90 },
-    { vendor: "ProPlumbing Inc", onTime: 85, quality: 88, cost: 92 },
-    { vendor: "Elite Finishing", onTime: 90, quality: 95, cost: 87 },
-  ];
-
-  const phaseSpendData = [
-    { phase: "Planning", budget: 450000, actual: 420000 },
-    { phase: "Foundation", budget: 800000, actual: 850000 },
-    { phase: "Structure", budget: 1200000, actual: 1180000 },
-    { phase: "MEP", budget: 650000, actual: 720000 },
-    { phase: "Finishing", budget: 500000, actual: 380000 },
-  ];
-
+  // Fetch real data from API
   useEffect(() => {
-    // Simulate data loading
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [projectId]);
+    const fetchReportsData = async () => {
+      if (!projectId) return;
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        console.log(`📊 Fetching reports data for project: ${projectId}`);
+        const data = await getProjectReports(projectId, selectedPeriod);
+
+        console.log('✅ Reports data received:', data);
+
+        setReportsData(data);
+        setSummary(data.summary);
+        setCashFlowData(data.cashFlow || []);
+        setCostBreakdownData(data.costBreakdown || []);
+        setVendorPerformanceData(data.vendorPerformance || []);
+        setPhaseSpendData(data.phaseSpend || []);
+        setCurrency(data.currency || 'NGN'); // Set currency from API response
+      } catch (err: any) {
+        console.error('❌ Error fetching reports data:', err);
+        setError(err.message || 'Failed to load reports data');
+        toast.error('Failed to load reports data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchReportsData();
+  }, [projectId, selectedPeriod]);
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
+    // Map currency codes to their locales for better formatting
+    const localeMap: { [key: string]: string } = {
+      'NGN': 'en-NG',
+      'USD': 'en-US',
+      'EUR': 'en-EU',
+      'GBP': 'en-GB',
+    };
+
+    const locale = localeMap[currency] || 'en-US';
+
+    return new Intl.NumberFormat(locale, {
       style: 'currency',
-      currency: 'USD',
+      currency: currency,
       minimumFractionDigits: 0,
     }).format(value);
   };
@@ -110,7 +130,40 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="text-gray-500">Loading reports...</div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+          <div className="text-gray-500">Loading reports data...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="flex flex-col items-center gap-4 max-w-md text-center">
+          <AlertCircle className="h-12 w-12 text-red-500" />
+          <div className="text-gray-900 font-semibold">Failed to Load Reports</div>
+          <div className="text-gray-500">{error}</div>
+          <Button onClick={() => window.location.reload()} variant="outline">
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show empty state if no data
+  if (!summary) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="flex flex-col items-center gap-4 max-w-md text-center">
+          <FileText className="h-12 w-12 text-gray-400" />
+          <div className="text-gray-900 font-semibold">No Reports Data Available</div>
+          <div className="text-gray-500">
+            Start adding expenses and budget items to see reports and analytics.
+          </div>
+        </div>
       </div>
     );
   }
@@ -156,6 +209,93 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
             Schedule Email
           </Button>
         </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Total Budget</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(summary.totalBudget)}
+                </p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+                <FileText className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Total Spent</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(summary.totalSpent)}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {summary.percentageUsed.toFixed(1)}% of budget
+                </p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-orange-100 flex items-center justify-center">
+                <Download className="h-6 w-6 text-orange-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Remaining</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(summary.remaining)}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {(100 - summary.percentageUsed).toFixed(1)}% available
+                </p>
+              </div>
+              <div className={`h-12 w-12 rounded-full flex items-center justify-center ${
+                summary.remaining >= 0 ? 'bg-green-100' : 'bg-red-100'
+              }`}>
+                <Calendar className={`h-6 w-6 ${
+                  summary.remaining >= 0 ? 'text-green-600' : 'text-red-600'
+                }`} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Expenses</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {summary.totalExpenses}
+                </p>
+                <div className="flex gap-2 mt-1">
+                  <Badge variant="outline" className="text-xs">
+                    {summary.paidExpenses} Paid
+                  </Badge>
+                  {summary.overdueExpenses > 0 && (
+                    <Badge variant="destructive" className="text-xs">
+                      {summary.overdueExpenses} Overdue
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center">
+                <Mail className="h-6 w-6 text-purple-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters */}

@@ -1416,8 +1416,8 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string }> = ({ projectId 
               Create a new purchase order for this project
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="max-h-[60vh] pr-4">
-            <div className="space-y-4 py-4">
+          <ScrollArea className="max-h-[60vh]">
+            <div className="space-y-4 p-6">
               {/* Vendor and Amount */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -1874,8 +1874,8 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string }> = ({ projectId 
               Update purchase order details
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="max-h-[60vh] pr-4">
-            <div className="space-y-4 py-4">
+          <ScrollArea className="max-h-[60vh]">
+            <div className="space-y-4 p-6">
               {/* Vendor and Amount */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -2340,7 +2340,7 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string }> = ({ projectId 
               {editingVendor ? 'Update vendor information' : 'Add a new vendor to your list'}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 p-6">
             {/* Vendor Name and Type */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

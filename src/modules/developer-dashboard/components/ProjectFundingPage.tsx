@@ -397,7 +397,10 @@ export const ProjectFundingPage: React.FC<ProjectFundingPageProps> = ({
           <CardContent>
             {fundingOverTime.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={fundingOverTime}>
+                <AreaChart
+                  data={fundingOverTime}
+                  margin={{ top: 10, right: 30, left: 20, bottom: 0 }}
+                >
                   <defs>
                     <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
@@ -406,7 +409,11 @@ export const ProjectFundingPage: React.FC<ProjectFundingPageProps> = ({
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis dataKey="month" stroke="#6b7280" />
-                  <YAxis stroke="#6b7280" tickFormatter={(value) => formatCurrency(value)} />
+                  <YAxis
+                    stroke="#6b7280"
+                    tickFormatter={(value) => formatCurrency(value)}
+                    width={80}
+                  />
                   <RechartsTooltip
                     contentStyle={{
                       backgroundColor: "#fff",
@@ -480,39 +487,82 @@ export const ProjectFundingPage: React.FC<ProjectFundingPageProps> = ({
         </Card>
       </div>
 
-      {/* Status Distribution Chart */}
+      {/* Status Distribution - Card Grid */}
       {statusDistribution.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Funding Status Distribution</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={statusDistribution}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="name" stroke="#6b7280" />
-                <YAxis stroke="#6b7280" tickFormatter={(value) => formatCurrency(value)} />
-                <RechartsTooltip
-                  contentStyle={{
-                    backgroundColor: "#fff",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "8px",
-                  }}
-                  formatter={(value: number) => formatCurrency(value)}
-                />
-                <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                  {statusDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {statusDistribution.map((status, index) => {
+                const percentage = totalFunding > 0 ? (status.value / totalFunding) * 100 : 0;
+                const Icon =
+                  status.name === "Received" ? CheckCircle :
+                  status.name === "Pending" ? Clock :
+                  status.name === "Partial" ? AlertCircle :
+                  XCircle;
+
+                return (
+                  <div
+                    key={index}
+                    className="relative overflow-hidden rounded-lg border border-gray-200 bg-white p-4 hover:shadow-md transition-shadow"
+                  >
+                    {/* Background gradient */}
+                    <div
+                      className="absolute inset-0 opacity-5"
+                      style={{ backgroundColor: status.color }}
+                    />
+
+                    {/* Content */}
+                    <div className="relative">
+                      <div className="flex items-center justify-between mb-2">
+                        <Icon
+                          className="h-5 w-5"
+                          style={{ color: status.color }}
+                        />
+                        <span
+                          className="text-xs font-semibold px-2 py-1 rounded-full"
+                          style={{
+                            backgroundColor: `${status.color}20`,
+                            color: status.color
+                          }}
+                        >
+                          {percentage.toFixed(0)}%
+                        </span>
+                      </div>
+
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-gray-600">
+                          {status.name}
+                        </p>
+                        <p className="text-xl font-bold text-gray-900">
+                          {formatCurrency(status.value)}
+                        </p>
+                      </div>
+
+                      {/* Progress bar */}
+                      <div className="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${percentage}%`,
+                            backgroundColor: status.color
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Funding Records Table */}
-      <Card>
+      {/* Funding Records Table - Full Width */}
+      <div className="w-full">
+        <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Funding Records</CardTitle>
@@ -621,6 +671,7 @@ export const ProjectFundingPage: React.FC<ProjectFundingPageProps> = ({
           )}
         </CardContent>
       </Card>
+      </div>
 
       {/* Add Funding Modal */}
       <AddFundingModal

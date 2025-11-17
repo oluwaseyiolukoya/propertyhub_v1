@@ -367,6 +367,15 @@ export function FormSubmissions({ formType, title, description }: FormSubmission
                             </div>
                             <div className="text-gray-500">{submission.preferredTime || 'Time not set'}</div>
                           </div>
+                        ) : submission.formType === 'contact_us' && submission.customFields?.inquiryType ? (
+                          <div className="text-sm">
+                            <div className="font-medium">{submission.subject || submission.customFields.inquiryType}</div>
+                            <div className="text-gray-500 text-xs">
+                              <Badge variant="outline" className="text-xs">
+                                {submission.customFields.inquiryType}
+                              </Badge>
+                            </div>
+                          </div>
                         ) : (
                           submission.subject || submission.message.substring(0, 50) + '...'
                         )}
@@ -561,6 +570,18 @@ export function FormSubmissions({ formType, title, description }: FormSubmission
                 </div>
               )}
 
+              {/* Inquiry Type (for contact forms) */}
+              {selectedSubmission.formType === 'contact_us' && selectedSubmission.customFields?.inquiryType && (
+                <div>
+                  <Label>Inquiry Type</Label>
+                  <div className="mt-1">
+                    <Badge variant="outline" className="text-sm">
+                      {selectedSubmission.customFields.inquiryType}
+                    </Badge>
+                  </div>
+                </div>
+              )}
+
               {/* Message */}
               <div>
                 <Label>Message</Label>
@@ -568,6 +589,14 @@ export function FormSubmissions({ formType, title, description }: FormSubmission
                   {selectedSubmission.message}
                 </p>
               </div>
+
+              {/* Source (where the form was submitted from) */}
+              {selectedSubmission.source && (
+                <div>
+                  <Label className="text-gray-600">Source</Label>
+                  <p className="mt-1 text-sm text-gray-500 capitalize">{selectedSubmission.source.replace('_', ' ')}</p>
+                </div>
+              )}
 
               {/* Responses */}
               {selectedSubmission.responses && selectedSubmission.responses.length > 0 && (
