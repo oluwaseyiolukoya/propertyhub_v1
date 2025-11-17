@@ -632,27 +632,97 @@ model units {
   @@unique([propertyId, unitNumber])
 }
 
+model landing_page_submissions {
+  id                   String                   @id @default(uuid())
+  ticketNumber         Int                      @unique @default(autoincrement())
+  formType             String
+  name                 String
+  email                String
+  phone                String?
+  company              String?
+  jobTitle             String?
+  subject              String?
+  message              String                   @db.Text
+  preferredDate        DateTime?
+  preferredTime        String?
+  timezone             String?
+  status               String                   @default("new")
+  priority             String                   @default("normal")
+  source               String?
+  referralUrl          String?
+  utmSource            String?
+  utmMedium            String?
+  utmCampaign          String?
+  assignedToId         String?
+  adminNotes           String?                  @db.Text
+  internalTags         String[]
+  responseStatus       String?
+  responseDate         DateTime?
+  responseBy           String?
+  responseNotes        String?                  @db.Text
+  ipAddress            String?
+  userAgent            String?
+  browserInfo          Json?
+  deviceInfo           Json?
+  customFields         Json?
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+  contactedAt          DateTime?
+  resolvedAt           DateTime?
+  deletedAt            DateTime?
+  assignedTo           users?                   @relation("assigned_submissions", fields: [assignedToId], references: [id])
+  responder            users?                   @relation("responded_submissions", fields: [responseBy], references: [id])
+  responses            submission_responses[]
+
+  @@index([formType])
+  @@index([status])
+  @@index([priority])
+  @@index([email])
+  @@index([createdAt])
+  @@index([assignedToId])
+  @@index([responseStatus])
+}
+
+model submission_responses {
+  id                   String                   @id @default(uuid())
+  submissionId         String
+  responseType         String
+  content              String                   @db.Text
+  respondedById        String
+  attachments          Json?
+  createdAt            DateTime                 @default(now())
+  submission           landing_page_submissions @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  respondedBy          users                    @relation("submission_responses", fields: [respondedById], references: [id])
+
+  @@index([submissionId])
+  @@index([respondedById])
+  @@index([createdAt])
+}
+
 model users {
-  id                                                                            String                      @id
+  id                                                                            String                        @id
   customerId                                                                    String?
   name                                                                          String
-  email                                                                         String                      @unique
+  email                                                                         String                        @unique
   password                                                                      String?
   phone                                                                         String?
   role                                                                          String
   department                                                                    String?
   company                                                                       String?
-  baseCurrency                                                                  String                      @default("USD")
-  isActive                                                                      Boolean                     @default(true)
-  status                                                                        String                      @default("pending")
+  baseCurrency                                                                  String                        @default("USD")
+  isActive                                                                      Boolean                       @default(true)
+  status                                                                        String                        @default("pending")
   lastLogin                                                                     DateTime?
   invitedAt                                                                     DateTime?
   acceptedAt                                                                    DateTime?
   permissions                                                                   Json?
   avatar                                                                        String?
-  createdAt                                                                     DateTime                    @default(now())
-  updatedAt                                                                     DateTime                    @updatedAt
+  createdAt                                                                     DateTime                      @default(now())
+  updatedAt                                                                     DateTime                      @updatedAt
   activity_logs                                                                 activity_logs[]
+  assigned_submissions                                                          landing_page_submissions[]    @relation("assigned_submissions")
+  responded_submissions                                                         landing_page_submissions[]    @relation("responded_submissions")
+  submission_responses                                                          submission_responses[]        @relation("submission_responses")
   customer_users                                                                customer_users[]
   documents_documents_managerIdTousers                                          documents[]                 @relation("documents_managerIdTousers")
   documents_documents_tenantIdTousers                                           documents[]                 @relation("documents_tenantIdTousers")

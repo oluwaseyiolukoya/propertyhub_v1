@@ -8,7 +8,7 @@ import { API_ENDPOINTS } from '../api-config';
 export interface LoginRequest {
   email: string;
   password: string;
-  userType: string;
+  userType?: string; // Optional - backend will auto-detect from database
 }
 
 export interface LoginResponse {
@@ -56,7 +56,8 @@ export const login = async (credentials: LoginRequest) => {
     // Store token and user data
     setAuthToken(response.data.token);
     setUserData(response.data.user);
-    setUserType(credentials.userType);
+    // Use userType from response (auto-detected by backend) or fall back to credentials
+    setUserType(response.data.user.userType || credentials.userType || 'owner');
   }
 
   return response;

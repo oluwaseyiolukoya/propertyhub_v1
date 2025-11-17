@@ -3,24 +3,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Button } from "./ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Separator } from "./ui/separator";
 import { Badge } from "./ui/badge";
 import {
-  Building,
-  Users,
-  Smartphone,
-  Shield,
   Lock,
   Mail,
   Eye,
   EyeOff,
   ArrowLeft,
-  CheckCircle,
-  Building2,
-  Key,
-  CreditCard,
   AlertCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -32,13 +21,13 @@ import { login, setupPassword } from '../lib/api';
 interface LoginPageProps {
   onLogin: (userType: string, userData: any) => void;
   onBackToHome: () => void;
+  onNavigateToScheduleDemo?: () => void;
 }
 
-export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
+export function LoginPage({ onLogin, onBackToHome, onNavigateToScheduleDemo }: LoginPageProps) {
   const [loginForm, setLoginForm] = useState({
     email: '',
-    password: '',
-    userType: ''
+    password: ''
   });
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -84,20 +73,10 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
     setError('');
 
     try {
-      // Map frontend user types to backend user types
-      const userTypeMapping: Record<string, string> = {
-        'property-owner': 'owner',
-        'property-manager': 'manager',
-        'tenant': 'tenant',
-        'super-admin': 'admin',
-      };
-
-      const backendUserType = userTypeMapping[loginForm.userType] || loginForm.userType;
-
+      // No need to send userType - backend will automatically detect from database
       const response = await login({
         email: loginForm.email,
         password: loginForm.password,
-        userType: backendUserType,
       });
 
       if (response.error) {
@@ -120,14 +99,13 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
 
       if (response.data) {
         toast.success('Login successful!');
-        // Use userType returned by backend (derived from role/customerId)
-        const resolvedUserType = response.data.user.userType || backendUserType;
+        // Backend auto-detects userType from database - no need for frontend mapping
+        const resolvedUserType = response.data.user.userType || 'owner';
 
-        console.log('📡 LoginPage - Backend Response:');
-        console.log('   - backendUserType:', backendUserType);
-        console.log('   - response.data.user.userType:', response.data.user.userType);
-        console.log('   - resolvedUserType:', resolvedUserType);
-        console.log('   - user.role:', response.data.user.role);
+        console.log('📡 LoginPage - Backend Response (Auto-detected):');
+        console.log('   - Auto-detected userType:', response.data.user.userType);
+        console.log('   - User role from DB:', response.data.user.role);
+        console.log('   - Resolved userType:', resolvedUserType);
         console.log('   - Calling onLogin with:', { type: resolvedUserType, user: response.data.user });
 
         onLogin(resolvedUserType, response.data.user);
@@ -166,8 +144,7 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
       setInvitationData(null);
       setLoginForm({
         email: invitationData?.email || '',
-        password: '',
-        userType: 'property-owner',
+        password: ''
       });
     } catch (err: any) {
       toast.error(err.message || 'Failed to setup password');
@@ -183,51 +160,6 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
       />
     );
   }
-
-  const userTypes = [
-    {
-      value: 'property-owner',
-      label: 'Property Owner',
-      icon: Building,
-      description: 'Manage your property portfolio',
-      color: 'bg-blue-500',
-      features: ['Property Management', 'Financial Reports', 'Tenant Overview']
-    },
-    {
-      value: 'property-manager',
-      label: 'Property Manager',
-      icon: Users,
-      description: 'Oversee day-to-day operations',
-      color: 'bg-green-500',
-      features: ['Daily Operations', 'Maintenance', 'Tenant Support']
-    },
-    {
-      value: 'developer',
-      label: 'Property Developer',
-      icon: Building,
-      description: 'Manage construction projects',
-      color: 'bg-orange-500',
-      features: ['Project Management', 'Budget Tracking', 'Cost Analytics']
-    },
-    {
-      value: 'tenant',
-      label: 'Tenant',
-      icon: Smartphone,
-      description: 'Access your rental dashboard',
-      color: 'bg-purple-500',
-      features: ['Pay Rent', 'Request Maintenance', 'Access Keys']
-    },
-    {
-      value: 'super-admin',
-      label: 'Super Admin',
-      icon: Shield,
-      description: 'Platform administration',
-      color: 'bg-red-500',
-      features: ['User Management', 'System Analytics', 'Full Access']
-    }
-  ];
-
-  const selectedUserType = userTypes.find(type => type.value === loginForm.userType);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex flex-col justify-between">
@@ -259,141 +191,19 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
       </header>
 
       {/* Main Content */}
-      <main className="flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
-        <div className="w-full max-w-6xl">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            {/* Left Column - Information */}
-            <div className="hidden lg:block">
-              <div className="space-y-8">
-                <div>
-                  <h1 className="text-4xl font-bold text-gray-900 mb-4">
-                    Welcome Back to
-                    <span className="text-blue-600"> Contrezz</span>
-                  </h1>
-                  <p className="text-xl text-gray-600">
-                    Sign in to access your personalized dashboard and manage your properties efficiently.
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-start space-x-4 p-4 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200">
-                    <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Building2 className="h-6 w-6 text-blue-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">Comprehensive Management</h3>
-                      <p className="text-gray-600">Track all your properties and units in one centralized platform</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-4 p-4 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200">
-                    <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <CreditCard className="h-6 w-6 text-green-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">Automated Payments</h3>
-                      <p className="text-gray-600">Streamlined rent collection with Stripe integration</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-4 p-4 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200">
-                    <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Key className="h-6 w-6 text-purple-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">Smart Access Control</h3>
-                      <p className="text-gray-600">Keycard management with payment automation</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-8 pt-4">
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-gray-900">500+</div>
-                    <div className="text-gray-600">Properties</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-gray-900">10k+</div>
-                    <div className="text-gray-600">Tenants</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-gray-900">99.9%</div>
-                    <div className="text-gray-600">Uptime</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column - Login Form */}
-            <div>
+      <main className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-md">
+          {/* Centered Login Form */}
+          <div>
               <Card className="shadow-2xl border-0">
                 <CardHeader className="text-center pb-4">
                   <CardTitle className="text-2xl">Sign In to Your Dashboard</CardTitle>
                   <CardDescription>
-                    Select your role and enter your credentials
+                    Enter your credentials to access your account
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <Tabs defaultValue="login" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 mb-6">
-                      <TabsTrigger value="login">Sign In</TabsTrigger>
-                      <TabsTrigger value="role-info">Role Information</TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="login">
-                      <form onSubmit={handleLogin} className="space-y-6">
-                        {/* User Type Selection */}
-                        <div className="space-y-2">
-                          <Label htmlFor="userType">Select Your Role</Label>
-                          <Select
-                            value={loginForm.userType}
-                            onValueChange={(value) => setLoginForm(prev => ({ ...prev, userType: value }))}
-                          >
-                            <SelectTrigger id="userType" className="h-12">
-                              <SelectValue placeholder="Choose your role..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {userTypes.map((type) => (
-                                <SelectItem key={type.value} value={type.value}>
-                                  <div className="flex items-center space-x-3 py-1">
-                                    <div className={`h-8 w-8 ${type.color} rounded-lg flex items-center justify-center`}>
-                                      <type.icon className="h-4 w-4 text-white" />
-                                    </div>
-                                    <div>
-                                      <div className="font-medium">{type.label}</div>
-                                      <div className="text-xs text-gray-500">{type.description}</div>
-                                    </div>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {/* Show selected role details */}
-                        {selectedUserType && (
-                          <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-                            <div className="flex items-start space-x-3">
-                              <div className={`h-10 w-10 ${selectedUserType.color} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                                <selectedUserType.icon className="h-5 w-5 text-white" />
-                              </div>
-                              <div className="flex-1">
-                                <h4 className="font-semibold text-gray-900 mb-1">{selectedUserType.label}</h4>
-                                <p className="text-sm text-gray-600 mb-2">{selectedUserType.description}</p>
-                                <div className="flex flex-wrap gap-1">
-                                  {selectedUserType.features.map((feature, index) => (
-                                    <Badge key={index} variant="secondary" className="text-xs">
-                                      <CheckCircle className="h-3 w-3 mr-1" />
-                                      {feature}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        <Separator />
+                  <form onSubmit={handleLogin} className="space-y-6">
 
                         {/* Error Message */}
                         {error && (
@@ -464,7 +274,7 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
                         <Button
                           type="submit"
                           className="w-full h-12"
-                          disabled={isLoading || !loginForm.userType || !loginForm.email || !loginForm.password}
+                          disabled={isLoading || !loginForm.email || !loginForm.password}
                         >
                           {isLoading ? (
                             <>
@@ -477,45 +287,17 @@ export function LoginPage({ onLogin, onBackToHome }: LoginPageProps) {
                         </Button>
 
                         {/* Demo credentials removed per request */}
-                      </form>
-                    </TabsContent>
-
-                    <TabsContent value="role-info">
-                      <div className="space-y-4">
-                        {userTypes.map((type) => (
-                          <div key={type.value} className="p-4 border rounded-lg hover:border-blue-300 transition-colors">
-                            <div className="flex items-start space-x-3">
-                              <div className={`h-10 w-10 ${type.color} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                                <type.icon className="h-5 w-5 text-white" />
-                              </div>
-                              <div className="flex-1">
-                                <h4 className="font-semibold text-gray-900">{type.label}</h4>
-                                <p className="text-sm text-gray-600 mb-2">{type.description}</p>
-                                <div className="flex flex-wrap gap-1">
-                                  {type.features.map((feature, index) => (
-                                    <Badge key={index} variant="outline" className="text-xs">
-                                      {feature}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </TabsContent>
-                  </Tabs>
+                  </form>
                 </CardContent>
               </Card>
 
-              {/* Additional Info */}
-              <p className="text-center text-sm text-gray-600 mt-6">
-                Don't have an account?{' '}
-                <Button variant="link" className="p-0 h-auto" onClick={onBackToHome}>
-                  Contact sales
-                </Button>
-              </p>
-            </div>
+            {/* Additional Info */}
+            <p className="text-center text-sm text-gray-600 mt-6">
+              Don't have an account?{' '}
+              <Button variant="link" className="p-0 h-auto" onClick={onNavigateToScheduleDemo || onBackToHome}>
+                Contact sales
+              </Button>
+            </p>
           </div>
         </div>
       </main>

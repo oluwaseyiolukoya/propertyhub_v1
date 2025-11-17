@@ -314,6 +314,8 @@ app.get("/api/_diag/db", async (req: Request, res: Response) => {
 app.use("/api/auth", authRoutes);
 // Onboarding routes (public)
 app.use("/api/onboarding", onboardingRoutes);
+// Landing page forms (public submission + admin management)
+app.use("/api/landing-forms", require("./routes/landing-forms").default);
 // Admin routes
 app.use("/api/admin/onboarding", adminOnboardingRoutes);
 app.use("/api/customers", customerRoutes);

@@ -776,7 +776,7 @@ Application ID: ${applicationId}
     } catch (verifyError: any) {
       console.error('❌ [Onboarding Email] SMTP verification failed:', verifyError.message);
       console.error('🔄 [Onboarding Email] Attempting to create fresh transporter...');
-      
+
       // Reset transporter and try again
       const freshTransporter = nodemailer.createTransport({
         host: config.host,
@@ -795,9 +795,9 @@ Application ID: ${applicationId}
         greetingTimeout: 5000,
         socketTimeout: 30000,
       });
-      
+
       console.log('✅ [Onboarding Email] Fresh transporter created');
-      
+
       // Use the fresh transporter for sending
       console.log('📧 [Onboarding Email] Step 3: Sending email with fresh connection...');
       const info = await freshTransporter.sendMail({
@@ -960,10 +960,220 @@ function generateOnboardingConfirmationHtml(params: OnboardingConfirmationParams
   return html;
 }
 
+/**
+ * Send contact form confirmation email
+ * Note: Ticket ID is not shown to users, only visible to admins
+ */
+export interface ContactFormConfirmationParams {
+  to: string;
+  name: string;
+  submissionId: string; // Ticket ID - stored internally, not shown in email
+  formType: string;
+  subject?: string;
+  message: string;
+}
+
+export async function sendContactFormConfirmation(params: ContactFormConfirmationParams): Promise<boolean> {
+  const config = getEmailConfig();
+
+  const formTypeLabels: Record<string, string> = {
+    contact_us: 'Contact Form',
+    schedule_demo: 'Demo Request',
+    blog_inquiry: 'Blog Inquiry',
+    community_request: 'Community Request',
+    partnership: 'Partnership Inquiry',
+    support: 'Support Request'
+  };
+
+  const formTypeLabel = formTypeLabels[params.formType] || 'Contact Form';
+
+  console.log(`📧 Attempting to send confirmation email to ${params.to}`);
+  console.log(`📧 SMTP Config: ${config.host}:${config.port} (user: ${config.auth.user})`);
+
+  // Create fresh transporter for each email (no pooling)
+  // This is more reliable for infrequent emails
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure, // Use SSL/TLS for secure connection
+    auth: {
+      user: config.auth.user,
+      pass: config.auth.pass,
+    },
+    pool: false, // Disable pooling for reliability
+    tls: {
+      rejectUnauthorized: true, // Validate SSL certificates for security
+      minVersion: 'TLSv1.2', // Enforce minimum TLS version
+      ciphers: 'HIGH:!aNULL:!eNULL:!EXPORT:!DES:!MD5:!PSK:!RC4:!SEED', // Strong ciphers only
+    },
+    connectionTimeout: 15000,
+    greetingTimeout: 10000,
+    socketTimeout: 30000,
+    debug: false, // Disable debug in production
+    logger: false, // Disable logging in production
+  });
+
+  try {
+    const mailOptions = {
+      from: `"Contrezz Support" <${config.from}>`,
+      to: params.to,
+      subject: `Confirmation: We received your ${formTypeLabel}`,
+      html: generateContactFormConfirmationEmail(params, formTypeLabel),
+    };
+
+    console.log(`📤 Sending email with subject: "${mailOptions.subject}"`);
+
+    const info = await transporter.sendMail(mailOptions);
+
+    console.log('✅ Contact form confirmation email sent successfully!');
+    console.log(`📧 Message ID: ${info.messageId}`);
+    console.log(`📧 Accepted: ${info.accepted}`);
+    console.log(`📧 Response: ${info.response}`);
+
+    return true;
+  } catch (error: any) {
+    console.error('❌ Failed to send contact form confirmation email');
+    console.error(`❌ Error code: ${error.code}`);
+    console.error(`❌ Error message: ${error.message}`);
+    console.error(`❌ Full error:`, error);
+
+    // Log specific error types
+    if (error.code === 'ECONNRESET') {
+      console.error('⚠️  Connection reset by server - possible authentication or network issue');
+    } else if (error.code === 'EAUTH') {
+      console.error('⚠️  Authentication failed - check SMTP credentials');
+    } else if (error.code === 'ETIMEDOUT') {
+      console.error('⚠️  Connection timeout - check network/firewall');
+    }
+
+    return false;
+  } finally {
+    // Close the transporter
+    transporter.close();
+  }
+}
+
+/**
+ * Generate HTML for contact form confirmation email
+ */
+function generateContactFormConfirmationEmail(
+  params: ContactFormConfirmationParams,
+  formTypeLabel: string
+): string {
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Form Confirmation - Contrezz</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 0;">
+    <tr>
+      <td align="center">
+        <!-- Main Container -->
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background-color: #7c3aed; padding: 40px 40px 30px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600;">
+                ✅ We Received Your Message
+              </h1>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px;">
+              <p style="margin: 0 0 20px; color: #1f2937; font-size: 16px; line-height: 1.6;">
+                Hi <strong>${params.name}</strong>,
+              </p>
+
+              <p style="margin: 0 0 20px; color: #1f2937; font-size: 16px; line-height: 1.6;">
+                Thank you for contacting Contrezz! We've successfully received your <strong>${formTypeLabel}</strong> and our team will review it shortly.
+              </p>
+
+              <!-- Submission Summary -->
+              <div style="background-color: #f9fafb; border-left: 4px solid #7c3aed; border-radius: 8px; padding: 20px; margin: 30px 0;">
+                <h3 style="margin: 0 0 15px; color: #1f2937; font-size: 18px; font-weight: 600;">
+                  Your Submission
+                </h3>
+
+                <table width="100%" cellpadding="0" cellspacing="0">
+                  ${params.subject ? `
+                  <tr>
+                    <td style="padding: 8px 0; color: #6b7280; font-size: 14px; width: 100px;">
+                      <strong>Subject:</strong>
+                    </td>
+                    <td style="padding: 8px 0; color: #1f2937; font-size: 14px;">
+                      ${params.subject}
+                    </td>
+                  </tr>
+                  ` : ''}
+                  <tr>
+                    <td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">
+                      <strong>Message:</strong>
+                    </td>
+                    <td style="padding: 8px 0; color: #1f2937; font-size: 14px; line-height: 1.5;">
+                      ${params.message.substring(0, 200)}${params.message.length > 200 ? '...' : ''}
+                    </td>
+                  </tr>
+                </table>
+              </div>
+
+              <!-- What's Next -->
+              <div style="background-color: #eff6ff; border-radius: 8px; padding: 20px; margin: 30px 0;">
+                <h3 style="margin: 0 0 12px; color: #1e40af; font-size: 16px; font-weight: 600;">
+                  📅 What happens next?
+                </h3>
+                <ul style="margin: 0; padding-left: 20px; color: #1f2937; font-size: 14px; line-height: 1.8;">
+                  <li>Our team will review your submission within <strong>24 hours</strong></li>
+                  <li>You'll receive a personalized response via email</li>
+                  <li>For urgent matters, please call us at <strong>+234 916 840 7781</strong></li>
+                </ul>
+              </div>
+
+              <p style="margin: 20px 0 0; color: #1f2937; font-size: 16px; line-height: 1.6;">
+                Best regards,<br>
+                <strong>The Contrezz Team</strong>
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f9fafb; padding: 30px 40px; text-align: center; border-top: 1px solid #e5e7eb;">
+              <p style="margin: 0 0 10px; color: #6b7280; font-size: 14px;">
+                This is an automated confirmation email. Please do not reply to this message.
+              </p>
+              <p style="margin: 0; color: #9ca3af; font-size: 12px;">
+                © ${new Date().getFullYear()} Contrezz. All rights reserved.
+              </p>
+              <p style="margin: 10px 0 0; color: #9ca3af; font-size: 12px;">
+                <a href="mailto:hello@contrezz.com" style="color: #7c3aed; text-decoration: none;">Contact Support</a> •
+                <a href="#" style="color: #7c3aed; text-decoration: none;">Visit Website</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  return html;
+}
+
 export default {
   testEmailConnection,
   sendTestEmail,
   sendTenantInvitation,
   sendCustomerInvitation,
-  sendOnboardingConfirmation
+  sendOnboardingConfirmation,
+  sendContactFormConfirmation
 };

@@ -990,7 +990,7 @@ function App() {
   if (!currentUser && !showLanding && !showGetStarted && !showAccountReview && !showAPIDocumentation && !showIntegrations && !showAbout && !showContact && !showScheduleDemo && !showBlog && !showCareers && !showHelpCenter && !showCommunity && !showNewDiscussion && !showStatus && !showSecurity) {
     return (
       <>
-        <LoginPage onLogin={handleLogin} onBackToHome={handleBackToHome} />
+        <LoginPage onLogin={handleLogin} onBackToHome={handleBackToHome} onNavigateToScheduleDemo={handleNavigateToScheduleDemo} />
         <Toaster />
       </>
     );

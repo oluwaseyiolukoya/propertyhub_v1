@@ -18,9 +18,10 @@ router.post('/login', async (req: Request, res: Response) => {
 
     // Database authentication ONLY
     try {
-      // Attempt ADMIN login first when explicitly requested or when no userType provided
+      // AUTO-DETECTION: When userType is not provided, check all tables automatically
+      // First check admin tables, then fall through to customer users
       if (!userType || userType === 'admin') {
-        console.log('🔍 Admin login attempt:', { email, userType });
+        console.log('🔍 Admin login attempt:', { email, userType: userType || 'auto-detect' });
 
         // First, try Super Admin table
         const admin = await prisma.admins.findUnique({ where: { email } });
@@ -134,14 +135,17 @@ router.post('/login', async (req: Request, res: Response) => {
           });
         }
 
-        // Do not fail early when userType is 'admin'; fall through to customer user auth
-        // This avoids locking out users who selected the wrong role in the UI
+        // Do not fail early - fall through to customer user auth
+        // This enables auto-detection when userType is not provided
         if (userType === 'admin') {
           console.log('ℹ️ Admin not found; falling back to customer user auth');
+        } else if (!userType) {
+          console.log('ℹ️ Auto-detection: Admin not found; checking customer users');
         }
       }
 
-      // CUSTOMER USERS (owner, manager, tenant)
+      // CUSTOMER USERS (owner, manager, tenant, developer)
+      // Role is auto-detected from the database user.role field
       const user = await prisma.users.findUnique({
         where: { email },
         include: { customers: true }

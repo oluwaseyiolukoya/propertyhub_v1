@@ -17,6 +17,7 @@ import { SupportTickets } from './SupportTickets';
 import { PlatformSettings } from './PlatformSettings';
 import { AddCustomerPage } from './AddCustomerPage';
 import { OnboardingManager } from './admin/OnboardingManager';
+import { LandingPageManagement } from './admin/LandingPageManagement';
 import { Footer } from './Footer';
 import { PlatformLogo } from './PlatformLogo';
 import { toast } from "sonner";
@@ -942,6 +943,7 @@ export function SuperAdminDashboard({
     { id: 'overview', name: 'Overview', permission: null },
     // Show page if user has explicit page permission OR any action within that area
     { id: 'onboarding', name: 'Onboarding', permission: null }, // Available to all admins
+    { id: 'landing-page', name: 'Landing Page', permission: null }, // Available to all admins
     { id: 'customers', name: 'Customers', permission: [PERMISSIONS.CUSTOMERS, PERMISSIONS.CUSTOMER_VIEW, PERMISSIONS.CUSTOMER_CREATE, PERMISSIONS.CUSTOMER_EDIT, PERMISSIONS.CUSTOMER_DELETE] },
     { id: 'users', name: 'User Management', permission: [PERMISSIONS.USERS, PERMISSIONS.USER_VIEW, PERMISSIONS.USER_CREATE, PERMISSIONS.USER_EDIT, PERMISSIONS.USER_DELETE] },
     { id: 'billing', name: 'Billing & Plans', permission: [PERMISSIONS.BILLING, PERMISSIONS.BILLING_MANAGEMENT, PERMISSIONS.PLAN_VIEW, PERMISSIONS.PLAN_CREATE, PERMISSIONS.PLAN_EDIT, PERMISSIONS.PLAN_DELETE, PERMISSIONS.INVOICE_VIEW, PERMISSIONS.PAYMENT_VIEW] },
@@ -1930,6 +1932,9 @@ export function SuperAdminDashboard({
 
             {/* Onboarding Tab */}
             {activeTab === 'onboarding' && <OnboardingManager />}
+
+            {/* Landing Page Management Tab */}
+            {activeTab === 'landing-page' && <LandingPageManagement />}
 
             {/* Other tabs coming soon */}
             {activeTab === 'billing' && <BillingPlansAdmin />}

@@ -8,6 +8,7 @@ import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { PublicLayout } from "./PublicLayout";
 import { toast } from "sonner";
+import { submitLandingForm } from '../lib/api/landing-forms';
 import {
   Building,
   ArrowLeft,
@@ -94,24 +95,85 @@ export function ContactPage({
       return;
     }
 
+    // Message must be at least 10 characters
+    if (formData.message.length < 10) {
+      toast.error('Message must be at least 10 characters long');
+      return;
+    }
+
     setIsSubmitting(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      toast.success('Message sent successfully! We\'ll get back to you within 24 hours.');
+    try {
+      // Prepare submission data - only include optional fields if they have values
+      const submissionData: any = {
+        formType: 'contact_us',
+        name: `${formData.firstName} ${formData.lastName}`,
+        email: formData.email,
+        message: formData.message,
+        source: 'contact_page',
+        customFields: {
+          inquiryType: formData.inquiryType
+        }
+      };
+
+      // Only add optional fields if they have values
+      if (formData.phone && formData.phone.trim()) {
+        submissionData.phone = formData.phone;
+      }
+      if (formData.company && formData.company.trim()) {
+        submissionData.company = formData.company;
+      }
+      if (formData.subject && formData.subject.trim()) {
+        submissionData.subject = formData.subject;
+      } else {
+        // Use inquiry type as subject if no subject provided
+        submissionData.subject = formData.inquiryType;
+      }
+
+      console.log('📤 Submitting contact form:', submissionData);
+
+      // Submit to landing forms API
+      const response = await submitLandingForm(submissionData);
+
+      console.log('📥 API Response:', response);
+
+      if (response.data?.success) {
+        // Simple thank you message
+        toast.success(
+          <div>
+            <p className="font-semibold">Thank you for contacting us!</p>
+            <p className="text-sm mt-1">We've received your message and will get back to you shortly.</p>
+          </div>,
+          { duration: 5000 }
+        );
+
+        // Reset form
+        setFormData({
+          firstName: '',
+          lastName: '',
+          email: '',
+          phone: '',
+          company: '',
+          subject: '',
+          message: '',
+          inquiryType: ''
+        });
+      } else {
+        console.error('❌ Submission failed:', response.error);
+        const errorMessage = (response.error as any)?.message || response.error?.error || 'Failed to send message. Please try again.';
+        toast.error(errorMessage);
+
+        // Log validation details if available
+        if ((response.error as any)?.details) {
+          console.error('Validation details:', (response.error as any).details);
+        }
+      }
+    } catch (error: any) {
+      console.error('❌ Contact form error:', error);
+      toast.error('Failed to send message. Please try again later.');
+    } finally {
       setIsSubmitting(false);
-      // Reset form
-      setFormData({
-        firstName: '',
-        lastName: '',
-        email: '',
-        phone: '',
-        company: '',
-        subject: '',
-        message: '',
-        inquiryType: ''
-      });
-    }, 2000);
+    }
   };
 
   const contactMethods = [
@@ -342,7 +404,7 @@ export function ContactPage({
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="message">Message *</Label>
+                    <Label htmlFor="message">Message * (minimum 10 characters)</Label>
                     <Textarea
                       id="message"
                       placeholder="Tell us more about your inquiry..."
@@ -351,6 +413,9 @@ export function ContactPage({
                       onChange={(e) => handleInputChange('message', e.target.value)}
                       required
                     />
+                    <p className="text-xs text-gray-500">
+                      {formData.message.length} / 10 minimum characters
+                    </p>
                   </div>
 
                   <Button
