@@ -81,33 +81,35 @@ export const ScheduleDemoPage: React.FC<ScheduleDemoPageProps> = ({ onBackToHome
 
       console.log('📦 API Response:', response);
 
-      if (response.success) {
-        toast.success(
-          <div>
-            <p className="font-semibold">Demo Scheduled Successfully!</p>
-            <p className="text-sm mt-1">We'll contact you shortly to confirm your demo session.</p>
-          </div>,
-          { duration: 5000 }
-        );
-
-        // Reset form
-        setFormData({
-          name: '',
-          email: '',
-          phone: '',
-          company: '',
-          jobTitle: '',
-          preferredDate: '',
-          preferredTime: '',
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          message: '',
-        });
-      } else {
-        throw new Error(response.error || 'Submission failed');
+      // Check if response has error
+      if (response.error) {
+        throw new Error(response.error.message || response.error.error || 'Submission failed');
       }
+
+      // Success - response.data contains the backend response
+      toast.success(
+        <div>
+          <p className="font-semibold">Demo Scheduled Successfully!</p>
+          <p className="text-sm mt-1">We'll contact you shortly to confirm your demo session.</p>
+        </div>,
+        { duration: 5000 }
+      );
+
+      // Reset form
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        company: '',
+        jobTitle: '',
+        preferredDate: '',
+        preferredTime: '',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        message: '',
+      });
     } catch (error: any) {
       console.error('❌ Submission failed:', error);
-      
+
       // Show detailed error message
       const errorMessage = error.response?.data?.message || error.message || 'Failed to schedule demo. Please try again.';
       toast.error(errorMessage);
@@ -177,7 +179,7 @@ export const ScheduleDemoPage: React.FC<ScheduleDemoPageProps> = ({ onBackToHome
                   <User className="h-5 w-5 mr-2 text-purple-600" />
                   Personal Information
                 </h3>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="name">Full Name *</Label>

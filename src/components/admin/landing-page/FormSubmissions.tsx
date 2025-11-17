@@ -344,10 +344,10 @@ export function FormSubmissions({ formType, title, description }: FormSubmission
                     <TableHead>Ticket ID</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead>Subject</TableHead>
+                    <TableHead>{formType === 'schedule_demo' ? 'Preferred Date/Time' : 'Subject'}</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Priority</TableHead>
-                    <TableHead>Date</TableHead>
+                    <TableHead>Submitted</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -360,7 +360,16 @@ export function FormSubmissions({ formType, title, description }: FormSubmission
                       <TableCell className="font-medium">{submission.name}</TableCell>
                       <TableCell>{submission.email}</TableCell>
                       <TableCell className="max-w-[200px] truncate">
-                        {submission.subject || submission.message.substring(0, 50) + '...'}
+                        {submission.formType === 'schedule_demo' && submission.preferredDate ? (
+                          <div className="text-sm">
+                            <div className="font-medium text-purple-600">
+                              {format(new Date(submission.preferredDate), 'MMM d, yyyy')}
+                            </div>
+                            <div className="text-gray-500">{submission.preferredTime || 'Time not set'}</div>
+                          </div>
+                        ) : (
+                          submission.subject || submission.message.substring(0, 50) + '...'
+                        )}
                       </TableCell>
                       <TableCell>{getStatusBadge(submission.status)}</TableCell>
                       <TableCell>{getPriorityBadge(submission.priority)}</TableCell>
@@ -504,7 +513,53 @@ export function FormSubmissions({ formType, title, description }: FormSubmission
                     <p className="mt-1">{selectedSubmission.company}</p>
                   </div>
                 )}
+                {selectedSubmission.jobTitle && (
+                  <div>
+                    <Label>Job Title</Label>
+                    <p className="mt-1">{selectedSubmission.jobTitle}</p>
+                  </div>
+                )}
               </div>
+
+              {/* Schedule Demo Specific Fields */}
+              {selectedSubmission.formType === 'schedule_demo' && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-purple-900 mb-3 flex items-center">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Demo Schedule Preferences
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    {selectedSubmission.preferredDate && (
+                      <div>
+                        <Label className="text-purple-900">Preferred Date</Label>
+                        <p className="mt-1 font-medium">
+                          {format(new Date(selectedSubmission.preferredDate), 'EEEE, MMMM d, yyyy')}
+                        </p>
+                      </div>
+                    )}
+                    {selectedSubmission.preferredTime && (
+                      <div>
+                        <Label className="text-purple-900">Preferred Time</Label>
+                        <p className="mt-1 font-medium">{selectedSubmission.preferredTime}</p>
+                      </div>
+                    )}
+                    {selectedSubmission.timezone && (
+                      <div className="col-span-2">
+                        <Label className="text-purple-900">Timezone</Label>
+                        <p className="mt-1 text-sm text-gray-600">{selectedSubmission.timezone}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Subject (for contact forms) */}
+              {selectedSubmission.subject && (
+                <div>
+                  <Label>Subject</Label>
+                  <p className="mt-1 font-medium">{selectedSubmission.subject}</p>
+                </div>
+              )}
 
               {/* Message */}
               <div>
