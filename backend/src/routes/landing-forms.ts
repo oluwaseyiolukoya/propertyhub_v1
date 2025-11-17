@@ -73,6 +73,9 @@ router.post('/submit', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('❌ Form submission error:', error);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
 
     if (error instanceof z.ZodError) {
       console.error('Validation errors:', error.errors);
@@ -91,9 +94,15 @@ router.post('/submit', async (req: Request, res: Response) => {
       });
     }
 
+    // Return more detailed error in development/staging
+    const isDevelopment = process.env.NODE_ENV !== 'production';
     res.status(500).json({
       success: false,
       error: 'Failed to submit form',
+      ...(isDevelopment && { 
+        details: error.message,
+        errorType: error.name 
+      }),
     });
   }
 });

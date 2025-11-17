@@ -7,7 +7,7 @@ const pass = 'Korede@198800';
 
 async function testPort(port, secure) {
   console.log(`\n🧪 Testing port ${port} (secure: ${secure})...`);
-  
+
   const transporter = nodemailer.createTransport({
     host: host,
     port: port,
@@ -26,7 +26,7 @@ async function testPort(port, secure) {
   try {
     await transporter.verify();
     console.log(`✅ Port ${port} (secure: ${secure}) - CONNECTION SUCCESSFUL!`);
-    
+
     // Try sending a test email
     const info = await transporter.sendMail({
       from: `"Contrezz Test" <${user}>`,
@@ -34,7 +34,7 @@ async function testPort(port, secure) {
       subject: `Test Email - Port ${port}`,
       text: `This is a test email sent via port ${port} with secure=${secure}`,
     });
-    
+
     console.log(`✅ Port ${port} - EMAIL SENT! Message ID: ${info.messageId}`);
     return true;
   } catch (error) {
@@ -51,12 +51,12 @@ async function runTests() {
   console.log(`Host: ${host}`);
   console.log(`User: ${user}`);
   console.log('='.repeat(60));
-  
+
   // Test different ports
   await testPort(465, true);  // SSL
   await testPort(587, false); // STARTTLS
   await testPort(25, false);  // Plain/STARTTLS
-  
+
   console.log('\n' + '='.repeat(60));
   console.log('✅ Testing complete!');
   process.exit(0);
