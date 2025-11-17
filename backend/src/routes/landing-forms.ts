@@ -99,9 +99,9 @@ router.post('/submit', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to submit form',
-      ...(isDevelopment && { 
+      ...(isDevelopment && {
         details: error.message,
-        errorType: error.name 
+        errorType: error.name
       }),
     });
   }

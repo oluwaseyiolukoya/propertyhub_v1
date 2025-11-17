@@ -2,11 +2,11 @@
 -- Run this script on your production database if tables don't exist
 
 -- Check if tables exist
-DO $$ 
+DO $$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'landing_page_submissions') THEN
         RAISE NOTICE 'Creating landing_page_submissions table...';
-        
+
         -- Create landing_page_submissions table
         CREATE TABLE "public"."landing_page_submissions" (
             "id" TEXT NOT NULL,
@@ -51,7 +51,7 @@ BEGIN
         );
 
         -- Create unique constraint on ticketNumber
-        ALTER TABLE "public"."landing_page_submissions" 
+        ALTER TABLE "public"."landing_page_submissions"
         ADD CONSTRAINT "landing_page_submissions_ticketNumber_key" UNIQUE ("ticketNumber");
 
         -- Create indexes
@@ -70,7 +70,7 @@ BEGIN
 
     IF NOT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'submission_responses') THEN
         RAISE NOTICE 'Creating submission_responses table...';
-        
+
         -- Create submission_responses table
         CREATE TABLE "public"."submission_responses" (
             "id" TEXT NOT NULL,
@@ -90,16 +90,16 @@ BEGIN
         CREATE INDEX "submission_responses_createdAt_idx" ON "public"."submission_responses"("createdAt");
 
         -- Add foreign key constraints
-        ALTER TABLE "public"."submission_responses" 
-        ADD CONSTRAINT "submission_responses_submissionId_fkey" 
-        FOREIGN KEY ("submissionId") 
-        REFERENCES "public"."landing_page_submissions"("id") 
+        ALTER TABLE "public"."submission_responses"
+        ADD CONSTRAINT "submission_responses_submissionId_fkey"
+        FOREIGN KEY ("submissionId")
+        REFERENCES "public"."landing_page_submissions"("id")
         ON DELETE CASCADE ON UPDATE CASCADE;
 
-        ALTER TABLE "public"."submission_responses" 
-        ADD CONSTRAINT "submission_responses_respondedById_fkey" 
-        FOREIGN KEY ("respondedById") 
-        REFERENCES "public"."users"("id") 
+        ALTER TABLE "public"."submission_responses"
+        ADD CONSTRAINT "submission_responses_respondedById_fkey"
+        FOREIGN KEY ("respondedById")
+        REFERENCES "public"."users"("id")
         ON DELETE RESTRICT ON UPDATE CASCADE;
 
         RAISE NOTICE 'submission_responses table created successfully!';
@@ -109,28 +109,28 @@ BEGIN
 
     -- Add foreign key constraints to landing_page_submissions if they don't exist
     IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint 
+        SELECT 1 FROM pg_constraint
         WHERE conname = 'landing_page_submissions_assignedToId_fkey'
     ) THEN
-        ALTER TABLE "public"."landing_page_submissions" 
-        ADD CONSTRAINT "landing_page_submissions_assignedToId_fkey" 
-        FOREIGN KEY ("assignedToId") 
-        REFERENCES "public"."users"("id") 
+        ALTER TABLE "public"."landing_page_submissions"
+        ADD CONSTRAINT "landing_page_submissions_assignedToId_fkey"
+        FOREIGN KEY ("assignedToId")
+        REFERENCES "public"."users"("id")
         ON DELETE SET NULL ON UPDATE CASCADE;
-        
+
         RAISE NOTICE 'Added assignedToId foreign key constraint.';
     END IF;
 
     IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint 
+        SELECT 1 FROM pg_constraint
         WHERE conname = 'landing_page_submissions_responseBy_fkey'
     ) THEN
-        ALTER TABLE "public"."landing_page_submissions" 
-        ADD CONSTRAINT "landing_page_submissions_responseBy_fkey" 
-        FOREIGN KEY ("responseBy") 
-        REFERENCES "public"."users"("id") 
+        ALTER TABLE "public"."landing_page_submissions"
+        ADD CONSTRAINT "landing_page_submissions_responseBy_fkey"
+        FOREIGN KEY ("responseBy")
+        REFERENCES "public"."users"("id")
         ON DELETE SET NULL ON UPDATE CASCADE;
-        
+
         RAISE NOTICE 'Added responseBy foreign key constraint.';
     END IF;
 
@@ -138,12 +138,12 @@ BEGIN
 END $$;
 
 -- Verify tables exist
-SELECT 
+SELECT
     'landing_page_submissions' as table_name,
     COUNT(*) as row_count
 FROM landing_page_submissions
 UNION ALL
-SELECT 
+SELECT
     'submission_responses' as table_name,
     COUNT(*) as row_count
 FROM submission_responses;
