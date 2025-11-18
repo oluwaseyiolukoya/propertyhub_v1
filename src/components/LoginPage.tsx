@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { PasswordSetup } from './PasswordSetup';
 import { Footer } from './Footer';
 import { PlatformLogo } from './PlatformLogo';
+import { ForgotPasswordDialog } from './ForgotPasswordDialog';
 import { login, setupPassword } from '../lib/api';
 
 interface LoginPageProps {
@@ -35,6 +36,7 @@ export function LoginPage({ onLogin, onBackToHome, onNavigateToScheduleDemo }: L
   const [showPasswordSetup, setShowPasswordSetup] = useState(false);
   const [error, setError] = useState<string>('');
   const [hasCustomLogo, setHasCustomLogo] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   // Check for invitation parameters and messages on component mount
   useEffect(() => {
@@ -241,6 +243,7 @@ export function LoginPage({ onLogin, onBackToHome, onNavigateToScheduleDemo }: L
                               type="button"
                               variant="link"
                               className="p-0 h-auto text-sm"
+                              onClick={() => setShowForgotPassword(true)}
                             >
                               Forgot password?
                             </Button>
@@ -303,6 +306,12 @@ export function LoginPage({ onLogin, onBackToHome, onNavigateToScheduleDemo }: L
       </main>
 
       <Footer />
+
+      {/* Forgot Password Dialog */}
+      <ForgotPasswordDialog
+        open={showForgotPassword}
+        onOpenChange={setShowForgotPassword}
+      />
     </div>
   );
 }

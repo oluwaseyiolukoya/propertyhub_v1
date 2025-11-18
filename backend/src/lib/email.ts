@@ -1169,11 +1169,255 @@ function generateContactFormConfirmationEmail(
   return html;
 }
 
+/**
+ * Send password reset email with temporary password
+ */
+export async function sendPasswordResetEmail(params: {
+  to: string;
+  name: string;
+  temporaryPassword: string;
+  accountType: string;
+}): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  try {
+    const config = getEmailConfig();
+
+    // Check if SMTP is configured
+    if (!config.auth.user || !config.auth.pass) {
+      console.error('❌ SMTP credentials not configured');
+      return {
+        success: false,
+        error: 'Email service not configured. Please contact administrator.'
+      };
+    }
+
+    const transporter = getTransporter();
+
+    // Verify connection before sending
+    try {
+      console.log('🔍 Verifying SMTP connection for password reset...');
+      await transporter.verify();
+      console.log('✅ SMTP connection verified successfully');
+    } catch (verifyError: any) {
+      console.error('❌ SMTP verification failed:', verifyError.message);
+      console.log('🔄 Attempting with fresh transporter...');
+
+      // Create fresh transporter without connection pooling
+      const freshTransporter = nodemailer.createTransport({
+        host: config.host,
+        port: config.port,
+        secure: config.secure,
+        auth: {
+          user: config.auth.user,
+          pass: config.auth.pass,
+        },
+        pool: false, // Disable connection pooling
+        tls: {
+          rejectUnauthorized: false,
+          minVersion: 'TLSv1.2'
+        },
+        connectionTimeout: 10000,
+        greetingTimeout: 5000,
+        socketTimeout: 30000,
+      });
+
+      try {
+        const info = await freshTransporter.sendMail({
+          from: `"Contrezz Security" <${config.from}>`,
+          to: params.to,
+          subject: 'Password Reset - Temporary Password',
+          html: generatePasswordResetEmailHTML(params),
+        });
+
+        console.log('✅ Password reset email sent via fresh transporter');
+        console.log('📧 Message ID:', info.messageId);
+        console.log('📬 Accepted:', info.accepted);
+        console.log('📭 Rejected:', info.rejected);
+
+        if (info.rejected && info.rejected.length > 0) {
+          return {
+            success: false,
+            error: `Email rejected by server: ${info.rejected.join(', ')}`
+          };
+        }
+
+        return {
+          success: true,
+          messageId: info.messageId
+        };
+      } catch (sendError: any) {
+        console.error('❌ Failed to send email with fresh transporter:', sendError.message);
+        return {
+          success: false,
+          error: `Email delivery failed: ${sendError.message}`
+        };
+      }
+    }
+
+    // Send with verified connection
+    try {
+      const info = await transporter.sendMail({
+        from: `"Contrezz Security" <${config.from}>`,
+        to: params.to,
+        subject: 'Password Reset - Temporary Password',
+        html: generatePasswordResetEmailHTML(params),
+      });
+
+      console.log('✅ Password reset email sent successfully');
+      console.log('📧 Message ID:', info.messageId);
+      console.log('📬 Accepted:', info.accepted);
+      console.log('📭 Rejected:', info.rejected);
+
+      if (info.rejected && info.rejected.length > 0) {
+        return {
+          success: false,
+          error: `Email rejected by server: ${info.rejected.join(', ')}`
+        };
+      }
+
+      return {
+        success: true,
+        messageId: info.messageId
+      };
+    } catch (sendError: any) {
+      console.error('❌ Failed to send email:', sendError.message);
+      return {
+        success: false,
+        error: `Email delivery failed: ${sendError.message}`
+      };
+    }
+  } catch (error: any) {
+    console.error('❌ Unexpected error in sendPasswordResetEmail:', error);
+    return {
+      success: false,
+      error: error.message || 'Unknown error occurred'
+    };
+  }
+}
+
+/**
+ * Generate HTML for password reset email
+ */
+function generatePasswordResetEmailHTML(params: {
+  name: string;
+  temporaryPassword: string;
+  accountType: string;
+}): string {
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Password Reset</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); overflow: hidden;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); padding: 40px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">
+                🔐 Password Reset
+              </h1>
+              <p style="margin: 10px 0 0; color: #fecaca; font-size: 16px;">
+                Temporary Password Generated
+              </p>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px;">
+              <p style="margin: 0 0 20px; color: #1f2937; font-size: 16px; line-height: 1.6;">
+                Hello <strong>${params.name}</strong>,
+              </p>
+
+              <p style="margin: 0 0 20px; color: #1f2937; font-size: 16px; line-height: 1.6;">
+                We received a request to reset your password for your <strong>${params.accountType}</strong> account.
+                A temporary password has been generated for you.
+              </p>
+
+              <!-- Temporary Password Box -->
+              <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-left: 4px solid #f59e0b; border-radius: 8px; padding: 24px; margin: 30px 0;">
+                <p style="margin: 0 0 12px; color: #92400e; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+                  Your Temporary Password
+                </p>
+                <p style="margin: 0; color: #78350f; font-size: 32px; font-weight: 700; font-family: 'Courier New', monospace; letter-spacing: 4px; text-align: center;">
+                  ${params.temporaryPassword}
+                </p>
+              </div>
+
+              <!-- Important Instructions -->
+              <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 20px; margin: 30px 0;">
+                <h3 style="margin: 0 0 12px; color: #dc2626; font-size: 16px; font-weight: 600;">
+                  ⚠️ Important Security Instructions
+                </h3>
+                <ul style="margin: 0; padding-left: 20px; color: #991b1b; font-size: 14px; line-height: 1.8;">
+                  <li><strong>Use this password immediately</strong> to log in to your account</li>
+                  <li><strong>Change your password</strong> after logging in for security</li>
+                  <li>This temporary password will <strong>expire in 24 hours</strong></li>
+                  <li><strong>Never share</strong> this password with anyone</li>
+                  <li>If you didn't request this reset, <strong>contact support immediately</strong></li>
+                </ul>
+              </div>
+
+              <!-- Next Steps -->
+              <div style="background-color: #eff6ff; border-radius: 8px; padding: 20px; margin: 30px 0;">
+                <h3 style="margin: 0 0 12px; color: #1e40af; font-size: 16px; font-weight: 600;">
+                  📋 Next Steps
+                </h3>
+                <ol style="margin: 0; padding-left: 20px; color: #1f2937; font-size: 14px; line-height: 1.8;">
+                  <li>Go to the <strong>Contrezz login page</strong></li>
+                  <li>Enter your email address</li>
+                  <li>Use the <strong>temporary password above</strong></li>
+                  <li>You'll be prompted to <strong>create a new password</strong></li>
+                  <li>Choose a strong, unique password</li>
+                </ol>
+              </div>
+
+              <p style="margin: 20px 0 0; color: #1f2937; font-size: 16px; line-height: 1.6;">
+                Best regards,<br>
+                <strong>The Contrezz Security Team</strong>
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f9fafb; padding: 30px 40px; text-align: center; border-top: 1px solid #e5e7eb;">
+              <p style="margin: 0 0 10px; color: #6b7280; font-size: 14px;">
+                This is an automated security email. Please do not reply to this message.
+              </p>
+              <p style="margin: 0; color: #9ca3af; font-size: 12px;">
+                © ${new Date().getFullYear()} Contrezz. All rights reserved.
+              </p>
+              <p style="margin: 10px 0 0; color: #9ca3af; font-size: 12px;">
+                <a href="mailto:hello@contrezz.com" style="color: #7c3aed; text-decoration: none;">Contact Support</a> •
+                <a href="#" style="color: #7c3aed; text-decoration: none;">Security Center</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  return html;
+}
+
 export default {
   testEmailConnection,
   sendTestEmail,
   sendTenantInvitation,
   sendCustomerInvitation,
   sendOnboardingConfirmation,
-  sendContactFormConfirmation
+  sendContactFormConfirmation,
+  sendPasswordResetEmail
 };

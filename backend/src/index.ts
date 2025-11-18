@@ -141,6 +141,8 @@ import pricingSyncRoutes from "./routes/pricing-sync";
 import publicPlansRoutes from "./routes/public-plans";
 // Email Test routes
 import emailTestRoutes from "./routes/email-test";
+// Forgot Password routes
+import forgotPasswordRoutes from "./routes/forgot-password";
 // Cron jobs
 import { initializeCronJobs } from "./lib/cron-jobs";
 
@@ -380,6 +382,8 @@ app.use("/api/developer-dashboard", purchaseOrdersRoutes);
 app.use("/api/developer-dashboard", vendorsRoutes);
 // Email Test routes
 app.use("/api/email-test", emailTestRoutes);
+// Forgot Password routes (public)
+app.use("/api/forgot-password", forgotPasswordRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
