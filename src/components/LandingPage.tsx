@@ -2,7 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { Building, Star, ArrowRight, Building2, Users, Key, CreditCard, Wrench, Shield, CheckCircle, Zap, TrendingUp } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { Building, Star, ArrowRight, Building2, Users, Key, CreditCard, Wrench, Shield, CheckCircle, Zap, TrendingUp, Hammer, Sparkles } from 'lucide-react';
+import {
+  ADD_ONS,
+  formatCurrency,
+  type UserType,
+  type PricingPlan,
+} from '../types/pricing';
 
 interface LandingPageProps {
   onNavigateToLogin: () => void;
@@ -23,6 +30,12 @@ interface LandingPageProps {
 export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavigateToAPIDocumentation, onNavigateToIntegrations, onNavigateToAbout, onNavigateToContact, onNavigateToScheduleDemo, onNavigateToBlog, onNavigateToCareers, onNavigateToHelpCenter, onNavigateToCommunity, onNavigateToStatus, onNavigateToSecurity }: LandingPageProps) {
   const [scrollY, setScrollY] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
+  const [selectedUserType, setSelectedUserType] = useState<UserType>('property-owner');
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+  const [ownerPlans, setOwnerPlans] = useState<PricingPlan[]>([]);
+  const [developerPlans, setDeveloperPlans] = useState<PricingPlan[]>([]);
+  const [pricingLoading, setPricingLoading] = useState(true);
+  const [pricingError, setPricingError] = useState<string | null>(null);
 
   useEffect(() => {
     setIsVisible(true);
@@ -30,6 +43,106 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Fetch pricing plans for landing page from public API (database is source of truth)
+  useEffect(() => {
+    async function loadPricing() {
+      try {
+        setPricingLoading(true);
+        setPricingError(null);
+        console.log('[LandingPage] Fetching pricing plans from /api/public/plans');
+
+        const timestamp = new Date().getTime();
+        const response = await fetch(`/api/public/plans?_t=${timestamp}`, {
+          cache: 'no-cache',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        if (!result.success || !Array.isArray(result.data)) {
+          throw new Error('Invalid pricing response');
+        }
+
+        const plans = result.data as any[];
+
+        // Backend already filters isActive=true, so no need to check p.isActive here
+        const owner: PricingPlan[] = plans
+          .filter((p) => p.category === 'property_management')
+          .sort((a, b) => a.monthlyPrice - b.monthlyPrice)
+          .map((p) => convertDbPlanToPricingPlan(p, 'property-owner'));
+
+        const developers: PricingPlan[] = plans
+          .filter((p) => p.category === 'development')
+          .sort((a, b) => a.monthlyPrice - b.monthlyPrice)
+          .map((p) => convertDbPlanToPricingPlan(p, 'property-developer'));
+
+        console.log('[LandingPage] Loaded pricing plans:', {
+          owner: owner.map((p) => ({ name: p.name, price: p.price })),
+          developers: developers.map((p) => ({ name: p.name, price: p.price })),
+        });
+
+        setOwnerPlans(owner);
+        setDeveloperPlans(developers);
+      } catch (error: any) {
+        console.error('[LandingPage] Failed to load pricing plans:', error);
+        setPricingError(error.message || 'Failed to load pricing plans');
+        setOwnerPlans([]);
+        setDeveloperPlans([]);
+      } finally {
+        setPricingLoading(false);
+      }
+    }
+
+    loadPricing();
+  }, []);
+
+  // Map database plan shape to landing page PricingPlan shape
+  const convertDbPlanToPricingPlan = (dbPlan: any, userType: UserType): PricingPlan => {
+    const features = Array.isArray(dbPlan.features)
+      ? dbPlan.features.map((text: string) => ({ text, included: true }))
+      : [];
+
+    const storageGB =
+      typeof dbPlan.storageLimit === 'number'
+        ? dbPlan.storageLimit >= 999999
+          ? 'Unlimited'
+          : `${Math.floor(dbPlan.storageLimit / 1024)}GB`
+        : '0GB';
+
+    const plan: PricingPlan = {
+      id: dbPlan.id,
+      name: dbPlan.name,
+      description: dbPlan.description || '',
+      price: dbPlan.monthlyPrice,
+      annualPrice: dbPlan.annualPrice,
+      currency: dbPlan.currency || 'NGN',
+      billingPeriod: 'month',
+      userType,
+      popular: dbPlan.isPopular || false,
+      limits: {
+        properties: dbPlan.propertyLimit || 0,
+        units: dbPlan.propertyLimit ? dbPlan.propertyLimit * 20 : 0,
+        projects: dbPlan.projectLimit || 0,
+        users: dbPlan.userLimit >= 999 ? -1 : dbPlan.userLimit,
+        storage: storageGB,
+      },
+      features,
+      cta: {
+        text: dbPlan.monthlyPrice > 50000 ? 'Contact Sales' : 'Start Free Trial',
+        action: dbPlan.monthlyPrice > 50000 ? 'contact' : 'signup',
+      },
+    };
+
+    return plan;
+  };
 
   const features = [
     { icon: Building2, title: 'Property Management', description: 'Comprehensive property and unit tracking', color: 'blue' },
@@ -262,188 +375,341 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
               <Zap className="h-3 w-3 mr-1" /> Flexible Pricing
             </Badge>
             <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
-              Choose the Perfect Plan for Your Business
+              Simple, Transparent Pricing
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Start with a 14-day free trial. No credit card required. Cancel anytime.
+              Choose the perfect plan for your needs. All plans include a 14-day free trial.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {/* Starter Plan */}
-            <Card className="border-2 hover:border-blue-200 transition-all duration-300 hover:shadow-2xl transform hover:-translate-y-2">
-              <CardHeader className="text-center pb-8">
-                <div className="inline-block p-3 bg-blue-100 rounded-xl mb-4">
-                  <Building2 className="h-8 w-8 text-blue-600" />
-                </div>
-                <CardTitle className="text-2xl mb-2">Starter</CardTitle>
-                <p className="text-gray-600">Perfect for small property owners</p>
-                <div className="mt-6">
-                  <span className="text-5xl font-bold text-gray-900">$299</span>
-                  <span className="text-gray-600">/month</span>
-                </div>
-                <p className="text-sm text-gray-500 mt-2">or $2,990/year (save 17%)</p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">Up to <strong>3 properties</strong></span>
-                  </div>
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">Up to <strong>75 units</strong></span>
-                  </div>
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700"><strong>2 property managers</strong></span>
-                  </div>
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">Tenant management</span>
-                  </div>
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">Payment processing</span>
-                  </div>
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">Maintenance tickets</span>
-                  </div>
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">Email support</span>
-                  </div>
-                </div>
-                <Button
-                  className="w-full mt-6 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white transform hover:scale-105 transition-all duration-200"
-                  onClick={onNavigateToGetStarted || onNavigateToLogin}
+          {/* User Type Tabs */}
+          <Tabs
+            value={selectedUserType}
+            onValueChange={(value) => setSelectedUserType(value as UserType)}
+            className="w-full"
+          >
+            <div className="flex justify-center mb-12">
+              <TabsList className="grid w-full max-w-md grid-cols-2 h-14">
+                <TabsTrigger
+                  value="property-owner"
+                  className="flex items-center gap-2 text-base"
                 >
-                  Start Free Trial
-                </Button>
-              </CardContent>
-            </Card>
+                  <Building2 className="w-5 h-5" />
+                  <span className="hidden sm:inline">Property</span> Owners
+                </TabsTrigger>
+                <TabsTrigger
+                  value="property-developer"
+                  className="flex items-center gap-2 text-base"
+                >
+                  <Hammer className="w-5 h-5" />
+                  <span className="hidden sm:inline">Property</span> Developers
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
-            {/* Professional Plan - Most Popular */}
-            <Card className="border-4 border-blue-500 relative hover:shadow-3xl transform scale-105 hover:scale-110 transition-all duration-300">
-              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                <Badge className="bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 px-4 py-1 text-sm shadow-lg">
-                  Most Popular
-                </Badge>
+            {/* Property Owner Plans */}
+            <TabsContent value="property-owner" className="mt-0">
+              <div className="mb-8 text-center">
+                <p className="text-lg text-gray-600">
+                  For Property owners/managers, property developers and facility management companies
+                </p>
               </div>
-              <CardHeader className="text-center pb-8 bg-gradient-to-br from-blue-50 to-purple-50">
-                <div className="inline-block p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl mb-4 shadow-lg">
-                  <Building className="h-8 w-8 text-white" />
-                </div>
-                <CardTitle className="text-2xl mb-2">Professional</CardTitle>
-                <p className="text-gray-600">For growing property businesses</p>
-                <div className="mt-6">
-                  <span className="text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">$599</span>
-                  <span className="text-gray-600">/month</span>
-                </div>
-                <p className="text-sm text-gray-500 mt-2">or $5,990/year (save 17%)</p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">Up to <strong>10 properties</strong></span>
-                  </div>
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">Up to <strong>250 units</strong></span>
-                  </div>
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700"><strong>5 property managers</strong></span>
-                  </div>
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">Everything in Starter, plus:</span>
-                  </div>
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">Advanced analytics</span>
-                  </div>
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">Access control system</span>
-                  </div>
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">Priority support</span>
-                  </div>
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">API access</span>
-                  </div>
-                </div>
-                <Button
-                  className="w-full mt-6 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white transform hover:scale-105 transition-all duration-200 shadow-lg"
-                  onClick={onNavigateToGetStarted || onNavigateToLogin}
-                >
-                  Start Free Trial
-                </Button>
-              </CardContent>
-            </Card>
 
-            {/* Enterprise Plan */}
-            <Card className="border-2 hover:border-purple-200 transition-all duration-300 hover:shadow-2xl transform hover:-translate-y-2">
-              <CardHeader className="text-center pb-8">
-                <div className="inline-block p-3 bg-purple-100 rounded-xl mb-4">
-                  <Building className="h-8 w-8 text-purple-600" />
+              {/* Billing Cycle Toggle */}
+              <div className="flex justify-center mb-8">
+                <div className="inline-flex items-center bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setBillingCycle('monthly')}
+                    className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
+                      billingCycle === 'monthly'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Monthly
+                  </button>
+                  <button
+                    onClick={() => setBillingCycle('annual')}
+                    className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
+                      billingCycle === 'annual'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Annual
+                    <span className="ml-2 text-xs text-green-600 font-semibold">Save 17%</span>
+                  </button>
                 </div>
-                <CardTitle className="text-2xl mb-2">Enterprise</CardTitle>
-                <p className="text-gray-600">For large-scale operations</p>
-                <div className="mt-6">
-                  <span className="text-5xl font-bold text-gray-900">$999</span>
-                  <span className="text-gray-600">/month</span>
+              </div>
+
+              {pricingLoading ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-900" />
                 </div>
-                <p className="text-sm text-gray-500 mt-2">or $9,990/year (save 17%)</p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700"><strong>Unlimited properties</strong></span>
-                  </div>
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700"><strong>Unlimited units</strong></span>
-                  </div>
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700"><strong>Unlimited managers</strong></span>
-                  </div>
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">Everything in Professional, plus:</span>
-                  </div>
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">Custom integrations</span>
-                  </div>
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">Dedicated account manager</span>
-                  </div>
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">24/7 phone support</span>
-                  </div>
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">SLA guarantee</span>
-                  </div>
+              ) : ownerPlans.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-600">
+                    No pricing plans are available yet. Please create plans in the Admin dashboard.
+                  </p>
+                  {pricingError && (
+                    <p className="text-sm text-red-500 mt-2">
+                      {pricingError}
+                    </p>
+                  )}
                 </div>
-                <Button
-                  className="w-full mt-6 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white transform hover:scale-105 transition-all duration-200"
-                  onClick={onNavigateToGetStarted || onNavigateToLogin}
-                >
-                  Contact Sales
-                </Button>
-              </CardContent>
-            </Card>
+              ) : (
+                <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+                  {ownerPlans.map((plan) => (
+                    <Card
+                      key={plan.id}
+                      className={`relative flex flex-col ${
+                        plan.popular
+                          ? 'border-orange-500 border-2 shadow-xl scale-105'
+                          : 'border-gray-200'
+                      }`}
+                    >
+                      {plan.popular && (
+                        <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                          <Badge className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-1">
+                            <Sparkles className="w-3 h-3 mr-1 inline" />
+                            Most Popular
+                          </Badge>
+                        </div>
+                      )}
+
+                      <CardHeader className="pb-8">
+                        <CardTitle className="text-2xl">{plan.name}</CardTitle>
+                        <p className="text-gray-600 text-base mt-2">{plan.description}</p>
+                        <div className="mt-6">
+                          <div className="flex items-baseline">
+                            <span className="text-4xl font-bold text-gray-900">
+                              {billingCycle === 'annual' && plan.annualPrice
+                                ? formatCurrency(plan.annualPrice)
+                                : formatCurrency(plan.price)}
+                            </span>
+                            <span className="text-gray-600 ml-2">
+                              /{billingCycle === 'annual' ? 'year' : 'month'}
+                            </span>
+                          </div>
+                          {billingCycle === 'annual' && plan.annualPrice && (
+                            <p className="text-sm text-green-600 mt-2">
+                              Save {formatCurrency(plan.price * 12 - plan.annualPrice)} per year
+                            </p>
+                          )}
+                        </div>
+                      </CardHeader>
+
+                      <CardContent className="flex-1">
+                        <ul className="space-y-3">
+                          {plan.features.slice(0, 6).map((feature, index) => (
+                            <li key={index} className="flex items-start gap-3">
+                              {feature.included ? (
+                                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                              ) : (
+                                <span className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                              )}
+                              <span
+                                className={`text-sm ${
+                                  feature.included ? 'text-gray-700' : 'text-gray-400'
+                                }`}
+                              >
+                                {feature.text}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent>
+
+                      <div className="p-6 pt-0">
+                        <Button
+                          className={`w-full ${
+                            plan.popular
+                              ? 'bg-orange-500 hover:bg-orange-600'
+                              : 'bg-gray-900 hover:bg-gray-800'
+                          }`}
+                          size="lg"
+                          onClick={
+                            plan.cta.action === 'contact'
+                              ? onNavigateToContact
+                              : onNavigateToGetStarted || onNavigateToLogin
+                          }
+                        >
+                          {plan.cta.text}
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Property Developer Plans */}
+            <TabsContent value="property-developer" className="mt-0">
+              <div className="mb-8 text-center">
+                <p className="text-lg text-gray-600">
+                  For construction management, project tracking & budgeting
+                </p>
+              </div>
+
+              {/* Billing Cycle Toggle */}
+              <div className="flex justify-center mb-8">
+                <div className="inline-flex items-center bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setBillingCycle('monthly')}
+                    className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
+                      billingCycle === 'monthly'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Monthly
+                  </button>
+                  <button
+                    onClick={() => setBillingCycle('annual')}
+                    className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
+                      billingCycle === 'annual'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Annual
+                    <span className="ml-2 text-xs text-green-600 font-semibold">Save 17%</span>
+                  </button>
+                </div>
+              </div>
+
+              {pricingLoading ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-900" />
+                </div>
+              ) : developerPlans.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-600">
+                    No developer plans are available yet. Please create plans in the Admin dashboard.
+                  </p>
+                  {pricingError && (
+                    <p className="text-sm text-red-500 mt-2">
+                      {pricingError}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+                {developerPlans.map((plan) => (
+                  <Card
+                    key={plan.id}
+                    className={`relative flex flex-col ${
+                      plan.popular
+                        ? 'border-orange-500 border-2 shadow-xl scale-105'
+                        : 'border-gray-200'
+                    }`}
+                  >
+                    {plan.popular && (
+                      <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                        <Badge className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-1">
+                          <Sparkles className="w-3 h-3 mr-1 inline" />
+                          Most Popular
+                        </Badge>
+                      </div>
+                    )}
+
+                    <CardHeader className="pb-8">
+                      <CardTitle className="text-2xl">{plan.name}</CardTitle>
+                      <p className="text-gray-600 text-base mt-2">{plan.description}</p>
+                      <div className="mt-6">
+                        <div className="flex items-baseline">
+                          <span className="text-4xl font-bold text-gray-900">
+                            {billingCycle === 'annual' && plan.annualPrice
+                              ? formatCurrency(plan.annualPrice)
+                              : formatCurrency(plan.price)}
+                          </span>
+                          <span className="text-gray-600 ml-2">
+                            /{billingCycle === 'annual' ? 'year' : 'month'}
+                          </span>
+                        </div>
+                        {billingCycle === 'annual' && plan.annualPrice && (
+                          <p className="text-sm text-green-600 mt-2">
+                            Save {formatCurrency(plan.price * 12 - plan.annualPrice)} per year
+                          </p>
+                        )}
+                      </div>
+                    </CardHeader>
+
+                      <CardContent className="flex-1">
+                        <ul className="space-y-3">
+                          {plan.features.slice(0, 6).map((feature, index) => (
+                            <li key={index} className="flex items-start gap-3">
+                              {feature.included ? (
+                                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                              ) : (
+                                <span className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                              )}
+                              <span
+                                className={`text-sm ${
+                                  feature.included ? 'text-gray-700' : 'text-gray-400'
+                                }`}
+                              >
+                                {feature.text}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent>
+
+                      <div className="p-6 pt-0">
+                        <Button
+                          className={`w-full ${
+                            plan.popular
+                              ? 'bg-orange-500 hover:bg-orange-600'
+                              : 'bg-gray-900 hover:bg-gray-800'
+                          }`}
+                          size="lg"
+                          onClick={
+                            plan.cta.action === 'contact'
+                              ? onNavigateToContact
+                              : onNavigateToGetStarted || onNavigateToLogin
+                          }
+                        >
+                          {plan.cta.text}
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+
+          {/* Add-ons Section */}
+          <div className="mt-24">
+            <div className="text-center mb-12">
+              <h3 className="text-3xl font-bold text-gray-900 mb-4">
+                Add-Ons & Extras
+              </h3>
+              <p className="text-lg text-gray-600">
+                Customize your plan with additional features
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {ADD_ONS.filter((addon) =>
+                addon.userTypes.includes(selectedUserType)
+              ).map((addon) => (
+                <Card key={addon.id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <CardTitle className="text-lg">{addon.name}</CardTitle>
+                    <p className="text-gray-600 text-sm">{addon.description}</p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-bold text-gray-900">
+                        {formatCurrency(addon.price)}
+                      </span>
+                      <span className="text-sm text-gray-600">{addon.unit}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
 
           {/* FAQ Section */}

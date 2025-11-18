@@ -135,6 +135,10 @@ import purchaseOrdersRoutes from "./routes/purchase-orders";
 import vendorsRoutes from "./routes/vendors";
 // Available Plans routes (category-filtered)
 import availablePlansRoutes from "./routes/available-plans";
+// Pricing Sync routes
+import pricingSyncRoutes from "./routes/pricing-sync";
+// Public Plans routes (no auth required)
+import publicPlansRoutes from "./routes/public-plans";
 // Email Test routes
 import emailTestRoutes from "./routes/email-test";
 // Cron jobs
@@ -316,6 +320,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/onboarding", onboardingRoutes);
 // Landing page forms (public submission + admin management)
 app.use("/api/landing-forms", require("./routes/landing-forms").default);
+// Public plans (no auth required - for landing page)
+app.use("/api/public", publicPlansRoutes);
 // Admin routes
 app.use("/api/admin/onboarding", adminOnboardingRoutes);
 app.use("/api/customers", customerRoutes);
@@ -323,6 +329,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/plans", planRoutes);
 app.use("/api/available-plans", availablePlansRoutes);
+app.use("/api/pricing-sync", pricingSyncRoutes);
 app.use("/api/invoices", invoiceRoutes);
 app.use("/api/support-tickets", supportTicketRoutes);
 app.use("/api/analytics", analyticsRoutes);

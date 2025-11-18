@@ -19,6 +19,13 @@ import {
   type BillingPlan
 } from '../lib/api';
 import {
+  syncPricingPlans,
+  getPricingPlansFromDB,
+  restorePlanToCanonical,
+  exportPlanToCode,
+  verifyPlansSync
+} from '../lib/api/pricing-sync';
+import {
   getCustomers,
   type Customer
 } from '../lib/api';
@@ -42,7 +49,11 @@ import {
   Download,
   Filter,
   Search,
-  Eye
+  Eye,
+  RefreshCw,
+  RotateCcw,
+  Code,
+  AlertTriangle
 } from 'lucide-react';
 import { useCurrency } from '../lib/CurrencyContext';
 import { computeCustomerChurn, computeMRRChurn, lastNDaysWindow } from '../lib/metrics';
@@ -56,6 +67,10 @@ export function BillingPlansAdmin() {
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationResult, setVerificationResult] = useState<any>(null);
+  const [showVerificationDialog, setShowVerificationDialog] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customersLoading, setCustomersLoading] = useState(false);
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -127,15 +142,30 @@ export function BillingPlansAdmin() {
   const fetchPlans = async () => {
     try {
       setLoading(true);
+      console.log('📥 Fetching plans from database...');
+
+      // Use regular plans endpoint - Plan tab is source of truth
       const response = await getBillingPlans();
 
       if (response.error) {
+        console.error('Error fetching plans:', response.error);
         toast.error(response.error.error || 'Failed to load billing plans');
+        setPlans([]); // Ensure plans is always an array
       } else if (response.data) {
-        setPlans(response.data);
+        // Ensure data is an array
+        const plansArray = Array.isArray(response.data)
+          ? response.data
+          : [];
+        console.log('✅ Loaded plans from database:', plansArray.length);
+        setPlans(plansArray);
+      } else {
+        console.warn('⚠️ No data returned from plans endpoint');
+        setPlans([]);
       }
-    } catch (error) {
-      toast.error('Failed to load billing plans');
+    } catch (error: any) {
+      console.error('❌ Error fetching plans:', error);
+      toast.error('Failed to load billing plans: ' + (error.message || 'Unknown error'));
+      setPlans([]); // Ensure plans is always an array even on error
     } finally {
       setLoading(false);
     }
@@ -191,7 +221,9 @@ export function BillingPlansAdmin() {
   };
 
   // Transform API plans to match component format
-  const subscriptionPlans = plans.map((plan: any) => {
+  // Ensure plans is always an array to prevent .map() errors
+  const plansArray = Array.isArray(plans) ? plans : [];
+  const subscriptionPlans = plansArray.map((plan: any) => {
     const planCurrency = plan.currency || 'USD';
     const customersOnPlan = customers.filter(c => c.planId === plan.id && (c.status === 'active' || c.status === 'trial'));
     const monthlyRevenueFromPlan = customersOnPlan.reduce((sum, c) => sum + convertAmount((c.mrr || 0), planCurrency, selectedCurrency), 0);
@@ -230,7 +262,11 @@ export function BillingPlansAdmin() {
       storageLimit: plan.storageLimit,
       annualPrice: plan.annualPrice,
       propertyLimit: plan.propertyLimit,
-      userLimit: plan.userLimit
+      userLimit: plan.userLimit,
+      // Modification status from pricing sync
+      isModified: plan.isModified || false,
+      hasCanonicalVersion: plan.hasCanonicalVersion !== false,
+      canonicalPlan: plan.canonicalPlan || null,
     });
   });
 
@@ -571,6 +607,120 @@ export function BillingPlansAdmin() {
   const handleCreatePlan = () => {
     setSelectedPlan(null);
     setIsCreatePlanOpen(true);
+  };
+
+  const handleSyncPricingPlans = async () => {
+    try {
+      setIsSyncing(true);
+      toast.info('Syncing pricing plans from landing page...');
+
+      const response = await syncPricingPlans();
+
+      if (response.data) {
+        toast.success(
+          `Successfully synced! ${response.data.created} created, ${response.data.updated} updated`
+        );
+        // Reload plans
+        await fetchPlans();
+      } else if (response.error) {
+        toast.error('Failed to sync pricing plans');
+      }
+    } catch (error: any) {
+      console.error('Error syncing pricing plans:', error);
+      toast.error('Failed to sync pricing plans');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleVerifySync = async () => {
+    try {
+      setIsVerifying(true);
+      console.log('🔍 Starting verification...');
+      const response = await verifyPlansSync();
+
+      console.log('📥 Verification response:', response);
+
+      if (response.data) {
+        console.log('✅ Verification data received:', response.data);
+        setVerificationResult(response.data);
+        setShowVerificationDialog(true);
+
+        const summary = response.data.summary;
+        const data = response.data.data;
+
+        if (summary?.allMatch) {
+          toast.success('✅ All plans match landing page!');
+        } else if (data) {
+          const mismatches = data.mismatches?.length || 0;
+          const missing = data.missingInDatabase?.length || 0;
+          toast.warning(
+            `⚠️ Found ${mismatches} mismatches. ${missing} plans missing in database.`
+          );
+        }
+      } else if (response.error) {
+        console.error('❌ Verify error:', response.error);
+        const errorMsg = response.error.error || response.error.message || 'Unknown error';
+        toast.error('Failed to verify plans: ' + errorMsg);
+
+        // Don't show dialog on error
+        setVerificationResult(null);
+        setShowVerificationDialog(false);
+      } else {
+        console.error('❌ No data or error in response:', response);
+        toast.error('Failed to verify plans: No data returned');
+        setVerificationResult(null);
+        setShowVerificationDialog(false);
+      }
+    } catch (error: any) {
+      console.error('❌ Error verifying plans:', error);
+      toast.error('Failed to verify plans: ' + (error.message || 'Unknown error'));
+      setVerificationResult(null);
+      setShowVerificationDialog(false);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleRestorePlan = async (planId: string, planName: string) => {
+    if (!confirm(`Restore "${planName}" to landing page version? This will overwrite any custom changes.`)) {
+      return;
+    }
+
+    try {
+      toast.info(`Restoring ${planName}...`);
+
+      const response = await restorePlanToCanonical(planId);
+
+      if (response.data) {
+        toast.success(`${planName} restored to landing page version`);
+        await loadPlans();
+      } else {
+        toast.error('Failed to restore plan');
+      }
+    } catch (error: any) {
+      console.error('Error restoring plan:', error);
+      toast.error('Failed to restore plan');
+    }
+  };
+
+  const handleExportPlan = async (planId: string, planName: string) => {
+    try {
+      toast.info('Exporting plan code...');
+
+      const response = await exportPlanToCode(planId);
+
+      if (response.data) {
+        // Copy to clipboard
+        await navigator.clipboard.writeText(response.data.code);
+        toast.success(`Code for "${planName}" copied to clipboard! Paste it into src/types/pricing.ts`);
+      } else {
+        toast.error('Failed to export plan');
+      }
+    } catch (error: any) {
+      console.error('Error exporting plan:', error);
+      toast.error('Failed to export plan');
+    }
   };
 
   const handleEditPlan = (plan: any) => {
@@ -1004,6 +1154,30 @@ export function BillingPlansAdmin() {
         </TabsContent>
 
         <TabsContent value="plans" className="space-y-6">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading plans...</p>
+              </div>
+            </div>
+          ) : subscriptionPlans.length === 0 ? (
+            <Card>
+              <CardContent className="py-12">
+                <div className="text-center">
+                  <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Plans Found</h3>
+                  <p className="text-gray-600 mb-6">
+                    There are no pricing plans in the database. Create your first plan to get started.
+                  </p>
+                  <Button onClick={handleCreatePlan}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Plan
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
           <div className="grid gap-6">
             {subscriptionPlans.map((plan) => (
               <Card key={plan.id} className={plan.status === 'deprecated' ? 'opacity-60' : ''}>
@@ -1014,6 +1188,11 @@ export function BillingPlansAdmin() {
                       <Badge variant={plan.status === 'active' ? 'default' : 'secondary'}>
                         {plan.status}
                       </Badge>
+                      {plan.isPopular && (
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">
+                          ⭐ Popular
+                        </Badge>
+                      )}
                     </div>
                     <CardDescription>{plan.description}</CardDescription>
                   </div>
@@ -1077,6 +1256,7 @@ export function BillingPlansAdmin() {
               </Card>
             ))}
           </div>
+          )}
         </TabsContent>
 
         <TabsContent value="transactions" className="space-y-6">
@@ -1539,6 +1719,201 @@ export function BillingPlansAdmin() {
             >
               {isSubmitting ? 'Saving...' : (selectedPlan ? 'Update Plan' : 'Create Plan')}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Verification Results Dialog */}
+      <Dialog open={showVerificationDialog} onOpenChange={setShowVerificationDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Pricing Plans Verification</DialogTitle>
+            <DialogDescription>
+              Comparison between landing page (code) and database plans
+            </DialogDescription>
+          </DialogHeader>
+
+          {verificationResult && verificationResult.data ? (
+            <div className="space-y-6">
+              {/* Summary */}
+              <div className="grid grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Plans in Code</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-2xl font-bold">{verificationResult.data.totalInCode || 0}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Plans in Database</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-2xl font-bold">{verificationResult.data.totalInDatabase || 0}</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Status */}
+              {verificationResult.summary?.allMatch ? (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <p className="font-medium text-green-900">✅ All plans match landing page!</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                    <p className="font-medium text-yellow-900">⚠️ Plans need synchronization</p>
+                  </div>
+                  <p className="text-sm text-yellow-800">
+                    {verificationResult.data.mismatches?.length || 0} mismatches, {verificationResult.data.missingInDatabase?.length || 0} missing in database
+                  </p>
+                </div>
+              )}
+
+              {/* Matches */}
+              {verificationResult.data.matches && verificationResult.data.matches.length > 0 && (
+                <div>
+                  <h4 className="font-medium mb-2 text-green-700">
+                    ✅ Matching Plans ({verificationResult.data.matches.length})
+                  </h4>
+                  <div className="space-y-1">
+                    {verificationResult.data.matches.map((plan: any) => (
+                      <div key={plan.id} className="text-sm text-gray-600 pl-4">
+                        • {plan.name}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Mismatches */}
+              {verificationResult.data.mismatches && verificationResult.data.mismatches.length > 0 && (
+                <div>
+                  <h4 className="font-medium mb-2 text-yellow-700">
+                    ⚠️ Mismatched Plans ({verificationResult.data.mismatches.length})
+                  </h4>
+                  <div className="space-y-4">
+                    {verificationResult.data.mismatches.map((plan: any) => (
+                      <Card key={plan.id} className="border-yellow-200">
+                        <CardHeader>
+                          <CardTitle className="text-base">{plan.name}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2 text-sm">
+                            {plan.differences?.price && !plan.differences.price.match && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Price:</span>
+                                <span>
+                                  <span className="text-red-600">DB: {plan.differences.price.database}</span>
+                                  {' → '}
+                                  <span className="text-green-600">Code: {plan.differences.price.code}</span>
+                                </span>
+                              </div>
+                            )}
+                            {plan.differences?.name && !plan.differences.name.match && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Name:</span>
+                                <span>
+                                  <span className="text-red-600">DB: {plan.differences.name.database}</span>
+                                  {' → '}
+                                  <span className="text-green-600">Code: {plan.differences.name.code}</span>
+                                </span>
+                              </div>
+                            )}
+                            {plan.differences?.description && !plan.differences.description.match && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Description:</span>
+                                <span className="text-yellow-600">Different</span>
+                              </div>
+                            )}
+                            {plan.differences?.features && !plan.differences.features.match && (
+                              <div>
+                                <span className="text-gray-600">Features:</span>
+                                <span className="text-yellow-600 ml-2">Different</span>
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Missing in Database */}
+              {verificationResult.data.missingInDatabase && verificationResult.data.missingInDatabase.length > 0 && (
+                <div>
+                  <h4 className="font-medium mb-2 text-red-700">
+                    ❌ Missing in Database ({verificationResult.data.missingInDatabase.length})
+                  </h4>
+                  <div className="space-y-1">
+                    {verificationResult.data.missingInDatabase.map((plan: any) => (
+                      <div key={plan.id} className="text-sm text-gray-600 pl-4">
+                        • {plan.name} (₦{plan.price?.toLocaleString() || 'N/A'}/mo)
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Click "Sync from Landing Page" to create these plans.
+                  </p>
+                </div>
+              )}
+
+              {/* Missing in Code */}
+              {verificationResult.data.missingInCode && verificationResult.data.missingInCode.length > 0 && (
+                <div>
+                  <h4 className="font-medium mb-2 text-blue-700">
+                    ℹ️ Custom Plans (Not in Code) ({verificationResult.data.missingInCode.length})
+                  </h4>
+                  <div className="space-y-1">
+                    {verificationResult.data.missingInCode.map((plan: any) => (
+                      <div key={plan.id} className="text-sm text-gray-600 pl-4">
+                        • {plan.name} ({plan.category || 'N/A'})
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : verificationResult ? (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="h-5 w-5 text-red-600" />
+                <p className="font-medium text-red-900">Error: Invalid verification data</p>
+              </div>
+              <p className="text-sm text-red-800 mt-2">
+                The verification response was invalid. Please try again.
+              </p>
+            </div>
+          ) : (
+            <div className="p-4 text-center">
+              <p className="text-gray-600">Loading verification data...</p>
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowVerificationDialog(false)}
+            >
+              Close
+            </Button>
+            {verificationResult && !verificationResult.summary?.allMatch && (
+              <Button
+                onClick={() => {
+                  setShowVerificationDialog(false);
+                  handleSyncPricingPlans();
+                }}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Sync Now
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
