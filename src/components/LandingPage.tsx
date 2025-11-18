@@ -145,38 +145,71 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
   };
 
   const features = [
-    { icon: Building2, title: 'Property Management', description: 'Comprehensive property and unit tracking', color: 'blue' },
-    { icon: Users, title: 'Tenant Management', description: 'Streamlined tenant onboarding and communication', color: 'green' },
-    { icon: CreditCard, title: 'Payment Processing', description: 'Automated rent collection with Paystack integration', color: 'purple' },
-    { icon: Key, title: 'Access Control', description: 'Smart keycard management with payment automation', color: 'orange' },
-    { icon: Wrench, title: 'Maintenance Tickets', description: 'Efficient maintenance request handling', color: 'red' },
-    { icon: Shield, title: 'Security & Compliance', description: 'Enterprise-grade security and data protection', color: 'indigo' }
+    {
+      icon: Building2,
+      title: 'Property & Portfolio Management',
+      description: 'Manage rental properties and development projects from a single dashboard. Track occupancy, monitor construction progress, and access real-time insights across your entire portfolio.',
+      color: 'blue'
+    },
+    {
+      icon: Users,
+      title: 'Tenant & Stakeholder Management',
+      description: 'From application to move-out, manage the entire tenant lifecycle. Digital lease agreements, automated communication, and a portal that keeps tenants, investors, and stakeholders informed.',
+      color: 'green'
+    },
+    {
+      icon: CreditCard,
+      title: 'Payment & Financial Management',
+      description: 'Never chase payments again. Automated rent collection for property managers, milestone-based payments for developers. Multiple payment options via Paystack with instant notifications.',
+      color: 'purple'
+    },
+    {
+      icon: Key,
+      title: 'Smart Access Control',
+      description: 'Revolutionary keycard system for rental properties and construction sites. Control who enters your properties with automated access that syncs with payment status—no more manual tracking.',
+      color: 'orange'
+    },
+    {
+      icon: Wrench,
+      title: 'Project & Maintenance Tracking',
+      description: 'From construction milestones to maintenance requests, track every task from start to finish. Assign vendors, monitor progress, and keep everyone updated in real-time.',
+      color: 'red'
+    },
+    {
+      icon: Shield,
+      title: 'Security & Compliance',
+      description: 'Bank-level security protects your data and your tenants\' information. SSL encryption, regular backups, and NDPR compliance give you peace of mind.',
+      color: 'indigo'
+    }
   ];
 
   const stats = [
-    { value: '500+', label: 'Properties Managed', icon: Building2 },
-    { value: '10k+', label: 'Happy Tenants', icon: Users },
-    { value: '99.9%', label: 'Uptime', icon: TrendingUp }
+    { value: '₦7.5B+', label: 'Total Portfolio Value', icon: TrendingUp },
+    { value: '20 Hours', label: 'Saved Per Week', icon: Zap },
+    { value: '500+', label: 'Active Professionals', icon: Building2 }
   ];
 
   const testimonials = [
     {
-      name: "David Chen",
-      company: "Metro Properties",
+      name: "Adebayo Oladipo",
+      company: "Skyline Properties Lagos",
+      role: "Managing Director | 45 Properties",
       rating: 5,
-      text: "Contrezz transformed how we manage our 50+ properties. The automation features alone save us 20 hours per week."
+      text: "Before Contrezz, I spent 3 days every month chasing rent payments. Now, 98% of my tenants pay on time thanks to automated reminders. The keycard system is genius—no more changing locks when tenants leave!"
     },
     {
-      name: "Lisa Rodriguez",
-      company: "Coastal Rentals",
+      name: "Olumide Balogun",
+      company: "Balogun Developments",
+      role: "CEO | ₦2.3B in Active Projects",
       rating: 5,
-      text: "The integrated payment system and access control make tenant management seamless. Our tenants love the mobile app."
+      text: "Managing 8 construction projects simultaneously was a nightmare. Contrezz's developer dashboard gives me real-time visibility into budgets, timelines, and vendor performance. We've reduced cost overruns by 15%."
     },
     {
-      name: "Michael Thompson",
-      company: "Urban Living Co.",
+      name: "Chioma Nwosu",
+      company: "Prime Estates Nigeria",
+      role: "Operations Manager | 60 Properties",
       rating: 5,
-      text: "Finally, a platform that understands property management. The maintenance ticketing system is a game-changer."
+      text: "We manage properties across Lagos and Abuja. Contrezz cut our admin time by 70% and increased our on-time rent collection from 65% to 97%. The ROI was immediate—we recovered the subscription cost in the first month."
     }
   ];
 
@@ -208,7 +241,7 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
       </header>
 
       {/* Hero Section */}
-      <section className="relative py-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+      <section className="relative pt-24 sm:pt-32 lg:pt-40 pb-16 sm:pb-20 lg:pb-24 px-4 sm:px-6 lg:px-8 overflow-hidden">
         {/* Animated background elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-20 left-10 w-72 h-72 bg-blue-400/20 rounded-full blur-3xl animate-pulse"></div>
@@ -219,14 +252,14 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className={`transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
               <Badge className="mb-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 animate-bounce">
-                <Zap className="h-3 w-3 mr-1" /> Smart Access Control & Automation
+                <Building2 className="h-3 w-3 mr-1" /> For Property Managers & Developers
               </Badge>
               <h1 className="text-4xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-                The Complete Property Management
-                <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> SaaS Platform</span>
+                Property Management & Development.
+                <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> Simplified. Automated. All-in-One.</span>
               </h1>
               <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-                Streamline your property management with automated payments, smart access control, and comprehensive tenant management - all in one powerful platform.
+                Whether you're managing rental properties or developing new projects, Contrezz gives you the tools to automate operations, track budgets, collect rent on time, and grow your portfolio. Built for Nigerian property professionals.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button
@@ -316,11 +349,11 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <Badge className="mb-4 bg-blue-100 text-blue-700 hover:bg-blue-200">
-              <Zap className="h-3 w-3 mr-1" /> Powerful Features
+              <Building2 className="h-3 w-3 mr-1" /> Built for Managers & Developers
             </Badge>
-            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">Everything You Need</h2>
+            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">Everything You Need—From Blueprint to Bottom Line</h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Comprehensive tools for property owners, managers, and tenants
+              Comprehensive tools for managing existing properties and developing new ones. One platform, unlimited possibilities.
             </p>
           </div>
 
@@ -411,7 +444,10 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
             <TabsContent value="property-owner" className="mt-0">
               <div className="mb-8 text-center">
                 <p className="text-lg text-gray-600">
-                  For Property owners/managers, property developers and facility management companies
+                  For Property Owners & Managers
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Perfect for landlords, property managers, and facility management companies managing rental properties. Automate rent collection, tenant management, and maintenance tracking.
                 </p>
               </div>
 
@@ -547,7 +583,10 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
             <TabsContent value="property-developer" className="mt-0">
               <div className="mb-8 text-center">
                 <p className="text-lg text-gray-600">
-                  For construction management, project tracking & budgeting
+                  For Property Developers & Builders
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Designed for developers, construction companies, and real estate investors building new properties. Track project budgets, manage vendors, and monitor construction progress.
                 </p>
               </div>
 
@@ -747,10 +786,10 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-16">
             <Badge className="mb-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0">
-              <Star className="h-3 w-3 mr-1 fill-current" /> Customer Stories
+              <Star className="h-3 w-3 mr-1 fill-current" /> Rated 4.9/5 by Property Professionals
             </Badge>
-            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">Trusted by Property Professionals</h2>
-            <p className="text-xl text-gray-600">See what our customers say about Contrezz</p>
+            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">Trusted by Managers & Developers Across Nigeria</h2>
+            <p className="text-xl text-gray-600">See how Contrezz is transforming property management and development</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
@@ -777,6 +816,7 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
                     <div>
                       <div className="font-semibold text-gray-900">{testimonial.name}</div>
                       <div className="text-sm text-gray-500">{testimonial.company}</div>
+                      {'role' in testimonial && <div className="text-xs text-gray-400">{testimonial.role}</div>}
                     </div>
                   </div>
                 </CardContent>
@@ -795,13 +835,13 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
 
         <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8 relative z-10">
           <Badge className="mb-6 bg-white/20 text-white border-white/30 backdrop-blur-sm animate-bounce">
-            <Zap className="h-3 w-3 mr-1" /> Limited Time Offer
+            <CheckCircle className="h-3 w-3 mr-1" /> No Credit Card Required
           </Badge>
           <h2 className="text-3xl lg:text-5xl font-bold text-white mb-6 leading-tight">
-            Ready to Transform Your Property Management?
+            Start Managing Properties the Smart Way—Today
           </h2>
           <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-            Join hundreds of property professionals who trust Contrezz. Start your 14-day free trial today!
+            Join 500+ property professionals who've automated their operations with Contrezz. Try all features free for 14 days. No credit card needed.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
             <Button
@@ -810,7 +850,7 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
               className="text-lg px-10 py-6 bg-white text-blue-600 hover:bg-gray-100 transform hover:scale-105 transition-all duration-200 shadow-2xl"
               onClick={onNavigateToGetStarted || onNavigateToLogin}
             >
-              Start Free Trial <ArrowRight className="ml-2 h-5 w-5" />
+              Start My Free 14-Day Trial <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
             <Button
               size="lg"
@@ -848,7 +888,7 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
                 <span className="font-bold">Contrezz</span>
               </div>
               <p className="text-gray-400">
-                The complete property management SaaS platform for modern property professionals.
+                Contrezz is Nigeria's leading property management and development platform. Trusted by over 500 property managers and developers to automate operations, track construction budgets, collect rent on time, and grow their portfolios.
               </p>
             </div>
 
