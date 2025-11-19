@@ -1,364 +1,383 @@
-import express, { Response } from 'express';
-import { authMiddleware, AuthRequest } from '../middleware/auth';
-import prisma from '../lib/db';
+import express, { Request, Response } from 'express';
+import { PrismaClient } from '@prisma/client';
+import { authMiddleware } from '../middleware/auth';
+import { notificationService } from '../services/notification.service';
 
 const router = express.Router();
+const prisma = new PrismaClient();
 
-router.use(authMiddleware);
+// Middleware to ensure user is authenticated
+const requireAuth = authMiddleware;
 
-// Get all notifications for current user
-router.get('/', async (req: AuthRequest, res: Response) => {
+/**
+ * @route   GET /api/notifications
+ * @desc    Get notifications for the current user
+ * @access  Private
+ */
+router.get('/', requireAuth, async (req: Request, res: Response) => {
   try {
-    const { status, type, priority } = req.query;
     const userId = req.user?.id;
-
-    const where: any = {
-      recipientId: userId
-    };
-
-    if (status) {
-      where.status = status;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    if (type) {
-      where.type = type;
-    }
+    const { unread, type, limit, offset } = req.query;
 
-    if (priority) {
-      where.priority = priority;
-    }
-
-    const notifications = await prisma.notification.findMany({
-      where,
-      include: {
-        sender: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        }
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 50
+    const notifications = await notificationService.getUserNotifications(userId, {
+      unreadOnly: unread === 'true',
+      type: type as string,
+      limit: limit ? parseInt(limit as string) : 50,
+      offset: offset ? parseInt(offset as string) : 0,
     });
 
-    return res.json(notifications);
-
+    res.json({
+      success: true,
+      data: notifications,
+      count: notifications.length,
+    });
   } catch (error: any) {
-    console.error('Get notifications error:', error);
-    return res.status(500).json({ error: 'Failed to fetch notifications' });
+    console.error('Error fetching notifications:', error);
+    res.status(500).json({
+      error: 'Failed to fetch notifications',
+      message: error.message,
+    });
   }
 });
 
-// Get unread count
-router.get('/unread/count', async (req: AuthRequest, res: Response) => {
+/**
+ * @route   GET /api/notifications/unread-count
+ * @desc    Get unread notification count
+ * @access  Private
+ */
+router.get('/unread-count', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
 
-    const count = await prisma.notification.count({
-      where: {
-        recipientId: userId,
-        status: 'unread'
-      }
+    const count = await notificationService.getUnreadCount(userId);
+
+    res.json({
+      success: true,
+      count,
     });
-
-    return res.json({ count });
-
   } catch (error: any) {
-    console.error('Get unread count error:', error);
-    return res.status(500).json({ error: 'Failed to fetch unread count' });
+    console.error('Error fetching unread count:', error);
+    res.status(500).json({
+      error: 'Failed to fetch unread count',
+      message: error.message,
+    });
   }
 });
 
-// Create notification (send)
-router.post('/', async (req: AuthRequest, res: Response) => {
+/**
+ * @route   PUT /api/notifications/:id/read
+ * @desc    Mark notification as read
+ * @access  Private
+ */
+router.put('/:id/read', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
-    const customerId = req.user?.customerId;
-    const role = req.user?.role;
-
-    if (role !== 'owner' && role !== 'manager') {
-      return res.status(403).json({ error: 'Only owners and managers can send notifications' });
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const {
-      recipientIds,
-      title,
-      message,
-      type,
-      priority,
-      channels,
-      propertyId,
-      metadata
-    } = req.body;
-
-    if (!recipientIds || recipientIds.length === 0 || !title || !message) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    // Create notifications for all recipients
-    const notifications = await Promise.all(
-      recipientIds.map((recipientId: string) =>
-        prisma.notification.create({
-          data: {
-            recipientId,
-            senderId: userId,
-            title,
-            message,
-            type: type || 'general',
-            priority: priority || 'medium',
-            status: 'unread',
-            channels: channels || ['in_app'],
-            propertyId,
-            metadata
-          },
-          include: {
-            recipient: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
-            }
-          }
-        })
-      )
-    );
-
-    // Log activity
-    await prisma.activityLog.create({
-      data: {
-        customerId,
-        userId,
-        action: 'send',
-        entity: 'notification',
-        entityId: notifications[0]?.id,
-        description: `Notification sent to ${recipientIds.length} recipient(s): ${title}`
-      }
-    });
-
-    return res.status(201).json(notifications);
-
-  } catch (error: any) {
-    console.error('Create notification error:', error);
-    return res.status(500).json({ error: 'Failed to create notification' });
-  }
-});
-
-// Mark notification as read
-router.put('/:id/read', async (req: AuthRequest, res: Response) => {
-  try {
     const { id } = req.params;
-    const userId = req.user?.id;
+    const success = await notificationService.markAsRead(id, userId);
 
-    const notification = await prisma.notification.findFirst({
-      where: {
-        id,
-        recipientId: userId
-      }
+    if (!success) {
+      return res.status(404).json({ error: 'Notification not found or already read' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Notification marked as read',
     });
+  } catch (error: any) {
+    console.error('Error marking notification as read:', error);
+    res.status(500).json({
+      error: 'Failed to mark notification as read',
+      message: error.message,
+    });
+  }
+});
 
-    if (!notification) {
+/**
+ * @route   PUT /api/notifications/read-all
+ * @desc    Mark all notifications as read
+ * @access  Private
+ */
+router.put('/read-all', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const count = await notificationService.markAllAsRead(userId);
+
+    res.json({
+      success: true,
+      message: `Marked ${count} notifications as read`,
+      count,
+    });
+  } catch (error: any) {
+    console.error('Error marking all notifications as read:', error);
+    res.status(500).json({
+      error: 'Failed to mark all notifications as read',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * @route   DELETE /api/notifications/:id
+ * @desc    Delete a notification
+ * @access  Private
+ */
+router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { id } = req.params;
+    const success = await notificationService.deleteNotification(id, userId);
+
+    if (!success) {
       return res.status(404).json({ error: 'Notification not found' });
     }
 
-    const updated = await prisma.notification.update({
-      where: { id },
-      data: {
-        status: 'read',
-        readAt: new Date()
-      }
+    res.json({
+      success: true,
+      message: 'Notification deleted',
     });
-
-    return res.json(updated);
-
   } catch (error: any) {
-    console.error('Mark notification as read error:', error);
-    return res.status(500).json({ error: 'Failed to mark notification as read' });
+    console.error('Error deleting notification:', error);
+    res.status(500).json({
+      error: 'Failed to delete notification',
+      message: error.message,
+    });
   }
 });
 
-// Mark all as read
-router.post('/mark-all-read', async (req: AuthRequest, res: Response) => {
-  try {
-    const userId = req.user?.id;
-
-    await prisma.notification.updateMany({
-      where: {
-        recipientId: userId,
-        status: 'unread'
-      },
-      data: {
-        status: 'read',
-        readAt: new Date()
-      }
-    });
-
-    return res.json({ message: 'All notifications marked as read' });
-
-  } catch (error: any) {
-    console.error('Mark all as read error:', error);
-    return res.status(500).json({ error: 'Failed to mark all notifications as read' });
-  }
-});
-
-// Delete notification
-router.delete('/:id', async (req: AuthRequest, res: Response) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user?.id;
-
-    const notification = await prisma.notification.findFirst({
-      where: {
-        id,
-        recipientId: userId
-      }
-    });
-
-    if (!notification) {
-      return res.status(404).json({ error: 'Notification not found' });
-    }
-
-    await prisma.notification.delete({ where: { id } });
-
-    return res.json({ message: 'Notification deleted' });
-
-  } catch (error: any) {
-    console.error('Delete notification error:', error);
-    return res.status(500).json({ error: 'Failed to delete notification' });
-  }
-});
-
-// Get notification templates
-router.get('/templates', async (req: AuthRequest, res: Response) => {
-  try {
-    const customerId = req.user?.customerId;
-    const role = req.user?.role;
-
-    if (role !== 'owner' && role !== 'manager') {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    const templates = await prisma.notificationTemplate.findMany({
-      where: {
-        OR: [
-          { customerId },
-          { isGlobal: true }
-        ]
-      },
-      orderBy: { name: 'asc' }
-    });
-
-    return res.json(templates);
-
-  } catch (error: any) {
-    console.error('Get notification templates error:', error);
-    return res.status(500).json({ error: 'Failed to fetch notification templates' });
-  }
-});
-
-// Create notification template
-router.post('/templates', async (req: AuthRequest, res: Response) => {
+/**
+ * @route   GET /api/notifications/preferences
+ * @desc    Get notification preferences
+ * @access  Private
+ */
+router.get('/preferences', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     const customerId = req.user?.customerId;
-    const role = req.user?.role;
 
-    if (role !== 'owner' && role !== 'manager') {
-      return res.status(403).json({ error: 'Access denied' });
+    if (!userId || !customerId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const preferences = await notificationService.getPreferences(userId, customerId);
+
+    res.json({
+      success: true,
+      data: preferences,
+    });
+  } catch (error: any) {
+    console.error('Error fetching notification preferences:', error);
+    res.status(500).json({
+      error: 'Failed to fetch notification preferences',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * @route   PUT /api/notifications/preferences
+ * @desc    Update notification preferences
+ * @access  Private
+ */
+router.put('/preferences', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const customerId = req.user?.customerId;
+
+    if (!userId || !customerId) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
     const {
-      name,
-      description,
-      subject,
-      body,
-      type,
-      variables
+      email_enabled,
+      email_invoice_approval,
+      email_invoice_approved,
+      email_invoice_rejected,
+      email_invoice_paid,
+      email_team_invitation,
+      email_delegation,
+      email_daily_digest,
+      email_weekly_summary,
+      inapp_enabled,
+      inapp_invoice_approval,
+      inapp_invoice_approved,
+      inapp_invoice_rejected,
+      inapp_invoice_paid,
+      inapp_team_invitation,
+      inapp_delegation,
+      push_enabled,
+      quiet_hours_enabled,
+      quiet_hours_start,
+      quiet_hours_end,
+      quiet_hours_timezone,
     } = req.body;
 
-    if (!name || !subject || !body) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
+    const updateData: any = {};
 
-    const template = await prisma.notificationTemplate.create({
-      data: {
-        customerId,
-        createdById: userId,
-        name,
-        description,
-        subject,
-        body,
-        type: type || 'general',
-        variables,
-        isGlobal: false
-      }
+    // Email preferences
+    if (email_enabled !== undefined) updateData.email_enabled = email_enabled;
+    if (email_invoice_approval !== undefined) updateData.email_invoice_approval = email_invoice_approval;
+    if (email_invoice_approved !== undefined) updateData.email_invoice_approved = email_invoice_approved;
+    if (email_invoice_rejected !== undefined) updateData.email_invoice_rejected = email_invoice_rejected;
+    if (email_invoice_paid !== undefined) updateData.email_invoice_paid = email_invoice_paid;
+    if (email_team_invitation !== undefined) updateData.email_team_invitation = email_team_invitation;
+    if (email_delegation !== undefined) updateData.email_delegation = email_delegation;
+    if (email_daily_digest !== undefined) updateData.email_daily_digest = email_daily_digest;
+    if (email_weekly_summary !== undefined) updateData.email_weekly_summary = email_weekly_summary;
+
+    // In-app preferences
+    if (inapp_enabled !== undefined) updateData.inapp_enabled = inapp_enabled;
+    if (inapp_invoice_approval !== undefined) updateData.inapp_invoice_approval = inapp_invoice_approval;
+    if (inapp_invoice_approved !== undefined) updateData.inapp_invoice_approved = inapp_invoice_approved;
+    if (inapp_invoice_rejected !== undefined) updateData.inapp_invoice_rejected = inapp_invoice_rejected;
+    if (inapp_invoice_paid !== undefined) updateData.inapp_invoice_paid = inapp_invoice_paid;
+    if (inapp_team_invitation !== undefined) updateData.inapp_team_invitation = inapp_team_invitation;
+    if (inapp_delegation !== undefined) updateData.inapp_delegation = inapp_delegation;
+
+    // Push preferences
+    if (push_enabled !== undefined) updateData.push_enabled = push_enabled;
+
+    // Quiet hours
+    if (quiet_hours_enabled !== undefined) updateData.quiet_hours_enabled = quiet_hours_enabled;
+    if (quiet_hours_start !== undefined) updateData.quiet_hours_start = quiet_hours_start;
+    if (quiet_hours_end !== undefined) updateData.quiet_hours_end = quiet_hours_end;
+    if (quiet_hours_timezone !== undefined) updateData.quiet_hours_timezone = quiet_hours_timezone;
+
+    const preferences = await notificationService.updatePreferences(userId, customerId, updateData);
+
+    res.json({
+      success: true,
+      data: preferences,
+      message: 'Notification preferences updated',
     });
-
-    return res.status(201).json(template);
-
   } catch (error: any) {
-    console.error('Create notification template error:', error);
-    return res.status(500).json({ error: 'Failed to create notification template' });
+    console.error('Error updating notification preferences:', error);
+    res.status(500).json({
+      error: 'Failed to update notification preferences',
+      message: error.message,
+    });
   }
 });
 
-// Get notification statistics
-router.get('/stats/overview', async (req: AuthRequest, res: Response) => {
+/**
+ * @route   POST /api/notifications/test
+ * @desc    Send a test notification (for testing purposes)
+ * @access  Private
+ */
+router.post('/test', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
-    const role = req.user?.role;
+    const customerId = req.user?.customerId;
 
-    if (role !== 'owner' && role !== 'manager') {
-      return res.status(403).json({ error: 'Access denied' });
+    if (!userId || !customerId) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const customerId = req.user?.customerId;
-    
-    // Get sent notifications count (for managers/owners)
-    const sentCount = await prisma.notification.count({
-      where: { senderId: userId }
+    // Get user details for email
+    const user = await prisma.users.findUnique({
+      where: { id: userId },
     });
 
-    // Get received notifications count
-    const receivedCount = await prisma.notification.count({
-      where: { recipientId: userId }
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Send notification with email
+    const notification = await notificationService.notifyUser({
+      customerId,
+      userId,
+      type: 'test',
+      title: 'Test Notification',
+      message: 'This is a test notification from the system.',
+      priority: 'high',
+      sendEmail: true,
+      emailSubject: 'Test Notification from Contrezz',
+      emailBody: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #2563eb;">Test Notification</h2>
+          <p>Hi ${user.name},</p>
+          <p>This is a test notification from the Contrezz system.</p>
+          <p>If you received this email, your notification system is working correctly! ✅</p>
+          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #1f2937;">What's Working:</h3>
+            <ul style="color: #4b5563;">
+              <li>✅ In-app notifications</li>
+              <li>✅ Email notifications</li>
+              <li>✅ Email queue processing</li>
+              <li>✅ SMTP integration</li>
+            </ul>
+          </div>
+          <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
+            This is an automated test message. You can safely ignore it.
+          </p>
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+          <p style="color: #9ca3af; font-size: 12px; text-align: center;">
+            Contrezz Property Management Platform
+          </p>
+        </div>
+      `,
+      emailPriority: 1,
     });
 
-    // Get unread count
-    const unreadCount = await prisma.notification.count({
-      where: {
-        recipientId: userId,
-        status: 'unread'
-      }
-    });
+    console.log(`✅ Test notification sent to user ${userId} (${user.email})`);
+    console.log(`📧 Email queued for delivery`);
 
-    // Get by type
-    const byType = await prisma.notification.groupBy({
-      by: ['type'],
-      where: {
-        OR: [
-          { senderId: userId },
-          { recipientId: userId }
-        ]
-      },
-      _count: true
+    res.json({
+      success: true,
+      data: notification,
+      message: 'Test notification sent successfully. Check your email inbox (and spam folder).',
     });
-
-    return res.json({
-      sent: sentCount,
-      received: receivedCount,
-      unread: unreadCount,
-      byType: byType.map(t => ({ type: t.type, count: t._count }))
-    });
-
   } catch (error: any) {
-    console.error('Get notification stats error:', error);
-    return res.status(500).json({ error: 'Failed to fetch notification statistics' });
+    console.error('Error sending test notification:', error);
+    res.status(500).json({
+      error: 'Failed to send test notification',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * @route   POST /api/notifications/process-queue
+ * @desc    Process pending emails in the queue (can be called by cron)
+ * @access  Private (should be protected in production)
+ */
+router.post('/process-queue', async (req: Request, res: Response) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 10;
+
+    console.log(`📧 Processing email queue (limit: ${limit})...`);
+    const processed = await notificationService.processPendingEmails(limit);
+
+    res.json({
+      success: true,
+      message: `Processed ${processed} emails`,
+      count: processed,
+    });
+  } catch (error: any) {
+    console.error('Error processing email queue:', error);
+    res.status(500).json({
+      error: 'Failed to process email queue',
+      message: error.message,
+    });
   }
 });
 
 export default router;
-
-

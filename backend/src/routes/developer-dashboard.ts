@@ -1,6 +1,8 @@
+import path from 'path';
 import { Router, Request, Response } from 'express';
 import prisma from '../lib/db';
 import { authMiddleware } from '../middleware/auth';
+import storageService from '../services/storage.service';
 import {
   calculateProjectCashFlow,
   getCashFlowFromSnapshots,
@@ -78,6 +80,154 @@ function calculateMonthlyCashFlow(invoices: any[], projectStartDate: Date | null
     outflow: Math.round(monthlyData[month.key].outflow),
   }));
 }
+
+// ============================================
+// Attachment Helper Functions
+// ============================================
+
+const guessMimeTypeFromPath = (filePath: string): string => {
+  const ext = path.extname(filePath || '').toLowerCase();
+  switch (ext) {
+    case '.pdf':
+      return 'application/pdf';
+    case '.doc':
+      return 'application/msword';
+    case '.docx':
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.png':
+      return 'image/png';
+    default:
+      return 'application/octet-stream';
+  }
+};
+
+const extractAttachmentPaths = (rawValue: any): string[] => {
+  if (!rawValue) return [];
+  if (Array.isArray(rawValue)) {
+    return rawValue.filter((item): item is string => typeof item === 'string' && item.length > 0);
+  }
+
+  if (typeof rawValue === 'string') {
+    try {
+      const parsed = JSON.parse(rawValue);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((item): item is string => typeof item === 'string' && item.length > 0);
+      }
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+};
+
+const ensureInvoiceAttachmentRecords = async ({
+  invoice,
+  customerId,
+  userId,
+  filePaths,
+}: {
+  invoice: any;
+  customerId: string;
+  userId: string;
+  filePaths?: string[];
+}) => {
+  const resolvedPaths = filePaths ?? extractAttachmentPaths(invoice.attachments);
+  if (resolvedPaths.length === 0) {
+    return [];
+  }
+
+  const createdRecords: any[] = [];
+
+  for (const filePath of resolvedPaths) {
+    if (!filePath) continue;
+
+    const existing = await prisma.invoice_attachments.findFirst({
+      where: {
+        invoice_id: invoice.id,
+        file_path: filePath,
+      },
+    });
+
+    if (existing) {
+      createdRecords.push(existing);
+      continue;
+    }
+
+    let fileName = filePath.split('/').pop() || 'Attachment';
+    let mimeType = guessMimeTypeFromPath(filePath);
+    let fileType = storageService.getFileType(mimeType);
+    let uploadedBy = userId;
+    let fileSize = BigInt(0);
+
+    try {
+      const transaction = await prisma.storage_transactions.findFirst({
+        where: {
+          customer_id: customerId,
+          file_path: filePath,
+          action: 'upload',
+        },
+        orderBy: {
+          created_at: 'desc',
+        },
+      });
+
+      if (transaction) {
+        fileName = transaction.file_name || fileName;
+        fileSize = transaction.file_size ?? fileSize;
+        mimeType =
+          (transaction.metadata as any)?.mime_type ||
+          (transaction.metadata as any)?.mimeType ||
+          mimeType;
+        fileType = transaction.file_type || storageService.getFileType(mimeType);
+        uploadedBy = transaction.uploaded_by || uploadedBy;
+      } else {
+        const metadata = await storageService.getFileMetadata(filePath);
+        fileSize = BigInt(metadata.size || 0);
+        if (metadata.contentType) {
+          mimeType = metadata.contentType;
+          fileType = storageService.getFileType(mimeType);
+        }
+      }
+    } catch (metadataError: any) {
+      console.warn(
+        `[developer-dashboard] Failed to fetch metadata for invoice attachment ${filePath}:`,
+        metadataError?.message || metadataError
+      );
+    }
+
+    try {
+      const created = await prisma.invoice_attachments.create({
+        data: {
+          invoice_id: invoice.id,
+          customer_id: customerId,
+          file_path: filePath,
+          file_name: fileName,
+          file_size: fileSize,
+          file_type: fileType,
+          mime_type: mimeType,
+          uploaded_by: uploadedBy,
+          metadata: {
+            autoBackfill: true,
+            source: 'invoice.attachments',
+          },
+        },
+      });
+
+      createdRecords.push(created);
+    } catch (creationError: any) {
+      console.error(
+        `[developer-dashboard] Failed to create invoice_attachment record for ${filePath}:`,
+        creationError?.message || creationError
+      );
+    }
+  }
+
+  return createdRecords;
+};
 
 /**
  * Calculate budget vs actual spend by month
@@ -215,11 +365,11 @@ router.get('/portfolio/overview', async (req: Request, res: Response) => {
 
     console.log('✅ [DEBUG] Customer found:', customerExists.company);
 
-    // Get all projects for this developer
+    // Get all projects for this customer (includes projects created by admin and team members)
     const projects = await prisma.developer_projects.findMany({
       where: {
         customerId,
-        developerId: userId,
+        // Removed developerId filter so team members can see all customer projects
       },
     });
 
@@ -348,10 +498,10 @@ router.get('/projects', async (req: Request, res: Response) => {
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    // Build where clause
+    // Build where clause - filter by customer only (team members see all customer projects)
     const where: any = {
       customerId,
-      developerId: userId,
+      // Removed developerId filter so team members can see all customer projects
     };
 
     if (search) {
@@ -461,7 +611,7 @@ router.get('/projects/:projectId', async (req: Request, res: Response) => {
       where: {
         id: projectId,
         customerId,
-        developerId: userId,
+        // Team members can access all customer projects
       },
     });
 
@@ -486,12 +636,12 @@ router.get('/projects/:projectId/dashboard', async (req: Request, res: Response)
     const userId = (req as any).user.id;
     const customerId = (req as any).user.customerId;
 
-    // Get project
+    // Get project - filter by customer only (team members can access all customer projects)
     const project = await prisma.developer_projects.findFirst({
       where: {
         id: projectId,
         customerId,
-        developerId: userId,
+        // Removed developerId filter so team members can access all customer projects
       },
     });
 
@@ -975,7 +1125,7 @@ router.post('/projects', async (req: Request, res: Response) => {
     const project = await prisma.developer_projects.create({
       data: {
         customerId,
-        developerId: userId,
+        // Team members can access all customer projects
         name,
         description,
         projectType,
@@ -1057,7 +1207,7 @@ router.patch('/projects/:projectId', async (req: Request, res: Response) => {
       where: {
         id: projectId,
         customerId,
-        developerId: userId,
+        // Team members can access all customer projects
       },
     });
 
@@ -1099,7 +1249,7 @@ router.delete('/projects/:projectId', async (req: Request, res: Response) => {
       where: {
         id: projectId,
         customerId,
-        developerId: userId,
+        // Team members can access all customer projects
       },
     });
 
@@ -1157,7 +1307,7 @@ router.get('/projects/:projectId/budget', async (req: Request, res: Response) =>
       where: {
         id: projectId,
         customerId,
-        developerId: userId,
+        // Team members can access all customer projects
       },
     });
 
@@ -1223,7 +1373,7 @@ router.post('/projects/:projectId/budget', async (req: Request, res: Response) =
       where: {
         id: projectId,
         customerId,
-        developerId: userId,
+        // Team members can access all customer projects
       },
     });
 
@@ -1272,7 +1422,7 @@ router.patch('/projects/:projectId/budget/:lineItemId', async (req: Request, res
       where: {
         id: projectId,
         customerId,
-        developerId: userId,
+        // Team members can access all customer projects
       },
     });
 
@@ -1346,7 +1496,7 @@ router.delete('/projects/:projectId/budget/:lineItemId', async (req: Request, re
       where: {
         id: projectId,
         customerId,
-        developerId: userId,
+        // Team members can access all customer projects
       },
     });
 
@@ -1439,6 +1589,80 @@ router.post('/vendors', async (req: Request, res: Response) => {
 // Invoices
 // ============================================
 
+// Get all invoices across all projects for the developer
+router.get('/invoices', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.id;
+    const customerId = (req as any).user.customerId;
+
+    console.log(`[GET /invoices] Fetching invoices for userId: ${userId}, customerId: ${customerId}`);
+
+    // Get all projects for this developer
+    const projects = await prisma.developer_projects.findMany({
+      where: {
+        customerId,
+        // Team members can access all customer projects
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    console.log(`[GET /invoices] Found ${projects.length} projects`);
+
+    const projectIds = projects.map(p => p.id);
+
+    // If no projects, return empty array
+    if (projectIds.length === 0) {
+      console.log('[GET /invoices] No projects found, returning empty array');
+      return res.json({
+        success: true,
+        data: [],
+      });
+    }
+
+    // Get all invoices for these projects
+    const invoices = await prisma.project_invoices.findMany({
+      where: {
+        projectId: {
+          in: projectIds,
+        },
+      },
+      include: {
+        vendor: true,
+        project: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        approver: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    console.log(`[GET /invoices] Found ${invoices.length} invoices`);
+
+    res.json({
+      success: true,
+      data: invoices,
+    });
+  } catch (error: any) {
+    console.error('[GET /invoices] Error fetching all invoices:', error);
+    res.status(500).json({
+      error: 'Failed to fetch invoices',
+      details: error.message
+    });
+  }
+});
+
 router.get('/projects/:projectId/invoices', async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
@@ -1450,7 +1674,7 @@ router.get('/projects/:projectId/invoices', async (req: Request, res: Response) 
       where: {
         id: projectId,
         customerId,
-        developerId: userId,
+        // Team members can access all customer projects
       },
     });
 
@@ -1462,6 +1686,13 @@ router.get('/projects/:projectId/invoices', async (req: Request, res: Response) 
       where: { projectId },
       include: {
         vendor: true,
+        approver: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -1497,7 +1728,7 @@ router.post('/projects/:projectId/invoices', async (req: Request, res: Response)
       where: {
         id: projectId,
         customerId,
-        developerId: userId,
+        // Team members can access all customer projects
       },
     });
 
@@ -1584,10 +1815,482 @@ router.post('/projects/:projectId/invoices', async (req: Request, res: Response)
       },
     });
 
+    // If there are attachment paths, create invoice_attachments records
+    if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+      for (const filePath of attachments as string[]) {
+        if (!filePath) continue;
+
+        try {
+          // Find latest upload transaction for this file and customer
+          const tx = await prisma.storage_transactions.findFirst({
+            where: {
+              customer_id: customerId,
+              file_path: filePath,
+              action: "upload",
+            },
+            orderBy: {
+              created_at: "desc",
+            },
+          });
+
+          if (!tx) {
+            console.warn(
+              "[developer-dashboard] No storage transaction found for attachment path:",
+              filePath
+            );
+            continue;
+          }
+
+          await prisma.invoice_attachments.create({
+            data: {
+              invoice_id: invoice.id,
+              customer_id: customerId,
+              file_path: filePath,
+              file_name: tx.file_name,
+              file_size: tx.file_size,
+              file_type: tx.file_type || "other",
+              mime_type:
+                (tx.metadata as any)?.mime_type ||
+                (tx.metadata as any)?.mimeType ||
+                "application/octet-stream",
+              uploaded_by: tx.uploaded_by || userId,
+              metadata: {
+                source: "project_invoice",
+                fromPurchaseOrder: !!purchaseOrderId,
+                ...((tx.metadata as any) || {}),
+              },
+            },
+          });
+        } catch (attachError) {
+          console.error(
+            "[developer-dashboard] Failed to create invoice_attachment for path:",
+            filePath,
+            attachError
+          );
+        }
+      }
+    }
+
     res.status(201).json(invoice);
   } catch (error: any) {
     console.error('Error creating invoice:', error);
     res.status(500).json({ error: 'Failed to create invoice', details: error.message });
+  }
+});
+
+// Get attachments for an invoice
+router.get('/projects/:projectId/invoices/:invoiceId/attachments', async (req: Request, res: Response) => {
+  try {
+    const { projectId, invoiceId } = req.params;
+    const userId = (req as any).user.id;
+    const customerId = (req as any).user.customerId;
+
+    // Verify project ownership
+    const project = await prisma.developer_projects.findFirst({
+      where: {
+        id: projectId,
+        customerId,
+        // Team members can access all customer projects
+      },
+    });
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Verify invoice belongs to project
+    const invoice = await prisma.project_invoices.findFirst({
+      where: {
+        id: invoiceId,
+        projectId,
+      },
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    const attachmentPaths = extractAttachmentPaths(invoice.attachments);
+
+    // Get attachments
+    let attachments = await prisma.invoice_attachments.findMany({
+      where: { invoice_id: invoiceId },
+      include: {
+        uploader: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: { uploaded_at: 'desc' },
+    });
+
+    if (attachments.length === 0 && attachmentPaths.length > 0) {
+      const rebuilt = await ensureInvoiceAttachmentRecords({
+        invoice,
+        customerId,
+        userId,
+        filePaths: attachmentPaths,
+      });
+
+      if (rebuilt.length > 0) {
+        attachments = rebuilt;
+      }
+    }
+
+    if (attachments.length === 0) {
+      return res.json({
+        success: true,
+        data: [],
+      });
+    }
+
+    // Generate signed URLs for each attachment
+    const attachmentsWithUrls = await Promise.all(
+      attachments.map(async (att) => {
+        console.log(`[developer-dashboard] Generating signed URL for file_path: ${att.file_path}`);
+
+        // Check if file exists before generating URL
+        const fileExists = await storageService.fileExists(att.file_path);
+        console.log(`[developer-dashboard] File exists check for ${att.file_path}: ${fileExists}`);
+
+        if (!fileExists) {
+          console.error(`[developer-dashboard] File not found in storage: ${att.file_path}`);
+          // Return a placeholder or error URL
+          return {
+            id: att.id,
+            fileName: att.file_name,
+            fileSize: Number(att.file_size),
+            fileSizeFormatted: storageService.formatBytes(Number(att.file_size)),
+            fileType: att.file_type,
+            mimeType: att.mime_type,
+            uploadedAt: att.uploaded_at,
+            uploadedBy: att.uploader,
+            url: '', // Empty URL if file doesn't exist
+            metadata: att.metadata,
+            error: 'File not found in storage',
+          };
+        }
+
+        const signedUrl = await storageService.getFileUrl(att.file_path, 3600);
+        console.log(`[developer-dashboard] Generated signed URL: ${signedUrl.substring(0, 100)}...`);
+
+        return {
+          id: att.id,
+          fileName: att.file_name,
+          fileSize: Number(att.file_size),
+          fileSizeFormatted: storageService.formatBytes(Number(att.file_size)),
+          fileType: att.file_type,
+          mimeType: att.mime_type,
+          uploadedAt: att.uploaded_at,
+          uploadedBy: att.uploader,
+          url: signedUrl,
+          metadata: att.metadata,
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      data: attachmentsWithUrls,
+    });
+  } catch (error: any) {
+    console.error('Error fetching invoice attachments:', error);
+    res.status(500).json({ error: 'Failed to fetch attachments', details: error.message });
+  }
+});
+
+// Update invoice for a project
+router.put('/projects/:projectId/invoices/:invoiceId', async (req: Request, res: Response) => {
+  try {
+    const { projectId, invoiceId } = req.params;
+    const userId = (req as any).user.id;
+    const customerId = (req as any).user.customerId;
+    const updateData = req.body;
+
+    // Verify project ownership
+    const project = await prisma.developer_projects.findFirst({
+      where: {
+        id: projectId,
+        customerId,
+        // Team members can access all customer projects
+      },
+    });
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Verify invoice belongs to project
+    const existingInvoice = await prisma.project_invoices.findFirst({
+      where: {
+        id: invoiceId,
+        projectId,
+      },
+    });
+
+    if (!existingInvoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    // Prevent editing paid invoices
+    if (existingInvoice.status === 'paid' || existingInvoice.status === 'Paid') {
+      return res.status(400).json({
+        error: 'Cannot edit paid invoice',
+        message: 'Paid invoices cannot be modified.'
+      });
+    }
+
+    // Update invoice
+    const updatedInvoice = await prisma.project_invoices.update({
+      where: { id: invoiceId },
+      data: {
+        description: updateData.description,
+        category: updateData.category,
+        amount: updateData.amount,
+        currency: updateData.currency || 'NGN',
+        dueDate: updateData.dueDate ? new Date(updateData.dueDate) : null,
+        notes: updateData.notes,
+        vendorId: updateData.vendorId,
+        updatedAt: new Date(),
+      },
+      include: {
+        vendor: true,
+        purchaseOrder: true,
+      },
+    });
+
+    console.log(`[developer-dashboard] Invoice updated: ${invoiceId} by user ${userId}`);
+
+    res.json({
+      success: true,
+      message: 'Invoice updated successfully',
+      data: updatedInvoice,
+    });
+  } catch (error: any) {
+    console.error('Error updating invoice:', error);
+    res.status(500).json({ error: 'Failed to update invoice', details: error.message });
+  }
+});
+
+// Delete invoice for a project
+router.delete('/projects/:projectId/invoices/:invoiceId', async (req: Request, res: Response) => {
+  try {
+    const { projectId, invoiceId } = req.params;
+    const userId = (req as any).user.id;
+    const customerId = (req as any).user.customerId;
+
+    // Verify project ownership
+    const project = await prisma.developer_projects.findFirst({
+      where: {
+        id: projectId,
+        customerId,
+        // Team members can access all customer projects
+      },
+    });
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Verify invoice belongs to project
+    const invoice = await prisma.project_invoices.findFirst({
+      where: {
+        id: invoiceId,
+        projectId,
+      },
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    // Check if invoice is already paid - prevent deletion of paid invoices
+    if (invoice.status === 'paid' || invoice.status === 'Paid') {
+      return res.status(400).json({
+        error: 'Cannot delete paid invoice',
+        message: 'Paid invoices cannot be deleted. Please contact support if you need to reverse this transaction.'
+      });
+    }
+
+    // Get all attachments for this invoice to delete from storage
+    const attachments = await prisma.invoice_attachments.findMany({
+      where: { invoice_id: invoiceId },
+    });
+
+    // Delete files from Digital Ocean Spaces
+    if (attachments.length > 0) {
+      for (const attachment of attachments) {
+        try {
+          await storageService.deleteFile(customerId, attachment.file_path);
+          console.log(`[developer-dashboard] Deleted file from storage: ${attachment.file_path}`);
+        } catch (storageError) {
+          console.error(`[developer-dashboard] Failed to delete file from storage: ${attachment.file_path}`, storageError);
+          // Continue with deletion even if storage deletion fails
+        }
+      }
+    }
+
+    // Delete invoice (cascade will delete invoice_attachments via FK constraint)
+    await prisma.project_invoices.delete({
+      where: { id: invoiceId },
+    });
+
+    console.log(`[developer-dashboard] Invoice deleted: ${invoiceId} by user ${userId}`);
+
+    res.json({
+      success: true,
+      message: 'Invoice deleted successfully',
+    });
+  } catch (error: any) {
+    console.error('Error deleting invoice:', error);
+    res.status(500).json({ error: 'Failed to delete invoice', details: error.message });
+  }
+});
+
+// ============================================
+// Approve Invoice
+// ============================================
+router.post('/projects/:projectId/invoices/:invoiceId/approve', async (req: Request, res: Response) => {
+  try {
+    const { projectId, invoiceId } = req.params;
+    const userId = (req as any).user.id;
+    const customerId = (req as any).user.customerId;
+
+    // Verify project ownership
+    const project = await prisma.developer_projects.findFirst({
+      where: {
+        id: projectId,
+        customerId,
+        // Team members can access all customer projects
+      },
+    });
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Get the invoice
+    const invoice = await prisma.project_invoices.findFirst({
+      where: {
+        id: invoiceId,
+        projectId,
+      },
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    if (invoice.status === 'paid') {
+      return res.status(400).json({ error: 'Cannot approve a paid invoice' });
+    }
+
+    if (invoice.status === 'approved') {
+      return res.status(400).json({ error: 'Invoice is already approved' });
+    }
+
+    // Update invoice status to approved
+    const updatedInvoice = await prisma.project_invoices.update({
+      where: { id: invoiceId },
+      data: {
+        status: 'approved',
+        approvedBy: userId,
+        approvedAt: new Date(),
+      },
+      include: {
+        vendor: true,
+        approver: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    console.log(`✅ Invoice ${invoiceId} approved by user ${userId}`);
+
+    res.json({
+      message: 'Invoice approved successfully',
+      invoice: updatedInvoice,
+    });
+  } catch (error: any) {
+    console.error('Error approving invoice:', error);
+    res.status(500).json({ error: 'Failed to approve invoice', details: error.message });
+  }
+});
+
+// ============================================
+// Reject Invoice
+// ============================================
+router.post('/projects/:projectId/invoices/:invoiceId/reject', async (req: Request, res: Response) => {
+  try {
+    const { projectId, invoiceId } = req.params;
+    const userId = (req as any).user.id;
+    const customerId = (req as any).user.customerId;
+    const { reason } = req.body;
+
+    // Verify project ownership
+    const project = await prisma.developer_projects.findFirst({
+      where: {
+        id: projectId,
+        customerId,
+        // Team members can access all customer projects
+      },
+    });
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Get the invoice
+    const invoice = await prisma.project_invoices.findFirst({
+      where: {
+        id: invoiceId,
+        projectId,
+      },
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    if (invoice.status === 'paid') {
+      return res.status(400).json({ error: 'Cannot reject a paid invoice' });
+    }
+
+    // Update invoice status to rejected
+    const updatedInvoice = await prisma.project_invoices.update({
+      where: { id: invoiceId },
+      data: {
+        status: 'rejected',
+        notes: reason ? `Rejected: ${reason}` : invoice.notes,
+      },
+      include: {
+        vendor: true,
+        approver: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    console.log(`❌ Invoice ${invoiceId} rejected by user ${userId}`);
+
+    res.json({
+      message: 'Invoice rejected successfully',
+      invoice: updatedInvoice,
+    });
+  } catch (error: any) {
+    console.error('Error rejecting invoice:', error);
+    res.status(500).json({ error: 'Failed to reject invoice', details: error.message });
   }
 });
 
@@ -1611,7 +2314,7 @@ router.post('/projects/:projectId/invoices/:invoiceId/mark-paid', async (req: Re
       where: {
         id: projectId,
         customerId,
-        developerId: userId,
+        // Team members can access all customer projects
       },
     });
 
@@ -1731,7 +2434,7 @@ router.get('/projects/:projectId/cash-flow', async (req: Request, res: Response)
       where: {
         id: projectId,
         customerId,
-        developerId: userId,
+        // Team members can access all customer projects
       },
     });
 
@@ -1808,7 +2511,7 @@ router.get('/projects/:projectId/cash-flow/summary', async (req: Request, res: R
       where: {
         id: projectId,
         customerId,
-        developerId: userId,
+        // Team members can access all customer projects
       },
     });
 
@@ -1890,7 +2593,7 @@ router.get('/projects/:projectId/funding', async (req: Request, res: Response) =
       where: {
         id: projectId,
         customerId,
-        developerId: userId,
+        // Team members can access all customer projects
       },
     });
 
@@ -1933,7 +2636,7 @@ router.post('/projects/:projectId/funding', async (req: Request, res: Response) 
       where: {
         id: projectId,
         customerId,
-        developerId: userId,
+        // Team members can access all customer projects
       },
     });
 
@@ -2036,6 +2739,162 @@ router.post('/projects/:projectId/funding', async (req: Request, res: Response) 
   }
 });
 
+/**
+ * PUT /api/developer-dashboard/projects/:projectId/funding/:fundingId
+ * Update a funding record
+ */
+router.put('/projects/:projectId/funding/:fundingId', async (req: Request, res: Response) => {
+  try {
+    const { projectId, fundingId } = req.params;
+    const userId = (req as any).user.id;
+    const customerId = (req as any).user.customerId;
+
+    console.log('💰 Updating funding:', fundingId, 'for project:', projectId);
+
+    // Verify project ownership
+    const project = await prisma.developer_projects.findFirst({
+      where: {
+        id: projectId,
+        customerId,
+      },
+    });
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Verify funding exists and belongs to this project
+    const existingFunding = await prisma.project_funding.findFirst({
+      where: {
+        id: fundingId,
+        projectId,
+      },
+    });
+
+    if (!existingFunding) {
+      return res.status(404).json({ error: 'Funding record not found' });
+    }
+
+    const {
+      amount,
+      fundingType,
+      fundingSource,
+      expectedDate,
+      receivedDate,
+      status,
+      referenceNumber,
+      description,
+      notes
+    } = req.body;
+
+    // Update the funding record
+    const updatedFunding = await prisma.project_funding.update({
+      where: { id: fundingId },
+      data: {
+        amount: amount !== undefined ? parseFloat(amount) : undefined,
+        fundingType,
+        fundingSource,
+        expectedDate: expectedDate ? new Date(expectedDate) : null,
+        receivedDate: receivedDate ? new Date(receivedDate) : null,
+        status,
+        referenceNumber,
+        description,
+        notes,
+        updatedAt: new Date(),
+      },
+      include: {
+        creator: { select: { id: true, name: true, email: true } },
+        approver: { select: { id: true, name: true, email: true } }
+      },
+    });
+
+    console.log('✅ Funding updated successfully:', updatedFunding.id);
+    res.json(updatedFunding);
+  } catch (error: any) {
+    console.error('❌ Error updating funding:', error);
+    res.status(500).json({
+      error: 'Failed to update funding record',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
+ * PATCH /api/developer-dashboard/projects/:projectId/funding/:fundingId/status
+ * Update funding status only
+ */
+router.patch('/projects/:projectId/funding/:fundingId/status', async (req: Request, res: Response) => {
+  try {
+    const { projectId, fundingId } = req.params;
+    const { status } = req.body;
+    const userId = (req as any).user.id;
+    const customerId = (req as any).user.customerId;
+
+    console.log('💰 Updating funding status:', fundingId, 'to:', status);
+
+    // Validate status
+    const validStatuses = ['pending', 'received', 'partial', 'cancelled'];
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({
+        error: 'Invalid status',
+        details: `Status must be one of: ${validStatuses.join(', ')}`
+      });
+    }
+
+    // Verify project ownership
+    const project = await prisma.developer_projects.findFirst({
+      where: {
+        id: projectId,
+        customerId,
+      },
+    });
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Verify funding exists and belongs to this project
+    const existingFunding = await prisma.project_funding.findFirst({
+      where: {
+        id: fundingId,
+        projectId,
+      },
+    });
+
+    if (!existingFunding) {
+      return res.status(404).json({ error: 'Funding record not found' });
+    }
+
+    // Update status and set receivedDate if status is 'received' and not already set
+    const updateData: any = {
+      status,
+      updatedAt: new Date(),
+    };
+
+    if (status === 'received' && !existingFunding.receivedDate) {
+      updateData.receivedDate = new Date();
+    }
+
+    const updatedFunding = await prisma.project_funding.update({
+      where: { id: fundingId },
+      data: updateData,
+      include: {
+        creator: { select: { id: true, name: true, email: true } },
+        approver: { select: { id: true, name: true, email: true } }
+      },
+    });
+
+    console.log('✅ Funding status updated successfully');
+    res.json(updatedFunding);
+  } catch (error: any) {
+    console.error('❌ Error updating funding status:', error);
+    res.status(500).json({
+      error: 'Failed to update funding status',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 // ============================================
 // Project Expenses Management
 // ============================================
@@ -2055,7 +2914,7 @@ router.get('/projects/:projectId/expenses', async (req: Request, res: Response) 
       where: {
         id: projectId,
         customerId,
-        developerId: userId,
+        // Team members can access all customer projects
       },
     });
 
@@ -2095,7 +2954,7 @@ router.post('/projects/:projectId/expenses', async (req: Request, res: Response)
       where: {
         id: projectId,
         customerId,
-        developerId: userId,
+        // Team members can access all customer projects
       },
     });
 
@@ -2173,7 +3032,7 @@ router.patch('/projects/:projectId/expenses/:expenseId', async (req: Request, re
       where: {
         id: projectId,
         customerId,
-        developerId: userId,
+        // Team members can access all customer projects
       },
     });
 
@@ -2267,7 +3126,7 @@ router.delete('/projects/:projectId/expenses/:expenseId', async (req: Request, r
       where: {
         id: projectId,
         customerId,
-        developerId: userId,
+        // Team members can access all customer projects
       },
     });
 
@@ -2317,7 +3176,7 @@ router.get('/projects/:projectId/recent-activity', async (req: Request, res: Res
       where: {
         id: projectId,
         customerId,
-        developerId: userId,
+        // Team members can access all customer projects
       },
     });
 
@@ -2483,7 +3342,7 @@ router.get('/projects/:projectId/reports', async (req: Request, res: Response) =
       where: {
         id: projectId,
         customerId,
-        developerId: userId,
+        // Team members can access all customer projects
       },
     });
 
@@ -2761,7 +3620,7 @@ router.get('/projects/:projectId/reports/cashflow', async (req: Request, res: Re
       where: {
         id: projectId,
         customerId,
-        developerId: userId,
+        // Team members can access all customer projects
       },
     });
 

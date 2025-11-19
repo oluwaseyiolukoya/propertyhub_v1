@@ -39,6 +39,7 @@ interface PortfolioOverviewProps {
   onMarkAsCompleted?: (projectId: string) => void;
   onReactivateProject?: (projectId: string) => void;
   onCreateProject: () => void;
+  canManageProjects?: boolean; // Permission to create/edit/delete projects
 }
 
 export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
@@ -48,6 +49,7 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
   onMarkAsCompleted,
   onReactivateProject,
   onCreateProject,
+  canManageProjects = true, // Default true for backward compatibility
 }) => {
   const { data: overview, loading: overviewLoading } = usePortfolioOverview();
 
@@ -131,10 +133,12 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
           <h1 className="text-3xl font-bold text-gray-900">Portfolio Overview</h1>
           <p className="text-gray-600 mt-1">Manage all your development projects in one place</p>
         </div>
-        <Button onClick={onCreateProject} className="gap-2 bg-blue-600 hover:bg-blue-700">
-          <Plus className="h-4 w-4" />
-          Add New Project
-        </Button>
+        {canManageProjects && (
+          <Button onClick={onCreateProject} className="gap-2 bg-blue-600 hover:bg-blue-700">
+            <Plus className="h-4 w-4" />
+            Add New Project
+          </Button>
+        )}
       </div>
 
       {/* Summary KPIs */}
@@ -317,16 +321,18 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
             <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">No projects found</h3>
             <p className="text-gray-600 mb-6">
-              {searchTerm || statusFilter !== 'all' || stageFilter !== 'all'
-                ? 'Try adjusting your filters'
-                : 'Get started by creating your first project'}
-            </p>
-            {!searchTerm && statusFilter === 'all' && stageFilter === 'all' && (
-              <Button onClick={onCreateProject} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Create Project
-              </Button>
-            )}
+            {searchTerm || statusFilter !== 'all' || stageFilter !== 'all'
+              ? 'Try adjusting your filters'
+              : canManageProjects
+                ? 'Get started by creating your first project'
+                : 'No projects available yet'}
+          </p>
+          {!searchTerm && statusFilter === 'all' && stageFilter === 'all' && canManageProjects && (
+            <Button onClick={onCreateProject} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Create Project
+            </Button>
+          )}
           </CardContent>
         </Card>
       ) : viewMode === 'table' ? (
@@ -411,7 +417,7 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
                               <Eye className="mr-2 h-4 w-4" />
                               View
                             </DropdownMenuItem>
-                            {onEditProject && (
+                            {onEditProject && canManageProjects && (
                               <DropdownMenuItem
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -422,7 +428,7 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
                                 Edit
                               </DropdownMenuItem>
                             )}
-                            {onMarkAsCompleted && project.status !== 'completed' && (
+                            {onMarkAsCompleted && canManageProjects && project.status !== 'completed' && (
                               <DropdownMenuItem
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -434,7 +440,7 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
                                 Mark as Completed
                               </DropdownMenuItem>
                             )}
-                            {onReactivateProject && project.status === 'completed' && (
+                            {onReactivateProject && canManageProjects && project.status === 'completed' && (
                               <DropdownMenuItem
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -446,7 +452,7 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
                                 Reactivate Project
                               </DropdownMenuItem>
                             )}
-                            {onDeleteProject && (
+                            {onDeleteProject && canManageProjects && (
                               <DropdownMenuItem
                                 onClick={(e) => {
                                   e.stopPropagation();

@@ -88,6 +88,36 @@ function getTransporter(): Transporter {
 }
 
 /**
+ * Generic send email function
+ */
+export async function sendEmail(params: {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+}): Promise<boolean> {
+  try {
+    const config = getEmailConfig();
+    const transporter = getTransporter();
+
+    const mailOptions = {
+      from: config.from,
+      to: params.to,
+      subject: params.subject,
+      html: params.html,
+      text: params.text,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ Email sent successfully to ${params.to}: ${info.messageId}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Failed to send email to ${params.to}:`, error);
+    return false;
+  }
+}
+
+/**
  * Test email connection
  */
 export async function testEmailConnection(): Promise<{ success: boolean; message: string; error?: any }> {

@@ -34,6 +34,18 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({ user, on
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [hasCustomLogo, setHasCustomLogo] = useState(false);
 
+  // Determine if this user is the account owner (admin)
+  // IMPORTANT: Any user with a teamMemberRole is ALWAYS treated as non-owner,
+  // and the user's email must match the customer record email.
+  const customerEmail = (user?.customer?.email || user?.customerEmail || '').toLowerCase();
+  const userEmail = (user?.email || '').toLowerCase();
+  const isOwner =
+    !!user?.isOwner &&
+    !user?.teamMemberRole &&
+    !!userEmail &&
+    !!customerEmail &&
+    userEmail === customerEmail;
+
   // Reset to portfolio view on mount
   useEffect(() => {
     setCurrentView('portfolio');
@@ -46,7 +58,8 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({ user, on
     { id: 'vendors', name: 'Vendors', icon: Users },
     { id: 'analytics', name: 'Analytics', icon: TrendingUp },
     { id: 'reports', name: 'Reports', icon: FileText },
-    { id: 'settings', name: 'Settings', icon: Settings },
+    // Settings is visible to Owner only
+    ...(isOwner ? [{ id: 'settings', name: 'Settings', icon: Settings }] as any[] : []),
   ];
 
   const handleViewProject = (projectId: string) => {
@@ -90,6 +103,13 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({ user, on
     } else if (viewId === 'invoices') {
       setCurrentView('invoices');
       setSelectedProjectId(null);
+    } else if (viewId === 'settings') {
+      if (isOwner) {
+        setCurrentView('settings');
+        setSelectedProjectId(null);
+      } else {
+        toast.warning('Only the account owner can access Settings.');
+      }
     } else {
       toast.info(`${viewId.charAt(0).toUpperCase() + viewId.slice(1)} page coming soon!`);
     }
@@ -152,14 +172,18 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({ user, on
       );
     }
 
-    // Placeholder for other views
+    // Placeholder for other views (Settings blocked for non-owners)
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             {navigation.find((n) => n.id === currentView)?.name}
           </h2>
-          <p className="text-gray-600">This feature is coming soon!</p>
+          <p className="text-gray-600">
+            {currentView === 'settings' && !isOwner
+              ? 'Access restricted. Only the account owner can manage Settings.'
+              : 'This feature is coming soon!'}
+          </p>
         </div>
       </div>
     );

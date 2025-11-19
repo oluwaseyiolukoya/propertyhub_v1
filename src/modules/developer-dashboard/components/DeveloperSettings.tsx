@@ -9,6 +9,8 @@ import { Separator } from "../../../components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
 import { Avatar, AvatarFallback } from "../../../components/ui/avatar";
 import { Progress } from "../../../components/ui/progress";
+import { TeamManagementTab } from './TeamManagementTab';
+import { NotificationPreferencesTab } from './NotificationPreferences';
 import {
   Select,
   SelectContent,
@@ -28,14 +30,18 @@ import {
   Upload,
   Globe,
   Crown,
-  TrendingUp
+  TrendingUp,
+  HardDrive,
+  AlertCircle
 } from "lucide-react";
 import { Badge } from "../../../components/ui/badge";
 import { toast } from "sonner";
 import { getAccountInfo, changePassword, type ChangePasswordRequest } from '../../../lib/api/auth';
 import { getSubscriptionStatus } from '../../../lib/api/subscription';
 import { formatCurrency as formatCurrencyUtil } from '../../../lib/currency';
+import { apiClient } from "../../../lib/api-client";
 import { getSubscriptionPlans, changePlan, changeBillingCycle, cancelSubscription, getBillingHistory, initializeUpgrade, verifyUpgrade, type Plan, type Invoice } from '../../../lib/api/subscriptions';
+import { updateProfile, updateOrganization } from '../../../lib/api/settings';
 
 interface DeveloperSettingsProps {
   user?: any;
@@ -71,10 +77,39 @@ export function DeveloperSettings({ user }: DeveloperSettingsProps) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
+  // Storage quota state
+  const [storageQuota, setStorageQuota] = useState<any>(null);
+  const [loadingQuota, setLoadingQuota] = useState(true);
+
+  // Profile form state
+  const [profileData, setProfileData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    bio: ''
+  });
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // Organization form state
+  const [organizationData, setOrganizationData] = useState({
+    company: '',
+    organizationType: 'developer',
+    taxId: '',
+    licenseNumber: '',
+    street: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    website: ''
+  });
+  const [isSavingOrganization, setIsSavingOrganization] = useState(false);
+
   useEffect(() => {
     fetchAccountData();
     fetchPlans();
     fetchBillingHistory();
+    fetchStorageQuota();
 
     // Check for payment callback
     const urlParams = new URLSearchParams(window.location.search);
@@ -162,6 +197,30 @@ export function DeveloperSettings({ user }: DeveloperSettingsProps) {
           userLimit: acctResponse.data.customer?.plan?.userLimit
         });
         setAccountInfo(acctResponse.data);
+
+        // Initialize profile form data
+        const fullName = acctResponse.data.user?.name || user?.name || '';
+        const nameParts = fullName.split(' ');
+        setProfileData({
+          firstName: nameParts[0] || '',
+          lastName: nameParts.slice(1).join(' ') || '',
+          email: acctResponse.data.user?.email || user?.email || '',
+          phone: acctResponse.data.user?.phone || acctResponse.data.customer?.phone || '',
+          bio: acctResponse.data.user?.bio || ''
+        });
+
+        // Initialize organization form data
+        setOrganizationData({
+          company: acctResponse.data.customer?.company || user?.company || '',
+          organizationType: 'developer', // Default, can be updated
+          taxId: acctResponse.data.customer?.taxId || '',
+          licenseNumber: acctResponse.data.customer?.licenseNumber || '',
+          street: acctResponse.data.customer?.street || '',
+          city: acctResponse.data.customer?.city || '',
+          state: acctResponse.data.customer?.state || '',
+          postalCode: acctResponse.data.customer?.postalCode || acctResponse.data.customer?.zipCode || '',
+          website: acctResponse.data.customer?.website || ''
+        });
       }
 
       if (subResponse.data) {
@@ -204,6 +263,32 @@ export function DeveloperSettings({ user }: DeveloperSettingsProps) {
       console.error('Failed to fetch billing history:', error);
     } finally {
       setLoadingHistory(false);
+    }
+  };
+
+  const fetchStorageQuota = async () => {
+    try {
+      setLoadingQuota(true);
+      const response = await apiClient.get<any>("/api/storage/quota");
+
+      if (response.error) {
+        console.error("[DeveloperSettings] Failed to fetch storage quota:", response.error);
+        setStorageQuota(null);
+        return;
+      }
+
+      const payload = response.data as any;
+      if (payload?.success && payload.data) {
+        setStorageQuota(payload.data);
+      } else {
+        console.error("[DeveloperSettings] Storage quota response missing data:", payload);
+        setStorageQuota(null);
+      }
+    } catch (error) {
+      console.error("[DeveloperSettings] Failed to fetch storage quota:", error);
+      setStorageQuota(null);
+    } finally {
+      setLoadingQuota(false);
     }
   };
 
@@ -310,6 +395,66 @@ export function DeveloperSettings({ user }: DeveloperSettingsProps) {
     }
   };
 
+  const handleSaveProfile = async () => {
+    try {
+      setIsSavingProfile(true);
+      console.log('[DeveloperSettings] Saving profile...');
+
+      const fullName = `${profileData.firstName} ${profileData.lastName}`.trim();
+
+      const response = await updateProfile({
+        name: fullName,
+        phone: profileData.phone,
+        bio: profileData.bio
+      });
+
+      if (response.error) {
+        toast.error(response.error.message || response.error.error || 'Failed to update profile');
+      } else {
+        toast.success('Profile updated successfully!');
+        // Refresh account data to show updated info
+        await fetchAccountData();
+      }
+    } catch (error: any) {
+      console.error('[DeveloperSettings] Update profile error:', error);
+      toast.error(error.response?.data?.error || error.message || 'Failed to update profile');
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  const handleSaveOrganization = async () => {
+    try {
+      setIsSavingOrganization(true);
+      console.log('[DeveloperSettings] Saving organization...');
+
+      const response = await updateOrganization({
+        company: organizationData.company,
+        taxId: organizationData.taxId,
+        licenseNumber: organizationData.licenseNumber,
+        street: organizationData.street,
+        city: organizationData.city,
+        state: organizationData.state,
+        postalCode: organizationData.postalCode,
+        website: organizationData.website,
+        organizationType: organizationData.organizationType
+      });
+
+      if (response.error) {
+        toast.error(response.error.message || response.error.error || 'Failed to update organization');
+      } else {
+        toast.success('Organization details updated successfully!');
+        // Refresh account data to show updated info
+        await fetchAccountData();
+      }
+    } catch (error: any) {
+      console.error('[DeveloperSettings] Update organization error:', error);
+      toast.error(error.response?.data?.error || error.message || 'Failed to update organization');
+    } finally {
+      setIsSavingOrganization(false);
+    }
+  };
+
   const handleChangePassword = async () => {
     // Validation
     if (!currentPassword || !newPassword || !confirmPassword) {
@@ -390,6 +535,9 @@ export function DeveloperSettings({ user }: DeveloperSettingsProps) {
     window.history.pushState({}, '', url.toString());
   };
 
+  // Check if user is Owner (only Owner can see Team tab)
+  const isOwner = !!accountInfo?.user?.isOwner;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -401,7 +549,7 @@ export function DeveloperSettings({ user }: DeveloperSettingsProps) {
       </div>
 
       <Tabs defaultValue={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className={`grid w-full ${isOwner ? 'grid-cols-5' : 'grid-cols-4'}`}>
           <TabsTrigger value="profile" className="gap-2">
             <User className="w-4 h-4" />
             Profile
@@ -414,18 +562,16 @@ export function DeveloperSettings({ user }: DeveloperSettingsProps) {
             <Bell className="w-4 h-4" />
             Notifications
           </TabsTrigger>
-          <TabsTrigger value="security" className="gap-2">
-            <Shield className="w-4 h-4" />
-            Security
-          </TabsTrigger>
           <TabsTrigger value="billing" className="gap-2">
             <CreditCard className="w-4 h-4" />
             Billing
           </TabsTrigger>
-          <TabsTrigger value="team" className="gap-2">
-            <Users className="w-4 h-4" />
-            Team
-          </TabsTrigger>
+          {isOwner && (
+            <TabsTrigger value="team" className="gap-2">
+              <Users className="w-4 h-4" />
+              Team
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* Profile Settings */}
@@ -460,14 +606,18 @@ export function DeveloperSettings({ user }: DeveloperSettingsProps) {
                   <Label htmlFor="first-name">First Name</Label>
                   <Input
                     id="first-name"
-                    defaultValue={user?.name?.split(' ')[0] || accountInfo?.user?.name?.split(' ')[0] || ''}
+                    value={profileData.firstName}
+                    onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
+                    placeholder="John"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="last-name">Last Name</Label>
                   <Input
                     id="last-name"
-                    defaultValue={user?.name?.split(' ').slice(1).join(' ') || accountInfo?.user?.name?.split(' ').slice(1).join(' ') || ''}
+                    value={profileData.lastName}
+                    onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
+                    placeholder="Doe"
                   />
                 </div>
               </div>
@@ -477,8 +627,11 @@ export function DeveloperSettings({ user }: DeveloperSettingsProps) {
                 <Input
                   id="email"
                   type="email"
-                  defaultValue={user?.email || accountInfo?.user?.email || ''}
+                  value={profileData.email}
+                  disabled
+                  className="bg-gray-50"
                 />
+                <p className="text-xs text-gray-500">Email cannot be changed</p>
               </div>
 
               <div className="space-y-2">
@@ -486,7 +639,9 @@ export function DeveloperSettings({ user }: DeveloperSettingsProps) {
                 <Input
                   id="phone"
                   type="tel"
-                  defaultValue={accountInfo?.customer?.phone || ''}
+                  value={profileData.phone}
+                  onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+                  placeholder="+234 XXX XXX XXXX"
                 />
               </div>
 
@@ -504,17 +659,29 @@ export function DeveloperSettings({ user }: DeveloperSettingsProps) {
                 <Label htmlFor="bio">Bio</Label>
                 <Textarea
                   id="bio"
+                  value={profileData.bio}
+                  onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
                   placeholder="Tell us a bit about yourself..."
                   rows={4}
                 />
               </div>
 
               <div className="flex gap-2">
-                <Button className="gap-2" onClick={() => toast.success('Profile updated successfully!')}>
+                <Button
+                  className="gap-2"
+                  onClick={handleSaveProfile}
+                  disabled={isSavingProfile}
+                >
                   <Save className="w-4 h-4" />
-                  Save Changes
+                  {isSavingProfile ? 'Saving...' : 'Save Changes'}
                 </Button>
-                <Button variant="outline">Cancel</Button>
+                <Button
+                  variant="outline"
+                  onClick={() => fetchAccountData()}
+                  disabled={isSavingProfile}
+                >
+                  Cancel
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -534,13 +701,18 @@ export function DeveloperSettings({ user }: DeveloperSettingsProps) {
                 <Label htmlFor="org-name">Organization Name</Label>
                 <Input
                   id="org-name"
-                  defaultValue={accountInfo?.customer?.company || user?.company || ''}
+                  value={organizationData.company}
+                  onChange={(e) => setOrganizationData({ ...organizationData, company: e.target.value })}
+                  placeholder="Your Company Name"
                 />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="org-type">Organization Type</Label>
-                <Select defaultValue="developer">
+                <Select
+                  value={organizationData.organizationType}
+                  onValueChange={(value) => setOrganizationData({ ...organizationData, organizationType: value })}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -558,12 +730,19 @@ export function DeveloperSettings({ user }: DeveloperSettingsProps) {
                   <Label htmlFor="tax-id">Tax ID / EIN</Label>
                   <Input
                     id="tax-id"
-                    defaultValue={accountInfo?.customer?.taxId || ''}
+                    value={organizationData.taxId}
+                    onChange={(e) => setOrganizationData({ ...organizationData, taxId: e.target.value })}
+                    placeholder="XX-XXXXXXX"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="license">License Number</Label>
-                  <Input id="license" placeholder="LIC-2025-XXXX" />
+                  <Input
+                    id="license"
+                    value={organizationData.licenseNumber}
+                    onChange={(e) => setOrganizationData({ ...organizationData, licenseNumber: e.target.value })}
+                    placeholder="LIC-2025-XXXX"
+                  />
                 </div>
               </div>
 
@@ -571,7 +750,9 @@ export function DeveloperSettings({ user }: DeveloperSettingsProps) {
                 <Label htmlFor="address">Business Address</Label>
                 <Input
                   id="address"
-                  defaultValue={accountInfo?.customer?.street || ''}
+                  value={organizationData.street}
+                  onChange={(e) => setOrganizationData({ ...organizationData, street: e.target.value })}
+                  placeholder="123 Main Street"
                 />
               </div>
 
@@ -580,21 +761,27 @@ export function DeveloperSettings({ user }: DeveloperSettingsProps) {
                   <Label htmlFor="city">City</Label>
                   <Input
                     id="city"
-                    defaultValue={accountInfo?.customer?.city || ''}
+                    value={organizationData.city}
+                    onChange={(e) => setOrganizationData({ ...organizationData, city: e.target.value })}
+                    placeholder="Lagos"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="state">State</Label>
                   <Input
                     id="state"
-                    defaultValue={accountInfo?.customer?.state || ''}
+                    value={organizationData.state}
+                    onChange={(e) => setOrganizationData({ ...organizationData, state: e.target.value })}
+                    placeholder="Lagos State"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="zip">ZIP Code</Label>
                   <Input
                     id="zip"
-                    defaultValue={accountInfo?.customer?.postalCode || ''}
+                    value={organizationData.postalCode}
+                    onChange={(e) => setOrganizationData({ ...organizationData, postalCode: e.target.value })}
+                    placeholder="100001"
                   />
                 </div>
               </div>
@@ -605,18 +792,29 @@ export function DeveloperSettings({ user }: DeveloperSettingsProps) {
                   <Globe className="w-4 h-4 text-gray-400" />
                   <Input
                     id="website"
-                    defaultValue={accountInfo?.customer?.website || ''}
+                    value={organizationData.website}
+                    onChange={(e) => setOrganizationData({ ...organizationData, website: e.target.value })}
                     placeholder="https://yourcompany.com"
                   />
                 </div>
               </div>
 
               <div className="flex gap-2">
-                <Button className="gap-2" onClick={() => toast.success('Organization details updated!')}>
+                <Button
+                  className="gap-2"
+                  onClick={handleSaveOrganization}
+                  disabled={isSavingOrganization}
+                >
                   <Save className="w-4 h-4" />
-                  Save Changes
+                  {isSavingOrganization ? 'Saving...' : 'Save Changes'}
                 </Button>
-                <Button variant="outline">Cancel</Button>
+                <Button
+                  variant="outline"
+                  onClick={() => fetchAccountData()}
+                  disabled={isSavingOrganization}
+                >
+                  Cancel
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -624,188 +822,7 @@ export function DeveloperSettings({ user }: DeveloperSettingsProps) {
 
         {/* Notification Settings */}
         <TabsContent value="notifications" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Email Notifications</CardTitle>
-              <CardDescription>
-                Choose what notifications you want to receive via email
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-gray-900">Budget Alerts</p>
-                  <p className="text-sm text-gray-500">Notify when budget lines exceed thresholds</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-gray-900">Invoice Approvals</p>
-                  <p className="text-sm text-gray-500">Notifications for pending invoice approvals</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-gray-900">Purchase Orders</p>
-                  <p className="text-sm text-gray-500">Updates on purchase order status changes</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-gray-900">Weekly Reports</p>
-                  <p className="text-sm text-gray-500">Receive weekly project summary reports</p>
-                </div>
-                <Switch />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-gray-900">Forecast Updates</p>
-                  <p className="text-sm text-gray-500">AI-generated forecast and insight notifications</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>In-App Notifications</CardTitle>
-              <CardDescription>
-                Configure in-app notification preferences
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-gray-900">Desktop Notifications</p>
-                  <p className="text-sm text-gray-500">Show desktop notifications for important alerts</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-gray-900">Sound Alerts</p>
-                  <p className="text-sm text-gray-500">Play sound when receiving notifications</p>
-                </div>
-                <Switch />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Security Settings */}
-        <TabsContent value="security" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Password & Authentication</CardTitle>
-              <CardDescription>
-                Manage your password and authentication settings
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="current-password">Current Password</Label>
-                <Input
-                  id="current-password"
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="Enter your current password"
-                  disabled={isChangingPassword}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="new-password">New Password</Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Enter new password (min. 6 characters)"
-                  disabled={isChangingPassword}
-                />
-                <p className="text-xs text-gray-500">
-                  Password must be at least 6 characters long
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="confirm-password">Confirm New Password</Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm your new password"
-                  disabled={isChangingPassword}
-                />
-                {confirmPassword && newPassword !== confirmPassword && (
-                  <p className="text-xs text-red-500">
-                    Passwords do not match
-                  </p>
-                )}
-              </div>
-
-              <Button
-                onClick={handleChangePassword}
-                disabled={isChangingPassword || !currentPassword || !newPassword || !confirmPassword}
-              >
-                {isChangingPassword ? 'Updating Password...' : 'Update Password'}
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Two-Factor Authentication</CardTitle>
-              <CardDescription>
-                Add an extra layer of security to your account
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-gray-900">Two-Factor Authentication</p>
-                  <p className="text-sm text-gray-500">Require authentication code when signing in</p>
-                </div>
-                <Badge variant="outline">Not Enabled</Badge>
-              </div>
-              <Button variant="outline" onClick={() => toast.info('2FA setup coming soon!')}>
-                Enable 2FA
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Active Sessions</CardTitle>
-              <CardDescription>
-                Manage your active sessions across devices
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="p-4 border rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="font-medium text-gray-900">Current Device - Browser</p>
-                  <Badge className="bg-green-500">Current Session</Badge>
-                </div>
-                <p className="text-sm text-gray-500">Last active: Now</p>
-              </div>
-
-              <Button variant="outline" onClick={() => toast.info('Session management coming soon!')}>
-                Revoke All Other Sessions
-              </Button>
-            </CardContent>
-          </Card>
+          <NotificationPreferencesTab />
         </TabsContent>
 
         {/* Billing Settings */}
@@ -888,6 +905,144 @@ export function DeveloperSettings({ user }: DeveloperSettingsProps) {
                     Update Payment Method
                   </Button>
                 </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Storage Quota Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <HardDrive className="w-5 h-5" />
+                Storage Quota
+              </CardTitle>
+              <CardDescription>
+                Monitor your file storage usage and available space
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {loadingQuota ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">Loading storage quota...</p>
+                </div>
+              ) : storageQuota ? (
+                <>
+                  <div className="space-y-3">
+                    {/* Usage Stats */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">Storage Used</p>
+                        <p className="text-2xl font-bold text-gray-900">
+                          {storageQuota.usedFormatted}
+                          <span className="text-sm font-normal text-gray-500">
+                            {' '}/ {storageQuota.limitFormatted}
+                          </span>
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-gray-700">Available</p>
+                        <p className="text-lg font-semibold text-green-600">
+                          {storageQuota.availableFormatted}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="space-y-2">
+                      <Progress
+                        value={storageQuota.percentage}
+                        className={`h-3 ${
+                          storageQuota.percentage > 90
+                            ? 'bg-red-100'
+                            : storageQuota.percentage > 75
+                            ? 'bg-yellow-100'
+                            : 'bg-green-100'
+                        }`}
+                      />
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>{storageQuota.percentage.toFixed(1)}% used</span>
+                        <span>
+                          {storageQuota.percentage > 90 && (
+                            <span className="flex items-center gap-1 text-red-600 font-medium">
+                              <AlertCircle className="w-3 h-3" />
+                              Almost full
+                            </span>
+                          )}
+                          {storageQuota.percentage > 75 && storageQuota.percentage <= 90 && (
+                            <span className="flex items-center gap-1 text-yellow-600 font-medium">
+                              <AlertCircle className="w-3 h-3" />
+                              Running low
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Warning Message */}
+                    {storageQuota.percentage > 90 && (
+                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-red-900">
+                              Storage almost full
+                            </p>
+                            <p className="text-xs text-red-700 mt-1">
+                              You're running out of storage space. Consider upgrading your plan or deleting unused files.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Info Box */}
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-900">
+                        <strong>What counts towards storage?</strong>
+                      </p>
+                      <ul className="text-xs text-blue-800 mt-2 space-y-1 ml-4 list-disc">
+                        <li>Invoice attachments (receipts, documents)</li>
+                        <li>Project documents and files</li>
+                        <li>Uploaded images and media</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        // Navigate to storage test page or files page
+                        window.location.href = '/storage-test';
+                      }}
+                    >
+                      View Files
+                    </Button>
+                    {storageQuota.percentage > 75 && (
+                      <Button
+                        size="sm"
+                        className="bg-blue-600 hover:bg-blue-700"
+                        onClick={() => setShowChangePlanDialog(true)}
+                      >
+                        Upgrade Plan
+                      </Button>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">Storage quota information unavailable</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4"
+                    onClick={fetchStorageQuota}
+                  >
+                    Retry
+                  </Button>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -1145,55 +1300,12 @@ export function DeveloperSettings({ user }: DeveloperSettingsProps) {
           )}
         </TabsContent>
 
-        {/* Team Settings */}
-        <TabsContent value="team" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Team Members</CardTitle>
-                  <CardDescription>
-                    Manage your team members and their permissions
-                  </CardDescription>
-                </div>
-                <Button className="gap-2" onClick={() => toast.info('Team invitation coming soon!')}>
-                  <Users className="w-4 h-4" />
-                  Invite Member
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Avatar>
-                      <AvatarFallback className="bg-blue-600 text-white">
-                        {getInitials(user?.name || accountInfo?.user?.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-medium text-gray-900">{user?.name || accountInfo?.user?.name || 'Developer'}</p>
-                      <p className="text-sm text-gray-500">{user?.email || accountInfo?.user?.email || ''}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Badge>Admin</Badge>
-                    <span className="text-sm text-gray-500">You</span>
-                  </div>
-                </div>
-
-                <div className="p-8 text-center border-2 border-dashed rounded-lg">
-                  <Users className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                  <p className="text-gray-600 mb-2">No team members yet</p>
-                  <p className="text-sm text-gray-500 mb-4">Invite team members to collaborate on projects</p>
-                  <Button variant="outline" onClick={() => toast.info('Team invitation coming soon!')}>
-                    Invite Team Member
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {/* Team Settings - Only for Owner */}
+        {isOwner && (
+          <TabsContent value="team" className="space-y-6">
+            <TeamManagementTab />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

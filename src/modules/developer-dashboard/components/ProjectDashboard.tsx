@@ -149,7 +149,9 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
     );
   }
 
-  const { project, alerts, cashFlowData } = data;
+  const { project, alerts, cashFlowData, invoices } = data;
+
+  console.log('🔍 [ProjectDashboard] Invoices data:', invoices?.length || 0, invoices);
 
   // Use real cash flow data from API, or fallback to empty array
   const monthlyCashFlow = cashFlowData || [];

@@ -54,8 +54,29 @@ export const updateProfile = async (profileData: {
   baseCurrency?: string;
   department?: string;
   company?: string;
-}): Promise<ApiResponse<any>> => {
-  return await apiClient.put<any>('/api/settings/profile', profileData);
+  bio?: string;
+}): Promise<ApiResponse<{ message: string; user: UserSettings }>> => {
+  return await apiClient.put<{ message: string; user: UserSettings }>('/api/settings/profile', profileData);
+};
+
+/**
+ * Update customer/organization settings
+ */
+export const updateOrganization = async (organizationData: {
+  company?: string;
+  phone?: string;
+  website?: string;
+  taxId?: string;
+  industry?: string;
+  companySize?: string;
+  street?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  licenseNumber?: string;
+  organizationType?: string;
+}): Promise<ApiResponse<{ message: string; customer: any }>> => {
+  return await apiClient.put<{ message: string; customer: any }>('/api/settings/organization', organizationData);
 };
 
 export interface PaymentGatewaySettings {

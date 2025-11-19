@@ -131,7 +131,12 @@ model customers {
   propertyLimit               Int                         @default(5)
   projectLimit                Int?                        // For developer plans
   userLimit                   Int                         @default(3)
+  // Legacy storage limit field (not used by new storage system, kept for backward compatibility)
   storageLimit                Int                         @default(1000)
+  // New storage tracking fields for multi-tenant storage system
+  storage_used                BigInt?                     @default(0)
+  storage_limit               BigInt?                     @default(5368709120) // 5GB default in bytes
+  storage_last_calculated     DateTime?                   @default(now())
   street                      String?
   city                        String?
   state                       String?
@@ -179,6 +184,17 @@ model customers {
   project_vendors             project_vendors[]
   project_funding             project_funding[]
   purchase_orders             purchase_orders[]
+  storage_usage               storage_usage[]
+  storage_transactions        storage_transactions[]
+  invoice_attachments         invoice_attachments[]
+  team_roles                  team_roles[]
+  team_members                team_members[]
+  invoice_approval_workflows  invoice_approval_workflows[]
+  notifications               notifications[]
+  notification_preferences    notification_preferences[]
+  email_queue                 email_queue[]
+  notification_templates      notification_templates[]
+  notification_logs           notification_logs[]
 
   @@index([status])
   @@index([trialEndsAt])
@@ -710,6 +726,7 @@ model users {
   department                                                                    String?
   company                                                                       String?
   baseCurrency                                                                  String                        @default("USD")
+  bio                                                                           String?
   isActive                                                                      Boolean                       @default(true)
   status                                                                        String                        @default("pending")
   lastLogin                                                                     DateTime?
@@ -717,6 +734,9 @@ model users {
   acceptedAt                                                                    DateTime?
   permissions                                                                   Json?
   avatar                                                                        String?
+  is_temp_password                                                              Boolean?                      @default(false)
+  temp_password_expires_at                                                      DateTime?
+  must_change_password                                                          Boolean?                      @default(false)
   createdAt                                                                     DateTime                      @default(now())
   updatedAt                                                                     DateTime                      @updatedAt
   activity_logs                                                                 activity_logs[]
@@ -750,6 +770,16 @@ model users {
   project_expenses_approved                                                     project_expenses[]          @relation("ExpenseApprover")
   purchase_orders_requested                                                     purchase_orders[]          @relation("PORequester")
   purchase_orders_approved                                                      purchase_orders[]          @relation("POApprover")
+  storage_transactions                                                          storage_transactions[]
+  invoice_attachments                                                           invoice_attachments[]
+  team_members                                                                  team_members[]
+  team_members_invited                                                          team_members[]             @relation("invited_by")
+  invoice_approval_workflows_created                                            invoice_approval_workflows[]
+  notifications                                                                 notifications[]
+  notification_preferences                                                      notification_preferences[]
+  email_queue                                                                   email_queue[]
+  notification_templates                                                        notification_templates[]
+  notification_logs                                                             notification_logs[]
 }
 
 model maintenance_requests {
@@ -926,29 +956,32 @@ model project_vendors {
 }
 
 model project_invoices {
-  id              String             @id @default(uuid())
-  projectId       String
-  vendorId        String?
-  purchaseOrderId String? // Link to purchase order
-  invoiceNumber   String             @unique
-  description     String
-  category        String // matches budget categories
-  amount          Float
-  currency        String             @default("NGN")
-  status          String             @default("pending") // pending, approved, paid, rejected, matched
-  dueDate         DateTime?
-  paidDate        DateTime?
-  paymentMethod   String?
-  approvedBy      String?
-  approvedAt      DateTime?
-  attachments     Json?
-  notes           String?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  project         developer_projects @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  vendor          project_vendors?   @relation(fields: [vendorId], references: [id])
-  purchaseOrder   purchase_orders?   @relation(fields: [purchaseOrderId], references: [id])
-  approver        users?             @relation(fields: [approvedBy], references: [id])
+  id                  String                 @id @default(uuid())
+  projectId           String
+  vendorId            String?
+  purchaseOrderId     String? // Link to purchase order
+  invoiceNumber       String                 @unique
+  description         String
+  category            String // matches budget categories
+  amount              Float
+  currency            String                 @default("NGN")
+  status              String                 @default("pending") // pending, approved, paid, rejected, matched
+  dueDate             DateTime?
+  paidDate            DateTime?
+  paymentMethod       String?
+  approvedBy          String?
+  approvedAt          DateTime?
+  attachments         Json?
+  notes               String?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  project             developer_projects     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  vendor              project_vendors?       @relation(fields: [vendorId], references: [id])
+  purchaseOrder       purchase_orders?       @relation(fields: [purchaseOrderId], references: [id])
+  approver            users?                 @relation(fields: [approvedBy], references: [id])
+  invoice_attachments invoice_attachments[]
+  invoice_approvals   invoice_approvals[]
+  approval_history    approval_history[]
 
   @@index([projectId])
   @@index([vendorId])
@@ -1205,4 +1238,352 @@ model project_stages {
   @@index([projectId])
   @@index([order])
   @@index([isCompleted])
+}
+
+// ============================================
+// Customer Storage Management System
+// ============================================
+
+model storage_usage {
+  id           String    @id @default(uuid())
+  customer_id  String
+  file_type    String
+  category     String?
+  file_count   Int       @default(0)
+  total_size   BigInt    @default(0)
+  last_updated DateTime  @default(now())
+  customers    customers @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+
+  @@unique([customer_id, file_type, category])
+  @@index([customer_id])
+  @@index([file_type])
+}
+
+model storage_transactions {
+  id          String    @id @default(uuid())
+  customer_id String
+  file_id     String?
+  file_path   String
+  file_name   String
+  file_size   BigInt
+  file_type   String?
+  action      String
+  uploaded_by String?
+  created_at  DateTime  @default(now())
+  metadata    Json?
+  customers   customers @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  users       users?    @relation(fields: [uploaded_by], references: [id])
+
+  @@index([customer_id])
+  @@index([created_at])
+  @@index([action])
+  @@index([file_path])
+}
+
+model invoice_attachments {
+  id           String           @id @default(dbgenerated("gen_random_uuid()::text"))
+  invoice_id   String
+  customer_id  String
+  file_path    String
+  file_name    String
+  file_size    BigInt
+  file_type    String
+  mime_type    String
+  uploaded_by  String
+  uploaded_at  DateTime         @default(now())
+  metadata     Json?
+  invoice      project_invoices @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  customer     customers        @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  uploader     users            @relation(fields: [uploaded_by], references: [id])
+
+  @@index([invoice_id])
+  @@index([customer_id])
+  @@index([uploaded_at])
+  @@index([file_type])
+}
+
+// ============================================
+// TEAM MANAGEMENT & APPROVAL SYSTEM
+// ============================================
+
+model team_roles {
+  id                     String         @id @default(dbgenerated("gen_random_uuid()::text"))
+  customer_id            String?
+  name                   String
+  description            String?
+  is_system_role         Boolean        @default(false)
+  permissions            Json           @default("{}")
+  can_approve_invoices   Boolean        @default(false)
+  approval_limit         Decimal?       @db.Decimal(15, 2)
+  requires_approval_from String[]
+  created_at             DateTime       @default(now())
+  updated_at             DateTime       @default(now())
+  customer               customers?     @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  team_members           team_members[]
+
+  @@unique([customer_id, name])
+  @@index([customer_id])
+  @@index([is_system_role])
+}
+
+model team_members {
+  id                      String              @id @default(dbgenerated("gen_random_uuid()::text"))
+  customer_id             String
+  user_id                 String?
+  role_id                 String
+  first_name              String
+  last_name               String
+  email                   String
+  phone                   String?
+  job_title               String?
+  department              String?
+  status                  String              @default("active")
+  can_approve_invoices    Boolean             @default(false)
+  approval_limit          Decimal?            @db.Decimal(15, 2)
+  can_create_invoices     Boolean             @default(false)
+  can_manage_projects     Boolean             @default(false)
+  can_view_reports        Boolean             @default(false)
+  delegate_to             String?
+  delegation_start        DateTime?
+  delegation_end          DateTime?
+  invited_by              String?
+  invited_at              DateTime            @default(now())
+  joined_at               DateTime?
+  last_active             DateTime?
+  created_at              DateTime            @default(now())
+  updated_at              DateTime            @default(now())
+  customer                customers           @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  user                    users?              @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  role                    team_roles          @relation(fields: [role_id], references: [id])
+  inviter                 users?              @relation("invited_by", fields: [invited_by], references: [id])
+  delegate                team_members?       @relation("delegation", fields: [delegate_to], references: [id])
+  delegated_from          team_members[]      @relation("delegation")
+  invoice_approvals       invoice_approvals[]
+  delegated_approvals     invoice_approvals[] @relation("delegated_approvals")
+  approval_history        approval_history[]
+
+  @@unique([customer_id, email])
+  @@index([customer_id])
+  @@index([user_id])
+  @@index([role_id])
+  @@index([status])
+  @@index([can_approve_invoices, status])
+  @@index([email])
+}
+
+model invoice_approval_workflows {
+  id                 String              @id @default(dbgenerated("gen_random_uuid()::text"))
+  customer_id        String
+  name               String
+  description        String?
+  is_active          Boolean             @default(true)
+  is_default         Boolean             @default(false)
+  min_amount         Decimal?            @db.Decimal(15, 2)
+  max_amount         Decimal?            @db.Decimal(15, 2)
+  categories         String[]
+  approval_levels    Json
+  auto_approve_under Decimal?            @db.Decimal(15, 2)
+  created_by         String?
+  created_at         DateTime            @default(now())
+  updated_at         DateTime            @default(now())
+  customer           customers           @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  creator            users?              @relation(fields: [created_by], references: [id])
+  invoice_approvals  invoice_approvals[]
+
+  @@unique([customer_id, name])
+  @@index([customer_id])
+  @@index([is_active, is_default])
+  @@index([min_amount, max_amount])
+}
+
+model invoice_approvals {
+  id                String                        @id @default(dbgenerated("gen_random_uuid()::text"))
+  invoice_id        String
+  workflow_id       String?
+  level             Int
+  level_name        String?
+  approver_id       String
+  status            String                        @default("pending")
+  decision          String?
+  comments          String?
+  requested_at      DateTime                      @default(now())
+  responded_at      DateTime?
+  due_at            DateTime?
+  delegated_to      String?
+  delegated_at      DateTime?
+  notification_sent Boolean                       @default(false)
+  reminder_count    Int                           @default(0)
+  last_reminder_at  DateTime?
+  invoice           project_invoices              @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  workflow          invoice_approval_workflows?   @relation(fields: [workflow_id], references: [id])
+  approver          team_members                  @relation(fields: [approver_id], references: [id])
+  delegate          team_members?                 @relation("delegated_approvals", fields: [delegated_to], references: [id])
+  approval_history  approval_history[]
+
+  @@index([invoice_id])
+  @@index([approver_id, status])
+  @@index([status])
+  @@index([due_at, status])
+  @@index([workflow_id])
+}
+
+model approval_history {
+  id              String             @id @default(dbgenerated("gen_random_uuid()::text"))
+  invoice_id      String
+  approval_id     String?
+  action          String
+  actor_id        String?
+  actor_name      String
+  actor_role      String?
+  level           Int?
+  comments        String?
+  previous_status String?
+  new_status      String?
+  metadata        Json?
+  ip_address      String?
+  user_agent      String?
+  created_at      DateTime           @default(now())
+  invoice         project_invoices   @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  approval        invoice_approvals? @relation(fields: [approval_id], references: [id])
+  actor           team_members?      @relation(fields: [actor_id], references: [id])
+
+  @@index([invoice_id])
+  @@index([actor_id])
+  @@index([action])
+  @@index([created_at])
+}
+
+model notifications {
+  id                 String              @id @default(dbgenerated("gen_random_uuid()"))  @db.Uuid
+  customer_id        String
+  user_id            String?
+  type               String              @db.VarChar(50)
+  title              String              @db.VarChar(255)
+  message            String
+  data               Json?               @default("{}")
+  read               Boolean             @default(false)
+  read_at            DateTime?
+  action_url         String?             @db.VarChar(500)
+  priority           String              @default("normal") @db.VarChar(20)
+  created_at         DateTime            @default(now())
+  updated_at         DateTime            @default(now())
+  customer           customers           @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  user               users?              @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  notification_logs  notification_logs[]
+
+  @@index([customer_id])
+  @@index([user_id])
+  @@index([type])
+  @@index([read])
+  @@index([created_at(sort: Desc)])
+  @@index([user_id, read], map: "idx_notifications_user_unread")
+}
+
+model notification_preferences {
+  id                          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                     String
+  customer_id                 String
+  email_enabled               Boolean   @default(true)
+  email_invoice_approval      Boolean   @default(true)
+  email_invoice_approved      Boolean   @default(true)
+  email_invoice_rejected      Boolean   @default(true)
+  email_invoice_paid          Boolean   @default(true)
+  email_team_invitation       Boolean   @default(true)
+  email_delegation            Boolean   @default(true)
+  email_daily_digest          Boolean   @default(false)
+  email_weekly_summary        Boolean   @default(false)
+  inapp_enabled               Boolean   @default(true)
+  inapp_invoice_approval      Boolean   @default(true)
+  inapp_invoice_approved      Boolean   @default(true)
+  inapp_invoice_rejected      Boolean   @default(true)
+  inapp_invoice_paid          Boolean   @default(true)
+  inapp_team_invitation       Boolean   @default(true)
+  inapp_delegation            Boolean   @default(true)
+  push_enabled                Boolean   @default(false)
+  quiet_hours_enabled         Boolean   @default(false)
+  quiet_hours_start           DateTime? @db.Time(6)
+  quiet_hours_end             DateTime? @db.Time(6)
+  quiet_hours_timezone        String    @default("UTC") @db.VarChar(50)
+  created_at                  DateTime  @default(now())
+  updated_at                  DateTime  @default(now())
+  user                        users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  customer                    customers @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, customer_id])
+  @@index([user_id])
+  @@index([customer_id])
+}
+
+model email_queue {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customer_id      String
+  user_id          String?
+  to_email         String    @db.VarChar(255)
+  to_name          String?   @db.VarChar(255)
+  from_email       String?   @db.VarChar(255)
+  from_name        String?   @db.VarChar(255)
+  subject          String    @db.VarChar(500)
+  body_html        String
+  body_text        String?
+  template_name    String?   @db.VarChar(100)
+  template_data    Json?     @default("{}")
+  status           String    @default("pending") @db.VarChar(50)
+  priority         Int       @default(5)
+  scheduled_at     DateTime?
+  sent_at          DateTime?
+  failed_at        DateTime?
+  error_message    String?
+  retry_count      Int       @default(0)
+  max_retries      Int       @default(3)
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @default(now())
+  customer         customers @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  user             users?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([scheduled_at])
+  @@index([customer_id])
+  @@index([priority(sort: Desc)])
+}
+
+model notification_templates {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customer_id String?
+  name        String    @db.VarChar(100)
+  type        String    @db.VarChar(50)
+  subject     String?   @db.VarChar(500)
+  body_html   String?
+  body_text   String?
+  variables   Json?     @default("[]")
+  is_system   Boolean   @default(false)
+  is_active   Boolean   @default(true)
+  created_by  String?
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @default(now())
+  customer    customers? @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  creator     users?    @relation(fields: [created_by], references: [id], onDelete: SetNull)
+
+  @@unique([customer_id, name, type])
+  @@index([customer_id])
+  @@index([type])
+  @@index([is_active])
+}
+
+model notification_logs {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  notification_id String         @db.Uuid
+  customer_id     String
+  user_id         String?
+  action          String         @db.VarChar(50)
+  details         Json?          @default("{}")
+  ip_address      String?        @db.Inet
+  user_agent      String?
+  created_at      DateTime       @default(now())
+  notification    notifications  @relation(fields: [notification_id], references: [id], onDelete: Cascade)
+  customer        customers      @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  user            users?         @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([notification_id])
+  @@index([customer_id])
+  @@index([created_at(sort: Desc)])
 }

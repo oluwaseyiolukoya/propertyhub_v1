@@ -169,7 +169,8 @@ router.put('/profile', async (req: AuthRequest, res: Response) => {
       phone,
       baseCurrency,
       department,
-      company
+      company,
+      bio
     } = req.body;
 
     // Build update data
@@ -182,6 +183,7 @@ router.put('/profile', async (req: AuthRequest, res: Response) => {
     if (baseCurrency !== undefined) updateData.baseCurrency = baseCurrency;
     if (department !== undefined) updateData.department = department;
     if (company !== undefined) updateData.company = company;
+    if (bio !== undefined) updateData.bio = bio;
 
     // Update user in database
     const updatedUser = await prisma.users.update({
@@ -196,6 +198,7 @@ router.put('/profile', async (req: AuthRequest, res: Response) => {
         baseCurrency: true,
         department: true,
         company: true,
+        bio: true,
         permissions: true,
         isActive: true,
         status: true,
@@ -214,6 +217,85 @@ router.put('/profile', async (req: AuthRequest, res: Response) => {
   } catch (error: any) {
     console.error('❌ Update profile error:', error);
     return res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// Update customer/organization settings
+router.put('/organization', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const customerId = req.user?.customerId;
+
+    if (!userId || !customerId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const {
+      company,
+      phone,
+      website,
+      taxId,
+      industry,
+      companySize,
+      street,
+      city,
+      state,
+      postalCode,
+      licenseNumber,
+      organizationType
+    } = req.body;
+
+    // Build update data
+    const updateData: any = {};
+
+    if (company !== undefined) updateData.company = company;
+    if (phone !== undefined) updateData.phone = phone;
+    if (website !== undefined) updateData.website = website;
+    if (taxId !== undefined) updateData.taxId = taxId;
+    if (industry !== undefined) updateData.industry = industry;
+    if (companySize !== undefined) updateData.companySize = companySize;
+    if (street !== undefined) updateData.street = street;
+    if (city !== undefined) updateData.city = city;
+    if (state !== undefined) updateData.state = state;
+    if (postalCode !== undefined) updateData.postalCode = postalCode;
+    if (licenseNumber !== undefined) updateData.licenseNumber = licenseNumber;
+
+    // Store organization type in metadata if needed (for future use)
+    if (organizationType !== undefined) {
+      // Can be stored in a metadata field or separate table in the future
+      console.log('Organization type:', organizationType);
+    }
+
+    // Update customer in database
+    const updatedCustomer = await prisma.customers.update({
+      where: { id: customerId },
+      data: updateData,
+      select: {
+        id: true,
+        company: true,
+        email: true,
+        phone: true,
+        website: true,
+        taxId: true,
+        industry: true,
+        companySize: true,
+        street: true,
+        city: true,
+        state: true,
+        postalCode: true,
+        licenseNumber: true
+      }
+    });
+
+    console.log('✅ Organization updated for customer:', customerId);
+
+    return res.json({
+      message: 'Organization details updated successfully',
+      customer: updatedCustomer
+    });
+  } catch (error: any) {
+    console.error('❌ Update organization error:', error);
+    return res.status(500).json({ error: 'Failed to update organization details' });
   }
 });
 

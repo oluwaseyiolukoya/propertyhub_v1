@@ -141,6 +141,65 @@ export async function createProjectInvoice(
 }
 
 /**
+ * Update a project invoice
+ */
+export async function updateProjectInvoice(
+  projectId: string,
+  invoiceId: string,
+  data: Partial<CreateInvoiceData>
+): Promise<ApiResponse<ProjectInvoice>> {
+  try {
+    const response = await apiClient.put<ProjectInvoice>(
+      `/api/developer-dashboard/projects/${projectId}/invoices/${invoiceId}`,
+      data
+    );
+    return response;
+  } catch (error) {
+    console.error('Error updating invoice:', error);
+    return { data: null, error: { message: 'Failed to update invoice' } };
+  }
+}
+
+/**
+ * Approve a project invoice
+ */
+export async function approveProjectInvoice(
+  projectId: string,
+  invoiceId: string
+): Promise<ApiResponse<{ message: string; invoice: ProjectInvoice }>> {
+  try {
+    const response = await apiClient.post<{ message: string; invoice: ProjectInvoice }>(
+      `/api/developer-dashboard/projects/${projectId}/invoices/${invoiceId}/approve`,
+      {}
+    );
+    return response;
+  } catch (error) {
+    console.error('Error approving invoice:', error);
+    return { data: null, error: { message: 'Failed to approve invoice' } };
+  }
+}
+
+/**
+ * Reject a project invoice
+ */
+export async function rejectProjectInvoice(
+  projectId: string,
+  invoiceId: string,
+  reason?: string
+): Promise<ApiResponse<{ message: string; invoice: ProjectInvoice }>> {
+  try {
+    const response = await apiClient.post<{ message: string; invoice: ProjectInvoice }>(
+      `/api/developer-dashboard/projects/${projectId}/invoices/${invoiceId}/reject`,
+      { reason }
+    );
+    return response;
+  } catch (error) {
+    console.error('Error rejecting invoice:', error);
+    return { data: null, error: { message: 'Failed to reject invoice' } };
+  }
+}
+
+/**
  * Mark a project invoice as paid and automatically create an expense
  */
 export async function markInvoiceAsPaid(
@@ -162,5 +221,23 @@ export async function markInvoiceAsPaid(
   } catch (error) {
     console.error('Error marking invoice as paid:', error);
     return { data: null, error: { message: 'Failed to mark invoice as paid' } };
+  }
+}
+
+/**
+ * Delete a project invoice
+ */
+export async function deleteProjectInvoice(
+  projectId: string,
+  invoiceId: string
+): Promise<ApiResponse<{ message: string }>> {
+  try {
+    const response = await apiClient.delete<{ message: string }>(
+      `/api/developer-dashboard/projects/${projectId}/invoices/${invoiceId}`
+    );
+    return response;
+  } catch (error) {
+    console.error('Error deleting invoice:', error);
+    return { data: null, error: { message: 'Failed to delete invoice' } };
   }
 }

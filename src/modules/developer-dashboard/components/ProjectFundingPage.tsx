@@ -12,6 +12,8 @@ import {
   Clock,
   XCircle,
   AlertCircle,
+  Edit,
+  MoreVertical,
 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
@@ -23,6 +25,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../../components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../../../components/ui/dropdown-menu";
 import {
   AreaChart,
   Area,
@@ -40,6 +50,7 @@ import {
 } from "recharts";
 import { toast } from "sonner";
 import { AddFundingModal } from "./AddFundingModal";
+import { EditFundingModal } from "./EditFundingModal";
 
 interface FundingRecord {
   id: string;
@@ -96,6 +107,8 @@ export const ProjectFundingPage: React.FC<ProjectFundingPageProps> = ({
   const [fundingRecords, setFundingRecords] = useState<FundingRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedFunding, setSelectedFunding] = useState<FundingRecord | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
 
@@ -258,6 +271,43 @@ export const ProjectFundingPage: React.FC<ProjectFundingPageProps> = ({
         {config.label}
       </Badge>
     );
+  };
+
+  const handleEditFunding = (funding: FundingRecord) => {
+    setSelectedFunding(funding);
+    setIsEditModalOpen(true);
+  };
+
+  const handleStatusChange = async (fundingId: string, newStatus: string) => {
+    try {
+      const token = localStorage.getItem("auth_token") || localStorage.getItem("token");
+      if (!token) {
+        toast.error("Authentication required");
+        return;
+      }
+
+      const response = await fetch(
+        `/api/developer-dashboard/projects/${projectId}/funding/${fundingId}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status: newStatus }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to update status");
+      }
+
+      toast.success(`Status updated to ${newStatus}`);
+      fetchFunding();
+    } catch (error: any) {
+      console.error("Error updating status:", error);
+      toast.error("Failed to update status");
+    }
   };
 
   if (loading) {
@@ -596,67 +646,164 @@ export const ProjectFundingPage: React.FC<ProjectFundingPageProps> = ({
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {filteredRecords.length > 0 ? (
-            <div className="space-y-4">
-              {filteredRecords.map((record) => (
-                <div
-                  key={record.id}
-                  className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        {getStatusIcon(record.status)}
-                        <h3 className="font-semibold text-gray-900">
-                          {FUNDING_TYPE_LABELS[record.fundingType] || record.fundingType}
-                        </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Source
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Reference
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredRecords.map((record) => (
+                    <tr key={record.id} className="hover:bg-gray-50 transition-colors">
+                      {/* Type */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          {getStatusIcon(record.status)}
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {FUNDING_TYPE_LABELS[record.fundingType] || record.fundingType}
+                            </div>
+                            {record.description && (
+                              <div className="text-xs text-gray-500 truncate max-w-xs">
+                                {record.description}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Source */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {record.fundingSource || "-"}
+                        </div>
+                      </td>
+
+                      {/* Amount */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-semibold text-green-600">
+                          {formatCurrency(record.amount)}
+                        </div>
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-6 py-4 whitespace-nowrap">
                         {getStatusBadge(record.status)}
-                      </div>
+                      </td>
 
-                      <p className="text-sm text-gray-600 mb-2">
-                        {record.description || "No description"}
-                      </p>
+                      {/* Date */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {record.receivedDate
+                            ? formatDate(record.receivedDate)
+                            : record.expectedDate
+                            ? formatDate(record.expectedDate)
+                            : formatDate(record.createdAt)}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {record.receivedDate
+                            ? "Received"
+                            : record.expectedDate
+                            ? "Expected"
+                            : "Created"}
+                        </div>
+                      </td>
 
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        {record.fundingSource && (
-                          <div>
-                            <p className="text-gray-500">Source</p>
-                            <p className="font-medium">{record.fundingSource}</p>
-                          </div>
-                        )}
-                        {record.receivedDate && (
-                          <div>
-                            <p className="text-gray-500">Received Date</p>
-                            <p className="font-medium">{formatDate(record.receivedDate)}</p>
-                          </div>
-                        )}
-                        {record.expectedDate && !record.receivedDate && (
-                          <div>
-                            <p className="text-gray-500">Expected Date</p>
-                            <p className="font-medium">{formatDate(record.expectedDate)}</p>
-                          </div>
-                        )}
-                        {record.referenceNumber && (
-                          <div>
-                            <p className="text-gray-500">Reference</p>
-                            <p className="font-medium">{record.referenceNumber}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                      {/* Reference */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {record.referenceNumber || "-"}
+                        </div>
+                      </td>
 
-                    <div className="text-right ml-4">
-                      <p className="text-2xl font-bold text-green-600">
-                        {formatCurrency(record.amount)}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {formatDate(record.createdAt)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                      {/* Actions */}
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => handleEditFunding(record)}
+                              className="gap-2"
+                            >
+                              <Edit className="h-4 w-4" />
+                              Edit Details
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuLabel className="text-xs font-normal text-gray-500">
+                              Change Status
+                            </DropdownMenuLabel>
+                            {record.status !== "received" && (
+                              <DropdownMenuItem
+                                onClick={() => handleStatusChange(record.id, "received")}
+                                className="gap-2"
+                              >
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                                Mark as Received
+                              </DropdownMenuItem>
+                            )}
+                            {record.status !== "pending" && (
+                              <DropdownMenuItem
+                                onClick={() => handleStatusChange(record.id, "pending")}
+                                className="gap-2"
+                              >
+                                <Clock className="h-4 w-4 text-yellow-600" />
+                                Mark as Pending
+                              </DropdownMenuItem>
+                            )}
+                            {record.status !== "partial" && (
+                              <DropdownMenuItem
+                                onClick={() => handleStatusChange(record.id, "partial")}
+                                className="gap-2"
+                              >
+                                <AlertCircle className="h-4 w-4 text-blue-600" />
+                                Mark as Partial
+                              </DropdownMenuItem>
+                            )}
+                            {record.status !== "cancelled" && (
+                              <DropdownMenuItem
+                                onClick={() => handleStatusChange(record.id, "cancelled")}
+                                className="gap-2 text-red-600"
+                              >
+                                <XCircle className="h-4 w-4" />
+                                Mark as Cancelled
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
             <div className="text-center py-12 text-gray-500">
@@ -681,6 +828,21 @@ export const ProjectFundingPage: React.FC<ProjectFundingPageProps> = ({
         projectCurrency={projectCurrency}
         onSuccess={fetchFunding}
       />
+
+      {/* Edit Funding Modal */}
+      {selectedFunding && (
+        <EditFundingModal
+          open={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setSelectedFunding(null);
+          }}
+          projectId={projectId}
+          projectCurrency={projectCurrency}
+          funding={selectedFunding}
+          onSuccess={fetchFunding}
+        />
+      )}
     </div>
   );
 };

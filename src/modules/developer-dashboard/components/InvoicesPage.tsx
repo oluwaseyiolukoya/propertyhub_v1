@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Receipt,
   Plus,
@@ -17,6 +17,7 @@ import {
   MoreVertical,
   Edit,
   Trash2,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -47,8 +48,11 @@ import KPICard from './KPICard';
 import CreateInvoiceModal from './CreateInvoiceModal';
 import InvoiceDetailModal from './InvoiceDetailModal';
 import { useDebounce } from '../hooks/useDeveloperDashboardData';
-import type { ProjectInvoice, InvoiceStatus } from '../types';
+import type { ProjectInvoice, InvoiceStatus, VendorType, VendorStatus } from '../types';
 import { toast } from 'sonner';
+import { apiClient } from '../../../lib/api-client';
+import { approveProjectInvoice, rejectProjectInvoice, markInvoiceAsPaid } from '../../../lib/api/invoices';
+import MarkAsPaidModal, { type PaymentDetails } from './MarkAsPaidModal';
 
 interface InvoicesPageProps {
   onViewProject?: (projectId: string) => void;
@@ -63,11 +67,97 @@ export const InvoicesPage: React.FC<InvoicesPageProps> = ({ onViewProject }) => 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<ProjectInvoice | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showMarkAsPaidModal, setShowMarkAsPaidModal] = useState(false);
+  const [invoiceToMarkAsPaid, setInvoiceToMarkAsPaid] = useState<ProjectInvoice | null>(null);
+  const [invoices, setInvoices] = useState<ProjectInvoice[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const debouncedSearch = useDebounce(searchTerm, 500);
 
-  // Mock data - will be replaced with API call
-  const invoices: ProjectInvoice[] = [
+  // Fetch invoices from API
+  useEffect(() => {
+    fetchInvoices();
+  }, []);
+
+  const fetchInvoices = async () => {
+    setLoading(true);
+    try {
+      const response = await apiClient.get<any>('/api/developer-dashboard/invoices');
+
+      console.log('🔍 [InvoicesPage] API Response:', response);
+
+      if (response.error) {
+        console.error('❌ [InvoicesPage] Error fetching invoices:', response.error);
+        toast.error('Failed to load invoices');
+        setInvoices([]);
+      } else if (response.data) {
+        // Backend returns: { success: true, data: [...] }
+        // apiClient wraps it as: { data: { success: true, data: [...] } }
+        const backendResponse = response.data;
+
+        if (backendResponse.success && Array.isArray(backendResponse.data)) {
+          // Transform Prisma data to match ProjectInvoice interface
+          const transformedInvoices: ProjectInvoice[] = backendResponse.data.map((inv: any) => ({
+            id: inv.id,
+            projectId: inv.projectId,
+            vendorId: inv.vendorId || undefined,
+            invoiceNumber: inv.invoiceNumber,
+            description: inv.description,
+            category: inv.category,
+            amount: Number(inv.amount),
+            currency: inv.currency || 'NGN',
+            status: inv.status as InvoiceStatus,
+            dueDate: inv.dueDate ? new Date(inv.dueDate).toISOString().split('T')[0] : undefined,
+            paidDate: inv.paidDate ? new Date(inv.paidDate).toISOString().split('T')[0] : undefined,
+            paymentMethod: inv.paymentMethod || undefined,
+            approvedBy: inv.approvedBy || undefined,
+            approvedAt: inv.approvedAt ? new Date(inv.approvedAt).toISOString() : undefined,
+            attachments: Array.isArray(inv.attachments) ? inv.attachments : undefined,
+            notes: inv.notes || undefined,
+            createdAt: inv.createdAt ? new Date(inv.createdAt).toISOString() : new Date().toISOString(),
+            updatedAt: inv.updatedAt ? new Date(inv.updatedAt).toISOString() : new Date().toISOString(),
+            vendor: inv.vendor ? {
+              id: inv.vendor.id,
+              customerId: inv.vendor.customerId,
+              name: inv.vendor.name,
+              contactPerson: inv.vendor.contactPerson || undefined,
+              email: inv.vendor.email || undefined,
+              phone: inv.vendor.phone || undefined,
+              address: inv.vendor.address || undefined,
+              vendorType: inv.vendor.vendorType as VendorType,
+              specialization: inv.vendor.specialization || undefined,
+              rating: inv.vendor.rating || undefined,
+              totalContracts: inv.vendor.totalContracts || 0,
+              totalValue: Number(inv.vendor.totalValue) || 0,
+              currency: inv.vendor.currency || 'NGN',
+              status: inv.vendor.status as VendorStatus,
+              notes: inv.vendor.notes || undefined,
+              createdAt: inv.vendor.createdAt ? new Date(inv.vendor.createdAt).toISOString() : new Date().toISOString(),
+              updatedAt: inv.vendor.updatedAt ? new Date(inv.vendor.updatedAt).toISOString() : new Date().toISOString(),
+            } : undefined,
+          }));
+
+          console.log('✅ [InvoicesPage] Transformed invoices:', transformedInvoices);
+          setInvoices(transformedInvoices);
+        } else {
+          console.warn('⚠️ [InvoicesPage] Unexpected response structure:', backendResponse);
+          setInvoices([]);
+        }
+      } else {
+        console.warn('⚠️ [InvoicesPage] No data in response');
+        setInvoices([]);
+      }
+    } catch (error: any) {
+      console.error('❌ [InvoicesPage] Error fetching invoices:', error);
+      toast.error('Failed to load invoices');
+      setInvoices([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Legacy mock data structure kept for reference (now replaced with API data)
+  const _mockInvoices: ProjectInvoice[] = [
     {
       id: '1',
       projectId: 'proj-1',
@@ -181,8 +271,6 @@ export const InvoicesPage: React.FC<InvoicesPageProps> = ({ onViewProject }) => 
     },
   ];
 
-  const loading = false;
-
   // Calculate summary metrics
   const totalInvoices = invoices.length;
   const pendingInvoices = invoices.filter((inv) => inv.status === 'pending').length;
@@ -255,19 +343,60 @@ export const InvoicesPage: React.FC<InvoicesPageProps> = ({ onViewProject }) => 
     setShowDetailModal(true);
   };
 
-  const handleApproveInvoice = (invoiceId: string) => {
+  const handleApproveInvoice = async (invoiceId: string) => {
+    if (!selectedInvoice) return;
+
+    const resp = await approveProjectInvoice(selectedInvoice.projectId, invoiceId);
+    if (resp.error) {
+      toast.error(resp.error.message || 'Failed to approve invoice');
+      return;
+    }
+
     toast.success('Invoice approved successfully');
-    // TODO: Implement API call
+    fetchInvoices(); // Refresh the list
   };
 
-  const handleRejectInvoice = (invoiceId: string) => {
+  const handleRejectInvoice = async (invoiceId: string) => {
+    if (!selectedInvoice) return;
+
+    const reason = window.prompt('Enter rejection reason (optional):');
+
+    const resp = await rejectProjectInvoice(selectedInvoice.projectId, invoiceId, reason || undefined);
+    if (resp.error) {
+      toast.error(resp.error.message || 'Failed to reject invoice');
+      return;
+    }
+
     toast.error('Invoice rejected');
-    // TODO: Implement API call
+    fetchInvoices(); // Refresh the list
   };
 
-  const handleMarkAsPaid = (invoiceId: string) => {
-    toast.success('Invoice marked as paid');
-    // TODO: Implement API call
+  const handleMarkAsPaid = async (invoiceId: string) => {
+    // Find the invoice to mark as paid
+    const invoice = invoices.find(inv => inv.id === invoiceId);
+    if (!invoice) {
+      toast.error('Invoice not found');
+      return;
+    }
+
+    setInvoiceToMarkAsPaid(invoice);
+    setShowMarkAsPaidModal(true);
+    setShowDetailModal(false); // Close detail modal
+  };
+
+  const handleMarkAsPaidSubmit = async (paymentDetails: PaymentDetails) => {
+    if (!invoiceToMarkAsPaid) return;
+
+    const resp = await markInvoiceAsPaid(invoiceToMarkAsPaid.projectId, invoiceToMarkAsPaid.id, paymentDetails);
+    if (resp.error) {
+      toast.error(resp.error.message || 'Failed to mark invoice as paid');
+      throw new Error(resp.error.message);
+    }
+
+    toast.success('Invoice marked as paid and expense created automatically');
+    setShowMarkAsPaidModal(false);
+    setInvoiceToMarkAsPaid(null);
+    fetchInvoices(); // Refresh the list
   };
 
   const handleDeleteInvoice = (invoiceId: string) => {
@@ -550,6 +679,22 @@ export const InvoicesPage: React.FC<InvoicesPageProps> = ({ onViewProject }) => 
           onMarkAsPaid={handleMarkAsPaid}
         />
       )}
+
+      {showMarkAsPaidModal && invoiceToMarkAsPaid && (
+        <MarkAsPaidModal
+          open={showMarkAsPaidModal}
+          onClose={() => {
+            setShowMarkAsPaidModal(false);
+            setInvoiceToMarkAsPaid(null);
+          }}
+          onSubmit={handleMarkAsPaidSubmit}
+          invoiceNumber={invoiceToMarkAsPaid.invoiceNumber}
+          amount={invoiceToMarkAsPaid.amount}
+          currency={invoiceToMarkAsPaid.currency}
+        />
+      )}
+
+      {/* Note: Project filter will be populated from fetched invoice data */}
     </div>
   );
 };

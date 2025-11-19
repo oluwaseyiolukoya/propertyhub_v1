@@ -19,7 +19,8 @@ import {
   MoreVertical,
   Calendar,
   DollarSign,
-  Calculator
+  Calculator,
+  X
 } from "lucide-react";
 import {
   Select,
@@ -56,7 +57,7 @@ import {
   updatePurchaseOrder,
   type PurchaseOrder as APIPurchaseOrder,
 } from "../../../lib/api/purchase-orders";
-import { createProjectInvoice, markInvoiceAsPaid } from "../../../lib/api/invoices";
+import { createProjectInvoice, markInvoiceAsPaid, deleteProjectInvoice } from "../../../lib/api/invoices";
 import {
   getVendors,
   createVendor,
@@ -65,6 +66,7 @@ import {
   type Vendor,
   type CreateVendorData,
 } from "../../../lib/api/vendors";
+import { apiClient } from "../../../lib/api-client";
 
 interface PurchaseOrder {
   id: string;
@@ -116,11 +118,37 @@ interface Invoice {
   }[];
 }
 
+interface InvoiceAttachment {
+  id: string;
+  file: File;
+  status: "pending" | "uploading" | "success" | "error";
+  uploadedPath?: string;
+  error?: string;
+}
+
+interface InvoiceAttachmentDetail {
+  id: string;
+  fileName: string;
+  fileSize: number;
+  fileSizeFormatted: string;
+  fileType: string;
+  mimeType: string;
+  uploadedAt: string;
+  uploadedBy?: {
+    id: string;
+    email: string;
+    name?: string;
+  } | null;
+  url: string;
+  metadata?: any;
+}
+
 export const PurchaseOrdersPage: React.FC<{ projectId: string }> = ({ projectId }) => {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [isPODetailOpen, setIsPODetailOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isCreatePOOpen, setIsCreatePOOpen] = useState(false);
@@ -187,6 +215,10 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string }> = ({ projectId 
   });
   const [invoiceFormErrors, setInvoiceFormErrors] = useState<Record<string, string>>({});
   const [isSubmittingInvoice, setIsSubmittingInvoice] = useState(false);
+  const [invoiceAttachments, setInvoiceAttachments] = useState<InvoiceAttachment[]>([]);
+  const [isDraggingInvoiceAttachment, setIsDraggingInvoiceAttachment] = useState(false);
+  const [invoiceAttachmentsDetail, setInvoiceAttachmentsDetail] = useState<InvoiceAttachmentDetail[]>([]);
+  const [loadingInvoiceAttachments, setLoadingInvoiceAttachments] = useState(false);
 
   // Payment form state for marking invoice as paid
   const [paymentFormData, setPaymentFormData] = useState({
@@ -214,6 +246,172 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string }> = ({ projectId 
       console.error('Error fetching vendors:', error);
       setVendors([]);
     }
+  };
+
+  const fetchInvoiceAttachmentsDetail = async (invoiceId: string) => {
+    try {
+      setLoadingInvoiceAttachments(true);
+      const response = await apiClient.get<any>(
+        `/api/developer-dashboard/projects/${projectId}/invoices/${invoiceId}/attachments`
+      );
+
+      if (response.error) {
+        console.error(
+          "[PurchaseOrdersPage] Failed to fetch invoice attachments:",
+          response.error
+        );
+        setInvoiceAttachmentsDetail([]);
+        return;
+      }
+
+      const payload = response.data as any;
+      if (payload?.success && Array.isArray(payload.data)) {
+        setInvoiceAttachmentsDetail(payload.data as InvoiceAttachmentDetail[]);
+      } else {
+        setInvoiceAttachmentsDetail([]);
+      }
+    } catch (error) {
+      console.error("[PurchaseOrdersPage] Error fetching invoice attachments:", error);
+      setInvoiceAttachmentsDetail([]);
+    } finally {
+      setLoadingInvoiceAttachments(false);
+    }
+  };
+
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
+  };
+
+  const handleInvoiceFileSelect = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    const newAttachments: InvoiceAttachment[] = Array.from(files).map((file) => ({
+      id: `${Date.now()}-${Math.random()}`,
+      file,
+      status: "pending",
+      uploadedPath: undefined,
+      error: undefined,
+    }));
+
+    setInvoiceAttachments((prev) => [...prev, ...newAttachments]);
+  };
+
+  const handleInvoiceDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingInvoiceAttachment(true);
+  };
+
+  const handleInvoiceDragLeave = () => {
+    setIsDraggingInvoiceAttachment(false);
+  };
+
+  const handleInvoiceDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingInvoiceAttachment(false);
+    handleInvoiceFileSelect(e.dataTransfer.files);
+  };
+
+  const removeInvoiceAttachment = (id: string) => {
+    setInvoiceAttachments((prev) => prev.filter((att) => att.id !== id));
+  };
+
+  const uploadInvoiceAttachment = async (attachment: InvoiceAttachment): Promise<string | null> => {
+    // Mark as uploading
+    setInvoiceAttachments((prev) =>
+      prev.map((att) =>
+        att.id === attachment.id ? { ...att, status: "uploading", error: undefined } : att
+      )
+    );
+
+    try {
+      const formData = new FormData();
+      formData.append("file", attachment.file);
+      formData.append("description", `Invoice attachment: ${attachment.file.name}`);
+
+      const response = await apiClient.post<any>("/api/storage/upload-invoice-attachment", formData);
+
+      if (response.error) {
+        const message =
+          response.error.message ||
+          response.error.error ||
+          "Failed to upload attachment";
+
+        setInvoiceAttachments((prev) =>
+          prev.map((att) =>
+            att.id === attachment.id
+              ? { ...att, status: "error", error: message }
+              : att
+          )
+        );
+        return null;
+      }
+
+      const result = response.data as any;
+
+      if (!result?.success) {
+        const message = result?.error || "Failed to upload attachment";
+        setInvoiceAttachments((prev) =>
+          prev.map((att) =>
+            att.id === attachment.id
+              ? { ...att, status: "error", error: message }
+              : att
+          )
+        );
+        return null;
+      }
+
+      const filePath = result.data?.filePath as string | undefined;
+
+      setInvoiceAttachments((prev) =>
+        prev.map((att) =>
+          att.id === attachment.id
+            ? { ...att, status: "success", uploadedPath: filePath, error: undefined }
+            : att
+        )
+      );
+
+      return filePath || null;
+    } catch (error: any) {
+      console.error("Error uploading invoice attachment:", error);
+      setInvoiceAttachments((prev) =>
+        prev.map((att) =>
+          att.id === attachment.id
+            ? {
+                ...att,
+                status: "error",
+                error: error?.message || "Failed to upload attachment",
+              }
+            : att
+        )
+      );
+      return null;
+    }
+  };
+
+  const uploadAllInvoiceAttachments = async (): Promise<{ paths: string[]; failed: number }> => {
+    const existingPaths = invoiceAttachments
+      .filter((att) => att.status === "success" && att.uploadedPath)
+      .map((att) => att.uploadedPath!) as string[];
+
+    const pending = invoiceAttachments.filter((att) => att.status === "pending");
+
+    const paths: string[] = [...existingPaths];
+    let failed = 0;
+
+    for (const attachment of pending) {
+      const filePath = await uploadInvoiceAttachment(attachment);
+      if (filePath) {
+        paths.push(filePath);
+      } else {
+        failed++;
+      }
+    }
+
+    return { paths, failed };
   };
 
   // Fetch budget categories from project budget
@@ -707,6 +905,8 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string }> = ({ projectId 
   const handleOpenInvoiceDetail = (invoice: Invoice) => {
     setSelectedInvoiceForDetail(invoice);
     setIsInvoiceDetailOpen(true);
+    // Fetch attachments for this invoice
+    fetchInvoiceAttachmentsDetail(invoice.id);
   };
 
   // Handle Mark Invoice as Paid
@@ -751,6 +951,31 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string }> = ({ projectId 
     } catch (error: any) {
       console.error('Error marking invoice as paid:', error);
       toast.error(error?.message || 'Failed to mark invoice as paid');
+    }
+  };
+
+  // Handle Delete Invoice
+  const handleDeleteInvoice = async (invoiceId: string) => {
+    try {
+      const response = await deleteProjectInvoice(projectId, invoiceId);
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to delete invoice');
+      }
+
+      toast.success('Invoice deleted successfully');
+
+      // Close the detail dialog
+      setIsInvoiceDetailOpen(false);
+      setSelectedInvoiceForDetail(null);
+
+      // Refresh invoices list
+      if (selectedPO) {
+        await fetchInvoicesForPO(selectedPO.id);
+      }
+    } catch (error: any) {
+      console.error('Error deleting invoice:', error);
+      toast.error(error?.message || 'Failed to delete invoice');
     }
   };
 
@@ -935,6 +1160,18 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string }> = ({ projectId 
     setIsSubmittingInvoice(true);
 
     try {
+      // 1. Upload attachments (if any)
+      const { paths, failed } = await uploadAllInvoiceAttachments();
+
+      if (failed > 0) {
+        toast.error(
+          `${failed} attachment(s) failed to upload. Please remove them or try again before creating the invoice.`
+        );
+        setIsSubmittingInvoice(false);
+        return;
+      }
+
+      // 2. Create invoice with attachment paths
       const response = await createProjectInvoice(projectId, {
         purchaseOrderId: invoiceFormData.purchaseOrderId,
         vendorId: selectedPO?.vendorId || undefined,
@@ -945,6 +1182,7 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string }> = ({ projectId 
         dueDate: invoiceFormData.dueDate || undefined,
         paymentMethod: invoiceFormData.paymentMethod || undefined,
         notes: invoiceFormData.notes || undefined,
+        attachments: paths.length > 0 ? paths : undefined,
       });
 
       if (response.error) {
@@ -966,6 +1204,7 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string }> = ({ projectId 
         notes: '',
       });
       setInvoiceFormErrors({});
+      setInvoiceAttachments([]);
 
       // Refresh invoices for selected PO
       if (selectedPO) {
@@ -1005,17 +1244,17 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string }> = ({ projectId 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Purchase Orders & Invoices</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Purchase Orders</h1>
           <p className="text-gray-600">Manage purchase orders and track invoice approvals</p>
         </div>
         <div className="flex gap-2">
+          <Button onClick={() => handleOpenVendorDialog()} variant="outline" className="gap-2">
+            <Plus className="w-4 h-4" />
+            Add Vendor
+          </Button>
           <Button onClick={() => setIsCreatePOOpen(true)} className="gap-2 bg-orange-500 hover:bg-orange-600">
             <Plus className="w-4 h-4" />
-            New PO
-          </Button>
-          <Button onClick={handleOpenInvoiceDialog} variant="outline" className="gap-2">
-            <Plus className="w-4 h-4" />
-            New Invoice
+            New Purchase Order
           </Button>
         </div>
       </div>
@@ -1046,6 +1285,103 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string }> = ({ projectId 
           icon={FileText}
         />
       </div>
+
+      {/* Vendors Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Vendors</CardTitle>
+            <Button onClick={() => handleOpenVendorDialog()} size="sm" variant="outline" className="gap-2">
+              <Plus className="w-4 h-4" />
+              Add Vendor
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {vendors.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <p className="mb-2">No vendors found</p>
+              <p className="text-sm">Click "Add Vendor" to create your first vendor</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700">Name</th>
+                    <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700">Type</th>
+                    <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700">Contact</th>
+                    <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700">Email</th>
+                    <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700">Phone</th>
+                    <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700">Status</th>
+                    <th className="text-center py-3 px-4 font-semibold text-sm text-gray-700">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {vendors.map((vendor) => (
+                    <tr key={vendor.id} className="border-b hover:bg-gray-50">
+                      <td className="py-3 px-4">
+                        <div className="font-medium text-gray-900">{vendor.name}</div>
+                        {vendor.specialization && (
+                          <div className="text-xs text-gray-500">{vendor.specialization}</div>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        <Badge variant="outline" className="capitalize">
+                          {vendor.vendorType}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-600">
+                        {vendor.contactPerson || '-'}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-600">
+                        {vendor.email || '-'}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-600">
+                        {vendor.phone || '-'}
+                      </td>
+                      <td className="py-3 px-4">
+                        <Badge
+                          variant={
+                            vendor.status === 'active'
+                              ? 'default'
+                              : vendor.status === 'inactive'
+                              ? 'secondary'
+                              : 'destructive'
+                          }
+                          className="capitalize"
+                        >
+                          {vendor.status}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center justify-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleOpenVendorDialog(vendor)}
+                            className="h-8 px-2"
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteVendor(vendor.id)}
+                            className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Purchase Orders Table */}
       <Card>
@@ -1098,7 +1434,7 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string }> = ({ projectId 
                   <tr
                     key={po.id}
                     className="border-b hover:bg-gray-50 cursor-pointer transition-colors"
-                    onClick={() => setSelectedPO(po)}
+                    onClick={() => { setSelectedPO(po); setIsPODetailOpen(true); }}
                   >
                     <td className="py-3 px-4">
                       <span className="font-medium text-gray-900">{po.poNumber}</span>
@@ -1169,243 +1505,234 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string }> = ({ projectId 
         </CardContent>
       </Card>
 
-      {/* PO Details Panel */}
-      {selectedPO && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Purchase Order Details</CardTitle>
-                <p className="text-sm text-gray-500 mt-1">
-                  {selectedPO.poNumber} - {selectedPO.vendor}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => handleOpenEditPO(selectedPO)}
-                >
-                  Edit PO
-                </Button>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Download className="w-4 h-4" />
-                  Export
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {/* PO Information */}
-            <div className="space-y-6">
-              {/* Basic Info */}
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">PO Number</p>
-                  <p className="text-base font-semibold text-gray-900">{selectedPO.poNumber}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Status</p>
-                  <div className="mt-1">{getStatusBadge(selectedPO.status)}</div>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Vendor</p>
-                  <p className="text-base font-medium text-gray-900">{selectedPO.vendor}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Total Amount</p>
-                  <p className="text-base font-bold text-gray-900">{formatCurrency(selectedPO.amount)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Date Created</p>
-                  <p className="text-base text-gray-900">{new Date(selectedPO.date).toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Line Items</p>
-                  <p className="text-base text-gray-900">{selectedPO.items} items</p>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Description */}
-              {selectedPO.description && (
-                <>
+      {/* PO Detail Dialog */}
+      <Dialog open={isPODetailOpen} onOpenChange={(o) => { setIsPODetailOpen(o); if (!o) setSelectedPO(null); }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle>Purchase Order Details</DialogTitle>
+            <DialogDescription>
+              {selectedPO?.poNumber} - {selectedPO?.vendor}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedPO && (
+            <ScrollArea className="max-h-[60vh] flex-1 pr-4">
+              <div className="space-y-6 py-2">
+                <div className="grid grid-cols-2 gap-6">
                   <div>
-                    <p className="text-sm font-medium text-gray-900 mb-2">Description</p>
-                    <p className="text-sm text-gray-700">{selectedPO.description}</p>
+                    <p className="text-sm text-gray-600 mb-1">PO Number</p>
+                    <p className="text-base font-semibold text-gray-900">{selectedPO.poNumber}</p>
                   </div>
-                  <Separator />
-                </>
-              )}
-
-              {/* Budget Category */}
-              {(selectedPO.category || selectedPO.budgetLine) && (
-                <>
                   <div>
-                    <p className="text-sm font-medium text-gray-900 mb-2">Budget Category</p>
-                    <p className="text-sm text-gray-700">{selectedPO.category || selectedPO.budgetLine}</p>
+                    <p className="text-sm text-gray-600 mb-1">Status</p>
+                    <div className="mt-1">{getStatusBadge(selectedPO.status)}</div>
                   </div>
-                  <Separator />
-                </>
-              )}
-
-              {/* Line Items Section */}
-              {selectedPO.lineItems && selectedPO.lineItems.length > 0 && (
-                <>
                   <div>
-                    <p className="text-sm font-medium text-gray-900 mb-3">Line Items</p>
-                    <div className="border rounded-lg overflow-hidden">
-                      <table className="w-full">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="text-left text-xs font-medium text-gray-600 px-4 py-2">Description</th>
-                            <th className="text-right text-xs font-medium text-gray-600 px-4 py-2">Qty</th>
-                            <th className="text-right text-xs font-medium text-gray-600 px-4 py-2">Unit</th>
-                            <th className="text-right text-xs font-medium text-gray-600 px-4 py-2">Unit Price</th>
-                            <th className="text-right text-xs font-medium text-gray-600 px-4 py-2">Total</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                          {selectedPO.lineItems.map((item, index) => (
-                            <tr key={item.id || index} className="hover:bg-gray-50">
-                              <td className="text-sm text-gray-900 px-4 py-3">
-                                {item.description}
-                                {item.category && (
-                                  <span className="block text-xs text-gray-500 mt-1">{item.category}</span>
-                                )}
-                              </td>
-                              <td className="text-sm text-gray-900 px-4 py-3 text-right">{item.quantity}</td>
-                              <td className="text-sm text-gray-500 px-4 py-3 text-right">{item.unit || 'pcs'}</td>
-                              <td className="text-sm text-gray-900 px-4 py-3 text-right">{formatCurrency(item.unitPrice)}</td>
-                              <td className="text-sm font-medium text-gray-900 px-4 py-3 text-right">{formatCurrency(item.totalPrice)}</td>
+                    <p className="text-sm text-gray-600 mb-1">Vendor</p>
+                    <p className="text-base font-medium text-gray-900">{selectedPO.vendor}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Total Amount</p>
+                    <p className="text-base font-bold text-gray-900">{formatCurrency(selectedPO.amount)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Date Created</p>
+                    <p className="text-base text-gray-900">{new Date(selectedPO.date).toLocaleDateString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Line Items</p>
+                    <p className="text-base text-gray-900">{selectedPO.items} items</p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {selectedPO.description && (
+                  <>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 mb-2">Description</p>
+                      <p className="text-sm text-gray-700">{selectedPO.description}</p>
+                    </div>
+                    <Separator />
+                  </>
+                )}
+
+                {(selectedPO.category || selectedPO.budgetLine) && (
+                  <>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 mb-2">Budget Category</p>
+                      <p className="text-sm text-gray-700">{selectedPO.category || selectedPO.budgetLine}</p>
+                    </div>
+                    <Separator />
+                  </>
+                )}
+
+                {selectedPO.lineItems && selectedPO.lineItems.length > 0 && (
+                  <>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 mb-3">Line Items</p>
+                      <div className="border rounded-lg overflow-hidden">
+                        <table className="w-full">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="text-left text-xs font-medium text-gray-600 px-4 py-2">Description</th>
+                              <th className="text-right text-xs font-medium text-gray-600 px-4 py-2">Qty</th>
+                              <th className="text-right text-xs font-medium text-gray-600 px-4 py-2">Unit</th>
+                              <th className="text-right text-xs font-medium text-gray-600 px-4 py-2">Unit Price</th>
+                              <th className="text-right text-xs font-medium text-gray-600 px-4 py-2">Total</th>
                             </tr>
-                          ))}
-                        </tbody>
-                        <tfoot className="bg-gray-50 border-t-2 border-gray-300">
-                          <tr>
-                            <td colSpan={4} className="text-sm font-semibold text-gray-900 px-4 py-3 text-right">Total:</td>
-                            <td className="text-sm font-bold text-gray-900 px-4 py-3 text-right">{formatCurrency(selectedPO.amount)}</td>
-                          </tr>
-                        </tfoot>
-                      </table>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200">
+                            {selectedPO.lineItems.map((item, index) => (
+                              <tr key={item.id || index} className="hover:bg-gray-50">
+                                <td className="text-sm text-gray-900 px-4 py-3">
+                                  {item.description}
+                                  {item.category && (
+                                    <span className="block text-xs text-gray-500 mt-1">{item.category}</span>
+                                  )}
+                                </td>
+                                <td className="text-sm text-gray-900 px-4 py-3 text-right">{item.quantity}</td>
+                                <td className="text-sm text-gray-500 px-4 py-3 text-right">{item.unit || 'pcs'}</td>
+                                <td className="text-sm text-gray-900 px-4 py-3 text-right">{formatCurrency(item.unitPrice)}</td>
+                                <td className="text-sm font-medium text-gray-900 px-4 py-3 text-right">{formatCurrency(item.totalPrice)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot className="bg-gray-50 border-t-2 border-gray-300">
+                            <tr>
+                              <td colSpan={4} className="text-sm font-semibold text-gray-900 px-4 py-3 text-right">Total:</td>
+                              <td className="text-sm font-bold text-gray-900 px-4 py-3 text-right">{formatCurrency(selectedPO.amount)}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
                     </div>
-                  </div>
-                  <Separator />
-                </>
-              )}
+                    <Separator />
+                  </>
+                )}
 
-              {/* Additional Details */}
-              {(selectedPO.terms || selectedPO.notes || selectedPO.expiryDate || selectedPO.deliveryDate) && (
-                <>
-                  <div className="space-y-4">
-                    {selectedPO.terms && (
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 mb-1">Terms & Conditions</p>
-                        <p className="text-sm text-gray-700">{selectedPO.terms}</p>
-                      </div>
-                    )}
-                    {selectedPO.notes && (
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 mb-1">Notes</p>
-                        <p className="text-sm text-gray-700">{selectedPO.notes}</p>
-                      </div>
-                    )}
-                    <div className="grid grid-cols-2 gap-4">
-                      {selectedPO.expiryDate && (
+                {(selectedPO.terms || selectedPO.notes || selectedPO.expiryDate || selectedPO.deliveryDate) && (
+                  <>
+                    <div className="space-y-4">
+                      {selectedPO.terms && (
                         <div>
-                          <p className="text-sm text-gray-600 mb-1">Expiry Date</p>
-                          <p className="text-sm text-gray-900">{new Date(selectedPO.expiryDate).toLocaleDateString()}</p>
+                          <p className="text-sm font-medium text-gray-900 mb-1">Terms & Conditions</p>
+                          <p className="text-sm text-gray-700">{selectedPO.terms}</p>
                         </div>
                       )}
-                      {selectedPO.deliveryDate && (
+                      {selectedPO.notes && (
                         <div>
-                          <p className="text-sm text-gray-600 mb-1">Delivery Date</p>
-                          <p className="text-sm text-gray-900">{new Date(selectedPO.deliveryDate).toLocaleDateString()}</p>
+                          <p className="text-sm font-medium text-gray-900 mb-1">Notes</p>
+                          <p className="text-sm text-gray-700">{selectedPO.notes}</p>
                         </div>
                       )}
-                    </div>
-                  </div>
-                  <Separator />
-                </>
-              )}
-
-              {/* Related Invoices Section */}
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <p className="text-sm font-medium text-gray-900">Related Invoices</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleOpenInvoiceDialog}
-                    className="gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Create Invoice
-                  </Button>
-                </div>
-                {relatedInvoices.length > 0 ? (
-                  <div className="space-y-3">
-                    {relatedInvoices.map((invoice) => (
-                      <div
-                        key={invoice.id}
-                        className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-gray-400" />
-                            <span className="font-medium text-gray-900">{invoice.invoiceNumber}</span>
-                            {getStatusBadge(invoice.status)}
+                      <div className="grid grid-cols-2 gap-4">
+                        {selectedPO.expiryDate && (
+                          <div>
+                            <p className="text-sm text-gray-600 mb-1">Expiry Date</p>
+                            <p className="text-sm text-gray-900">{new Date(selectedPO.expiryDate).toLocaleDateString()}</p>
                           </div>
-                          <span className="font-semibold text-gray-900">{formatCurrency(invoice.amount)}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-sm mb-3">
-                          <span className="text-gray-600">{invoice.vendor}</span>
-                          <span className="text-gray-500">{new Date(invoice.date).toLocaleDateString()}</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenInvoiceDetail(invoice)}
-                            className="flex-1"
-                          >
-                            View Details
-                          </Button>
-                          {invoice.status !== 'paid' && invoice.status !== 'Matched' && (
+                        )}
+                        {selectedPO.deliveryDate && (
+                          <div>
+                            <p className="text-sm text-gray-600 mb-1">Delivery Date</p>
+                            <p className="text-sm text-gray-900">{new Date(selectedPO.deliveryDate).toLocaleDateString()}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <Separator />
+                  </>
+                )}
+
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-sm font-medium text-gray-900">Related Invoices</p>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenEditPO(selectedPO)}
+                        className="gap-2"
+                      >
+                        Edit PO
+                      </Button>
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <Download className="w-4 h-4" />
+                        Export
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleOpenInvoiceDialog}
+                        className="gap-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Create Invoice
+                      </Button>
+                    </div>
+                  </div>
+                  {relatedInvoices.length > 0 ? (
+                    <div className="space-y-3">
+                      {relatedInvoices.map((invoice) => (
+                        <div
+                          key={invoice.id}
+                          className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <FileText className="w-4 h-4 text-gray-400" />
+                              <span className="font-medium text-gray-900">{invoice.invoiceNumber}</span>
+                              {getStatusBadge(invoice.status)}
+                            </div>
+                            <span className="font-semibold text-gray-900">{formatCurrency(invoice.amount)}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm mb-3">
+                            <span className="text-gray-600">{invoice.vendor}</span>
+                            <span className="text-gray-500">{new Date(invoice.date).toLocaleDateString()}</span>
+                          </div>
+                          <div className="flex gap-2">
                             <Button
+                              variant="outline"
                               size="sm"
                               onClick={() => handleOpenInvoiceDetail(invoice)}
-                              className="flex-1 bg-green-600 hover:bg-green-700"
+                              className="flex-1"
                             >
-                              <CheckCircle className="w-4 h-4 mr-1" />
-                              Mark as Paid
+                              View Details
                             </Button>
-                          )}
+                            {invoice.status !== 'paid' && invoice.status !== 'Matched' && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleOpenInvoiceDetail(invoice)}
+                                className="flex-1 bg-green-600 hover:bg-green-700"
+                              >
+                                <CheckCircle className="w-4 h-4 mr-1" />
+                                Mark as Paid
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500 border rounded-lg bg-gray-50">
-                    <FileText className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No invoices linked to this PO yet</p>
-                    <Button
-                      variant="link"
-                      size="sm"
-                      onClick={handleOpenInvoiceDialog}
-                      className="mt-2"
-                    >
-                      Create first invoice
-                    </Button>
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500 border rounded-lg bg-gray-50">
+                      <FileText className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No invoices linked to this PO yet</p>
+                      <Button
+                        variant="link"
+                        size="sm"
+                        onClick={handleOpenInvoiceDialog}
+                        className="mt-2"
+                      >
+                        Create first invoice
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </ScrollArea>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Create PO Dialog */}
       <Dialog open={isCreatePOOpen} onOpenChange={setIsCreatePOOpen}>
@@ -1838,15 +2165,101 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string }> = ({ projectId 
                 />
               </div>
 
-              {/* Attachments - Placeholder for future implementation */}
+              {/* Attachments */}
               <div className="space-y-2">
-                <Label htmlFor="inv-attachments">Attachments (Coming Soon)</Label>
-                <div className="border-2 border-dashed rounded-lg p-6 text-center bg-gray-50">
+                <Label htmlFor="inv-attachments">Attachments (Optional)</Label>
+                <div
+                  className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+                    isDraggingInvoiceAttachment
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-300 hover:border-gray-400"
+                  }`}
+                  onDragOver={handleInvoiceDragOver}
+                  onDragLeave={handleInvoiceDragLeave}
+                  onDrop={handleInvoiceDrop}
+                  onClick={() => document.getElementById("inv-file-input")?.click()}
+                >
+                  <input
+                    id="inv-file-input"
+                    type="file"
+                    multiple
+                    accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                    onChange={(e) => handleInvoiceFileSelect(e.target.files)}
+                    className="hidden"
+                  />
                   <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                  <p className="text-sm text-gray-500">
-                    File upload functionality will be available soon
+                  <p className="text-sm text-gray-600 mb-1">
+                    Click to upload or drag and drop
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    PDF, DOCX, JPEG up to 50MB per file
                   </p>
                 </div>
+
+                {invoiceAttachments.length > 0 && (
+                  <div className="space-y-2 mt-3">
+                    {invoiceAttachments.map((attachment) => (
+                      <div
+                        key={attachment.id}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border"
+                      >
+                        <div className="flex items-center space-x-3 flex-1">
+                          <FileText className="w-5 h-5 text-gray-400" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {attachment.file.name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {formatBytes(attachment.file.size)}
+                            </p>
+                            {attachment.error && (
+                              <p className="text-xs text-red-600 mt-1">
+                                {attachment.error}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          {attachment.status === "pending" && (
+                            <span className="text-xs text-gray-500">Pending</span>
+                          )}
+                          {attachment.status === "uploading" && (
+                            <span className="text-xs text-blue-600">Uploading...</span>
+                          )}
+                          {attachment.status === "success" && (
+                            <CheckCircle className="w-5 h-5 text-green-500" />
+                          )}
+                          {attachment.status === "error" && (
+                            <XCircle className="w-5 h-5 text-red-500" />
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => removeInvoiceAttachment(attachment.id)}
+                            className="text-gray-400 hover:text-red-500"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="flex justify-between items-center pt-2 border-t">
+                      <span className="text-sm text-gray-600">
+                        Total:{" "}
+                        {formatBytes(
+                          invoiceAttachments.reduce(
+                            (total, att) => total + att.file.size,
+                            0
+                          )
+                        )}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {invoiceAttachments.length} file(s)
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </ScrollArea>
@@ -2231,6 +2644,51 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string }> = ({ projectId 
                 </>
               )}
 
+              {/* Attachments */}
+              <Separator />
+              <div>
+                <p className="text-sm font-medium text-gray-900 mb-2">Attachments</p>
+                {loadingInvoiceAttachments ? (
+                  <p className="text-sm text-gray-500">Loading attachments...</p>
+                ) : invoiceAttachmentsDetail.length === 0 ? (
+                  <p className="text-sm text-gray-500">
+                    No attachments have been uploaded for this invoice.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {invoiceAttachmentsDetail.map((att) => (
+                      <div
+                        key={att.id}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <Paperclip className="w-4 h-4 text-gray-400" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">
+                              {att.fileName}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {att.fileSizeFormatted} •{" "}
+                              {new Date(att.uploadedAt).toLocaleString()}{" "}
+                              {att.uploadedBy?.email && `• ${att.uploadedBy.email}`}
+                            </p>
+                          </div>
+                        </div>
+                        <a
+                          href={att.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800"
+                        >
+                          <Download className="w-4 h-4 mr-1" />
+                          View / Download
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Mark as Paid Section */}
               {selectedInvoiceForDetail.status !== 'Paid' && selectedInvoiceForDetail.status !== 'paid' && selectedInvoiceForDetail.status !== 'Matched' && (
                 <>
@@ -2308,25 +2766,42 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string }> = ({ projectId 
             </ScrollArea>
           )}
           <DialogFooter className="flex-shrink-0 mt-4 pt-4 border-t">
-            <Button variant="outline" onClick={() => setIsInvoiceDetailOpen(false)}>
-              Close
-            </Button>
-            {selectedInvoiceForDetail?.status !== 'Paid' && selectedInvoiceForDetail?.status !== 'paid' && selectedInvoiceForDetail?.status !== 'Matched' && (
-              <Button
-                className="bg-green-600 hover:bg-green-700"
-                onClick={() => {
-                  handleMarkInvoiceAsPaid(selectedInvoiceForDetail.id, {
-                    paymentMethod: paymentFormData.paymentMethod,
-                    paymentReference: paymentFormData.paymentReference || undefined,
-                    paidDate: paymentFormData.paidDate || undefined,
-                    notes: paymentFormData.notes || undefined,
-                  });
-                }}
-              >
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Confirm Payment & Create Expense
-              </Button>
-            )}
+            <div className="flex justify-between w-full">
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setIsInvoiceDetailOpen(false)}>
+                  Close
+                </Button>
+                {selectedInvoiceForDetail?.status !== 'Paid' && selectedInvoiceForDetail?.status !== 'paid' && selectedInvoiceForDetail?.status !== 'Matched' && (
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      if (window.confirm(`Are you sure you want to delete invoice ${selectedInvoiceForDetail.invoiceNumber}? This action cannot be undone.`)) {
+                        handleDeleteInvoice(selectedInvoiceForDetail.id);
+                      }
+                    }}
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Delete Invoice
+                  </Button>
+                )}
+              </div>
+              {selectedInvoiceForDetail?.status !== 'Paid' && selectedInvoiceForDetail?.status !== 'paid' && selectedInvoiceForDetail?.status !== 'Matched' && (
+                <Button
+                  className="bg-green-600 hover:bg-green-700"
+                  onClick={() => {
+                    handleMarkInvoiceAsPaid(selectedInvoiceForDetail.id, {
+                      paymentMethod: paymentFormData.paymentMethod,
+                      paymentReference: paymentFormData.paymentReference || undefined,
+                      paidDate: paymentFormData.paidDate || undefined,
+                      notes: paymentFormData.notes || undefined,
+                    });
+                  }}
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Confirm Payment & Create Expense
+                </Button>
+              )}
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

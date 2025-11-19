@@ -16,6 +16,9 @@ import type {
   ProjectVendor,
   ProjectFilters,
   ProjectSortOptions,
+  InvoiceStatus,
+  VendorType,
+  VendorStatus,
 } from '../types';
 
 // ============================================
@@ -110,7 +113,54 @@ export const useProjectDashboard = (projectId: string | null) => {
     setError(null);
     const response = await getProjectDashboard(projectId);
     if (response.success && response.data) {
-      setData(response.data);
+      // Transform invoices from Prisma format to ProjectInvoice interface
+      const transformedData = {
+        ...response.data,
+        invoices: Array.isArray(response.data.invoices)
+          ? response.data.invoices.map((inv: any) => ({
+              id: inv.id,
+              projectId: inv.projectId,
+              vendorId: inv.vendorId || undefined,
+              invoiceNumber: inv.invoiceNumber,
+              description: inv.description,
+              category: inv.category,
+              amount: Number(inv.amount),
+              currency: inv.currency || 'NGN',
+              status: inv.status as InvoiceStatus,
+              dueDate: inv.dueDate ? new Date(inv.dueDate).toISOString().split('T')[0] : undefined,
+              paidDate: inv.paidDate ? new Date(inv.paidDate).toISOString().split('T')[0] : undefined,
+              paymentMethod: inv.paymentMethod || undefined,
+              approvedBy: inv.approvedBy || undefined,
+              approvedAt: inv.approvedAt ? new Date(inv.approvedAt).toISOString() : undefined,
+              attachments: Array.isArray(inv.attachments) ? inv.attachments : undefined,
+              notes: inv.notes || undefined,
+              createdAt: inv.createdAt ? new Date(inv.createdAt).toISOString() : new Date().toISOString(),
+              updatedAt: inv.updatedAt ? new Date(inv.updatedAt).toISOString() : new Date().toISOString(),
+              vendor: inv.vendor ? {
+                id: inv.vendor.id,
+                customerId: inv.vendor.customerId,
+                name: inv.vendor.name,
+                contactPerson: inv.vendor.contactPerson || undefined,
+                email: inv.vendor.email || undefined,
+                phone: inv.vendor.phone || undefined,
+                address: inv.vendor.address || undefined,
+                vendorType: inv.vendor.vendorType as VendorType,
+                specialization: inv.vendor.specialization || undefined,
+                rating: inv.vendor.rating || undefined,
+                totalContracts: inv.vendor.totalContracts || 0,
+                totalValue: Number(inv.vendor.totalValue) || 0,
+                currency: inv.vendor.currency || 'NGN',
+                status: inv.vendor.status as VendorStatus,
+                notes: inv.vendor.notes || undefined,
+                createdAt: inv.vendor.createdAt ? new Date(inv.vendor.createdAt).toISOString() : new Date().toISOString(),
+                updatedAt: inv.vendor.updatedAt ? new Date(inv.vendor.updatedAt).toISOString() : new Date().toISOString(),
+              } : undefined,
+            }))
+          : [],
+      };
+
+      console.log('✅ [useProjectDashboard] Transformed invoices:', transformedData.invoices.length);
+      setData(transformedData);
     } else {
       setError(response.error || 'Failed to load project dashboard');
     }

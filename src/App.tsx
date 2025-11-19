@@ -38,6 +38,8 @@ import {
   deactivateManager as apiDeactivateManager,
 } from './lib/api/property-managers';
 import { usePlatformBranding } from './hooks/usePlatformBranding';
+import StorageTest from './components/StorageTest';
+import CheckAuth from './components/CheckAuth';
 
 function App() {
   // Load platform branding (logo and favicon)
@@ -62,6 +64,8 @@ function App() {
   const [showNewDiscussion, setShowNewDiscussion] = useState(false);
   const [showStatus, setShowStatus] = useState(false);
   const [showSecurity, setShowSecurity] = useState(false);
+  const [showStorageTest, setShowStorageTest] = useState(false);
+  const [showCheckAuth, setShowCheckAuth] = useState(false);
   const [signupData, setSignupData] = useState<{ role: string; email: string; name: string } | null>(null);
 
   // Managers and assignments loaded from backend
@@ -107,6 +111,15 @@ function App() {
     };
 
     checkAuth();
+  }, []);
+
+  // Check for special test routes
+  useEffect(() => {
+    if (window.location.pathname === '/storage-test') {
+      setShowStorageTest(true);
+    } else if (window.location.pathname === '/check-auth') {
+      setShowCheckAuth(true);
+    }
   }, []);
 
   // Ensure socket is connected for all authenticated users (tenant, owner, manager, admin)
@@ -991,6 +1004,46 @@ function App() {
     return (
       <>
         <LoginPage onLogin={handleLogin} onBackToHome={handleBackToHome} onNavigateToScheduleDemo={handleNavigateToScheduleDemo} />
+        <Toaster />
+      </>
+    );
+  }
+
+  // Show Storage Test page if requested
+  if (showStorageTest) {
+    return (
+      <>
+        <div className="min-h-screen bg-gray-50 pt-4">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <button
+              onClick={() => setShowStorageTest(false)}
+              className="mb-4 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+            >
+              ← Back to Dashboard
+            </button>
+            <StorageTest />
+          </div>
+        </div>
+        <Toaster />
+      </>
+    );
+  }
+
+  // Show Check Auth page if requested
+  if (showCheckAuth) {
+    return (
+      <>
+        <div className="min-h-screen bg-gray-50 pt-4">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <button
+              onClick={() => setShowCheckAuth(false)}
+              className="mb-4 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+            >
+              ← Back to Dashboard
+            </button>
+            <CheckAuth />
+          </div>
+        </div>
         <Toaster />
       </>
     );

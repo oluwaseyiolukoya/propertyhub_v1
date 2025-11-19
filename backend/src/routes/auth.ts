@@ -160,8 +160,8 @@ router.post('/login', async (req: Request, res: Response) => {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
-      // Block inactive or non-active customer users
-      if (user.isActive === false || (user.status && user.status !== 'active')) {
+      // Block inactive customer users
+      if (user.isActive === false) {
         console.log('❌ Login blocked - User inactive:', {
           email: user.email,
           isActive: user.isActive,
@@ -175,6 +175,59 @@ router.post('/login', async (req: Request, res: Response) => {
             status: user.status
           }
         });
+      }
+
+      // Allow 'invited' users to login (they'll be prompted to change password)
+      // Only block if status is explicitly 'inactive' or 'suspended'
+      if (user.status && ['inactive', 'suspended', 'banned'].includes(user.status.toLowerCase())) {
+        console.log('❌ Login blocked - User status not allowed:', {
+          email: user.email,
+          status: user.status,
+          customerId: user.customerId
+        });
+        return res.status(403).json({
+          error: 'Your account has been deactivated. Please contact your administrator.',
+          details: {
+            status: user.status
+          }
+        });
+      }
+
+      // If user is 'invited', activate them on first successful login
+      if (user.status === 'invited') {
+        console.log('✅ Activating invited user on first login:', user.email);
+        await prisma.users.update({
+          where: { id: user.id },
+          data: {
+            status: 'active',
+            acceptedAt: new Date()
+          }
+        });
+
+        // Also update team_members status if this user is a team member
+        if (user.customerId) {
+          try {
+            const teamMember = await prisma.team_members.findFirst({
+              where: {
+                user_id: user.id,
+                customer_id: user.customerId
+              }
+            });
+
+            if (teamMember) {
+              await prisma.team_members.update({
+                where: { id: teamMember.id },
+                data: {
+                  status: 'active',
+                  joined_at: new Date()
+                }
+              });
+              console.log('✅ Team member status updated to active:', user.email);
+            }
+          } catch (e) {
+            console.warn('⚠️ Failed to update team_members status:', e);
+          }
+        }
       }
 
       // Update last login
@@ -202,28 +255,105 @@ router.post('/login', async (req: Request, res: Response) => {
         { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
       );
 
-      // For managers, fetch owner's permissions
+      // Determine permissions based on user type
       let permissions = user.permissions || {};
-      if (derivedUserType === 'manager' && user.customerId) {
+      let teamMemberRole = null;
+
+      // Check if this user is a team member
+      if (user.customerId) {
         try {
-          // Find the owner of this customer
-          const owner = await prisma.users.findFirst({
+          const teamMember = await prisma.team_members.findFirst({
             where: {
-              customerId: user.customerId,
-              role: { in: ['owner', 'property_owner', 'property owner'] }
+              user_id: user.id,
+              customer_id: user.customerId
             },
-            select: {
-              permissions: true
+            include: {
+              team_roles: true
             }
           });
 
-          if (owner && owner.permissions) {
-            permissions = owner.permissions;
-            console.log('✅ Applied owner permissions to manager:', user.email);
+          if (teamMember) {
+            // Team member: use role-based permissions
+            console.log('✅ User is a team member, applying role-based permissions:', user.email);
+            teamMemberRole = teamMember.team_roles;
+
+            // Build permissions from role + individual overrides
+            permissions = {
+              // From role
+              ...(teamMember.team_roles?.permissions || {}),
+              // Individual overrides from team_members table
+              canApproveInvoices: teamMember.can_approve_invoices ?? teamMember.team_roles?.can_approve_invoices,
+              approvalLimit: teamMember.approval_limit ?? teamMember.team_roles?.approval_limit,
+              canCreateInvoices: teamMember.can_create_invoices ?? teamMember.team_roles?.can_create_invoices,
+              canManageProjects: teamMember.can_manage_projects ?? teamMember.team_roles?.can_manage_projects,
+              canViewReports: teamMember.can_view_reports ?? teamMember.team_roles?.can_view_reports,
+            };
+
+            console.log('📋 Team member permissions:', permissions);
+          } else if (derivedUserType === 'manager') {
+            // For managers (not team members), fetch owner's permissions
+            const owner = await prisma.users.findFirst({
+              where: {
+                customerId: user.customerId,
+                role: { in: ['owner', 'property_owner', 'property owner'] }
+              },
+              select: {
+                permissions: true
+              }
+            });
+
+            if (owner && owner.permissions) {
+              permissions = owner.permissions;
+              console.log('✅ Applied owner permissions to manager:', user.email);
+            }
           }
         } catch (e) {
-          console.warn('⚠️ Failed to fetch owner permissions for manager:', e);
+          console.warn('⚠️ Failed to fetch team member/manager permissions:', e);
         }
+      }
+
+      // Determine if user is the actual account owner
+      // Owner is: user whose email matches customer.email OR user with no team_members record
+      let isOwnerUser = false;
+      try {
+        if (user.customerId) {
+          // Check if user's email matches customer's email (customer.email is typically the owner's email)
+          const customer = await prisma.customers.findUnique({
+            where: { id: user.customerId },
+            select: { email: true }
+          });
+
+          if (customer) {
+            // If user email matches customer email, they're the owner
+            if (customer.email.toLowerCase() === user.email.toLowerCase()) {
+              isOwnerUser = true;
+              console.log('✅ User is owner (email matches customer email):', user.email);
+            } else {
+              // Check if user has a team_members record - if not, they're the original owner
+              const membership = await prisma.team_members.findFirst({
+                where: { user_id: user.id, customer_id: user.customerId }
+              });
+              isOwnerUser = !membership; // No team membership = original owner
+              if (isOwnerUser) {
+                console.log('✅ User is owner (no team membership):', user.email);
+              } else {
+                console.log('❌ User is team member (has team membership):', user.email);
+              }
+            }
+          } else {
+            // Fallback: if no customer found, check team membership
+            const membership = await prisma.team_members.findFirst({
+              where: { user_id: user.id, customer_id: user.customerId }
+            });
+            isOwnerUser = !membership;
+          }
+        } else {
+          isOwnerUser = false; // No customerId = not a customer user
+        }
+      } catch (ownerCheckErr) {
+        console.warn('⚠️ Failed to determine owner status on /login:', ownerCheckErr);
+        // Fallback: assume owner if error (safer default)
+        isOwnerUser = user.customerId ? true : false;
       }
 
       return res.json({
@@ -236,7 +366,15 @@ router.post('/login', async (req: Request, res: Response) => {
           userType: derivedUserType,
           customerId: user.customerId,
           customer: user.customers,
-          permissions: permissions
+          permissions: permissions,
+          teamMemberRole: teamMemberRole ? {
+            id: teamMemberRole.id,
+            name: teamMemberRole.name,
+            description: teamMemberRole.description
+          } : null,
+          isOwner: isOwnerUser,
+          mustChangePassword: user.must_change_password || false,
+          isTempPassword: user.is_temp_password || false
         }
       });
     } catch (dbError: any) {
@@ -476,22 +614,89 @@ router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) =
             ? 'developer'
             : user.customerId ? 'owner' : 'admin'; // default to owner for customer users, admin for internal
 
-    // Compute owner-derived permissions for managers so changes reflect without re-login
+    // Compute permissions based on user type
     let effectivePermissions: any = user.permissions || {};
-    if (derivedUserType === 'manager' && user.customerId) {
+    let teamMemberRole = null;
+    let isOwnerUser = false;
+
+    // Determine owner status: Owner = user whose email matches customer.email OR no team_members record
+    if (user.customerId) {
       try {
-        const owner = await prisma.users.findFirst({
-          where: {
-            customerId: user.customerId,
-            role: { in: ['owner', 'property_owner', 'property owner'] }
-          },
-          select: { permissions: true }
+        // First, check if user email matches customer email (definitive owner check)
+        const customer = await prisma.customers.findUnique({
+          where: { id: user.customerId },
+          select: { email: true }
         });
-        if (owner?.permissions) {
-          effectivePermissions = owner.permissions;
+
+        console.log('🔍 [/account] Owner check for:', {
+          userEmail: user.email,
+          customerEmail: customer?.email,
+          customerId: user.customerId
+        });
+
+        if (customer && customer.email.toLowerCase() === user.email.toLowerCase()) {
+          // User email matches customer email = DEFINITIVE OWNER
+          isOwnerUser = true;
+          console.log('✅ [/account] User is owner (email matches customer email):', user.email);
+        } else {
+          // Check if user has a team_members record
+          const teamMember = await prisma.team_members.findFirst({
+            where: {
+              user_id: user.id,
+              customer_id: user.customerId
+            },
+            include: {
+              team_roles: true
+            }
+          });
+
+          console.log('🔍 [/account] Team member check:', {
+            userEmail: user.email,
+            hasTeamMember: !!teamMember,
+            teamMemberId: teamMember?.id
+          });
+
+          if (teamMember) {
+            // Has team_members record = NOT owner (team member)
+            isOwnerUser = false;
+            console.log('❌ [/account] User is team member (NOT OWNER):', user.email);
+
+            // Team member: use role-based permissions
+            teamMemberRole = teamMember.team_roles;
+            effectivePermissions = {
+              // From role
+              ...(teamMember.team_roles?.permissions || {}),
+              // Individual overrides from team_members table
+              canApproveInvoices: teamMember.can_approve_invoices ?? teamMember.team_roles?.can_approve_invoices,
+              approvalLimit: teamMember.approval_limit ?? teamMember.team_roles?.approval_limit,
+              canCreateInvoices: teamMember.can_create_invoices ?? teamMember.team_roles?.can_create_invoices,
+              canManageProjects: teamMember.can_manage_projects ?? teamMember.team_roles?.can_manage_projects,
+              canViewReports: teamMember.can_view_reports ?? teamMember.team_roles?.can_view_reports,
+            };
+          } else {
+            // No team_members record = ORIGINAL OWNER (account creator)
+            isOwnerUser = true;
+            console.log('✅ [/account] User is owner (no team membership):', user.email);
+
+            // For managers (not team members), fetch owner's permissions if needed
+            if (derivedUserType === 'manager') {
+              const owner = await prisma.users.findFirst({
+                where: {
+                  customerId: user.customerId,
+                  role: { in: ['owner', 'property_owner', 'property owner'] }
+                },
+                select: { permissions: true }
+              });
+              if (owner?.permissions) {
+                effectivePermissions = owner.permissions;
+              }
+            }
+          }
         }
       } catch (e) {
-        console.warn('⚠️ Could not compute owner permissions on /account:', e);
+        console.warn('⚠️ Could not compute team member/owner status on /account:', e);
+        // Fallback: assume owner if error (safer default for account access)
+        isOwnerUser = user.customerId ? true : false;
       }
     }
 
@@ -529,6 +734,12 @@ router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) =
       }
     }
 
+    console.log('📤 [/account] Sending response:', {
+      userEmail: user.email,
+      isOwner: isOwnerUser,
+      teamMemberRole: teamMemberRole?.name
+    });
+
     res.json({
       user: {
         id: user.id,
@@ -536,10 +747,20 @@ router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) =
         email: user.email,
         role: user.role,
         status: user.status,
+        phone: user.phone,
+        department: user.department,
+        company: user.company,
         baseCurrency: user.baseCurrency || 'USD',
+        bio: user.bio,
         customerId: user.customerId,
         userType: derivedUserType,
-        permissions: effectivePermissions
+        permissions: effectivePermissions,
+        isOwner: isOwnerUser,
+        teamMemberRole: teamMemberRole ? {
+          id: teamMemberRole.id,
+          name: teamMemberRole.name,
+          description: teamMemberRole.description
+        } : null
       },
       customer: customer ? {
         id: customer.id,

@@ -132,6 +132,11 @@ export interface ProjectInvoice {
 
   // Populated fields
   vendor?: ProjectVendor;
+  approver?: {
+    id: string;
+    name: string;
+    email: string;
+  };
 }
 
 export interface ProjectForecast {

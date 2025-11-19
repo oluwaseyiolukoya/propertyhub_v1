@@ -11,6 +11,12 @@ import { initializeSocket, cleanupSocket } from "./lib/socket";
 import paystackWebhookRoutes from "./routes/paystack";
 import prisma from "./lib/db";
 
+// Handle BigInt serialization for JSON.stringify
+// This prevents "TypeError: Do not know how to serialize a BigInt"
+(BigInt.prototype as any).toJSON = function () {
+  return this.toString();
+};
+
 // Load environment variables (.env.local overrides .env)
 try {
   const envLocalPath = path.resolve(process.cwd(), ".env.local");
@@ -141,8 +147,14 @@ import pricingSyncRoutes from "./routes/pricing-sync";
 import publicPlansRoutes from "./routes/public-plans";
 // Email Test routes
 import emailTestRoutes from "./routes/email-test";
+// Team Management routes
+import teamRoutes from "./routes/team";
+// Approval Workflow routes
+import approvalRoutes from "./routes/approvals";
 // Forgot Password routes
 import forgotPasswordRoutes from "./routes/forgot-password";
+// Storage routes
+import storageRoutes from "./routes/storage";
 // Cron jobs
 import { initializeCronJobs } from "./lib/cron-jobs";
 
@@ -384,6 +396,12 @@ app.use("/api/developer-dashboard", vendorsRoutes);
 app.use("/api/email-test", emailTestRoutes);
 // Forgot Password routes (public)
 app.use("/api/forgot-password", forgotPasswordRoutes);
+// Storage routes
+app.use("/api/storage", storageRoutes);
+// Team Management routes
+app.use("/api/team", teamRoutes);
+// Approval Workflow routes
+app.use("/api/approvals", approvalRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
@@ -447,6 +465,20 @@ httpServer.listen(PORT, () => {
 
   // Initialize cron jobs for scheduled tasks
   initializeCronJobs();
+
+  // Start email queue processor (every 2 minutes)
+  console.log(`📧 Email queue processor starting (every 2 minutes)...`);
+  setInterval(async () => {
+    try {
+      const { notificationService } = await import('./services/notification.service');
+      const processed = await notificationService.processPendingEmails(10);
+      if (processed > 0) {
+        console.log(`📧 Processed ${processed} emails from queue`);
+      }
+    } catch (error) {
+      console.error('❌ Error processing email queue:', error);
+    }
+  }, 2 * 60 * 1000); // Every 2 minutes
 });
 
 export default app;

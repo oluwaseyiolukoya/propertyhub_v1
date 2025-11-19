@@ -16,6 +16,7 @@ import {
   ChevronDown,
   Bell,
   DollarSign,
+  Shield,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Avatar, AvatarFallback } from '../../../components/ui/avatar';
@@ -39,16 +40,20 @@ import { ReportsPage } from './ReportsPage';
 import { ForecastsPage } from './ForecastsPage';
 import { ExpenseManagementPage } from './ExpenseManagementPage';
 import ProjectFundingPage from './ProjectFundingPage';
+import ProjectInvoicesPage from './ProjectInvoicesPage';
 import { useProjects } from '../hooks/useDeveloperDashboardData';
 import { Footer } from '../../../components/Footer';
 import { toast } from 'sonner';
 import { PlatformLogo } from '../../../components/PlatformLogo';
 import { TrialStatusBanner } from '../../../components/TrialStatusBanner';
 import { UpgradeModal } from '../../../components/UpgradeModal';
+import { NotificationCenter } from '../../../components/NotificationCenter';
+import { ChangePasswordModal } from '../../../components/ChangePasswordModal';
 import { getAccountInfo } from '../../../lib/api/auth';
 import { getSubscriptionStatus } from '../../../lib/api/subscription';
 import { apiClient } from '../../../lib/api-client';
 import { DeveloperSettings } from './DeveloperSettings';
+import { ProfileSettings } from './ProfileSettings';
 
 interface DeveloperDashboardRefactoredProps {
   user?: any;
@@ -60,9 +65,11 @@ type Page =
   | 'project-dashboard'
   | 'budgets'
   | 'purchase-orders'
+  | 'project-invoices'
   | 'reports'
   | 'forecasts'
   | 'settings'
+  | 'profile'
   | 'create-project'
   | 'edit-project'
   | 'expense-management'
@@ -76,8 +83,19 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [hasCustomLogo, setHasCustomLogo] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [accountInfo, setAccountInfo] = useState<any>(null);
   const [subscription, setSubscription] = useState<any>(null);
+  // Treat ANY team member as non-owner and also require email match with customer email.
+  const customerEmail = (user?.customer?.email || user?.customerEmail || '').toLowerCase();
+  const userEmail = (user?.email || '').toLowerCase();
+  const initialIsOwner =
+    !!user?.isOwner &&
+    !user?.teamMemberRole &&
+    !!userEmail &&
+    !!customerEmail &&
+    userEmail === customerEmail;
+  const [isOwner, setIsOwner] = useState<boolean>(initialIsOwner);
 
   // Fetch actual projects from API
   const { data: projects, loading: projectsLoading } = useProjects({}, {}, 1, 100);
@@ -93,6 +111,26 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
 
         if (acctResponse.data) {
           setAccountInfo(acctResponse.data);
+          const backendIsOwner = !!acctResponse.data.user?.isOwner;
+          const hasTeamMemberRole = !!acctResponse.data.user?.teamMemberRole;
+          const responseUserEmail = (acctResponse.data.user?.email || '').toLowerCase();
+          const responseCustomerEmail = (acctResponse.data.customer?.email || '').toLowerCase();
+          const emailMatches =
+            !!responseUserEmail &&
+            !!responseCustomerEmail &&
+            responseUserEmail === responseCustomerEmail;
+          // Final owner status: backend flag AND email matches customer AND not a team member
+          const ownerStatus = backendIsOwner && emailMatches && !hasTeamMemberRole;
+          setIsOwner(ownerStatus);
+          console.log('🔍 [DeveloperDashboardRefactored] Owner status check:', {
+            email: acctResponse.data.user?.email,
+            isOwner: ownerStatus,
+            rawIsOwner: acctResponse.data.user?.isOwner,
+            teamMemberRole: acctResponse.data.user?.teamMemberRole,
+            role: acctResponse.data.user?.role,
+            emailMatchesCustomer: emailMatches,
+            customerEmail: acctResponse.data.customer?.email
+          });
         }
 
         if (subResponse.data) {
@@ -104,7 +142,14 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
     };
 
     fetchAccountData();
-  }, []);
+  }, [user]);
+
+  // Prevent non-owners from staying on settings page
+  useEffect(() => {
+    if (!isOwner && currentPage === 'settings') {
+      setCurrentPage('portfolio');
+    }
+  }, [isOwner, currentPage]);
 
   const handleProjectSelect = (projectId: string) => {
     if (projectId === 'all-projects') {
@@ -148,6 +193,20 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
     // Go back to project dashboard to show updated data
     setCurrentPage('project-dashboard');
     // The project dashboard will automatically refresh
+  };
+
+  const handleOpenSettings = (tab?: string) => {
+    if (isOwner) {
+      setCurrentPage('settings');
+      // Update URL with tab parameter if provided
+      if (tab) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', tab);
+        window.history.pushState({}, '', url.toString());
+      }
+    } else {
+      toast.warning('Only account owners can access Settings and Billing.');
+    }
   };
 
   const handleDeleteProject = async (projectId: string) => {
@@ -269,22 +328,78 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
     return project?.name || 'Unknown Project';
   };
 
+  // Get user permissions and role
+  const userPermissions = accountInfo?.user?.permissions || {};
+  // Check if user can manage projects (create/edit/delete)
+  // If permissions.projects === "view", they can only view, not manage
+  const canManageProjects = userPermissions.canManageProjects !== false &&
+                            userPermissions.projects !== "view"; // Default true for Owner, false if projects is "view"
+  const canApproveInvoices = userPermissions.canApproveInvoices || false;
+  const canCreateInvoices = userPermissions.canCreateInvoices || false;
+  const canViewReports = userPermissions.canViewReports !== false; // Default true
+
   // Main menu items (always visible)
-  const mainMenuItems = [
+  const mainMenuItems: Array<{ id: Page; label: string; icon: any }> = [
     { id: 'portfolio' as Page, label: 'Portfolio', icon: FolderKanban },
-    { id: 'settings' as Page, label: 'Settings', icon: Settings },
+  ];
+  if (isOwner) {
+    mainMenuItems.push({ id: 'settings' as Page, label: 'Settings', icon: Settings });
+  }
+
+  // Project-specific menu items (filtered by role permissions)
+  const allProjectMenuItems = [
+    {
+      id: 'project-dashboard' as Page,
+      label: 'Project Dashboard',
+      icon: LayoutDashboard,
+      visible: true // Everyone can view
+    },
+    {
+      id: 'project-funding' as Page,
+      label: 'Project Funding',
+      icon: DollarSign,
+      visible: canManageProjects // Owner, Project Manager
+    },
+    {
+      id: 'expense-management' as Page,
+      label: 'Expenses',
+      icon: Receipt,
+      visible: canManageProjects // Owner, Project Manager
+    },
+    {
+      id: 'budgets' as Page,
+      label: 'Budgets',
+      icon: Wallet,
+      visible: true // Everyone can view budgets
+    },
+    {
+      id: 'purchase-orders' as Page,
+      label: 'Purchase Orders',
+      icon: CreditCard,
+      visible: true // Everyone can view POs
+    },
+    {
+      id: 'project-invoices' as Page,
+      label: 'Invoices',
+      icon: Receipt,
+      visible: true // Everyone can view invoices
+    },
+    {
+      id: 'reports' as Page,
+      label: 'Reports',
+      icon: BarChart3,
+      visible: canViewReports // Everyone except Viewer (limited)
+    },
+    {
+      id: 'forecasts' as Page,
+      label: 'Forecasts',
+      icon: TrendingUp,
+      visible: true // Everyone can view forecasts
+    },
   ];
 
-  // Project-specific menu items (only visible when project is selected)
-  const projectMenuItems = [
-    { id: 'project-dashboard' as Page, label: 'Project Dashboard', icon: LayoutDashboard },
-    { id: 'project-funding' as Page, label: 'Project Funding', icon: DollarSign },
-    { id: 'expense-management' as Page, label: 'Expenses', icon: Receipt },
-    { id: 'budgets' as Page, label: 'Budgets', icon: Wallet },
-    { id: 'purchase-orders' as Page, label: 'Purchase Orders', icon: CreditCard },
-    { id: 'reports' as Page, label: 'Reports', icon: BarChart3 },
-    { id: 'forecasts' as Page, label: 'Forecasts', icon: TrendingUp },
-  ];
+  // Filter project menu items based on permissions
+  const projectMenuItems = allProjectMenuItems.filter(item => item.visible);
 
   const renderPage = () => {
     if (currentPage === 'create-project') {
@@ -313,7 +428,7 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
             {/* Trial Status Banner */}
             <TrialStatusBanner
               onUpgradeClick={() => setShowUpgradeModal(true)}
-              onAddPaymentMethod={() => setCurrentPage('settings')}
+              onAddPaymentMethod={() => handleOpenSettings('billing')}
             />
             <PortfolioOverview
               onViewProject={handleProjectSelect}
@@ -325,6 +440,7 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
               onMarkAsCompleted={handleMarkAsCompleted}
               onReactivateProject={handleReactivateProject}
               onCreateProject={handleCreateProject}
+              canManageProjects={canManageProjects}
             />
           </>
         );
@@ -341,6 +457,14 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
         ) : (
           <div className="flex items-center justify-center h-full">
             <p className="text-gray-500">Please select a project</p>
+          </div>
+        );
+      case 'project-invoices':
+        return selectedProjectId ? (
+          <ProjectInvoicesPage projectId={selectedProjectId} />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-gray-500">Please select a project to view invoices</p>
           </div>
         );
       case 'project-funding':
@@ -401,7 +525,19 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
             <p className="text-gray-500">Please select a project to view forecasts</p>
           </div>
         );
+      case 'profile':
+        return <ProfileSettings onBack={handleBackToPortfolio} />;
       case 'settings':
+        if (!isOwner) {
+          return (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center space-y-2">
+                <h3 className="text-lg font-semibold text-gray-900">Access Restricted</h3>
+                <p className="text-gray-600">Only account owners can manage Settings.</p>
+              </div>
+            </div>
+          );
+        }
         return <DeveloperSettings user={user} />;
       default:
         return (
@@ -415,6 +551,7 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
             onMarkAsCompleted={handleMarkAsCompleted}
             onReactivateProject={handleReactivateProject}
             onCreateProject={handleCreateProject}
+            canManageProjects={canManageProjects}
           />
         );
     }
@@ -449,10 +586,7 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
                 </Badge>
               )}
 
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </Button>
+              <NotificationCenter />
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -477,25 +611,52 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="gap-2 cursor-pointer">
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer"
+                    onClick={() => setCurrentPage('profile')}
+                  >
                     <User className="w-4 h-4" />
                     <span>Profile</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     className="gap-2 cursor-pointer"
-                    onClick={() => setCurrentPage('settings')}
+                    onClick={() => setShowChangePasswordModal(true)}
                   >
-                    <Settings className="w-4 h-4" />
-                    <span>Settings</span>
+                    <Shield className="w-4 h-4" />
+                    <span>Change Password</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="gap-2 cursor-pointer">
-                    <CreditCard className="w-4 h-4" />
-                    <span>Billing</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="gap-2 cursor-pointer">
-                    <Users className="w-4 h-4" />
-                    <span>Team</span>
-                  </DropdownMenuItem>
+                  {isOwner && (
+                    <>
+                      <DropdownMenuItem
+                        className="gap-2 cursor-pointer"
+                        onClick={() => handleOpenSettings('organization')}
+                      >
+                        <Building2 className="w-4 h-4" />
+                        <span>Organization</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="gap-2 cursor-pointer"
+                        onClick={() => handleOpenSettings('billing')}
+                      >
+                        <CreditCard className="w-4 h-4" />
+                        <span>Billing</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="gap-2 cursor-pointer"
+                        onClick={() => handleOpenSettings('team')}
+                      >
+                        <Users className="w-4 h-4" />
+                        <span>Team</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="gap-2 cursor-pointer"
+                        onClick={() => handleOpenSettings('notifications')}
+                      >
+                        <Bell className="w-4 h-4" />
+                        <span>Notifications</span>
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem className="gap-2 cursor-pointer">
                     <HelpCircle className="w-4 h-4" />
@@ -543,7 +704,13 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
               return (
                 <button
                   key={item.id}
-                  onClick={() => setCurrentPage(item.id)}
+                  onClick={() => {
+                    if (item.id === 'settings') {
+                      handleOpenSettings('profile'); // Default to profile tab
+                    } else {
+                      setCurrentPage(item.id);
+                    }
+                  }}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
                     isActive
                       ? 'bg-blue-50 text-blue-600'
@@ -631,6 +798,12 @@ export const DeveloperDashboardRefactored: React.FC<DeveloperDashboardRefactored
           setShowUpgradeModal(false);
           window.location.reload();
         }}
+      />
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        open={showChangePasswordModal}
+        onClose={() => setShowChangePasswordModal(false)}
       />
     </div>
   );

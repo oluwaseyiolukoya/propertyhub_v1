@@ -269,9 +269,15 @@ export const apiClient = {
   /**
    * DELETE request
    */
-  delete: <T>(endpoint: string, extra?: { suppressAuthRedirect?: boolean }): Promise<ApiResponse<T>> => {
+  delete: <T>(endpoint: string, body?: any, extra?: { suppressAuthRedirect?: boolean }): Promise<ApiResponse<T>> => {
+    const isFormData = body instanceof FormData;
     return request<T>(endpoint, {
       method: 'DELETE',
+      ...(typeof body === 'undefined'
+        ? {}
+        : {
+            body: isFormData ? body : JSON.stringify(body ?? {}),
+          }),
     }, extra);
   },
 };
