@@ -1,4 +1,4 @@
-import { apiClient, ApiResponse } from '../api-client';
+import { apiClient, ApiResponse } from "../api-client";
 
 export interface ManagerPermissions {
   managerCanViewUnits?: boolean;
@@ -35,14 +35,19 @@ export interface UserSettings {
  * Get user settings (including permissions)
  */
 export const getSettings = async (): Promise<ApiResponse<UserSettings>> => {
-  return await apiClient.get<UserSettings>('/api/settings');
+  return await apiClient.get<UserSettings>("/api/settings");
 };
 
 /**
  * Update manager permissions (Owner only)
  */
-export const updateManagerPermissions = async (permissions: ManagerPermissions): Promise<ApiResponse<any>> => {
-  return await apiClient.put<any>('/api/settings/manager-permissions', permissions);
+export const updateManagerPermissions = async (
+  permissions: ManagerPermissions
+): Promise<ApiResponse<any>> => {
+  return await apiClient.put<any>(
+    "/api/settings/manager-permissions",
+    permissions
+  );
 };
 
 /**
@@ -56,7 +61,10 @@ export const updateProfile = async (profileData: {
   company?: string;
   bio?: string;
 }): Promise<ApiResponse<{ message: string; user: UserSettings }>> => {
-  return await apiClient.put<{ message: string; user: UserSettings }>('/api/settings/profile', profileData);
+  return await apiClient.put<{ message: string; user: UserSettings }>(
+    "/api/settings/profile",
+    profileData
+  );
 };
 
 /**
@@ -76,13 +84,16 @@ export const updateOrganization = async (organizationData: {
   licenseNumber?: string;
   organizationType?: string;
 }): Promise<ApiResponse<{ message: string; customer: any }>> => {
-  return await apiClient.put<{ message: string; customer: any }>('/api/settings/organization', organizationData);
+  return await apiClient.put<{ message: string; customer: any }>(
+    "/api/settings/organization",
+    organizationData
+  );
 };
 
 export interface PaymentGatewaySettings {
   id?: string;
   customerId?: string;
-  provider: 'paystack';
+  provider: "paystack";
   publicKey?: string;
   // secretKey is never returned from server
   testMode?: boolean;
@@ -92,18 +103,46 @@ export interface PaymentGatewaySettings {
   updatedAt?: string;
 }
 
-export const getPaymentGatewaySettings = async (): Promise<ApiResponse<PaymentGatewaySettings | null>> => {
-  return await apiClient.get<PaymentGatewaySettings | null>('/api/settings/payment-gateway');
-};
-
-export const getPublicPaymentGatewaySettings = async (): Promise<ApiResponse<{ isEnabled: boolean; testMode: boolean; bankTransferTemplate?: string; updatedAt?: string } | null>> => {
-  return await apiClient.get<{ isEnabled: boolean; testMode: boolean; bankTransferTemplate?: string; updatedAt?: string } | null>('/api/settings/payment-gateway/public');
-};
-
-export const getTenantPublicPaymentGateway = async (): Promise<ApiResponse<{ publicKey: string | null; isEnabled: boolean; testMode: boolean; bankTransferTemplate?: string; updatedAt?: string }>> => {
-  return await apiClient.get<{ publicKey: string | null; isEnabled: boolean; testMode: boolean; bankTransferTemplate?: string; updatedAt?: string }>(
-    '/api/tenant/payment-gateway/public'
+export const getPaymentGatewaySettings = async (): Promise<
+  ApiResponse<PaymentGatewaySettings | null>
+> => {
+  return await apiClient.get<PaymentGatewaySettings | null>(
+    "/api/settings/payment-gateway"
   );
+};
+
+export const getPublicPaymentGatewaySettings = async (): Promise<
+  ApiResponse<{
+    isEnabled: boolean;
+    testMode: boolean;
+    bankTransferTemplate?: string;
+    updatedAt?: string;
+  } | null>
+> => {
+  return await apiClient.get<{
+    isEnabled: boolean;
+    testMode: boolean;
+    bankTransferTemplate?: string;
+    updatedAt?: string;
+  } | null>("/api/settings/payment-gateway/public");
+};
+
+export const getTenantPublicPaymentGateway = async (): Promise<
+  ApiResponse<{
+    publicKey: string | null;
+    isEnabled: boolean;
+    testMode: boolean;
+    bankTransferTemplate?: string;
+    updatedAt?: string;
+  }>
+> => {
+  return await apiClient.get<{
+    publicKey: string | null;
+    isEnabled: boolean;
+    testMode: boolean;
+    bankTransferTemplate?: string;
+    updatedAt?: string;
+  }>("/api/tenant/payment-gateway/public");
 };
 
 export const savePaymentGatewaySettings = async (payload: {
@@ -111,10 +150,11 @@ export const savePaymentGatewaySettings = async (payload: {
   secretKey: string;
   testMode?: boolean;
   isEnabled?: boolean;
-}): Promise<ApiResponse<{ message: string; settings: PaymentGatewaySettings }>> => {
-  return await apiClient.put<{ message: string; settings: PaymentGatewaySettings }>(
-    '/api/settings/payment-gateway',
-    payload
-  );
+}): Promise<
+  ApiResponse<{ message: string; settings: PaymentGatewaySettings }>
+> => {
+  return await apiClient.put<{
+    message: string;
+    settings: PaymentGatewaySettings;
+  }>("/api/settings/payment-gateway", payload);
 };
-

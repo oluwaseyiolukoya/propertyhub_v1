@@ -168,7 +168,21 @@ export async function setDelegation(
  * Get all roles
  */
 export async function getTeamRoles(): Promise<ApiResponse<TeamRole[]>> {
-  return apiClient.get<TeamRole[]>('/api/team/roles');
+  // The backend wraps responses as: { success: boolean, data: TeamRole[] }
+  // Our apiClient then wraps that again as ApiResponse<{ success; data }>
+  // This helper unwraps the inner `data` so callers always see a plain TeamRole[].
+  const res = await apiClient.get<{ success?: boolean; data?: TeamRole[]; error?: any }>(
+    '/api/team/roles'
+  );
+
+  if (res.error) {
+    return { error: res.error };
+  }
+
+  const inner = res.data;
+  const roles = inner && Array.isArray(inner.data) ? inner.data : [];
+
+  return { data: roles };
 }
 
 /**

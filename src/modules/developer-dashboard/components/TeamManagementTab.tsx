@@ -109,28 +109,35 @@ export const TeamManagementTab: React.FC = () => {
         getTeamRoles(),
       ]);
 
+      console.log('🔍 [TeamManagement] Raw API Responses:');
+      console.log('  Members Response:', membersRes);
+      console.log('  Roles Response:', rolesRes);
+
       // Handle the API response structure properly
       if (membersRes.data) {
         // Check if data is an array or has a nested data property
         const membersList = Array.isArray(membersRes.data)
           ? membersRes.data
           : (membersRes.data.data || []);
+        console.log('  ✅ Members List:', membersList.length, 'members');
         setMembers(membersList);
       } else {
+        console.log('  ❌ No members data');
         setMembers([]);
       }
 
       if (rolesRes.data) {
-        // Check if data is an array or has a nested data property
-        const rolesList = Array.isArray(rolesRes.data)
-          ? rolesRes.data
-          : (rolesRes.data.data || []);
+        // After fixing getTeamRoles, rolesRes.data is always TeamRole[]
+        const rolesList = Array.isArray(rolesRes.data) ? rolesRes.data : [];
+        console.log('  ✅ Roles List:', rolesList.length, 'roles');
+        console.log('  Roles:', rolesList.map((r: any) => r.name).join(', '));
         setRoles(rolesList);
       } else {
+        console.log('  ❌ No roles data');
         setRoles([]);
       }
     } catch (error) {
-      console.error('Error loading team data:', error);
+      console.error('❌ Error loading team data:', error);
       toast.error('Failed to load team data');
       // Set empty arrays on error to prevent filter issues
       setMembers([]);
@@ -675,16 +682,28 @@ export const TeamManagementTab: React.FC = () => {
               <Label htmlFor="role">Role *</Label>
               <Select value={memberForm.roleId} onValueChange={(value) => setMemberForm({ ...memberForm, roleId: value })}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a role" />
+                  <SelectValue placeholder={roles.length > 0 ? "Select a role" : "No roles available"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {roles.map(role => (
-                    <SelectItem key={role.id} value={role.id}>
-                      {role.name} {role.isSystemRole && '(System)'}
-                    </SelectItem>
-                  ))}
+                  {roles.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-gray-500">
+                      <p className="font-medium">No roles found</p>
+                      <p className="text-xs mt-1">Please contact support if this issue persists</p>
+                    </div>
+                  ) : (
+                    roles.map(role => (
+                      <SelectItem key={role.id} value={role.id}>
+                        {role.name} {role.isSystemRole && '(System)'}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
+              {roles.length === 0 && (
+                <p className="text-xs text-red-600 mt-1">
+                  ⚠️ No roles available. System roles may not be seeded in the database.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Permissions</Label>
