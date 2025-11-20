@@ -27,10 +27,10 @@ check() {
     local name="$1"
     local command="$2"
     local expected="$3"
-    
+
     echo -e "${BLUE}Checking: $name${NC}"
     result=$(eval "$command" 2>&1)
-    
+
     if echo "$result" | grep -q "$expected"; then
         echo -e "${GREEN}✓ PASS${NC}"
         echo ""

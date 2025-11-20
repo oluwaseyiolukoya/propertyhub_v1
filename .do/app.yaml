@@ -10,8 +10,12 @@ services:
 
     source_dir: backend
 
-    # Build command - run migrations, then generate Prisma Client during build phase
-    build_command: npm ci && npx prisma migrate deploy && npm run build
+    # Build command - comprehensive migration and build process
+    # 1. Install dependencies
+    # 2. Deploy ALL Prisma migrations (includes system setup)
+    # 3. Regenerate Prisma Client with latest schema
+    # 4. Build application
+    build_command: npm ci && npx prisma migrate deploy && npx prisma generate && npm run build
 
     # Run command - start the application
     run_command: npm run start

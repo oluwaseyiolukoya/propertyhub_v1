@@ -194,10 +194,10 @@ const roles = [
   console.log('  Seeding system roles...');
   let inserted = 0;
   let updated = 0;
-  
+
   for (const role of roles) {
     const existing = await prisma.team_roles.findUnique({ where: { id: role.id } });
-    
+
     if (existing) {
       await prisma.team_roles.update({
         where: { id: role.id },
@@ -224,7 +224,7 @@ const roles = [
       inserted++;
     }
   }
-  
+
   console.log(\`  ✓ Inserted: \${inserted}, Updated: \${updated}\`);
   await prisma.\$disconnect();
 })().catch(e => {
