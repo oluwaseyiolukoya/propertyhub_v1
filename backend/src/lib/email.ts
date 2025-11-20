@@ -1463,8 +1463,8 @@ export async function sendAccountActivationEmail(params: AccountActivationParams
     console.log('📧 [Account Activation] Company:', params.companyName);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    const accountType = params.applicationType === 'property-developer' || params.applicationType === 'developer' 
-      ? 'Developer' 
+    const accountType = params.applicationType === 'property-developer' || params.applicationType === 'developer'
+      ? 'Developer'
       : params.applicationType === 'property-owner'
       ? 'Property Owner'
       : params.applicationType === 'property-manager'
@@ -1501,9 +1501,9 @@ export async function sendAccountActivationEmail(params: AccountActivationParams
     </div>
     <div class="content">
       <p>Hi <strong>${params.customerName}</strong>,</p>
-      
+
       <p>Great news! Your <strong>${accountType}</strong> account for <strong>${params.companyName}</strong> has been approved and activated by our admin team.</p>
-      
+
       <p>You can now access your account and start using all the features available to you.</p>
 
       <div class="credentials">
@@ -1528,7 +1528,7 @@ export async function sendAccountActivationEmail(params: AccountActivationParams
       </div>
 
       <p style="margin-top: 30px;">If you have any questions or need assistance getting started, please don't hesitate to contact our support team.</p>
-      
+
       <p>Welcome aboard!</p>
       <p><strong>The Contrezz Team</strong></p>
     </div>
@@ -1570,7 +1570,7 @@ If you did not apply for an account, please contact us immediately at support@co
     `;
 
     console.log('📧 [Account Activation] Step 1: Creating fresh transporter...');
-    
+
     // Create fresh transporter without connection pooling for instant delivery
     const freshTransporter = nodemailer.createTransport({
       host: config.host,
@@ -1591,7 +1591,7 @@ If you did not apply for an account, please contact us immediately at support@co
     });
 
     console.log('📧 [Account Activation] Step 2: Verifying SMTP connection...');
-    
+
     try {
       await freshTransporter.verify();
       console.log('✅ [Account Activation] SMTP connection verified successfully');
@@ -1610,9 +1610,24 @@ If you did not apply for an account, please contact us immediately at support@co
       html,
     });
 
+    // Validate email was actually sent
+    if (!info || !info.messageId) {
+      console.error('❌ [Account Activation] Email send failed - no message ID returned');
+      console.error('📧 Response:', info);
+      return false;
+    }
+
+    // Check for rejection
+    if (info.rejected && info.rejected.length > 0) {
+      console.error('❌ [Account Activation] Email rejected by server');
+      console.error('📧 Rejected addresses:', info.rejected);
+      return false;
+    }
+
     console.log('✅ Account activation email sent successfully!');
     console.log('📬 Message ID:', info.messageId);
     console.log('📧 Sent to:', params.customerEmail);
+    console.log('📊 Response:', info.response);
     console.log('[Account Activation] ✅✅✅ Activation email sent successfully to:', params.customerEmail);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 

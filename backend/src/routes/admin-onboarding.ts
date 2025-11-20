@@ -204,30 +204,65 @@ router.post('/applications/:id/activate', async (req: Request, res: Response) =>
     const { sendAccountActivationEmail } = require('../lib/email');
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     
-    const emailSent = await sendAccountActivationEmail({
-      customerName: result.name,
-      customerEmail: result.email,
-      companyName: result.companyName,
-      temporaryPassword: result.temporaryPassword,
-      loginUrl: `${frontendUrl}/signin`,
-      applicationType: result.applicationType,
-    });
+    let emailSent = false;
+    let emailError = null;
+    
+    try {
+      emailSent = await sendAccountActivationEmail({
+        customerName: result.name,
+        customerEmail: result.email,
+        companyName: result.companyName,
+        temporaryPassword: result.temporaryPassword,
+        loginUrl: `${frontendUrl}/signin`,
+        applicationType: result.applicationType,
+      });
 
-    if (emailSent) {
-      console.log('✅ [Admin Onboarding] Activation email sent successfully to:', result.email);
-    } else {
-      console.error('❌ [Admin Onboarding] Failed to send activation email to:', result.email);
+      if (!emailSent) {
+        emailError = 'Email function returned false - delivery failed';
+        console.error('❌ [Admin Onboarding] Email delivery failed for:', result.email);
+      } else {
+        console.log('✅ [Admin Onboarding] Activation email sent successfully to:', result.email);
+      }
+    } catch (emailException: any) {
+      emailError = emailException.message || 'Unknown email error';
+      console.error('❌ [Admin Onboarding] Email exception:', emailException);
     }
+
+    // Validate email was sent successfully
+    if (!emailSent) {
+      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.error('⚠️  [Admin Onboarding] VALIDATION FAILED: Email not sent');
+      console.error('📧 Customer Email:', result.email);
+      console.error('❌ Error:', emailError);
+      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to send activation email',
+        details: emailError,
+        data: {
+          temporaryPassword: result.temporaryPassword,
+          customerEmail: result.email,
+          note: 'Account was activated but email delivery failed. Please send credentials to customer manually.',
+        },
+      });
+    }
+
+    // Success - email was validated and sent
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('✅ [Admin Onboarding] VALIDATION PASSED: Email sent successfully');
+    console.log('📧 Customer Email:', result.email);
+    console.log('🎉 Account activated and customer notified');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     res.json({
       success: true,
       message: result.message,
       data: {
         temporaryPassword: result.temporaryPassword,
-        emailSent,
-        note: emailSent 
-          ? 'Activation email sent to customer' 
-          : 'Account activated but email failed to send. Please send credentials manually.',
+        emailSent: true,
+        customerEmail: result.email,
+        note: 'Account activated and activation email sent to customer successfully',
       },
     });
   } catch (error) {
