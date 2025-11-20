@@ -39,6 +39,54 @@ function generateTemporaryPassword(): string {
 // ============================================
 
 /**
+ * POST /api/team/test-email
+ * Test email sending functionality (for debugging production issues)
+ */
+router.post('/test-email', authMiddleware, customerOnly, async (req: AuthRequest, res: Response) => {
+  try {
+    const { email } = req.body;
+    const testEmail = email || req.user!.email;
+
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🧪 [TEST EMAIL] Starting test email send...');
+    console.log('🧪 [TEST EMAIL] Recipient:', testEmail);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    const { sendTeamInvitation } = require('../lib/email');
+
+    const result = await sendTeamInvitation({
+      memberName: 'Test User',
+      memberEmail: testEmail,
+      companyName: 'Test Company',
+      roleName: 'Test Role',
+      inviterName: 'Admin',
+      temporaryPassword: 'Test-Password-2024-123',
+      expiryHours: 48,
+      loginUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/signin`,
+      department: 'IT',
+      jobTitle: 'Developer',
+    });
+
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log(`🧪 [TEST EMAIL] Result: ${result ? '✅ SUCCESS' : '❌ FAILED'}`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    res.json({
+      success: result,
+      message: result ? 'Test email sent successfully! Check your inbox.' : 'Failed to send test email. Check server logs.',
+      recipient: testEmail,
+    });
+  } catch (error: any) {
+    console.error('🧪 [TEST EMAIL] Exception:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      details: error.toString(),
+    });
+  }
+});
+
+/**
  * GET /api/team/members
  * Get all team members for the customer
  */

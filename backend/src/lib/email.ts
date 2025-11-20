@@ -1462,6 +1462,31 @@ export interface TeamInvitationParams {
 export async function sendTeamInvitation(params: TeamInvitationParams): Promise<boolean> {
   const config = getEmailConfig();
 
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('📧 [PRODUCTION DEBUG] sendTeamInvitation called');
+  console.log('📧 [PRODUCTION DEBUG] Parameters:', {
+    memberName: params.memberName,
+    memberEmail: params.memberEmail,
+    companyName: params.companyName,
+    roleName: params.roleName,
+    inviterName: params.inviterName,
+    expiryHours: params.expiryHours,
+    expiryHoursType: typeof params.expiryHours,
+    loginUrl: params.loginUrl,
+    department: params.department,
+    jobTitle: params.jobTitle,
+  });
+  console.log('📧 [PRODUCTION DEBUG] SMTP Config:', {
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    user: config.auth.user,
+    from: config.from,
+    hasPassword: !!config.auth.pass,
+    passwordLength: config.auth.pass?.length || 0,
+  });
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
   const emailSubject = `Welcome to ${params.companyName} - Your Account is Ready!`;
 
   const emailBody = `
