@@ -393,36 +393,48 @@ router.post('/members', authMiddleware, customerOnly, async (req: AuthRequest, r
       where: { id: customerId },
     });
 
-    // Send invitation email with temporary password
+    // Send invitation email with temporary password (INSTANT DELIVERY like onboarding)
+    let emailSent = false;
     try {
       const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/signin`;
 
-      await notificationService.sendTemplatedNotification(
-        'Team Invitation with Temporary Password', // template name
-        {
-          memberName: `${firstName} ${lastName}`,
-          companyName: customer?.company || 'Your Organization',
-          roleName: member.role.name,
-          inviterName: inviter?.name || 'Your Team Admin',
-          inviterEmail: inviter?.email || '',
-          email: email.toLowerCase(),
-          temporaryPassword: temporaryPassword,
-          expiryHours: '48',
-          loginUrl: loginUrl,
-          department: department || 'Not specified',
-          jobTitle: jobTitle || 'Not specified',
-        },
-        {
-          customerId,
-          userId: user.id,
-          type: 'team_invitation',
-          sendEmail: true,
-        }
-      );
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[Team Invitation] 📧 Starting invitation email process...');
+      console.log('[Team Invitation] Recipient:', email.toLowerCase());
+      console.log('[Team Invitation] Member:', `${firstName} ${lastName}`);
+      console.log('[Team Invitation] Role:', member.role.name);
+      console.log('[Team Invitation] SMTP Host:', process.env.SMTP_HOST || 'NOT SET');
+      console.log('[Team Invitation] SMTP From:', process.env.SMTP_FROM || 'NOT SET');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-      console.log(`📧 Invitation email sent to: ${email}`);
-    } catch (emailError) {
-      console.error('❌ Failed to send invitation email:', emailError);
+      // Import email function
+      const { sendTeamInvitation } = require('../lib/email');
+
+      emailSent = await sendTeamInvitation({
+        memberName: `${firstName} ${lastName}`,
+        memberEmail: email.toLowerCase(),
+        companyName: customer?.company || 'Your Organization',
+        roleName: member.role.name,
+        inviterName: inviter?.name || 'Your Team Admin',
+        temporaryPassword: temporaryPassword,
+        expiryHours: 48,
+        loginUrl: loginUrl,
+        department: department || '',
+        jobTitle: jobTitle || '',
+      });
+
+      if (emailSent) {
+        console.log('[Team Invitation] ✅✅✅ Invitation email sent successfully to:', email);
+      } else {
+        console.error('[Team Invitation] ❌❌❌ Failed to send invitation email to:', email);
+      }
+    } catch (emailError: any) {
+      console.error('[Team Invitation] ❌❌❌ EXCEPTION while sending invitation email:', emailError);
+      console.error('[Team Invitation] Error details:', {
+        message: emailError?.message,
+        code: emailError?.code,
+        stack: emailError?.stack?.split('\n')[0]
+      });
       // Don't fail the request if email fails
     }
 

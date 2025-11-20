@@ -1442,6 +1442,255 @@ function generatePasswordResetEmailHTML(params: {
   return html;
 }
 
+/**
+ * Send team invitation email with temporary password (INSTANT DELIVERY)
+ * Uses same pattern as onboarding email for immediate delivery
+ */
+export interface TeamInvitationParams {
+  memberName: string;
+  memberEmail: string;
+  companyName: string;
+  roleName: string;
+  inviterName: string;
+  temporaryPassword: string;
+  expiryHours: number;
+  loginUrl: string;
+  department?: string;
+  jobTitle?: string;
+}
+
+export async function sendTeamInvitation(params: TeamInvitationParams): Promise<boolean> {
+  const config = getEmailConfig();
+
+  const emailSubject = `Welcome to ${params.companyName} - Your Account is Ready!`;
+
+  const emailBody = `
+Hello ${params.memberName},
+
+${params.inviterName} has invited you to join ${params.companyName} as a ${params.roleName}.
+
+YOUR LOGIN CREDENTIALS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Email: ${params.memberEmail}
+Temporary Password: ${params.temporaryPassword}
+Expires in: ${params.expiryHours} hours
+Login URL: ${params.loginUrl}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+IMPORTANT: For security reasons, you will be required to change your password on first login.
+
+Your Role: ${params.roleName}
+${params.department ? `Department: ${params.department}` : ''}
+${params.jobTitle ? `Job Title: ${params.jobTitle}` : ''}
+
+If you have any questions, please contact your administrator.
+
+Best regards,
+${params.inviterName}
+${params.companyName}
+
+---
+This is an automated email. Please do not reply to this message.
+  `.trim();
+
+  try {
+    console.log('📧 [Team Invitation] Step 1: Getting transporter...');
+    const transporter = getTransporter();
+
+    // Verify connection before sending (fixes EAUTH connection lost issue)
+    console.log('📧 [Team Invitation] Step 2: Verifying SMTP connection...');
+    try {
+      await transporter.verify();
+      console.log('✅ [Team Invitation] SMTP connection verified successfully');
+    } catch (verifyError: any) {
+      console.error('❌ [Team Invitation] SMTP verification failed:', verifyError.message);
+      console.error('🔄 [Team Invitation] Attempting to create fresh transporter...');
+
+      // Reset transporter and try again
+      const freshTransporter = nodemailer.createTransport({
+        host: config.host,
+        port: config.port,
+        secure: config.secure,
+        auth: {
+          user: config.auth.user,
+          pass: config.auth.pass,
+        },
+        pool: false, // Disable connection pooling for team invitation emails
+        tls: {
+          rejectUnauthorized: false,
+          minVersion: 'TLSv1.2'
+        },
+        connectionTimeout: 10000,
+        greetingTimeout: 5000,
+        socketTimeout: 30000,
+      });
+
+      console.log('✅ [Team Invitation] Fresh transporter created');
+
+      // Use the fresh transporter for sending
+      console.log('📧 [Team Invitation] Step 3: Sending email with fresh connection...');
+      const info = await freshTransporter.sendMail({
+        from: `"${params.companyName}" <${config.from}>`,
+        to: params.memberEmail,
+        subject: emailSubject,
+        text: emailBody,
+        html: generateTeamInvitationHtml(params)
+      });
+
+      console.log('✅ Team invitation email sent successfully!');
+      console.log('📬 Message ID:', info.messageId);
+      console.log('📧 Sent to:', params.memberEmail);
+
+      return true;
+    }
+
+    console.log('📧 [Team Invitation] Step 3: Sending email with verified connection...');
+    const info = await transporter.sendMail({
+      from: `"${params.companyName}" <${config.from}>`,
+      to: params.memberEmail,
+      subject: emailSubject,
+      text: emailBody,
+      html: generateTeamInvitationHtml(params)
+    });
+
+    console.log('✅ Team invitation email sent successfully!');
+    console.log('📬 Message ID:', info.messageId);
+    console.log('📧 Sent to:', params.memberEmail);
+
+    return true;
+  } catch (error: any) {
+    console.error('❌ Failed to send team invitation email:', error);
+    console.error('📧 Email error details:', {
+      code: error?.code,
+      command: error?.command,
+      response: error?.response,
+      responseCode: error?.responseCode,
+      message: error?.message
+    });
+    return false;
+  }
+}
+
+/**
+ * Generate HTML version of team invitation email
+ */
+function generateTeamInvitationHtml(params: TeamInvitationParams): string {
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Team Invitation</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background-color: #4F46E5; padding: 40px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600;">
+                Welcome to ${params.companyName}!
+              </h1>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px;">
+              <p style="margin: 0 0 20px; color: #1f2937; font-size: 16px; line-height: 1.6;">
+                Hi <strong>${params.memberName}</strong>,
+              </p>
+
+              <p style="margin: 0 0 20px; color: #1f2937; font-size: 16px; line-height: 1.6;">
+                ${params.inviterName} has invited you to join <strong>${params.companyName}</strong> as a <strong>${params.roleName}</strong>.
+              </p>
+
+              <!-- Credentials Box -->
+              <div style="background-color: #f9fafb; border-left: 4px solid #4F46E5; border-radius: 8px; padding: 20px; margin: 30px 0;">
+                <h3 style="margin: 0 0 15px; color: #1f2937; font-size: 18px; font-weight: 600;">
+                  Your Login Credentials
+                </h3>
+                <table width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="padding: 8px 0; color: #6b7280; font-size: 14px; width: 150px;">
+                      <strong>Email:</strong>
+                    </td>
+                    <td style="padding: 8px 0; color: #1f2937; font-size: 14px;">
+                      ${params.memberEmail}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">
+                      <strong>Temporary Password:</strong>
+                    </td>
+                    <td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-family: 'Courier New', monospace; font-weight: 600;">
+                      ${params.temporaryPassword}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">
+                      <strong>Expires in:</strong>
+                    </td>
+                    <td style="padding: 8px 0; color: #1f2937; font-size: 14px;">
+                      ${params.expiryHours} hours
+                    </td>
+                  </tr>
+                </table>
+              </div>
+
+              <!-- Important Notice -->
+              <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 20px; margin: 30px 0;">
+                <p style="margin: 0; color: #92400e; font-size: 14px; line-height: 1.6;">
+                  <strong>⚠️ Important:</strong> For security reasons, you will be required to change your password on first login.
+                </p>
+              </div>
+
+              <!-- Login Button -->
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${params.loginUrl}" style="display: inline-block; padding: 14px 32px; background-color: #4F46E5; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: 600;">
+                  Login to Your Account
+                </a>
+              </div>
+
+              <p style="margin: 20px 0 0; color: #1f2937; font-size: 16px; line-height: 1.6;">
+                If you have any questions, please contact your administrator.
+              </p>
+
+              <p style="margin: 20px 0 0; color: #1f2937; font-size: 16px; line-height: 1.6;">
+                Best regards,<br>
+                <strong>${params.inviterName}</strong><br>
+                ${params.companyName}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f9fafb; padding: 30px 40px; text-align: center; border-top: 1px solid #e5e7eb;">
+              <p style="margin: 0 0 10px; color: #6b7280; font-size: 14px;">
+                This is an automated message from ${params.companyName}.
+              </p>
+              <p style="margin: 0; color: #9ca3af; font-size: 12px;">
+                If you did not expect this invitation, please ignore this email.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  return html;
+}
+
 export default {
   testEmailConnection,
   sendTestEmail,
@@ -1449,5 +1698,6 @@ export default {
   sendCustomerInvitation,
   sendOnboardingConfirmation,
   sendContactFormConfirmation,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  sendTeamInvitation
 };

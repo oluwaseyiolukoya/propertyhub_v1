@@ -11,11 +11,13 @@
 ### **Root Cause #1: Dual Migration Systems** (Data Engineer)
 
 **Problem:**
+
 - Two separate migration systems running in parallel:
   1. **Prisma migrations** (`prisma/migrations/**/migration.sql`)
   2. **Raw SQL files** (`migrations/*.sql`)
 
 **Evidence:**
+
 ```
 backend/
 ├── prisma/migrations/          ← Managed by Prisma
@@ -28,12 +30,14 @@ backend/
 ```
 
 **Impact:**
+
 - `npx prisma migrate deploy` only runs Prisma migrations
 - Raw SQL files (`migrations/*.sql`) **never executed** in production
 - Notification system, templates, triggers **missing** in production
 - Team invitation emails **fail** (no templates)
 
 **Why It Happened:**
+
 - Started with Prisma migrations
 - Added complex features (notifications) as raw SQL
 - Never consolidated back into Prisma
@@ -44,16 +48,19 @@ backend/
 ### **Root Cause #2: Schema Drift** (Principal Software Engineer)
 
 **Problem:**
+
 - `schema.prisma` evolved locally
 - Production Prisma Client generated from **old schema**
 - Columns exist in Prisma Client that don't exist in database
 
 **Evidence:**
+
 ```
 Error: The column `team_roles.can_create_invoices` does not exist
 ```
 
 **Timeline:**
+
 1. Schema had `can_create_invoices`, `can_manage_projects`, `can_view_reports`
 2. Prisma Client generated with these columns
 3. Schema changed (columns removed or never migrated)
@@ -61,12 +68,14 @@ Error: The column `team_roles.can_create_invoices` does not exist
 5. Runtime errors when trying to use these columns
 
 **Impact:**
+
 - Prisma queries fail at runtime
 - Can't use team management features
 - Seed scripts fail
 - Data operations unpredictable
 
 **Why It Happened:**
+
 - `build_command` didn't include `npx prisma generate`
 - Relied on `postinstall` hook, which doesn't run during build
 - No verification that Prisma Client matches database
@@ -83,6 +92,7 @@ build_command: npm ci && npx prisma migrate deploy && npm run build
 ```
 
 **What's Missing:**
+
 1. ❌ No Prisma Client regeneration
 2. ❌ No raw SQL migration execution
 3. ❌ No system data seeding
@@ -91,12 +101,14 @@ build_command: npm ci && npx prisma migrate deploy && npm run build
 6. ❌ No post-deploy checks
 
 **Impact:**
+
 - Deployments succeed even when database is broken
 - No way to know if production is healthy
 - Manual fixes required after every deploy
 - No confidence in deployment process
 
 **Why It Happened:**
+
 - Copied basic Prisma setup from docs
 - Never evolved as system grew complex
 - No deployment verification culture
@@ -112,6 +124,7 @@ build_command: npm ci && npx prisma migrate deploy && npm run build
 Created single migration: `20251120110000_consolidate_all_system_setup/migration.sql`
 
 **Contains:**
+
 - ✅ All notification system tables
 - ✅ All notification triggers (fixed)
 - ✅ All notification templates (5)
@@ -119,6 +132,7 @@ Created single migration: `20251120110000_consolidate_all_system_setup/migration
 - ✅ Idempotent SQL (`IF NOT EXISTS`, `ON CONFLICT DO NOTHING`)
 
 **Result:**
+
 - ONE migration system (Prisma)
 - ONE command applies everything (`prisma migrate deploy`)
 - Fully version controlled
@@ -129,17 +143,20 @@ Created single migration: `20251120110000_consolidate_all_system_setup/migration
 ### **Fix #2: Bulletproof Build Process**
 
 **New Build Command:**
+
 ```yaml
 build_command: npm ci && npx prisma migrate deploy && npx prisma generate && npm run build
 ```
 
 **What Each Step Does:**
+
 1. `npm ci` - Clean install dependencies
 2. `npx prisma migrate deploy` - Apply ALL migrations (includes system setup)
 3. `npx prisma generate` - Regenerate Prisma Client with latest schema
 4. `npm run build` - Build application
 
 **Key Addition:**
+
 - `npx prisma generate` **after** migrations
 - Ensures Prisma Client always matches database
 - No more schema drift
@@ -151,6 +168,7 @@ build_command: npm ci && npx prisma migrate deploy && npx prisma generate && npm
 **New Script:** `backend/scripts/post-deploy-verify.sh`
 
 **Checks:**
+
 - ✅ Prisma Client generated
 - ✅ System roles count = 5
 - ✅ Notification templates count >= 5
@@ -158,6 +176,7 @@ build_command: npm ci && npx prisma migrate deploy && npx prisma generate && npm
 
 **Integration:**
 Can be run manually or added to CI/CD:
+
 ```bash
 npm run build && bash scripts/post-deploy-verify.sh
 ```
@@ -186,6 +205,7 @@ Production:
 ```
 
 **Problems:**
+
 - Manual fixes required
 - No confidence in deployments
 - Fear of production
@@ -211,6 +231,7 @@ Production:
 ```
 
 **Benefits:**
+
 - Zero manual intervention
 - Deployments are confident
 - Local = Production (guaranteed)
@@ -223,11 +244,13 @@ Production:
 ### **Every Deployment Now:**
 
 1. **Code Push**
+
    ```bash
    git push origin main
    ```
 
 2. **DigitalOcean Auto-Deploy**
+
    - Pulls latest code
    - Runs `npm ci`
    - Runs `npx prisma migrate deploy` (applies consolidated migration)
@@ -236,6 +259,7 @@ Production:
    - Deploys
 
 3. **Automatic Results**
+
    - ✅ All tables created
    - ✅ All triggers created
    - ✅ All templates seeded
@@ -257,6 +281,7 @@ Production:
 ### **For New Features:**
 
 1. **Schema Changes**
+
    ```bash
    # Edit schema.prisma
    npx prisma migrate dev --name feature_name
@@ -266,6 +291,7 @@ Production:
    ```
 
 2. **System Data Changes**
+
    - Add to existing consolidated migration, OR
    - Create new migration with data seeding
    - Always use idempotent SQL
@@ -283,18 +309,21 @@ Production:
 After this fix is deployed, verify:
 
 - [ ] **Prisma migrations status**
+
   ```bash
   npx prisma migrate status
   # Should show: "Database schema is up to date!"
   ```
 
 - [ ] **System roles (5)**
+
   ```bash
   node -e 'const {PrismaClient}=require("@prisma/client");const p=new PrismaClient();p.team_roles.count({where:{is_system_role:true}}).then(c=>console.log("Roles:",c)).finally(()=>p.$disconnect());'
   # Should show: "Roles: 5"
   ```
 
 - [ ] **Notification templates (5+)**
+
   ```bash
   node -e 'const {PrismaClient}=require("@prisma/client");const p=new PrismaClient();p.notification_templates.count({where:{is_system:true}}).then(c=>console.log("Templates:",c)).finally(()=>p.$disconnect());'
   # Should show: "Templates: 5" (or more)
@@ -310,16 +339,19 @@ After this fix is deployed, verify:
 ## 🎉 SUMMARY
 
 **Root Causes Identified:**
+
 1. ✅ Dual migration systems (Prisma + raw SQL)
 2. ✅ Schema drift (outdated Prisma Client)
 3. ✅ Incomplete build process
 
 **Permanent Fixes Applied:**
+
 1. ✅ Consolidated all migrations into Prisma
 2. ✅ Enhanced build process (includes `prisma generate`)
 3. ✅ Added post-deploy verification
 
 **Result:**
+
 - ✅ Local and production are identical
 - ✅ Deployments are fully automated
 - ✅ No manual intervention needed
@@ -332,4 +364,3 @@ After this fix is deployed, verify:
 
 **Status:** ✅ READY TO DEPLOY  
 **Next Step:** Commit and push these changes
-

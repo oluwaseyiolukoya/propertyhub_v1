@@ -137,7 +137,7 @@ BEGIN
     NOW()
   )
   ON CONFLICT (user_id) DO NOTHING;
-  
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -180,18 +180,18 @@ VALUES
     <div class="content">
       <p>Hi {{memberName}},</p>
       <p>{{inviterName}} has invited you to join <strong>{{companyName}}</strong> as a <strong>{{roleName}}</strong>.</p>
-      
+
       <div class="credentials">
         <h3>Your Login Credentials</h3>
         <p><strong>Email:</strong> {{email}}</p>
         <p><strong>Temporary Password:</strong> <code>{{temporaryPassword}}</code></p>
         <p><strong>Expires in:</strong> {{expiryHours}} hours</p>
       </div>
-      
+
       <p><strong>⚠️ Important:</strong> For security reasons, you will be required to change your password on first login.</p>
-      
+
       <a href="{{loginUrl}}" class="button">Login to Your Account</a>
-      
+
       <p>If you have any questions, please contact your administrator.</p>
     </div>
     <div class="footer">
@@ -206,7 +206,7 @@ VALUES
     NOW(),
     NOW()
   ),
-  
+
   -- Invoice approved template
   (
     'invoice_approved',
@@ -217,7 +217,7 @@ VALUES
     NOW(),
     NOW()
   ),
-  
+
   -- Invoice rejected template
   (
     'invoice_rejected',
@@ -228,7 +228,7 @@ VALUES
     NOW(),
     NOW()
   ),
-  
+
   -- Invoice pending approval template
   (
     'invoice_pending_approval',
@@ -239,7 +239,7 @@ VALUES
     NOW(),
     NOW()
   ),
-  
+
   -- Payment received template
   (
     'payment_received',
