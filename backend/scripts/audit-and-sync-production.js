@@ -1,6 +1,6 @@
 /**
  * 🔍 COMPREHENSIVE PRODUCTION DATABASE AUDIT & SYNC
- * 
+ *
  * This script checks EVERYTHING that might be missing in production:
  * - All tables from schema
  * - All columns in each table
@@ -8,7 +8,7 @@
  * - Notification templates
  * - Triggers and functions
  * - Indexes
- * 
+ *
  * Usage:
  *   cd /workspace/backend
  *   node scripts/audit-and-sync-production.js
@@ -95,20 +95,20 @@ const CRITICAL_COLUMNS = {
 
 async function checkTables() {
   log('cyan', '\n📊 CHECKING TABLES...\n');
-  
+
   const result = await prisma.$queryRaw`
-    SELECT table_name 
-    FROM information_schema.tables 
-    WHERE table_schema = 'public' 
+    SELECT table_name
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
     AND table_type = 'BASE TABLE'
     ORDER BY table_name;
   `;
-  
+
   const existingTables = result.map(r => r.table_name);
   const missingTables = EXPECTED_TABLES.filter(t => !existingTables.includes(t));
-  
+
   log('blue', `✓ Found ${existingTables.length} tables`);
-  
+
   if (missingTables.length > 0) {
     log('red', `✗ Missing ${missingTables.length} tables:`);
     missingTables.forEach(t => log('red', `  - ${t}`));
@@ -121,22 +121,22 @@ async function checkTables() {
 
 async function checkColumns() {
   log('cyan', '\n🔍 CHECKING CRITICAL COLUMNS...\n');
-  
+
   const issues = [];
-  
+
   for (const [table, columns] of Object.entries(CRITICAL_COLUMNS)) {
     log('blue', `Checking table: ${table}`);
-    
+
     const result = await prisma.$queryRaw`
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_schema = 'public' 
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
       AND table_name = ${table};
     `;
-    
+
     const existingColumns = result.map(r => r.column_name);
     const missingColumns = columns.filter(c => !existingColumns.includes(c));
-    
+
     if (missingColumns.length > 0) {
       log('red', `  ✗ Missing columns in ${table}:`);
       missingColumns.forEach(c => log('red', `    - ${c}`));
@@ -145,7 +145,7 @@ async function checkColumns() {
       log('green', `  ✓ All critical columns exist in ${table}`);
     }
   }
-  
+
   if (issues.length > 0) {
     return { status: 'error', issues };
   } else {
@@ -156,19 +156,19 @@ async function checkColumns() {
 
 async function checkSystemRoles() {
   log('cyan', '\n👥 CHECKING SYSTEM ROLES...\n');
-  
+
   try {
     const roles = await prisma.team_roles.findMany({
       where: { is_system_role: true },
       select: { id: true, name: true },
     });
-    
+
     log('blue', `✓ Found ${roles.length} system roles`);
-    
+
     const missingRoles = EXPECTED_SYSTEM_ROLES.filter(
       expected => !roles.some(r => r.id === expected.id)
     );
-    
+
     if (missingRoles.length > 0) {
       log('red', `✗ Missing ${missingRoles.length} system roles:`);
       missingRoles.forEach(r => log('red', `  - ${r.name} (${r.id})`));
@@ -186,18 +186,18 @@ async function checkSystemRoles() {
 
 async function checkNotificationTemplates() {
   log('cyan', '\n📧 CHECKING NOTIFICATION TEMPLATES...\n');
-  
+
   try {
     const templates = await prisma.notification_templates.findMany({
       select: { type: true, subject: true },
     });
-    
+
     log('blue', `✓ Found ${templates.length} notification templates`);
-    
+
     const missingTemplates = EXPECTED_TEMPLATES.filter(
       expected => !templates.some(t => t.type === expected)
     );
-    
+
     if (missingTemplates.length > 0) {
       log('red', `✗ Missing ${missingTemplates.length} templates:`);
       missingTemplates.forEach(t => log('red', `  - ${t}`));
@@ -215,27 +215,27 @@ async function checkNotificationTemplates() {
 
 async function checkTriggers() {
   log('cyan', '\n⚡ CHECKING DATABASE TRIGGERS...\n');
-  
+
   const result = await prisma.$queryRaw`
-    SELECT trigger_name, event_object_table 
-    FROM information_schema.triggers 
+    SELECT trigger_name, event_object_table
+    FROM information_schema.triggers
     WHERE trigger_schema = 'public'
     ORDER BY event_object_table, trigger_name;
   `;
-  
+
   log('blue', `✓ Found ${result.length} triggers:`);
   result.forEach(t => log('blue', `  - ${t.trigger_name} on ${t.event_object_table}`));
-  
+
   const expectedTriggers = [
     'update_updated_at',
     'create_default_notification_preferences',
   ];
-  
+
   const foundTriggerNames = result.map(t => t.trigger_name);
-  const missingTriggers = expectedTriggers.filter(t => 
+  const missingTriggers = expectedTriggers.filter(t =>
     !foundTriggerNames.some(name => name.includes(t))
   );
-  
+
   if (missingTriggers.length > 0) {
     log('yellow', `⚠ Some expected triggers might be missing:`);
     missingTriggers.forEach(t => log('yellow', `  - ${t}`));
@@ -248,21 +248,21 @@ async function checkTriggers() {
 
 async function checkMigrationStatus() {
   log('cyan', '\n📝 CHECKING MIGRATION STATUS...\n');
-  
+
   try {
     const migrations = await prisma.$queryRaw`
-      SELECT migration_name, finished_at 
-      FROM _prisma_migrations 
-      ORDER BY finished_at DESC 
+      SELECT migration_name, finished_at
+      FROM _prisma_migrations
+      ORDER BY finished_at DESC
       LIMIT 10;
     `;
-    
+
     log('blue', `✓ Found ${migrations.length} recent migrations:`);
     migrations.forEach(m => {
       const date = m.finished_at ? new Date(m.finished_at).toLocaleString() : 'pending';
       log('blue', `  - ${m.migration_name} (${date})`);
     });
-    
+
     return { status: 'ok', migrations };
   } catch (error) {
     log('yellow', '⚠ Could not check migration history:', error.message);
@@ -272,37 +272,37 @@ async function checkMigrationStatus() {
 
 async function generateFixScript(auditResults) {
   log('cyan', '\n🔧 GENERATING FIX SCRIPT...\n');
-  
+
   const fixes = [];
-  
+
   // Missing tables
   if (auditResults.tables.status === 'error') {
     fixes.push('# Missing tables - run migrations:');
     fixes.push('npx prisma migrate deploy');
     fixes.push('');
   }
-  
+
   // Missing columns
   if (auditResults.columns.status === 'error') {
     fixes.push('# Missing columns - run migrations:');
     fixes.push('npx prisma migrate deploy');
     fixes.push('');
   }
-  
+
   // Missing system roles
   if (auditResults.roles.status === 'error') {
     fixes.push('# Missing system roles - run script:');
     fixes.push('node scripts/insert-system-roles-safe.js');
     fixes.push('');
   }
-  
+
   // Missing templates
   if (auditResults.templates.status === 'error') {
     fixes.push('# Missing notification templates - run migration:');
     fixes.push('psql $DATABASE_URL -f migrations/add_team_invitation_template.sql');
     fixes.push('');
   }
-  
+
   if (fixes.length > 0) {
     log('yellow', '📋 RECOMMENDED FIXES:\n');
     fixes.forEach(line => console.log(line));
@@ -317,7 +317,7 @@ async function runAudit() {
   log('magenta', '\n' + '='.repeat(60));
   log('magenta', '🔍 PRODUCTION DATABASE AUDIT');
   log('magenta', '='.repeat(60));
-  
+
   const auditResults = {
     tables: null,
     columns: null,
@@ -326,7 +326,7 @@ async function runAudit() {
     triggers: null,
     migrations: null,
   };
-  
+
   try {
     // Run all checks
     auditResults.tables = await checkTables();
@@ -335,12 +335,12 @@ async function runAudit() {
     auditResults.templates = await checkNotificationTemplates();
     auditResults.triggers = await checkTriggers();
     auditResults.migrations = await checkMigrationStatus();
-    
+
     // Generate summary
     log('magenta', '\n' + '='.repeat(60));
     log('magenta', '📊 AUDIT SUMMARY');
     log('magenta', '='.repeat(60) + '\n');
-    
+
     const checks = [
       { name: 'Tables', result: auditResults.tables },
       { name: 'Columns', result: auditResults.columns },
@@ -349,10 +349,10 @@ async function runAudit() {
       { name: 'Database Triggers', result: auditResults.triggers },
       { name: 'Migration History', result: auditResults.migrations },
     ];
-    
+
     let hasErrors = false;
     let hasWarnings = false;
-    
+
     checks.forEach(check => {
       if (check.result.status === 'ok') {
         log('green', `✓ ${check.name}: OK`);
@@ -364,9 +364,9 @@ async function runAudit() {
         hasErrors = true;
       }
     });
-    
+
     console.log('');
-    
+
     if (hasErrors) {
       log('red', '❌ DATABASE IS OUT OF SYNC - ACTION REQUIRED');
       await generateFixScript(auditResults);
@@ -380,7 +380,7 @@ async function runAudit() {
       log('green', '\n🎉 Your production database matches your local schema perfectly!\n');
       process.exit(0);
     }
-    
+
   } catch (error) {
     log('red', '\n❌ AUDIT FAILED:', error.message);
     console.error(error);

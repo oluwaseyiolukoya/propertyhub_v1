@@ -56,11 +56,11 @@ echo ""
 if [ $AUDIT_EXIT_CODE -ne 0 ]; then
     echo -e "${YELLOW}⚠ Audit found issues, attempting to fix...${NC}"
     echo ""
-    
+
     echo -e "${BLUE}Step 6a: Inserting system roles...${NC}"
     node scripts/insert-system-roles-safe.js
     echo ""
-    
+
     echo -e "${BLUE}Step 6b: Re-running audit...${NC}"
     node scripts/audit-and-sync-production.js
     echo ""

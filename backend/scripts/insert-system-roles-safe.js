@@ -1,7 +1,7 @@
 /**
  * Safe Script to Insert System Roles
  * Run this in production console if roles are missing
- * 
+ *
  * Usage:
  *   cd /workspace/backend
  *   node scripts/insert-system-roles-safe.js
@@ -98,19 +98,19 @@ async function insertSystemRoles() {
     console.log('1️⃣ Checking if team_roles table exists...');
     const tableExists = await prisma.$queryRaw`
       SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_schema = 'public' 
+        SELECT FROM information_schema.tables
+        WHERE table_schema = 'public'
         AND table_name = 'team_roles'
       );
     `;
-    
+
     if (!tableExists[0].exists) {
       console.error('❌ ERROR: team_roles table does not exist!');
       console.log('\n📝 You need to run the migration first:');
       console.log('   npx prisma migrate deploy');
       process.exit(1);
     }
-    
+
     console.log('✅ team_roles table exists\n');
 
     // Check current roles
@@ -118,7 +118,7 @@ async function insertSystemRoles() {
     const existingRoles = await prisma.team_roles.findMany({
       where: { is_system_role: true },
     });
-    
+
     console.log(`   Found ${existingRoles.length} existing system roles`);
     existingRoles.forEach(role => {
       console.log(`   - ${role.name} (${role.id})`);
@@ -127,7 +127,7 @@ async function insertSystemRoles() {
 
     // Insert or update each role
     console.log('3️⃣ Inserting/updating system roles...\n');
-    
+
     let inserted = 0;
     let updated = 0;
     let skipped = 0;

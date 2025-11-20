@@ -1307,18 +1307,25 @@ model invoice_attachments {
 // ============================================
 
 model team_roles {
-  id                     String         @id @default(dbgenerated("gen_random_uuid()::text"))
+  id                     String   @id @default(dbgenerated("gen_random_uuid()::text"))
   customer_id            String?
   name                   String
   description            String?
-  is_system_role         Boolean        @default(false)
-  permissions            Json           @default("{}")
-  can_approve_invoices   Boolean        @default(false)
-  approval_limit         Decimal?       @db.Decimal(15, 2)
+  is_system_role         Boolean  @default(false)
+  permissions            Json     @default("{}")
+  can_approve_invoices   Boolean  @default(false)
+  approval_limit         Decimal? @db.Decimal(15, 2)
+
+  /// Default permission flags at the role level.
+  /// Individual team members can override these in the team_members table.
+  can_create_invoices    Boolean  @default(false)
+  can_manage_projects    Boolean  @default(false)
+  can_view_reports       Boolean  @default(false)
+
   requires_approval_from String[]
-  created_at             DateTime       @default(now())
-  updated_at             DateTime       @default(now())
-  customer               customers?     @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  created_at             DateTime   @default(now())
+  updated_at             DateTime   @default(now())
+  customer               customers? @relation(fields: [customer_id], references: [id], onDelete: Cascade)
   team_members           team_members[]
 
   @@unique([customer_id, name])
