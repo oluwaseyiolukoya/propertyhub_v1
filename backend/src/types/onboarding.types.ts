@@ -154,5 +154,9 @@ export interface ActivationResult {
   success: boolean;
   temporaryPassword?: string;
   message: string;
+  email?: string;
+  name?: string;
+  companyName?: string;
+  applicationType?: string;
 }
 

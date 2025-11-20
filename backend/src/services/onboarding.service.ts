@@ -460,6 +460,10 @@ export class OnboardingService {
       success: true,
       temporaryPassword: tempPassword,
       message: 'Account activated successfully',
+      email: application.email,
+      name: application.name,
+      companyName: application.companyName || application.customer.company,
+      applicationType: application.applicationType,
     };
   }
 

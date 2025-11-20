@@ -1443,6 +1443,189 @@ function generatePasswordResetEmailHTML(params: {
 }
 
 /**
+ * Send account activation email (when admin activates customer from onboarding)
+ */
+export interface AccountActivationParams {
+  customerName: string;
+  customerEmail: string;
+  companyName: string;
+  temporaryPassword: string;
+  loginUrl: string;
+  applicationType: string;
+}
+
+export async function sendAccountActivationEmail(params: AccountActivationParams): Promise<boolean> {
+  try {
+    const config = getEmailConfig();
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📧 [Account Activation] Preparing to send activation email...');
+    console.log('📧 [Account Activation] Recipient:', params.customerEmail);
+    console.log('📧 [Account Activation] Company:', params.companyName);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    const accountType = params.applicationType === 'property-developer' || params.applicationType === 'developer' 
+      ? 'Developer' 
+      : params.applicationType === 'property-owner'
+      ? 'Property Owner'
+      : params.applicationType === 'property-manager'
+      ? 'Property Manager'
+      : 'Customer';
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background-color: #4F46E5; color: white; padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0; }
+    .header h1 { margin: 0; font-size: 28px; }
+    .content { padding: 30px 20px; background-color: #f9fafb; }
+    .credentials { background-color: #fff; padding: 20px; border-left: 4px solid #4F46E5; margin: 20px 0; border-radius: 4px; }
+    .credentials h3 { margin-top: 0; color: #4F46E5; }
+    .credential-item { margin: 10px 0; }
+    .credential-label { font-weight: bold; color: #666; }
+    .credential-value { font-family: 'Courier New', monospace; background-color: #f3f4f6; padding: 8px 12px; border-radius: 4px; display: inline-block; margin-top: 5px; }
+    .button { display: inline-block; padding: 14px 28px; background-color: #4F46E5; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: bold; }
+    .button:hover { background-color: #4338CA; }
+    .warning { background-color: #FEF3C7; border-left: 4px solid #F59E0B; padding: 15px; margin: 20px 0; border-radius: 4px; }
+    .warning-icon { color: #F59E0B; font-weight: bold; }
+    .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 14px; background-color: #f9fafb; border-radius: 0 0 8px 8px; }
+    .footer a { color: #4F46E5; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎉 Your Account is Active!</h1>
+    </div>
+    <div class="content">
+      <p>Hi <strong>${params.customerName}</strong>,</p>
+      
+      <p>Great news! Your <strong>${accountType}</strong> account for <strong>${params.companyName}</strong> has been approved and activated by our admin team.</p>
+      
+      <p>You can now access your account and start using all the features available to you.</p>
+
+      <div class="credentials">
+        <h3>🔐 Your Login Credentials</h3>
+        <div class="credential-item">
+          <div class="credential-label">Email:</div>
+          <div class="credential-value">${params.customerEmail}</div>
+        </div>
+        <div class="credential-item">
+          <div class="credential-label">Temporary Password:</div>
+          <div class="credential-value">${params.temporaryPassword}</div>
+        </div>
+      </div>
+
+      <div class="warning">
+        <p><span class="warning-icon">⚠️ Important Security Notice:</span></p>
+        <p>For your security, you will be required to <strong>change your password</strong> on your first login. Please choose a strong, unique password.</p>
+      </div>
+
+      <div style="text-align: center;">
+        <a href="${params.loginUrl}" class="button">Login to Your Account</a>
+      </div>
+
+      <p style="margin-top: 30px;">If you have any questions or need assistance getting started, please don't hesitate to contact our support team.</p>
+      
+      <p>Welcome aboard!</p>
+      <p><strong>The Contrezz Team</strong></p>
+    </div>
+    <div class="footer">
+      <p>This is an automated message from Contrezz.</p>
+      <p>If you did not apply for an account, please contact us immediately at <a href="mailto:support@contrezz.com">support@contrezz.com</a></p>
+      <p style="margin-top: 15px; font-size: 12px; color: #9ca3af;">
+        © ${new Date().getFullYear()} Contrezz. All rights reserved.
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    const text = `
+Your Account is Active!
+
+Hi ${params.customerName},
+
+Great news! Your ${accountType} account for ${params.companyName} has been approved and activated by our admin team.
+
+Your Login Credentials:
+Email: ${params.customerEmail}
+Temporary Password: ${params.temporaryPassword}
+
+IMPORTANT: For your security, you will be required to change your password on your first login.
+
+Login here: ${params.loginUrl}
+
+If you have any questions or need assistance getting started, please contact our support team.
+
+Welcome aboard!
+The Contrezz Team
+
+---
+This is an automated message from Contrezz.
+If you did not apply for an account, please contact us immediately at support@contrezz.com
+    `;
+
+    console.log('📧 [Account Activation] Step 1: Creating fresh transporter...');
+    
+    // Create fresh transporter without connection pooling for instant delivery
+    const freshTransporter = nodemailer.createTransport({
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      auth: {
+        user: config.auth.user,
+        pass: config.auth.pass,
+      },
+      pool: false, // Disable connection pooling for instant delivery
+      tls: {
+        rejectUnauthorized: false,
+        minVersion: 'TLSv1.2'
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 5000,
+      socketTimeout: 30000,
+    });
+
+    console.log('📧 [Account Activation] Step 2: Verifying SMTP connection...');
+    
+    try {
+      await freshTransporter.verify();
+      console.log('✅ [Account Activation] SMTP connection verified successfully');
+    } catch (verifyError) {
+      console.error('❌ [Account Activation] SMTP verification failed:', verifyError);
+      throw verifyError;
+    }
+
+    console.log('📧 [Account Activation] Step 3: Sending email with verified connection...');
+
+    const info = await freshTransporter.sendMail({
+      from: `"Contrezz" <${config.from}>`,
+      to: params.customerEmail,
+      subject: `🎉 Your ${params.companyName} Account is Now Active!`,
+      text,
+      html,
+    });
+
+    console.log('✅ Account activation email sent successfully!');
+    console.log('📬 Message ID:', info.messageId);
+    console.log('📧 Sent to:', params.customerEmail);
+    console.log('[Account Activation] ✅✅✅ Activation email sent successfully to:', params.customerEmail);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    return true;
+  } catch (error) {
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error('❌ [Account Activation] Failed to send activation email:', error);
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    return false;
+  }
+}
+
+/**
  * Send team invitation email with temporary password (INSTANT DELIVERY)
  * Uses same pattern as onboarding email for immediate delivery
  */
