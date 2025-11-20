@@ -1125,6 +1125,7 @@ router.post('/projects', async (req: Request, res: Response) => {
     const project = await prisma.developer_projects.create({
       data: {
         customerId,
+        developerId: userId, // Required field in schema
         // Team members can access all customer projects
         name,
         description,

@@ -22,11 +22,11 @@ const systemRoles = [
     name: 'Finance Manager',
     description: 'Financial oversight and invoice approval up to specified limit',
     is_system_role: true,
-    permissions: { 
-      reports: 'view', 
-      expenses: 'manage', 
-      invoices: 'approve', 
-      projects: 'view' 
+    permissions: {
+      reports: 'view',
+      expenses: 'manage',
+      invoices: 'approve',
+      projects: 'view'
     },
     can_approve_invoices: true,
     approval_limit: 50000,
@@ -37,10 +37,10 @@ const systemRoles = [
     name: 'Project Manager',
     description: 'Project operations and team management',
     is_system_role: true,
-    permissions: { 
-      reports: 'view', 
-      invoices: 'create', 
-      projects: 'manage' 
+    permissions: {
+      reports: 'view',
+      invoices: 'create',
+      projects: 'manage'
     },
     can_approve_invoices: false,
     approval_limit: 1000000,
@@ -51,10 +51,10 @@ const systemRoles = [
     name: 'Accountant',
     description: 'Financial records and reporting access',
     is_system_role: true,
-    permissions: { 
-      reports: 'view', 
-      invoices: 'view', 
-      payments: 'record' 
+    permissions: {
+      reports: 'view',
+      invoices: 'view',
+      payments: 'record'
     },
     can_approve_invoices: false,
     approval_limit: null,
@@ -65,9 +65,9 @@ const systemRoles = [
     name: 'Viewer',
     description: 'Read-only access to projects and reports',
     is_system_role: true,
-    permissions: { 
-      invoices: 'view', 
-      projects: 'view' 
+    permissions: {
+      invoices: 'view',
+      projects: 'view'
     },
     can_approve_invoices: false,
     approval_limit: null,

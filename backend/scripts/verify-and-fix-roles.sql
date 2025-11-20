@@ -3,30 +3,30 @@
 -- ============================================
 
 -- Step 1: Check if team_roles table exists
-SELECT 
-    CASE 
+SELECT
+    CASE
         WHEN EXISTS (
-            SELECT FROM information_schema.tables 
-            WHERE table_schema = 'public' 
+            SELECT FROM information_schema.tables
+            WHERE table_schema = 'public'
             AND table_name = 'team_roles'
-        ) 
+        )
         THEN '✅ team_roles table exists'
         ELSE '❌ team_roles table does NOT exist'
     END as table_status;
 
 -- Step 2: Count existing system roles
-SELECT 
+SELECT
     COUNT(*) as system_role_count,
-    CASE 
+    CASE
         WHEN COUNT(*) = 5 THEN '✅ All 5 system roles exist'
         WHEN COUNT(*) = 0 THEN '❌ No system roles found'
         ELSE '⚠️  Only ' || COUNT(*) || ' system roles found (expected 5)'
     END as status
-FROM team_roles 
+FROM team_roles
 WHERE is_system_role = true;
 
 -- Step 3: List all existing roles
-SELECT 
+SELECT
     id,
     name,
     description,
@@ -40,12 +40,12 @@ ORDER BY is_system_role DESC, name ASC;
 -- Step 4: Insert missing system roles (if any)
 -- This will only insert roles that don't already exist
 INSERT INTO team_roles (
-    id, 
-    name, 
-    description, 
-    is_system_role, 
-    permissions, 
-    can_approve_invoices, 
+    id,
+    name,
+    description,
+    is_system_role,
+    permissions,
+    can_approve_invoices,
     approval_limit,
     requires_approval_from,
     created_at,
@@ -120,14 +120,14 @@ ON CONFLICT (id) DO UPDATE SET
     updated_at = NOW();
 
 -- Step 5: Verify roles were created/updated
-SELECT 
+SELECT
     '✅ Verification Complete' as status,
     COUNT(*) as total_system_roles
-FROM team_roles 
+FROM team_roles
 WHERE is_system_role = true;
 
 -- Step 6: Show final list of all roles
-SELECT 
+SELECT
     id,
     name,
     description,
