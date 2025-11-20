@@ -3,7 +3,11 @@ import { OnboardingDashboard } from './OnboardingDashboard';
 import { ApplicationDetail } from './ApplicationDetail';
 import { OnboardingApplication } from '../../lib/api/admin-onboarding';
 
-export function OnboardingManager() {
+interface OnboardingManagerProps {
+  onViewCustomer?: (customerId: string) => void;
+}
+
+export function OnboardingManager({ onViewCustomer }: OnboardingManagerProps) {
   const [selectedApplication, setSelectedApplication] = useState<OnboardingApplication | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -26,6 +30,7 @@ export function OnboardingManager() {
         applicationId={selectedApplication.id}
         onBack={handleBack}
         onUpdate={handleUpdate}
+        onViewCustomer={onViewCustomer}
       />
     );
   }

@@ -200,13 +200,13 @@ router.post('/applications/:id/activate', async (req: Request, res: Response) =>
 
     // Send activation email with temporary password
     console.log('[Admin Onboarding] Sending activation email to:', result.email);
-    
+
     const { sendAccountActivationEmail } = require('../lib/email');
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    
+
     let emailSent = false;
     let emailError = null;
-    
+
     try {
       emailSent = await sendAccountActivationEmail({
         customerName: result.name,
@@ -235,7 +235,7 @@ router.post('/applications/:id/activate', async (req: Request, res: Response) =>
       console.error('📧 Customer Email:', result.email);
       console.error('❌ Error:', emailError);
       console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      
+
       return res.status(500).json({
         success: false,
         error: 'Failed to send activation email',

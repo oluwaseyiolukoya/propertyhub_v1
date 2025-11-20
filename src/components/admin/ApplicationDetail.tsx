@@ -45,9 +45,10 @@ interface ApplicationDetailProps {
   applicationId: string;
   onBack: () => void;
   onUpdate: () => void;
+  onViewCustomer?: (customerId: string) => void;
 }
 
-export function ApplicationDetail({ applicationId, onBack, onUpdate }: ApplicationDetailProps) {
+export function ApplicationDetail({ applicationId, onBack, onUpdate, onViewCustomer }: ApplicationDetailProps) {
   const [application, setApplication] = useState<OnboardingApplication | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showApproveDialog, setShowApproveDialog] = useState(false);
@@ -284,11 +285,12 @@ export function ApplicationDetail({ applicationId, onBack, onUpdate }: Applicati
               </Button>
             )}
             {application.customerId && (
-              <Button variant="outline" asChild>
-                <a href={`/customers/${application.customerId}`} target="_blank">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  View Customer
-                </a>
+              <Button 
+                variant="outline"
+                onClick={() => onViewCustomer?.(application.customerId!)}
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                View Customer
               </Button>
             )}
           </div>

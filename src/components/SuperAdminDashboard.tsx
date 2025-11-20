@@ -1931,7 +1931,21 @@ export function SuperAdminDashboard({
             )}
 
             {/* Onboarding Tab */}
-            {activeTab === 'onboarding' && <OnboardingManager />}
+            {activeTab === 'onboarding' && (
+              <OnboardingManager 
+                onViewCustomer={(customerId) => {
+                  // Find the customer and navigate to customers tab
+                  const customer = customers.find(c => c.id === customerId);
+                  if (customer) {
+                    setSelectedCustomer(customer);
+                    setCurrentView('view-customer');
+                    setActiveTab('customers');
+                  } else {
+                    toast.error('Customer not found');
+                  }
+                }}
+              />
+            )}
 
             {/* Landing Page Management Tab */}
             {activeTab === 'landing-page' && <LandingPageManagement />}
