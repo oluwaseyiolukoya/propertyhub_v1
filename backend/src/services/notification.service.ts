@@ -19,6 +19,8 @@ export interface CreateEmailData {
   userId?: string;
   toEmail: string;
   toName?: string;
+  fromEmail?: string;
+  fromName?: string;
   subject: string;
   bodyHtml: string;
   bodyText?: string;
@@ -216,6 +218,8 @@ export class NotificationService {
           user_id: data.userId,
           to_email: data.toEmail,
           to_name: data.toName,
+          from_email: data.fromEmail || process.env.SMTP_FROM || 'noreply@contrezz.com',
+          from_name: data.fromName || 'Contrezz',
           subject: data.subject,
           body_html: data.bodyHtml,
           body_text: data.bodyText,

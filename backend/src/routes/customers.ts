@@ -624,7 +624,13 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
     }
 
     // Get plan limits - lookup by planId or planName
-    let finalPlanId = planId || existingCustomer.planId; // Use existing plan if not provided
+    // Support explicitly clearing the plan when planId is an empty string or null
+    let finalPlanId: string | null;
+    if (planId === '' || planId === null) {
+      finalPlanId = null;
+    } else {
+      finalPlanId = planId || existingCustomer.planId; // Use existing plan if not provided
+    }
     let plan = null;
 
     if (planName && !planId) {

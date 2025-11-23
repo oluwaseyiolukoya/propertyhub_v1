@@ -888,18 +888,23 @@ router.get('/:id/download/:format', async (req: AuthRequest, res: Response) => {
       // Split content into lines and apply formatting
       const lines = plainText.split('\n');
 
-      lines.forEach((line: string) => {
+      // IMPORTANT: iterate with explicit index to avoid relying on lines.indexOf(line),
+      // which can return the wrong position when lines contain duplicate text and
+      // cause us to mis-detect context near the bottom of the document.
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
         const trimmedLine = line.trim();
         if (!trimmedLine) {
           doc.moveDown(0.3);
-          return;
+          continue;
         }
 
         // Detect and format headings (from HTML h1, h2 tags)
         if (line.length < 100 && !line.startsWith('•') && !line.match(/^\d+\./)) {
-          // Check if it's a potential heading by looking at context
-          const nextLineIndex = lines.indexOf(line) + 1;
-          const hasContentAfter = nextLineIndex < lines.length && lines[nextLineIndex].trim();
+          // Check if it's a potential heading by looking at the *next* line in sequence
+          const nextLineIndex = i + 1;
+          const hasContentAfter =
+            nextLineIndex < lines.length && lines[nextLineIndex].trim();
 
           if (hasContentAfter && (line.toUpperCase() === line || line.length < 60)) {
             // Heading
@@ -907,7 +912,7 @@ router.get('/:id/download/:format', async (req: AuthRequest, res: Response) => {
             doc.text(trimmedLine, { align: 'left', lineGap: 3 });
             doc.moveDown(0.5);
             doc.fontSize(11).font('Helvetica');
-            return;
+            continue;
           }
         }
 
@@ -915,7 +920,7 @@ router.get('/:id/download/:format', async (req: AuthRequest, res: Response) => {
         doc.fontSize(11).fillColor('#000000').font('Helvetica');
         doc.text(trimmedLine, { align: 'left', lineGap: 3 });
         doc.moveDown(0.3);
-      });
+      }
 
       // Add footer with page numbers
       const range = doc.bufferedPageRange();

@@ -39,7 +39,10 @@ import { cn } from "../../../lib/utils";
 import type { CreateInvoiceRequest } from "../types";
 import { getVendors } from "../../../lib/api/vendors";
 import { apiClient } from "../../../lib/api-client";
-import { updateProjectInvoice } from "../../../lib/api/invoices";
+import {
+  updateProjectInvoice,
+  createProjectInvoice,
+} from "../../../lib/api/invoices";
 
 interface CreateInvoiceModalProps {
   open: boolean;
@@ -278,7 +281,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
     try {
       const response = await fetch("/api/storage/quota", {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
       });
       const data = await response.json();
@@ -358,7 +361,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
       const response = await fetch("/api/storage/upload-invoice-attachment", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
         body: formData,
       });
@@ -444,10 +447,19 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
         onSuccess();
       } else {
         // Create mode - upload attachments and create new invoice
-        // 1. Upload all pending attachments first
+
+        // 1. Ensure we have a projectId to create the invoice against
+        const targetProjectId = projectId || selectedProject;
+        if (!targetProjectId) {
+          alert("Please select a project before creating an invoice.");
+          setLoading(false);
+          return;
+        }
+
+        // 2. Upload all pending attachments first
         await uploadAllAttachments();
 
-        // 2. Check if all uploads succeeded
+        // 3. Check if all uploads succeeded
         const failedUploads = attachments.filter(
           (att) => att.uploadStatus === "error"
         );
@@ -460,20 +472,35 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
           return;
         }
 
-        // 3. Create invoice with attachment paths
+        // 4. Collect successful attachment paths
         const attachmentPaths = attachments
           .filter((att) => att.uploadStatus === "success")
-          .map((att) => att.uploadedPath);
+          .map((att) => att.uploadedPath)
+          .filter(Boolean);
 
-        const invoiceData = {
-          ...formData,
-          projectId: selectedProject,
+        // 5. Call the real invoice creation API (backend will persist to project_invoices)
+        const createPayload = {
+          vendorId: formData.vendorId,
+          description: formData.description,
+          category: formData.category,
+          amount: formData.amount,
+          // Let backend default currency to NGN if omitted
+          dueDate: dueDate ? dueDate.toISOString() : undefined,
+          notes: formData.notes,
           attachments: attachmentPaths,
         };
 
-        // TODO: Call invoice creation API
-        console.log("Creating invoice with data:", invoiceData);
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const response = await createProjectInvoice(
+          targetProjectId,
+          createPayload
+        );
+
+        if (response.error) {
+          console.error("Error creating invoice:", response.error);
+          alert(response.error.message || "Failed to create invoice");
+          setLoading(false);
+          return;
+        }
 
         onSuccess();
       }

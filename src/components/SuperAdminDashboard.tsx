@@ -706,21 +706,28 @@ export function SuperAdminDashboard({
 
   // Handle plan change in edit form - auto-fill limits
   const handlePlanChangeInEdit = (planId: string) => {
+    // Support clearing the plan (\"No Plan\")
+    if (!planId) {
+      setEditFormData(prev => ({
+        ...prev,
+        planId: '',
+        // Keep existing limits when removing a plan so they don't get lost
+        propertyLimit: prev.propertyLimit,
+        userLimit: prev.userLimit,
+        storageLimit: prev.storageLimit,
+      }));
+      return;
+    }
+
     const selectedPlan = plans.find(p => p.id === planId);
     if (selectedPlan) {
-      setEditFormData({
-        ...editFormData,
+      setEditFormData(prev => ({
+        ...prev,
         planId,
         propertyLimit: selectedPlan.propertyLimit,
         userLimit: selectedPlan.userLimit,
-        storageLimit: selectedPlan.storageLimit
-      });
-    } else {
-      // No plan selected
-      setEditFormData({
-        ...editFormData,
-        planId: ''
-      });
+        storageLimit: selectedPlan.storageLimit,
+      }));
     }
   };
 
@@ -1216,6 +1223,23 @@ export function SuperAdminDashboard({
                       <p className="text-sm text-gray-500 mb-1">Subscription Start</p>
                       <p className="font-medium text-gray-900">
                         {new Date(selectedCustomer.subscriptionStartDate).toLocaleDateString()}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Next payment:{' '}
+                        {(() => {
+                          const startDate = new Date(selectedCustomer.subscriptionStartDate);
+                          const nextBilling = new Date(startDate);
+                          if (selectedCustomer.billingCycle === 'annual') {
+                            nextBilling.setFullYear(nextBilling.getFullYear() + 1);
+                          } else {
+                            nextBilling.setMonth(nextBilling.getMonth() + 1);
+                          }
+                          return nextBilling.toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                          });
+                        })()}
                       </p>
                     </div>
                   )}
@@ -2263,6 +2287,27 @@ export function SuperAdminDashboard({
                     <p className="text-sm text-gray-500">Billing Cycle</p>
                     <p className="font-medium capitalize">{viewCustomerDialog.billingCycle}</p>
                   </div>
+                  {viewCustomerDialog.subscriptionStartDate && (
+                    <div>
+                      <p className="text-sm text-gray-500">Next Payment</p>
+                      <p className="font-medium">
+                        {(() => {
+                          const startDate = new Date(viewCustomerDialog.subscriptionStartDate);
+                          const nextBilling = new Date(startDate);
+                          if (viewCustomerDialog.billingCycle === 'annual') {
+                            nextBilling.setFullYear(nextBilling.getFullYear() + 1);
+                          } else {
+                            nextBilling.setMonth(nextBilling.getMonth() + 1);
+                          }
+                          return nextBilling.toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                          });
+                        })()}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 

@@ -67,6 +67,7 @@ import {
   type Invoice,
 } from "../../../lib/api/subscriptions";
 import { updateProfile, updateOrganization } from "../../../lib/api/settings";
+import PaymentMethodsManager from "../../../components/PaymentMethodsManager";
 
 interface DeveloperSettingsProps {
   user?: any;
@@ -91,6 +92,8 @@ export function DeveloperSettings({
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [billingHistory, setBillingHistory] = useState<Invoice[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
   const [showChangePlanDialog, setShowChangePlanDialog] = useState(false);
   const [showChangeBillingDialog, setShowChangeBillingDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -601,33 +604,28 @@ export function DeveloperSettings({
       .slice(0, 2);
   };
 
-  const subscriptionData = subscription
-    ? {
-        plan:
-          subscription.plan?.name ||
-          accountInfo?.customer?.plan?.name ||
-          "Free",
-        status: subscription.status || "active",
-        billingCycle:
-          subscription.billingCycle ||
-          accountInfo?.customer?.billingCycle ||
-          "monthly",
-        nextBillingDate: subscription.nextBillingDate,
-        mrr: subscription.mrr || accountInfo?.customer?.mrr || 0,
-        currency:
-          subscription.plan?.currency ||
-          accountInfo?.customer?.plan?.currency ||
-          "NGN",
-        projects: accountInfo?.customer?.projectLimit || 3,
-        users: accountInfo?.customer?.userLimit || 3,
-        storage: accountInfo?.customer?.storageLimit || 1000,
-        usageStats: {
-          projectsUsed: accountInfo?.customer?.projectsCount || 0,
-          usersUsed: 1, // TODO: Get actual user count
-          storageUsed: 0, // TODO: Get actual storage used
-        },
-      }
-    : null;
+  // Derive next payment date:
+  // - Prefer backend-calculated subscription.nextBillingDate
+  // - Fallback: compute from customer's subscriptionStartDate + billingCycle
+  let nextPaymentDate: Date | null = null;
+  if (subscription?.nextBillingDate) {
+    nextPaymentDate = new Date(subscription.nextBillingDate);
+  } else if (
+    (subscription?.status === "active" ||
+      accountInfo?.customer?.status === "active") &&
+    accountInfo?.customer?.subscriptionStartDate
+  ) {
+    const start = new Date(accountInfo.customer.subscriptionStartDate);
+    const next = new Date(start);
+    const cycle =
+      subscription?.billingCycle || accountInfo.customer.billingCycle || "monthly";
+    if (cycle === "annual") {
+      next.setFullYear(next.getFullYear() + 1);
+    } else {
+      next.setMonth(next.getMonth() + 1);
+    }
+    nextPaymentDate = next;
+  }
 
   const handleTabChange = (value: string) => {
     console.log("[DeveloperSettings] Tab changed to:", value);
@@ -1061,6 +1059,19 @@ export function DeveloperSettings({
                             5}{" "}
                           users • Advanced analytics • Priority support
                         </p>
+                        {/* Next Payment Cycle */}
+                        {nextPaymentDate && (
+                          <p className="text-sm text-gray-700 mt-2 font-medium">
+                            Next payment:{" "}
+                            <span className="text-gray-900">
+                              {nextPaymentDate.toLocaleDateString("en-US", {
+                                year: "numeric",
+                                month: "long",
+                                day: "numeric",
+                              })}
+                            </span>
+                          </p>
+                        )}
                       </div>
                       <div className="text-right">
                         <p className="text-xl font-semibold text-gray-900">
@@ -1104,32 +1115,31 @@ export function DeveloperSettings({
                     <div className="space-y-2">
                       <p className="text-sm text-gray-600">
                         Next billing date:{" "}
-                        {subscription?.nextBillingDate
-                          ? new Date(
-                              subscription.nextBillingDate
-                            ).toLocaleDateString("en-US", {
+                        {nextPaymentDate
+                          ? nextPaymentDate.toLocaleDateString("en-US", {
                               year: "numeric",
                               month: "long",
                               day: "numeric",
                             })
                           : "N/A"}
                       </p>
-                      <p className="text-sm text-gray-600">
-                        Payment method: •••• •••• •••• 4242
-                      </p>
                     </div>
                   </div>
-
-                  <Button
-                    variant="outline"
-                    onClick={() =>
-                      toast.info("Payment method update coming soon!")
-                    }
-                  >
-                    Update Payment Method
-                  </Button>
                 </>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Payment Methods Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Payment Methods</CardTitle>
+              <CardDescription>
+                Manage your payment methods for automatic billing
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PaymentMethodsManager />
             </CardContent>
           </Card>
 
@@ -1301,57 +1311,121 @@ export function DeveloperSettings({
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {billingHistory.map((invoice) => (
-                    <div
-                      key={invoice.id}
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {new Date(
-                            invoice.paidAt || invoice.createdAt
-                          ).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          {formatCurrencyUtil(invoice.amount, invoice.currency)}
-                        </p>
-                        {invoice.description && (
-                          <p className="text-xs text-gray-400 mt-1">
-                            {invoice.description}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Badge
-                          className={
-                            invoice.status === "paid"
-                              ? "bg-green-500"
-                              : invoice.status === "pending"
-                              ? "bg-yellow-500"
-                              : "bg-red-500"
-                          }
+                <>
+                  <div className="space-y-3">
+                    {(() => {
+                      // Calculate pagination
+                      const totalPages = Math.ceil(billingHistory.length / itemsPerPage);
+                      const startIndex = (currentPage - 1) * itemsPerPage;
+                      const endIndex = startIndex + itemsPerPage;
+                      const currentItems = billingHistory.slice(startIndex, endIndex);
+
+                      return currentItems.map((invoice) => (
+                        <div
+                          key={invoice.id}
+                          className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors"
                         >
-                          {invoice.status.charAt(0).toUpperCase() +
-                            invoice.status.slice(1)}
-                        </Badge>
+                          <div>
+                            <p className="font-medium text-gray-900">
+                              {new Date(
+                                invoice.paidAt || invoice.createdAt
+                              ).toLocaleDateString("en-US", {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {formatCurrencyUtil(invoice.amount, invoice.currency)}
+                            </p>
+                            {invoice.description && (
+                              <p className="text-xs text-gray-400 mt-1">
+                                {invoice.description}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Badge
+                              className={
+                                invoice.status === "paid"
+                                  ? "bg-green-500"
+                                  : invoice.status === "pending"
+                                  ? "bg-yellow-500"
+                                  : "bg-red-500"
+                              }
+                            >
+                              {invoice.status.charAt(0).toUpperCase() +
+                                invoice.status.slice(1)}
+                            </Badge>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                toast.info("Invoice download coming soon!")
+                              }
+                            >
+                              Download
+                            </Button>
+                          </div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+
+                  {/* Pagination Controls */}
+                  {billingHistory.length > itemsPerPage && (
+                    <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                      <div className="text-sm text-gray-600">
+                        Showing {((currentPage - 1) * itemsPerPage) + 1} to{" "}
+                        {Math.min(currentPage * itemsPerPage, billingHistory.length)} of{" "}
+                        {billingHistory.length} invoices
+                      </div>
+                      <div className="flex items-center gap-2">
                         <Button
-                          variant="ghost"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                        >
+                          Previous
+                        </Button>
+                        <div className="flex items-center gap-1">
+                          {Array.from(
+                            { length: Math.ceil(billingHistory.length / itemsPerPage) },
+                            (_, i) => i + 1
+                          ).map((page) => (
+                            <Button
+                              key={page}
+                              variant={currentPage === page ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setCurrentPage(page)}
+                              className="w-10"
+                            >
+                              {page}
+                            </Button>
+                          ))}
+                        </div>
+                        <Button
+                          variant="outline"
                           size="sm"
                           onClick={() =>
-                            toast.info("Invoice download coming soon!")
+                            setCurrentPage((prev) =>
+                              Math.min(
+                                Math.ceil(billingHistory.length / itemsPerPage),
+                                prev + 1
+                              )
+                            )
+                          }
+                          disabled={
+                            currentPage === Math.ceil(billingHistory.length / itemsPerPage)
                           }
                         >
-                          Download
+                          Next
                         </Button>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>

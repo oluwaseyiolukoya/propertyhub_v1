@@ -43,9 +43,8 @@ import {
   getPaymentMethods,
   addPaymentMethod,
   setDefaultPaymentMethod,
-  deletePaymentMethod,
-  chargeCard,
-  PaymentMethod
+  removePaymentMethod,
+  PaymentMethod,
 } from '../lib/api/payment-methods';
 
 interface TenantPaymentsPageProps {
@@ -638,7 +637,7 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
                           className="text-red-600 hover:text-red-700"
                           onClick={async () => {
                             if (confirm('Are you sure you want to remove this card?')) {
-                              const result = await deletePaymentMethod(method.id);
+                              const result = await removePaymentMethod(method.id);
                               if (result.error) {
                                 toast.error('Failed to remove card');
                               } else {

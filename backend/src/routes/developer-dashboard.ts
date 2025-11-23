@@ -647,7 +647,8 @@ router.get('/projects', async (req: Request, res: Response) => {
         limit: limitNum,
         total,
         totalPages: Math.ceil(total / limitNum),
-        hasMore: skip + projects.length < total,
+        // Use the length of the array we're actually returning
+        hasMore: skip + projectsWithActualSpend.length < total,
       },
     });
   } catch (error: any) {

@@ -788,10 +788,12 @@ router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) =
         status: customer.status,
         billingCycle: customer.billingCycle,
         propertyLimit: customer.propertyLimit,
+        projectLimit: (customer as any).projectLimit,
         userLimit: customer.userLimit,
         storageLimit: customer.storageLimit,
         propertiesCount: customer.propertiesCount,
         unitsCount: customer.unitsCount,
+        projectsCount: (customer as any).projectsCount,
         // Actual usage counts
         actualPropertiesCount: actualPropertiesCount,
         actualUnitsCount: actualUnitsCount,

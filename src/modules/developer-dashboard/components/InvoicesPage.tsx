@@ -367,8 +367,9 @@ export const InvoicesPage: React.FC<InvoicesPageProps> = ({ onViewProject }) => 
       return;
     }
 
-    toast.error('Invoice rejected');
+    toast.success('Invoice rejected');
     fetchInvoices(); // Refresh the list
+    setShowDetailModal(false);
   };
 
   const handleMarkAsPaid = async (invoiceId: string) => {
@@ -394,9 +395,10 @@ export const InvoicesPage: React.FC<InvoicesPageProps> = ({ onViewProject }) => 
     }
 
     toast.success('Invoice marked as paid and expense created automatically');
+    fetchInvoices(); // Refresh the list
     setShowMarkAsPaidModal(false);
     setInvoiceToMarkAsPaid(null);
-    fetchInvoices(); // Refresh the list
+    setShowDetailModal(false);
   };
 
   const handleDeleteInvoice = (invoiceId: string) => {
@@ -662,6 +664,7 @@ export const InvoicesPage: React.FC<InvoicesPageProps> = ({ onViewProject }) => 
           onSuccess={() => {
             setShowCreateModal(false);
             toast.success('Invoice created successfully');
+            fetchInvoices(); // Refresh the invoice list
           }}
         />
       )}

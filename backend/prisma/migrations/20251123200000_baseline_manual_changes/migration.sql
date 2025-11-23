@@ -1,7 +1,7 @@
 -- Baseline Migration: Document Manual Table Creation
 -- This migration captures all the tables that were created manually
 -- to fix the project dashboard 500 errors on November 23, 2025.
--- 
+--
 -- Tables created:
 -- - budget_line_items
 -- - project_funding
@@ -121,7 +121,7 @@ CREATE TABLE IF NOT EXISTS "project_milestones" (
 );
 
 -- AlterTable
-ALTER TABLE "notification_templates" 
+ALTER TABLE "notification_templates"
 ADD COLUMN IF NOT EXISTS "name" VARCHAR(100) DEFAULT 'default_template',
 ADD COLUMN IF NOT EXISTS "is_active" BOOLEAN DEFAULT true,
 ADD COLUMN IF NOT EXISTS "created_by" TEXT;

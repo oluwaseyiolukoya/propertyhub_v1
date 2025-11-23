@@ -296,6 +296,7 @@ export const ADD_ONS: AddOn[] = [
 ];
 
 export const formatCurrency = (amount: number, currency: string = 'NGN'): string => {
+  // Prices are now stored in Naira (major unit), not kobo
   return new Intl.NumberFormat('en-NG', {
     style: 'currency',
     currency: currency,

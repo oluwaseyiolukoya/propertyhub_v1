@@ -129,6 +129,8 @@ import uploadRoutes from "./routes/uploads";
 // Onboarding routes
 import onboardingRoutes from "./routes/onboarding";
 import adminOnboardingRoutes from "./routes/admin-onboarding";
+// Admin Billing routes
+import adminBillingRoutes from "./routes/admin-billing";
 // Subscription management routes
 import subscriptionManagementRoutes from "./routes/subscription";
 // Developer Dashboard routes
@@ -338,6 +340,7 @@ app.use("/api/landing-forms", require("./routes/landing-forms").default);
 app.use("/api/public", publicPlansRoutes);
 // Admin routes
 app.use("/api/admin/onboarding", adminOnboardingRoutes);
+app.use("/api/admin/billing", adminBillingRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/roles", roleRoutes);

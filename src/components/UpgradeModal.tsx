@@ -154,7 +154,15 @@ export function UpgradeModal({ open, onClose, onSuccess }: UpgradeModalProps) {
       return;
     }
 
-    const amountInKobo = Math.round(price * 100); // Convert to kobo (smallest currency unit)
+    // Prices are now stored in Naira, so multiply by 100 to convert to kobo for Paystack
+    const amountInKobo = Math.round(price * 100);
+
+    console.log('[UpgradeModal] Payment details:', {
+      planName: selectedPlanData.name,
+      priceInNaira: price,
+      amountInKobo,
+      billingCycle,
+    });
 
     // Initialize Paystack payment
     const handler = window.PaystackPop.setup({

@@ -792,7 +792,94 @@ router.post('/upgrade/verify', authMiddleware, async (req: AuthRequest, res: Res
     // Capture MRR snapshot
     await captureSnapshotOnChange(updatedCustomer.id, 'upgrade', customer.mrr || 0, newMRR);
 
-    console.log('[Upgrade] Upgrade completed successfully');
+    // -----------------------------------------------------------------------
+    // Send upgrade confirmation email (for active → higher plan upgrades)
+    // Mirrors logic in /api/subscription/upgrade so behaviour is consistent
+    // -----------------------------------------------------------------------
+    let emailSent = false;
+    let emailErrorDetails: any = null;
+
+    try {
+      // Lazy-require to avoid circular deps at module load
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { sendPlanUpgradeEmail } = require('../lib/email');
+
+      // Old plan name comes from the customer snapshot we loaded earlier
+      const oldPlanName = customer.plans?.name || 'Free Plan';
+
+      const dashboardUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard`;
+      const effectiveDate = new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+
+      // Build features object from the NEW plan
+      const newFeatures: any = {
+        users: newPlan.userLimit,
+        storage: newPlan.storageLimit,
+      };
+
+      if (newPlan.category === 'development' && newPlan.projectLimit) {
+        newFeatures.projects = newPlan.projectLimit;
+      } else if (newPlan.category === 'property_management') {
+        if (newPlan.propertyLimit) newFeatures.properties = newPlan.propertyLimit;
+        if ((newPlan as any).unitLimit) newFeatures.units = (newPlan as any).unitLimit;
+      }
+
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[Upgrade] 📧 SENDING UPGRADE CONFIRMATION EMAIL (verify flow)');
+      console.log('[Upgrade] Customer:', customer.email);
+      console.log('[Upgrade] Plan:', `${oldPlanName} → ${newPlan.name}`);
+      console.log('[Upgrade] Price:', billingCycle === 'annual' ? newPlan.annualPrice : newPlan.monthlyPrice);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+      emailSent = await sendPlanUpgradeEmail({
+        customerName: customer.company || customer.owner || 'Customer',
+        customerEmail: customer.email,
+        companyName: customer.company || 'Your Company',
+        oldPlanName,
+        newPlanName: newPlan.name,
+        newPlanPrice: billingCycle === 'annual' ? newPlan.annualPrice : newPlan.monthlyPrice,
+        currency: newPlan.currency || 'NGN',
+        billingCycle,
+        effectiveDate,
+        newFeatures,
+        dashboardUrl,
+      });
+
+      console.log('[Upgrade] 📧 Email function returned:', emailSent ? '✅ SUCCESS' : '❌ FAILED');
+    } catch (emailError: any) {
+      console.error('[Upgrade] ❌ EXCEPTION while sending upgrade confirmation email (verify flow):', emailError);
+      emailErrorDetails = {
+        message: emailError?.message,
+        code: emailError?.code,
+        response: emailError?.response,
+        stack: emailError?.stack,
+      };
+    }
+
+    if (!emailSent) {
+      console.error('[Upgrade] ⚠️ VALIDATION FAILED: Upgrade email was NOT sent (verify flow)');
+      console.error('[Upgrade] Email error:', emailErrorDetails);
+
+      // IMPORTANT: At this point, payment and database updates have succeeded.
+      // We still return 500 so the caller knows email delivery failed,
+      // matching the behaviour of /api/subscription/upgrade.
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to send upgrade confirmation email',
+        details: emailErrorDetails?.message || 'Unknown email error',
+        data: {
+          customerId: updatedCustomer.id,
+          customerEmail: customer.email,
+          planName: newPlan.name,
+          note: 'Upgrade was processed but email delivery failed. Please notify the customer manually.',
+        },
+      });
+    }
+
+    console.log('[Upgrade] ✅ Upgrade completed successfully (verify flow, email sent)');
 
     res.json({
       success: true,

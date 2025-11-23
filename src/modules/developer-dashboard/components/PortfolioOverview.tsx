@@ -134,7 +134,7 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
           <p className="text-gray-600 mt-1">Manage all your development projects in one place</p>
         </div>
         {canManageProjects && (
-          <Button onClick={onCreateProject} className="gap-2 bg-blue-600 hover:bg-blue-700">
+          <Button onClick={onCreateProject} className="gap-2">
             <Plus className="h-4 w-4" />
             Add New Project
           </Button>

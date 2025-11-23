@@ -1,70 +1,72 @@
-import { apiClient, ApiResponse } from '../api-client';
-import { API_ENDPOINTS } from '../api-config';
+import { apiClient } from '../api-client';
 
 export interface PaymentMethod {
   id: string;
-  tenantId: string;
-  customerId: string;
   type: string;
   provider: string;
-  authorizationCode: string;
-  cardBrand: string;
-  cardLast4: string;
-  cardExpMonth: string;
-  cardExpYear: string;
-  cardBin?: string;
-  cardType?: string;
-  bank?: string;
-  accountName?: string;
+  cardBrand: string | null;
+  cardLast4: string | null;
+  cardExpMonth: string | null;
+  cardExpYear: string | null;
+  bank: string | null;
+  accountName: string | null;
   isDefault: boolean;
   isActive: boolean;
-  metadata?: any;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface AddPaymentMethodPayload {
+export interface InitializeAuthorizationResponse {
+  authorizationUrl: string;
+  accessCode: string;
+  reference: string;
   email: string;
-  authorizationCode: string;
-}
-
-export interface ChargeCardPayload {
-  paymentMethodId: string;
-  amount: number;
-  leaseId: string;
 }
 
 /**
- * Get all payment methods for the current tenant
+ * Get all payment methods for the authenticated customer
  */
-export const getPaymentMethods = async (): Promise<ApiResponse<PaymentMethod[]>> => {
-  return apiClient.get<PaymentMethod[]>(API_ENDPOINTS.PAYMENT_METHODS.LIST);
+export const getPaymentMethods = async () => {
+  return apiClient.get<{ success: boolean; data: PaymentMethod[] }>(
+    '/api/payment-methods'
+  );
 };
 
 /**
- * Add a new payment method
+ * Initialize card authorization with Paystack
  */
-export const addPaymentMethod = async (payload: AddPaymentMethodPayload): Promise<ApiResponse<PaymentMethod>> => {
-  return apiClient.post<PaymentMethod>(API_ENDPOINTS.PAYMENT_METHODS.ADD, payload);
+export const initializeCardAuthorization = async () => {
+  return apiClient.post<{ success: boolean; data: InitializeAuthorizationResponse }>(
+    '/api/payment-methods/initialize-authorization',
+    {}
+  );
+};
+
+/**
+ * Add a new payment method using Paystack reference
+ */
+export const addPaymentMethod = async (reference: string, setAsDefault: boolean = true) => {
+  return apiClient.post<{ success: boolean; message: string; data: PaymentMethod }>(
+    '/api/payment-methods/add',
+    { reference, setAsDefault }
+  );
 };
 
 /**
  * Set a payment method as default
  */
-export const setDefaultPaymentMethod = async (id: string): Promise<ApiResponse<PaymentMethod>> => {
-  return apiClient.put<PaymentMethod>(API_ENDPOINTS.PAYMENT_METHODS.SET_DEFAULT(id), {});
+export const setDefaultPaymentMethod = async (paymentMethodId: string) => {
+  return apiClient.post<{ success: boolean; message: string }>(
+    `/api/payment-methods/${paymentMethodId}/set-default`,
+    {}
+  );
 };
 
 /**
- * Delete a payment method
+ * Remove a payment method
  */
-export const deletePaymentMethod = async (id: string): Promise<ApiResponse<void>> => {
-  return apiClient.delete<void>(API_ENDPOINTS.PAYMENT_METHODS.DELETE(id));
-};
-
-/**
- * Charge a saved card
- */
-export const chargeCard = async (payload: ChargeCardPayload): Promise<ApiResponse<any>> => {
-  return apiClient.post<any>(API_ENDPOINTS.PAYMENT_METHODS.CHARGE, payload);
+export const removePaymentMethod = async (paymentMethodId: string) => {
+  return apiClient.delete<{ success: boolean; message: string }>(
+    `/api/payment-methods/${paymentMethodId}`
+  );
 };

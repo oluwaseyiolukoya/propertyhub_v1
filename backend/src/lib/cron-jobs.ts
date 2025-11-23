@@ -8,6 +8,7 @@ import cron from 'node-cron';
 import { captureMonthlySnapshots, captureSnapshotOnChange } from './mrr-snapshot';
 import { trialManagementService } from '../services/trial-management.service';
 import { initializeCashFlowJobs } from '../jobs/cashflow-snapshots.job';
+import { processAllRecurringBilling } from '../services/recurring-billing.service';
 import prisma from './db';
 
 /**
@@ -76,9 +77,23 @@ export function initializeCronJobs() {
     }
   });
 
+  // Recurring Billing Processor - Runs every day at 01:00 AM UTC
+  cron.schedule('0 1 * * *', async () => {
+    console.log('💳 Recurring billing processor job triggered');
+    try {
+      const results = await processAllRecurringBilling();
+      const successful = results.filter(r => r.success).length;
+      const failed = results.filter(r => !r.success).length;
+      console.log(`✅ Recurring billing completed. Success: ${successful}, Failed: ${failed}`);
+    } catch (error) {
+      console.error('❌ Recurring billing processor failed:', error);
+    }
+  });
+
   console.log('✅ Cron jobs initialized:');
   console.log('   - Monthly MRR Snapshot: 1st of every month at 00:05 AM');
   console.log('   - Daily MRR Update: Every day at 00:10 AM');
+  console.log('   - Recurring Billing: Every day at 01:00 AM UTC');
   console.log('   - Trial Expiration Checker: Every day at 02:00 AM UTC');
   console.log('   - Trial Notification Sender: Every day at 10:00 AM UTC');
   console.log('   - Suspended Account Cleanup: Every day at 03:00 AM UTC');

@@ -47,6 +47,7 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const formatCurrency = (amount: number, code?: string) => {
     const c = getCurrency(code || currency);
+    // Prices are now stored in Naira (major unit), not kobo
     return `${c.symbol}${Number(amount || 0).toLocaleString()}`;
   };
 

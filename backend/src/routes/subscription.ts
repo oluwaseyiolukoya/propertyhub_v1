@@ -139,7 +139,8 @@ router.post('/upgrade', async (req: Request, res: Response) => {
 
     console.log('[Subscription] Customer found:', { id: customer.id, email: customer.email, status: customer.status });
 
-    if (customer.status !== 'trial' && customer.status !== 'suspended') {
+    // Allow upgrades for trial, suspended, AND active customers (plan changes)
+    if (customer.status !== 'trial' && customer.status !== 'suspended' && customer.status !== 'active') {
       return res.status(400).json({ error: 'Account is not eligible for upgrade' });
     }
 
@@ -374,10 +375,10 @@ router.post('/upgrade', async (req: Request, res: Response) => {
     // Send upgrade confirmation email
     let emailSent = false;
     let emailErrorDetails: any = null;
-    
+
     try {
       const { sendPlanUpgradeEmail } = require('../lib/email');
-      
+
       // Get old plan name (if exists)
       let oldPlanName = 'Free Plan';
       if (customer.planId) {
@@ -409,7 +410,13 @@ router.post('/upgrade', async (req: Request, res: Response) => {
         if (plan.unitLimit) newFeatures.units = plan.unitLimit;
       }
 
-      console.log('[Subscription] Sending upgrade confirmation email...');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[Subscription] 📧 SENDING UPGRADE CONFIRMATION EMAIL');
+      console.log('[Subscription] Customer:', customer.email);
+      console.log('[Subscription] Plan:', `${oldPlanName} → ${plan.name}`);
+      console.log('[Subscription] Price:', billingCycle === 'annual' ? plan.annualPrice : plan.monthlyPrice);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
       emailSent = await sendPlanUpgradeEmail({
         customerName: customer.company || customer.owner || 'Customer',
         customerEmail: customer.email,
@@ -423,23 +430,39 @@ router.post('/upgrade', async (req: Request, res: Response) => {
         newFeatures,
         dashboardUrl,
       });
+
+      console.log('[Subscription] 📧 Email function returned:', emailSent ? '✅ SUCCESS' : '❌ FAILED');
     } catch (emailError: any) {
       console.error('[Subscription] ❌ EXCEPTION while sending upgrade confirmation email:', emailError);
       emailErrorDetails = {
         message: emailError?.message,
         code: emailError?.code,
         response: emailError?.response,
+        stack: emailError?.stack,
       };
     }
 
     if (!emailSent) {
-      console.warn('[Subscription] ⚠️  Email notification failed for upgrade, but subscription was successful');
-      console.warn('[Subscription] Email error:', emailErrorDetails);
-      // Don't fail the upgrade if email fails - just log it
-    } else {
-      console.log('[Subscription] ✅ Upgrade confirmation email sent successfully');
+      console.error('[Subscription] ⚠️ VALIDATION FAILED: Upgrade email was NOT sent');
+      console.error('[Subscription] Email error:', emailErrorDetails);
+
+      // IMPORTANT: At this point, payment and database updates have succeeded.
+      // We still return 500 so the caller knows email delivery failed,
+      // similar to the onboarding activation validation behavior.
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to send upgrade confirmation email',
+        details: emailErrorDetails?.message || 'Unknown email error',
+        data: {
+          subscriptionId: updatedCustomer.id,
+          customerEmail: customer.email,
+          planName: plan.name,
+          note: 'Upgrade was processed but email delivery failed. Please notify the customer manually.',
+        },
+      });
     }
 
+    console.log('[Subscription] ✅ Upgrade confirmation email sent successfully');
     console.log('[Subscription] ========== UPGRADE SUCCESS ==========');
 
     const response = {
@@ -460,7 +483,7 @@ router.post('/upgrade', async (req: Request, res: Response) => {
       storageLimit: updatedCustomer.storageLimit,
       nextBillingDate,
       message: 'Subscription activated successfully',
-      emailSent, // Include email status in response
+      emailSent: true,
     };
 
     console.log('[Subscription] Sending response:', response);

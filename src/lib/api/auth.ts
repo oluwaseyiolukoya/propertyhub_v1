@@ -119,10 +119,12 @@ export const getAccountInfo = async () => {
       status: string;
       billingCycle: string;
       propertyLimit: number;
+      projectLimit?: number;
       userLimit: number;
       storageLimit: number;
       propertiesCount: number;
       unitsCount: number;
+      projectsCount?: number;
       actualPropertiesCount?: number;
       actualUnitsCount?: number;
       actualManagersCount?: number;

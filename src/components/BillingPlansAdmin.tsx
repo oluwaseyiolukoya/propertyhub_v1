@@ -64,7 +64,9 @@ export function BillingPlansAdmin() {
   const [isCreatePlanOpen, setIsCreatePlanOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [planCategory, setPlanCategory] = useState<'property_management' | 'development'>('property_management');
-  const { currency: selectedCurrency, setCurrency: setSelectedCurrency, currencies, getCurrency, convertAmount, formatCurrency } = useCurrency();
+  // Admin billing is locked to NGN; we still use currency utils but force NGN
+  const { getCurrency, convertAmount, formatCurrency } = useCurrency();
+  const selectedCurrency = 'NGN';
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -100,7 +102,7 @@ export function BillingPlansAdmin() {
     setTxEndDate('');
   };
 
-  // Current currency details from context
+  // Current currency details (forced to NGN for admin)
   const currentCurrency = getCurrency(selectedCurrency);
 
   // Fetch plans on component mount
@@ -1066,24 +1068,10 @@ export function BillingPlansAdmin() {
           <p className="text-gray-600">Manage subscription plans and billing</p>
         </div>
         <div className="flex items-center space-x-4">
+          {/* Currency is fixed to NGN for Admin billing plans */}
           <div className="flex items-center space-x-2">
-            <Label htmlFor="currency-select" className="text-sm font-medium">Currency:</Label>
-            <Select value={selectedCurrency} onValueChange={setSelectedCurrency}>
-              <SelectTrigger className="w-40" id="currency-select">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {currencies.map((currency) => (
-                  <SelectItem key={currency.code} value={currency.code}>
-                    <div className="flex items-center space-x-2">
-                      <span>{currency.symbol}</span>
-                      <span>{currency.code}</span>
-                      <span className="text-gray-500">- {currency.name}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <span className="text-sm text-gray-600">Currency:</span>
+            <span className="text-sm font-semibold text-gray-900">₦ NGN</span>
           </div>
           {activeTab === 'plans' && (
             <Button onClick={handleCreatePlan}>

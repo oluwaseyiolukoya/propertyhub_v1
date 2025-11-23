@@ -40,6 +40,7 @@ import {
 import { usePlatformBranding } from './hooks/usePlatformBranding';
 import StorageTest from './components/StorageTest';
 import CheckAuth from './components/CheckAuth';
+import { verifyUpgrade } from './lib/api/subscriptions';
 
 function App() {
   // Load platform branding (logo and favicon)
@@ -184,6 +185,60 @@ function App() {
       }
     };
     fetchStatus();
+  }, [currentUser]);
+
+  // Handle subscription upgrade callback: /upgrade/callback?reference=...
+  // This is used by the developer billing flow that redirects to Paystack.
+  // We verify the upgrade immediately when the user returns, so the new plan
+  // takes effect without requiring them to manually visit Settings → Billing.
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const url = new URL(window.location.href);
+    const pathname = url.pathname;
+    if (!pathname.includes('/upgrade/callback')) return;
+
+    const reference =
+      url.searchParams.get('reference') ||
+      sessionStorage.getItem('upgrade_reference');
+    if (!reference) return;
+
+    const handleUpgradeCallback = async () => {
+      try {
+        console.log('[App] Handling subscription upgrade callback with reference:', reference);
+        toast.info('Verifying subscription upgrade...');
+
+        const resp = await verifyUpgrade(reference);
+        console.log('[App] Upgrade verification response:', resp.data);
+
+        if (!resp.data?.success) {
+          throw new Error(resp.data?.message || 'Upgrade verification failed');
+        }
+
+        // Clear stored reference and clean URL
+        sessionStorage.removeItem('upgrade_reference');
+        sessionStorage.removeItem('upgrade_plan_id');
+        url.searchParams.delete('reference');
+        window.history.replaceState({}, document.title, url.toString());
+
+        toast.success('Plan upgraded successfully! Reloading your dashboard...');
+
+        // Full reload to ensure all dashboard components refetch subscription
+        // and account data and immediately reflect the new plan/limits.
+        setTimeout(() => {
+          window.location.href = '/developer/settings?tab=billing';
+        }, 1500);
+      } catch (error: any) {
+        console.error('[App] Subscription upgrade verification error:', error);
+        const message =
+          error?.response?.data?.error ||
+          error?.message ||
+          'Failed to verify subscription upgrade';
+        toast.error(message);
+      }
+    };
+
+    handleUpgradeCallback();
   }, [currentUser]);
 
   // Initialize session manager

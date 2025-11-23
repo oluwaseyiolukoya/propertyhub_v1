@@ -1673,17 +1673,28 @@ export async function sendPlanUpgradeEmail(params: PlanUpgradeParams): Promise<b
     console.log('📧 [Plan Upgrade] Plan:', `${params.oldPlanName} → ${params.newPlanName}`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    // Format price
+    // Explicitly log SMTP configuration to confirm env values are being used
+    console.log('📧 [Plan Upgrade] SMTP Config (from env):', {
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      user: config.auth.user,
+      from: config.from,
+      hasPassword: !!config.auth.pass,
+      passwordLength: config.auth.pass ? String(config.auth.pass).length : 0,
+    });
+
+    // Format price (prices are now stored in Naira, not kobo)
     const formattedPrice = new Intl.NumberFormat('en-NG', {
       style: 'currency',
       currency: params.currency,
       minimumFractionDigits: 0,
-    }).format(params.newPlanPrice / 100);
+    }).format(params.newPlanPrice);
 
     // Build features list
     let featuresHtml = '';
     let featuresText = '';
-    
+
     if (params.newFeatures.projects) {
       featuresHtml += `<li><strong>${params.newFeatures.projects}</strong> active projects</li>`;
       featuresText += `- ${params.newFeatures.projects} active projects\n`;
@@ -1868,6 +1879,13 @@ Questions? Contact us at support@contrezz.com
     if (info.rejected && info.rejected.length > 0) {
       console.error('❌ [Plan Upgrade] Email rejected by server');
       console.error('📧 Rejected addresses:', info.rejected);
+      return false;
+    }
+
+    // Optional: check that at least one recipient was accepted
+    if (!info.accepted || info.accepted.length === 0) {
+      console.error('❌ [Plan Upgrade] Email not accepted by any recipient');
+      console.error('📧 Accepted list is empty or undefined:', info.accepted);
       return false;
     }
 

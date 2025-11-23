@@ -19,6 +19,7 @@ export const CURRENCIES: Record<string, CurrencyConfig> = {
 
 /**
  * Format currency with symbol
+ * Note: Prices are now stored in Naira (major unit), not kobo
  */
 export function formatCurrency(
   amount: number | null | undefined,
@@ -37,6 +38,7 @@ export function formatCurrency(
 
 /**
  * Format currency with code (e.g., "NGN 500,000.00")
+ * Note: Prices are now stored in Naira (major unit), not kobo
  */
 export function formatCurrencyWithCode(
   amount: number | null | undefined,
