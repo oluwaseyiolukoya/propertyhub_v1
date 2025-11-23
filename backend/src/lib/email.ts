@@ -1641,6 +1641,253 @@ If you did not apply for an account, please contact us immediately at support@co
 }
 
 /**
+ * Send plan upgrade confirmation email
+ */
+export interface PlanUpgradeParams {
+  customerName: string;
+  customerEmail: string;
+  companyName: string;
+  oldPlanName: string;
+  newPlanName: string;
+  newPlanPrice: number;
+  currency: string;
+  billingCycle: string;
+  effectiveDate: string;
+  newFeatures: {
+    projects?: number;
+    properties?: number;
+    units?: number;
+    users: number;
+    storage: number;
+  };
+  dashboardUrl: string;
+}
+
+export async function sendPlanUpgradeEmail(params: PlanUpgradeParams): Promise<boolean> {
+  try {
+    const config = getEmailConfig();
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📧 [Plan Upgrade] Preparing to send upgrade confirmation email...');
+    console.log('📧 [Plan Upgrade] Recipient:', params.customerEmail);
+    console.log('📧 [Plan Upgrade] Company:', params.companyName);
+    console.log('📧 [Plan Upgrade] Plan:', `${params.oldPlanName} → ${params.newPlanName}`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    // Format price
+    const formattedPrice = new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: params.currency,
+      minimumFractionDigits: 0,
+    }).format(params.newPlanPrice / 100);
+
+    // Build features list
+    let featuresHtml = '';
+    let featuresText = '';
+    
+    if (params.newFeatures.projects) {
+      featuresHtml += `<li><strong>${params.newFeatures.projects}</strong> active projects</li>`;
+      featuresText += `- ${params.newFeatures.projects} active projects\n`;
+    }
+    if (params.newFeatures.properties) {
+      featuresHtml += `<li><strong>${params.newFeatures.properties}</strong> properties</li>`;
+      featuresText += `- ${params.newFeatures.properties} properties\n`;
+    }
+    if (params.newFeatures.units) {
+      featuresHtml += `<li><strong>${params.newFeatures.units}</strong> units per property</li>`;
+      featuresText += `- ${params.newFeatures.units} units per property\n`;
+    }
+    featuresHtml += `<li><strong>${params.newFeatures.users}</strong> team members</li>`;
+    featuresHtml += `<li><strong>${params.newFeatures.storage}MB</strong> storage</li>`;
+    featuresText += `- ${params.newFeatures.users} team members\n`;
+    featuresText += `- ${params.newFeatures.storage}MB storage\n`;
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 20px; text-align: center; border-radius: 8px 8px 0 0; }
+    .header h1 { margin: 0; font-size: 32px; }
+    .header p { margin: 10px 0 0 0; font-size: 16px; opacity: 0.9; }
+    .content { padding: 30px 20px; background-color: #f9fafb; }
+    .upgrade-box { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 8px; margin: 20px 0; text-align: center; }
+    .upgrade-box .old-plan { font-size: 18px; opacity: 0.8; text-decoration: line-through; margin-bottom: 10px; }
+    .upgrade-box .arrow { font-size: 24px; margin: 10px 0; }
+    .upgrade-box .new-plan { font-size: 28px; font-weight: bold; margin-top: 10px; }
+    .upgrade-box .price { font-size: 36px; font-weight: bold; margin: 15px 0; }
+    .features { background-color: #fff; padding: 25px; border-left: 4px solid #667eea; margin: 20px 0; border-radius: 4px; }
+    .features h3 { margin-top: 0; color: #667eea; }
+    .features ul { list-style: none; padding: 0; }
+    .features li { padding: 8px 0; border-bottom: 1px solid #f3f4f6; }
+    .features li:last-child { border-bottom: none; }
+    .features li:before { content: "✓"; color: #10b981; font-weight: bold; margin-right: 10px; }
+    .info-box { background-color: #EEF2FF; border-left: 4px solid #667eea; padding: 15px; margin: 20px 0; border-radius: 4px; }
+    .button { display: inline-block; padding: 14px 28px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: bold; }
+    .button:hover { opacity: 0.9; }
+    .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 14px; background-color: #f9fafb; border-radius: 0 0 8px 8px; }
+    .footer a { color: #667eea; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🚀 Plan Upgraded Successfully!</h1>
+      <p>Your subscription has been upgraded</p>
+    </div>
+    <div class="content">
+      <p>Hi <strong>${params.customerName}</strong>,</p>
+
+      <p>Great news! Your subscription for <strong>${params.companyName}</strong> has been successfully upgraded.</p>
+
+      <div class="upgrade-box">
+        <div class="old-plan">${params.oldPlanName}</div>
+        <div class="arrow">↓</div>
+        <div class="new-plan">${params.newPlanName}</div>
+        <div class="price">${formattedPrice}/${params.billingCycle === 'annual' ? 'year' : 'month'}</div>
+      </div>
+
+      <div class="features">
+        <h3>🎉 Your New Plan Includes:</h3>
+        <ul>
+          ${featuresHtml}
+        </ul>
+      </div>
+
+      <div class="info-box">
+        <p><strong>📅 Effective Date:</strong> ${params.effectiveDate}</p>
+        <p><strong>💳 Billing Cycle:</strong> ${params.billingCycle === 'annual' ? 'Annual' : 'Monthly'}</p>
+        <p style="margin-bottom: 0;"><strong>🔄 Next Billing:</strong> ${params.billingCycle === 'annual' ? '1 year from today' : '30 days from today'}</p>
+      </div>
+
+      <div style="text-align: center;">
+        <a href="${params.dashboardUrl}" class="button">Go to Dashboard</a>
+      </div>
+
+      <p style="margin-top: 30px;">Your new plan features are now active and ready to use. If you have any questions about your upgrade or need assistance, please don't hesitate to contact our support team.</p>
+
+      <p>Thank you for choosing Contrezz!</p>
+      <p><strong>The Contrezz Team</strong></p>
+    </div>
+    <div class="footer">
+      <p>This is an automated confirmation from Contrezz.</p>
+      <p>Questions? Contact us at <a href="mailto:support@contrezz.com">support@contrezz.com</a></p>
+      <p style="margin-top: 15px; font-size: 12px; color: #9ca3af;">
+        © ${new Date().getFullYear()} Contrezz. All rights reserved.
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    const text = `
+Plan Upgraded Successfully!
+
+Hi ${params.customerName},
+
+Great news! Your subscription for ${params.companyName} has been successfully upgraded.
+
+UPGRADE SUMMARY:
+Previous Plan: ${params.oldPlanName}
+New Plan: ${params.newPlanName}
+Price: ${formattedPrice}/${params.billingCycle === 'annual' ? 'year' : 'month'}
+
+YOUR NEW PLAN INCLUDES:
+${featuresText}
+
+BILLING INFORMATION:
+Effective Date: ${params.effectiveDate}
+Billing Cycle: ${params.billingCycle === 'annual' ? 'Annual' : 'Monthly'}
+Next Billing: ${params.billingCycle === 'annual' ? '1 year from today' : '30 days from today'}
+
+Your new plan features are now active and ready to use.
+
+Access your dashboard: ${params.dashboardUrl}
+
+If you have any questions about your upgrade or need assistance, please contact our support team.
+
+Thank you for choosing Contrezz!
+The Contrezz Team
+
+---
+This is an automated confirmation from Contrezz.
+Questions? Contact us at support@contrezz.com
+    `;
+
+    console.log('📧 [Plan Upgrade] Step 1: Creating fresh transporter...');
+
+    // Create fresh transporter without connection pooling for instant delivery
+    const freshTransporter = nodemailer.createTransport({
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      auth: {
+        user: config.auth.user,
+        pass: config.auth.pass,
+      },
+      pool: false, // Disable connection pooling for instant delivery
+      tls: {
+        rejectUnauthorized: false,
+        minVersion: 'TLSv1.2'
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 5000,
+      socketTimeout: 30000,
+    });
+
+    console.log('📧 [Plan Upgrade] Step 2: Verifying SMTP connection...');
+
+    try {
+      await freshTransporter.verify();
+      console.log('✅ [Plan Upgrade] SMTP connection verified successfully');
+    } catch (verifyError) {
+      console.error('❌ [Plan Upgrade] SMTP verification failed:', verifyError);
+      throw verifyError;
+    }
+
+    console.log('📧 [Plan Upgrade] Step 3: Sending email with verified connection...');
+
+    const info = await freshTransporter.sendMail({
+      from: `"Contrezz" <${config.from}>`,
+      to: params.customerEmail,
+      subject: `🚀 Your ${params.companyName} Plan Has Been Upgraded!`,
+      text,
+      html,
+    });
+
+    // Validate email was actually sent
+    if (!info || !info.messageId) {
+      console.error('❌ [Plan Upgrade] Email send failed - no message ID returned');
+      console.error('📧 Response:', info);
+      return false;
+    }
+
+    // Check for rejection
+    if (info.rejected && info.rejected.length > 0) {
+      console.error('❌ [Plan Upgrade] Email rejected by server');
+      console.error('📧 Rejected addresses:', info.rejected);
+      return false;
+    }
+
+    console.log('✅ Plan upgrade email sent successfully!');
+    console.log('📬 Message ID:', info.messageId);
+    console.log('📧 Sent to:', params.customerEmail);
+    console.log('📊 Response:', info.response);
+    console.log('[Plan Upgrade] ✅✅✅ Upgrade confirmation email sent successfully to:', params.customerEmail);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    return true;
+  } catch (error) {
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error('❌ [Plan Upgrade] Failed to send upgrade confirmation email:', error);
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    return false;
+  }
+}
+
+/**
  * Send team invitation email with temporary password (INSTANT DELIVERY)
  * Uses same pattern as onboarding email for immediate delivery
  */

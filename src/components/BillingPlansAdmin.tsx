@@ -226,6 +226,7 @@ export function BillingPlansAdmin() {
   const plansArray = Array.isArray(plans) ? plans : [];
   const subscriptionPlans = plansArray.map((plan: any) => {
     const planCurrency = plan.currency || 'USD';
+    const planCategory = (plan.category || 'property_management') as 'property_management' | 'development';
     const customersOnPlan = customers.filter(c => c.planId === plan.id && (c.status === 'active' || c.status === 'trial'));
     const monthlyRevenueFromPlan = customersOnPlan.reduce((sum, c) => sum + convertAmount((c.mrr || 0), planCurrency, selectedCurrency), 0);
 
@@ -248,8 +249,12 @@ export function BillingPlansAdmin() {
       description: plan.description || '',
       monthlyPrice: monthlyPrice,
       yearlyPrice: yearlyPrice,
-      maxProperties: plan.propertyLimit,
-      maxUnits: plan.userLimit,
+      // Normalized limits so overview reflects what was configured in the form
+      category: planCategory,
+      maxProperties: plan.propertyLimit ?? null,
+      maxUnits: plan.unitLimit ?? null,   // units per property (for property owners)
+      maxUsers: plan.userLimit ?? null,   // total users allowed on the plan
+      projectLimit: plan.projectLimit ?? null, // for developer plans
       currency: planCurrency,
       features: Array.isArray(plan.features) ? plan.features :
                 (typeof plan.features === 'string' ? JSON.parse(plan.features) : []),
@@ -264,6 +269,8 @@ export function BillingPlansAdmin() {
       annualPrice: plan.annualPrice,
       propertyLimit: plan.propertyLimit,
       userLimit: plan.userLimit,
+      // Preserve raw DB unitLimit so the edit form can show the saved value
+      unitLimit: plan.unitLimit ?? null,
       // Modification status from pricing sync
       isModified: plan.isModified || false,
       hasCanonicalVersion: plan.hasCanonicalVersion !== false,
@@ -1167,18 +1174,51 @@ export function BillingPlansAdmin() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {subscriptionPlans.filter(p => p.status === 'active').map((plan) => (
-                    <div key={plan.id} className="flex items-center justify-between">
+                  {subscriptionPlans
+                    .filter(p => p.status === 'active')
+                    .map((plan) => (
+                      <div key={plan.id} className="flex items-center justify-between">
                       <div>
-                        <p className="font-medium">{plan.name}</p>
-                        <p className="text-sm text-gray-600">{plan.activeSubscriptions} subscriptions</p>
+                          <p className="font-medium flex items-center space-x-2">
+                            <span>{plan.name}</span>
+                            <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                              {plan.category === 'development' ? 'Developer plan' : 'Property owner plan'}
+                            </Badge>
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {plan.activeSubscriptions} subscriptions
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {plan.category === 'property_management'
+                              ? [
+                                  plan.maxProperties != null ? `${plan.maxProperties} properties` : null,
+                                  plan.maxUnits != null ? `${plan.maxUnits} units/property` : null,
+                                  plan.maxUsers != null ? `${plan.maxUsers} users` : null,
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · ') || 'No limits configured'
+                              : [
+                                  plan.projectLimit != null ? `${plan.projectLimit} projects` : null,
+                                  plan.maxUsers != null ? `${plan.maxUsers} users` : null,
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · ') || 'No limits configured'}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium">
+                            {formatCurrency(plan.revenue, selectedCurrency)}/mo
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {formatCurrency(
+                              convertAmount(plan.monthlyPrice, plan.currency, selectedCurrency),
+                              selectedCurrency
+                            )}
+                            /user
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-medium">{formatCurrency(plan.revenue, selectedCurrency)}/mo</p>
-                        <p className="text-sm text-gray-600">{formatCurrency(convertAmount(plan.monthlyPrice, plan.currency, selectedCurrency), selectedCurrency)}/user</p>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               </CardContent>
             </Card>
@@ -1330,8 +1370,25 @@ export function BillingPlansAdmin() {
                     <div>
                       <h4 className="font-medium mb-2">Limits</h4>
                       <div className="space-y-1">
-                        <p className="text-sm">Up to {plan.maxProperties} properties</p>
-                        <p className="text-sm">Up to {plan.maxUnits} units</p>
+                        {plan.category === 'development' ? (
+                          <>
+                            {plan.projectLimit != null && (
+                              <p className="text-sm">Up to {plan.projectLimit} projects</p>
+                            )}
+                            {plan.maxUsers != null && (
+                              <p className="text-sm">Up to {plan.maxUsers} users</p>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            {plan.maxProperties != null && (
+                              <p className="text-sm">Up to {plan.maxProperties} properties</p>
+                            )}
+                            {plan.maxUnits != null && (
+                              <p className="text-sm">Up to {plan.maxUnits} units</p>
+                            )}
+                          </>
+                        )}
                       </div>
                     </div>
 

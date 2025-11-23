@@ -236,41 +236,133 @@ export function SubscriptionManagement({
       <Dialog open={showChangePlanDialog} onOpenChange={setShowChangePlanDialog}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Change Subscription Plan</DialogTitle>
+            <DialogTitle>Upgrade Subscription Plan</DialogTitle>
             <DialogDescription>
-              Select a new plan for your subscription
+              Select a higher plan to upgrade your account
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid md:grid-cols-3 gap-4 py-4">
-            {availablePlans.map((plan) => (
-              <div
-                key={plan.id}
-                className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                  selectedPlan?.id === plan.id
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'hover:border-gray-400'
-                }`}
-                onClick={() => setSelectedPlan(plan)}
-              >
-                <h4 className="font-semibold mb-2">{plan.name}</h4>
-                <p className="text-gray-600 text-sm mb-4">{plan.description}</p>
-                <p className="text-gray-900 text-2xl font-bold mb-4">
-                  ${plan.monthlyPrice}
-                  <span className="text-sm font-normal text-gray-600">/mo</span>
-                </p>
-                <ul className="space-y-2 text-sm text-gray-600">
-                  {plan.category === 'property_management' && plan.propertyLimit && (
-                    <li>Up to {plan.propertyLimit} properties</li>
+          <div className="space-y-4 py-4">
+            {loadingPlans ? (
+              <p className="text-center py-4">Loading plans...</p>
+            ) : (() => {
+              // Get current plan price
+              const currentPlanPrice = subscriptionData?.plan?.monthlyPrice || 0;
+
+              // Sort plans by price
+              const sortedPlans = [...availablePlans].sort(
+                (a, b) => a.monthlyPrice - b.monthlyPrice
+              );
+
+              // Filter to show only current plan and higher-tier plans
+              const visiblePlans = sortedPlans.filter(
+                (plan) => plan.monthlyPrice >= currentPlanPrice
+              );
+
+              // Get current plan
+              const currentPlan = availablePlans.find(
+                (plan) => plan.id === subscriptionData?.planId
+              );
+
+              // Separate current and upgrade plans
+              const upgradePlans = visiblePlans.filter(
+                (plan) => plan.id !== subscriptionData?.planId
+              );
+
+              return (
+                <div className="space-y-3">
+                  {/* Show current plan (highlighted as active) */}
+                  {currentPlan && (
+                    <div className="p-4 border-2 border-green-500 rounded-lg bg-green-50">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold text-gray-900">
+                              {currentPlan.name}
+                            </h4>
+                            <Badge className="bg-green-600 text-white text-xs">
+                              Active Plan
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-gray-700 mt-1">
+                            {currentPlan.projectLimit || currentPlan.propertyLimit}{' '}
+                            {currentPlan.projectLimit ? 'projects' : 'properties'} •{' '}
+                            {currentPlan.userLimit} users •{' '}
+                            {currentPlan.storageLimit}MB storage
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-semibold text-gray-900">
+                            ${currentPlan.monthlyPrice}
+                          </p>
+                          <p className="text-sm text-gray-600">/month</p>
+                        </div>
+                      </div>
+                    </div>
                   )}
-                  {plan.category === 'development' && plan.projectLimit && (
-                    <li>Up to {plan.projectLimit} projects</li>
+
+                  {/* Show upgrade plans */}
+                  {upgradePlans.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-gray-600 font-medium">
+                        You're on the highest plan! 🎉
+                      </p>
+                      <p className="text-sm text-gray-500 mt-2">
+                        There are no higher plans available to upgrade to.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="pt-2">
+                        <p className="text-sm font-medium text-gray-700 mb-3">
+                          Available Upgrades
+                        </p>
+                      </div>
+                      <div className="grid md:grid-cols-2 gap-3">
+                        {upgradePlans.map((plan) => {
+                          const isSelected = selectedPlan?.id === plan.id;
+                          return (
+                            <div
+                              key={plan.id}
+                              className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                                isSelected
+                                  ? 'border-blue-500 bg-blue-50'
+                                  : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                              }`}
+                              onClick={() => setSelectedPlan(plan)}
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="font-semibold text-gray-900">{plan.name}</h4>
+                                {plan.isPopular && (
+                                  <Badge className="bg-blue-600 text-white text-xs">
+                                    Popular
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-gray-600 text-sm mb-3">{plan.description}</p>
+                              <p className="text-gray-900 text-2xl font-bold mb-3">
+                                ${plan.monthlyPrice}
+                                <span className="text-sm font-normal text-gray-600">/mo</span>
+                              </p>
+                              <ul className="space-y-1 text-sm text-gray-600">
+                                {plan.category === 'property_management' && plan.propertyLimit && (
+                                  <li>• Up to {plan.propertyLimit} properties</li>
+                                )}
+                                {plan.category === 'development' && plan.projectLimit && (
+                                  <li>• Up to {plan.projectLimit} projects</li>
+                                )}
+                                <li>• {plan.userLimit} users</li>
+                                <li>• {plan.storageLimit} MB storage</li>
+                              </ul>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
                   )}
-                  <li>{plan.userLimit} users</li>
-                  <li>{plan.storageLimit} MB storage</li>
-                </ul>
-              </div>
-            ))}
+                </div>
+              );
+            })()}
           </div>
 
           <DialogFooter>
@@ -278,7 +370,7 @@ export function SubscriptionManagement({
               Cancel
             </Button>
             <Button onClick={onChangePlan} disabled={!selectedPlan || isProcessing}>
-              {isProcessing ? 'Processing...' : 'Change Plan'}
+              {isProcessing ? 'Processing...' : 'Upgrade Plan'}
             </Button>
           </DialogFooter>
         </DialogContent>

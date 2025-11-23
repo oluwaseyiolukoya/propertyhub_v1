@@ -1038,14 +1038,19 @@ export function DeveloperSettings({
                 </div>
               ) : (
                 <>
-                  <div className="p-6 border-2 border-blue-200 bg-blue-50 rounded-lg">
+                  <div className="p-6 border-2 border-green-200 bg-green-50 rounded-lg">
                     <div className="flex items-center justify-between mb-4">
                       <div>
-                        <h3 className="text-xl font-semibold text-gray-900 mb-1">
-                          {subscription?.plan?.name ||
-                            accountInfo?.customer?.plan?.name ||
-                            "Free Plan"}
-                        </h3>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-xl font-semibold text-gray-900">
+                            {subscription?.plan?.name ||
+                              accountInfo?.customer?.plan?.name ||
+                              "Free Plan"}
+                          </h3>
+                          <Badge className="bg-green-600 text-white">
+                            Active
+                          </Badge>
+                        </div>
                         <p className="text-sm text-gray-600">
                           {accountInfo?.customer?.projectLimit ||
                             subscription?.projectLimit ||
@@ -1079,7 +1084,7 @@ export function DeveloperSettings({
                         variant="outline"
                         onClick={() => setShowChangePlanDialog(true)}
                       >
-                        Change Plan
+                        Upgrade Plan
                       </Button>
                       <Button
                         variant="outline"
@@ -1373,8 +1378,23 @@ export function DeveloperSettings({
                         subscription?.plan?.monthlyPrice ||
                         0;
 
-                      // Filter to show only upgrade plans (higher price than current)
-                      const upgradePlans = availablePlans.filter(
+                      console.log('[DeveloperSettings] Change Plan Dialog - Current Plan:', {
+                        id: currentPlanId,
+                        price: currentPlanPrice,
+                      });
+                      console.log('[DeveloperSettings] All available plans:', availablePlans.map(p => ({
+                        id: p.id,
+                        name: p.name,
+                        price: p.monthlyPrice
+                      })));
+
+                      // Sort plans by price
+                      const sortedPlans = [...availablePlans].sort(
+                        (a, b) => a.monthlyPrice - b.monthlyPrice
+                      );
+
+                      // Filter to show ONLY higher-tier plans (exclude current and lower)
+                      const upgradePlans = sortedPlans.filter(
                         (plan) => plan.monthlyPrice > currentPlanPrice
                       );
 
@@ -1383,38 +1403,41 @@ export function DeveloperSettings({
                         (plan) => plan.id === currentPlanId
                       );
 
+                      console.log('[DeveloperSettings] Filtered upgrade plans:', upgradePlans.map(p => ({
+                        id: p.id,
+                        name: p.name,
+                        price: p.monthlyPrice
+                      })));
+
                       return (
                         <div className="space-y-3">
-                          {/* Show current plan (faded) */}
+                          {/* Show current plan (highlighted as active) */}
                           {currentPlan && (
-                            <div className="p-4 border-2 border-gray-200 rounded-lg bg-gray-50 opacity-60 cursor-not-allowed">
+                            <div className="p-4 border-2 border-green-500 rounded-lg bg-green-50">
                               <div className="flex items-center justify-between">
                                 <div>
                                   <div className="flex items-center gap-2">
-                                    <h4 className="font-semibold text-gray-700">
+                                    <h4 className="font-semibold text-gray-900">
                                       {currentPlan.name}
                                     </h4>
-                                    <Badge
-                                      variant="outline"
-                                      className="text-xs"
-                                    >
-                                      Current Plan
+                                    <Badge className="bg-green-600 text-white text-xs">
+                                      Active Plan
                                     </Badge>
                                   </div>
-                                  <p className="text-sm text-gray-500 mt-1">
-                                    {currentPlan.projectLimit} projects •{" "}
+                                  <p className="text-sm text-gray-700 mt-1">
+                                    {currentPlan.projectLimit || currentPlan.propertyLimit} {currentPlan.projectLimit ? 'projects' : 'properties'} •{" "}
                                     {currentPlan.userLimit} users •{" "}
                                     {currentPlan.storageLimit}MB storage
                                   </p>
                                 </div>
                                 <div className="text-right">
-                                  <p className="text-lg font-semibold text-gray-700">
+                                  <p className="text-lg font-semibold text-gray-900">
                                     {formatCurrencyUtil(
                                       currentPlan.monthlyPrice,
                                       currentPlan.currency
                                     )}
                                   </p>
-                                  <p className="text-sm text-gray-500">
+                                  <p className="text-sm text-gray-600">
                                     /month
                                   </p>
                                 </div>
@@ -1434,73 +1457,59 @@ export function DeveloperSettings({
                               </p>
                             </div>
                           ) : (
-                            upgradePlans.map((plan) => {
-                              const isCurrentPlan = plan.id === currentPlanId;
-                              return (
-                                <div
-                                  key={plan.id}
-                                  className={`p-4 border-2 rounded-lg transition-all ${
-                                    isCurrentPlan
-                                      ? "border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed"
-                                      : selectedPlan === plan.id
-                                      ? "border-blue-500 bg-blue-50 cursor-pointer"
-                                      : "border-gray-200 hover:border-gray-300 cursor-pointer"
-                                  }`}
-                                  onClick={() =>
-                                    !isCurrentPlan && setSelectedPlan(plan.id)
-                                  }
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <div className="flex items-center gap-2">
-                                        <h4
-                                          className={`font-semibold ${
-                                            isCurrentPlan
-                                              ? "text-gray-700"
-                                              : "text-gray-900"
-                                          }`}
-                                        >
-                                          {plan.name}
-                                        </h4>
-                                        {plan.isPopular && !isCurrentPlan && (
-                                          <Badge className="bg-green-500 text-xs">
-                                            Popular
-                                          </Badge>
-                                        )}
+                            <>
+                              <div className="pt-2">
+                                <p className="text-sm font-medium text-gray-700 mb-3">
+                                  Available Upgrades
+                                </p>
+                              </div>
+                              {upgradePlans.map((plan) => {
+                                const isSelected = selectedPlan === plan.id;
+                                return (
+                                  <div
+                                    key={plan.id}
+                                    className={`p-4 border-2 rounded-lg transition-all cursor-pointer ${
+                                      isSelected
+                                        ? "border-blue-500 bg-blue-50"
+                                        : "border-gray-200 hover:border-blue-300 hover:bg-blue-50/50"
+                                    }`}
+                                    onClick={() => setSelectedPlan(plan.id)}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <div>
+                                        <div className="flex items-center gap-2">
+                                          <h4 className="font-semibold text-gray-900">
+                                            {plan.name}
+                                          </h4>
+                                          {plan.isPopular && (
+                                            <Badge className="bg-blue-600 text-white text-xs">
+                                              Popular
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        <p className="text-sm text-gray-600 mt-1">
+                                          {plan.projectLimit || plan.propertyLimit} {plan.projectLimit ? 'projects' : 'properties'} •{" "}
+                                          {plan.userLimit} users •{" "}
+                                          {plan.storageLimit}MB storage
+                                        </p>
                                       </div>
-                                      <p
-                                        className={`text-sm mt-1 ${
-                                          isCurrentPlan
-                                            ? "text-gray-500"
-                                            : "text-gray-600"
-                                        }`}
-                                      >
-                                        {plan.projectLimit} projects •{" "}
-                                        {plan.userLimit} users •{" "}
-                                        {plan.storageLimit}MB storage
-                                      </p>
-                                    </div>
-                                    <div className="text-right">
-                                      <p
-                                        className={`text-lg font-semibold ${
-                                          isCurrentPlan
-                                            ? "text-gray-700"
-                                            : "text-gray-900"
-                                        }`}
-                                      >
-                                        {formatCurrencyUtil(
-                                          plan.monthlyPrice,
-                                          plan.currency
-                                        )}
-                                      </p>
-                                      <p className="text-sm text-gray-500">
-                                        /month
-                                      </p>
+                                      <div className="text-right">
+                                        <p className="text-lg font-semibold text-gray-900">
+                                          {formatCurrencyUtil(
+                                            plan.monthlyPrice,
+                                            plan.currency
+                                          )}
+                                        </p>
+                                        <p className="text-sm text-gray-500">
+                                          /month
+                                        </p>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              );
-                            })
+                                );
+                              })
+                            }
+                            </>
                           )}
                         </div>
                       );

@@ -275,24 +275,51 @@ router.post('/upgrade', async (req: Request, res: Response) => {
 
     // Update customer with plan limits
     console.log('[Subscription] Updating customer in database...');
+
+    // 1) Set planId via raw SQL to avoid Prisma planId/plans input mismatch
+    if (planId) {
+      await prisma.$executeRawUnsafe(
+        'UPDATE "customers" SET "planId" = $1 WHERE "id" = $2',
+        planId,
+        user.customerId
+      );
+    }
+
+    // 2) Update the rest of the customer fields via Prisma
+    const customerUpdateData: any = {
+      status: 'active',
+      billingCycle,
+      mrr,
+      userLimit: plan.userLimit,
+      storageLimit: plan.storageLimit,
+      planCategory: plan.category,
+      subscriptionStartDate: new Date(),
+      trialStartsAt: null,
+      trialEndsAt: null,
+      gracePeriodEndsAt: null,
+      suspendedAt: null,
+      suspensionReason: null,
+      updatedAt: new Date(),
+    };
+
+    // Apply limits based on plan category, ensuring we never write null into non-nullable columns
+    if (plan.category === 'property_management') {
+      // For property owner plans, update propertyLimit explicitly and clear projectLimit
+      customerUpdateData.propertyLimit =
+        plan.propertyLimit ??
+        customer.propertyLimit ??
+        5; // safe default
+      customerUpdateData.projectLimit = null;
+    } else if (plan.category === 'development') {
+      // For developer plans, use projectLimit and leave propertyLimit unchanged
+      customerUpdateData.projectLimit =
+        plan.projectLimit ?? customer.projectLimit ?? 0;
+      // Intentionally do NOT touch propertyLimit here to avoid null writes
+    }
+
     const updatedCustomer = await prisma.customers.update({
       where: { id: user.customerId },
-      data: {
-        status: 'active',
-        planId,
-        billingCycle,
-        mrr,
-        propertyLimit: plan.propertyLimit,
-        userLimit: plan.userLimit,
-        storageLimit: plan.storageLimit,
-        subscriptionStartDate: new Date(),
-        trialStartsAt: null,
-        trialEndsAt: null,
-        gracePeriodEndsAt: null,
-        suspendedAt: null,
-        suspensionReason: null,
-        updatedAt: new Date(),
-      },
+      data: customerUpdateData,
       include: {
         plans: true,
       },
@@ -344,6 +371,75 @@ router.post('/upgrade', async (req: Request, res: Response) => {
       nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
     }
 
+    // Send upgrade confirmation email
+    let emailSent = false;
+    let emailErrorDetails: any = null;
+    
+    try {
+      const { sendPlanUpgradeEmail } = require('../lib/email');
+      
+      // Get old plan name (if exists)
+      let oldPlanName = 'Free Plan';
+      if (customer.planId) {
+        const oldPlan = await prisma.plans.findUnique({
+          where: { id: customer.planId }
+        });
+        if (oldPlan) {
+          oldPlanName = oldPlan.name;
+        }
+      }
+
+      const dashboardUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard`;
+      const effectiveDate = new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+
+      // Build features object
+      const newFeatures: any = {
+        users: plan.userLimit,
+        storage: plan.storageLimit,
+      };
+
+      if (plan.category === 'development' && plan.projectLimit) {
+        newFeatures.projects = plan.projectLimit;
+      } else if (plan.category === 'property_management') {
+        if (plan.propertyLimit) newFeatures.properties = plan.propertyLimit;
+        if (plan.unitLimit) newFeatures.units = plan.unitLimit;
+      }
+
+      console.log('[Subscription] Sending upgrade confirmation email...');
+      emailSent = await sendPlanUpgradeEmail({
+        customerName: customer.company || customer.owner || 'Customer',
+        customerEmail: customer.email,
+        companyName: customer.company || 'Your Company',
+        oldPlanName,
+        newPlanName: plan.name,
+        newPlanPrice: billingCycle === 'annual' ? plan.annualPrice : plan.monthlyPrice,
+        currency: plan.currency,
+        billingCycle,
+        effectiveDate,
+        newFeatures,
+        dashboardUrl,
+      });
+    } catch (emailError: any) {
+      console.error('[Subscription] ❌ EXCEPTION while sending upgrade confirmation email:', emailError);
+      emailErrorDetails = {
+        message: emailError?.message,
+        code: emailError?.code,
+        response: emailError?.response,
+      };
+    }
+
+    if (!emailSent) {
+      console.warn('[Subscription] ⚠️  Email notification failed for upgrade, but subscription was successful');
+      console.warn('[Subscription] Email error:', emailErrorDetails);
+      // Don't fail the upgrade if email fails - just log it
+    } else {
+      console.log('[Subscription] ✅ Upgrade confirmation email sent successfully');
+    }
+
     console.log('[Subscription] ========== UPGRADE SUCCESS ==========');
 
     const response = {
@@ -364,6 +460,7 @@ router.post('/upgrade', async (req: Request, res: Response) => {
       storageLimit: updatedCustomer.storageLimit,
       nextBillingDate,
       message: 'Subscription activated successfully',
+      emailSent, // Include email status in response
     };
 
     console.log('[Subscription] Sending response:', response);

@@ -365,37 +365,77 @@ router.get('/portfolio/overview', async (req: Request, res: Response) => {
 
     console.log('✅ [DEBUG] Customer found:', customerExists.company);
 
-    // Get all projects for this customer (includes projects created by admin and team members)
-    const projects = await prisma.developer_projects.findMany({
-      where: {
-        customerId,
-        // Removed developerId filter so team members can see all customer projects
-      },
-    });
+    let projectsWithActualSpend: any[] = [];
 
-    // Calculate actual spend from expenses for each project
-    const projectsWithActualSpend = await Promise.all(
-      projects.map(async (project) => {
-        // Get paid expenses for this project
-        const expenses = await prisma.project_expenses.findMany({
-          where: {
-            projectId: project.id,
-            paymentStatus: 'paid',
-          },
+    try {
+      // Get all projects for this customer (includes projects created by admin and team members)
+      const projects = await prisma.developer_projects.findMany({
+        where: {
+          customerId,
+          // Removed developerId filter so team members can see all customer projects
+        },
+      });
+
+      // Calculate actual spend from expenses for each project
+      projectsWithActualSpend = await Promise.all(
+        projects.map(async (project) => {
+          // Get paid expenses for this project
+          const expenses = await prisma.project_expenses.findMany({
+            where: {
+              projectId: project.id,
+              paymentStatus: 'paid',
+            },
+          });
+
+          // Calculate actual spend from paid expenses
+          const actualSpend = expenses.reduce((sum, expense) => {
+            const amount = Number(expense.totalAmount) || 0;
+            return sum + amount;
+          }, 0);
+
+          return {
+            ...project,
+            actualSpend,
+          };
+        })
+      );
+    } catch (dbErr: any) {
+      // Gracefully handle missing or mismatched developer tables in dev environments
+      const msg = dbErr?.message || '';
+      if (
+        dbErr?.code === 'P2021' || // table does not exist
+        dbErr?.code === 'P2022' ||
+        msg.includes('developer_projects') ||
+        msg.includes('project_expenses') ||
+        msg.includes('relation') && msg.includes('does not exist')
+      ) {
+        console.warn(
+          '⚠️ [Developer Dashboard] Project tables are missing or not provisioned. Returning empty portfolio overview instead of 500.',
+          {
+            code: dbErr?.code,
+            message: dbErr?.message,
+          }
+        );
+
+        return res.json({
+          totalProjects: 0,
+          activeProjects: 0,
+          completedProjects: 0,
+          totalBudget: 0,
+          totalActualSpend: 0,
+          totalVariance: 0,
+          variancePercent: 0,
+          averageProgress: 0,
+          projectsOnTrack: 0,
+          projectsDelayed: 0,
+          projectsOverBudget: 0,
+          currency: 'NGN',
         });
+      }
 
-        // Calculate actual spend from paid expenses
-        const actualSpend = expenses.reduce((sum, expense) => {
-          const amount = Number(expense.totalAmount) || 0;
-          return sum + amount;
-        }, 0);
-
-        return {
-          ...project,
-          actualSpend,
-        };
-      })
-    );
+      // Unknown DB error – rethrow to outer handler
+      throw dbErr;
+    }
 
     const totalProjects = projectsWithActualSpend.length;
     const activeProjects = projectsWithActualSpend.filter(p => p.status === 'active').length;
@@ -530,40 +570,75 @@ router.get('/projects', async (req: Request, res: Response) => {
       where.projectType = projectType;
     }
 
-    // Get total count
-    const total = await prisma.developer_projects.count({ where });
+    let total = 0;
+    let projectsWithActualSpend: any[] = [];
 
-    // Get projects
-    const projects = await prisma.developer_projects.findMany({
-      where,
-      orderBy: { [sortField as string]: sortOrder },
-      skip,
-      take: limitNum,
-    });
+    try {
+      // Get total count
+      total = await prisma.developer_projects.count({ where });
 
-    // Calculate actual spend from expenses for each project
-    const projectsWithActualSpend = await Promise.all(
-      projects.map(async (project) => {
-        // Get paid expenses for this project
-        const expenses = await prisma.project_expenses.findMany({
-          where: {
-            projectId: project.id,
-            paymentStatus: 'paid',
+      // Get projects
+      const projects = await prisma.developer_projects.findMany({
+        where,
+        orderBy: { [sortField as string]: sortOrder },
+        skip,
+        take: limitNum,
+      });
+
+      // Calculate actual spend from expenses for each project
+      projectsWithActualSpend = await Promise.all(
+        projects.map(async (project) => {
+          // Get paid expenses for this project
+          const expenses = await prisma.project_expenses.findMany({
+            where: {
+              projectId: project.id,
+              paymentStatus: 'paid',
+            },
+          });
+
+          // Calculate actual spend from paid expenses
+          const actualSpend = expenses.reduce((sum, expense) => {
+            const amount = Number(expense.totalAmount) || 0;
+            return sum + amount;
+          }, 0);
+
+          return {
+            ...project,
+            actualSpend, // Override with calculated value
+          };
+        })
+      );
+    } catch (dbErr: any) {
+      const msg = dbErr?.message || '';
+      if (
+        dbErr?.code === 'P2021' ||
+        dbErr?.code === 'P2022' ||
+        msg.includes('developer_projects') ||
+        msg.includes('project_expenses') ||
+        (msg.includes('relation') && msg.includes('does not exist'))
+      ) {
+        console.warn(
+          '⚠️ [Developer Dashboard] Project tables are missing or not provisioned. Returning empty projects list instead of 500.',
+          {
+            code: dbErr?.code,
+            message: dbErr?.message,
+          }
+        );
+
+        return res.json({
+          data: [],
+          pagination: {
+            page: pageNum,
+            limit: limitNum,
+            total: 0,
+            totalPages: 0,
+            hasMore: false,
           },
         });
+      }
 
-        // Calculate actual spend from paid expenses
-        const actualSpend = expenses.reduce((sum, expense) => {
-          const amount = Number(expense.totalAmount) || 0;
-          return sum + amount;
-        }, 0);
-
-        return {
-          ...project,
-          actualSpend, // Override with calculated value
-        };
-      })
-    );
+      throw dbErr;
+    }
 
     res.json({
       data: projectsWithActualSpend,

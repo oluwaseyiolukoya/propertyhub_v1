@@ -81,16 +81,51 @@ export function UpgradeModal({ open, onClose, onSuccess }: UpgradeModalProps) {
   const loadData = async () => {
     try {
       setLoadingData(true);
+
+      // 1) Load available plans for this user (already filtered by category on backend)
       const plansResponse = await getAvailablePlans();
-      const plansData = (plansResponse.data || []).filter((p: Plan) => p.isActive);
+      const allPlans = (plansResponse.data || []).filter((p: Plan) => p.isActive);
+      console.log('[UpgradeModal] All available plans:', allPlans.map(p => ({ id: p.id, name: p.name, price: p.monthlyPrice })));
 
-      setPlans(plansData);
+      // 2) Load current subscription status to know current plan and price
+      let currentPlanId: string | null = null;
+      let currentPlanPrice = 0;
+      try {
+        const status = await getSubscriptionStatus();
+        console.log('[UpgradeModal] Current subscription status:', status);
+        if (status?.plan) {
+          currentPlanId = status.plan.id;
+          currentPlanPrice = status.plan.monthlyPrice || 0;
+          console.log('[UpgradeModal] Current plan:', { id: currentPlanId, price: currentPlanPrice });
+        }
+      } catch (statusErr) {
+        console.warn('[UpgradeModal] Failed to load current subscription status for filtering:', statusErr);
+      }
 
-      // Auto-select first active plan
-      if (plansData.length > 0) {
-        setSelectedPlan(plansData[0].id);
+      // 3) Filter out the current plan and any cheaper/equal plans
+      let upgradePlans: Plan[] = allPlans;
+      if (currentPlanPrice > 0) {
+        upgradePlans = allPlans
+          .filter((plan) => {
+            const isUpgrade = plan.monthlyPrice > currentPlanPrice;
+            console.log(`[UpgradeModal] Plan ${plan.name} (${plan.monthlyPrice}) > current (${currentPlanPrice})?`, isUpgrade);
+            return isUpgrade;
+          })
+          .sort((a, b) => a.monthlyPrice - b.monthlyPrice);
+      }
+
+      console.log('[UpgradeModal] Filtered upgrade plans:', upgradePlans.map(p => ({ id: p.id, name: p.name, price: p.monthlyPrice })));
+      setPlans(upgradePlans);
+
+      // Auto-select first upgrade plan, if any
+      if (upgradePlans.length > 0) {
+        setSelectedPlan(upgradePlans[0].id);
+      } else {
+        setSelectedPlan('');
+        console.warn('[UpgradeModal] No upgrade plans available - user may be on highest plan');
       }
     } catch (error: any) {
+      console.error('[UpgradeModal] Failed to load plans:', error);
       toast.error(error.message || 'Failed to load plans');
     } finally {
       setLoadingData(false);
