@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS project_vendors (
   status TEXT NOT NULL DEFAULT 'active',
   notes TEXT,
   createdAt TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updatedAt TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updatedAt TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
   -- customerId references customers(id) at application level; FK omitted for compatibility
 );
 
@@ -124,7 +124,6 @@ CREATE TABLE IF NOT EXISTS project_invoices (
   updatedAt TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT project_invoices_projectId_fkey FOREIGN KEY ("projectId") REFERENCES "developer_projects"("id") ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT project_invoices_vendorId_fkey FOREIGN KEY ("vendorId") REFERENCES "project_vendors"("id") ON DELETE SET NULL ON UPDATE CASCADE
-  -- purchaseOrderId and approvedBy relations are optional; we omit FKs here to avoid dependency on purchase_orders/users during backfill
 );
 
 CREATE INDEX IF NOT EXISTS idx_project_invoices_projectId ON project_invoices("projectId");
@@ -204,7 +203,6 @@ CREATE TABLE IF NOT EXISTS project_funding (
   createdAt TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updatedAt TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT project_funding_projectId_fkey FOREIGN KEY ("projectId") REFERENCES "developer_projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
-  -- customerId and createdBy/approvedBy relations are enforced at application level
 );
 
 CREATE INDEX IF NOT EXISTS idx_project_funding_projectId ON project_funding("projectId");
@@ -247,7 +245,6 @@ CREATE TABLE IF NOT EXISTS project_expenses (
   CONSTRAINT project_expenses_projectId_fkey FOREIGN KEY ("projectId") REFERENCES "developer_projects"("id") ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT project_expenses_vendorId_fkey FOREIGN KEY ("vendorId") REFERENCES "project_vendors"("id") ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT project_expenses_budgetLineItemId_fkey FOREIGN KEY ("budgetLineItemId") REFERENCES "budget_line_items"("id") ON DELETE SET NULL ON UPDATE CASCADE
-  -- approvedBy relation to users is omitted at DB level for now
 );
 
 CREATE INDEX IF NOT EXISTS idx_project_expenses_projectId ON project_expenses("projectId");
