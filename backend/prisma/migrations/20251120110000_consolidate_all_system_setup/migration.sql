@@ -81,7 +81,7 @@ CREATE INDEX IF NOT EXISTS idx_email_queue_created ON email_queue(created_at);
 CREATE TABLE IF NOT EXISTS notification_templates (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   customer_id TEXT REFERENCES customers(id) ON DELETE CASCADE,
-  type TEXT NOT NULL,
+  type TEXT NOT NULL UNIQUE,
   subject TEXT NOT NULL,
   body_html TEXT NOT NULL,
   body_text TEXT,
@@ -253,9 +253,31 @@ VALUES
 ON CONFLICT (type) DO NOTHING;
 
 -- ============================================
--- PART 4: SYSTEM ROLES SEEDING
+-- PART 4: TEAM ROLES TABLE & SYSTEM ROLES SEEDING
 -- (from seed_system_roles migration)
 -- ============================================
+
+-- Create team_roles table if it doesn't exist
+CREATE TABLE IF NOT EXISTS team_roles (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  customer_id TEXT REFERENCES customers(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  is_system_role BOOLEAN DEFAULT false,
+  permissions JSONB DEFAULT '{}',
+  can_approve_invoices BOOLEAN DEFAULT false,
+  approval_limit DECIMAL(15, 2),
+  can_create_invoices BOOLEAN DEFAULT false,
+  can_manage_projects BOOLEAN DEFAULT false,
+  can_view_reports BOOLEAN DEFAULT false,
+  requires_approval_from TEXT[],
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(customer_id, name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_team_roles_customer ON team_roles(customer_id);
+CREATE INDEX IF NOT EXISTS idx_team_roles_system ON team_roles(is_system_role);
 
 INSERT INTO team_roles (id, customer_id, name, description, is_system_role, permissions, can_approve_invoices, approval_limit, requires_approval_from, created_at, updated_at)
 VALUES

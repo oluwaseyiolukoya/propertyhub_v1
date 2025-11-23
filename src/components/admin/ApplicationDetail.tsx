@@ -285,7 +285,7 @@ export function ApplicationDetail({ applicationId, onBack, onUpdate, onViewCusto
               </Button>
             )}
             {application.customerId && (
-              <Button 
+              <Button
                 variant="outline"
                 onClick={() => onViewCustomer?.(application.customerId!)}
               >

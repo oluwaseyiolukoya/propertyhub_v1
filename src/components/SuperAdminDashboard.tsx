@@ -1932,7 +1932,7 @@ export function SuperAdminDashboard({
 
             {/* Onboarding Tab */}
             {activeTab === 'onboarding' && (
-              <OnboardingManager 
+              <OnboardingManager
                 onViewCustomer={(customerId) => {
                   // Find the customer and navigate to customers tab
                   const customer = customers.find(c => c.id === customerId);

@@ -63,6 +63,7 @@ export function BillingPlansAdmin() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreatePlanOpen, setIsCreatePlanOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
+  const [planCategory, setPlanCategory] = useState<'property_management' | 'development'>('property_management');
   const { currency: selectedCurrency, setCurrency: setSelectedCurrency, currencies, getCurrency, convertAmount, formatCurrency } = useCurrency();
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -606,6 +607,7 @@ export function BillingPlansAdmin() {
 
   const handleCreatePlan = () => {
     setSelectedPlan(null);
+    setPlanCategory('property_management'); // Reset to default
     setIsCreatePlanOpen(true);
   };
 
@@ -694,7 +696,7 @@ export function BillingPlansAdmin() {
 
       if (response.data) {
         toast.success(`${planName} restored to landing page version`);
-        await loadPlans();
+        await fetchPlans();
       } else {
         toast.error('Failed to restore plan');
       }
@@ -725,6 +727,7 @@ export function BillingPlansAdmin() {
 
   const handleEditPlan = (plan: any) => {
     setSelectedPlan(plan);
+    setPlanCategory(plan.category || 'property_management');
     setIsCreatePlanOpen(true);
   };
 
@@ -743,16 +746,24 @@ export function BillingPlansAdmin() {
       const planData: any = {
         name: formData.get('planName') as string,
         description: formData.get('planDescription') as string,
+        category: planCategory,
         monthlyPrice,
         annualPrice: parseFloat(formData.get('yearlyPrice') as string),
         currency: selectedCurrency,
-        propertyLimit: parseInt(formData.get('maxProperties') as string),
-        userLimit: parseInt(formData.get('maxUnits') as string),
+        userLimit: parseInt(formData.get('userLimit') as string),
         storageLimit: parseInt(formData.get('storageLimit') as string) || 1000,
         features,
         isActive: formData.get('active') === 'on',
         isPopular: formData.get('popular') === 'on'
       };
+
+      // Add category-specific limits
+      if (planCategory === 'property_management') {
+        planData.propertyLimit = parseInt(formData.get('maxProperties') as string);
+        planData.unitLimit = parseInt(formData.get('unitLimit') as string);
+      } else {
+        planData.projectLimit = parseInt(formData.get('projectLimit') as string);
+      }
 
       // Only include trialDurationDays for Trial plans (monthlyPrice = 0)
       if (monthlyPrice === 0 && trialDurationDaysValue) {
@@ -772,6 +783,7 @@ export function BillingPlansAdmin() {
         toast.success(`Plan ${selectedPlan ? 'updated' : 'created'} successfully!`);
         setIsCreatePlanOpen(false);
         setSelectedPlan(null);
+        setPlanCategory('property_management'); // Reset to default
         await fetchPlans();
       }
     } catch (error) {
@@ -840,6 +852,46 @@ export function BillingPlansAdmin() {
         />
       </div>
 
+      {/* Plan Type Toggle */}
+      <div>
+        <Label htmlFor="planCategory">Plan Type *</Label>
+        <div className="flex items-center space-x-4 mt-2">
+          <div className="flex items-center space-x-2">
+            <input
+              type="radio"
+              id="categoryOwner"
+              name="planCategory"
+              value="property_management"
+              checked={planCategory === 'property_management'}
+              onChange={(e) => setPlanCategory(e.target.value as 'property_management' | 'development')}
+              className="h-4 w-4 text-blue-600"
+            />
+            <Label htmlFor="categoryOwner" className="font-normal cursor-pointer">
+              Property Owner
+            </Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <input
+              type="radio"
+              id="categoryDeveloper"
+              name="planCategory"
+              value="development"
+              checked={planCategory === 'development'}
+              onChange={(e) => setPlanCategory(e.target.value as 'property_management' | 'development')}
+              className="h-4 w-4 text-blue-600"
+            />
+            <Label htmlFor="categoryDeveloper" className="font-normal cursor-pointer">
+              Developer
+            </Label>
+          </div>
+        </div>
+        <p className="text-sm text-gray-500 mt-1">
+          {planCategory === 'property_management'
+            ? 'For property owners managing properties and units'
+            : 'For developers managing construction projects'}
+        </p>
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label htmlFor="monthlyPrice">Monthly Price ({currentCurrency.symbol}) *</Label>
@@ -887,41 +939,92 @@ export function BillingPlansAdmin() {
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-4">
-        <div>
-          <Label htmlFor="maxProperties">Max Properties *</Label>
-          <Input
-            id="maxProperties"
-            name="maxProperties"
-            type="number"
-            placeholder="25"
-            defaultValue={selectedPlan?.maxProperties || selectedPlan?.propertyLimit || ''}
-            required
-          />
+      {/* Conditional limits based on plan type */}
+      {planCategory === 'property_management' ? (
+        <div className="grid grid-cols-4 gap-4">
+          <div>
+            <Label htmlFor="maxProperties">Max Properties *</Label>
+            <Input
+              id="maxProperties"
+              name="maxProperties"
+              type="number"
+              placeholder="25"
+              defaultValue={selectedPlan?.maxProperties || selectedPlan?.propertyLimit || ''}
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="unitLimit">Max Units *</Label>
+            <Input
+              id="unitLimit"
+              name="unitLimit"
+              type="number"
+              placeholder="100"
+              defaultValue={selectedPlan?.unitLimit || ''}
+              required
+            />
+            <p className="text-xs text-gray-500 mt-1">Per property</p>
+          </div>
+          <div>
+            <Label htmlFor="userLimit">Max Users *</Label>
+            <Input
+              id="userLimit"
+              name="userLimit"
+              type="number"
+              placeholder="10"
+              defaultValue={selectedPlan?.maxUnits || selectedPlan?.userLimit || ''}
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="storageLimit">Storage (MB) *</Label>
+            <Input
+              id="storageLimit"
+              name="storageLimit"
+              type="number"
+              placeholder="1000"
+              defaultValue={selectedPlan?.storageLimit || 1000}
+              required
+            />
+          </div>
         </div>
-        <div>
-          <Label htmlFor="maxUnits">Max Users *</Label>
-          <Input
-            id="maxUnits"
-            name="maxUnits"
-            type="number"
-            placeholder="10"
-            defaultValue={selectedPlan?.maxUnits || selectedPlan?.userLimit || ''}
-            required
-          />
+      ) : (
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <Label htmlFor="projectLimit">Max Projects *</Label>
+            <Input
+              id="projectLimit"
+              name="projectLimit"
+              type="number"
+              placeholder="10"
+              defaultValue={selectedPlan?.projectLimit || ''}
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="userLimit">Max Users *</Label>
+            <Input
+              id="userLimit"
+              name="userLimit"
+              type="number"
+              placeholder="10"
+              defaultValue={selectedPlan?.maxUnits || selectedPlan?.userLimit || ''}
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="storageLimit">Storage (MB) *</Label>
+            <Input
+              id="storageLimit"
+              name="storageLimit"
+              type="number"
+              placeholder="1000"
+              defaultValue={selectedPlan?.storageLimit || 1000}
+              required
+            />
+          </div>
         </div>
-        <div>
-          <Label htmlFor="storageLimit">Storage (MB) *</Label>
-          <Input
-            id="storageLimit"
-            name="storageLimit"
-            type="number"
-            placeholder="1000"
-            defaultValue={selectedPlan?.storageLimit || 1000}
-            required
-          />
-        </div>
-      </div>
+      )}
 
       <div>
         <Label htmlFor="features">Features (one per line) *</Label>

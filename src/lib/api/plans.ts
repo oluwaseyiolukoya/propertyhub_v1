@@ -9,16 +9,19 @@ export interface BillingPlan {
   id: string;
   name: string;
   description?: string;
+  category?: string; // 'property_management' | 'development'
   monthlyPrice: number;
   annualPrice?: number;
   currency: string;
-  propertyLimit: number;
+  propertyLimit?: number; // For property_management plans
+  projectLimit?: number; // For development plans
+  unitLimit?: number; // Max units per property (for property_management plans)
   userLimit: number;
   storageLimit: number;
   features: any;
   isActive: boolean;
   isPopular?: boolean;
--  trialDurationDays?: number; // Number of days for trial period (only used for Trial plan)
+  trialDurationDays?: number; // Number of days for trial period (only used for Trial plan)
   displayOrder?: number;
   createdAt: string;
   updatedAt: string;

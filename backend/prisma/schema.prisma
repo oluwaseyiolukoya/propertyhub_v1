@@ -423,6 +423,7 @@ model plans {
   currency                String                    @default("NGN")
   propertyLimit           Int?                      // Nullable for development plans
   projectLimit            Int?                      // For development plans
+  unitLimit               Int?                      // Max units per property (for property_management plans)
   userLimit               Int
   storageLimit            Int
   features                Json
