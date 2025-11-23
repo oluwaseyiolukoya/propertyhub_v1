@@ -23,10 +23,10 @@ echo ""
 echo "🔨 Step 3/6: Generating Prisma Client..."
 npx prisma generate
 
-# Step 4: Sync database schema
+# Step 4: Deploy database migrations (PROPER WAY)
 echo ""
-echo "🗄️ Step 4/6: Syncing database schema..."
-npx prisma db push --accept-data-loss
+echo "🗄️ Step 4/6: Deploying database migrations..."
+npx prisma migrate deploy
 
 # Step 5: Build application
 echo ""
