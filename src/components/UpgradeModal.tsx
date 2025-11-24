@@ -17,13 +17,7 @@ import { toast } from 'sonner';
 import { upgradeSubscription } from '../lib/api/subscription';
 import { getAvailablePlans } from '../lib/api/plans';
 import { getUserData } from '../lib/api';
-
-// Declare Paystack on window
-declare global {
-  interface Window {
-    PaystackPop: any;
-  }
-}
+import { initializeUpgrade } from '../lib/api/subscriptions';
 
 interface Plan {
   id: string;
@@ -57,20 +51,9 @@ export function UpgradeModal({ open, onClose, onSuccess }: UpgradeModalProps) {
   const [loadingData, setLoadingData] = useState(true);
   const [paymentReference, setPaymentReference] = useState<string>('');
   const [saveCard, setSaveCard] = useState(true);
-  const [isPaystackOpen, setIsPaystackOpen] = useState(false);
   const userData = getUserData();
 
   useEffect(() => {
-    // Ensure Paystack inline script is loaded
-    if (typeof window !== 'undefined' && !window.PaystackPop) {
-      const existing = document.querySelector<HTMLScriptElement>('script[src="https://js.paystack.co/v1/inline.js"]');
-      if (!existing) {
-        const script = document.createElement('script');
-        script.src = 'https://js.paystack.co/v1/inline.js';
-        script.async = true;
-        document.body.appendChild(script);
-      }
-    }
     if (open) {
       loadData();
       setStep('select-plan');
@@ -148,61 +131,58 @@ export function UpgradeModal({ open, onClose, onSuccess }: UpgradeModalProps) {
     setStep('payment');
   };
 
-  const handlePayment = () => {
+  const handlePayment = async () => {
     if (!selectedPlanData || !userData) {
       toast.error('Missing required information');
       return;
     }
 
-    // Prices are now stored in Naira, so multiply by 100 to convert to kobo for Paystack
-    const amountInKobo = Math.round(price * 100);
+    if (!selectedPlan) {
+      toast.error('Please select a plan');
+      return;
+    }
 
-    console.log('[UpgradeModal] Payment details:', {
-      planName: selectedPlanData.name,
-      priceInNaira: price,
-      amountInKobo,
-      billingCycle,
-    });
+    try {
+      setLoading(true);
+      console.log('[UpgradeModal] Initializing payment for plan:', selectedPlan);
 
-    // Initialize Paystack payment
-    const handler = window.PaystackPop.setup({
-      key: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_your_key_here',
-      email: userData.email,
-      amount: amountInKobo,
-      currency: selectedPlanData.currency || 'NGN',
-      ref: `upgrade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      metadata: {
-        custom_fields: [
-          {
-            display_name: 'Customer Name',
-            variable_name: 'customer_name',
-            value: userData.name
-          },
-          {
-            display_name: 'Plan',
-            variable_name: 'plan',
-            value: selectedPlanData.name
-          },
-          {
-            display_name: 'Billing Cycle',
-            variable_name: 'billing_cycle',
-            value: billingCycle
-          }
-        ]
-      },
-      onClose: function() {
-        setIsPaystackOpen(false);
-        toast.info('Payment cancelled');
-      },
-      callback: function(response: any) {
-        setIsPaystackOpen(false);
-        handlePaymentSuccess(response.reference);
+      // Initialize payment with backend - this will return authorization URL
+      const response = await initializeUpgrade(selectedPlan);
+      console.log('[UpgradeModal] Response:', response);
+
+      if (response.data?.authorizationUrl) {
+        // Store reference for verification on callback
+        sessionStorage.setItem('upgrade_reference', response.data.reference);
+        sessionStorage.setItem('upgrade_plan_id', selectedPlan);
+
+        toast.info('Redirecting to payment gateway...');
+
+        // Redirect to Paystack payment page
+        setTimeout(() => {
+          window.location.href = response.data.authorizationUrl;
+        }, 1000);
+      } else {
+        console.error('[UpgradeModal] No authorization URL in response:', response);
+        const errorMessage =
+          response.data?.error ||
+          response.error?.error ||
+          'Failed to initialize payment';
+        throw new Error(errorMessage);
       }
-    });
-
-    // Temporarily lower our dialog z-index and disable pointer events
-    setIsPaystackOpen(true);
-    handler.openIframe();
+    } catch (error: any) {
+      console.error('[UpgradeModal] Failed to initialize upgrade:', error);
+      console.error('[UpgradeModal] Error details:', {
+        message: error.message,
+        response: error.response,
+        data: error.response?.data,
+      });
+      const errorMessage =
+        error.response?.data?.error ||
+        error.message ||
+        'Failed to initialize upgrade payment';
+      toast.error(errorMessage);
+      setLoading(false);
+    }
   };
 
   const handlePaymentSuccess = async (reference: string) => {
