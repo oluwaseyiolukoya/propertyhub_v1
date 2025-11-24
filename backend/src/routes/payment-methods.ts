@@ -436,7 +436,7 @@ router.post('/initialize-authorization', authMiddleware, async (req: AuthRequest
           user_id: userId,
           authorization_only: true,
         },
-        callback_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/developer/settings?tab=billing&payment_method_callback=true`,
+        callback_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/?payment_callback=payment_method`,
       },
       {
         headers: {

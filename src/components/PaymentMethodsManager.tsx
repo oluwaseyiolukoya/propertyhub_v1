@@ -10,12 +10,6 @@ import {
   PaymentMethod,
 } from '../lib/api/payment-methods';
 
-declare global {
-  interface Window {
-    PaystackPop: any;
-  }
-}
-
 const PaymentMethodsManager: React.FC = () => {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,9 +38,9 @@ const PaymentMethodsManager: React.FC = () => {
   const checkForPaymentCallback = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const reference = urlParams.get('reference');
-    const paymentMethodCallback = urlParams.get('payment_method_callback');
+    const paymentCallback = urlParams.get('payment_callback');
 
-    if (reference && paymentMethodCallback === 'true') {
+    if (reference && paymentCallback === 'payment_method') {
       console.log('[Payment Methods] Detected payment callback with reference:', reference);
       handlePaymentCallback(reference);
     }
@@ -65,12 +59,10 @@ const PaymentMethodsManager: React.FC = () => {
       // Reload payment methods so the user can see the new card
       await loadPaymentMethods();
 
-      // Ensure we stay on the Billing tab in Developer Settings
+      // Clean up URL parameters
       const url = new URL(window.location.href);
-      url.pathname = '/developer/settings';
-      url.searchParams.set('tab', 'billing');
       url.searchParams.delete('reference');
-      url.searchParams.delete('payment_method_callback');
+      url.searchParams.delete('payment_callback');
       window.history.replaceState({}, '', url.toString());
     } catch (error: any) {
       console.error('[Payment Methods] Failed to add payment method:', error);
@@ -87,51 +79,30 @@ const PaymentMethodsManager: React.FC = () => {
       console.log('[Payment Methods] Initializing card authorization...');
 
       const response = await initializeCardAuthorization();
-      const { authorizationUrl, reference, email } = response.data.data;
+      const { authorizationUrl, reference } = response.data.data;
 
       console.log('[Payment Methods] Authorization initialized:', reference);
-      console.log('[Payment Methods] Customer email:', email);
+
+      if (!authorizationUrl) {
+        throw new Error('No authorization URL received from backend');
+      }
 
       // Store reference in session storage for callback handling
       sessionStorage.setItem('payment_method_reference', reference);
 
-      // Initialize Paystack popup
-      const handler = window.PaystackPop.setup({
-        key: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_your_key_here',
-        email: email,
-        amount: 10000, // ₦100 in kobo
-        currency: 'NGN',
-        ref: reference,
-        onClose: () => {
-          console.log('[Payment Methods] Payment popup closed');
-          setAddingCard(false);
-          sessionStorage.removeItem('payment_method_reference');
-        },
-        callback: (response: any) => {
-          console.log('[Payment Methods] Payment successful:', response.reference);
-          // Process the callback without leaving the Billing page
-          // Note: This must be a synchronous function for Paystack, so we handle async work separately
-          handlePaymentCallback(response.reference)
-            .then(() => {
-              console.log('[Payment Methods] Card verification completed');
-            })
-            .catch((error) => {
-              console.error('[Payment Methods] Card verification failed:', error);
-            })
-            .finally(() => {
-              setAddingCard(false);
-              sessionStorage.removeItem('payment_method_reference');
-            });
-        },
-      });
+      toast.info('Redirecting to payment gateway...');
 
-      handler.openIframe();
+      // Redirect to Paystack checkout page
+      setTimeout(() => {
+        window.location.href = authorizationUrl;
+      }, 1000);
     } catch (error: any) {
       console.error('[Payment Methods] Failed to initialize card authorization:', error);
       toast.error(
         error.response?.data?.error || 'Failed to initialize card authorization'
       );
       setAddingCard(false);
+      sessionStorage.removeItem('payment_method_reference');
     }
   };
 
