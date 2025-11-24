@@ -541,7 +541,6 @@ export function UpgradeModal({ open, onClose, onSuccess }: UpgradeModalProps) {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent
         className="max-w-5xl max-h-[90vh] overflow-y-auto"
-        style={isPaystackOpen ? { pointerEvents: 'none', zIndex: 10 } : undefined}
       >
         <DialogHeader>
           <DialogTitle className="text-2xl">
