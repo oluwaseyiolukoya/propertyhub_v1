@@ -149,8 +149,10 @@ export function DeveloperSettings({
     const urlParams = new URLSearchParams(window.location.search);
     const reference =
       urlParams.get("reference") || sessionStorage.getItem("upgrade_reference");
+    const paymentCallback = urlParams.get("payment_callback");
 
-    if (reference && window.location.pathname.includes("/upgrade/callback")) {
+    // Handle upgrade payment callback
+    if (reference && (paymentCallback === "upgrade" || window.location.pathname.includes("/upgrade/callback"))) {
       handlePaymentCallback(reference);
     }
 

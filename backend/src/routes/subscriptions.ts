@@ -555,7 +555,7 @@ router.post('/upgrade/initialize', authMiddleware, async (req: AuthRequest, res:
           type: 'upgrade',
           userId: user.id
         },
-        callback_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/upgrade/callback`
+        callback_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/?payment_callback=upgrade`
       })
     });
 
