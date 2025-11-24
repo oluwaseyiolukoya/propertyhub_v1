@@ -225,10 +225,18 @@ export function DeveloperSettings({
       console.error("[DeveloperSettings] Payment verification error:", error);
       toast.error(error.response?.data?.error || "Failed to verify payment");
 
-      // Redirect back to settings
-      setTimeout(() => {
-        window.location.href = "/developer/settings?tab=billing";
-      }, 3000);
+      // Clear stored reference and clean up URL
+      sessionStorage.removeItem("upgrade_reference");
+      sessionStorage.removeItem("upgrade_plan_id");
+      
+      const url = new URL(window.location.href);
+      url.searchParams.delete("reference");
+      url.searchParams.delete("payment_callback");
+      url.searchParams.set("tab", "billing");
+      window.history.replaceState({}, "", url.toString());
+      
+      // Switch to billing tab to show error
+      setActiveTab("billing");
     }
   };
 
