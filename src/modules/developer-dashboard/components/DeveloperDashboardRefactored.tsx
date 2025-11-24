@@ -108,6 +108,17 @@ export const DeveloperDashboardRefactored: React.FC<
     100
   );
 
+  // Check for payment callback and redirect to settings
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentCallback = urlParams.get('payment_callback');
+    
+    if (paymentCallback === 'payment_method' || paymentCallback === 'upgrade') {
+      console.log('[DeveloperDashboard] Detected payment callback, redirecting to settings...');
+      setCurrentPage('settings');
+    }
+  }, []);
+
   // Fetch account info and subscription status
   useEffect(() => {
     const fetchAccountData = async () => {
