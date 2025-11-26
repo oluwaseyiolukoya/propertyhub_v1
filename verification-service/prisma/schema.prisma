@@ -1,0 +1,115 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model verification_requests {
+  id              String   @id @default(uuid())
+  customerId      String   // Reference to main DB customers (no FK constraint for microservice independence)
+  customerEmail   String?  // Customer email for search (denormalized from main DB)
+  customerType    String   // 'property_owner', 'developer', 'property_manager', 'tenant'
+  status          String   @default("pending") // pending, in_progress, approved, rejected, failed
+  submittedAt     DateTime @default(now())
+  completedAt     DateTime?
+  reviewedBy      String?  // Admin user ID
+  reviewedAt      DateTime?
+  rejectionReason String?  @db.Text
+
+  // Metadata
+  ipAddress       String?
+  userAgent       String?  @db.Text
+
+  // Relations
+  documents       verification_documents[]
+  history         verification_history[]
+
+  @@index([customerId])
+  @@index([customerEmail])
+  @@index([status])
+  @@index([submittedAt])
+}
+
+model verification_documents {
+  id                String   @id @default(uuid())
+  requestId         String
+  documentType      String   // 'nin', 'passport', 'drivers_license', 'voters_card', 'utility_bill', 'proof_of_address'
+  documentNumber    String?  @db.Text // Encrypted with AES-256-GCM
+  fileUrl           String   @db.Text // S3 URL
+  fileName          String
+  fileSize          Int
+  mimeType          String
+
+  // Verification results
+  status            String   @default("pending") // pending, in_progress, verified, failed, rejected
+  provider          String?  // 'dojah', 'youverify', etc.
+  providerReference String?  // Provider's transaction ID
+  verificationData  Json?    // Provider response
+  confidence        Float?   // 0-100
+  verifiedAt        DateTime?
+  failureReason     String?  @db.Text
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  request           verification_requests @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@index([status])
+  @@index([documentType])
+  @@index([createdAt])
+}
+
+model verification_history {
+  id          String   @id @default(uuid())
+  requestId   String
+  action      String   // 'submitted', 'document_uploaded', 'verification_started', 'approved', 'rejected', 'failed'
+  performedBy String?  // User/Admin ID
+  details     Json?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  request     verification_requests @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model api_keys {
+  id          String    @id @default(uuid())
+  name        String    // 'main-dashboard', 'mobile-app', etc.
+  key         String    @unique
+  isActive    Boolean   @default(true)
+  permissions Json      // ['read', 'write', 'admin']
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+
+  @@index([key])
+  @@index([isActive])
+}
+
+model provider_logs {
+  id              String   @id @default(uuid())
+  provider        String   // 'dojah', 'youverify'
+  documentId      String?
+  endpoint        String
+  requestPayload  Json?    // Sanitized (no sensitive data)
+  responsePayload Json?    // Sanitized (no sensitive data)
+  statusCode      Int?
+  duration        Int?     // milliseconds
+  success         Boolean
+  errorMessage    String?  @db.Text
+  createdAt       DateTime @default(now())
+
+  @@index([provider])
+  @@index([success])
+  @@index([createdAt])
+  @@index([documentId])
+}
+

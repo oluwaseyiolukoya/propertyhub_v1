@@ -80,6 +80,8 @@ model onboarding_applications {
   userAgent            String?
   referralSource       String?
   metadata             Json?
+  activationEmailSent  Boolean?   @default(false)
+  activationEmailSentAt DateTime?
   createdAt            DateTime   @default(now())
   updatedAt            DateTime   @updatedAt
   reviewer             admins?    @relation("reviewed_by", fields: [reviewedBy], references: [id])
@@ -162,6 +164,14 @@ model customers {
   suspensionReason            String?
   lastTrialNotificationSentAt DateTime?
   trialNotificationCount      Int                         @default(0)
+  // KYC Verification fields
+  kycStatus                   String?                     @default("pending") // 'pending', 'in_progress', 'verified', 'pending_review', 'rejected', 'manually_verified'
+  kycVerificationId           String?                     // Reference to verification_requests.id in verification-service
+  kycCompletedAt              DateTime?
+  kycVerifiedBy               String?                     // Admin ID if manually verified
+  kycFailureReason            String?                     @db.Text
+  kycLastAttemptAt            DateTime?
+  requiresKyc                 Boolean                     @default(true) // Flag to enforce KYC
   // Relations
   activity_logs               activity_logs[]
   customer_users              customer_users[]
