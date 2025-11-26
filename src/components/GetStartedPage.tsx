@@ -8,6 +8,7 @@ import { Checkbox } from "./ui/checkbox";
 import { Badge } from "./ui/badge";
 import { toast } from 'sonner';
 import { submitOnboardingApplication, OnboardingApplicationData } from '../lib/api/onboarding';
+import { NIGERIAN_STATES, NIGERIAN_CITIES, COUNTRIES } from '../constants/nigeria-locations';
 import {
   Building,
   ArrowLeft,
@@ -152,7 +153,7 @@ export function GetStartedPage({ onBackToHome, onNavigateToLogin, onSignupComple
     rentalBudget: '',
     city: '',
     state: '',
-    country: '',
+    country: 'Nigeria',
     zipCode: '',
     hearAboutUs: '',
     agreeToTerms: false,
@@ -717,39 +718,66 @@ export function GetStartedPage({ onBackToHome, onNavigateToLogin, onSignupComple
           <div className="space-y-4">
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="city">City</Label>
-                <Input
-                  id="city"
-                  placeholder="San Francisco"
+                <Label htmlFor="city">City *</Label>
+                <Select
                   value={formData.city}
-                  onChange={(e) => handleInputChange('city', e.target.value)}
-                />
+                  onValueChange={(value) => handleInputChange('city', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select city" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {NIGERIAN_CITIES.map((city) => (
+                      <SelectItem key={city} value={city}>
+                        {city}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="state">State/Province</Label>
-                <Input
-                  id="state"
-                  placeholder="CA"
+                <Label htmlFor="state">State *</Label>
+                <Select
                   value={formData.state}
-                  onChange={(e) => handleInputChange('state', e.target.value)}
-                />
+                  onValueChange={(value) => handleInputChange('state', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select state" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {NIGERIAN_STATES.map((state) => (
+                      <SelectItem key={state} value={state}>
+                        {state}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="country">Country</Label>
-                <Input
-                  id="country"
-                  placeholder="United States"
+                <Label htmlFor="country">Country *</Label>
+                <Select
                   value={formData.country}
-                  onChange={(e) => handleInputChange('country', e.target.value)}
-                />
+                  onValueChange={(value) => handleInputChange('country', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select country" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COUNTRIES.map((country) => (
+                      <SelectItem key={country} value={country}>
+                        {country}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="zipCode">ZIP/Postal Code</Label>
                 <Input
                   id="zipCode"
-                  placeholder="94102"
+                  placeholder="100001"
                   value={formData.zipCode}
                   onChange={(e) => handleInputChange('zipCode', e.target.value)}
                 />
@@ -946,39 +974,66 @@ export function GetStartedPage({ onBackToHome, onNavigateToLogin, onSignupComple
           <div className="space-y-4">
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="city">City</Label>
-                <Input
-                  id="city"
-                  placeholder="Los Angeles"
+                <Label htmlFor="city">City *</Label>
+                <Select
                   value={formData.city}
-                  onChange={(e) => handleInputChange('city', e.target.value)}
-                />
+                  onValueChange={(value) => handleInputChange('city', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select city" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {NIGERIAN_CITIES.map((city) => (
+                      <SelectItem key={city} value={city}>
+                        {city}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="state">State/Province</Label>
-                <Input
-                  id="state"
-                  placeholder="CA"
+                <Label htmlFor="state">State *</Label>
+                <Select
                   value={formData.state}
-                  onChange={(e) => handleInputChange('state', e.target.value)}
-                />
+                  onValueChange={(value) => handleInputChange('state', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select state" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {NIGERIAN_STATES.map((state) => (
+                      <SelectItem key={state} value={state}>
+                        {state}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="country">Country</Label>
-                <Input
-                  id="country"
-                  placeholder="United States"
+                <Label htmlFor="country">Country *</Label>
+                <Select
                   value={formData.country}
-                  onChange={(e) => handleInputChange('country', e.target.value)}
-                />
+                  onValueChange={(value) => handleInputChange('country', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select country" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COUNTRIES.map((country) => (
+                      <SelectItem key={country} value={country}>
+                        {country}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="zipCode">ZIP/Postal Code</Label>
                 <Input
                   id="zipCode"
-                  placeholder="90001"
+                  placeholder="100001"
                   value={formData.zipCode}
                   onChange={(e) => handleInputChange('zipCode', e.target.value)}
                 />
@@ -1384,33 +1439,60 @@ export function GetStartedPage({ onBackToHome, onNavigateToLogin, onSignupComple
           <div className="grid md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="city">City *</Label>
-              <Input
-                id="city"
-                placeholder="Lagos"
+              <Select
                 value={formData.city}
-                onChange={(e) => handleInputChange('city', e.target.value)}
-              />
+                onValueChange={(value) => handleInputChange('city', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select city" />
+                </SelectTrigger>
+                <SelectContent>
+                  {NIGERIAN_CITIES.map((city) => (
+                    <SelectItem key={city} value={city}>
+                      {city}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="state">State *</Label>
-              <Input
-                id="state"
-                placeholder="Lagos State"
+              <Select
                 value={formData.state}
-                onChange={(e) => handleInputChange('state', e.target.value)}
-              />
+                onValueChange={(value) => handleInputChange('state', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select state" />
+                </SelectTrigger>
+                <SelectContent>
+                  {NIGERIAN_STATES.map((state) => (
+                    <SelectItem key={state} value={state}>
+                      {state}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="country">Country *</Label>
-              <Input
-                id="country"
-                placeholder="Nigeria"
+              <Select
                 value={formData.country}
-                onChange={(e) => handleInputChange('country', e.target.value)}
-              />
+                onValueChange={(value) => handleInputChange('country', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select country" />
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRIES.map((country) => (
+                    <SelectItem key={country} value={country}>
+                      {country}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="zipCode">Postal/Zip Code</Label>
