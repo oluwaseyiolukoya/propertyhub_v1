@@ -1,12 +1,13 @@
 import express, { Request, Response } from 'express';
 import prisma from '../config/database';
-import { connection as redisConnection } from '../config/redis';
 
 const router = express.Router();
 
 /**
  * Health check endpoint
  * Returns service status and dependencies
+ * 
+ * NOTE: Redis connection is lazy-loaded to prevent blocking HTTP server startup
  */
 router.get('/', async (req: Request, res: Response) => {
   const health = {
@@ -31,7 +32,8 @@ router.get('/', async (req: Request, res: Response) => {
   }
 
   try {
-    // Check Redis connection
+    // Lazy-load Redis connection (don't import at top level)
+    const { connection: redisConnection } = await import('../config/redis');
     await redisConnection.ping();
     health.dependencies.redis = 'ok';
   } catch (error) {
