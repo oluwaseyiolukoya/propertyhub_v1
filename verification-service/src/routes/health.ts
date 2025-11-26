@@ -4,10 +4,14 @@ import { connection as redisConnection } from '../config/redis';
 
 const router = express.Router();
 
+// Track if we've successfully connected to dependencies at least once
+let hasConnectedToDb = false;
+let hasConnectedToRedis = false;
+
 /**
  * Health check endpoint
  * Returns service status and dependencies
- * 
+ *
  * IMPORTANT: This endpoint MUST respond quickly for DigitalOcean health checks.
  * We return 200 OK immediately, then check dependencies in background.
  */
@@ -36,30 +40,48 @@ router.get('/', async (req: Request, res: Response) => {
   }
 
   // For detailed health check, check dependencies with timeout
-  try {
-    // Check database connection with timeout
-    const dbPromise = prisma.$queryRaw`SELECT 1`;
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Database query timeout')), 2000)
-    );
-    await Promise.race([dbPromise, timeoutPromise]);
+  // Use Promise.allSettled to check both in parallel without blocking
+  const checks = await Promise.allSettled([
+    // Database check with timeout
+    Promise.race([
+      prisma.$queryRaw`SELECT 1`.then(() => {
+        hasConnectedToDb = true;
+        return 'ok';
+      }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Database timeout')), 1000)
+      ),
+    ]),
+    // Redis check with timeout
+    Promise.race([
+      redisConnection.ping().then(() => {
+        hasConnectedToRedis = true;
+        return 'ok';
+      }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Redis timeout')), 1000)
+      ),
+    ]),
+  ]);
+
+  // Process database check result
+  if (checks[0].status === 'fulfilled') {
     health.dependencies.database = 'ok';
-  } catch (error) {
-    health.dependencies.database = 'error';
-    health.status = 'degraded';
+  } else {
+    health.dependencies.database = hasConnectedToDb ? 'degraded' : 'error';
+    if (!hasConnectedToDb) {
+      health.status = 'degraded';
+    }
   }
 
-  try {
-    // Check Redis connection with timeout
-    const pingPromise = redisConnection.ping();
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Redis ping timeout')), 2000)
-    );
-    await Promise.race([pingPromise, timeoutPromise]);
+  // Process Redis check result
+  if (checks[1].status === 'fulfilled') {
     health.dependencies.redis = 'ok';
-  } catch (error) {
-    health.dependencies.redis = 'error';
-    health.status = 'degraded';
+  } else {
+    health.dependencies.redis = hasConnectedToRedis ? 'degraded' : 'error';
+    if (!hasConnectedToRedis) {
+      health.status = 'degraded';
+    }
   }
 
   // Return 200 even if degraded (app is still running)

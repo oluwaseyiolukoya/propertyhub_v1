@@ -1,6 +1,6 @@
-import { Queue, Worker, Job } from 'bullmq';
-import Redis from 'ioredis';
-import { config } from './env';
+import { Queue, Worker, Job } from "bullmq";
+import Redis from "ioredis";
+import { config } from "./env";
 
 // Upstash Redis connection configuration
 // Reference: https://upstash.com/docs/redis/features/restapi
@@ -12,9 +12,11 @@ const redisOptions = {
   enableReadyCheck: true,
 
   // TLS configuration for rediss:// protocol
-  tls: config.redis.url.startsWith('rediss://') ? {
-    rejectUnauthorized: false, // Upstash uses self-signed certs
-  } : undefined,
+  tls: config.redis.url.startsWith("rediss://")
+    ? {
+        rejectUnauthorized: false, // Upstash uses self-signed certs
+      }
+    : undefined,
 
   // Connection settings optimized for Upstash
   connectTimeout: 30000, // 30 seconds
@@ -26,15 +28,16 @@ const redisOptions = {
   retryStrategy: (times: number) => {
     // Cap at 30 seconds between retries
     const delay = Math.min(times * 2000, 30000);
-    if (times <= 3) {
-      console.log(`⏳ Redis: Retry attempt ${times}, waiting ${delay}ms`);
+    // Only log first retry attempt to reduce noise
+    if (times === 1) {
+      console.log(`⏳ Redis: Attempting to connect... (retry ${times})`);
     }
     return delay;
   },
 
   // Reconnect on error
   reconnectOnError: (err: Error) => {
-    const targetError = 'READONLY';
+    const targetError = "READONLY";
     if (err.message.includes(targetError)) {
       // Reconnect on READONLY errors
       return true;
@@ -51,40 +54,43 @@ let isConnected = false;
 let hasLoggedFirstConnection = false;
 
 // Handle Redis connection events
-connection.on('connect', () => {
+connection.on("connect", () => {
   isConnected = true;
 });
 
-connection.on('ready', () => {
+connection.on("ready", () => {
   if (!hasLoggedFirstConnection) {
-    console.log('✅ Redis: Connected and ready');
+    console.log("✅ Redis: Connected and ready");
     hasLoggedFirstConnection = true;
   }
 });
 
-connection.on('error', (error) => {
+connection.on("error", (error) => {
   // Only log non-connection errors
-  if (!error.message.includes('ECONNRESET') && !error.message.includes('ECONNREFUSED')) {
-    console.error('❌ Redis: Error:', error.message);
+  if (
+    !error.message.includes("ECONNRESET") &&
+    !error.message.includes("ECONNREFUSED")
+  ) {
+    console.error("❌ Redis: Error:", error.message);
   }
 });
 
-connection.on('close', () => {
+connection.on("close", () => {
   isConnected = false;
   // Don't log close events - they're normal for Upstash
 });
 
-connection.on('reconnecting', () => {
+connection.on("reconnecting", () => {
   // Don't log reconnecting - it's normal for Upstash
 });
 
 // Create verification queue
-export const verificationQueue = new Queue('verification', {
+export const verificationQueue = new Queue("verification", {
   connection,
   defaultJobOptions: {
     attempts: 3,
     backoff: {
-      type: 'exponential',
+      type: "exponential",
       delay: 2000,
     },
     removeOnComplete: {
@@ -102,13 +108,12 @@ export const verificationQueue = new Queue('verification', {
 export { connection };
 
 // Graceful shutdown
-process.on('SIGTERM', async () => {
+process.on("SIGTERM", async () => {
   await verificationQueue.close();
   await connection.quit();
 });
 
-process.on('SIGINT', async () => {
+process.on("SIGINT", async () => {
   await verificationQueue.close();
   await connection.quit();
 });
-
