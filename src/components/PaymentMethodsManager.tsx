@@ -70,13 +70,13 @@ const PaymentMethodsManager: React.FC = () => {
         error.response?.data?.error || 'Failed to add payment method',
         { id: 'verify-card' }
       );
-      
+
       // Clean up URL parameters even on failure
       const url = new URL(window.location.href);
       url.searchParams.delete('reference');
       url.searchParams.delete('payment_callback');
       window.history.replaceState({}, '', url.toString());
-      
+
       // Clear session storage
       sessionStorage.removeItem('payment_method_reference');
     }

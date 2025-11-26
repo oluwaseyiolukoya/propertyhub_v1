@@ -27,6 +27,8 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+*-env-vars*.txt
+verification-service-env-vars-upstash.txt
 
 # Database
 *.db
