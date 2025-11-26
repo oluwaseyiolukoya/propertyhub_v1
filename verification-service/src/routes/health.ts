@@ -1,13 +1,12 @@
 import express, { Request, Response } from 'express';
 import prisma from '../config/database';
+import { connection as redisConnection } from '../config/redis';
 
 const router = express.Router();
 
 /**
  * Health check endpoint
  * Returns service status and dependencies
- * 
- * NOTE: Redis connection is lazy-loaded to prevent blocking HTTP server startup
  */
 router.get('/', async (req: Request, res: Response) => {
   const health = {
@@ -23,8 +22,12 @@ router.get('/', async (req: Request, res: Response) => {
   };
 
   try {
-    // Check database connection
-    await prisma.$queryRaw`SELECT 1`;
+    // Check database connection with timeout
+    const dbPromise = prisma.$queryRaw`SELECT 1`;
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Database query timeout')), 3000)
+    );
+    await Promise.race([dbPromise, timeoutPromise]);
     health.dependencies.database = 'ok';
   } catch (error) {
     health.dependencies.database = 'error';
@@ -32,9 +35,12 @@ router.get('/', async (req: Request, res: Response) => {
   }
 
   try {
-    // Lazy-load Redis connection (don't import at top level)
-    const { connection: redisConnection } = await import('../config/redis');
-    await redisConnection.ping();
+    // Check Redis connection with timeout
+    const pingPromise = redisConnection.ping();
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Redis ping timeout')), 3000)
+    );
+    await Promise.race([pingPromise, timeoutPromise]);
     health.dependencies.redis = 'ok';
   } catch (error) {
     health.dependencies.redis = 'error';
