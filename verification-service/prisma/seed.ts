@@ -7,11 +7,15 @@ async function main() {
 
   // Create API key for main dashboard
   const apiKey = await prisma.api_keys.upsert({
-    where: { key: 'c4453bd1f9ae085bed83385dcb4bc745374dd0eff62455e53d411985220194da' },
-    update: {},
+    where: { name: 'main_dashboard' },
+    update: {
+      key: 'vkey_fd6967cc3dbc5d1650b21b580df6f8f49cb7ddd79f1abd04',
+      isActive: true,
+      permissions: ['read', 'write', 'admin'],
+    },
     create: {
-      name: 'main-dashboard',
-      key: 'c4453bd1f9ae085bed83385dcb4bc745374dd0eff62455e53d411985220194da',
+      name: 'main_dashboard',
+      key: 'vkey_fd6967cc3dbc5d1650b21b580df6f8f49cb7ddd79f1abd04',
       isActive: true,
       permissions: ['read', 'write', 'admin'],
     },
