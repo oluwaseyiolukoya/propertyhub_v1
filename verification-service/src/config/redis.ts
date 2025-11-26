@@ -6,8 +6,18 @@ import { config } from './env';
 const connection = new Redis(config.redis.url, {
   maxRetriesPerRequest: null,
   enableReadyCheck: false,
+  // Upstash Redis requires TLS
+  tls: config.redis.url.startsWith('rediss://') ? {} : undefined,
+  // Connection pool settings for Upstash
+  lazyConnect: false,
+  keepAlive: 30000,
+  connectTimeout: 10000,
   retryStrategy: (times) => {
-    const delay = Math.min(times * 50, 2000);
+    if (times > 10) {
+      console.error('❌ Redis connection failed after 10 retries');
+      return null; // Stop retrying
+    }
+    const delay = Math.min(times * 1000, 5000);
     return delay;
   },
 });
