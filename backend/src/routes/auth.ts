@@ -800,6 +800,14 @@ router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) =
         actualManagersCount: actualManagersCount,
         subscriptionStartDate: customer.subscriptionStartDate,
         trialEndsAt: customer.trialEndsAt,
+        // KYC fields
+        requiresKyc: (customer as any).requiresKyc,
+        kycStatus: (customer as any).kycStatus,
+        kycVerificationId: (customer as any).kycVerificationId,
+        kycCompletedAt: (customer as any).kycCompletedAt,
+        kycVerifiedBy: (customer as any).kycVerifiedBy,
+        kycFailureReason: (customer as any).kycFailureReason,
+        kycLastAttemptAt: (customer as any).kycLastAttemptAt,
         plan: plan ? {
           name: plan.name,
           description: plan.description,

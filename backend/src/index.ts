@@ -153,6 +153,9 @@ import emailTestRoutes from "./routes/email-test";
 import teamRoutes from "./routes/team";
 // Approval Workflow routes
 import approvalRoutes from "./routes/approvals";
+// Identity Verification routes
+import verificationRoutes from "./routes/verification";
+import adminVerificationRoutes from "./routes/admin-verification";
 // Forgot Password routes
 import forgotPasswordRoutes from "./routes/forgot-password";
 // Storage routes
@@ -405,6 +408,9 @@ app.use("/api/storage", storageRoutes);
 app.use("/api/team", teamRoutes);
 // Approval Workflow routes
 app.use("/api/approvals", approvalRoutes);
+// Identity Verification routes
+app.use("/api/verification", verificationRoutes);
+app.use("/api/admin/verification", adminVerificationRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

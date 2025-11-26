@@ -1,0 +1,835 @@
+# Cursor AI Rules for Identity Verification Microservice
+
+## 🔴 CRITICAL: Identity Verification Service Architecture Rules
+
+### Rule 1: ALWAYS Maintain Microservice Independence
+
+**REQUIRED ARCHITECTURE:**
+
+- ✅ ALWAYS create verification service in separate `/verification-service/` directory
+- ✅ ALWAYS use separate database (not main application database)
+- ✅ ALWAYS use separate port (5001, not 5000)
+- ✅ ALWAYS communicate via API calls with API key authentication
+- ❌ NEVER share database connections between services
+- ❌ NEVER import code directly from main backend
+- ❌ NEVER use shared middleware or utilities (duplicate if needed)
+
+**REASON:** Microservices must be independently deployable, scalable, and maintainable. Shared dependencies create tight coupling and deployment nightmares.
+
+---
+
+### Rule 2: ALWAYS Use Asynchronous Processing for Verification
+
+**REQUIRED WORKFLOW:**
+
+1. User uploads document → Immediate response with "Under Review" status
+2. Document queued in Redis → Background worker processes
+3. Worker calls Dojah API → Updates database with results
+4. Notification sent to user → Email/in-app notification
+
+**FORBIDDEN WORKFLOW:**
+
+```typescript
+// ❌ WRONG: Synchronous verification (blocks user)
+router.post('/upload', async (req, res) => {
+  const document = await uploadToS3(req.file);
+  const result = await dojahAPI.verify(document); // User waits 30 seconds!
+  await updateDatabase(result);
+  res.json(result);
+});
+```
+
+**CORRECT WORKFLOW:**
+
+```typescript
+// ✅ CORRECT: Asynchronous verification (immediate response)
+router.post('/upload', async (req, res) => {
+  const document = await uploadToS3(req.file);
+  await queueService.addVerificationJob(document.id);
+  res.json({ status: 'pending', message: 'Verification in progress' });
+});
+```
+
+**REASON:** Third-party verification APIs take 5-30 seconds. Synchronous calls create poor UX, timeouts, and blocked resources.
+
+---
+
+### Rule 3: ALWAYS Use Adapter Pattern for Providers
+
+**REQUIRED STRUCTURE:**
+
+```
+providers/
+├── base.provider.ts       # Abstract interface
+├── dojah.provider.ts      # Dojah implementation
+├── youverify.provider.ts  # Future provider
+└── provider.factory.ts    # Provider selection
+```
+
+**REQUIRED INTERFACE:**
+
+```typescript
+// ✅ CORRECT: Abstract provider interface
+export interface VerificationProvider {
+  name: string;
+  verifyNIN(nin: string, firstName: string, lastName: string, dob: string): Promise<VerificationResult>;
+  verifyPassport(passportNumber: string, firstName: string, lastName: string): Promise<VerificationResult>;
+  verifyDriversLicense(licenseNumber: string, firstName: string, lastName: string): Promise<VerificationResult>;
+  verifyVotersCard(vin: string, firstName: string, lastName: string): Promise<VerificationResult>;
+  verifyDocument(documentType: string, fileUrl: string, metadata: any): Promise<VerificationResult>;
+  checkStatus(referenceId: string): Promise<VerificationResult>;
+}
+```
+
+**FORBIDDEN PATTERN:**
+
+```typescript
+// ❌ WRONG: Direct Dojah API calls in service
+class VerificationService {
+  async verify(document) {
+    const response = await axios.post('https://api.dojah.io/...'); // Tightly coupled!
+  }
+}
+```
+
+**CORRECT PATTERN:**
+
+```typescript
+// ✅ CORRECT: Provider abstraction
+class VerificationService {
+  async verify(document) {
+    const provider = ProviderFactory.getProvider('dojah'); // Easy to switch!
+    const result = await provider.verifyNIN(...);
+  }
+}
+```
+
+**REASON:** Adapter pattern allows easy switching between providers (Dojah, Youverify, Smile Identity) without changing business logic.
+
+---
+
+### Rule 4: ALWAYS Use API Key Authentication (Not JWT)
+
+**REQUIRED AUTHENTICATION:**
+
+```typescript
+// ✅ CORRECT: API key authentication for service-to-service
+const authenticateApiKey = async (req, res, next) => {
+  const apiKey = req.headers['x-api-key'];
+
+  if (!apiKey) {
+    return res.status(401).json({ error: 'API key required' });
+  }
+
+  const keyRecord = await prisma.api_keys.findUnique({
+    where: { key: apiKey, isActive: true }
+  });
+
+  if (!keyRecord) {
+    return res.status(401).json({ error: 'Invalid API key' });
+  }
+
+  // Update last used
+  await prisma.api_keys.update({
+    where: { id: keyRecord.id },
+    data: { lastUsedAt: new Date() }
+  });
+
+  req.apiKey = keyRecord;
+  next();
+};
+```
+
+**FORBIDDEN AUTHENTICATION:**
+
+```typescript
+// ❌ WRONG: Using JWT for service-to-service
+const authenticateJWT = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  jwt.verify(token, SECRET); // Wrong for microservices!
+};
+```
+
+**REASON:** API keys are simpler, more secure for service-to-service communication, and easier to rotate/revoke.
+
+---
+
+### Rule 5: ALWAYS Store Documents in Separate S3 Bucket
+
+**REQUIRED STORAGE STRUCTURE:**
+
+```
+S3 Bucket: verification-documents/
+├── nin/
+│   └── {customerId}/
+│       └── {documentId}.pdf
+├── passport/
+│   └── {customerId}/
+│       └── {documentId}.jpg
+└── utility_bill/
+    └── {customerId}/
+        └── {documentId}.pdf
+```
+
+**REQUIRED CONFIGURATION:**
+
+```typescript
+// ✅ CORRECT: Separate bucket with encryption
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+  }
+});
+
+const uploadToS3 = async (file: Express.Multer.File, documentType: string, customerId: string) => {
+  const key = `${documentType}/${customerId}/${uuidv4()}.${file.mimetype.split('/')[1]}`;
+
+  await s3Client.send(new PutObjectCommand({
+    Bucket: 'verification-documents',
+    Key: key,
+    Body: file.buffer,
+    ContentType: file.mimetype,
+    ServerSideEncryption: 'AES256', // Encrypt at rest
+    Metadata: {
+      customerId,
+      documentType,
+      uploadedAt: new Date().toISOString()
+    }
+  }));
+
+  return { key, url: `https://verification-documents.s3.amazonaws.com/${key}` };
+};
+```
+
+**FORBIDDEN STORAGE:**
+
+```typescript
+// ❌ WRONG: Storing in main app's uploads folder
+const uploadPath = path.join(__dirname, '../../backend/uploads/', file.originalname);
+fs.writeFileSync(uploadPath, file.buffer); // Security risk!
+```
+
+**REASON:** Separate storage ensures data isolation, easier compliance (GDPR auto-deletion), and prevents accidental exposure.
+
+---
+
+### Rule 6: ALWAYS Encrypt Sensitive Document Data
+
+**REQUIRED ENCRYPTION:**
+
+```typescript
+import crypto from 'crypto';
+
+// ✅ CORRECT: Encrypt document numbers before storing
+const ENCRYPTION_KEY = Buffer.from(process.env.ENCRYPTION_KEY!, 'hex'); // 32 bytes
+const ALGORITHM = 'aes-256-gcm';
+
+export const encrypt = (text: string): string => {
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
+
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+
+  const authTag = cipher.getAuthTag();
+
+  return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
+};
+
+export const decrypt = (encryptedText: string): string => {
+  const [ivHex, authTagHex, encrypted] = encryptedText.split(':');
+
+  const iv = Buffer.from(ivHex, 'hex');
+  const authTag = Buffer.from(authTagHex, 'hex');
+  const decipher = crypto.createDecipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
+
+  decipher.setAuthTag(authTag);
+
+  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+
+  return decrypted;
+};
+
+// Usage in database
+await prisma.verification_documents.create({
+  data: {
+    documentNumber: encrypt(nin), // Encrypted at rest
+    // ...
+  }
+});
+```
+
+**FORBIDDEN STORAGE:**
+
+```typescript
+// ❌ WRONG: Plain text sensitive data
+await prisma.verification_documents.create({
+  data: {
+    documentNumber: nin, // Plain text NIN in database!
+  }
+});
+```
+
+**REASON:** NIN, passport numbers, and other sensitive data must be encrypted at rest for compliance and security.
+
+---
+
+### Rule 7: ALWAYS Implement Comprehensive Logging
+
+**REQUIRED LOGGING:**
+
+```typescript
+// ✅ CORRECT: Log all provider interactions
+const logProviderCall = async (
+  provider: string,
+  endpoint: string,
+  request: any,
+  response: any,
+  duration: number,
+  error?: any
+) => {
+  await prisma.provider_logs.create({
+    data: {
+      provider,
+      endpoint,
+      requestPayload: sanitizePayload(request), // Remove sensitive data
+      responsePayload: sanitizePayload(response),
+      statusCode: response?.status || 500,
+      duration,
+      success: !error,
+      errorMessage: error?.message,
+      createdAt: new Date()
+    }
+  });
+};
+
+const sanitizePayload = (payload: any) => {
+  if (!payload) return null;
+
+  const sanitized = { ...payload };
+
+  // Remove sensitive fields
+  const sensitiveFields = ['nin', 'passport', 'apiKey', 'password', 'token'];
+  sensitiveFields.forEach(field => {
+    if (sanitized[field]) {
+      sanitized[field] = '***REDACTED***';
+    }
+  });
+
+  return sanitized;
+};
+```
+
+**REQUIRED AUDIT TRAIL:**
+
+```typescript
+// ✅ CORRECT: Log all admin actions
+const logVerificationAction = async (
+  requestId: string,
+  action: string,
+  performedBy: string,
+  details?: any
+) => {
+  await prisma.verification_history.create({
+    data: {
+      requestId,
+      action, // 'submitted', 'document_uploaded', 'approved', 'rejected'
+      performedBy,
+      details,
+      createdAt: new Date()
+    }
+  });
+};
+```
+
+**REASON:** Comprehensive logging enables debugging, compliance audits, and fraud detection.
+
+---
+
+### Rule 8: ALWAYS Implement Idempotency for Verification
+
+**REQUIRED IDEMPOTENCY CHECK:**
+
+```typescript
+// ✅ CORRECT: Check if already processed
+const processVerification = async (documentId: string) => {
+  const document = await prisma.verification_documents.findUnique({
+    where: { id: documentId }
+  });
+
+  // Idempotency check
+  if (document.status === 'verified' || document.status === 'failed') {
+    console.log(`Document ${documentId} already processed, skipping`);
+    return { alreadyProcessed: true, status: document.status };
+  }
+
+  // Mark as in progress to prevent duplicate processing
+  await prisma.verification_documents.update({
+    where: { id: documentId },
+    data: { status: 'in_progress' }
+  });
+
+  // Process verification...
+};
+```
+
+**REASON:** Prevents duplicate processing if webhook is called multiple times or job is retried.
+
+---
+
+### Rule 9: ALWAYS Use Database Transactions for Multi-Step Updates
+
+**REQUIRED TRANSACTION USAGE:**
+
+```typescript
+// ✅ CORRECT: Use transaction for related updates
+const completeVerification = async (requestId: string) => {
+  await prisma.$transaction(async (tx) => {
+    // Update request status
+    await tx.verification_requests.update({
+      where: { id: requestId },
+      data: {
+        status: 'approved',
+        completedAt: new Date()
+      }
+    });
+
+    // Update all documents
+    await tx.verification_documents.updateMany({
+      where: { requestId },
+      data: { status: 'verified' }
+    });
+
+    // Create history entry
+    await tx.verification_history.create({
+      data: {
+        requestId,
+        action: 'approved',
+        details: { automated: true }
+      }
+    });
+  });
+};
+```
+
+**FORBIDDEN PATTERN:**
+
+```typescript
+// ❌ WRONG: Multiple separate updates (can fail partially)
+await prisma.verification_requests.update({ ... });
+await prisma.verification_documents.updateMany({ ... }); // If this fails, request is inconsistent!
+await prisma.verification_history.create({ ... });
+```
+
+**REASON:** Transactions ensure data consistency. All updates succeed or all fail together.
+
+---
+
+### Rule 10: ALWAYS Implement Rate Limiting
+
+**REQUIRED RATE LIMITING:**
+
+```typescript
+import rateLimit from 'express-rate-limit';
+
+// ✅ CORRECT: Rate limit per API key
+const createRateLimiter = () => {
+  return rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 100, // 100 requests per minute
+    keyGenerator: (req) => req.apiKey?.id || req.ip,
+    handler: (req, res) => {
+      res.status(429).json({
+        error: 'Too many requests',
+        retryAfter: 60
+      });
+    }
+  });
+};
+
+app.use('/api/verification', createRateLimiter());
+```
+
+**REASON:** Prevents abuse, protects third-party API quotas, and ensures fair usage.
+
+---
+
+## 📋 Implementation Checklist
+
+### Phase 1: Foundation
+- [ ] Create `/verification-service/` directory structure
+- [ ] Setup `package.json` with dependencies: express, prisma, bullmq, ioredis, axios, multer, @aws-sdk/client-s3
+- [ ] Create `tsconfig.json` matching main backend
+- [ ] Create `prisma/schema.prisma` with all models
+- [ ] Run `npx prisma migrate dev --name init`
+- [ ] Create `.env.example` with all required variables
+- [ ] Create basic Express app in `src/index.ts`
+- [ ] Implement health check endpoint
+
+### Phase 2: Redis & Job Queue
+- [ ] Setup Redis connection in `src/config/redis.ts`
+- [ ] Create BullMQ queue in `src/services/queue.service.ts`
+- [ ] Implement worker in `src/workers/verification.worker.ts`
+- [ ] Test job queue locally with Redis
+
+### Phase 3: Provider Integration
+- [ ] Create abstract interface in `src/providers/base.provider.ts`
+- [ ] Implement Dojah provider in `src/providers/dojah.provider.ts`
+- [ ] Create provider factory in `src/providers/provider.factory.ts`
+- [ ] Add provider logging to all API calls
+- [ ] Test with Dojah sandbox API
+
+### Phase 4: API Endpoints
+- [ ] Implement API key authentication middleware
+- [ ] Create verification routes in `src/routes/verification.ts`
+- [ ] Create admin routes in `src/routes/admin.ts`
+- [ ] Create webhook handler in `src/routes/webhook.ts`
+- [ ] Implement request validation with express-validator
+
+### Phase 5: Services
+- [ ] Create `src/services/verification.service.ts` with business logic
+- [ ] Create `src/services/admin.service.ts` for admin operations
+- [ ] Create `src/services/webhook.service.ts` for webhook handling
+- [ ] Create `src/services/notification.service.ts` for user notifications
+- [ ] Implement encryption utilities for sensitive data
+
+### Phase 6: Main Dashboard Integration
+- [ ] Create `backend/src/services/verification-client.service.ts`
+- [ ] Create `backend/src/routes/verification.ts` (proxy routes)
+- [ ] Create `backend/src/routes/admin-verification.ts` (admin proxy)
+- [ ] Add environment variables to `backend/.env`
+- [ ] Test API communication between services
+
+### Phase 7: Frontend Integration
+- [ ] Create `src/lib/api/verification.ts` with API client
+- [ ] Create `src/components/VerificationFlow.tsx` for users
+- [ ] Create `src/components/admin/VerificationManagement.tsx` for admins
+- [ ] Add verification status to user dashboard
+- [ ] Implement document upload with progress indicators
+
+### Phase 8: Deployment
+- [ ] Create `verification-service/Dockerfile`
+- [ ] Create `verification-service/docker-compose.yml`
+- [ ] Create `verification-service/.do/app.yaml` for Digital Ocean
+- [ ] Setup S3 bucket with proper permissions
+- [ ] Configure environment variables in production
+- [ ] Deploy verification service
+- [ ] Deploy worker service
+- [ ] Test end-to-end in production
+
+### Phase 9: Testing & Monitoring
+- [ ] Write integration tests for verification flow
+- [ ] Write unit tests for providers
+- [ ] Implement metrics endpoint
+- [ ] Setup error alerting
+- [ ] Load test with 100 concurrent verifications
+- [ ] Security audit (encryption, API keys, rate limiting)
+
+---
+
+## 🎯 Approved Code Patterns
+
+### ✅ CORRECT: Complete Verification Flow
+
+```typescript
+// 1. User uploads document (Frontend)
+const handleUpload = async (file: File, documentType: string, documentNumber: string) => {
+  const formData = new FormData();
+  formData.append('document', file);
+  formData.append('documentType', documentType);
+  formData.append('documentNumber', documentNumber);
+
+  const response = await apiClient.post('/api/verification/upload', formData);
+  toast.success('Document uploaded! Verification in progress...');
+};
+
+// 2. Backend proxy receives request
+router.post('/upload', authMiddleware, upload.single('document'), async (req, res) => {
+  const customerId = req.user?.customerId;
+  const result = await verificationClient.uploadDocument(
+    req.body.requestId,
+    req.file!,
+    req.body.documentType,
+    req.body.documentNumber
+  );
+  res.json(result);
+});
+
+// 3. Verification service receives request
+router.post('/upload/:requestId', authenticateApiKey, upload.single('file'), async (req, res) => {
+  // Upload to S3
+  const s3Result = await uploadToS3(req.file!, req.body.documentType, req.body.customerId);
+
+  // Save to database
+  const document = await prisma.verification_documents.create({
+    data: {
+      requestId: req.params.requestId,
+      documentType: req.body.documentType,
+      documentNumber: encrypt(req.body.documentNumber),
+      fileUrl: s3Result.url,
+      fileName: req.file!.originalname,
+      fileSize: req.file!.size,
+      mimeType: req.file!.mimetype,
+      status: 'pending'
+    }
+  });
+
+  // Queue for processing
+  await queueService.addVerificationJob(document.id);
+
+  res.json({ success: true, documentId: document.id, status: 'pending' });
+});
+
+// 4. Worker processes job
+const worker = new Worker('verification', async (job: Job) => {
+  const { documentId } = job.data;
+
+  const document = await prisma.verification_documents.findUnique({
+    where: { id: documentId },
+    include: { request: true }
+  });
+
+  // Get provider
+  const provider = ProviderFactory.getProvider('dojah');
+
+  // Verify document
+  const result = await provider.verifyNIN(
+    decrypt(document.documentNumber!),
+    document.request.firstName,
+    document.request.lastName,
+    document.request.dob
+  );
+
+  // Update database
+  await prisma.verification_documents.update({
+    where: { id: documentId },
+    data: {
+      status: result.status === 'verified' ? 'verified' : 'failed',
+      provider: 'dojah',
+      providerReference: result.referenceId,
+      verificationData: result.data,
+      confidence: result.confidence,
+      verifiedAt: new Date(),
+      failureReason: result.error
+    }
+  });
+
+  // Send notification
+  await notificationService.notifyUser(document.request.customerId, result);
+
+  return result;
+}, { connection, concurrency: 5 });
+```
+
+---
+
+## 🚨 Error Response Protocol
+
+**If developer asks to:**
+
+1. "Store verification data in main database" → Respond: "Verification service must have separate database for independence and scalability."
+
+2. "Call Dojah API directly from main backend" → Respond: "Use verification microservice. It handles provider abstraction, job queuing, and logging."
+
+3. "Use synchronous verification" → Respond: "Always use async processing with job queue. Third-party APIs take 5-30 seconds."
+
+4. "Store documents in backend/uploads" → Respond: "Use separate S3 bucket for security, compliance, and scalability."
+
+5. "Skip encryption for document numbers" → Respond: "Always encrypt sensitive data (NIN, passport numbers) at rest for compliance."
+
+6. "Use JWT for service authentication" → Respond: "Use API keys for service-to-service. JWT is for user authentication."
+
+7. "Skip provider abstraction" → Respond: "Always use adapter pattern. Makes switching providers easy (Dojah → Youverify)."
+
+---
+
+## 📚 Reference Documentation
+
+**When helping with verification service, reference:**
+
+- This file (`.cursorrules-identity-verification`)
+- `identity-verification.plan.md` - Complete implementation plan
+- Dojah API docs: https://docs.dojah.io/
+- BullMQ docs: https://docs.bullmq.io/
+- Prisma docs: https://www.prisma.io/docs
+
+---
+
+## 🔒 Security Checklist
+
+**Before deploying verification service:**
+
+- [ ] All sensitive data encrypted at rest
+- [ ] API keys stored in environment variables
+- [ ] Rate limiting implemented (100 req/min)
+- [ ] S3 bucket has proper IAM roles
+- [ ] HTTPS enforced for all endpoints
+- [ ] Webhook signatures verified
+- [ ] CORS properly configured
+- [ ] No sensitive data in logs
+- [ ] Auto-delete documents after 90 days (GDPR)
+- [ ] Audit trail for all admin actions
+- [ ] IP whitelisting for admin endpoints
+- [ ] Database backups configured
+
+---
+
+## 💰 Cost Optimization
+
+**Best practices to minimize costs:**
+
+1. **Use job queue batching:** Process multiple documents in single worker run
+2. **Implement caching:** Cache provider responses for 24 hours
+3. **Optimize S3 storage:** Use lifecycle policies to move old documents to Glacier
+4. **Rate limit aggressively:** Prevent abuse and unnecessary API calls
+5. **Monitor provider costs:** Track per-verification costs and optimize
+
+---
+
+## 🎓 Teaching Points
+
+**When developer is learning, explain:**
+
+1. **Why microservices:** Independent deployment, scaling, and failure isolation
+2. **Why async processing:** Better UX, prevents timeouts, handles high load
+3. **Why adapter pattern:** Easy provider switching, testability, maintainability
+4. **Why API keys:** Simpler than JWT for service-to-service, easier rotation
+5. **Why separate storage:** Security, compliance, easier data management
+6. **Why encryption:** Legal requirement, protects user data, builds trust
+
+---
+
+## ⚡ Quick Commands to Suggest
+
+**For verification service development:**
+
+```bash
+# Setup verification service
+cd verification-service
+npm install
+cp .env.example .env
+# Edit .env with actual values
+npx prisma migrate dev --name init
+npm run dev
+
+# Test Redis connection
+redis-cli ping
+
+# Test Dojah API
+curl -X POST https://sandbox.dojah.io/api/v1/kyc/nin \
+  -H "Authorization: YOUR_API_KEY" \
+  -H "AppId: YOUR_APP_ID" \
+  -d '{"nin":"12345678901"}'
+
+# Run worker
+npm run worker
+
+# Deploy to Digital Ocean
+doctl apps create --spec .do/app.yaml
+```
+
+---
+
+## 🎯 Success Criteria
+
+**A verification service is done correctly when:**
+
+1. ✅ Runs independently on separate port (5001)
+2. ✅ Uses separate database (not main app database)
+3. ✅ All verification is asynchronous (job queue)
+4. ✅ Provider abstraction implemented (easy to switch)
+5. ✅ API key authentication working
+6. ✅ Documents stored in separate S3 bucket
+7. ✅ Sensitive data encrypted at rest
+8. ✅ Comprehensive logging and audit trail
+9. ✅ Rate limiting implemented
+10. ✅ Webhooks handled correctly
+11. ✅ Admin interface integrated in main dashboard
+12. ✅ All security checks passed
+13. ✅ End-to-end testing completed
+14. ✅ Production deployment successful
+
+---
+
+## 🚀 Enforcement
+
+**AI Assistant MUST:**
+
+- Refuse to create verification logic in main backend
+- Always suggest microservice architecture
+- Always implement async processing with job queue
+- Always use provider abstraction pattern
+- Always encrypt sensitive data
+- Always use API key authentication
+- Always store documents in separate S3 bucket
+- Remind developer to test complete flow
+- Reference this documentation when explaining
+
+**AI Assistant MUST NOT:**
+
+- Suggest storing verification data in main database
+- Suggest synchronous verification
+- Skip provider abstraction
+- Use JWT for service-to-service auth
+- Store documents in backend/uploads
+- Skip encryption for sensitive data
+- Skip rate limiting
+- Skip comprehensive logging
+
+---
+
+**Last Updated:** November 25, 2025
+**Status:** ENFORCED - These rules ensure proper microservice architecture
+**Severity:** CRITICAL - Violations cause security issues, poor performance, and maintenance nightmares
+**Related:** `.cursorrules` (database), `.cursorrules-payment-integration` (payment flows)
+
+---
+
+## 📊 Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Main Dashboard                          │
+│                    (Port 5173/5000)                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │   Frontend   │  │   Backend    │  │   Database   │      │
+│  │   (React)    │──│  (Express)   │──│ (PostgreSQL) │      │
+│  └──────────────┘  └──────────────┘  └──────────────┘      │
+│         │                  │                                 │
+│         │                  │ API Key Auth                    │
+│         └──────────────────┼─────────────────────────────┐  │
+└────────────────────────────┼─────────────────────────────┼──┘
+                             │                             │
+                             ▼                             │
+┌─────────────────────────────────────────────────────────┼──┐
+│              Verification Service (Port 5001)           │  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │  │
+│  │   API        │  │   Worker     │  │   Database   │  │  │
+│  │  (Express)   │──│  (BullMQ)    │──│ (PostgreSQL) │  │  │
+│  └──────────────┘  └──────────────┘  └──────────────┘  │  │
+│         │                  │                             │  │
+│         │                  │                             │  │
+│         ▼                  ▼                             │  │
+│  ┌──────────────┐  ┌──────────────┐                     │  │
+│  │   Redis      │  │   S3 Bucket  │                     │  │
+│  │  (Job Queue) │  │  (Documents) │                     │  │
+│  └──────────────┘  └──────────────┘                     │  │
+│         │                                                │  │
+└─────────┼────────────────────────────────────────────────┼──┘
+          │                                                │
+          │                                                │
+          ▼                                                ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Dojah API (Third-party)                   │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │     NIN      │  │   Passport   │  │  Driver Lic  │      │
+│  │ Verification │  │ Verification │  │ Verification │      │
+│  └──────────────┘  └──────────────┘  └──────────────┘      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+

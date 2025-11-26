@@ -403,8 +403,23 @@ export class OnboardingService {
     const tempPassword = this.generateTemporaryPassword();
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
-    // Create primary user for the customer
-    const userId = uuidv4();
+    // If a user with this email already exists, we should reuse/update it instead of creating a duplicate.
+    // This can happen if:
+    // - An admin previously created a user manually
+    // - The onboarding flow was run more than once for the same email
+    const existingUser = await prisma.users.findUnique({
+      where: { email: application.email },
+    });
+
+    // If the email already belongs to a different customer, fail with a clear, business-friendly error
+    if (existingUser && existingUser.customerId && existingUser.customerId !== application.customerId) {
+      throw new Error(
+        'A user account with this email already exists for a different customer. Please use a different email or contact support.'
+      );
+    }
+
+    // Create or update the primary user for the customer
+    const userId = existingUser ? existingUser.id : uuidv4();
     // Note: property-owner, property-manager, and property-developer get 'owner' role
     // Property managers and developers registering from Get Started page have full control over their properties
     // They are essentially owners of their own customer account
@@ -418,29 +433,51 @@ export class OnboardingService {
       userRole = 'tenant';
     }
 
-    await prisma.users.create({
-      data: {
-        id: userId,
-        customerId: application.customerId,
-        name: application.name,
-        email: application.email,
-        password: hashedPassword,
-        phone: application.phone,
-        role: userRole,
-        status: 'active',
-        isActive: true,
-        updatedAt: new Date(),
-      },
-    });
+    if (existingUser) {
+      // Reuse existing user record and update it with the new temporary password and customer linkage.
+      // This avoids unique constraint issues on email and provides a fresh temp password for login.
+      await prisma.users.update({
+        where: { id: existingUser.id },
+        data: {
+          customerId: application.customerId,
+          name: application.name || existingUser.name,
+          email: application.email,
+          password: hashedPassword,
+          phone: application.phone || existingUser.phone,
+          role: userRole,
+          status: 'active',
+          isActive: true,
+          updatedAt: new Date(),
+        },
+      });
+    } else {
+      await prisma.users.create({
+        data: {
+          id: userId,
+          customerId: application.customerId,
+          name: application.name,
+          email: application.email,
+          password: hashedPassword,
+          phone: application.phone,
+          role: userRole,
+          status: 'active',
+          isActive: true,
+          updatedAt: new Date(),
+        },
+      });
+    }
 
-    // Update customer - keep them in trial status
-    // Note: Customer status should remain 'trial' until they upgrade to a paid plan
-    // The user status is set to 'active' to allow login
+    // Update customer - set to pending_kyc status and mark that KYC is required.
+    // Note:
+    // - We do NOT set kycStatus directly here to remain compatible with environments
+    //   where the KYC fields may not yet exist on the Prisma client.
+    // - Middleware and KYC flows treat non-verified / null kycStatus as requiring KYC,
+    //   combined with requiresKyc = true.
     await prisma.customers.update({
       where: { id: application.customerId },
       data: {
-        // Don't change status - it should remain 'trial' from approval
-        // status: 'active', // REMOVED - this was causing trial banner to not show
+        status: 'pending_kyc', // New status to indicate awaiting KYC
+        requiresKyc: true,
         updatedAt: new Date(),
       },
     });

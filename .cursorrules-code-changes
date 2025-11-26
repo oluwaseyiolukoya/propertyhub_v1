@@ -1,0 +1,270 @@
+# Cursor AI Rules for Code Changes and Refactoring
+
+## 🔴 CRITICAL: Code Modification Rules
+
+### Rule 1: NEVER Remove State Variables Without Checking All References
+
+**FORBIDDEN ACTIONS:**
+
+- ❌ NEVER remove a `useState` variable without searching for ALL its usages
+- ❌ NEVER remove a function without checking if it's called elsewhere
+- ❌ NEVER remove a prop without verifying it's not used in JSX
+- ❌ NEVER delete code based on assumptions - ALWAYS verify
+
+**REQUIRED WORKFLOW:**
+
+1. **Before removing ANY state/variable/function:**
+   ```bash
+   # Search for ALL usages first
+   grep -r "variableName" src/
+   ```
+
+2. **Check these locations:**
+   - JSX/TSX templates (in `{...}` expressions)
+   - Event handlers (`onClick`, `onChange`, etc.)
+   - `useEffect` dependencies
+   - Conditional rendering (`condition ? ... : ...`)
+   - Style attributes (`style={...}`)
+   - Props passed to child components
+
+3. **Remove in this order:**
+   - First: Remove all usages
+   - Second: Remove the declaration
+   - Third: Test the build
+   - Fourth: Commit
+
+**REASON:** Removing a variable but leaving references causes `ReferenceError: X is not defined` in production.
+
+---
+
+### Rule 2: ALWAYS Test Build After Code Changes
+
+**REQUIRED WORKFLOW:**
+
+1. Make code changes
+2. Run `npm run build` IMMEDIATELY
+3. Check for errors
+4. If errors exist, fix them BEFORE committing
+5. Only commit after successful build
+
+**NEVER:**
+- ❌ Commit without building
+- ❌ Assume "it will work in production"
+- ❌ Skip build step to save time
+
+---
+
+### Rule 3: Understand SPA Routing Before Changing URLs
+
+**SPA (Single Page Application) Rules:**
+
+**If the app uses state-based routing (no React Router):**
+- ✅ Callback URLs should redirect to **root domain** (`/`)
+- ✅ Use query parameters for state (`/?callback=upgrade&reference=xxx`)
+- ❌ NEVER use path-based callbacks (`/upgrade/callback`) - they return 404
+- ❌ NEVER assume URL paths work like traditional multi-page apps
+
+**If the app uses React Router:**
+- ✅ Define routes in router configuration
+- ✅ Callback URLs can use paths (`/upgrade/callback`)
+- ✅ Ensure route exists before using it as callback
+
+**How to check:**
+```bash
+# Look for React Router
+grep -r "BrowserRouter\|Routes\|Route" src/
+
+# If not found, it's state-based routing
+# Use root domain + query params for callbacks
+```
+
+---
+
+### Rule 4: Payment Integration Callback Rules
+
+**For Paystack/Stripe/Payment Gateways:**
+
+**ALWAYS:**
+1. ✅ Check if app uses URL-based routing or state-based routing
+2. ✅ For SPAs without routing: Use `/?payment_callback=type&reference=xxx`
+3. ✅ For SPAs with routing: Create route first, then use it
+4. ✅ Test the callback URL in browser BEFORE deploying
+5. ✅ Handle callback in `useEffect` with query parameter detection
+
+**NEVER:**
+- ❌ Use path-based callbacks in non-routed SPAs
+- ❌ Assume callback URLs work without testing
+- ❌ Forget to handle the callback in frontend code
+
+**Example (SPA without routing):**
+```typescript
+// Backend
+callback_url: `${FRONTEND_URL}/?payment_callback=upgrade`
+
+// Frontend (in useEffect)
+const urlParams = new URLSearchParams(window.location.search);
+const callback = urlParams.get('payment_callback');
+const reference = urlParams.get('reference');
+
+if (callback === 'upgrade' && reference) {
+  handleUpgradeCallback(reference);
+}
+```
+
+---
+
+### Rule 5: Environment Variables in Frontend
+
+**CRITICAL RULES:**
+
+- ❌ NEVER use `import.meta.env.VITE_*` for sensitive keys
+- ❌ NEVER assume frontend env vars exist in production
+- ✅ ALWAYS get sensitive keys from backend API
+- ✅ Backend should provide authorization URLs with embedded keys
+
+**Why:**
+- Frontend env vars are baked into build at compile time
+- If missing during build, they're undefined forever
+- Backend env vars can be changed without rebuilding
+
+**Correct Pattern:**
+```typescript
+// ❌ WRONG: Using frontend env var
+const handler = PaystackPop.setup({
+  key: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY, // May not exist!
+});
+
+// ✅ CORRECT: Get from backend
+const response = await initializePayment(planId);
+// Backend returns authorization URL with key embedded
+window.location.href = response.data.authorizationUrl;
+```
+
+---
+
+### Rule 6: Modal vs Redirect Payment Flows
+
+**Choose the right flow:**
+
+**Use Redirect Flow (Recommended):**
+- ✅ When backend manages keys
+- ✅ For production deployments
+- ✅ For better security
+- ✅ When you want centralized key management
+
+**Use Modal/Pop Flow (Only if necessary):**
+- ⚠️ Only for development/testing
+- ⚠️ Requires frontend env vars
+- ⚠️ Keys exposed in frontend code
+- ⚠️ More complex state management
+
+**Implementation:**
+```typescript
+// ✅ REDIRECT FLOW (Recommended)
+const handlePayment = async () => {
+  const response = await initializePayment(planId);
+  sessionStorage.setItem('payment_reference', response.data.reference);
+  window.location.href = response.data.authorizationUrl;
+};
+
+// ❌ MODAL FLOW (Avoid)
+const handlePayment = () => {
+  const handler = window.PaystackPop.setup({
+    key: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY, // Bad!
+    // ...
+  });
+  handler.openIframe();
+};
+```
+
+---
+
+## 🎯 Code Review Checklist
+
+**Before making ANY code changes:**
+
+- [ ] Did I search for ALL usages of what I'm removing?
+- [ ] Did I check JSX templates for references?
+- [ ] Did I check style attributes?
+- [ ] Did I check event handlers?
+- [ ] Did I check useEffect dependencies?
+- [ ] Did I run `npm run build` after changes?
+- [ ] Did the build succeed?
+- [ ] Did I test the changes locally?
+- [ ] For payment flows: Did I verify callback URL works?
+- [ ] For SPAs: Did I check if routing exists?
+
+---
+
+## 🚨 Error Prevention Protocol
+
+**Common Errors and How to Prevent:**
+
+### Error: `ReferenceError: X is not defined`
+**Prevention:**
+1. Search for variable name before removing: `grep -r "variableName" src/`
+2. Check all files in search results
+3. Remove usages first, then declaration
+
+### Error: `404 Not Found` (after payment)
+**Prevention:**
+1. Check if app uses URL-based routing
+2. For SPAs without routing: Use `/?callback=type`
+3. Test callback URL in browser before deploying
+
+### Error: `Invalid key` (payment gateway)
+**Prevention:**
+1. Never use frontend env vars for keys
+2. Get authorization URL from backend
+3. Backend embeds valid keys in URL
+
+---
+
+## 📋 Safe Refactoring Pattern
+
+**When refactoring payment flows:**
+
+```typescript
+// Step 1: Add new redirect flow (don't remove old code yet)
+const handlePaymentNew = async () => {
+  const response = await initializePayment(planId);
+  window.location.href = response.data.authorizationUrl;
+};
+
+// Step 2: Test new flow thoroughly
+
+// Step 3: Switch to new flow
+// onChange={handlePaymentNew}  // Use new
+
+// Step 4: After confirming it works, remove old code
+// Remove: handlePaymentOld, isPaystackOpen, etc.
+
+// Step 5: Search for ALL references to removed items
+// grep -r "isPaystackOpen" src/
+
+// Step 6: Remove all found references
+
+// Step 7: Build and test
+// npm run build
+```
+
+---
+
+## 🚀 Deployment Checklist
+
+**Before pushing to production:**
+
+- [ ] All tests pass locally
+- [ ] `npm run build` succeeds
+- [ ] No console errors in browser
+- [ ] Payment flow tested end-to-end
+- [ ] Callback URL tested (visit it in browser)
+- [ ] No references to removed variables
+- [ ] No hardcoded env vars in frontend
+
+---
+
+**Last Updated:** November 24, 2025
+**Status:** ENFORCED - These rules prevent runtime errors
+**Severity:** CRITICAL - Violations cause production failures
+

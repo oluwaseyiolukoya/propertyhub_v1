@@ -18,6 +18,7 @@ import { PlatformSettings } from './PlatformSettings';
 import { AddCustomerPage } from './AddCustomerPage';
 import { OnboardingManager } from './admin/OnboardingManager';
 import { LandingPageManagement } from './admin/LandingPageManagement';
+import { VerificationManagement } from './admin/VerificationManagement';
 import { Footer } from './Footer';
 import { PlatformLogo } from './PlatformLogo';
 import { toast } from "sonner";
@@ -953,6 +954,7 @@ export function SuperAdminDashboard({
     { id: 'landing-page', name: 'Landing Page', permission: null }, // Available to all admins
     { id: 'customers', name: 'Customers', permission: [PERMISSIONS.CUSTOMERS, PERMISSIONS.CUSTOMER_VIEW, PERMISSIONS.CUSTOMER_CREATE, PERMISSIONS.CUSTOMER_EDIT, PERMISSIONS.CUSTOMER_DELETE] },
     { id: 'users', name: 'User Management', permission: [PERMISSIONS.USERS, PERMISSIONS.USER_VIEW, PERMISSIONS.USER_CREATE, PERMISSIONS.USER_EDIT, PERMISSIONS.USER_DELETE] },
+    { id: 'verifications', name: 'Verifications', permission: null }, // Available to all admins
     { id: 'billing', name: 'Billing & Plans', permission: [PERMISSIONS.BILLING, PERMISSIONS.BILLING_MANAGEMENT, PERMISSIONS.PLAN_VIEW, PERMISSIONS.PLAN_CREATE, PERMISSIONS.PLAN_EDIT, PERMISSIONS.PLAN_DELETE, PERMISSIONS.INVOICE_VIEW, PERMISSIONS.PAYMENT_VIEW] },
     { id: 'analytics', name: 'Analytics', permission: [PERMISSIONS.ANALYTICS, PERMISSIONS.ANALYTICS_VIEW, PERMISSIONS.ANALYTICS_MRR, PERMISSIONS.ANALYTICS_CHURN, PERMISSIONS.ANALYTICS_EXPORT] },
     { id: 'system', name: 'System Health', permission: [PERMISSIONS.SYSTEM, PERMISSIONS.SYSTEM_HEALTH, PERMISSIONS.SYSTEM_LOGS, PERMISSIONS.PLATFORM_SETTINGS, PERMISSIONS.CACHE_CLEAR] },
@@ -1978,6 +1980,7 @@ export function SuperAdminDashboard({
             {activeTab === 'billing' && <BillingPlansAdmin />}
             {activeTab === 'analytics' && <Analytics />}
             {activeTab === 'system' && <SystemHealth />}
+            {activeTab === 'verifications' && <VerificationManagement />}
             {activeTab === 'support' && <SupportTickets />}
             {activeTab === 'settings' && <PlatformSettings />}
           </div>

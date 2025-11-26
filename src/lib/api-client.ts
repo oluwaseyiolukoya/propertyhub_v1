@@ -10,6 +10,9 @@ export interface ApiError {
   error: string;
   message?: string;
   statusCode?: number;
+  kycRequired?: boolean;
+  kycStatus?: string;
+  kycFailureReason?: string;
 }
 
 export interface ApiResponse<T> {
@@ -186,6 +189,10 @@ async function request<T>(
           // Surface backend details and code when present
           ...(typeof (data as any)?.details !== 'undefined' ? { details: (data as any).details } : {}),
           ...(typeof (data as any)?.code !== 'undefined' ? { code: (data as any).code } : {}),
+          // Include KYC-related fields from backend response
+          ...(typeof (data as any)?.kycRequired !== 'undefined' ? { kycRequired: (data as any).kycRequired } : {}),
+          ...(typeof (data as any)?.kycStatus !== 'undefined' ? { kycStatus: (data as any).kycStatus } : {}),
+          ...(typeof (data as any)?.kycFailureReason !== 'undefined' ? { kycFailureReason: (data as any).kycFailureReason } : {}),
         },
       };
     }

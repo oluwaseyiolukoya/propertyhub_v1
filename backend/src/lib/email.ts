@@ -1450,17 +1450,27 @@ export interface AccountActivationParams {
   customerEmail: string;
   companyName: string;
   temporaryPassword: string;
-  loginUrl: string;
+  /**
+   * Optional explicit login URL.
+   * If not provided, we will build it from FRONTEND_URL + '/signin'
+   * so that in production it always points to the real sign-in page
+   * (e.g. https://contrezz.com/signin).
+   */
+  loginUrl?: string;
   applicationType: string;
 }
 
 export async function sendAccountActivationEmail(params: AccountActivationParams): Promise<boolean> {
   try {
     const config = getEmailConfig();
+    const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, '');
+    const loginUrl = params.loginUrl || `${frontendBase}/signin`;
+
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('📧 [Account Activation] Preparing to send activation email...');
     console.log('📧 [Account Activation] Recipient:', params.customerEmail);
     console.log('📧 [Account Activation] Company:', params.companyName);
+    console.log('📧 [Account Activation] Login URL:', loginUrl);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     const accountType = params.applicationType === 'property-developer' || params.applicationType === 'developer'
@@ -1504,7 +1514,7 @@ export async function sendAccountActivationEmail(params: AccountActivationParams
 
       <p>Great news! Your <strong>${accountType}</strong> account for <strong>${params.companyName}</strong> has been approved and activated by our admin team.</p>
 
-      <p>You can now access your account and start using all the features available to you.</p>
+      <p><strong>⚠️ Important:</strong> Before you can access your dashboard, you must complete our <strong>Identity Verification (KYC)</strong> process. This is a one-time requirement to ensure the security of your account.</p>
 
       <div class="credentials">
         <h3>🔐 Your Login Credentials</h3>
@@ -1519,12 +1529,25 @@ export async function sendAccountActivationEmail(params: AccountActivationParams
       </div>
 
       <div class="warning">
-        <p><span class="warning-icon">⚠️ Important Security Notice:</span></p>
+        <p><span class="warning-icon">📋 Identity Verification Required:</span></p>
+        <p>After logging in, you will be directed to our KYC verification page. Please have the following documents ready:</p>
+        <ul style="margin: 10px 0; padding-left: 20px;">
+          <li><strong>National Identification Number (NIN)</strong> - Strongly recommended</li>
+          <li>Proof of Address (Utility bill, Bank statement)</li>
+          <li>Valid Passport Data Page</li>
+          <li>Driver's License</li>
+          <li>Voter's Card</li>
+        </ul>
+        <p><strong>You must upload at least 2 documents</strong> to complete verification. Once verified, your account will be activated with a free trial period.</p>
+      </div>
+
+      <div class="warning">
+        <p><span class="warning-icon">⚠️ Security Notice:</span></p>
         <p>For your security, you will be required to <strong>change your password</strong> on your first login. Please choose a strong, unique password.</p>
       </div>
 
       <div style="text-align: center;">
-        <a href="${params.loginUrl}" class="button">Login to Your Account</a>
+        <a href="${loginUrl}" class="button">Login to Your Account</a>
       </div>
 
       <p style="margin-top: 30px;">If you have any questions or need assistance getting started, please don't hesitate to contact our support team.</p>
@@ -1557,7 +1580,7 @@ Temporary Password: ${params.temporaryPassword}
 
 IMPORTANT: For your security, you will be required to change your password on your first login.
 
-Login here: ${params.loginUrl}
+Login here: ${loginUrl}
 
 If you have any questions or need assistance getting started, please contact our support team.
 
@@ -2179,6 +2202,329 @@ function generateTeamInvitationHtml(params: TeamInvitationParams): string {
   return html;
 }
 
+/**
+ * Send KYC Verified Email (Auto-approved by Dojah)
+ */
+export interface KYCVerifiedParams {
+  customerName: string;
+  customerEmail: string;
+  companyName: string;
+  loginUrl: string;
+}
+
+export async function sendKYCVerifiedEmail(params: KYCVerifiedParams): Promise<boolean> {
+  try {
+    const config = getEmailConfig();
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📧 [KYC Verified] Preparing to send KYC verified email...');
+    console.log('📧 [KYC Verified] Recipient:', params.customerEmail);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background-color: #10B981; color: white; padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0; }
+    .header h1 { margin: 0; font-size: 28px; }
+    .content { padding: 30px 20px; background-color: #f9fafb; }
+    .success-box { background-color: #D1FAE5; border-left: 4px solid #10B981; padding: 20px; margin: 20px 0; border-radius: 4px; }
+    .button { display: inline-block; padding: 14px 28px; background-color: #10B981; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: bold; }
+    .button:hover { background-color: #059669; }
+    .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 14px; background-color: #f9fafb; border-radius: 0 0 8px 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>✅ Identity Verified!</h1>
+    </div>
+    <div class="content">
+      <p>Hi <strong>${params.customerName}</strong>,</p>
+
+      <p>Great news! Your identity verification has been completed successfully.</p>
+
+      <div class="success-box">
+        <p><strong>🎉 Your account is now active with a FREE TRIAL!</strong></p>
+        <p>You can now access your dashboard and start using all the features available to you.</p>
+      </div>
+
+      <div style="text-align: center;">
+        <a href="${params.loginUrl}" class="button">Access Your Dashboard</a>
+      </div>
+
+      <p style="margin-top: 30px;">If you have any questions or need assistance, please don't hesitate to contact our support team.</p>
+
+      <p>Welcome aboard!</p>
+      <p><strong>The Contrezz Team</strong></p>
+    </div>
+    <div class="footer">
+      <p>This is an automated message from Contrezz.</p>
+      <p>If you did not apply for an account, please contact us immediately at <a href="mailto:support@contrezz.com">support@contrezz.com</a></p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    const text = `Identity Verified!
+
+Hi ${params.customerName},
+
+Great news! Your identity verification has been completed successfully.
+
+Your account is now active with a FREE TRIAL! You can now access your dashboard and start using all the features available to you.
+
+Access your dashboard: ${params.loginUrl}
+
+If you have any questions or need assistance, please don't hesitate to contact our support team.
+
+Welcome aboard!
+The Contrezz Team
+
+This is an automated message from Contrezz.
+If you did not apply for an account, please contact us immediately at support@contrezz.com`;
+
+    const transporter = getTransporter();
+    const info = await transporter.sendMail({
+      from: `"Contrezz" <${config.from}>`,
+      to: params.customerEmail,
+      subject: '✅ Identity Verification Complete - Welcome to Contrezz!',
+      html,
+      text,
+    });
+
+    console.log('✅ [KYC Verified] Email sent successfully:', info.messageId);
+    return true;
+  } catch (error) {
+    console.error('❌ [KYC Verified] Failed to send email:', error);
+    return false;
+  }
+}
+
+/**
+ * Send Manual Verification Email (Admin approved)
+ */
+export interface ManualVerificationParams {
+  customerName: string;
+  customerEmail: string;
+  companyName: string;
+  loginUrl: string;
+  adminNotes?: string;
+}
+
+export async function sendManualVerificationEmail(params: ManualVerificationParams): Promise<boolean> {
+  try {
+    const config = getEmailConfig();
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📧 [Manual Verification] Preparing to send manual verification email...');
+    console.log('📧 [Manual Verification] Recipient:', params.customerEmail);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background-color: #3B82F6; color: white; padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0; }
+    .header h1 { margin: 0; font-size: 28px; }
+    .content { padding: 30px 20px; background-color: #f9fafb; }
+    .success-box { background-color: #DBEAFE; border-left: 4px solid #3B82F6; padding: 20px; margin: 20px 0; border-radius: 4px; }
+    .button { display: inline-block; padding: 14px 28px; background-color: #3B82F6; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: bold; }
+    .button:hover { background-color: #2563EB; }
+    .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 14px; background-color: #f9fafb; border-radius: 0 0 8px 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>✅ Account Verified by Admin</h1>
+    </div>
+    <div class="content">
+      <p>Hi <strong>${params.customerName}</strong>,</p>
+
+      <p>Your account has been manually verified and approved by our admin team.</p>
+
+      <div class="success-box">
+        <p><strong>🎉 Your account is now active with a FREE TRIAL!</strong></p>
+        <p>You can now access your dashboard and start using all the features available to you.</p>
+        ${params.adminNotes ? `<p style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #93C5FD;"><strong>Admin Note:</strong> ${params.adminNotes}</p>` : ''}
+      </div>
+
+      <div style="text-align: center;">
+        <a href="${params.loginUrl}" class="button">Access Your Dashboard</a>
+      </div>
+
+      <p style="margin-top: 30px;">If you have any questions or need assistance, please don't hesitate to contact our support team.</p>
+
+      <p>Welcome aboard!</p>
+      <p><strong>The Contrezz Team</strong></p>
+    </div>
+    <div class="footer">
+      <p>This is an automated message from Contrezz.</p>
+      <p>If you did not apply for an account, please contact us immediately at <a href="mailto:support@contrezz.com">support@contrezz.com</a></p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    const text = `Account Verified by Admin
+
+Hi ${params.customerName},
+
+Your account has been manually verified and approved by our admin team.
+
+Your account is now active with a FREE TRIAL! You can now access your dashboard and start using all the features available to you.
+
+${params.adminNotes ? `Admin Note: ${params.adminNotes}\n\n` : ''}Access your dashboard: ${params.loginUrl}
+
+If you have any questions or need assistance, please don't hesitate to contact our support team.
+
+Welcome aboard!
+The Contrezz Team
+
+This is an automated message from Contrezz.
+If you did not apply for an account, please contact us immediately at support@contrezz.com`;
+
+    const transporter = getTransporter();
+    const info = await transporter.sendMail({
+      from: `"Contrezz" <${config.from}>`,
+      to: params.customerEmail,
+      subject: '✅ Account Verified - Welcome to Contrezz!',
+      html,
+      text,
+    });
+
+    console.log('✅ [Manual Verification] Email sent successfully:', info.messageId);
+    return true;
+  } catch (error) {
+    console.error('❌ [Manual Verification] Failed to send email:', error);
+    return false;
+  }
+}
+
+/**
+ * Send KYC Rejection Email
+ */
+export interface KYCRejectionParams {
+  customerName: string;
+  customerEmail: string;
+  companyName: string;
+  rejectionReason: string;
+  retryUrl: string;
+}
+
+export async function sendKYCRejectionEmail(params: KYCRejectionParams): Promise<boolean> {
+  try {
+    const config = getEmailConfig();
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📧 [KYC Rejection] Preparing to send KYC rejection email...');
+    console.log('📧 [KYC Rejection] Recipient:', params.customerEmail);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background-color: #EF4444; color: white; padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0; }
+    .header h1 { margin: 0; font-size: 28px; }
+    .content { padding: 30px 20px; background-color: #f9fafb; }
+    .warning-box { background-color: #FEE2E2; border-left: 4px solid #EF4444; padding: 20px; margin: 20px 0; border-radius: 4px; }
+    .info-box { background-color: #DBEAFE; border-left: 4px solid #3B82F6; padding: 20px; margin: 20px 0; border-radius: 4px; }
+    .button { display: inline-block; padding: 14px 28px; background-color: #3B82F6; color: white !important; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: bold; }
+    .button:hover { background-color: #2563EB; }
+    .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 14px; background-color: #f9fafb; border-radius: 0 0 8px 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>❌ Verification Not Approved</h1>
+    </div>
+    <div class="content">
+      <p>Hi <strong>${params.customerName}</strong>,</p>
+
+      <p>We were unable to verify your identity with the documents you provided.</p>
+
+      <div class="warning-box">
+        <p><strong>Reason for Rejection:</strong></p>
+        <p>${params.rejectionReason}</p>
+      </div>
+
+      <div class="info-box">
+        <p><strong>📋 What to do next:</strong></p>
+        <ul style="margin: 10px 0; padding-left: 20px;">
+          <li>Review the rejection reason above</li>
+          <li>Ensure your documents are clear, legible, and valid</li>
+          <li>Make sure the information matches what you provided</li>
+          <li>Submit new documents for verification</li>
+        </ul>
+      </div>
+
+      <div style="text-align: center;">
+        <a href="${params.retryUrl}" class="button">Retry Verification</a>
+      </div>
+
+      <p style="margin-top: 30px;">If you have any questions or need assistance, please contact our support team at <a href="mailto:support@contrezz.com">support@contrezz.com</a></p>
+
+      <p><strong>The Contrezz Team</strong></p>
+    </div>
+    <div class="footer">
+      <p>This is an automated message from Contrezz.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    const text = `Verification Not Approved
+
+Hi ${params.customerName},
+
+We were unable to verify your identity with the documents you provided.
+
+Reason for Rejection:
+${params.rejectionReason}
+
+What to do next:
+- Review the rejection reason above
+- Ensure your documents are clear, legible, and valid
+- Make sure the information matches what you provided
+- Submit new documents for verification
+
+Retry verification: ${params.retryUrl}
+
+If you have any questions or need assistance, please contact our support team at support@contrezz.com
+
+The Contrezz Team
+
+This is an automated message from Contrezz.`;
+
+    const transporter = getTransporter();
+    const info = await transporter.sendMail({
+      from: `"Contrezz" <${config.from}>`,
+      to: params.customerEmail,
+      subject: '❌ Identity Verification Not Approved',
+      html,
+      text,
+    });
+
+    console.log('✅ [KYC Rejection] Email sent successfully:', info.messageId);
+    return true;
+  } catch (error) {
+    console.error('❌ [KYC Rejection] Failed to send email:', error);
+    return false;
+  }
+}
+
 export default {
   testEmailConnection,
   sendTestEmail,
@@ -2187,5 +2533,8 @@ export default {
   sendOnboardingConfirmation,
   sendContactFormConfirmation,
   sendPasswordResetEmail,
-  sendTeamInvitation
+  sendTeamInvitation,
+  sendKYCVerifiedEmail,
+  sendManualVerificationEmail,
+  sendKYCRejectionEmail,
 };

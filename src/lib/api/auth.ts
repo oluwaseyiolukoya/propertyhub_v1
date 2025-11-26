@@ -130,6 +130,14 @@ export const getAccountInfo = async () => {
       actualManagersCount?: number;
       subscriptionStartDate: string | null;
       trialEndsAt: string | null;
+      // KYC fields
+      requiresKyc?: boolean;
+      kycStatus?: string;
+      kycVerificationId?: string;
+      kycCompletedAt?: string | null;
+      kycVerifiedBy?: string | null;
+      kycFailureReason?: string | null;
+      kycLastAttemptAt?: string | null;
       plan: {
         name: string;
         description: string;

@@ -41,6 +41,7 @@ import { usePlatformBranding } from './hooks/usePlatformBranding';
 import StorageTest from './components/StorageTest';
 import CheckAuth from './components/CheckAuth';
 import { verifyUpgrade } from './lib/api/subscriptions';
+import { KYCVerificationPage } from './components/KYCVerificationPage';
 
 function App() {
   // Load platform branding (logo and favicon)
@@ -50,6 +51,7 @@ function App() {
   const [customerData, setCustomerData] = useState<any>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [showLanding, setShowLanding] = useState(true);
+  const [showKYCVerification, setShowKYCVerification] = useState(false);
   const [showGetStarted, setShowGetStarted] = useState(false);
   const [showAccountReview, setShowAccountReview] = useState(false);
   const [showApplicationStatus, setShowApplicationStatus] = useState(false);
@@ -84,24 +86,71 @@ function App() {
         const response = await verifyToken();
         if (response.data && response.data.valid) {
           // Hydrate latest user info and correct userType from backend if needed
-          try {
-            const acct = await getAccountInfo();
-            const refreshedUser = acct.data?.user ? { ...storedUser, ...acct.data.user } : storedUser;
-            setCurrentUser(refreshedUser);
-            setCustomerData(acct.data?.customer || null);
-            // Prefer backend-provided userType, then fall back to derived
-            const backendUserType = (acct.data?.user as any)?.userType;
-            const derivedType = deriveUserTypeFromUser(refreshedUser);
-            const finalType = backendUserType || derivedType || storedUserType || '';
-            setUserType(finalType);
-            // Load managers if owner
-            if (finalType === 'owner' || finalType === 'property-owner') {
-              await loadManagers();
-            }
-          } catch {
+          console.log('[App] ========== CHECKING AUTH ON MOUNT ==========');
+          const acct = await getAccountInfo();
+          console.log('[App] Account response on mount:', {
+            hasError: !!acct.error,
+            hasData: !!acct.data,
+            error: acct.error,
+          });
+
+          // Check for KYC error in response
+          if (acct.error?.kycRequired) {
+            console.log('[App] ✅ KYC required on mount (from error), showing verification page. Status:', acct.error.kycStatus);
             setCurrentUser(storedUser);
             const derivedType = deriveUserTypeFromUser(storedUser);
             setUserType(derivedType || storedUserType);
+            setShowKYCVerification(true);
+            setShowLanding(false);
+            setIsAuthChecking(false);
+            return;
+          }
+
+          const refreshedUser = acct.data?.user ? { ...storedUser, ...acct.data.user } : storedUser;
+          const customer = acct.data?.customer;
+
+          setCurrentUser(refreshedUser);
+          setCustomerData(customer || null);
+
+          // Prefer backend-provided userType, then fall back to derived
+          const backendUserType = (acct.data?.user as any)?.userType;
+          const derivedType = deriveUserTypeFromUser(refreshedUser);
+          const finalType = backendUserType || derivedType || storedUserType || '';
+          setUserType(finalType);
+
+          console.log('[App] ========== CUSTOMER DATA ON MOUNT ==========');
+          console.log('📦 Customer exists:', !!customer);
+          console.log('📦 Customer ID:', customer?.id);
+          console.log('📦 Customer KYC Status:', customer?.kycStatus);
+          console.log('📦 Customer Requires KYC:', customer?.requiresKyc);
+          console.log('📦 Final User Type:', finalType);
+          console.log('[App] ================================================');
+
+          // Check if KYC required and not completed
+          // Valid completed statuses: 'verified' (auto) or 'manually_verified' (admin)
+          const needsKyc = customer?.requiresKyc &&
+              customer?.kycStatus !== 'verified' &&
+              customer?.kycStatus !== 'manually_verified';
+
+          console.log('[App] KYC Check on mount:', {
+            requiresKyc: customer?.requiresKyc,
+            kycStatus: customer?.kycStatus,
+            needsKyc: needsKyc,
+          });
+
+          if (needsKyc) {
+            console.log('[App] ✅ KYC required on mount, showing verification page. Status:', customer.kycStatus);
+            setShowKYCVerification(true);
+            setShowLanding(false);
+            setIsAuthChecking(false);
+            return;
+          } else {
+            console.log('[App] ❌ KYC NOT required or already completed on mount, proceeding to dashboard');
+          }
+
+          // Load managers if owner
+          if (finalType === 'owner' || finalType === 'property-owner') {
+            await loadManagers();
           }
         } else {
           // Token invalid, clear auth
@@ -293,13 +342,52 @@ function App() {
 
     setUserType(finalType);
 
-    // Fetch customer data to check plan category
-    try {
-      const acct = await getAccountInfo();
-      setCustomerData(acct.data?.customer || null);
-      console.log('📦 Customer Plan Category:', acct.data?.customer?.plan?.category);
-    } catch (error) {
-      console.error('Failed to fetch customer data:', error);
+    // Fetch customer data to check plan category and KYC status
+    console.log('[App] ========== FETCHING ACCOUNT INFO ==========');
+    const acct = await getAccountInfo();
+    console.log('[App] Account response:', {
+      hasError: !!acct.error,
+      hasData: !!acct.data,
+      error: acct.error,
+    });
+
+    // Check for KYC error in response
+    if (acct.error?.kycRequired) {
+      console.log('[App] ✅ KYC required after login (from error), showing verification page. Status:', acct.error.kycStatus);
+      setShowKYCVerification(true);
+      setShowLanding(false);
+      return; // Don't proceed to dashboard
+    }
+
+    const customer = acct.data?.customer;
+    setCustomerData(customer || null);
+    console.log('[App] ========== CUSTOMER DATA ==========');
+    console.log('📦 Customer exists:', !!customer);
+    console.log('📦 Customer ID:', customer?.id);
+    console.log('📦 Customer Plan Category:', customer?.plan?.category);
+    console.log('📦 Customer KYC Status:', customer?.kycStatus);
+    console.log('📦 Customer Requires KYC:', customer?.requiresKyc);
+    console.log('[App] ========================================');
+
+    // Check if KYC required and not completed
+    // Valid completed statuses: 'verified' (auto) or 'manually_verified' (admin)
+    const needsKyc = customer?.requiresKyc &&
+        customer?.kycStatus !== 'verified' &&
+        customer?.kycStatus !== 'manually_verified';
+
+    console.log('[App] KYC Check:', {
+      requiresKyc: customer?.requiresKyc,
+      kycStatus: customer?.kycStatus,
+      needsKyc: needsKyc,
+    });
+
+    if (needsKyc) {
+      console.log('[App] ✅ KYC required after login, showing verification page. Status:', customer.kycStatus);
+      setShowKYCVerification(true);
+      setShowLanding(false);
+      return; // Don't proceed to dashboard
+    } else {
+      console.log('[App] ❌ KYC NOT required or already completed, proceeding to dashboard');
     }
   };
 
@@ -1099,6 +1187,31 @@ function App() {
             <CheckAuth />
           </div>
         </div>
+        <Toaster />
+      </>
+    );
+  }
+
+  // IMPORTANT: Enforce KYC before rendering ANY customer dashboard
+  // When showKYCVerification is true, we short-circuit and show ONLY the KYC page.
+  // This must come BEFORE all dashboard conditions (owner, manager, tenant, developer).
+  if (showKYCVerification && currentUser && !(userType === 'admin' || userType === 'super-admin')) {
+    return (
+      <>
+        <KYCVerificationPage
+          onVerificationComplete={async () => {
+            console.log('[App] KYC verification complete, reloading account info...');
+            setShowKYCVerification(false);
+            // Reload account info to get updated KYC status
+            try {
+              const acct = await getAccountInfo();
+              setCustomerData(acct.data?.customer || null);
+              toast.success('Identity verification complete! Welcome to your dashboard.');
+            } catch (error) {
+              console.error('[App] Failed to reload account info:', error);
+            }
+          }}
+        />
         <Toaster />
       </>
     );

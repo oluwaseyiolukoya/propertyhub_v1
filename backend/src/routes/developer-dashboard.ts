@@ -2,6 +2,7 @@ import path from 'path';
 import { Router, Request, Response } from 'express';
 import prisma from '../lib/db';
 import { authMiddleware } from '../middleware/auth';
+import { requireKycVerification } from '../middleware/kyc';
 import storageService from '../services/storage.service';
 import {
   calculateProjectCashFlow,
@@ -15,6 +16,9 @@ const router = Router();
 
 // All routes require authentication
 router.use(authMiddleware);
+
+// All routes require KYC verification (except /api/verification/* and /api/auth/*)
+router.use(requireKycVerification);
 
 // ============================================
 // Helper Functions

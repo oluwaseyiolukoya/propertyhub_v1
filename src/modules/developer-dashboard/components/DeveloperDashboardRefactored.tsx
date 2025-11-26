@@ -112,7 +112,7 @@ export const DeveloperDashboardRefactored: React.FC<
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const paymentCallback = urlParams.get('payment_callback');
-    
+
     if (paymentCallback === 'payment_method' || paymentCallback === 'upgrade') {
       console.log('[DeveloperDashboard] Detected payment callback, redirecting to settings...');
       setCurrentPage('settings');

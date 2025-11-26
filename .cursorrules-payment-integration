@@ -35,25 +35,28 @@
 // ✅ CORRECT: Frontend
 const response = await initializePayment(data);
 if (response.data?.authorizationUrl) {
-  sessionStorage.setItem('payment_reference', response.data.reference);
+  sessionStorage.setItem("payment_reference", response.data.reference);
   window.location.href = response.data.authorizationUrl; // Redirect
 }
 
 // ✅ CORRECT: Backend
-const paystackResponse = await fetch('https://api.paystack.co/transaction/initialize', {
-  method: 'POST',
-  headers: {
-    Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`, // From backend env
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({
-    email: user.email,
-    amount: calculatedAmount, // Backend calculates, not frontend
-    currency: 'NGN',
-    reference: generatedReference,
-    callback_url: `${process.env.FRONTEND_URL}/?payment_callback=type&tab=billing`
-  })
-});
+const paystackResponse = await fetch(
+  "https://api.paystack.co/transaction/initialize",
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`, // From backend env
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      email: user.email,
+      amount: calculatedAmount, // Backend calculates, not frontend
+      currency: "NGN",
+      reference: generatedReference,
+      callback_url: `${process.env.FRONTEND_URL}/?payment_callback=type&tab=billing`,
+    }),
+  }
+);
 ```
 
 **FORBIDDEN PATTERN:**
@@ -64,7 +67,9 @@ const handler = window.PaystackPop.setup({
   key: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY, // ❌ Frontend env var
   email: user.email,
   amount: amount, // ❌ Frontend-provided amount
-  callback: (response) => { /* ... */ }
+  callback: (response) => {
+    /* ... */
+  },
 });
 handler.openIframe();
 ```
@@ -83,18 +88,18 @@ handler.openIframe();
 
 ```typescript
 // ✅ CORRECT: Works in SPA without URL routing
-callback_url: `${process.env.FRONTEND_URL}/?payment_callback=upgrade&tab=billing`
-callback_url: `${process.env.FRONTEND_URL}/?payment_callback=payment_method&tab=billing`
-callback_url: `${process.env.FRONTEND_URL}/?payment_callback=subscription&tab=billing`
+callback_url: `${process.env.FRONTEND_URL}/?payment_callback=upgrade&tab=billing`;
+callback_url: `${process.env.FRONTEND_URL}/?payment_callback=payment_method&tab=billing`;
+callback_url: `${process.env.FRONTEND_URL}/?payment_callback=subscription&tab=billing`;
 ```
 
 **WRONG CALLBACK URL PATTERN:**
 
 ```typescript
 // ❌ WRONG: Returns 404 in SPA
-callback_url: `${process.env.FRONTEND_URL}/upgrade/callback`
-callback_url: `${process.env.FRONTEND_URL}/payment/success`
-callback_url: `${process.env.FRONTEND_URL}/developer/settings?tab=billing` // Path-based
+callback_url: `${process.env.FRONTEND_URL}/upgrade/callback`;
+callback_url: `${process.env.FRONTEND_URL}/payment/success`;
+callback_url: `${process.env.FRONTEND_URL}/developer/settings?tab=billing`; // Path-based
 ```
 
 **REASON:** Single Page Applications (SPAs) without React Router or similar don't have server-side routing. Path-based URLs return 404. Always use root domain with query parameters.
@@ -118,14 +123,14 @@ callback_url: `${process.env.FRONTEND_URL}/developer/settings?tab=billing` // Pa
 catch (error: any) {
   console.error('Payment verification error:', error);
   toast.error(error.response?.data?.error || 'Payment failed');
-  
+
   // Clean up
   sessionStorage.removeItem('payment_reference');
   const url = new URL(window.location.href);
   url.searchParams.delete('reference');
   url.searchParams.delete('payment_callback');
   window.history.replaceState({}, '', url.toString());
-  
+
   // Stay on current page (no redirect)
   setActiveTab('billing');
 }
@@ -159,11 +164,11 @@ catch (error: any) {
 // ✅ CORRECT: In main dashboard component
 useEffect(() => {
   const urlParams = new URLSearchParams(window.location.search);
-  const paymentCallback = urlParams.get('payment_callback');
-  
-  if (paymentCallback === 'payment_method' || paymentCallback === 'upgrade') {
-    console.log('Detected payment callback, navigating to settings...');
-    setCurrentPage('settings'); // Auto-navigate
+  const paymentCallback = urlParams.get("payment_callback");
+
+  if (paymentCallback === "payment_method" || paymentCallback === "upgrade") {
+    console.log("Detected payment callback, navigating to settings...");
+    setCurrentPage("settings"); // Auto-navigate
     // Component will handle verification based on 'tab' parameter
   }
 }, []);
@@ -187,38 +192,38 @@ useEffect(() => {
 const verifyResponse = await fetch(
   `https://api.paystack.co/transaction/verify/${reference}`,
   {
-    method: 'GET',
+    method: "GET",
     headers: {
-      Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`
-    }
+      Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+    },
   }
 );
 
 const verifyData = await verifyResponse.json();
 
 if (!verifyResponse.ok || !verifyData?.status) {
-  return res.status(400).json({ error: 'Payment verification failed' });
+  return res.status(400).json({ error: "Payment verification failed" });
 }
 
 const transaction = verifyData.data;
 
-if (transaction.status !== 'success') {
-  return res.status(400).json({ error: 'Payment was not successful' });
+if (transaction.status !== "success") {
+  return res.status(400).json({ error: "Payment was not successful" });
 }
 
 // Validate metadata
 const metadata = transaction.metadata || {};
 if (!metadata.planId || !metadata.userId) {
-  return res.status(400).json({ error: 'Invalid payment metadata' });
+  return res.status(400).json({ error: "Invalid payment metadata" });
 }
 
 // Check idempotency (already processed?)
 const existingPayment = await prisma.payments.findUnique({
-  where: { providerReference: reference }
+  where: { providerReference: reference },
 });
 
-if (existingPayment && existingPayment.status === 'completed') {
-  return res.json({ success: true, message: 'Payment already processed' });
+if (existingPayment && existingPayment.status === "completed") {
+  return res.json({ success: true, message: "Payment already processed" });
 }
 
 // Now safe to update database
@@ -243,20 +248,22 @@ await prisma.$transaction([
 
 ```typescript
 // ✅ CORRECT: Backend generates reference
-const reference = `UPG-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+const reference = `UPG-${Date.now()}-${Math.random()
+  .toString(36)
+  .substr(2, 9)}`;
 
 // ✅ CORRECT: Frontend stores before redirect
-sessionStorage.setItem('payment_reference', response.data.reference);
-sessionStorage.setItem('payment_type', 'upgrade');
+sessionStorage.setItem("payment_reference", response.data.reference);
+sessionStorage.setItem("payment_type", "upgrade");
 window.location.href = authorizationUrl;
 
 // ✅ CORRECT: Callback checks both sources
-const reference = urlParams.get('reference') || 
-                  sessionStorage.getItem('payment_reference');
+const reference =
+  urlParams.get("reference") || sessionStorage.getItem("payment_reference");
 
 // ✅ CORRECT: Clean up after verification
-sessionStorage.removeItem('payment_reference');
-sessionStorage.removeItem('payment_type');
+sessionStorage.removeItem("payment_reference");
+sessionStorage.removeItem("payment_type");
 ```
 
 ### Rule 8: ALWAYS Include Comprehensive Metadata
@@ -275,18 +282,18 @@ sessionStorage.removeItem('payment_type');
 body: JSON.stringify({
   email: customer.email,
   amount: Math.round(amount * 100),
-  currency: 'NGN',
+  currency: "NGN",
   reference: reference,
   metadata: {
     customerId: customer.id,
     userId: user.id,
     planId: newPlan.id,
     invoiceId: invoice.id,
-    type: 'upgrade',
-    billingCycle: 'monthly'
+    type: "upgrade",
+    billingCycle: "monthly",
   },
-  callback_url: `${process.env.FRONTEND_URL}/?payment_callback=upgrade&tab=billing`
-})
+  callback_url: `${process.env.FRONTEND_URL}/?payment_callback=upgrade&tab=billing`,
+});
 ```
 
 ### Rule 9: ALWAYS Handle Edge Cases
@@ -294,20 +301,24 @@ body: JSON.stringify({
 **REQUIRED EDGE CASE HANDLING:**
 
 1. **User closes browser during payment**
+
    - ✅ Store reference in session storage
    - ✅ Check on next login if pending payment exists
    - ✅ Prompt user to verify payment status
 
 2. **Payment succeeds but callback fails**
+
    - ✅ Implement webhook handler for async verification
    - ✅ Check payment status on page load if reference exists
    - ✅ Show "Verifying payment..." state
 
 3. **User clicks back button**
+
    - ✅ Clean up URL parameters
    - ✅ Don't re-verify already processed payments (idempotency)
 
 4. **Multiple tabs open**
+
    - ✅ Use session storage (not local storage)
    - ✅ Verify payment only once (idempotency check)
 
@@ -342,6 +353,7 @@ Before deploying payment integration, test:
 - [ ] Idempotency (no duplicate processing)
 
 **Test Cards (Paystack):**
+
 - Success: `4084 0840 8408 4081` (CVV: 408, Expiry: any future date)
 - Decline: `5060 6666 6666 6666 6666` (CVV: 123)
 
@@ -352,6 +364,7 @@ Before deploying payment integration, test:
 When adding ANY new payment feature, verify:
 
 ### Backend Checklist
+
 - [ ] Payment initialization endpoint created
 - [ ] Uses `process.env.PAYSTACK_SECRET_KEY` from backend
 - [ ] Generates unique reference on backend
@@ -369,6 +382,7 @@ When adding ANY new payment feature, verify:
 - [ ] Returns clear success/error messages
 
 ### Frontend Checklist
+
 - [ ] Calls backend initialization endpoint
 - [ ] Stores reference in session storage
 - [ ] Redirects to `authorizationUrl` (not Paystack Pop)
@@ -395,20 +409,20 @@ const handlePayment = async () => {
   try {
     setLoading(true);
     const response = await initializeUpgrade(selectedPlan);
-    
+
     if (response.data?.authorizationUrl) {
-      sessionStorage.setItem('upgrade_reference', response.data.reference);
-      sessionStorage.setItem('upgrade_plan_id', selectedPlan);
-      toast.info('Redirecting to payment gateway...');
-      
+      sessionStorage.setItem("upgrade_reference", response.data.reference);
+      sessionStorage.setItem("upgrade_plan_id", selectedPlan);
+      toast.info("Redirecting to payment gateway...");
+
       setTimeout(() => {
         window.location.href = response.data.authorizationUrl;
       }, 1000);
     } else {
-      throw new Error('No authorization URL received');
+      throw new Error("No authorization URL received");
     }
   } catch (error: any) {
-    toast.error(error.response?.data?.error || 'Failed to initialize payment');
+    toast.error(error.response?.data?.error || "Failed to initialize payment");
     setLoading(false);
   }
 };
@@ -416,156 +430,161 @@ const handlePayment = async () => {
 // Frontend: DeveloperDashboardRefactored.tsx
 useEffect(() => {
   const urlParams = new URLSearchParams(window.location.search);
-  const paymentCallback = urlParams.get('payment_callback');
-  
-  if (paymentCallback === 'upgrade') {
-    setCurrentPage('settings'); // Auto-navigate
+  const paymentCallback = urlParams.get("payment_callback");
+
+  if (paymentCallback === "upgrade") {
+    setCurrentPage("settings"); // Auto-navigate
   }
 }, []);
 
 // Frontend: DeveloperSettings.tsx
 useEffect(() => {
   const urlParams = new URLSearchParams(window.location.search);
-  const reference = urlParams.get('reference');
-  const paymentCallback = urlParams.get('payment_callback');
-  
-  if (reference && paymentCallback === 'upgrade') {
+  const reference = urlParams.get("reference");
+  const paymentCallback = urlParams.get("payment_callback");
+
+  if (reference && paymentCallback === "upgrade") {
     handlePaymentCallback(reference);
   }
 }, []);
 
 const handlePaymentCallback = async (reference: string) => {
   try {
-    toast.info('Verifying payment...');
+    toast.info("Verifying payment...");
     const response = await verifyUpgrade(reference);
-    
+
     if (response.data?.success) {
-      sessionStorage.removeItem('upgrade_reference');
-      sessionStorage.removeItem('upgrade_plan_id');
-      
-      toast.success('Plan upgraded successfully!');
-      
+      sessionStorage.removeItem("upgrade_reference");
+      sessionStorage.removeItem("upgrade_plan_id");
+
+      toast.success("Plan upgraded successfully!");
+
       // Clean up URL
       const url = new URL(window.location.href);
-      url.searchParams.delete('reference');
-      url.searchParams.delete('payment_callback');
-      window.history.replaceState({}, '', url.toString());
-      
+      url.searchParams.delete("reference");
+      url.searchParams.delete("payment_callback");
+      window.history.replaceState({}, "", url.toString());
+
       // Refresh data
       await fetchAccountData();
     } else {
-      throw new Error('Verification failed');
+      throw new Error("Verification failed");
     }
   } catch (error: any) {
-    toast.error(error.response?.data?.error || 'Payment verification failed');
-    
+    toast.error(error.response?.data?.error || "Payment verification failed");
+
     // Clean up without redirect
-    sessionStorage.removeItem('upgrade_reference');
+    sessionStorage.removeItem("upgrade_reference");
     const url = new URL(window.location.href);
-    url.searchParams.delete('reference');
-    url.searchParams.delete('payment_callback');
-    window.history.replaceState({}, '', url.toString());
+    url.searchParams.delete("reference");
+    url.searchParams.delete("payment_callback");
+    window.history.replaceState({}, "", url.toString());
   }
 };
 
 // Backend: subscriptions.ts
-router.post('/upgrade/initialize', authMiddleware, async (req, res) => {
+router.post("/upgrade/initialize", authMiddleware, async (req, res) => {
   try {
     const userId = req.user?.id;
     const { planId } = req.body;
-    
+
     // Validate and calculate
     const user = await prisma.users.findUnique({ where: { id: userId } });
     const plan = await prisma.plans.findUnique({ where: { id: planId } });
     const amount = plan.monthlyPrice;
-    
+
     // Generate reference
-    const reference = `UPG-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
+    const reference = `UPG-${Date.now()}-${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
+
     // Initialize with Paystack
-    const paystackResponse = await fetch('https://api.paystack.co/transaction/initialize', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        email: user.email,
-        amount: Math.round(amount * 100),
-        currency: 'NGN',
-        reference,
-        metadata: {
-          customerId: user.customerId,
-          userId: user.id,
-          planId: plan.id,
-          type: 'upgrade'
+    const paystackResponse = await fetch(
+      "https://api.paystack.co/transaction/initialize",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+          "Content-Type": "application/json",
         },
-        callback_url: `${process.env.FRONTEND_URL}/?payment_callback=upgrade&tab=billing`
-      })
-    });
-    
+        body: JSON.stringify({
+          email: user.email,
+          amount: Math.round(amount * 100),
+          currency: "NGN",
+          reference,
+          metadata: {
+            customerId: user.customerId,
+            userId: user.id,
+            planId: plan.id,
+            type: "upgrade",
+          },
+          callback_url: `${process.env.FRONTEND_URL}/?payment_callback=upgrade&tab=billing`,
+        }),
+      }
+    );
+
     const data = await paystackResponse.json();
-    
+
     res.json({
       authorizationUrl: data.data?.authorization_url,
-      reference
+      reference,
     });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to initialize payment' });
+    res.status(500).json({ error: "Failed to initialize payment" });
   }
 });
 
-router.post('/upgrade/verify', authMiddleware, async (req, res) => {
+router.post("/upgrade/verify", authMiddleware, async (req, res) => {
   try {
     const { reference } = req.body;
-    
+
     // Verify with Paystack
     const verifyResponse = await fetch(
       `https://api.paystack.co/transaction/verify/${reference}`,
       {
         headers: {
-          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`
-        }
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+        },
       }
     );
-    
+
     const verifyData = await verifyResponse.json();
-    
-    if (!verifyResponse.ok || verifyData.data?.status !== 'success') {
-      return res.status(400).json({ error: 'Payment was not successful' });
+
+    if (!verifyResponse.ok || verifyData.data?.status !== "success") {
+      return res.status(400).json({ error: "Payment was not successful" });
     }
-    
+
     const metadata = verifyData.data.metadata;
-    
+
     // Check idempotency
     const existing = await prisma.payments.findUnique({
-      where: { providerReference: reference }
+      where: { providerReference: reference },
     });
-    
-    if (existing?.status === 'completed') {
-      return res.json({ success: true, message: 'Already processed' });
+
+    if (existing?.status === "completed") {
+      return res.json({ success: true, message: "Already processed" });
     }
-    
+
     // Update database
     await prisma.$transaction([
       prisma.customers.update({
         where: { id: metadata.customerId },
-        data: { planId: metadata.planId }
+        data: { planId: metadata.planId },
       }),
       prisma.payments.create({
         data: {
           customerId: metadata.customerId,
           amount: verifyData.data.amount / 100,
           currency: verifyData.data.currency,
-          status: 'completed',
-          providerReference: reference
-        }
-      })
+          status: "completed",
+          providerReference: reference,
+        },
+      }),
     ]);
-    
+
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: 'Verification failed' });
+    res.status(500).json({ error: "Verification failed" });
   }
 });
 ```
@@ -693,8 +712,7 @@ curl -X POST http://localhost:5000/api/subscriptions/upgrade/verify \
 
 ---
 
-**Last Updated:** November 24, 2025  
-**Status:** ENFORCED - These rules prevent payment integration issues  
-**Severity:** CRITICAL - Violations cause security issues and broken payments  
+**Last Updated:** November 24, 2025
+**Status:** ENFORCED - These rules prevent payment integration issues
+**Severity:** CRITICAL - Violations cause security issues and broken payments
 **Related:** `.cursorrules` (database), `.cursorrules-code-changes` (state management)
-

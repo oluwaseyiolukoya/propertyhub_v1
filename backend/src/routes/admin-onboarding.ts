@@ -8,6 +8,7 @@ import {
   requestInfoSchema,
 } from '../validators/onboarding.validator';
 import { z } from 'zod';
+import prisma from '../lib/db';
 
 const router = express.Router();
 
@@ -255,6 +256,15 @@ router.post('/applications/:id/activate', async (req: Request, res: Response) =>
     console.log('🎉 Account activated and customer notified');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
+    // Update application to track email sent
+    await prisma.onboarding_applications.update({
+      where: { id },
+      data: {
+        activationEmailSent: emailSent,
+        activationEmailSentAt: emailSent ? new Date() : null,
+      },
+    });
+
     res.json({
       success: true,
       message: result.message,
@@ -262,7 +272,7 @@ router.post('/applications/:id/activate', async (req: Request, res: Response) =>
         temporaryPassword: result.temporaryPassword,
         emailSent: true,
         customerEmail: result.email,
-        note: 'Account activated and activation email sent to customer successfully',
+        note: 'Account activated and activation email sent to customer successfully. Customer must complete KYC verification before accessing dashboard.',
       },
     });
   } catch (error) {

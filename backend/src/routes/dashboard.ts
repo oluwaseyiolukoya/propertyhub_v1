@@ -1,11 +1,13 @@
 import express, { Response } from 'express';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { requireKycVerification } from '../middleware/kyc';
 import prisma from '../lib/db';
 import { emitToAdmins, emitToCustomer } from '../lib/socket';
 
 const router = express.Router();
 
 router.use(authMiddleware);
+router.use(requireKycVerification);
 
 // Get manager analytics data
 router.get('/manager/analytics', async (req: AuthRequest, res: Response) => {
@@ -487,9 +489,9 @@ router.get('/manager/overview', async (req: AuthRequest, res: Response) => {
       stack: error.stack,
       code: error.code
     });
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to fetch dashboard overview',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -850,12 +852,12 @@ router.get('/manager/activities', async (req: AuthRequest, res: Response) => {
     const totalPages = Math.ceil(totalCount / limit);
     const hasMore = page < totalPages;
 
-    console.log('✅ Fetched activities:', { 
-      count: activities.length, 
-      total: totalCount, 
-      page, 
+    console.log('✅ Fetched activities:', {
+      count: activities.length,
+      total: totalCount,
+      page,
       totalPages,
-      hasMore 
+      hasMore
     });
 
     return res.json({
@@ -878,9 +880,9 @@ router.get('/manager/activities', async (req: AuthRequest, res: Response) => {
 
   } catch (error: any) {
     console.error('❌ Failed to fetch manager activities:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to fetch activities',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -972,12 +974,12 @@ router.get('/owner/activities', async (req: AuthRequest, res: Response) => {
     const totalPages = Math.ceil(totalCount / limit);
     const hasMore = page < totalPages;
 
-    console.log('✅ Fetched activities:', { 
-      count: activities.length, 
-      total: totalCount, 
-      page, 
+    console.log('✅ Fetched activities:', {
+      count: activities.length,
+      total: totalCount,
+      page,
       totalPages,
-      hasMore 
+      hasMore
     });
 
     return res.json({
@@ -1000,9 +1002,9 @@ router.get('/owner/activities', async (req: AuthRequest, res: Response) => {
 
   } catch (error: any) {
     console.error('❌ Failed to fetch owner activities:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to fetch activities',
-      details: error.message 
+      details: error.message
     });
   }
 });
