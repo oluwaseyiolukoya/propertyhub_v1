@@ -1,70 +1,23 @@
-name: contrezz-backend
+name: propertyhub-v1-verification-serv
 region: nyc
 
 services:
-  - name: backend
+  - name: verification-service
+    # CRITICAL: Force Dockerfile-based build
+    dockerfile_path: verification-service/Dockerfile
+    source_dir: /
     github:
       repo: oluwaseyiolukoya/propertyhub_v1
       branch: main
       deploy_on_push: true
-
-    source_dir: backend
-
-    # Build command - comprehensive migration and build process
-    # 1. Install dependencies
-    # 2. Deploy ALL Prisma migrations (includes system setup)
-    # 3. Regenerate Prisma Client with latest schema
-    # 4. Build application
-    build_command: npm ci && npx prisma migrate deploy && npx prisma generate && npm run build
-
-    # Run command - start the application
-    run_command: npm run start
-
+    
     # Instance configuration
-    instance_count: 1
-    instance_size_slug: professional-xs
-
-    # Environment variables
-    envs:
-      - key: DATABASE_URL
-        scope: RUN_AND_BUILD_TIME
-        value: ${db.DATABASE_URL}
-      - key: NODE_ENV
-        value: production
-      - key: SMTP_HOST
-        scope: RUN_TIME
-        type: SECRET
-      - key: SMTP_PORT
-        scope: RUN_TIME
-        type: SECRET
-      - key: SMTP_USER
-        scope: RUN_TIME
-        type: SECRET
-      - key: SMTP_PASS
-        scope: RUN_TIME
-        type: SECRET
-      - key: SMTP_FROM
-        scope: RUN_TIME
-        type: SECRET
-      - key: JWT_SECRET
-        scope: RUN_TIME
-        type: SECRET
-      - key: SPACES_ENDPOINT
-        scope: RUN_TIME
-        type: SECRET
-      - key: SPACES_KEY
-        scope: RUN_TIME
-        type: SECRET
-      - key: SPACES_SECRET
-        scope: RUN_TIME
-        type: SECRET
-      - key: SPACES_BUCKET
-        scope: RUN_TIME
-        type: SECRET
-      - key: SPACES_REGION
-        scope: RUN_TIME
-        type: SECRET
-
+    instance_count: 2
+    instance_size_slug: basic-xs
+    
+    # HTTP configuration
+    http_port: 8080
+    
     # Health check
     health_check:
       http_path: /health
@@ -73,16 +26,16 @@ services:
       timeout_seconds: 5
       success_threshold: 1
       failure_threshold: 3
+    
+    # Environment variables (you'll add these in UI)
+    envs:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "8080"
 
-    # HTTP configuration
-    http_port: 5000
-
-    # Routes
-    routes:
-      - path: /
-
+# Database attachment (you'll configure this in UI)
 databases:
-  - name: contrezz-db-prod
+  - name: production-database
     engine: PG
     production: true
-    version: "15"
