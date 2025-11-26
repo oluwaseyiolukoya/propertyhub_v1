@@ -6,14 +6,14 @@ async function main() {
   console.log('🌱 Seeding verification service database...');
 
   // Create API key for main dashboard
-  const apiKey = await prisma.api_keys.upsert({
+  // First, try to find and delete any existing keys
+  await prisma.api_keys.deleteMany({
     where: { name: 'main_dashboard' },
-    update: {
-      key: 'vkey_fd6967cc3dbc5d1650b21b580df6f8f49cb7ddd79f1abd04',
-      isActive: true,
-      permissions: ['read', 'write', 'admin'],
-    },
-    create: {
+  });
+
+  // Then create the new key
+  const apiKey = await prisma.api_keys.create({
+    data: {
       name: 'main_dashboard',
       key: 'vkey_fd6967cc3dbc5d1650b21b580df6f8f49cb7ddd79f1abd04',
       isActive: true,
