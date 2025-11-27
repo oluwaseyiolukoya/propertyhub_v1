@@ -14,7 +14,7 @@ import { Label } from './ui/label';
 import { Checkbox } from './ui/checkbox';
 import { Check, Zap, CreditCard, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { upgradeSubscription } from '../lib/api/subscription';
+import { upgradeSubscription, getSubscriptionStatus } from '../lib/api/subscription';
 import { getAvailablePlans } from '../lib/api/plans';
 import { getUserData } from '../lib/api';
 import { initializeUpgrade } from '../lib/api/subscriptions';
