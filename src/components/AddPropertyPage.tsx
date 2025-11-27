@@ -7,6 +7,7 @@ import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Textarea } from "./ui/textarea";
 import { Switch } from "./ui/switch";
+import { NIGERIAN_CITIES, NIGERIAN_STATES, COUNTRIES } from '../constants/nigeria-locations';
 import { Separator } from "./ui/separator";
 import { Progress } from "./ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
@@ -258,67 +259,7 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
     { id: 'petsallowed', label: 'Pets Allowed', icon: Home }
   ];
 
-  const nigerianStates = [
-    'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa',
-    'Benue', 'Borno', 'Cross River', 'Delta', 'Ebonyi', 'Edo',
-    'Ekiti', 'Enugu', 'Gombe', 'Imo', 'Jigawa', 'Kaduna',
-    'Kano', 'Katsina', 'Kebbi', 'Kogi', 'Kwara', 'Lagos',
-    'Nasarawa', 'Niger', 'Ogun', 'Ondo', 'Osun', 'Oyo',
-    'Plateau', 'Rivers', 'Sokoto', 'Taraba', 'Yobe', 'Zamfara',
-    'FCT (Abuja)', 'Other'
-  ];
-
-  const countries = [
-    'Nigeria',
-    'United States',
-    'United Kingdom',
-    'Canada',
-    'Australia',
-    'South Africa',
-    'Kenya',
-    'Ghana',
-    'Germany',
-    'France',
-    'Spain',
-    'Italy',
-    'Netherlands',
-    'Belgium',
-    'Switzerland',
-    'Sweden',
-    'Norway',
-    'Denmark',
-    'Finland',
-    'Ireland',
-    'Portugal',
-    'Austria',
-    'Greece',
-    'Poland',
-    'Czech Republic',
-    'Hungary',
-    'Romania',
-    'India',
-    'China',
-    'Japan',
-    'South Korea',
-    'Singapore',
-    'Malaysia',
-    'Thailand',
-    'Indonesia',
-    'Philippines',
-    'Vietnam',
-    'United Arab Emirates',
-    'Saudi Arabia',
-    'Egypt',
-    'Morocco',
-    'Tunisia',
-    'Brazil',
-    'Argentina',
-    'Chile',
-    'Colombia',
-    'Mexico',
-    'Peru',
-    'New Zealand'
-  ];
+  // Using imported Nigerian cities, states, and countries from constants
 
   const currencies = [
     { code: 'NGN', symbol: '₦', name: 'Nigerian Naira' },
@@ -537,13 +478,16 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="city">City *</Label>
-                  <Input
-                    id="city"
-                    value={formData.city}
-                    onChange={(e) => handleInputChange('city', e.target.value)}
-                    placeholder="Enter city"
-                    className={errors.city ? 'border-red-500' : ''}
-                  />
+                  <Select value={formData.city} onValueChange={(value) => handleInputChange('city', value)}>
+                    <SelectTrigger className={errors.city ? 'border-red-500' : ''}>
+                      <SelectValue placeholder="Select city" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {NIGERIAN_CITIES.map((city) => (
+                        <SelectItem key={city} value={city}>{city}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {errors.city && <p className="text-sm text-red-600">{errors.city}</p>}
                 </div>
 
@@ -552,10 +496,10 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
                     <Label htmlFor="state">State *</Label>
                     <Select value={formData.state} onValueChange={(value) => handleInputChange('state', value)}>
                       <SelectTrigger className={errors.state ? 'border-red-500' : ''}>
-                        <SelectValue placeholder="State" />
+                        <SelectValue placeholder="Select state" />
                       </SelectTrigger>
                       <SelectContent>
-                        {nigerianStates.map((state) => (
+                        {NIGERIAN_STATES.map((state) => (
                           <SelectItem key={state} value={state}>{state}</SelectItem>
                         ))}
                       </SelectContent>
@@ -583,7 +527,7 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
                       <SelectValue placeholder="Select country" />
                     </SelectTrigger>
                     <SelectContent>
-                      {countries.map((country) => (
+                      {COUNTRIES.map((country) => (
                         <SelectItem key={country} value={country}>{country}</SelectItem>
                       ))}
                     </SelectContent>
@@ -725,42 +669,6 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
                   />
                   {errors.avgRent && <p className="text-sm text-red-600">{errors.avgRent}</p>}
                   <p className="text-xs text-gray-500 mt-1">Typical Nigerian rental period is annual</p>
-                </div>
-
-                <div>
-                  <Label htmlFor="purchasePrice">Purchase Price</Label>
-                  <Input
-                    id="purchasePrice"
-                    type="number"
-                    value={formData.purchasePrice}
-                    onChange={(e) => handleInputChange('purchasePrice', e.target.value)}
-                    placeholder="Property purchase price"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Original purchase price of the property</p>
-                </div>
-
-                <div>
-                  <Label htmlFor="currentValue">Current Market Value</Label>
-                  <Input
-                    id="currentValue"
-                    type="number"
-                    value={formData.currentValue}
-                    onChange={(e) => handleInputChange('currentValue', e.target.value)}
-                    placeholder="Current market value"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Current estimated market value (for Cap Rate calculation)</p>
-                </div>
-
-                <div>
-                  <Label htmlFor="cautionFee">Caution Fee</Label>
-                  <Input
-                    id="cautionFee"
-                    type="number"
-                    value={formData.cautionFee}
-                    onChange={(e) => handleInputChange('cautionFee', e.target.value)}
-                    placeholder="Caution fee (refundable deposit)"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Refundable security deposit</p>
                 </div>
 
                 <div>
@@ -1124,22 +1032,6 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
                   <div className="flex justify-between">
                     <span className="text-gray-600">Annual Rent:</span>
                     <span className="font-medium">{currencies.find(c => c.code === formData.currency)?.symbol}{formData.avgRent}</span>
-                  </div>
-                  {formData.purchasePrice && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Purchase Price:</span>
-                      <span className="font-medium">{currencies.find(c => c.code === formData.currency)?.symbol}{formData.purchasePrice}</span>
-                    </div>
-                  )}
-                  {formData.currentValue && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Current Value:</span>
-                      <span className="font-medium">{currencies.find(c => c.code === formData.currency)?.symbol}{formData.currentValue}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Caution Fee:</span>
-                    <span className="font-medium">{currencies.find(c => c.code === formData.currency)?.symbol}{formData.cautionFee || 'N/A'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Security Deposit:</span>
