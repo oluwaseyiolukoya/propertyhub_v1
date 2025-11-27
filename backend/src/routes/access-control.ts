@@ -146,7 +146,7 @@ router.post('/keys', async (req: AuthRequest, res: Response) => {
     const propertyAccessCheck = await prisma.properties.findFirst({
       where: {
         id: propertyId,
-        ...(propertyFilter.property || {})
+        ...(propertyFilter.properties || {})
       },
       select: { id: true, customerId: true }
     });
@@ -236,7 +236,7 @@ router.put('/keys/:id', async (req: AuthRequest, res: Response) => {
       const propertyAccessCheck = await prisma.properties.findFirst({
         where: {
           id: propertyId,
-          ...(propertyFilter.property || {}),
+          ...(propertyFilter.properties || {}),
         },
         select: { id: true, customerId: true },
       });
@@ -673,8 +673,8 @@ router.get('/stats/overview', async (req: AuthRequest, res: Response) => {
       customerId: req.user?.customerId || undefined
     };
 
-    if (propertyFilter.property) {
-      baseWhere.property = propertyFilter.property;
+    if (propertyFilter.properties) {
+      baseWhere.properties = propertyFilter.properties;
     }
 
     if (propertyId) {
