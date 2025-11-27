@@ -92,7 +92,12 @@ export class TrialManagementService {
         data: {
           status: 'active',
           subscriptionStartDate: new Date(),
+          // Clear all trial-related fields when converting to paid
+          trialStartsAt: null,
+          trialEndsAt: null,
           gracePeriodEndsAt: null,
+          suspendedAt: null,
+          suspensionReason: null,
           updatedAt: new Date(),
         },
       });

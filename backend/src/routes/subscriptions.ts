@@ -725,6 +725,12 @@ router.post('/upgrade/verify', authMiddleware, async (req: AuthRequest, res: Res
       mrr: newMRR,
       status: 'active',
       subscriptionStartDate: customer.subscriptionStartDate || new Date(),
+      // Clear trial-related fields when upgrading to paid plan
+      trialStartsAt: null,
+      trialEndsAt: null,
+      gracePeriodEndsAt: null,
+      suspendedAt: null,
+      suspensionReason: null,
       updatedAt: new Date()
     };
 
