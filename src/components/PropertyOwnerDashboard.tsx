@@ -27,6 +27,7 @@ import { formatCurrency as formatCurrencyUtil, getSmartBaseCurrency } from '../l
 import { TrialStatusBanner } from './TrialStatusBanner';
 import { UpgradeModal } from './UpgradeModal';
 import { getSubscriptionStatus } from '../lib/api/subscription';
+import { verifyUpgrade } from '../lib/api/subscriptions';
 import { apiClient } from '../lib/api-client';
 import { PlatformLogo } from './PlatformLogo';
 
@@ -272,6 +273,78 @@ export function PropertyOwnerDashboard({
       if (!silent) setLoading(false);
     }
   };
+
+  // Handle Paystack subscription upgrade callback for property owners:
+  // FRONTEND_URL/?payment_callback=upgrade&tab=billing&reference=...
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      const params = url.searchParams;
+      const paymentCallback = params.get('payment_callback');
+      const reference =
+        params.get('reference') || sessionStorage.getItem('upgrade_reference');
+
+      if (paymentCallback !== 'upgrade' || !reference) {
+        return;
+      }
+
+      const handleUpgradeCallback = async () => {
+        try {
+          console.log(
+            '[PropertyOwnerDashboard] Handling subscription upgrade callback with reference:',
+            reference
+          );
+          toast.info('Verifying subscription upgrade...');
+
+          const resp = await verifyUpgrade(reference);
+          console.log(
+            '[PropertyOwnerDashboard] Upgrade verification response:',
+            resp.data
+          );
+
+          if (!resp.data?.success) {
+            throw new Error(
+              resp.data?.message || 'Upgrade verification failed'
+            );
+          }
+
+          // Clear stored reference and clean up URL
+          sessionStorage.removeItem('upgrade_reference');
+          sessionStorage.removeItem('upgrade_plan_id');
+          params.delete('reference');
+          params.delete('payment_callback');
+          url.search = params.toString();
+          window.history.replaceState({}, document.title, url.toString());
+
+          toast.success(
+            'Plan upgraded successfully! Refreshing your dashboard...'
+          );
+
+          // Refresh dashboard and subscription status silently
+          await fetchData(true);
+        } catch (error: any) {
+          console.error(
+            '[PropertyOwnerDashboard] Subscription upgrade verification error:',
+            error
+          );
+          const message =
+            error?.response?.data?.error ||
+            error?.message ||
+            'Failed to verify subscription upgrade';
+          toast.error(message);
+        }
+      };
+
+      // Fire and forget (we don't await in the effect body)
+      void handleUpgradeCallback();
+    } catch (e) {
+      // If URL parsing fails for any reason, just ignore and continue
+      console.error(
+        '[PropertyOwnerDashboard] Error while initializing upgrade callback handler:',
+        e
+      );
+    }
+  }, []);
 
   // Initial data fetch
   useEffect(() => {
