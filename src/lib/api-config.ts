@@ -163,6 +163,7 @@ export const API_ENDPOINTS = {
   // Access Control
   ACCESS_CONTROL: {
     KEYS: '/api/access-control/keys',
+    KEY: (id: string) => `/api/access-control/keys/${id}`,
     ISSUE: (id: string) => `/api/access-control/keys/${id}/issue`,
     RETURN: (id: string) => `/api/access-control/keys/${id}/return`,
     REPORT_LOST: (id: string) => `/api/access-control/keys/${id}/report-lost`,

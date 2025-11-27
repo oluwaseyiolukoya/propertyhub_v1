@@ -11,9 +11,12 @@ import { NIGERIAN_CITIES, NIGERIAN_STATES, COUNTRIES } from '../constants/nigeri
 import { Separator } from "./ui/separator";
 import { Progress } from "./ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { Calendar as CalendarComponent } from "./ui/calendar";
 import { ImageUpload } from "./ImageUpload";
 import { toast } from "sonner";
 import { createManager } from '../lib/api/property-managers';
+import { format } from "date-fns";
 import {
   Building2,
   MapPin,
@@ -81,7 +84,7 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
     parking: '',
 
     // Financial Information
-    currency: 'USD',
+    currency: 'NGN',
     avgRent: '',
     purchasePrice: '',
     currentValue: '',
@@ -263,17 +266,18 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
 
   const currencies = [
     { code: 'NGN', symbol: '₦', name: 'Nigerian Naira' },
+    { code: 'XOF', symbol: 'CFA', name: 'West African CFA Franc' },
     { code: 'USD', symbol: '$', name: 'US Dollar' },
     { code: 'EUR', symbol: '€', name: 'Euro' },
     { code: 'GBP', symbol: '£', name: 'British Pound' },
     { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar' },
     { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' },
-    { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
-    { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
-    { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
     { code: 'ZAR', symbol: 'R', name: 'South African Rand' },
     { code: 'KES', symbol: 'KSh', name: 'Kenyan Shilling' },
-    { code: 'GHS', symbol: '₵', name: 'Ghanaian Cedi' }
+    { code: 'GHS', symbol: '₵', name: 'Ghanaian Cedi' },
+    { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
+    { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
+    { code: 'INR', symbol: '₹', name: 'Indian Rupee' }
   ];
 
   const validateStep = (step: number): boolean => {
@@ -884,12 +888,33 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
 
                   <div>
                     <Label htmlFor="insuranceExpiration">Policy Expiration</Label>
-                    <Input
-                      id="insuranceExpiration"
-                      type="date"
-                      value={formData.insuranceExpiration}
-                      onChange={(e) => handleInputChange('insuranceExpiration', e.target.value)}
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal"
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {formData.insuranceExpiration ? (
+                            format(new Date(formData.insuranceExpiration), "PPP")
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 bg-white border-gray-300" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={formData.insuranceExpiration ? new Date(formData.insuranceExpiration) : undefined}
+                          onSelect={(date) => {
+                            if (date) {
+                              handleInputChange('insuranceExpiration', format(date, 'yyyy-MM-dd'));
+                            }
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
               </div>
@@ -1354,7 +1379,7 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
 
                 <div className="flex space-x-4">
                   {currentStep === steps.length ? (
-                    <Button onClick={handleSubmit} className="bg-green-600 hover:bg-green-700">
+                    <Button onClick={handleSubmit} className="bg-gradient-to-r from-gray-900 to-black hover:from-black hover:to-gray-900 text-white">
                       <Save className="h-4 w-4 mr-2" />
                       {mode === 'edit' ? 'Save Changes' : 'Add Property'}
                     </Button>
@@ -1474,7 +1499,7 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
               type="button"
               onClick={handleCreateManager}
               disabled={isCreatingManager}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-gradient-to-r from-gray-900 to-black hover:from-black hover:to-gray-900 text-white"
             >
               {isCreatingManager ? (
                 <>

@@ -11,6 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Textarea } from "./ui/textarea";
 import { Switch } from "./ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { Calendar as CalendarComponent } from "./ui/calendar";
 import {
   Key,
   ClipboardList,
@@ -26,7 +28,8 @@ import {
   AlertCircle,
   Download,
   MoreHorizontal,
-  Info
+  Info,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 import { toast } from "sonner";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
@@ -38,6 +41,7 @@ import {
   KeyStats,
   getPropertyKeys,
   createPropertyKey,
+  updatePropertyKey,
   issuePropertyKey,
   returnPropertyKey,
   reportLostPropertyKey,
@@ -47,6 +51,8 @@ import {
 import { getProperties, Property } from '../lib/api/properties';
 import { getUnits, getUnit } from '../lib/api/units';
 import { formatCurrency } from '../lib/currency';
+import { format } from 'date-fns';
+import { cn } from '../lib/utils';
 
 const STATUS_OPTIONS = [
   { label: 'All Status', value: 'all' },
@@ -113,6 +119,19 @@ export const AccessControl = () => {
   const [showReportLost, setShowReportLost] = useState(false);
 
   const [selectedKey, setSelectedKey] = useState<PropertyKey | null>(null);
+
+  const [editKeyForm, setEditKeyForm] = useState({
+    keyNumber: '',
+    keyLabel: '',
+    keyType: 'Unit',
+    propertyId: '',
+    unitId: 'none', // sentinel for "no unit"
+    numberOfCopies: '1',
+    location: '',
+    notes: ''
+  });
+  const [showEditKeyDialog, setShowEditKeyDialog] = useState(false);
+  const [savingEditKey, setSavingEditKey] = useState(false);
 
   const [newKeyForm, setNewKeyForm] = useState({
     keyNumber: '',
@@ -359,6 +378,63 @@ export const AccessControl = () => {
     refreshData();
   };
 
+  const openEditKeyDialog = (key: PropertyKey) => {
+    setSelectedKey(key);
+    setEditKeyForm({
+      keyNumber: key.keyNumber || '',
+      keyLabel: key.keyLabel || '',
+      keyType: key.keyType || 'Unit',
+      propertyId: key.propertyId,
+      // use 'none' sentinel when there is no unit
+      unitId: key.unitId || 'none',
+      numberOfCopies: String(key.numberOfCopies || '1'),
+      location: key.location || '',
+      notes: key.notes || '',
+    });
+    setShowEditKeyDialog(true);
+  };
+
+  const handleSaveEditKey = async () => {
+    if (!selectedKey) return;
+
+    try {
+      if (!editKeyForm.keyNumber || !editKeyForm.keyType || !editKeyForm.propertyId) {
+        toast.error('Key number, type and property are required');
+        return;
+      }
+
+      setSavingEditKey(true);
+      const payload: Partial<PropertyKey> = {
+        keyNumber: editKeyForm.keyNumber,
+        keyLabel: editKeyForm.keyLabel || undefined,
+        keyType: editKeyForm.keyType,
+        propertyId: editKeyForm.propertyId,
+        // treat 'none' as no unit selected
+        unitId: editKeyForm.unitId && editKeyForm.unitId !== 'none' ? editKeyForm.unitId : undefined,
+        numberOfCopies: Number(editKeyForm.numberOfCopies || '1'),
+        location: editKeyForm.location || undefined,
+        notes: editKeyForm.notes || undefined,
+      };
+
+      const response = await updatePropertyKey(selectedKey.id, payload);
+      if (response.error) {
+        console.error('Failed to update key:', response.error);
+        toast.error(response.error.error || 'Failed to update key');
+        return;
+      }
+
+      toast.success('Key entry updated successfully');
+      setShowEditKeyDialog(false);
+      setSelectedKey(null);
+      await refreshData();
+    } catch (error: any) {
+      console.error('Error updating key:', error);
+      toast.error(error?.message || 'Failed to update key');
+    } finally {
+      setSavingEditKey(false);
+    }
+  };
+
   const handleIssueKey = async () => {
     if (!issueKeyForm.keyId || !issueKeyForm.issuedTo) {
       toast.error('Please select a key and person');
@@ -569,12 +645,36 @@ export const AccessControl = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Expected Return</Label>
-                        <Input
-                    type="date"
-                    value={issueKeyForm.expectedReturnDate}
-                    onChange={(e) => setIssueKeyForm((prev) => ({ ...prev, expectedReturnDate: e.target.value }))}
-                  />
-                      </div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !issueKeyForm.expectedReturnDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {issueKeyForm.expectedReturnDate
+                          ? format(new Date(issueKeyForm.expectedReturnDate), "PPP")
+                          : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={issueKeyForm.expectedReturnDate ? new Date(issueKeyForm.expectedReturnDate) : undefined}
+                        onSelect={(date) =>
+                          setIssueKeyForm((prev) => ({
+                            ...prev,
+                            expectedReturnDate: date ? format(date, "yyyy-MM-dd") : "",
+                          }))
+                        }
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
 
               {/* Deposit removed by request */}
@@ -1069,6 +1169,10 @@ export const AccessControl = () => {
                               </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openEditKeyDialog(key)}>
+                                  <FileText className="h-4 w-4 mr-2" />
+                                  Edit Key
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => openIssueDialog(key)} disabled={processingIssue || key.status.toLowerCase() === 'issued'}>
                                   <LogOut className="h-4 w-4 mr-2" />
                                   Issue Key
@@ -1288,6 +1392,157 @@ export const AccessControl = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Key Dialog */}
+      <Dialog open={showEditKeyDialog} onOpenChange={setShowEditKeyDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Key Entry</DialogTitle>
+            <DialogDescription>
+              Update key details such as label, type, property, unit, copies, location, and notes.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedKey && (
+            <div className="space-y-4 py-2">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-key-number">Key Number</Label>
+                  <Input
+                    id="edit-key-number"
+                    value={editKeyForm.keyNumber}
+                    onChange={(e) => setEditKeyForm(prev => ({ ...prev, keyNumber: e.target.value }))}
+                    placeholder="e.g. A-101"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-key-label">Key Label</Label>
+                  <Input
+                    id="edit-key-label"
+                    value={editKeyForm.keyLabel}
+                    onChange={(e) => setEditKeyForm(prev => ({ ...prev, keyLabel: e.target.value }))}
+                    placeholder="Front Door Key"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-key-type">Key Type</Label>
+                  <Select
+                    value={editKeyForm.keyType}
+                    onValueChange={(value) => setEditKeyForm(prev => ({ ...prev, keyType: value }))}
+                  >
+                    <SelectTrigger id="edit-key-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {KEY_TYPE_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-copies">Number of Copies</Label>
+                  <Input
+                    id="edit-copies"
+                    type="number"
+                    min={1}
+                    value={editKeyForm.numberOfCopies}
+                    onChange={(e) => setEditKeyForm(prev => ({ ...prev, numberOfCopies: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-property">Property</Label>
+                  <Select
+                    value={editKeyForm.propertyId}
+                    onValueChange={(value) => setEditKeyForm(prev => ({ ...prev, propertyId: value, unitId: 'none' }))}
+                  >
+                    <SelectTrigger id="edit-property">
+                      <SelectValue placeholder="Select property" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {properties.map((property) => (
+                        <SelectItem key={property.id} value={property.id}>
+                          {property.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-unit">Unit (Optional)</Label>
+                  <Select
+                    value={editKeyForm.unitId}
+                    onValueChange={(value) => setEditKeyForm(prev => ({ ...prev, unitId: value }))}
+                    disabled={!editKeyForm.propertyId}
+                  >
+                    <SelectTrigger id="edit-unit">
+                      <SelectValue placeholder="Select unit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No unit</SelectItem>
+                      {units
+                        .filter((u) => u.propertyId === editKeyForm.propertyId)
+                        .map((unit) => (
+                          <SelectItem key={unit.id} value={unit.id}>
+                            {unit.unitNumber}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-location">Location</Label>
+                <Input
+                  id="edit-location"
+                  value={editKeyForm.location}
+                  onChange={(e) => setEditKeyForm(prev => ({ ...prev, location: e.target.value }))}
+                  placeholder="Key Cabinet - Office"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-notes">Notes</Label>
+                <Textarea
+                  id="edit-notes"
+                  value={editKeyForm.notes}
+                  onChange={(e) => setEditKeyForm(prev => ({ ...prev, notes: e.target.value }))}
+                  rows={3}
+                  placeholder="Any special handling instructions..."
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!savingEditKey) {
+                  setShowEditKeyDialog(false);
+                  setSelectedKey(null);
+                }
+              }}
+              disabled={savingEditKey}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEditKey} disabled={savingEditKey}>
+              {savingEditKey ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
 
 

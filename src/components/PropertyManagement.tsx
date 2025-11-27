@@ -85,6 +85,12 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
     size: '',
     monthlyRent: '',
     securityDeposit: '',
+    serviceCharge: '',
+    applicationFee: '',
+    cautionFee: '',
+    legalFee: '',
+    agentCommission: '',
+    agreementFee: '',
     status: 'vacant'
   });
   const [savingUnit, setSavingUnit] = useState(false);
@@ -404,6 +410,12 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
         size: unitForm.size ? parseFloat(unitForm.size) : undefined,
         monthlyRent: parseFloat(unitForm.monthlyRent),
         securityDeposit: unitForm.securityDeposit ? parseFloat(unitForm.securityDeposit) : undefined,
+        serviceCharge: unitForm.serviceCharge ? parseFloat(unitForm.serviceCharge) : undefined,
+        applicationFee: unitForm.applicationFee ? parseFloat(unitForm.applicationFee) : undefined,
+        cautionFee: unitForm.cautionFee ? parseFloat(unitForm.cautionFee) : undefined,
+        legalFee: unitForm.legalFee ? parseFloat(unitForm.legalFee) : undefined,
+        agentCommission: unitForm.agentCommission ? parseFloat(unitForm.agentCommission) : undefined,
+        agreementFee: unitForm.agreementFee ? parseFloat(unitForm.agreementFee) : undefined,
         status: unitForm.status
       };
 
@@ -423,6 +435,12 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
         size: '',
         monthlyRent: '',
         securityDeposit: '',
+        serviceCharge: '',
+        applicationFee: '',
+        cautionFee: '',
+        legalFee: '',
+        agentCommission: '',
+        agreementFee: '',
         status: 'vacant'
       });
 
@@ -464,6 +482,12 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
         size: editUnitForm.size ? parseFloat(editUnitForm.size) : null,
         monthlyRent: parseFloat(editUnitForm.monthlyRent),
         securityDeposit: editUnitForm.securityDeposit ? parseFloat(editUnitForm.securityDeposit) : null,
+        serviceCharge: editUnitForm.serviceCharge ? parseFloat(editUnitForm.serviceCharge) : null,
+        applicationFee: editUnitForm.applicationFee ? parseFloat(editUnitForm.applicationFee) : null,
+        cautionFee: editUnitForm.cautionFee ? parseFloat(editUnitForm.cautionFee) : null,
+        legalFee: editUnitForm.legalFee ? parseFloat(editUnitForm.legalFee) : null,
+        agentCommission: editUnitForm.agentCommission ? parseFloat(editUnitForm.agentCommission) : null,
+        agreementFee: editUnitForm.agreementFee ? parseFloat(editUnitForm.agreementFee) : null,
         status: editUnitForm.status
       };
 
@@ -1330,6 +1354,12 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                                               size: unit.size?.toString() || unit.sqft?.toString() || '',
                                               monthlyRent: (unit.monthlyRent || unit.rent || 0).toString(),
                                               securityDeposit: unit.securityDeposit?.toString() || '',
+                                              serviceCharge: unit.serviceCharge?.toString() || '',
+                                              applicationFee: unit.applicationFee?.toString() || '',
+                                              cautionFee: unit.cautionFee?.toString() || '',
+                                              legalFee: unit.legalFee?.toString() || '',
+                                              agentCommission: unit.agentCommission?.toString() || '',
+                                              agreementFee: unit.agreementFee?.toString() || '',
                                               status: unit.status || 'vacant'
                                             });
                                             setShowEditUnit(true);
@@ -2151,6 +2181,75 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                   />
                 </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="serviceCharge">Service Charge</Label>
+                  <Input
+                    id="serviceCharge"
+                    type="number"
+                    placeholder="0"
+                    value={unitForm.serviceCharge || ''}
+                    onChange={(e) => setUnitForm({ ...unitForm, serviceCharge: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="applicationFee">Application Fee</Label>
+                  <Input
+                    id="applicationFee"
+                    type="number"
+                    placeholder="0"
+                    value={unitForm.applicationFee || ''}
+                    onChange={(e) => setUnitForm({ ...unitForm, applicationFee: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="cautionFee">Caution Fee</Label>
+                  <Input
+                    id="cautionFee"
+                    type="number"
+                    placeholder="0"
+                    value={unitForm.cautionFee || ''}
+                    onChange={(e) => setUnitForm({ ...unitForm, cautionFee: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="legalFee">Legal Fee</Label>
+                  <Input
+                    id="legalFee"
+                    type="number"
+                    placeholder="0"
+                    value={unitForm.legalFee || ''}
+                    onChange={(e) => setUnitForm({ ...unitForm, legalFee: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="agentCommission">Agent Commission</Label>
+                  <Input
+                    id="agentCommission"
+                    type="number"
+                    placeholder="0"
+                    value={unitForm.agentCommission || ''}
+                    onChange={(e) => setUnitForm({ ...unitForm, agentCommission: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="agreementFee">Agreement Fee</Label>
+                  <Input
+                    id="agreementFee"
+                    type="number"
+                    placeholder="0"
+                    value={unitForm.agreementFee || ''}
+                    onChange={(e) => setUnitForm({ ...unitForm, agreementFee: e.target.value })}
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -2300,6 +2399,75 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                     placeholder="1200"
                     value={editUnitForm.securityDeposit}
                     onChange={(e) => setEditUnitForm({ ...editUnitForm, securityDeposit: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-serviceCharge">Service Charge</Label>
+                  <Input
+                    id="edit-serviceCharge"
+                    type="number"
+                    placeholder="0"
+                    value={editUnitForm.serviceCharge || ''}
+                    onChange={(e) => setEditUnitForm({ ...editUnitForm, serviceCharge: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-applicationFee">Application Fee</Label>
+                  <Input
+                    id="edit-applicationFee"
+                    type="number"
+                    placeholder="0"
+                    value={editUnitForm.applicationFee || ''}
+                    onChange={(e) => setEditUnitForm({ ...editUnitForm, applicationFee: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-cautionFee">Caution Fee</Label>
+                  <Input
+                    id="edit-cautionFee"
+                    type="number"
+                    placeholder="0"
+                    value={editUnitForm.cautionFee || ''}
+                    onChange={(e) => setEditUnitForm({ ...editUnitForm, cautionFee: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-legalFee">Legal Fee</Label>
+                  <Input
+                    id="edit-legalFee"
+                    type="number"
+                    placeholder="0"
+                    value={editUnitForm.legalFee || ''}
+                    onChange={(e) => setEditUnitForm({ ...editUnitForm, legalFee: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-agentCommission">Agent Commission</Label>
+                  <Input
+                    id="edit-agentCommission"
+                    type="number"
+                    placeholder="0"
+                    value={editUnitForm.agentCommission || ''}
+                    onChange={(e) => setEditUnitForm({ ...editUnitForm, agentCommission: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-agreementFee">Agreement Fee</Label>
+                  <Input
+                    id="edit-agreementFee"
+                    type="number"
+                    placeholder="0"
+                    value={editUnitForm.agreementFee || ''}
+                    onChange={(e) => setEditUnitForm({ ...editUnitForm, agreementFee: e.target.value })}
                   />
                 </div>
               </div>

@@ -240,7 +240,61 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       orderBy: { date: 'desc' }
     });
 
-    return res.json({ data: expenses });
+    // Map Prisma relations to API-friendly shape expected by frontend
+    const mappedExpenses = expenses.map((expense: any) => ({
+      id: expense.id,
+      propertyId: expense.propertyId,
+      unitId: expense.unitId,
+      category: expense.category,
+      description: expense.description,
+      amount: expense.amount,
+      currency: expense.currency,
+      date: expense.date,
+      dueDate: expense.dueDate,
+      status: expense.status,
+      paidDate: expense.paidDate,
+      paymentMethod: expense.paymentMethod,
+      recordedBy: expense.recordedBy,
+      recordedByRole: expense.recordedByRole,
+      receipt: expense.receipt,
+      notes: expense.notes,
+      requiresApproval: expense.requiresApproval,
+      approvedBy: expense.approvedBy,
+      approvedAt: expense.approvedAt,
+      visibleToManager: expense.visibleToManager,
+      createdAt: expense.createdAt,
+      updatedAt: expense.updatedAt,
+      // Normalized relation names
+      property: expense.properties
+        ? {
+            id: expense.properties.id,
+            name: expense.properties.name,
+            currency: expense.properties.currency || 'NGN',
+          }
+        : undefined,
+      unit: expense.units
+        ? {
+            id: expense.units.id,
+            unitNumber: expense.units.unitNumber,
+          }
+        : undefined,
+      recorder: expense.users_expenses_recordedByTousers
+        ? {
+            id: expense.users_expenses_recordedByTousers.id,
+            name: expense.users_expenses_recordedByTousers.name,
+            email: expense.users_expenses_recordedByTousers.email,
+          }
+        : undefined,
+      approver: expense.users_expenses_approvedByTousers
+        ? {
+            id: expense.users_expenses_approvedByTousers.id,
+            name: expense.users_expenses_approvedByTousers.name,
+            email: expense.users_expenses_approvedByTousers.email,
+          }
+        : undefined,
+    }));
+
+    return res.json({ data: mappedExpenses });
 
   } catch (error: any) {
     console.error('Get expenses error:', error);
@@ -310,7 +364,60 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
       }
     }
 
-    return res.json({ data: expense });
+    // Normalize to API shape consistent with list endpoint
+    const mappedExpense: any = {
+      id: expense.id,
+      propertyId: expense.propertyId,
+      unitId: expense.unitId,
+      category: expense.category,
+      description: expense.description,
+      amount: expense.amount,
+      currency: expense.currency,
+      date: expense.date,
+      dueDate: expense.dueDate,
+      status: expense.status,
+      paidDate: expense.paidDate,
+      paymentMethod: expense.paymentMethod,
+      recordedBy: expense.recordedBy,
+      recordedByRole: expense.recordedByRole,
+      receipt: expense.receipt,
+      notes: expense.notes,
+      requiresApproval: expense.requiresApproval,
+      approvedBy: expense.approvedBy,
+      approvedAt: expense.approvedAt,
+      visibleToManager: expense.visibleToManager,
+      createdAt: expense.createdAt,
+      updatedAt: expense.updatedAt,
+      property: expense.properties
+        ? {
+            id: expense.properties.id,
+            name: expense.properties.name,
+            currency: expense.properties.currency || 'NGN',
+          }
+        : undefined,
+      unit: expense.units
+        ? {
+            id: expense.units.id,
+            unitNumber: expense.units.unitNumber,
+          }
+        : undefined,
+      recorder: expense.users_expenses_recordedByTousers
+        ? {
+            id: expense.users_expenses_recordedByTousers.id,
+            name: expense.users_expenses_recordedByTousers.name,
+            email: expense.users_expenses_recordedByTousers.email,
+          }
+        : undefined,
+      approver: expense.users_expenses_approvedByTousers
+        ? {
+            id: expense.users_expenses_approvedByTousers.id,
+            name: expense.users_expenses_approvedByTousers.name,
+            email: expense.users_expenses_approvedByTousers.email,
+          }
+        : undefined,
+    };
+
+    return res.json({ data: mappedExpense });
 
   } catch (error: any) {
     console.error('Get expense error:', error);
@@ -397,20 +504,20 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         updatedAt: new Date()
       },
       include: {
-        property: {
+        properties: {
           select: {
             id: true,
             name: true,
             currency: true
           }
         },
-        unit: {
+        units: {
           select: {
             id: true,
             unitNumber: true
           }
         },
-        recorder: {
+        users_expenses_recordedByTousers: {
           select: {
             id: true,
             name: true,

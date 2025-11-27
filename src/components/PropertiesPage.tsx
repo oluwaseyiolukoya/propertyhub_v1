@@ -146,6 +146,15 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
   const [selectedUnit, setSelectedUnit] = useState<any>(null);
   const [editingUnit, setEditingUnit] = useState(false);
 
+  // Derived helpers for currently selected unit (view/edit)
+  const selectedUnitNigeria =
+    (selectedUnit &&
+      selectedUnit.features &&
+      (selectedUnit.features as any).nigeria) ||
+    {};
+  const selectedUnitCurrency =
+    selectedUnit?.properties?.currency || "USD";
+
   useEffect(() => {
     (async () => {
       try {
@@ -231,32 +240,70 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
         throw new Error(res.error.error || 'Failed to fetch unit details');
       }
 
-      // Populate form with unit data
+      const data = res.data;
+      // Newer units store Nigeria-specific fields inside features.nigeria
+      const nigeriaFeatures = (data?.features && (data.features as any).nigeria) || {};
+
+      // Populate form with unit data (prefer features.nigeria, fall back to top-level / property defaults)
       setUnitForm({
-        propertyId: res.data.propertyId || '',
-        unitNumber: res.data.unitNumber || '',
-        type: res.data.type || '',
-        floor: res.data.floor || '',
-        bedrooms: res.data.bedrooms || '',
-        bathrooms: res.data.bathrooms || '',
-        size: res.data.size || '',
-        monthlyRent: res.data.monthlyRent || '',
-        securityDeposit: res.data.securityDeposit || '',
-        status: res.data.status || 'vacant',
-        rentFrequency: res.data.rentFrequency || 'monthly',
-        serviceCharge: res.data.serviceCharge || '',
-        cautionFee: res.data.cautionFee || '',
-        legalFee: res.data.legalFee || '',
-        agentCommission: res.data.agentCommission || '',
-        agreementFee: res.data.agreementFee || '',
-        electricityMeter: res.data.electricityMeter || '',
-        prepaidMeter: res.data.prepaidMeter || false,
-        wasteFee: res.data.wasteFee || '',
-        estateDues: res.data.estateDues || '',
-        waterSource: res.data.waterSource || 'public',
-        parkingAvailable: res.data.parkingAvailable !== undefined ? res.data.parkingAvailable : true
+        propertyId: data.propertyId || '',
+        unitNumber: data.unitNumber || '',
+        type: data.type || '',
+        floor: (data.floor ?? '').toString(),
+        bedrooms: (data.bedrooms ?? '').toString(),
+        bathrooms: (data.bathrooms ?? '').toString(),
+        size: (data.size ?? '').toString(),
+        monthlyRent: (data.monthlyRent ?? '').toString(),
+        securityDeposit: (data.securityDeposit ??
+          data.properties?.securityDeposit ??
+          '').toString(),
+        status: data.status || 'vacant',
+
+        // Nigeria-specific features (saved in JSON)
+        rentFrequency: nigeriaFeatures.rentFrequency || 'monthly',
+        serviceCharge:
+          nigeriaFeatures.serviceCharge?.toString() ??
+          (data.properties?.serviceCharge != null
+            ? String(data.properties.serviceCharge)
+            : ''),
+        cautionFee:
+          nigeriaFeatures.cautionFee?.toString() ??
+          (data.properties?.cautionFee != null
+            ? String(data.properties.cautionFee)
+            : ''),
+        legalFee:
+          nigeriaFeatures.legalFee?.toString() ??
+          (data.properties?.legalFee != null
+            ? String(data.properties.legalFee)
+            : ''),
+        agentCommission:
+          nigeriaFeatures.agentCommission?.toString() ??
+          (data.properties?.agentCommission != null
+            ? String(data.properties.agentCommission)
+            : ''),
+        agreementFee:
+          nigeriaFeatures.agreementFee?.toString() ??
+          (data.properties?.agreementFee != null
+            ? String(data.properties.agreementFee)
+            : ''),
+        electricityMeter:
+          nigeriaFeatures.electricityMeter ??
+          data.electricityMeter ??
+          '',
+        prepaidMeter:
+          nigeriaFeatures.prepaidMeter ??
+          data.prepaidMeter ??
+          false,
+        wasteFee: nigeriaFeatures.wasteFee?.toString() || '',
+        estateDues: nigeriaFeatures.estateDues?.toString() || '',
+        waterSource: nigeriaFeatures.waterSource || 'public',
+        parkingAvailable:
+          nigeriaFeatures.parkingAvailable ??
+          data.parkingAvailable ??
+          true,
       });
-      setSelectedUnit(res.data);
+
+      setSelectedUnit(data);
       setShowEditUnitDialog(true);
     } catch (error: any) {
       toast.error(error?.message || 'Failed to load unit details');
@@ -270,30 +317,54 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
     try {
       setEditingUnit(true);
 
-      const res = await updateUnit(selectedUnit.id, {
+      // Persist core scalar fields on the unit, and pack Nigeria‑specific
+      // financial/utilities data into features.nigeria (same as Add Unit flow).
+      const payload: any = {
         propertyId: unitForm.propertyId,
         unitNumber: unitForm.unitNumber,
         type: unitForm.type,
-        floor: parseInt(unitForm.floor) || null,
-        bedrooms: parseInt(unitForm.bedrooms) || 0,
-        bathrooms: parseInt(unitForm.bathrooms) || 0,
-        size: parseFloat(unitForm.size) || null,
-        monthlyRent: parseFloat(unitForm.monthlyRent) || 0,
-        securityDeposit: parseFloat(unitForm.securityDeposit) || null,
+        floor: unitForm.floor ? Number(unitForm.floor) : null,
+        bedrooms: unitForm.bedrooms ? Number(unitForm.bedrooms) : 0,
+        bathrooms: unitForm.bathrooms ? Number(unitForm.bathrooms) : 0,
+        size: unitForm.size ? Number(unitForm.size) : null,
+        monthlyRent: unitForm.monthlyRent ? Number(unitForm.monthlyRent) : 0,
+        securityDeposit: unitForm.securityDeposit
+          ? Number(unitForm.securityDeposit)
+          : null,
         status: unitForm.status,
-        rentFrequency: unitForm.rentFrequency,
-        serviceCharge: parseFloat(unitForm.serviceCharge) || null,
-        cautionFee: parseFloat(unitForm.cautionFee) || null,
-        legalFee: parseFloat(unitForm.legalFee) || null,
-        agentCommission: parseFloat(unitForm.agentCommission) || null,
-        agreementFee: parseFloat(unitForm.agreementFee) || null,
-        electricityMeter: unitForm.electricityMeter || null,
-        prepaidMeter: unitForm.prepaidMeter,
-        wasteFee: parseFloat(unitForm.wasteFee) || null,
-        estateDues: parseFloat(unitForm.estateDues) || null,
-        waterSource: unitForm.waterSource,
-        parkingAvailable: unitForm.parkingAvailable
-      });
+        features: {
+          nigeria: {
+            rentFrequency: unitForm.rentFrequency,
+            serviceCharge: unitForm.serviceCharge
+              ? Number(unitForm.serviceCharge)
+              : undefined,
+            cautionFee: unitForm.cautionFee
+              ? Number(unitForm.cautionFee)
+              : undefined,
+            legalFee: unitForm.legalFee
+              ? Number(unitForm.legalFee)
+              : undefined,
+            agentCommission: unitForm.agentCommission
+              ? Number(unitForm.agentCommission)
+              : undefined,
+            agreementFee: unitForm.agreementFee
+              ? Number(unitForm.agreementFee)
+              : undefined,
+            electricityMeter: unitForm.electricityMeter || undefined,
+            prepaidMeter: unitForm.prepaidMeter,
+            wasteFee: unitForm.wasteFee
+              ? Number(unitForm.wasteFee)
+              : undefined,
+            estateDues: unitForm.estateDues
+              ? Number(unitForm.estateDues)
+              : undefined,
+            waterSource: unitForm.waterSource,
+            parkingAvailable: unitForm.parkingAvailable,
+          },
+        },
+      };
+
+      const res = await updateUnit(selectedUnit.id, payload);
 
       if ((res as any).error) {
         throw new Error((res as any).error.error || 'Failed to update unit');
@@ -2605,41 +2676,144 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                   <div className="bg-gray-50 border rounded-lg p-3 space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Monthly Rent:</span>
-                      <span className="font-medium">{formatCurrency(selectedUnit.monthlyRent || 0, selectedUnit.properties?.currency || 'USD')}</span>
+                      <span className="font-medium">
+                        {formatCurrency(
+                          selectedUnit.monthlyRent || 0,
+                          selectedUnitCurrency
+                        )}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Security Deposit:</span>
-                      <span className="font-medium">{formatCurrency(selectedUnit.securityDeposit || selectedUnit.properties?.securityDeposit || 0, selectedUnit.properties?.currency || 'USD')}</span>
+                      <span className="font-medium">
+                        {formatCurrency(
+                          selectedUnit.securityDeposit ||
+                            selectedUnit.properties?.securityDeposit ||
+                            0,
+                          selectedUnitCurrency
+                        )}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Service Charge:</span>
-                      <span className="font-medium">{formatCurrency(selectedUnit.properties?.serviceCharge || 0, selectedUnit.properties?.currency || 'USD')}</span>
+                      <span className="font-medium">
+                        {formatCurrency(
+                          (selectedUnitNigeria as any).serviceCharge ??
+                            selectedUnit.properties?.serviceCharge ??
+                            0,
+                          selectedUnitCurrency
+                        )}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Application Fee:</span>
-                      <span className="font-medium">{formatCurrency(selectedUnit.properties?.applicationFee || 0, selectedUnit.properties?.currency || 'USD')}</span>
+                      <span className="font-medium">
+                        {formatCurrency(
+                          (selectedUnitNigeria as any).applicationFee ??
+                            selectedUnit.properties?.applicationFee ??
+                            0,
+                          selectedUnitCurrency
+                        )}
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <h4 className="text-sm font-semibold text-gray-700">Additional Fees (Property-Level)</h4>
+                  <h4 className="text-sm font-semibold text-gray-700">Additional Fees & Utilities</h4>
                   <div className="bg-gray-50 border rounded-lg p-3 space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Caution Fee:</span>
-                      <span className="font-medium">{formatCurrency(selectedUnit.properties?.cautionFee || 0, selectedUnit.properties?.currency || 'USD')}</span>
+                      <span className="font-medium">
+                        {formatCurrency(
+                          (selectedUnitNigeria as any).cautionFee ??
+                            selectedUnit.properties?.cautionFee ??
+                            0,
+                          selectedUnitCurrency
+                        )}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Legal Fee:</span>
-                      <span className="font-medium">{formatCurrency(selectedUnit.properties?.legalFee || 0, selectedUnit.properties?.currency || 'USD')}</span>
+                      <span className="font-medium">
+                        {formatCurrency(
+                          (selectedUnitNigeria as any).legalFee ??
+                            selectedUnit.properties?.legalFee ??
+                            0,
+                          selectedUnitCurrency
+                        )}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Agent Commission:</span>
-                      <span className="font-medium">{formatCurrency(selectedUnit.properties?.agentCommission || 0, selectedUnit.properties?.currency || 'USD')}</span>
+                      <span className="font-medium">
+                        {formatCurrency(
+                          (selectedUnitNigeria as any).agentCommission ??
+                            selectedUnit.properties?.agentCommission ??
+                            0,
+                          selectedUnitCurrency
+                        )}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Agreement Fee:</span>
-                      <span className="font-medium">{formatCurrency(selectedUnit.properties?.agreementFee || 0, selectedUnit.properties?.currency || 'USD')}</span>
+                      <span className="font-medium">
+                        {formatCurrency(
+                          (selectedUnitNigeria as any).agreementFee ??
+                            selectedUnit.properties?.agreementFee ??
+                            0,
+                          selectedUnitCurrency
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Waste Management:</span>
+                      <span className="font-medium">
+                        {formatCurrency(
+                          (selectedUnitNigeria as any).wasteFee || 0,
+                          selectedUnitCurrency
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Estate Dues:</span>
+                      <span className="font-medium">
+                        {formatCurrency(
+                          (selectedUnitNigeria as any).estateDues || 0,
+                          selectedUnitCurrency
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Electricity Meter:</span>
+                      <span className="font-medium">
+                        {(selectedUnitNigeria as any).electricityMeter ||
+                          "N/A"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Prepaid Meter:</span>
+                      <span className="font-medium">
+                        {(selectedUnitNigeria as any).prepaidMeter
+                          ? "Yes"
+                          : "No"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Water Source:</span>
+                      <span className="font-medium">
+                        {(selectedUnitNigeria as any).waterSource
+                          ? (selectedUnitNigeria as any).waterSource
+                          : "Not specified"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Parking Available:</span>
+                      <span className="font-medium">
+                        {(selectedUnitNigeria as any).parkingAvailable
+                          ? "Yes"
+                          : "No"}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -2780,6 +2954,133 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                   placeholder="2400"
                 />
               </div>
+            </div>
+
+            {/* Additional Fees & Utilities - mirror Add Unit fields */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="editServiceCharge">Service Charge</label>
+                <Input
+                  id="editServiceCharge"
+                  type="number"
+                  value={unitForm.serviceCharge}
+                  onChange={(e) => setUnitForm({ ...unitForm, serviceCharge: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="editCautionFee">Caution Fee</label>
+                <Input
+                  id="editCautionFee"
+                  type="number"
+                  value={unitForm.cautionFee}
+                  onChange={(e) => setUnitForm({ ...unitForm, cautionFee: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="editLegalFee">Legal Fee</label>
+                <Input
+                  id="editLegalFee"
+                  type="number"
+                  value={unitForm.legalFee}
+                  onChange={(e) => setUnitForm({ ...unitForm, legalFee: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="editAgentCommission">Agency Fee</label>
+                <Input
+                  id="editAgentCommission"
+                  type="number"
+                  value={unitForm.agentCommission}
+                  onChange={(e) => setUnitForm({ ...unitForm, agentCommission: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="editAgreementFee">Agreement Fee</label>
+                <Input
+                  id="editAgreementFee"
+                  type="number"
+                  value={unitForm.agreementFee}
+                  onChange={(e) => setUnitForm({ ...unitForm, agreementFee: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="editWasteFee">Waste Management</label>
+                <Input
+                  id="editWasteFee"
+                  type="number"
+                  value={unitForm.wasteFee}
+                  onChange={(e) => setUnitForm({ ...unitForm, wasteFee: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="editEstateDues">Estate Dues</label>
+                <Input
+                  id="editEstateDues"
+                  type="number"
+                  value={unitForm.estateDues}
+                  onChange={(e) => setUnitForm({ ...unitForm, estateDues: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="editElectricityMeter">Electricity Meter No.</label>
+                <Input
+                  id="editElectricityMeter"
+                  value={unitForm.electricityMeter}
+                  onChange={(e) => setUnitForm({ ...unitForm, electricityMeter: e.target.value })}
+                  placeholder="Prepaid meter no."
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Prepaid Meter</label>
+                <Switch
+                  checked={unitForm.prepaidMeter}
+                  onCheckedChange={(v) => setUnitForm({ ...unitForm, prepaidMeter: v })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="editWaterSource">Water Source</label>
+                <Select
+                  value={unitForm.waterSource}
+                  onValueChange={(v) => setUnitForm({ ...unitForm, waterSource: v })}
+                >
+                  <SelectTrigger id="editWaterSource">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="public">Public</SelectItem>
+                    <SelectItem value="borehole">Borehole</SelectItem>
+                    <SelectItem value="well">Well</SelectItem>
+                    <SelectItem value="tanker">Tanker Supply</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Parking Available</label>
+              <Switch
+                checked={unitForm.parkingAvailable}
+                onCheckedChange={(v) => setUnitForm({ ...unitForm, parkingAvailable: v })}
+              />
             </div>
 
             <div className="flex justify-end space-x-2 pt-4">

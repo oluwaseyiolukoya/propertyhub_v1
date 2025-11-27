@@ -8,12 +8,16 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
-import { Plus, Edit, Mail, Phone, Calendar, Copy, Search, Filter, KeyRound, UserMinus, Trash2, AlertTriangle, Check, MoreHorizontal, Eye, Home } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { Calendar as CalendarComponent } from "./ui/calendar";
+import { Plus, Edit, Mail, Phone, Calendar as CalendarIcon, Copy, Search, Filter, KeyRound, UserMinus, Trash2, AlertTriangle, Check, MoreHorizontal, Eye, Home, Building2, User, DollarSign } from 'lucide-react';
 import { toast } from "sonner";
 import { createLease, getLeases, terminateLease } from '../lib/api/leases';
 import { getUnitsByProperty } from '../lib/api/units';
 import { resetTenantPassword, deleteTenant, updateTenant } from '../lib/api/tenant';
 import { formatCurrency } from '../lib/currency';
+import { format } from 'date-fns';
+import { cn } from '../lib/utils';
 
 export const TenantManagement = ({ properties = [] as any[] }: { properties?: any[] }) => {
   // Search and filter state
@@ -69,6 +73,18 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
   });
   const [assignmentPropertyUnits, setAssignmentPropertyUnits] = useState<any[]>([]);
   const [isAssigning, setIsAssigning] = useState(false);
+
+  // Helper to format dates for display (e.g., "Nov 19, 2025")
+  const formatDisplayDate = (value?: string | Date | null) => {
+    if (!value) return 'N/A';
+    try {
+      const date = value instanceof Date ? value : new Date(value);
+      if (isNaN(date.getTime())) return String(value);
+      return format(date, 'PPP');
+    } catch {
+      return String(value);
+    }
+  };
   // In-memory map to hold latest generated temp passwords keyed by tenantId
   const [tenantPasswords, setTenantPasswords] = useState<Record<string, string>>({});
   // Surface immediate post-creation/reset password with explicit copy CTA
@@ -265,38 +281,18 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
         console.log('🔐 Generated password:', generatedPassword);
       }
 
-      // Reload tenants from backend
-      const leaseRes = await getLeases();
-      if (!leaseRes.error && Array.isArray(leaseRes.data)) {
-        // Transform lease data to tenant format
-        const allTenantsData = leaseRes.data.map((lease: any) => ({
-          id: lease.users?.id || lease.tenantId,
-          name: lease.users?.name || 'Unknown',
-          email: lease.users?.email || '',
-          phone: lease.users?.phone || '',
-          leaseId: lease.id,
-          unitNumber: lease.units?.unitNumber || 'N/A',
-          propertyName: lease.properties?.name || 'N/A',
-          propertyId: lease.propertyId,
-          unitId: lease.unitId,
-          leaseStart: lease.startDate,
-          leaseEnd: lease.endDate,
-          rent: lease.monthlyRent,
-          status: lease.status || 'active',
-          // IMPORTANT: Do not persist passwords in server data; only attach from in-memory map
-          ...(tenantPasswords[lease.users?.id || lease.tenantId]
-            ? { credentials: { tempPassword: tenantPasswords[lease.users?.id || lease.tenantId] } }
-            : {}
-          )
-        }));
+      // Reload tenants using the shared loader so the shape stays consistent
+      await loadTenants();
 
-        setTenants(allTenantsData);
-        // Store the freshly generated password in the in-memory map for copy action
-        if (generatedPassword && newTenantId) {
-          setTenantPasswords(prev => ({ ...prev, [newTenantId]: generatedPassword }));
-          setRecentPasswordInfo({ tenantId: newTenantId, email: (res as any).data?.tenant?.email || newTenant.email, password: generatedPassword });
-          console.log('🔐 Password stored for tenant:', newTenantId);
-        }
+      // Store the freshly generated password in the in-memory map for copy action
+      if (generatedPassword && newTenantId) {
+        setTenantPasswords(prev => ({ ...prev, [newTenantId]: generatedPassword }));
+        setRecentPasswordInfo({
+          tenantId: newTenantId,
+          email: (res as any).data?.tenant?.email || newTenant.email,
+          password: generatedPassword
+        });
+        console.log('🔐 Password stored for tenant:', newTenantId);
       }
 
       setNewTenant({
@@ -565,26 +561,112 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
               Add Tenant
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New Tenant</DialogTitle>
               <DialogDescription>
                 Create a new tenant profile and assign them to a unit
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input
-                    id="name"
-                    value={newTenant.name}
-                    onChange={(e) => setNewTenant({...newTenant, name: e.target.value})}
-                    placeholder="Sarah Johnson"
-                  />
+            <div className="grid gap-6 py-4">
+              {/* Section 1: Property & Unit Assignment */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 pb-2 border-b">
+                  <Building2 className="h-4 w-4 text-gray-600" />
+                  <h3 className="text-sm font-semibold text-gray-900">Property & Unit Assignment</h3>
+                  <span className="text-xs text-red-500">*Required</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="property">Property *</Label>
+                    <Select value={newTenant.propertyId} onValueChange={(value) => setNewTenant({...newTenant, propertyId: value})}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select property" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ownerProperties.map((p: any) => (
+                          <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="unitId">Unit/Apartment *</Label>
+                    <Select
+                      value={newTenant.unitId}
+                      onValueChange={(v) => {
+                        // Find the selected unit and auto-populate rent
+                        const selectedUnit = propertyUnits.find((u: any) => String(u.id) === v);
+                        setNewTenant({
+                          ...newTenant,
+                          unitId: v,
+                          rent: selectedUnit?.monthlyRent ? String(selectedUnit.monthlyRent) : ''
+                        });
+                      }}
+                      disabled={!newTenant.propertyId || propertyUnits.length === 0}
+                    >
+                      <SelectTrigger id="unitId">
+                        <SelectValue placeholder={
+                          !newTenant.propertyId
+                            ? "Select property first"
+                            : propertyUnits.length === 0
+                              ? "No vacant units available"
+                              : "Select vacant unit"
+                        } />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {propertyUnits.length > 0 ? (
+                          propertyUnits.map((u: any) => (
+                            <SelectItem key={u.id} value={String(u.id)}>
+                              {u.unitNumber} {u.type && `- ${u.type}`} {u.bedrooms && `(${u.bedrooms} bed)`}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="no-units" disabled>
+                            No vacant units available
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    {newTenant.propertyId && propertyUnits.length === 0 && (
+                      <p className="text-xs text-amber-600 flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3" />
+                        All units in this property are occupied
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Personal Information */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 pb-2 border-b">
+                  <User className="h-4 w-4 text-gray-600" />
+                  <h3 className="text-sm font-semibold text-gray-900">Personal Information</h3>
+                  <span className="text-xs text-red-500">*Required</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="name">Full Name *</Label>
+                    <Input
+                      id="name"
+                      value={newTenant.name}
+                      onChange={(e) => setNewTenant({...newTenant, name: e.target.value})}
+                      placeholder="Sarah Johnson"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="phone">Phone Number *</Label>
+                    <Input
+                      id="phone"
+                      value={newTenant.phone}
+                      onChange={(e) => setNewTenant({...newTenant, phone: e.target.value})}
+                      placeholder="+234 (XXX) XXX-XXXX"
+                    />
+                  </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">Email Address *</Label>
                   <Input
                     id="email"
                     type="email"
@@ -595,15 +677,11 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <Input
-                    id="phone"
-                    value={newTenant.phone}
-                    onChange={(e) => setNewTenant({...newTenant, phone: e.target.value})}
-                    placeholder="+1 (555) 123-4567"
-                  />
+              {/* Section 3: Financial Details */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 pb-2 border-b">
+                  <DollarSign className="h-4 w-4 text-gray-600" />
+                  <h3 className="text-sm font-semibold text-gray-900">Financial Details</h3>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="rent">Monthly Rent</Label>
@@ -625,9 +703,99 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              {/* Section 4: Lease Information */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 pb-2 border-b">
+                  <CalendarIcon className="h-4 w-4 text-gray-600" />
+                  <h3 className="text-sm font-semibold text-gray-900">Lease Information</h3>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="occupancy">Occupancy Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !newTenant.occupancyDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {newTenant.occupancyDate ? format(new Date(newTenant.occupancyDate), "PPP") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={newTenant.occupancyDate ? new Date(newTenant.occupancyDate) : undefined}
+                          onSelect={(date) => setNewTenant({...newTenant, occupancyDate: date ? format(date, 'yyyy-MM-dd') : ''})}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="leaseStart">Lease Start</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !newTenant.leaseStart && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {newTenant.leaseStart ? format(new Date(newTenant.leaseStart), "PPP") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={newTenant.leaseStart ? new Date(newTenant.leaseStart) : undefined}
+                          onSelect={(date) => setNewTenant({...newTenant, leaseStart: date ? format(date, 'yyyy-MM-dd') : ''})}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="leaseEnd">Lease End</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !newTenant.leaseEnd && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {newTenant.leaseEnd ? format(new Date(newTenant.leaseEnd), "PPP") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={newTenant.leaseEnd ? new Date(newTenant.leaseEnd) : undefined}
+                          onSelect={(date) => setNewTenant({...newTenant, leaseEnd: date ? format(date, 'yyyy-MM-dd') : ''})}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 5: Account Setup */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 pb-2 border-b">
+                  <KeyRound className="h-4 w-4 text-gray-600" />
+                  <h3 className="text-sm font-semibold text-gray-900">Account Setup</h3>
+                </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="password">Temporary Password</Label>
+                  <Label htmlFor="password">Temporary Password *</Label>
                   <div className="flex gap-2">
                     <Input
                       id="password"
@@ -651,97 +819,9 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                       <Copy className="h-4 w-4" />
                     </Button>
                   </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="property">Property</Label>
-                  <Select value={newTenant.propertyId} onValueChange={(value) => setNewTenant({...newTenant, propertyId: value})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select property" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ownerProperties.map((p: any) => (
-                        <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="unitId">Unit/Apartment</Label>
-                  <Select
-                    value={newTenant.unitId}
-                    onValueChange={(v) => {
-                      // Find the selected unit and auto-populate rent
-                      const selectedUnit = propertyUnits.find((u: any) => String(u.id) === v);
-                      setNewTenant({
-                        ...newTenant,
-                        unitId: v,
-                        rent: selectedUnit?.monthlyRent ? String(selectedUnit.monthlyRent) : ''
-                      });
-                    }}
-                    disabled={!newTenant.propertyId || propertyUnits.length === 0}
-                  >
-                    <SelectTrigger id="unitId">
-                      <SelectValue placeholder={
-                        !newTenant.propertyId
-                          ? "Select property first"
-                          : propertyUnits.length === 0
-                            ? "No vacant units available"
-                            : "Select vacant unit"
-                      } />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {propertyUnits.length > 0 ? (
-                        propertyUnits.map((u: any) => (
-                          <SelectItem key={u.id} value={String(u.id)}>
-                            {u.unitNumber} {u.type && `- ${u.type}`} {u.bedrooms && `(${u.bedrooms} bed)`}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="no-units" disabled>
-                          No vacant units available
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {newTenant.propertyId && propertyUnits.length === 0 && (
-                    <p className="text-xs text-amber-600 flex items-center gap-1">
-                      <AlertTriangle className="h-3 w-3" />
-                      All units in this property are occupied
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="occupancy">Occupancy Date</Label>
-                  <Input
-                    id="occupancy"
-                    type="date"
-                    value={newTenant.occupancyDate}
-                    onChange={(e) => setNewTenant({...newTenant, occupancyDate: e.target.value})}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="leaseStart">Lease Start</Label>
-                  <Input
-                    id="leaseStart"
-                    type="date"
-                    value={newTenant.leaseStart}
-                    onChange={(e) => setNewTenant({...newTenant, leaseStart: e.target.value})}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="leaseEnd">Lease End</Label>
-                  <Input
-                    id="leaseEnd"
-                    type="date"
-                    value={newTenant.leaseEnd}
-                    onChange={(e) => setNewTenant({...newTenant, leaseEnd: e.target.value})}
-                  />
+                  <p className="text-xs text-gray-500">
+                    This password will be sent to the tenant via email for their first login
+                  </p>
                 </div>
               </div>
             </div>
@@ -925,11 +1005,11 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
-                        <div className="flex items-center">
-                          <Calendar className="h-3 w-3 mr-1" />
-                          {tenant.leaseStart}
+                    <div className="flex items-center">
+                          <CalendarIcon className="h-3 w-3 mr-1" />
+                          {formatDisplayDate(tenant.leaseStart)}
                         </div>
-                        <div className="text-gray-500">to {tenant.leaseEnd}</div>
+                        <div className="text-gray-500">to {formatDisplayDate(tenant.leaseEnd)}</div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -1144,7 +1224,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
             >
               {isUnassigning ? (
                 <>
-                  <Calendar className="h-4 w-4 mr-2 animate-spin" />
+                  <CalendarIcon className="h-4 w-4 mr-2 animate-spin" />
                   Unassigning...
                 </>
               ) : (
@@ -1237,7 +1317,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
             >
               {isDeleting ? (
                 <>
-                  <Calendar className="h-4 w-4 mr-2 animate-spin" />
+                  <CalendarIcon className="h-4 w-4 mr-2 animate-spin" />
                   Deleting...
                 </>
               ) : (
@@ -1462,15 +1542,15 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                   <div>
                     <Label className="text-xs text-gray-500">Lease Start Date</Label>
                     <p className="font-medium flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {selectedTenant.leaseStart}
+                      <CalendarIcon className="h-3 w-3" />
+                      {formatDisplayDate(selectedTenant.leaseStart)}
                     </p>
                   </div>
                   <div>
                     <Label className="text-xs text-gray-500">Lease End Date</Label>
                     <p className="font-medium flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {selectedTenant.leaseEnd}
+                      <CalendarIcon className="h-3 w-3" />
+                      {formatDisplayDate(selectedTenant.leaseEnd)}
                     </p>
                   </div>
                   <div>
@@ -1482,8 +1562,8 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                   <div>
                     <Label className="text-xs text-gray-500">Occupancy Date</Label>
                     <p className="font-medium flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {selectedTenant.occupancyDate}
+                      <CalendarIcon className="h-3 w-3" />
+                      {formatDisplayDate(selectedTenant.occupancyDate)}
                     </p>
                   </div>
                 </div>
@@ -1530,37 +1610,96 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
           </DialogHeader>
 
           {selectedTenant && (
-            <div className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="edit-name">Full Name</Label>
-                <Input
-                  id="edit-name"
-                  value={editTenantData.name}
-                  onChange={(e) => setEditTenantData({ ...editTenantData, name: e.target.value })}
-                  placeholder="Enter tenant's full name"
-                />
+            <div className="space-y-6">
+              {/* Personal Information (editable) */}
+              <div className="space-y-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-name">Full Name</Label>
+                  <Input
+                    id="edit-name"
+                    value={editTenantData.name}
+                    onChange={(e) => setEditTenantData({ ...editTenantData, name: e.target.value })}
+                    placeholder="Enter tenant's full name"
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-email">Email Address</Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    value={editTenantData.email}
+                    onChange={(e) => setEditTenantData({ ...editTenantData, email: e.target.value })}
+                    placeholder="Enter email address"
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-phone">Phone Number</Label>
+                  <Input
+                    id="edit-phone"
+                    type="tel"
+                    value={editTenantData.phone}
+                    onChange={(e) => setEditTenantData({ ...editTenantData, phone: e.target.value })}
+                    placeholder="Enter phone number"
+                  />
+                </div>
               </div>
 
-              <div className="grid gap-2">
-                <Label htmlFor="edit-email">Email Address</Label>
-                <Input
-                  id="edit-email"
-                  type="email"
-                  value={editTenantData.email}
-                  onChange={(e) => setEditTenantData({ ...editTenantData, email: e.target.value })}
-                  placeholder="Enter email address"
-                />
-              </div>
+              {/* Context: Property & Lease (read-only, so nothing feels "missing") */}
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold mb-2 text-gray-700">Property & Unit</h3>
+                  <div className="grid grid-cols-2 gap-4 bg-gray-50 p-3 rounded-lg text-sm">
+                    <div>
+                      <Label className="text-xs text-gray-500">Property</Label>
+                      <p className="font-medium">{selectedTenant.property || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500">Unit/Apartment</Label>
+                      <p className="font-medium">{selectedTenant.unit || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500">Status</Label>
+                      <Badge variant={getStatusColor(selectedTenant.status)}>
+                        {selectedTenant.status}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
 
-              <div className="grid gap-2">
-                <Label htmlFor="edit-phone">Phone Number</Label>
-                <Input
-                  id="edit-phone"
-                  type="tel"
-                  value={editTenantData.phone}
-                  onChange={(e) => setEditTenantData({ ...editTenantData, phone: e.target.value })}
-                  placeholder="Enter phone number"
-                />
+                <div>
+                  <h3 className="text-sm font-semibold mb-2 text-gray-700">Lease Information</h3>
+                  <div className="grid grid-cols-2 gap-4 bg-gray-50 p-3 rounded-lg text-sm">
+                    <div>
+                      <Label className="text-xs text-gray-500">Lease Start Date</Label>
+                      <p className="font-medium flex items-center gap-1">
+                        <CalendarIcon className="h-3 w-3" />
+                        {formatDisplayDate(selectedTenant.leaseStart)}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500">Lease End Date</Label>
+                      <p className="font-medium flex items-center gap-1">
+                        <CalendarIcon className="h-3 w-3" />
+                        {formatDisplayDate(selectedTenant.leaseEnd)}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500">Monthly Rent</Label>
+                      <p className="font-medium">
+                        {formatCurrency(selectedTenant.rent, selectedTenant.currency)}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500">Occupancy Date</Label>
+                      <p className="font-medium flex items-center gap-1">
+                        <CalendarIcon className="h-3 w-3" />
+                        {formatDisplayDate(selectedTenant.occupancyDate)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
@@ -1568,7 +1707,10 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                   <AlertTriangle className="h-4 w-4 text-blue-600 mt-0.5" />
                   <div className="text-xs text-blue-800">
                     <p className="font-medium">Note:</p>
-                    <p className="mt-1">Only personal information can be updated. To modify lease details or unit assignment, please use the respective actions.</p>
+                    <p className="mt-1">
+                      Only personal information can be updated here. To modify lease details or unit assignment,
+                      please use the dedicated Assign / Unassign actions.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1701,21 +1843,53 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="assign-lease-start">Lease Start Date</Label>
-                  <Input
-                    id="assign-lease-start"
-                    type="date"
-                    value={assignmentData.leaseStart}
-                    onChange={(e) => setAssignmentData({ ...assignmentData, leaseStart: e.target.value })}
-                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !assignmentData.leaseStart && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {assignmentData.leaseStart ? format(new Date(assignmentData.leaseStart), "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={assignmentData.leaseStart ? new Date(assignmentData.leaseStart) : undefined}
+                        onSelect={(date) => setAssignmentData({ ...assignmentData, leaseStart: date ? format(date, 'yyyy-MM-dd') : '' })}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="assign-lease-end">Lease End Date</Label>
-                  <Input
-                    id="assign-lease-end"
-                    type="date"
-                    value={assignmentData.leaseEnd}
-                    onChange={(e) => setAssignmentData({ ...assignmentData, leaseEnd: e.target.value })}
-                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !assignmentData.leaseEnd && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {assignmentData.leaseEnd ? format(new Date(assignmentData.leaseEnd), "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={assignmentData.leaseEnd ? new Date(assignmentData.leaseEnd) : undefined}
+                        onSelect={(date) => setAssignmentData({ ...assignmentData, leaseEnd: date ? format(date, 'yyyy-MM-dd') : '' })}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
 

@@ -9,6 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { Calendar as CalendarComponent } from "./ui/calendar";
 import {
   Pagination,
   PaginationContent,
@@ -39,7 +41,7 @@ import {
   MoreHorizontal,
   Download,
   FileText,
-  Calendar,
+  Calendar as CalendarIcon,
   DollarSign,
   TrendingUp,
   Clock,
@@ -53,6 +55,9 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { format } from 'date-fns';
+import { cn } from '../lib/utils';
+
 
 interface ExpenseManagementProps {
   user: any;
@@ -678,7 +683,7 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
                     <TableRow key={expense.id}>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <CalendarIcon className="h-4 w-4 text-muted-foreground" />
                           {new Date(expense.date).toLocaleDateString()}
                         </div>
                       </TableCell>
@@ -903,24 +908,72 @@ export function ExpenseManagement({ user, properties, units, onBack }: ExpenseMa
             </div>
 
             <div className="grid grid-cols-2 gap-4">
+              {/* Date - black & white themed calendar */}
               <div className="space-y-2">
                 <Label htmlFor="expense-date">Date *</Label>
-                <Input
-                  id="expense-date"
-                  type="date"
-                  value={expenseForm.date}
-                  onChange={(e) => setExpenseForm({ ...expenseForm, date: e.target.value })}
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !expenseForm.date && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {expenseForm.date
+                        ? format(new Date(expenseForm.date), "PPP")
+                        : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={expenseForm.date ? new Date(expenseForm.date) : undefined}
+                      onSelect={(date) =>
+                        setExpenseForm({
+                          ...expenseForm,
+                          date: date ? format(date, "yyyy-MM-dd") : "",
+                        })
+                      }
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
 
+              {/* Due Date - black & white themed calendar */}
               <div className="space-y-2">
                 <Label htmlFor="expense-due-date">Due Date (Optional)</Label>
-                <Input
-                  id="expense-due-date"
-                  type="date"
-                  value={expenseForm.dueDate}
-                  onChange={(e) => setExpenseForm({ ...expenseForm, dueDate: e.target.value })}
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !expenseForm.dueDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {expenseForm.dueDate
+                        ? format(new Date(expenseForm.dueDate), "PPP")
+                        : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={expenseForm.dueDate ? new Date(expenseForm.dueDate) : undefined}
+                      onSelect={(date) =>
+                        setExpenseForm({
+                          ...expenseForm,
+                          dueDate: date ? format(date, "yyyy-MM-dd") : "",
+                        })
+                      }
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
 

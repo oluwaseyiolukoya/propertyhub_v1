@@ -178,15 +178,15 @@ export function TrialStatusBanner({ onUpgradeClick, onAddPaymentMethod }: TrialS
       buttonClasses = 'bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-700 hover:to-yellow-700 text-white';
       progressColor = 'bg-amber-500';
     } else {
-      // Normal - Blue to Purple gradient (matches your design)
-      cardClasses = 'mb-6 border-blue-200 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50';
-      iconBg = 'bg-gradient-to-br from-blue-100 to-purple-100';
-      iconColor = 'text-blue-600';
+      // Normal - Black primary color (matches brand)
+      cardClasses = 'mb-6 border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100';
+      iconBg = 'bg-gradient-to-br from-gray-800 to-black';
+      iconColor = 'text-white';
       titleText = 'text-gray-900';
       subtitleText = 'text-gray-700';
-      badgeClasses = 'bg-gradient-to-r from-blue-100 to-purple-100 text-blue-800 border-blue-200';
-      buttonClasses = 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white';
-      progressColor = 'bg-gradient-to-r from-blue-500 to-purple-500';
+      badgeClasses = 'bg-gray-800 text-white border-gray-800';
+      buttonClasses = 'bg-gradient-to-r from-gray-900 to-black hover:from-black hover:to-gray-900 text-white';
+      progressColor = 'bg-gradient-to-r from-gray-800 to-black';
     }
 
     return (

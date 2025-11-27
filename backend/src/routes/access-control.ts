@@ -198,6 +198,95 @@ router.post('/keys', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// Update an existing key in inventory
+router.put('/keys/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const propertyFilter = buildPropertyAccessFilter(req);
+    if (propertyFilter === null) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const { id } = req.params;
+    const {
+      keyNumber,
+      keyLabel,
+      keyType,
+      propertyId,
+      unitId,
+      numberOfCopies,
+      location,
+      notes,
+    } = req.body;
+
+    // Ensure the key exists and user has access
+    const existingKey = await prisma.property_keys.findFirst({
+      where: {
+        id,
+        customerId: req.user?.customerId || undefined,
+        ...(propertyFilter || {}),
+      },
+    });
+
+    if (!existingKey) {
+      return res.status(404).json({ error: 'Key not found or access denied' });
+    }
+
+    // If propertyId is being changed, validate access to new property
+    if (propertyId && propertyId !== existingKey.propertyId) {
+      const propertyAccessCheck = await prisma.properties.findFirst({
+        where: {
+          id: propertyId,
+          ...(propertyFilter.property || {}),
+        },
+        select: { id: true, customerId: true },
+      });
+
+      if (!propertyAccessCheck) {
+        return res.status(403).json({ error: 'New property not found or access denied' });
+      }
+    }
+
+    const updatedKey = await prisma.property_keys.update({
+      where: { id },
+      data: {
+        ...(keyNumber !== undefined && { keyNumber }),
+        ...(keyLabel !== undefined && { keyLabel }),
+        ...(keyType !== undefined && { keyType }),
+        ...(propertyId !== undefined && { propertyId }),
+        ...(unitId !== undefined && { unitId: unitId || null }),
+        ...(numberOfCopies !== undefined && { numberOfCopies: Number(numberOfCopies) }),
+        ...(location !== undefined && { location }),
+        ...(notes !== undefined && { notes }),
+        updatedById: req.user?.id,
+        updatedAt: new Date(),
+      },
+      include: {
+        properties: {
+          select: {
+            id: true,
+            name: true,
+            currency: true,
+          },
+        },
+        units: {
+          select: {
+            id: true,
+            unitNumber: true,
+          },
+        },
+      },
+    });
+
+    return res.json(updatedKey);
+  } catch (error: any) {
+    console.error('Failed to update property key:', error);
+    if (error.code === 'P2002') {
+      return res.status(409).json({ error: 'Key number already exists' });
+    }
+    return res.status(500).json({ error: 'Failed to update key' });
+  }
+});
+
 // Issue a key to a person
 router.post('/keys/:id/issue', async (req: AuthRequest, res: Response) => {
   try {
@@ -496,7 +585,7 @@ router.get('/transactions', async (req: AuthRequest, res: Response) => {
     if (search) {
       const query = String(search);
       where.OR = [
-        { key: { keyNumber: { contains: query, mode: 'insensitive' } } },
+        { property_keys: { keyNumber: { contains: query, mode: 'insensitive' } } },
         { performedForName: { contains: query, mode: 'insensitive' } },
         { performedByName: { contains: query, mode: 'insensitive' } },
         { notes: { contains: query, mode: 'insensitive' } }
@@ -524,7 +613,46 @@ router.get('/transactions', async (req: AuthRequest, res: Response) => {
       take: limit ? Number(limit) : 100
     });
 
-    return res.json(transactions);
+    // Normalize relation name so frontend can use txn.key.*
+    const mappedTransactions = transactions.map((txn: any) => ({
+      id: txn.id,
+      keyId: txn.keyId,
+      customerId: txn.customerId,
+      action: txn.action,
+      performedById: txn.performedById,
+      performedByName: txn.performedByName,
+      performedForUserId: txn.performedForUserId,
+      performedForName: txn.performedForName,
+      personType: txn.personType,
+      witnessName: txn.witnessName,
+      witnessSignature: txn.witnessSignature,
+      depositAmount: txn.depositAmount,
+      notes: txn.notes,
+      metadata: txn.metadata,
+      createdAt: txn.createdAt,
+      // Map related key to `key` property expected by frontend
+      key: txn.property_keys
+        ? {
+            id: txn.property_keys.id,
+            keyNumber: txn.property_keys.keyNumber,
+            keyType: txn.property_keys.keyType,
+            properties: txn.property_keys.properties
+              ? {
+                  id: txn.property_keys.properties.id,
+                  name: txn.property_keys.properties.name
+                }
+              : undefined,
+            units: txn.property_keys.units
+              ? {
+                  id: txn.property_keys.units.id,
+                  unitNumber: txn.property_keys.units.unitNumber
+                }
+              : undefined
+          }
+        : undefined
+    }));
+
+    return res.json(mappedTransactions);
   } catch (error: any) {
     console.error('Failed to fetch key transactions:', error);
     return res.status(500).json({ error: 'Failed to load key transactions' });

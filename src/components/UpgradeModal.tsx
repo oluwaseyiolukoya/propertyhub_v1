@@ -321,13 +321,13 @@ export function UpgradeModal({ open, onClose, onSuccess }: UpgradeModalProps) {
                 key={plan.id}
                 className={`p-6 cursor-pointer transition-all ${
                   isSelected
-                    ? 'border-2 border-blue-600 shadow-lg bg-gradient-to-br from-blue-50 to-purple-50'
-                    : 'border border-gray-200 hover:border-blue-300 hover:shadow-md'
-                } ${plan.isPopular ? 'ring-2 ring-purple-400' : ''}`}
+                    ? 'border-2 border-gray-900 shadow-lg bg-gradient-to-br from-gray-50 to-gray-100'
+                    : 'border border-gray-200 hover:border-gray-400 hover:shadow-md'
+                } ${plan.isPopular ? 'ring-2 ring-gray-800' : ''}`}
                 onClick={() => setSelectedPlan(plan.id)}
               >
                 {plan.isPopular && (
-                  <Badge className="mb-2 bg-gradient-to-r from-purple-600 to-pink-600">
+                  <Badge className="mb-2 bg-gradient-to-r from-gray-900 to-black text-white">
                     Most Popular
                   </Badge>
                 )}
@@ -416,7 +416,7 @@ export function UpgradeModal({ open, onClose, onSuccess }: UpgradeModalProps) {
         <Button
           onClick={handleProceedToPayment}
           disabled={!selectedPlan}
-          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+          className="bg-gradient-to-r from-gray-900 to-black hover:from-black hover:to-gray-900 text-white"
         >
           Proceed to Payment
           <Zap className="ml-2 h-4 w-4" />
@@ -427,7 +427,7 @@ export function UpgradeModal({ open, onClose, onSuccess }: UpgradeModalProps) {
 
   const renderPayment = () => (
     <div className="space-y-6">
-      <Card className="p-6 bg-gradient-to-br from-blue-50 to-purple-50 border-blue-200">
+      <Card className="p-6 bg-gradient-to-br from-gray-50 to-gray-100 border-gray-300">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Summary</h3>
 
         <div className="space-y-3">
@@ -441,19 +441,19 @@ export function UpgradeModal({ open, onClose, onSuccess }: UpgradeModalProps) {
           </div>
           <div className="flex justify-between text-lg font-bold border-t pt-3">
             <span>Total Amount:</span>
-            <span className="text-blue-600">
+            <span className="text-gray-900">
               {selectedPlanData?.currency} {price.toFixed(2)}
             </span>
           </div>
         </div>
       </Card>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-gray-50 border border-gray-300 rounded-lg p-4">
         <div className="flex gap-3">
-          <CreditCard className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <CreditCard className="h-5 w-5 text-gray-900 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-medium text-blue-900">Secure Payment with Paystack</p>
-            <p className="text-xs text-blue-700 mt-1">
+            <p className="text-sm font-medium text-gray-900">Secure Payment with Paystack</p>
+            <p className="text-xs text-gray-700 mt-1">
               Your payment information is encrypted and secure. You'll be redirected to Paystack to complete the payment.
             </p>
           </div>
@@ -466,7 +466,7 @@ export function UpgradeModal({ open, onClose, onSuccess }: UpgradeModalProps) {
         </Button>
         <Button
           onClick={handlePayment}
-          className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+          className="bg-gradient-to-r from-gray-900 to-black hover:from-black hover:to-gray-900 text-white"
         >
           <CreditCard className="mr-2 h-4 w-4" />
           Pay {selectedPlanData?.currency} {price.toFixed(2)}
@@ -506,8 +506,8 @@ export function UpgradeModal({ open, onClose, onSuccess }: UpgradeModalProps) {
         </div>
       </Card>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <p className="text-sm text-blue-900">
+      <div className="bg-gray-50 border border-gray-300 rounded-lg p-4">
+        <p className="text-sm text-gray-900">
           <strong>Next Steps:</strong> Your subscription will be activated immediately.
           {saveCard
             ? ' Your card will be charged automatically on your next billing date.'
@@ -519,7 +519,7 @@ export function UpgradeModal({ open, onClose, onSuccess }: UpgradeModalProps) {
         <Button
           onClick={() => handleCompleteUpgrade(saveCard)}
           disabled={loading}
-          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+          className="bg-gradient-to-r from-gray-900 to-black hover:from-black hover:to-gray-900 text-white"
         >
           {loading ? (
             <>

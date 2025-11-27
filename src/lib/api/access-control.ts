@@ -96,6 +96,10 @@ export const createPropertyKey = (payload: Partial<PropertyKey>): Promise<ApiRes
   return apiClient.post<PropertyKey>(API_ENDPOINTS.ACCESS_CONTROL.KEYS, payload);
 };
 
+export const updatePropertyKey = (id: string, payload: Partial<PropertyKey>): Promise<ApiResponse<PropertyKey>> => {
+  return apiClient.put<PropertyKey>(API_ENDPOINTS.ACCESS_CONTROL.KEY(id), payload);
+};
+
 export const issuePropertyKey = (
   keyId: string,
   payload: {
