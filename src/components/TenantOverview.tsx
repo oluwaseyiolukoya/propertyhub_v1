@@ -3,11 +3,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
-import { 
-  CreditCard, 
-  Home, 
-  Wrench, 
-  Bell, 
+import {
+  CreditCard,
+  Home,
+  Wrench,
+  Bell,
   Calendar,
   CheckCircle2
 } from 'lucide-react';
@@ -36,14 +36,26 @@ const TenantOverview: React.FC<TenantOverviewProps> = ({ onNavigate, dashboardDa
 
   const { lease, property, unit, rent, maintenance, payments, notifications } = dashboardData;
 
+  // Determine rent frequency - check lease, unit, or unit features
+  const rentFrequency = lease?.rentFrequency || unit?.rentFrequency ||
+    (unit?.features?.nigeria?.rentFrequency) ||
+    (unit?.features?.rentFrequency) || 'monthly';
+  const isAnnualRent = rentFrequency === 'annual';
+
+  // Check if lease is indefinite (no end date or specialClauses.isIndefinite)
+  const isIndefiniteLease = !lease.endDate || lease.specialClauses?.isIndefinite === true;
+
   // Format tenant data from API response
   const tenantData = {
     name: dashboardData.user?.name || "Tenant",
     unit: `${property.name} - Unit ${unit.unitNumber}`,
     address: `${property.address}, ${property.city}, ${property.state}`,
     leaseStart: new Date(lease.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-    leaseEnd: new Date(lease.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    leaseEnd: isIndefiniteLease ? 'Indefinite' : new Date(lease.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
     monthlyRent: lease.monthlyRent,
+    rentFrequency: rentFrequency,
+    isAnnualRent: isAnnualRent,
+    isIndefiniteLease: isIndefiniteLease,
     nextPaymentDue: new Date(rent.nextPaymentDue).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
     daysUntilDue: rent.daysUntilDue,
     balance: 0,
@@ -99,9 +111,9 @@ const TenantOverview: React.FC<TenantOverviewProps> = ({ onNavigate, dashboardDa
           <Calendar className="h-4 w-4 text-blue-600 shrink-0" />
           <AlertDescription className="text-blue-900">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <span className="text-sm sm:text-base">Your rent payment of ₦{tenantData.monthlyRent.toLocaleString()} is due on {tenantData.nextPaymentDue} ({tenantData.daysUntilDue} days remaining)</span>
-              <Button 
-                size="sm" 
+              <span className="text-sm sm:text-base">Your {tenantData.isAnnualRent ? 'annual' : ''} rent payment of ₦{tenantData.monthlyRent.toLocaleString()} is due on {tenantData.nextPaymentDue} ({tenantData.daysUntilDue} days remaining)</span>
+              <Button
+                size="sm"
                 className="w-full sm:w-auto shrink-0"
                 onClick={() => onNavigate('payments')}
               >
@@ -116,7 +128,7 @@ const TenantOverview: React.FC<TenantOverviewProps> = ({ onNavigate, dashboardDa
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Rent</CardTitle>
+            <CardTitle className="text-sm font-medium">{tenantData.isAnnualRent ? 'Annual Rent' : 'Monthly Rent'}</CardTitle>
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -161,7 +173,7 @@ const TenantOverview: React.FC<TenantOverviewProps> = ({ onNavigate, dashboardDa
           <CardContent>
             <div className="text-2xl font-bold">Active</div>
             <p className="text-xs text-muted-foreground">
-              Until {tenantData.leaseEnd}
+              {tenantData.isIndefiniteLease ? 'Indefinite Lease' : `Until ${tenantData.leaseEnd}`}
             </p>
           </CardContent>
         </Card>
@@ -192,7 +204,7 @@ const TenantOverview: React.FC<TenantOverviewProps> = ({ onNavigate, dashboardDa
                 <p className="text-sm font-medium">{tenantData.leaseEnd}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Monthly Rent</p>
+                <p className="text-xs text-muted-foreground">{tenantData.isAnnualRent ? 'Annual Rent' : 'Monthly Rent'}</p>
                 <p className="text-sm font-medium">₦{tenantData.monthlyRent.toLocaleString()}</p>
               </div>
               <div>

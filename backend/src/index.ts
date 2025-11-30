@@ -156,6 +156,7 @@ import approvalRoutes from "./routes/approvals";
 // Identity Verification routes
 import verificationRoutes from "./routes/verification";
 import adminVerificationRoutes from "./routes/admin-verification";
+import ownerVerificationRoutes from "./routes/owner-verification";
 // Forgot Password routes
 import forgotPasswordRoutes from "./routes/forgot-password";
 // Storage routes
@@ -411,6 +412,7 @@ app.use("/api/approvals", approvalRoutes);
 // Identity Verification routes
 app.use("/api/verification", verificationRoutes);
 app.use("/api/admin/verification", adminVerificationRoutes);
+app.use("/api/owner", ownerVerificationRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

@@ -321,7 +321,7 @@ model leases {
   tenantId          String
   leaseNumber       String     @unique
   startDate         DateTime
-  endDate           DateTime
+  endDate           DateTime?
   monthlyRent       Float
   securityDeposit   Float
   currency          String     @default("NGN")
@@ -748,6 +748,18 @@ model users {
   is_temp_password                                                              Boolean?                      @default(false)
   temp_password_expires_at                                                      DateTime?
   must_change_password                                                          Boolean?                      @default(false)
+  // KYC fields for tenants
+  kycStatus                                                                     String?                       @default("pending") // 'pending', 'in_progress', 'owner_approved', 'verified', 'rejected'
+  kycVerificationId                                                             String?                       // Reference to verification request
+  kycCompletedAt                                                                DateTime?
+  kycFailureReason                                                              String?                       @db.Text
+  kycLastAttemptAt                                                              DateTime?
+  requiresKyc                                                                   Boolean                       @default(false) // Only true for tenants
+  // Owner review fields for tenant KYC
+  kycReviewedByOwnerId                                                          String?                       // Owner who reviewed
+  kycOwnerReviewedAt                                                            DateTime?                     // When owner reviewed
+  kycOwnerApprovalStatus                                                        String?                       // 'pending', 'approved', 'rejected'
+  kycOwnerNotes                                                                 String?                       @db.Text // Owner's notes/reason
   createdAt                                                                     DateTime                      @default(now())
   updatedAt                                                                     DateTime                      @updatedAt
   activity_logs                                                                 activity_logs[]

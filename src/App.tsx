@@ -127,19 +127,42 @@ function App() {
           console.log('[App] ================================================');
 
           // Check if KYC required and not completed
-          // Valid completed statuses: 'verified' (auto) or 'manually_verified' (admin)
-          const needsKyc = customer?.requiresKyc &&
-              customer?.kycStatus !== 'verified' &&
-              customer?.kycStatus !== 'manually_verified';
+          // For tenants: KYC is at user level. For others: at customer level.
+          const user = acct.data?.user;
+          const isTenant = user?.role?.toLowerCase() === 'tenant' || finalType === 'tenant';
 
-          console.log('[App] KYC Check on mount:', {
-            requiresKyc: customer?.requiresKyc,
-            kycStatus: customer?.kycStatus,
-            needsKyc: needsKyc,
-          });
+          // Valid completed statuses: 'verified' (auto) or 'manually_verified' (admin)
+          let needsKyc = false;
+
+          if (isTenant) {
+            // Tenant KYC check - at user level
+            // For tenants, owner_approved is also a valid completed KYC status
+            needsKyc = user?.requiresKyc &&
+                user?.kycStatus !== 'verified' &&
+                user?.kycStatus !== 'manually_verified' &&
+                user?.kycStatus !== 'owner_approved';
+
+            console.log('[App] Tenant KYC Check on mount:', {
+              requiresKyc: user?.requiresKyc,
+              kycStatus: user?.kycStatus,
+              needsKyc: needsKyc,
+            });
+          } else {
+            // Non-tenant KYC check - at customer level
+            needsKyc = customer?.requiresKyc &&
+                customer?.kycStatus !== 'verified' &&
+                customer?.kycStatus !== 'manually_verified';
+
+            console.log('[App] Customer KYC Check on mount:', {
+              requiresKyc: customer?.requiresKyc,
+              kycStatus: customer?.kycStatus,
+              needsKyc: needsKyc,
+            });
+          }
 
           if (needsKyc) {
-            console.log('[App] ✅ KYC required on mount, showing verification page. Status:', customer.kycStatus);
+            const kycStatus = isTenant ? user?.kycStatus : customer?.kycStatus;
+            console.log('[App] ✅ KYC required on mount, showing verification page. Status:', kycStatus);
             setShowKYCVerification(true);
             setShowLanding(false);
             setIsAuthChecking(false);
@@ -370,19 +393,43 @@ function App() {
     console.log('[App] ========================================');
 
     // Check if KYC required and not completed
-    // Valid completed statuses: 'verified' (auto) or 'manually_verified' (admin)
-    const needsKyc = customer?.requiresKyc &&
-        customer?.kycStatus !== 'verified' &&
-        customer?.kycStatus !== 'manually_verified';
+    // For tenants: KYC is at user level (from acct.data.user)
+    // For others: KYC is at customer level (from acct.data.customer)
+    const user = acct.data?.user;
+    const isTenant = user?.role?.toLowerCase() === 'tenant' || finalType === 'tenant';
 
-    console.log('[App] KYC Check:', {
-      requiresKyc: customer?.requiresKyc,
-      kycStatus: customer?.kycStatus,
-      needsKyc: needsKyc,
-    });
+    // Valid completed statuses: 'verified' (auto) or 'manually_verified' (admin)
+    let needsKyc = false;
+
+    if (isTenant) {
+      // Tenant KYC check - at user level
+      // For tenants, owner_approved is also a valid completed KYC status
+      needsKyc = user?.requiresKyc &&
+          user?.kycStatus !== 'verified' &&
+          user?.kycStatus !== 'manually_verified' &&
+          user?.kycStatus !== 'owner_approved';
+
+      console.log('[App] Tenant KYC Check:', {
+        requiresKyc: user?.requiresKyc,
+        kycStatus: user?.kycStatus,
+        needsKyc: needsKyc,
+      });
+    } else {
+      // Non-tenant KYC check - at customer level
+      needsKyc = customer?.requiresKyc &&
+          customer?.kycStatus !== 'verified' &&
+          customer?.kycStatus !== 'manually_verified';
+
+      console.log('[App] Customer KYC Check:', {
+        requiresKyc: customer?.requiresKyc,
+        kycStatus: customer?.kycStatus,
+        needsKyc: needsKyc,
+      });
+    }
 
     if (needsKyc) {
-      console.log('[App] ✅ KYC required after login, showing verification page. Status:', customer.kycStatus);
+      const kycStatus = isTenant ? user?.kycStatus : customer?.kycStatus;
+      console.log('[App] ✅ KYC required after login, showing verification page. Status:', kycStatus);
       setShowKYCVerification(true);
       setShowLanding(false);
       return; // Don't proceed to dashboard

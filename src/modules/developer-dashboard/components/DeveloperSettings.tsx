@@ -375,8 +375,9 @@ export function DeveloperSettings({
       setIsProcessing(true);
 
       // Initialize payment
-      console.log("[Upgrade] Initializing payment for plan:", selectedPlan);
-      const response = await initializeUpgrade(selectedPlan);
+      const currentBillingCycle = (subscription?.billingCycle || accountInfo?.customer?.billingCycle || 'monthly') as 'monthly' | 'annual';
+      console.log("[Upgrade] Initializing payment for plan:", selectedPlan, "billing cycle:", currentBillingCycle);
+      const response = await initializeUpgrade(selectedPlan, currentBillingCycle);
       console.log("[Upgrade] Response:", response);
 
       if (response.data?.authorizationUrl) {
@@ -754,7 +755,10 @@ export function DeveloperSettings({
               <Label htmlFor="role">Role</Label>
               <Input
                 id="role"
-                defaultValue="Property Developer"
+                value={
+                  accountInfo?.user?.teamMemberRole?.name ||
+                  (accountInfo?.user?.isOwner ? "Owner" : "Property Developer")
+                }
                 disabled
                 className="bg-gray-50"
               />

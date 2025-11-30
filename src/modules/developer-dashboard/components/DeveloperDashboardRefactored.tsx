@@ -380,8 +380,10 @@ export const DeveloperDashboardRefactored: React.FC<
   const canManageProjects =
     userPermissions.canManageProjects !== false &&
     userPermissions.projects !== "view"; // Default true for Owner, false if projects is "view"
-  const canApproveInvoices = userPermissions.canApproveInvoices || false;
-  const canCreateInvoices = userPermissions.canCreateInvoices || false;
+  // Owners (isOwner) have all permissions by default
+  // Team members need explicit permission
+  const canApproveInvoices = isOwner || userPermissions.canApproveInvoices === true;
+  const canCreateInvoices = isOwner || userPermissions.canCreateInvoices === true;
   const canViewReports = userPermissions.canViewReports !== false; // Default true
 
   // Main menu items (always visible)
@@ -414,7 +416,7 @@ export const DeveloperDashboardRefactored: React.FC<
       id: "expense-management" as Page,
       label: "Expenses",
       icon: Receipt,
-      visible: canManageProjects, // Owner, Project Manager
+      visible: true, // Everyone can view expenses
     },
     {
       id: "budgets" as Page,
@@ -513,7 +515,7 @@ export const DeveloperDashboardRefactored: React.FC<
         );
       case "project-invoices":
         return selectedProjectId ? (
-          <ProjectInvoicesPage projectId={selectedProjectId} />
+          <ProjectInvoicesPage projectId={selectedProjectId} canApproveInvoices={canApproveInvoices} />
         ) : (
           <div className="flex items-center justify-center h-full">
             <p className="text-gray-500">
@@ -575,7 +577,7 @@ export const DeveloperDashboardRefactored: React.FC<
         );
       case "purchase-orders":
         return selectedProjectId ? (
-          <PurchaseOrdersPage projectId={selectedProjectId} />
+          <PurchaseOrdersPage projectId={selectedProjectId} canApproveInvoices={canApproveInvoices} />
         ) : (
           <div className="flex items-center justify-center h-full">
             <p className="text-gray-500">

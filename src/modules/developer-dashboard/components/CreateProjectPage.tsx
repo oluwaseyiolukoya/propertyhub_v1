@@ -25,6 +25,7 @@ import { Card, CardContent } from '../../../components/ui/card';
 import { Separator } from '../../../components/ui/separator';
 import { toast } from 'sonner';
 import { getProgressFromStage } from '../utils/projectProgress';
+import { NIGERIAN_CITIES, NIGERIAN_STATES, COUNTRIES } from '../../../constants/nigeria-locations';
 
 interface CreateProjectPageProps {
   onCancel: () => void;
@@ -44,6 +45,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
     location: '',
     city: '',
     state: '',
+    country: 'Nigeria',
     description: '',
     currency: 'NGN',
     totalBudget: '',
@@ -298,27 +300,66 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                     <Label htmlFor="city">
                       City <span className="text-red-500">*</span>
                     </Label>
-                    <Input
-                      id="city"
-                      placeholder="e.g., Lagos"
+                    <Select
                       value={projectData.city}
-                      onChange={(e) =>
-                        setProjectData({ ...projectData, city: e.target.value })
+                      onValueChange={(value) =>
+                        setProjectData({ ...projectData, city: value })
                       }
-                    />
+                    >
+                      <SelectTrigger id="city">
+                        <SelectValue placeholder="Select city" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {NIGERIAN_CITIES.map((city) => (
+                          <SelectItem key={city} value={city}>
+                            {city}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="state">State</Label>
-                    <Input
-                      id="state"
-                      placeholder="e.g., Lagos State"
+                    <Select
                       value={projectData.state}
-                      onChange={(e) =>
-                        setProjectData({ ...projectData, state: e.target.value })
+                      onValueChange={(value) =>
+                        setProjectData({ ...projectData, state: value })
                       }
-                    />
+                    >
+                      <SelectTrigger id="state">
+                        <SelectValue placeholder="Select state" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {NIGERIAN_STATES.map((state) => (
+                          <SelectItem key={state} value={state}>
+                            {state}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="country">Country</Label>
+                  <Select
+                    value={projectData.country}
+                    onValueChange={(value) =>
+                      setProjectData({ ...projectData, country: value })
+                    }
+                  >
+                    <SelectTrigger id="country">
+                      <SelectValue placeholder="Select country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COUNTRIES.map((country) => (
+                        <SelectItem key={country} value={country}>
+                          {country}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
@@ -467,13 +508,25 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                       id="end-date"
                       type="date"
                       value={projectData.estimatedEndDate}
-                      onChange={(e) =>
+                      min={projectData.startDate || undefined}
+                      onChange={(e) => {
+                        const selectedDate = e.target.value;
+                        // Validate that end date is not before start date
+                        if (projectData.startDate && selectedDate && selectedDate < projectData.startDate) {
+                          toast.error('Estimated End Date must be after Start Date');
+                          return;
+                        }
                         setProjectData({
                           ...projectData,
-                          estimatedEndDate: e.target.value,
-                        })
-                      }
+                          estimatedEndDate: selectedDate,
+                        });
+                      }}
                     />
+                    {projectData.startDate && (
+                      <p className="text-xs text-gray-500">
+                        Must be after {new Date(projectData.startDate).toLocaleDateString()}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -527,6 +580,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                         <span className="text-gray-900">
                           {projectData.city}
                           {projectData.state && `, ${projectData.state}`}
+                          {projectData.country && `, ${projectData.country}`}
                         </span>
                       </div>
                       <Separator />

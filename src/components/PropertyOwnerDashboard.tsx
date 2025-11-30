@@ -16,6 +16,7 @@ import { AddPropertyPage } from './AddPropertyPage';
 import { Footer } from './Footer';
 import PropertyOwnerDocuments from './PropertyOwnerDocuments';
 import { PaymentOverview } from './PaymentOverview';
+import { TenantVerificationManagement } from './owner/TenantVerificationManagement';
 import { getOwnerDashboardOverview, getProperties, getOwnerActivities } from '../lib/api';
 import { getProperty, updateProperty } from '../lib/api/properties';
 import { createProperty } from '../lib/api/properties';
@@ -636,6 +637,7 @@ export function PropertyOwnerDashboard({
     { name: 'Portfolio Overview', key: 'dashboard' },
     { name: 'Properties', key: 'properties' },
     { name: 'Tenant Management', key: 'tenants' },
+    { name: 'Tenant Verification', key: 'tenant-verification' },
     { name: 'Payments', key: 'payments' },
     { name: 'Financial Reports', key: 'financial' },
     { name: 'Expenses', key: 'expenses' },
@@ -788,6 +790,13 @@ export function PropertyOwnerDashboard({
                   toast.error(e?.message || 'Failed to fetch property');
                 }
               }}
+              onNavigateToTenants={() => setCurrentView('tenants')}
+              onNavigateToMaintenance={() => setCurrentView('maintenance')}
+              onPropertyDeleted={(propertyId) => {
+                // Remove the deleted property from local state
+                setProperties(prev => prev.filter(p => p.id !== propertyId));
+              }}
+              onRefreshProperties={() => fetchData(true)}
             />
           ) : currentView === 'property-details' ? (
             <div className="p-4 lg:p-8">
@@ -1096,6 +1105,12 @@ export function PropertyOwnerDashboard({
                 <TenantManagement properties={properties} />
               </div>
             </div>
+          ) : currentView === 'tenant-verification' ? (
+            <div className="p-4 lg:p-8">
+              <div className="max-w-7xl mx-auto">
+                <TenantVerificationManagement />
+              </div>
+            </div>
           ) : currentView === 'payments' ? (
             <div className="p-4 lg:p-8">
               <div className="max-w-7xl mx-auto">
@@ -1163,6 +1178,10 @@ export function PropertyOwnerDashboard({
               onBack={() => setCurrentView('dashboard')}
               managers={managers}
               onManagerCreated={onRefreshManagers}
+              propertyLimit={accountInfo?.customer?.propertyLimit}
+              currentPropertyCount={accountInfo?.customer?.actualPropertiesCount ?? properties.length}
+              unitLimit={accountInfo?.customer?.plan?.unitLimit}
+              currentUnitCount={accountInfo?.customer?.actualUnitsCount ?? units.length}
               onSave={(propertyData) => {
                 // Persist to backend, then refresh list
                 (async () => {

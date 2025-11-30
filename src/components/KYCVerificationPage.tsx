@@ -11,7 +11,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Upload, CheckCircle, XCircle, Clock, FileText, AlertCircle, Loader2, Shield } from 'lucide-react';
+import { Upload, CheckCircle, XCircle, Clock, FileText, AlertCircle, Loader2, Shield, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -20,6 +20,7 @@ import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Progress } from './ui/progress';
 import apiClient from '../lib/api-client';
+import { sessionManager } from '../lib/sessionManager';
 
 interface KYCVerificationPageProps {
   onVerificationComplete: () => void;
@@ -78,7 +79,11 @@ export const KYCVerificationPage: React.FC<KYCVerificationPageProps> = ({ onVeri
       setKycStatus(data);
 
       // If already verified, complete immediately
-      if (data.kycStatus === 'approved' || data.kycStatus === 'manually_verified') {
+      // Valid completed statuses: 'approved', 'verified', 'manually_verified', 'owner_approved'
+      if (data.kycStatus === 'approved' ||
+          data.kycStatus === 'verified' ||
+          data.kycStatus === 'manually_verified' ||
+          data.kycStatus === 'owner_approved') {
         toast.success('Your identity verification is complete!');
         setTimeout(() => onVerificationComplete(), 1000);
         return;
@@ -269,6 +274,17 @@ export const KYCVerificationPage: React.FC<KYCVerificationPageProps> = ({ onVeri
             <p className="text-sm text-gray-600 text-center">
               This usually takes 24-48 hours. Thank you for your patience.
             </p>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                sessionManager.clearSessionManually();
+                window.location.href = '/';
+              }}
+              className="w-full text-gray-600 hover:text-gray-800 mt-4"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign Out and Continue Later
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -319,6 +335,17 @@ export const KYCVerificationPage: React.FC<KYCVerificationPageProps> = ({ onVeri
             >
               Retry Verification
             </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                sessionManager.clearSessionManually();
+                window.location.href = '/';
+              }}
+              className="w-full text-gray-600 hover:text-gray-800 mt-2"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign Out and Continue Later
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -351,6 +378,17 @@ export const KYCVerificationPage: React.FC<KYCVerificationPageProps> = ({ onVeri
               className="w-full"
             >
               Refresh Status
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                sessionManager.clearSessionManually();
+                window.location.href = '/';
+              }}
+              className="w-full text-gray-600 hover:text-gray-800 mt-2"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign Out and Continue Later
             </Button>
           </CardContent>
         </Card>
@@ -533,6 +571,20 @@ export const KYCVerificationPage: React.FC<KYCVerificationPageProps> = ({ onVeri
                   {totalCount < 2 && ` (${2 - totalCount} more required)`}
                 </>
               )}
+            </Button>
+
+            {/* Sign Out and Continue Later */}
+            <Button
+              variant="ghost"
+              onClick={() => {
+                sessionManager.clearSessionManually();
+                window.location.href = '/';
+              }}
+              disabled={submitting}
+              className="w-full text-gray-600 hover:text-gray-800"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign Out and Continue Later
             </Button>
 
             {/* Help Text */}

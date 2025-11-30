@@ -30,7 +30,7 @@ export class AdminService {
    * @param limit - Items per page
    * @param email - Filter by customer email (searches main database)
    */
-  async listRequests(status?: string, page: number = 1, limit: number = 20, email?: string) {
+  async listRequests(status?: string, page: number = 1, limit: number = 20, email?: string, excludeTenants: boolean = true) {
     try {
       const skip = (page - 1) * limit;
 
@@ -44,6 +44,14 @@ export class AdminService {
         where.customerEmail = {
           contains: email.trim(),
           mode: 'insensitive', // Case-insensitive search
+        };
+      }
+
+      // Exclude tenant KYC requests from admin view by default
+      // Tenant KYC is handled by property owners, not system admins
+      if (excludeTenants) {
+        where.customerType = {
+          not: 'tenant',
         };
       }
 
@@ -329,6 +337,9 @@ export class AdminService {
    */
   async getAnalytics() {
     try {
+      // Exclude tenant KYC from admin analytics - tenant KYC is managed by property owners
+      const excludeTenantFilter = { customerType: { not: 'tenant' } };
+
       const [
         totalRequests,
         pendingRequests,
@@ -338,12 +349,13 @@ export class AdminService {
         recentRequests,
         providerStats,
       ] = await Promise.all([
-        prisma.verification_requests.count(),
-        prisma.verification_requests.count({ where: { status: 'pending' } }),
-        prisma.verification_requests.count({ where: { status: 'approved' } }),
-        prisma.verification_requests.count({ where: { status: 'rejected' } }),
-        prisma.verification_requests.count({ where: { status: 'in_progress' } }),
+        prisma.verification_requests.count({ where: excludeTenantFilter }),
+        prisma.verification_requests.count({ where: { ...excludeTenantFilter, status: 'pending' } }),
+        prisma.verification_requests.count({ where: { ...excludeTenantFilter, status: 'approved' } }),
+        prisma.verification_requests.count({ where: { ...excludeTenantFilter, status: 'rejected' } }),
+        prisma.verification_requests.count({ where: { ...excludeTenantFilter, status: 'in_progress' } }),
         prisma.verification_requests.findMany({
+          where: excludeTenantFilter,
           take: 10,
           orderBy: { submittedAt: 'desc' },
           include: {
@@ -433,6 +445,55 @@ export class AdminService {
     } catch (error) {
       console.error('[AdminService] Failed to get provider logs:', error);
       throw new Error('Failed to get provider logs');
+    }
+  }
+
+  /**
+   * Delete verification request and all related data
+   * @param requestId - Verification request ID
+   */
+  async deleteRequest(requestId: string) {
+    try {
+      console.log(`[AdminService] Deleting request ${requestId}`);
+
+      const request = await prisma.verification_requests.findUnique({
+        where: { id: requestId },
+        include: {
+          documents: true,
+          history: true,
+        },
+      });
+
+      if (!request) {
+        throw new Error('Verification request not found');
+      }
+
+      // Delete in transaction (cascade delete documents and history)
+      await prisma.$transaction([
+        // Delete verification history
+        prisma.verification_history.deleteMany({
+          where: { requestId },
+        }),
+        // Delete verification documents
+        prisma.verification_documents.deleteMany({
+          where: { requestId },
+        }),
+        // Delete the verification request
+        prisma.verification_requests.delete({
+          where: { id: requestId },
+        }),
+      ]);
+
+      console.log(`[AdminService] ✅ Request ${requestId} deleted (${request.documents.length} documents, ${request.history.length} history entries)`);
+
+      return {
+        success: true,
+        deletedDocuments: request.documents.length,
+        deletedHistory: request.history.length,
+      };
+    } catch (error: any) {
+      console.error('[AdminService] Failed to delete request:', error);
+      throw error;
     }
   }
 }

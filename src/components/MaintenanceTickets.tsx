@@ -4,12 +4,12 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Badge } from "./ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Textarea } from "./ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Wrench, Clock, CheckCircle, AlertTriangle, Plus, Search, Filter, File as FileIcon } from 'lucide-react';
+import { Wrench, Clock, CheckCircle, AlertTriangle, Plus, Search, Filter, File as FileIcon, Upload, X, Loader2, User, Building2, Home } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   getMaintenanceRequests,
@@ -18,15 +18,50 @@ import {
   updateMaintenanceRequest,
   assignMaintenanceRequest,
   completeMaintenanceRequest,
-  replyMaintenanceRequest
+  replyMaintenanceRequest,
+  uploadMaintenanceFiles
 } from '../lib/api/maintenance';
 import { initializeSocket, isConnected, subscribeToMaintenanceEvents, unsubscribeFromMaintenanceEvents } from '../lib/socket';
+import { apiClient } from '../lib/api-client';
+
+interface Property {
+  id: string;
+  name: string;
+  address?: string;
+  units?: Unit[];
+}
+
+interface Unit {
+  id: string;
+  unitNumber: string;
+  type?: string;
+  propertyId?: string;
+  status?: string;
+}
+
+interface Tenant {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  unitId?: string;
+  unitNumber?: string;
+  propertyId?: string;
+  propertyName?: string;
+}
+
+interface Manager {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+}
 
 interface MaintenanceTicketsProps {
   properties?: any[];
 }
 
-export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properties = [] }) => {
+export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properties: propProperties = [] }) => {
   // Search and filter state
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -41,10 +76,51 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Data for creating tickets
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [managers, setManagers] = useState<Manager[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
+
+  // Create ticket form state
+  const [newTicket, setNewTicket] = useState({
+    propertyId: '',
+    unitId: '',
+    tenantId: '',
+    title: '',
+    description: '',
+    category: '',
+    priority: 'medium',
+    preferredTime: '',
+    images: [] as string[]
+  });
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+
   // Fetch maintenance requests
   useEffect(() => {
     fetchMaintenanceRequests();
   }, [statusFilter, priorityFilter, propertyFilter, categoryFilter]);
+
+  // Fetch properties, tenants, and managers on mount
+  useEffect(() => {
+    fetchPropertiesWithUnits();
+    fetchTenantsFromLeases();
+    fetchManagers();
+  }, []);
+
+  // Update units when property is selected in form (only occupied units)
+  useEffect(() => {
+    if (newTicket.propertyId) {
+      // Always fetch units from the property details endpoint
+      // since the properties list doesn't include full unit data
+      fetchUnitsForProperty(newTicket.propertyId);
+      // Reset unit and tenant selection when property changes
+      setNewTicket(prev => ({ ...prev, unitId: '', tenantId: '' }));
+    } else {
+      setUnits([]);
+    }
+  }, [newTicket.propertyId]);
 
   // Realtime maintenance updates for manager/owner
   useEffect(() => {
@@ -60,6 +136,161 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
       unsubscribeFromMaintenanceEvents();
     };
   }, []);
+
+  // Fetch properties with units
+  const fetchPropertiesWithUnits = async () => {
+    try {
+      // Use passed properties if available
+      if (propProperties && propProperties.length > 0) {
+        const mappedProperties = propProperties.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          address: p.address,
+          units: p.units || []
+        }));
+        setProperties(mappedProperties);
+        return;
+      }
+
+      // Otherwise fetch from API
+      const response = await apiClient.get<any[]>('/api/properties');
+      if (response.data) {
+        setProperties(response.data.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          address: p.address,
+          units: p.units || []
+        })));
+      }
+    } catch (error) {
+      console.error('Failed to fetch properties:', error);
+    }
+  };
+
+  // Fetch units for a specific property (only occupied units)
+  const fetchUnitsForProperty = async (propertyId: string) => {
+    try {
+      // Fetch the full property details which includes units
+      const response = await apiClient.get<any>(`/api/properties/${propertyId}`);
+      if (response.data && response.data.units) {
+        // Filter to only show occupied units for maintenance requests
+        const occupiedUnits = response.data.units
+          .filter((u: any) => u.status === 'occupied')
+          .map((u: any) => ({
+            id: u.id,
+            unitNumber: u.unitNumber,
+            type: u.type,
+            propertyId: u.propertyId,
+            status: u.status
+          }));
+        setUnits(occupiedUnits);
+      }
+    } catch (error) {
+      console.error('Failed to fetch units:', error);
+    }
+  };
+
+  // Fetch tenants from leases
+  const fetchTenantsFromLeases = async () => {
+    try {
+      const response = await apiClient.get<any[]>('/api/leases');
+      if (response.data) {
+        const tenantsFromLeases = response.data
+          .filter((lease: any) => lease.users && lease.status === 'active')
+          .map((lease: any) => ({
+            id: lease.users.id,
+            name: lease.users.name,
+            email: lease.users.email,
+            phone: lease.users.phone,
+            unitId: lease.unitId,
+            unitNumber: lease.units?.unitNumber,
+            propertyId: lease.propertyId,
+            propertyName: lease.properties?.name
+          }));
+        setTenants(tenantsFromLeases);
+      }
+    } catch (error) {
+      console.error('Failed to fetch tenants:', error);
+    }
+  };
+
+  // Fetch managers
+  const fetchManagers = async () => {
+    try {
+      const response = await apiClient.get<any[]>('/api/property-managers');
+      if (response.data) {
+        setManagers(response.data.map((m: any) => ({
+          id: m.id || m.managerId,
+          name: m.name || m.users?.name,
+          email: m.email || m.users?.email,
+          phone: m.phone || m.users?.phone
+        })));
+      }
+    } catch (error) {
+      console.error('Failed to fetch managers:', error);
+    }
+  };
+
+  // Get tenants filtered by selected property/unit
+  const getFilteredTenants = () => {
+    if (!newTicket.propertyId) return tenants;
+
+    let filtered = tenants.filter(t => t.propertyId === newTicket.propertyId);
+
+    if (newTicket.unitId) {
+      filtered = filtered.filter(t => t.unitId === newTicket.unitId);
+    }
+
+    return filtered;
+  };
+
+  // Handle file selection
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length + selectedFiles.length > 5) {
+      toast.error('Maximum 5 files allowed');
+      return;
+    }
+    setSelectedFiles(prev => [...prev, ...files]);
+  };
+
+  // Remove selected file
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Upload files and get URLs
+  const uploadFiles = async (): Promise<string[]> => {
+    if (selectedFiles.length === 0) return [];
+
+    setUploadingFiles(true);
+    try {
+      const result = await uploadMaintenanceFiles(selectedFiles);
+      return result.files || [];
+    } catch (error) {
+      console.error('File upload error:', error);
+      toast.error('Failed to upload files');
+      return [];
+    } finally {
+      setUploadingFiles(false);
+    }
+  };
+
+  // Reset form
+  const resetForm = () => {
+    setNewTicket({
+      propertyId: '',
+      unitId: '',
+      tenantId: '',
+      title: '',
+      description: '',
+      category: '',
+      priority: 'medium',
+      preferredTime: '',
+      images: []
+    });
+    setSelectedFiles([]);
+  };
 
   const fetchMaintenanceRequests = async () => {
     try {
@@ -109,18 +340,42 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
     }
   };
 
-  const handleCreateTicket = async (ticketData: any) => {
+  const handleCreateTicket = async () => {
+    // Validation
+    if (!newTicket.propertyId) {
+      toast.error('Please select a property');
+      return;
+    }
+    if (!newTicket.title.trim()) {
+      toast.error('Please enter a title');
+      return;
+    }
+    if (!newTicket.description.trim()) {
+      toast.error('Please enter a description');
+      return;
+    }
+    if (!newTicket.category) {
+      toast.error('Please select a category');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
+      // Upload files first if any
+      let imageUrls: string[] = [];
+      if (selectedFiles.length > 0) {
+        imageUrls = await uploadFiles();
+      }
+
       const response = await createMaintenanceRequest({
-        propertyId: ticketData.propertyId,
-        unitId: ticketData.unitId,
-        title: ticketData.title,
-        description: ticketData.description,
-        category: ticketData.category.toLowerCase(),
-        priority: ticketData.priority.toLowerCase(),
-        images: ticketData.photos,
-        preferredSchedule: ticketData.preferredTime
+        propertyId: newTicket.propertyId,
+        unitId: newTicket.unitId || undefined,
+        title: newTicket.title,
+        description: newTicket.description,
+        category: newTicket.category.toLowerCase(),
+        priority: newTicket.priority.toLowerCase(),
+        images: imageUrls,
+        preferredSchedule: newTicket.preferredTime || undefined
       });
 
       if (response.error) {
@@ -128,6 +383,7 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
       } else {
         toast.success('Maintenance request created successfully');
         setShowAddTicket(false);
+        resetForm();
         fetchMaintenanceRequests();
       }
     } catch (error) {
@@ -270,106 +526,295 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
           <p className="text-gray-600 mt-1">Manage maintenance requests and work orders</p>
         </div>
 
-        <Button onClick={() => setShowAddTicket(!showAddTicket)}>
+        <Button onClick={() => setShowAddTicket(true)} className="bg-gray-900 hover:bg-gray-800">
           <Plus className="h-4 w-4 mr-2" />
-          {showAddTicket ? 'Cancel' : 'Create Ticket'}
+          Create Ticket
         </Button>
       </div>
 
-      {/* Create Ticket Form */}
-      {showAddTicket && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Create Maintenance Ticket</CardTitle>
-            <CardDescription>
-              Create a new maintenance request for a tenant
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="title">Issue Title</Label>
-                <Input
-                  id="title"
-                  placeholder="Brief description of the issue"
-                />
-              </div>
+      {/* Create Ticket Dialog */}
+      <Dialog open={showAddTicket} onOpenChange={(open) => {
+        setShowAddTicket(open);
+        if (!open) resetForm();
+      }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create Maintenance Ticket</DialogTitle>
+            <DialogDescription>
+              Create a new maintenance request for a property or tenant
+            </DialogDescription>
+          </DialogHeader>
 
-              <div className="grid gap-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Detailed description of the maintenance issue"
-                  rows={3}
-                />
-              </div>
-
+          <div className="grid gap-6 py-4">
+            {/* Property & Unit Selection */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <Building2 className="h-4 w-4" />
+                Location
+              </h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="tenant">Tenant</Label>
-                  <Select>
+                  <Label htmlFor="property">Property *</Label>
+                  <Select
+                    value={newTicket.propertyId}
+                    onValueChange={(value) => setNewTicket(prev => ({ ...prev, propertyId: value }))}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select tenant" />
+                      <SelectValue placeholder="Select property" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Sarah Johnson">Sarah Johnson</SelectItem>
-                      <SelectItem value="Michael Brown">Michael Brown</SelectItem>
-                      <SelectItem value="Lisa Wilson">Lisa Wilson</SelectItem>
+                      {properties.map((property) => (
+                        <SelectItem key={property.id} value={property.id}>
+                          {property.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="unit">Unit</Label>
+                  <Label htmlFor="unit">Unit (Optional)</Label>
+                  <Select
+                    value={newTicket.unitId || 'none'}
+                    onValueChange={(value) => setNewTicket(prev => ({ ...prev, unitId: value === 'none' ? '' : value }))}
+                    disabled={!newTicket.propertyId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select unit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No specific unit</SelectItem>
+                      {units.map((unit) => (
+                        <SelectItem key={unit.id} value={unit.id}>
+                          Unit {unit.unitNumber} {unit.type ? `(${unit.type})` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            {/* Tenant Selection (Optional) */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <User className="h-4 w-4" />
+                Tenant (Optional)
+              </h3>
+              <div className="grid gap-2">
+                <Label htmlFor="tenant">Select Tenant</Label>
+                <Select
+                  value={newTicket.tenantId || 'none'}
+                  onValueChange={(value) => setNewTicket(prev => ({ ...prev, tenantId: value === 'none' ? '' : value }))}
+                  disabled={!newTicket.propertyId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select tenant (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No specific tenant</SelectItem>
+                    {getFilteredTenants().map((tenant) => (
+                      <SelectItem key={tenant.id} value={tenant.id}>
+                        {tenant.name} {tenant.unitNumber ? `(Unit ${tenant.unitNumber})` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500">
+                  Select a tenant if this request is on their behalf
+                </p>
+              </div>
+            </div>
+
+            {/* Issue Details */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <Wrench className="h-4 w-4" />
+                Issue Details
+              </h3>
+              <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="title">Issue Title *</Label>
                   <Input
-                    id="unit"
-                    placeholder="A101"
+                    id="title"
+                    placeholder="Brief description of the issue"
+                    value={newTicket.title}
+                    onChange={(e) => setNewTicket(prev => ({ ...prev, title: e.target.value }))}
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="description">Description *</Label>
+                  <Textarea
+                    id="description"
+                    placeholder="Detailed description of the maintenance issue..."
+                    rows={4}
+                    value={newTicket.description}
+                    onChange={(e) => setNewTicket(prev => ({ ...prev, description: e.target.value }))}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="category">Category *</Label>
+                    <Select
+                      value={newTicket.category}
+                      onValueChange={(value) => setNewTicket(prev => ({ ...prev, category: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="plumbing">Plumbing</SelectItem>
+                        <SelectItem value="electrical">Electrical</SelectItem>
+                        <SelectItem value="hvac">HVAC</SelectItem>
+                        <SelectItem value="appliances">Appliances</SelectItem>
+                        <SelectItem value="structural">Structural</SelectItem>
+                        <SelectItem value="pest_control">Pest Control</SelectItem>
+                        <SelectItem value="cleaning">Cleaning</SelectItem>
+                        <SelectItem value="security">Security</SelectItem>
+                        <SelectItem value="general">General Maintenance</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="priority">Priority</Label>
+                    <Select
+                      value={newTicket.priority}
+                      onValueChange={(value) => setNewTicket(prev => ({ ...prev, priority: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select priority" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="urgent">
+                          <span className="flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full bg-red-500" />
+                            Urgent
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="high">
+                          <span className="flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full bg-orange-500" />
+                            High
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="medium">
+                          <span className="flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full bg-yellow-500" />
+                            Medium
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="low">
+                          <span className="flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full bg-green-500" />
+                            Low
+                          </span>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="preferredTime">Preferred Schedule (Optional)</Label>
+                  <Input
+                    id="preferredTime"
+                    type="datetime-local"
+                    value={newTicket.preferredTime}
+                    onChange={(e) => setNewTicket(prev => ({ ...prev, preferredTime: e.target.value }))}
                   />
                 </div>
               </div>
+            </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="priority">Priority</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select priority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="High">High</SelectItem>
-                      <SelectItem value="Medium">Medium</SelectItem>
-                      <SelectItem value="Low">Low</SelectItem>
-                    </SelectContent>
-                  </Select>
+            {/* File Upload */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <Upload className="h-4 w-4" />
+                Attachments (Optional)
+              </h3>
+              <div className="grid gap-4">
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                  <input
+                    type="file"
+                    id="file-upload"
+                    multiple
+                    accept="image/*,application/pdf,video/*"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <label htmlFor="file-upload" className="cursor-pointer">
+                    <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-600">
+                      Click to upload or drag and drop
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Images, PDFs, or videos (max 5 files, 10MB each)
+                    </p>
+                  </label>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Plumbing">Plumbing</SelectItem>
-                      <SelectItem value="Electrical">Electrical</SelectItem>
-                      <SelectItem value="HVAC">HVAC</SelectItem>
-                      <SelectItem value="Appliances">Appliances</SelectItem>
-                      <SelectItem value="General">General Maintenance</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
 
-              <div className="flex justify-end space-x-2 pt-4">
-                <Button variant="outline" onClick={() => setShowAddTicket(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={() => setShowAddTicket(false)}>
-                  Create Ticket
-                </Button>
+                {selectedFiles.length > 0 && (
+                  <div className="space-y-2">
+                    {selectedFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
+                        <div className="flex items-center gap-2">
+                          <FileIcon className="h-4 w-4 text-gray-500" />
+                          <span className="text-sm text-gray-700 truncate max-w-[200px]">
+                            {file.name}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                          </span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeFile(index)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAddTicket(false);
+                resetForm();
+              }}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateTicket}
+              disabled={isSubmitting || uploadingFiles}
+              className="bg-gray-900 hover:bg-gray-800"
+            >
+              {isSubmitting || uploadingFiles ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {uploadingFiles ? 'Uploading...' : 'Creating...'}
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Ticket
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Tickets Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -794,44 +1239,141 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
                   </div>
                 )}
 
-                {/* Tenant Info */}
-                <div className="grid grid-cols-2 gap-4 bg-gray-50 border rounded p-3">
+                {/* Tenant & Assignment Info */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-gray-50 border rounded p-3">
                   <div>
-                    <p className="text-xs text-gray-500">Tenant</p>
+                    <p className="text-xs text-gray-500">Reported By</p>
                     <p className="font-medium">{selectedTicket.tenant}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Created</p>
                     <p className="font-medium">{selectedTicket.createdDate}</p>
                   </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Assigned To</p>
+                    <p className="font-medium">{selectedTicket.assignedTo || 'Unassigned'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Preferred Time</p>
+                    <p className="font-medium">{selectedTicket.preferredTime || 'Anytime'}</p>
+                  </div>
                 </div>
 
-                {/* Actions */}
+                {/* Assign to Manager */}
+                {selectedTicket.status !== 'Completed' && (
+                  <div className="space-y-3 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="font-medium text-blue-900">Assign Ticket</h4>
+                    <div className="flex gap-3 items-end">
+                      <div className="flex-1">
+                        <Label htmlFor="assignTo" className="text-sm text-blue-800">Assign to Manager</Label>
+                        <Select
+                          value={selectedTicket.assignedToId || 'none'}
+                          onValueChange={(value) => {
+                            setSelectedTicket((prev: any) => ({
+                              ...prev,
+                              assignedToId: value === 'none' ? null : value
+                            }));
+                          }}
+                        >
+                          <SelectTrigger className="bg-white">
+                            <SelectValue placeholder="Select manager" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Unassigned</SelectItem>
+                            {managers.map((manager) => (
+                              <SelectItem key={manager.id} value={manager.id}>
+                                {manager.name} ({manager.email})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={async () => {
+                          if (!selectedTicket.assignedToId || selectedTicket.assignedToId === 'none') {
+                            toast.error('Please select a manager to assign');
+                            return;
+                          }
+                          const res = await assignMaintenanceRequest(selectedTicket.id, {
+                            assignedToId: selectedTicket.assignedToId,
+                            notes: `Assigned by owner`
+                          });
+                          if ((res as any).error) {
+                            toast.error((res as any).error.error || 'Failed to assign');
+                          } else {
+                            toast.success('Ticket assigned successfully');
+                            fetchMaintenanceRequests();
+                            // Update local state
+                            const assignedManager = managers.find(m => m.id === selectedTicket.assignedToId);
+                            setSelectedTicket((prev: any) => ({
+                              ...prev,
+                              assignedTo: assignedManager?.name || 'Assigned'
+                            }));
+                          }
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        Assign
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Status Actions */}
                 <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      if (!selectedTicket.assignedToId) {
-                        toast.info('Assigning to yourself requires an assignee user ID.');
-                        return;
+                  <Label className="w-full text-sm font-medium mb-1">Update Status</Label>
+                  <Select
+                    value={selectedTicket.status.toLowerCase().replace(' ', '_')}
+                    onValueChange={async (value) => {
+                      const res = await updateMaintenanceRequest(selectedTicket.id, { status: value });
+                      if ((res as any).error) {
+                        toast.error((res as any).error.error || 'Failed to update status');
+                      } else {
+                        toast.success('Status updated');
+                        fetchMaintenanceRequests();
+                        setSelectedTicket((prev: any) => ({
+                          ...prev,
+                          status: value.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+                        }));
                       }
-                      const res = await assignMaintenanceRequest(selectedTicket.id, { assignedToId: selectedTicket.assignedToId });
-                      if ((res as any).error) toast.error((res as any).error.error || 'Failed to assign'); else { toast.success('Assigned'); fetchMaintenanceRequests(); }
                     }}
                   >
-                    Assign
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      const res = await completeMaintenanceRequest(selectedTicket.id, {});
-                      if ((res as any).error) toast.error((res as any).error.error || 'Failed to complete'); else { toast.success('Marked completed'); fetchMaintenanceRequests(); }
-                    }}
-                  >
-                    Mark Completed
-                  </Button>
+                    <SelectTrigger className="w-48">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="open">Open</SelectItem>
+                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      <SelectItem value="on_hold">On Hold</SelectItem>
+                      <SelectItem value="scheduled">Scheduled</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {selectedTicket.status !== 'Completed' && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={async () => {
+                        const res = await completeMaintenanceRequest(selectedTicket.id, {});
+                        if ((res as any).error) {
+                          toast.error((res as any).error.error || 'Failed to complete');
+                        } else {
+                          toast.success('Ticket marked as completed');
+                          fetchMaintenanceRequests();
+                          setSelectedTicket((prev: any) => ({
+                            ...prev,
+                            status: 'Completed'
+                          }));
+                        }
+                      }}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Mark Completed
+                    </Button>
+                  )}
                 </div>
 
                 {/* Updates & Activity */}

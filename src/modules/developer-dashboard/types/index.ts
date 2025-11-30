@@ -259,6 +259,7 @@ export interface CreateProjectRequest {
   location?: string;
   city?: string;
   state?: string;
+  country?: string;
   totalBudget: number;
   currency?: string;
 }
@@ -275,6 +276,7 @@ export interface UpdateProjectRequest {
   location?: string;
   city?: string;
   state?: string;
+  country?: string;
   totalBudget?: number;
   actualSpend?: number;
   progress?: number;

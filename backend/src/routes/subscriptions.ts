@@ -412,12 +412,12 @@ router.post('/upgrade/initialize', authMiddleware, async (req: AuthRequest, res:
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const { planId } = req.body;
+    const { planId, billingCycle: requestedBillingCycle } = req.body;
     if (!planId) {
       return res.status(400).json({ error: 'Plan ID is required' });
     }
 
-    console.log('[Upgrade] Initialize payment for user:', userId, 'plan:', planId);
+    console.log('[Upgrade] Initialize payment for user:', userId, 'plan:', planId, 'billing cycle:', requestedBillingCycle);
 
     // Get user and customer
     const user = await prisma.users.findUnique({
@@ -455,10 +455,12 @@ router.post('/upgrade/initialize', authMiddleware, async (req: AuthRequest, res:
       });
     }
 
-    // Calculate amount based on billing cycle
-    const billingCycle = customer.billingCycle || 'monthly';
+    // Calculate amount based on requested billing cycle (or fall back to customer's current cycle)
+    const billingCycle = requestedBillingCycle || customer.billingCycle || 'monthly';
     const amount = billingCycle === 'annual' ? newPlan.annualPrice : newPlan.monthlyPrice;
     const currency = newPlan.currency || 'NGN';
+
+    console.log('[Upgrade] Billing cycle:', billingCycle, 'Amount:', amount, 'Currency:', currency);
 
     // Resolve Paystack keys (customer-level → system-level → env)
     console.log('[Upgrade] Resolving Paystack configuration...');
@@ -552,6 +554,7 @@ router.post('/upgrade/initialize', authMiddleware, async (req: AuthRequest, res:
           customerId: customer.id,
           invoiceId: invoice.id,
           planId: newPlan.id,
+          billingCycle,
           type: 'upgrade',
           userId: user.id
         },
@@ -696,6 +699,7 @@ router.post('/upgrade/verify', authMiddleware, async (req: AuthRequest, res: Res
     const metadata = transaction.metadata || {};
     const planId = metadata.planId;
     const invoiceId = metadata.invoiceId;
+    const verifiedBillingCycle = metadata.billingCycle || customer.billingCycle || 'monthly';
 
     if (!planId) {
       return res.status(400).json({ error: 'Invalid payment metadata' });
@@ -710,8 +714,8 @@ router.post('/upgrade/verify', authMiddleware, async (req: AuthRequest, res: Res
       return res.status(404).json({ error: 'Plan not found' });
     }
 
-    // Calculate new MRR
-    const billingCycle = customer.billingCycle || 'monthly';
+    // Calculate new MRR based on verified billing cycle
+    const billingCycle = verifiedBillingCycle;
     const newMRR = billingCycle === 'annual'
       ? newPlan.annualPrice / 12
       : newPlan.monthlyPrice;
@@ -724,6 +728,7 @@ router.post('/upgrade/verify', authMiddleware, async (req: AuthRequest, res: Res
       storageLimit: newPlan.storageLimit,
       mrr: newMRR,
       status: 'active',
+      billingCycle,
       subscriptionStartDate: customer.subscriptionStartDate || new Date(),
       // Clear trial-related fields when upgrading to paid plan
       trialStartsAt: null,

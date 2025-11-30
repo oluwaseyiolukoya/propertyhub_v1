@@ -630,7 +630,7 @@ const TenantMaintenanceRequests: React.FC = () => {
                   {selectedRequest.assignedTo && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Assigned To</p>
-                      <p className="text-sm font-medium">{selectedRequest.assignedTo}</p>
+                      <p className="text-sm font-medium">{selectedRequest.assignedTo?.name || selectedRequest.assignedTo}</p>
                     </div>
                   )}
                   {selectedRequest.estimatedTime && (

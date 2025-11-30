@@ -71,6 +71,7 @@ router.post('/add', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     const customerId = (req.user as any)?.customerId;
+    const role = (req.user?.role || '').toLowerCase();
     const { reference, setAsDefault = true } = req.body;
 
     if (!customerId) {
@@ -81,15 +82,58 @@ router.post('/add', authMiddleware, async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Payment reference is required' });
     }
 
-    console.log('[Payment Methods] Adding payment method for customer:', customerId);
+    console.log('[Payment Methods] Adding payment method for customer:', customerId, 'role:', role);
     console.log('[Payment Methods] Paystack reference:', reference);
+
+    // Determine which Paystack key to use
+    let secretKey: string | undefined;
+
+    if (role === 'tenant') {
+      // For tenants, we need to use the property owner's Paystack key
+      // Find the tenant's active lease to get the owner's customerId
+      const lease = await prisma.leases.findFirst({
+        where: { tenantId: userId, status: 'active' },
+        include: {
+          properties: { select: { customerId: true } }
+        }
+      });
+
+      if (!lease?.properties?.customerId) {
+        return res.status(400).json({ error: 'No active lease found. Cannot add payment method.' });
+      }
+
+      const ownerCustomerId = lease.properties.customerId;
+
+      // Get owner's Paystack settings
+      const ownerSettings = await prisma.payment_settings.findFirst({
+        where: { customerId: ownerCustomerId, provider: 'paystack', isEnabled: true }
+      });
+
+      if (!ownerSettings?.secretKey) {
+        return res.status(400).json({ error: 'Property owner has not configured Paystack payment settings' });
+      }
+
+      secretKey = ownerSettings.secretKey;
+      console.log('[Payment Methods] Using owner Paystack key for tenant');
+    } else {
+      // For owners/managers, use their own settings or system key
+      const settings = await prisma.payment_settings.findFirst({
+        where: { customerId, provider: 'paystack', isEnabled: true }
+      });
+
+      secretKey = settings?.secretKey || PAYSTACK_SECRET_KEY;
+    }
+
+    if (!secretKey) {
+      return res.status(400).json({ error: 'Paystack configuration not found' });
+    }
 
     // Verify the transaction with Paystack
     const verifyResponse = await axios.get(
       `${PAYSTACK_BASE_URL}/transaction/verify/${reference}`,
       {
         headers: {
-          Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+          Authorization: `Bearer ${secretKey}`,
         },
       }
     );

@@ -3,6 +3,7 @@ import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { verificationClient } from '../services/verification-client.service';
 import prisma from '../lib/db';
 import { v4 as uuidv4 } from 'uuid';
+import { sendManualVerificationEmail, sendKYCRejectionEmail } from '../lib/email';
 
 const router = express.Router();
 
@@ -57,6 +58,8 @@ router.get('/requests/:requestId', authMiddleware, adminOnly, async (req: AuthRe
 /**
  * Approve verification request (Manual KYC approval by admin)
  * POST /api/admin/verification/requests/:requestId/approve
+ *
+ * Handles both customer-level (owners, developers) and user-level (tenants) KYC
  */
 router.post('/requests/:requestId/approve', authMiddleware, adminOnly, async (req: AuthRequest, res: Response) => {
   try {
@@ -73,46 +76,119 @@ router.post('/requests/:requestId/approve', authMiddleware, adminOnly, async (re
     // Call verification microservice to approve
     const result = await verificationClient.approveRequest(requestId, adminUserId, notes);
 
-    // Get customer ID from verification request
+    // Get details from verification request
     const verificationDetails = await verificationClient.getRequestDetails(requestId);
-    const customerId = verificationDetails.customerId;
+    const referenceId = verificationDetails.customerId; // This could be customerId or userId (for tenants)
+    const customerType = verificationDetails.customerType;
+    const isTenant = customerType === 'tenant';
 
-    // Update customer to manually verified and grant trial status
-    await prisma.customers.update({
-      where: { id: customerId },
-      data: {
-        kycStatus: 'manually_verified',
-        kycCompletedAt: new Date(),
-        kycVerifiedBy: adminUserId,
-        kycFailureReason: null,
-        status: 'trial', // Activate trial
-      },
-    });
+    let recipientEmail: string | null = null;
+    let recipientName: string | null = null;
+    let companyName = 'Contrezz';
 
-    const customer = await prisma.customers.findUnique({ where: { id: customerId } });
+    if (isTenant) {
+      // For tenants, update user-level KYC
+      const user = await prisma.users.findUnique({
+        where: { id: referenceId },
+        include: { customers: true }
+      });
 
-    // Log activity
-    await prisma.activity_logs.create({
-      data: {
-        id: uuidv4(),
-        customerId,
-        userId: adminUserId,
-        action: 'manual_kyc_approval',
-        entity: 'customer',
-        entityId: customerId,
-        description: `Admin manually approved customer KYC. Notes: ${notes || 'N/A'}`,
-        metadata: { notes, requestId },
-      },
-    });
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
 
-    console.log('[Admin KYC] Customer manually verified and trial activated:', customerId);
+      await prisma.users.update({
+        where: { id: referenceId },
+        data: {
+          kycStatus: 'verified', // Use 'verified' for tenants
+          kycCompletedAt: new Date(),
+          kycFailureReason: null,
+        },
+      });
 
-    // TODO: Send manual verification email to customer
-    console.log('[Admin KYC] TODO: Send manual verification email to:', customer?.email);
+      recipientEmail = user.email;
+      recipientName = user.name;
+      companyName = user.customers?.company || 'Your Property';
+
+      // Log activity
+      if (user.customerId) {
+        await prisma.activity_logs.create({
+          data: {
+            id: uuidv4(),
+            customerId: user.customerId,
+            userId: adminUserId,
+            action: 'manual_kyc_approval',
+            entity: 'user',
+            entityId: referenceId,
+            description: `Admin manually approved tenant KYC for ${user.name}. Notes: ${notes || 'N/A'}`,
+            metadata: { notes, requestId, userType: 'tenant' },
+          },
+        });
+      }
+
+      console.log('[Admin KYC] Tenant KYC manually verified:', referenceId);
+    } else {
+      // For non-tenants, update customer-level KYC
+      await prisma.customers.update({
+        where: { id: referenceId },
+        data: {
+          kycStatus: 'manually_verified',
+          kycCompletedAt: new Date(),
+          kycVerifiedBy: adminUserId,
+          kycFailureReason: null,
+          status: 'trial', // Activate trial for customers
+        },
+      });
+
+      const customer = await prisma.customers.findUnique({ where: { id: referenceId } });
+
+      if (customer) {
+        recipientEmail = customer.email;
+        recipientName = customer.owner || customer.company;
+        companyName = customer.company || 'Your Company';
+
+        // Log activity
+        await prisma.activity_logs.create({
+          data: {
+            id: uuidv4(),
+            customerId: referenceId,
+            userId: adminUserId,
+            action: 'manual_kyc_approval',
+            entity: 'customer',
+            entityId: referenceId,
+            description: `Admin manually approved customer KYC. Notes: ${notes || 'N/A'}`,
+            metadata: { notes, requestId },
+          },
+        });
+      }
+
+      console.log('[Admin KYC] Customer manually verified and trial activated:', referenceId);
+    }
+
+    // Send verification approval email
+    let emailSent = false;
+    if (recipientEmail && recipientName) {
+      const loginUrl = process.env.PRODUCTION_SIGNIN_URL || process.env.FRONTEND_URL || 'https://app.contrezz.com/signin';
+
+      emailSent = await sendManualVerificationEmail({
+        customerName: recipientName,
+        customerEmail: recipientEmail,
+        companyName: companyName,
+        loginUrl: loginUrl,
+        adminNotes: notes,
+      });
+
+      if (emailSent) {
+        console.log('[Admin KYC] ✅ Verification approval email sent to:', recipientEmail);
+      } else {
+        console.warn('[Admin KYC] ⚠️ Failed to send verification approval email to:', recipientEmail);
+      }
+    }
 
     res.json({
       success: true,
-      message: 'Customer KYC manually approved and trial activated',
+      message: isTenant ? 'Tenant KYC manually approved' : 'Customer KYC manually approved and trial activated',
+      emailSent,
       data: result,
     });
   } catch (error: any) {
@@ -124,6 +200,8 @@ router.post('/requests/:requestId/approve', authMiddleware, adminOnly, async (re
 /**
  * Reject verification request (Manual KYC rejection by admin)
  * POST /api/admin/verification/requests/:requestId/reject
+ *
+ * Handles both customer-level (owners, developers) and user-level (tenants) KYC
  */
 router.post('/requests/:requestId/reject', authMiddleware, adminOnly, async (req: AuthRequest, res: Response) => {
   try {
@@ -144,43 +222,115 @@ router.post('/requests/:requestId/reject', authMiddleware, adminOnly, async (req
     // Call verification microservice to reject
     const result = await verificationClient.rejectRequest(requestId, adminUserId, reason);
 
-    // Get customer ID from verification request
+    // Get details from verification request
     const verificationDetails = await verificationClient.getRequestDetails(requestId);
-    const customerId = verificationDetails.customerId;
+    const referenceId = verificationDetails.customerId; // This could be customerId or userId (for tenants)
+    const customerType = verificationDetails.customerType;
+    const isTenant = customerType === 'tenant';
 
-    // Update customer to rejected
-    await prisma.customers.update({
-      where: { id: customerId },
-      data: {
-        kycStatus: 'rejected',
-        kycFailureReason: reason,
-        // Do NOT grant trial status
-      },
-    });
+    let recipientEmail: string | null = null;
+    let recipientName: string | null = null;
+    let companyName = 'Contrezz';
 
-    const customer = await prisma.customers.findUnique({ where: { id: customerId } });
+    if (isTenant) {
+      // For tenants, update user-level KYC
+      const user = await prisma.users.findUnique({
+        where: { id: referenceId },
+        include: { customers: true }
+      });
 
-    // Log activity
-    await prisma.activity_logs.create({
-      data: {
-        id: uuidv4(),
-        customerId,
-        userId: adminUserId,
-        action: 'manual_kyc_rejection',
-        entity: 'customer',
-        entityId: customerId,
-        description: `Admin rejected customer KYC. Reason: ${reason}`,
-        metadata: { reason, requestId },
-      },
-    });
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
 
-    console.log('[Admin KYC] Customer KYC rejected:', customerId);
+      await prisma.users.update({
+        where: { id: referenceId },
+        data: {
+          kycStatus: 'rejected',
+          kycFailureReason: reason,
+        },
+      });
 
-    // TODO: Send rejection email to customer
-    console.log('[Admin KYC] TODO: Send rejection email to:', customer?.email);
+      recipientEmail = user.email;
+      recipientName = user.name;
+      companyName = user.customers?.company || 'Your Property';
+
+      // Log activity
+      if (user.customerId) {
+        await prisma.activity_logs.create({
+          data: {
+            id: uuidv4(),
+            customerId: user.customerId,
+            userId: adminUserId,
+            action: 'manual_kyc_rejection',
+            entity: 'user',
+            entityId: referenceId,
+            description: `Admin rejected tenant KYC for ${user.name}. Reason: ${reason}`,
+            metadata: { reason, requestId, userType: 'tenant' },
+          },
+        });
+      }
+
+      console.log('[Admin KYC] Tenant KYC rejected:', referenceId);
+    } else {
+      // For non-tenants, update customer-level KYC
+      await prisma.customers.update({
+        where: { id: referenceId },
+        data: {
+          kycStatus: 'rejected',
+          kycFailureReason: reason,
+          // Do NOT grant trial status
+        },
+      });
+
+      const customer = await prisma.customers.findUnique({ where: { id: referenceId } });
+
+      if (customer) {
+        recipientEmail = customer.email;
+        recipientName = customer.owner || customer.company;
+        companyName = customer.company || 'Your Company';
+
+        // Log activity
+        await prisma.activity_logs.create({
+          data: {
+            id: uuidv4(),
+            customerId: referenceId,
+            userId: adminUserId,
+            action: 'manual_kyc_rejection',
+            entity: 'customer',
+            entityId: referenceId,
+            description: `Admin rejected customer KYC. Reason: ${reason}`,
+            metadata: { reason, requestId },
+          },
+        });
+      }
+
+      console.log('[Admin KYC] Customer KYC rejected:', referenceId);
+    }
+
+    // Send rejection email
+    let emailSent = false;
+    if (recipientEmail && recipientName) {
+      const retryUrl = process.env.PRODUCTION_SIGNIN_URL || process.env.FRONTEND_URL || 'https://app.contrezz.com/signin';
+
+      emailSent = await sendKYCRejectionEmail({
+        customerName: recipientName,
+        customerEmail: recipientEmail,
+        companyName: companyName,
+        rejectionReason: reason,
+        retryUrl: retryUrl,
+      });
+
+      if (emailSent) {
+        console.log('[Admin KYC] ✅ Rejection email sent to:', recipientEmail);
+      } else {
+        console.warn('[Admin KYC] ⚠️ Failed to send rejection email to:', recipientEmail);
+      }
+    }
 
     res.json({
       success: true,
+      emailSent,
       message: 'Customer KYC rejected',
       data: result,
     });
@@ -242,6 +392,69 @@ router.get('/documents/:documentId/download', authMiddleware, adminOnly, async (
   } catch (error: any) {
     console.error('[AdminVerificationRoutes] Document download error:', error);
     res.status(500).json({ error: error.message || 'Failed to get document download URL' });
+  }
+});
+
+/**
+ * Delete verification request (admin)
+ * DELETE /api/admin/verification/requests/:requestId
+ */
+router.delete('/requests/:requestId', authMiddleware, adminOnly, async (req: AuthRequest, res: Response) => {
+  try {
+    const { requestId } = req.params;
+    const adminUserId = req.user?.id;
+
+    if (!adminUserId) {
+      return res.status(400).json({ error: 'Admin user ID not found' });
+    }
+
+    console.log('[Admin KYC] Deleting verification request:', requestId, 'by admin:', adminUserId);
+
+    // Get details before deletion for logging
+    let verificationDetails;
+    try {
+      verificationDetails = await verificationClient.getRequestDetails(requestId);
+    } catch (error) {
+      console.warn('[Admin KYC] Could not get verification details before deletion:', error);
+    }
+
+    // Call verification microservice to delete
+    const result = await verificationClient.deleteRequest(requestId);
+
+    // Log the deletion activity
+    if (verificationDetails?.customerId) {
+      try {
+        await prisma.activity_logs.create({
+          data: {
+            id: uuidv4(),
+            customerId: verificationDetails.customerId,
+            userId: adminUserId,
+            action: 'delete_verification_request',
+            entity: 'verification_request',
+            entityId: requestId,
+            description: `Admin deleted verification request`,
+            metadata: {
+              requestId,
+              customerType: verificationDetails.customerType,
+              customerEmail: (verificationDetails as any).customerEmail
+            },
+          },
+        });
+      } catch (logError) {
+        console.warn('[Admin KYC] Failed to create activity log for deletion:', logError);
+      }
+    }
+
+    console.log('[Admin KYC] Verification request deleted:', requestId);
+
+    res.json({
+      success: true,
+      message: 'Verification request deleted successfully',
+      data: result,
+    });
+  } catch (error: any) {
+    console.error('[AdminVerificationRoutes] Delete error:', error);
+    res.status(500).json({ error: error.message || 'Failed to delete verification request' });
   }
 });
 

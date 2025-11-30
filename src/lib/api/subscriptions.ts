@@ -95,10 +95,10 @@ export interface InitializeUpgradeResponse {
   invoiceId: string;
 }
 
-export const initializeUpgrade = async (planId: string) => {
+export const initializeUpgrade = async (planId: string, billingCycle?: 'monthly' | 'annual') => {
   return apiClient.post<InitializeUpgradeResponse>(
     "/api/subscriptions/upgrade/initialize",
-    { planId }
+    { planId, billingCycle }
   );
 };
 

@@ -109,4 +109,15 @@ router.get('/documents/:documentId/download', authenticateApiKey, requireAdmin, 
   res.json(result);
 }));
 
+/**
+ * Delete verification request
+ * DELETE /api/admin/requests/:requestId
+ */
+router.delete('/requests/:requestId', authenticateApiKey, requireAdmin, asyncHandler(async (req: Request, res: Response) => {
+  const { requestId } = req.params;
+
+  const result = await adminService.deleteRequest(requestId);
+  res.json(result);
+}));
+
 export default router;

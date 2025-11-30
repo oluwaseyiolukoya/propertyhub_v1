@@ -56,9 +56,10 @@ import MarkAsPaidModal, { type PaymentDetails } from './MarkAsPaidModal';
 
 interface InvoicesPageProps {
   onViewProject?: (projectId: string) => void;
+  canApproveInvoices?: boolean;
 }
 
-export const InvoicesPage: React.FC<InvoicesPageProps> = ({ onViewProject }) => {
+export const InvoicesPage: React.FC<InvoicesPageProps> = ({ onViewProject, canApproveInvoices = true }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
@@ -623,7 +624,7 @@ export const InvoicesPage: React.FC<InvoicesPageProps> = ({ onViewProject }) => 
                             <Eye className="w-4 h-4 mr-2" />
                             View Details
                           </DropdownMenuItem>
-                          {invoice.status === 'pending' && (
+                          {invoice.status === 'pending' && canApproveInvoices && (
                             <>
                               <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleApproveInvoice(invoice.id); }}>
                                 <CheckCircle className="w-4 h-4 mr-2" />
@@ -635,7 +636,7 @@ export const InvoicesPage: React.FC<InvoicesPageProps> = ({ onViewProject }) => 
                               </DropdownMenuItem>
                             </>
                           )}
-                          {invoice.status === 'approved' && (
+                          {invoice.status === 'approved' && canApproveInvoices && (
                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleMarkAsPaid(invoice.id); }}>
                               <CheckCircle className="w-4 h-4 mr-2" />
                               Mark as Paid
@@ -680,6 +681,7 @@ export const InvoicesPage: React.FC<InvoicesPageProps> = ({ onViewProject }) => 
           onApprove={handleApproveInvoice}
           onReject={handleRejectInvoice}
           onMarkAsPaid={handleMarkAsPaid}
+          canApproveInvoices={canApproveInvoices}
         />
       )}
 

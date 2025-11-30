@@ -157,13 +157,33 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       terms,
       specialClauses,
       sendInvitation,
+      isIndefinite,
       // Optional: allow client to provide a temp password; fallback to server-generated
       tempPassword: clientProvidedTempPassword,
       password: clientProvidedPassword
     } = req.body;
 
-    if (!propertyId || !unitId || !tenantName || !tenantEmail || !startDate || !endDate || !monthlyRent) {
+    console.log('📝 Creating lease with data:', {
+      propertyId,
+      unitId,
+      tenantName,
+      tenantEmail,
+      startDate,
+      endDate,
+      monthlyRent,
+      isIndefinite
+    });
+
+    // For indefinite leases, endDate is optional
+    if (!propertyId || !unitId || !tenantName || !tenantEmail || !startDate || !monthlyRent) {
+      console.log('❌ Missing required fields');
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // If not indefinite, endDate is required
+    if (!isIndefinite && !endDate) {
+      console.log('❌ End date required for non-indefinite lease');
+      return res.status(400).json({ error: 'End date is required for fixed-term leases' });
     }
 
     // Check property access
@@ -195,31 +215,50 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     }
 
     // Check for overlapping leases
-    const overlappingLease = await prisma.leases.findFirst({
-      where: {
-        unitId,
-        status: 'active',
-        OR: [
-          {
-            AND: [
-              { startDate: { lte: new Date(startDate) } },
-              { endDate: { gte: new Date(startDate) } }
-            ]
-          },
-          {
-            AND: [
-              { startDate: { lte: new Date(endDate) } },
-              { endDate: { gte: new Date(endDate) } }
-            ]
-          }
-        ]
-      }
-    });
+    // For indefinite leases (no end date), check if there's any active lease starting from the new start date
+    let overlappingLeaseQuery: any = {
+      unitId,
+      status: 'active'
+    };
 
-    if (overlappingLease) {
-      return res.status(400).json({
-        error: 'Unit already has an active lease for this period'
+    if (isIndefinite) {
+      // For indefinite lease, check if any active lease overlaps with start date or is indefinite
+      overlappingLeaseQuery.OR = [
+        { endDate: { gte: new Date(startDate) } }, // Active lease that ends after our start
+        { endDate: { equals: null } } // Another indefinite lease (use equals for null check)
+      ];
+    } else if (endDate) {
+      // For fixed-term lease, check for date range overlap
+      overlappingLeaseQuery.OR = [
+        {
+          AND: [
+            { startDate: { lte: new Date(startDate) } },
+            { OR: [{ endDate: { gte: new Date(startDate) } }, { endDate: { equals: null } }] }
+          ]
+        },
+        {
+          AND: [
+            { startDate: { lte: new Date(endDate) } },
+            { OR: [{ endDate: { gte: new Date(endDate) } }, { endDate: { equals: null } }] }
+          ]
+        }
+      ];
+    }
+
+    try {
+      const overlappingLease = await prisma.leases.findFirst({
+        where: overlappingLeaseQuery
       });
+
+      if (overlappingLease) {
+        return res.status(400).json({
+          error: 'Unit already has an active lease for this period'
+        });
+      }
+    } catch (queryError: any) {
+      console.error('❌ Overlapping lease query error:', queryError);
+      // If the query fails, skip the overlap check and proceed
+      // This handles edge cases with null date comparisons
     }
 
     // Create or find tenant
@@ -231,8 +270,12 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     });
 
     let tempPassword: string | null = null; // Store password to return in response
+    let isNewTenant = false; // Track if we created a new tenant
+    let shouldSendEmail = false; // Track if we should send welcome email
 
     if (!tenant) {
+      isNewTenant = true;
+      shouldSendEmail = true;
       // Create new tenant user
       const proposed = (clientProvidedTempPassword || clientProvidedPassword);
       // Basic validation for a provided password
@@ -241,6 +284,10 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         ? proposed
         : Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase();
       const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+      // Set temp password expiry to 48 hours from now
+      const tempPasswordExpiresAt = new Date();
+      tempPasswordExpiresAt.setHours(tempPasswordExpiresAt.getHours() + 48);
 
       tenant = await prisma.users.create({
         data: {
@@ -253,7 +300,13 @@ router.post('/', async (req: AuthRequest, res: Response) => {
           role: 'tenant',
           status: 'active', // Always set to active so tenants can log in immediately
           isActive: true, // Explicitly set isActive to true
-          invitedAt: null,
+          is_temp_password: true, // Mark as temporary password
+          temp_password_expires_at: tempPasswordExpiresAt, // Set expiry
+          must_change_password: true, // Require password change on first login
+          invitedAt: new Date(), // Track when tenant was invited
+          // KYC requirements for tenants
+          requiresKyc: true, // Tenants must complete KYC before accessing dashboard
+          kycStatus: 'pending', // Initial KYC status
           updatedAt: new Date()
         }
       });
@@ -262,53 +315,133 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       console.log('🔐 Generated password for tenant:', tempPassword);
     } else {
       console.log('ℹ️  Existing tenant found:', tenantEmail);
+
+      // For existing tenants being assigned to a new lease,
+      // we update their basic info but DO NOT reset their KYC status
+      // KYC should only be deleted when the tenant is completely deleted from the system
+
+      // Check if tenant needs a new password (e.g., if they don't have one or it's expired)
+      const needsNewPassword = !tenant.password || tenant.is_temp_password;
+
+      if (needsNewPassword) {
+        const proposed = (clientProvidedTempPassword || clientProvidedPassword);
+        const isValidProvided = typeof proposed === 'string' && proposed.length >= 8;
+        tempPassword = isValidProvided
+          ? proposed
+          : Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase();
+        const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+        // Set temp password expiry to 48 hours from now
+        const tempPasswordExpiresAt = new Date();
+        tempPasswordExpiresAt.setHours(tempPasswordExpiresAt.getHours() + 48);
+
+        // Update tenant with new password but preserve KYC status
+        tenant = await prisma.users.update({
+          where: { id: tenant.id },
+          data: {
+            name: tenantName, // Update name in case it changed
+            phone: tenantPhone, // Update phone in case it changed
+            password: hashedPassword,
+            status: 'active',
+            isActive: true,
+            is_temp_password: true,
+            temp_password_expires_at: tempPasswordExpiresAt,
+            must_change_password: true,
+            invitedAt: new Date(),
+            // DO NOT reset KYC - preserve existing verification
+            updatedAt: new Date()
+          }
+        });
+
+        shouldSendEmail = true; // Send email to existing tenant with new credentials
+        console.log('✅ Existing tenant updated with new credentials (KYC preserved):', tenantEmail);
+        console.log('🔐 Generated new password for existing tenant:', tempPassword);
+      } else {
+        // Tenant already has a valid password, just update basic info
+        tenant = await prisma.users.update({
+          where: { id: tenant.id },
+          data: {
+            name: tenantName, // Update name in case it changed
+            phone: tenantPhone, // Update phone in case it changed
+            status: 'active',
+            isActive: true,
+            // DO NOT reset KYC - preserve existing verification
+            updatedAt: new Date()
+          }
+        });
+
+        console.log('✅ Existing tenant info updated (KYC and password preserved):', tenantEmail);
+        // Don't send email if tenant already has credentials
+        shouldSendEmail = false;
+      }
     }
 
     // Generate lease number
     const leaseNumber = `LSE-${Date.now()}`;
 
-    // Create lease
-    const lease = await prisma.leases.create({
-      data: {
-        id: require('crypto').randomUUID(),
-        propertyId,
-        unitId,
-        tenantId: tenant.id,
-        leaseNumber,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
-        monthlyRent,
-        securityDeposit: securityDeposit || 0,
-        currency: currency || 'NGN',
-        status: 'active',
-        terms,
-        specialClauses,
-        signedAt: new Date(),
-        updatedAt: new Date()
+    // Prepare lease data with optional endDate for indefinite leases
+    const leaseData: any = {
+      id: require('crypto').randomUUID(),
+      propertyId,
+      unitId,
+      tenantId: tenant.id,
+      leaseNumber,
+      startDate: new Date(startDate),
+      monthlyRent,
+      securityDeposit: securityDeposit || 0,
+      currency: currency || 'NGN',
+      status: 'active',
+      terms,
+      specialClauses: {
+        ...(specialClauses || {}),
+        isIndefinite: !!isIndefinite
       },
-      include: {
-        users: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true
-          }
-        },
-        properties: {
-          select: {
-            id: true,
-            name: true
-          }
-        },
-        units: {
-          select: {
-            id: true,
-            unitNumber: true
+      signedAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    // Only set endDate if not indefinite
+    if (!isIndefinite && endDate) {
+      leaseData.endDate = new Date(endDate);
+    }
+
+    console.log('📝 Creating lease with data:', JSON.stringify(leaseData, null, 2));
+
+    // Create lease
+    let lease;
+    try {
+      lease = await prisma.leases.create({
+        data: leaseData,
+        include: {
+          users: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true
+            }
+          },
+          properties: {
+            select: {
+              id: true,
+              name: true
+            }
+          },
+          units: {
+            select: {
+              id: true,
+              unitNumber: true
+            }
           }
         }
-      }
-    });
+      });
+    } catch (leaseCreateError: any) {
+      console.error('❌ Lease creation error:', leaseCreateError);
+      return res.status(500).json({
+        error: 'Failed to create lease',
+        details: leaseCreateError.message
+      });
+    }
 
     // Update unit status
     await prisma.units.update({
@@ -332,27 +465,46 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       }
     });
 
-    // Send invitation email if sendInvitation is true and tenant was newly created
-    if (sendInvitation && tempPassword) {
+    // Always send invitation email when a lease is created (for both new and existing tenants)
+    // This ensures tenants always receive their login credentials
+    let emailSent = false;
+    console.log('📧 Email check - shouldSendEmail:', shouldSendEmail, 'tempPassword exists:', !!tempPassword);
+    if (shouldSendEmail && tempPassword) {
+      console.log('📧 Preparing to send welcome email to new tenant:', tenantEmail);
       try {
-        // Get user info (owner or manager) for email
+        // Get user info (owner or manager) and customer company name for email
         const invitingUser = await prisma.users.findUnique({
           where: { id: userId },
-          select: { name: true, role: true }
+          select: { name: true, role: true, customerId: true }
         });
 
-        await sendTenantInvitation({
+        // Get the company name from the customer record
+        let companyName: string | undefined;
+        if (invitingUser?.customerId) {
+          const customer = await prisma.customers.findUnique({
+            where: { id: invitingUser.customerId },
+            select: { company: true }
+          });
+          companyName = customer?.company || undefined;
+        }
+
+        emailSent = await sendTenantInvitation({
           tenantName,
           tenantEmail,
           tempPassword,
           propertyName: property.name,
           unitNumber: unit.unitNumber,
           leaseStartDate: startDate,
+          companyName, // Property owner's company name
           ownerName: invitingUser?.role === 'owner' ? invitingUser.name : undefined,
           managerName: invitingUser?.role === 'manager' || invitingUser?.role === 'property_manager' ? invitingUser.name : undefined
         });
 
-        console.log(`✅ Invitation email sent to ${tenantEmail}`);
+        if (emailSent) {
+          console.log(`✅ Welcome email with login credentials sent to ${tenantEmail}`);
+        } else {
+          console.warn(`⚠️ Failed to send welcome email to ${tenantEmail}, but tenant was created successfully`);
+        }
       } catch (emailError: any) {
         console.error('❌ Failed to send invitation email:', emailError);
         // Don't fail the lease creation if email fails
@@ -362,6 +514,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     return res.status(201).json({
       lease,
       tenant,
+      emailSent, // Let frontend know if email was sent
       ...(tempPassword && { tempPassword }) // Return actual generated password if tenant was newly created
     });
 

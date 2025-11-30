@@ -55,6 +55,7 @@ import {
 
 interface ProjectInvoicesPageProps {
   projectId: string;
+  canApproveInvoices?: boolean;
 }
 
 const statusToBadge = (status: InvoiceStatus) => {
@@ -92,7 +93,7 @@ const formatDateShort = (dateString?: string) => {
   });
 };
 
-export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projectId }) => {
+export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projectId, canApproveInvoices = true }) => {
   const { data, loading, error, refetch } = useProjectInvoices(projectId);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -461,6 +462,7 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
           onApprove={handleApproveInvoice}
           onReject={handleRejectInvoice}
           onMarkAsPaid={handleMarkAsPaid}
+          canApproveInvoices={canApproveInvoices}
         />
       )}
 

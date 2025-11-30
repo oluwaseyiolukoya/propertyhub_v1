@@ -117,6 +117,7 @@ router.get("/", async (req: AuthRequest, res: Response) => {
       return res.json(customers);
     } catch (dbError) {
       // Database not available, return mock data
+      console.error("❌ Database error in customers route:", dbError);
       console.log("📝 Using mock customers data");
       return res.json(mockCustomers);
     }
@@ -162,7 +163,7 @@ router.get("/:id", async (req: AuthRequest, res: Response) => {
           orderBy: { createdAt: "desc" },
           take: 10,
         },
-        onboarding_applications: {
+        onboarding_application: {
           select: {
             id: true,
             applicationType: true,

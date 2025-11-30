@@ -598,6 +598,99 @@ router.put('/members/:memberId', authMiddleware, customerOnly, async (req: AuthR
 });
 
 /**
+ * POST /api/team/members/:memberId/reset-password
+ * Generate a new temporary password for a team member and email it to them
+ */
+router.post('/members/:memberId/reset-password', authMiddleware, customerOnly, async (req: AuthRequest, res: Response) => {
+  try {
+    const customerId = req.user!.customerId;
+    const requesterName = req.user?.name || 'Team Admin';
+    const { memberId } = req.params;
+
+    const member = await prisma.team_members.findFirst({
+      where: {
+        id: memberId,
+        customer_id: customerId,
+      },
+      include: {
+        role: true,
+      },
+    });
+
+    if (!member) {
+      return res.status(404).json({ error: 'Team member not found' });
+    }
+
+    if (!member.user_id) {
+      return res.status(400).json({ error: 'Team member is not linked to a user account' });
+    }
+
+    const user = await prisma.users.findUnique({
+      where: { id: member.user_id },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Linked user account not found' });
+    }
+
+    const temporaryPassword = generateTemporaryPassword();
+    const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+    const tempPasswordExpiresAt = new Date();
+    tempPasswordExpiresAt.setHours(tempPasswordExpiresAt.getHours() + 48);
+
+    await prisma.users.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        is_temp_password: true,
+        temp_password_expires_at: tempPasswordExpiresAt,
+        must_change_password: true,
+        status: 'invited',
+        updatedAt: new Date(),
+      },
+    });
+
+    let emailSent = false;
+    try {
+      const customer = await prisma.customers.findUnique({
+        where: { id: customerId },
+      });
+
+      const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/signin`;
+      const { sendTeamInvitation } = require('../lib/email');
+
+      emailSent = await sendTeamInvitation({
+        memberName: `${member.first_name} ${member.last_name}`,
+        memberEmail: member.email,
+        companyName: customer?.company || 'Your Organization',
+        roleName: member.role?.name || 'Team Member',
+        inviterName: requesterName,
+        temporaryPassword,
+        expiryHours: 48,
+        loginUrl,
+        department: member.department || '',
+        jobTitle: member.job_title || '',
+      });
+    } catch (emailErr) {
+      console.error('[Team Reset Password] Failed to send notification email:', emailErr);
+    }
+
+    res.json({
+      success: true,
+      message: 'Temporary password generated successfully',
+      data: {
+        temporaryPassword,
+        expiresAt: tempPasswordExpiresAt.toISOString(),
+        emailSent,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error resetting team member password:', error);
+    res.status(500).json({ error: 'Failed to reset team member password' });
+  }
+});
+
+/**
  * DELETE /api/team/members/:memberId
  * Delete a team member
  */

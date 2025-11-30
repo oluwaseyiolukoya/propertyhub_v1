@@ -34,6 +34,7 @@ interface InvoiceDetailModalProps {
   onApprove: (invoiceId: string) => void;
   onReject: (invoiceId: string) => void;
   onMarkAsPaid: (invoiceId: string) => void;
+  canApproveInvoices?: boolean;
 }
 
 interface InvoiceAttachment {
@@ -60,6 +61,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
   onApprove,
   onReject,
   onMarkAsPaid,
+  canApproveInvoices = true,
 }) => {
   const [attachments, setAttachments] = useState<InvoiceAttachment[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
@@ -658,7 +660,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
           </div>
 
           <div className="flex gap-2">
-            {invoice.status === 'pending' && (
+            {invoice.status === 'pending' && canApproveInvoices && (
               <>
                 <Button
                   variant="outline"
@@ -683,7 +685,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                 </Button>
               </>
             )}
-            {invoice.status === 'approved' && (
+            {invoice.status === 'approved' && canApproveInvoices && (
               <Button
                 onClick={() => {
                   onMarkAsPaid(invoice.id);

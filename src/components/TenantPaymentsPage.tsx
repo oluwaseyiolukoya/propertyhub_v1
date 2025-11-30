@@ -33,10 +33,17 @@ import {
 } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Checkbox } from './ui/checkbox';
 import { toast } from 'sonner';
-import { getPayments, initializeTenantPayment } from '../lib/api/payments';
+import { getPayments, initializeTenantPayment, getScheduledPayments, verifyPayment, getAutopaySettings, updateAutopaySettings, AutoPaySettings } from '../lib/api/payments';
 import { getPublicPaymentGatewaySettings, getTenantPublicPaymentGateway } from '../lib/api/settings';
 import { initializeSocket, isConnected, subscribeToPaymentEvents, unsubscribeFromPaymentEvents } from '../lib/socket';
 import {
@@ -57,7 +64,10 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
   const [paymentMethod, setPaymentMethod] = useState('paystack');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [selectedPaymentType, setSelectedPaymentType] = useState<'full' | 'custom'>('full');
-  const [autopayEnabled, setAutopayEnabled] = useState(true);
+  const [autopaySettings, setAutopaySettings] = useState<AutoPaySettings | null>(null);
+  const [autopayLoading, setAutopayLoading] = useState(false);
+  const [selectedAutopayCard, setSelectedAutopayCard] = useState<string>('');
+  const [autopayDay, setAutopayDay] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bankTransferTemplate, setBankTransferTemplate] = useState<string>('');
   const [ownerPublicKey, setOwnerPublicKey] = useState<string | null>(null);
@@ -83,7 +93,7 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
       : "N/A",
     daysUntilDue: dashboardData?.rent?.daysUntilDue || 0,
     balance: 0,
-    autopayEnabled: autopayEnabled
+    autopayEnabled: autopaySettings?.enabled || false
   };
 
   const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
@@ -165,7 +175,8 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
     };
   }, []);
 
-  const scheduledPayments: any[] = []; // This would come from API if auto-pay is enabled
+  const [scheduledPayments, setScheduledPayments] = useState<any[]>([]);
+  const [loadingScheduled, setLoadingScheduled] = useState(false);
 
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loadingMethods, setLoadingMethods] = useState(false);
@@ -176,12 +187,19 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
     try {
       setLoadingMethods(true);
       const response = await getPaymentMethods();
+      console.log('[Payment Methods] Response:', response);
       if (response.error) {
         console.error('Failed to load payment methods:', response.error);
       } else if (response.data) {
-        const list = Array.isArray(response.data)
-          ? response.data
-          : (response.data as any).paymentMethods || [];
+        // Backend returns { success: true, data: [...] }
+        // So we need to extract response.data.data
+        const responseData = response.data as any;
+        const list = Array.isArray(responseData.data)
+          ? responseData.data
+          : Array.isArray(responseData)
+            ? responseData
+            : responseData.paymentMethods || [];
+        console.log('[Payment Methods] Extracted list:', list);
         setPaymentMethods(list);
       }
     } catch (error) {
@@ -194,6 +212,73 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
   // Load payment methods on mount
   React.useEffect(() => {
     loadPaymentMethods();
+  }, []);
+
+  // Load scheduled payments
+  const loadScheduledPayments = async () => {
+    try {
+      setLoadingScheduled(true);
+      const response = await getScheduledPayments();
+      if (!response.error && response.data) {
+        setScheduledPayments(Array.isArray(response.data) ? response.data : []);
+      }
+    } catch (error) {
+      console.error('Failed to load scheduled payments:', error);
+    } finally {
+      setLoadingScheduled(false);
+    }
+  };
+
+  // Load scheduled payments on mount
+  React.useEffect(() => {
+    loadScheduledPayments();
+  }, []);
+
+  // Handle payment callback from Paystack redirect
+  React.useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentRef = urlParams.get('payment_ref') || urlParams.get('reference');
+    const trxref = urlParams.get('trxref');
+
+    const reference = paymentRef || trxref;
+
+    if (reference) {
+      // Verify the payment
+      const verifyAndUpdate = async () => {
+        toast.info('Verifying payment...');
+        try {
+          const response = await verifyPayment(reference);
+          if (!response.error && response.data) {
+            if (response.data.status === 'success') {
+              toast.success('Payment successful! Your next payment has been scheduled.');
+              // Reload payment history and scheduled payments
+              loadPaymentHistory({ resetPage: true });
+              loadScheduledPayments();
+              // Dispatch event to refresh dashboard data
+              window.dispatchEvent(new CustomEvent('payment:success'));
+            } else if (response.data.status === 'failed') {
+              toast.error('Payment failed. Please try again.');
+            } else {
+              toast.info('Payment is being processed...');
+            }
+          } else {
+            toast.error('Failed to verify payment');
+          }
+        } catch (error) {
+          console.error('Payment verification error:', error);
+          toast.error('Failed to verify payment');
+        }
+
+        // Clean up URL parameters
+        const url = new URL(window.location.href);
+        url.searchParams.delete('payment_ref');
+        url.searchParams.delete('reference');
+        url.searchParams.delete('trxref');
+        window.history.replaceState({}, '', url.toString());
+      };
+
+      verifyAndUpdate();
+    }
   }, []);
 
   const getStatusColor = (status: string) => {
@@ -305,14 +390,11 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
           ]
         },
         callback: function(response: any) {
-          // Card successfully charged, now save the authorization
-          const authCode = response.reference;
+          // Card successfully charged, now save the authorization using the reference
+          const reference = response.reference;
 
-          // Call backend to save the payment method (handle async in non-blocking way)
-          addPaymentMethod({
-            email: dashboardData.user.email,
-            authorizationCode: authCode
-          }).then((result) => {
+          // Call backend to save the payment method using the reference
+          addPaymentMethod(reference, makeDefault).then((result) => {
             if (result.error) {
               toast.error(result.error.error || 'Failed to save card');
               return;
@@ -350,13 +432,121 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
     }
   };
 
-  const handleToggleAutoPay = () => {
-    const newStatus = !autopayEnabled;
-    setAutopayEnabled(newStatus);
-    if (newStatus) {
-      toast.success('Auto-pay has been enabled! Your rent will be automatically charged on the 1st of each month.');
-    } else {
-      toast.success('Auto-pay has been disabled. You will need to manually pay your rent each month.');
+  // Load auto-pay settings
+  const loadAutopaySettings = async () => {
+    try {
+      setAutopayLoading(true);
+      const response = await getAutopaySettings();
+      if (!response.error && response.data) {
+        setAutopaySettings(response.data);
+        setSelectedAutopayCard(response.data.paymentMethodId || '');
+        setAutopayDay(response.data.dayOfMonth || 1);
+      }
+    } catch (error) {
+      console.error('Failed to load autopay settings:', error);
+    } finally {
+      setAutopayLoading(false);
+    }
+  };
+
+  // Load auto-pay settings on mount
+  React.useEffect(() => {
+    loadAutopaySettings();
+  }, []);
+
+  const handleToggleAutoPay = async () => {
+    const newStatus = !autopaySettings?.enabled;
+
+    // If enabling, require a payment method
+    if (newStatus && !selectedAutopayCard && paymentMethods.length === 0) {
+      toast.error('Please add a payment method first before enabling auto-pay');
+      return;
+    }
+
+    // If enabling and no card selected, use default
+    const cardToUse = selectedAutopayCard || paymentMethods.find(m => m.isDefault)?.id || paymentMethods[0]?.id;
+
+    if (newStatus && !cardToUse) {
+      toast.error('Please select a payment method for auto-pay');
+      return;
+    }
+
+    try {
+      setAutopayLoading(true);
+      const response = await updateAutopaySettings({
+        enabled: newStatus,
+        paymentMethodId: newStatus ? cardToUse : null,
+        dayOfMonth: autopayDay
+      });
+
+      if (response.error) {
+        toast.error(response.error.error || 'Failed to update auto-pay settings');
+        return;
+      }
+
+      // Reload settings
+      await loadAutopaySettings();
+      await loadScheduledPayments();
+
+      if (newStatus) {
+        toast.success(`Auto-pay enabled! Your rent will be automatically charged on day ${autopayDay} of each month.`);
+      } else {
+        toast.success('Auto-pay has been disabled. You will need to manually pay your rent.');
+      }
+    } catch (error) {
+      console.error('Failed to toggle autopay:', error);
+      toast.error('Failed to update auto-pay settings');
+    } finally {
+      setAutopayLoading(false);
+    }
+  };
+
+  const handleUpdateAutopayCard = async (cardId: string) => {
+    setSelectedAutopayCard(cardId);
+
+    if (autopaySettings?.enabled) {
+      try {
+        const response = await updateAutopaySettings({
+          enabled: true,
+          paymentMethodId: cardId,
+          dayOfMonth: autopayDay
+        });
+
+        if (response.error) {
+          toast.error('Failed to update payment method');
+          return;
+        }
+
+        await loadAutopaySettings();
+        toast.success('Auto-pay card updated');
+      } catch (error) {
+        toast.error('Failed to update auto-pay card');
+      }
+    }
+  };
+
+  const handleUpdateAutopayDay = async (day: number) => {
+    setAutopayDay(day);
+
+    if (autopaySettings?.enabled) {
+      try {
+        const response = await updateAutopaySettings({
+          enabled: true,
+          paymentMethodId: selectedAutopayCard,
+          dayOfMonth: day
+        });
+
+        if (response.error) {
+          toast.error('Failed to update payment day');
+          return;
+        }
+
+        await loadAutopaySettings();
+        await loadScheduledPayments();
+        toast.success(`Auto-pay day updated to ${day}`);
+      } catch (error) {
+        toast.error('Failed to update auto-pay day');
+      }
     }
   };
 
@@ -536,27 +726,66 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
           <Card>
             <CardHeader>
               <CardTitle>Scheduled Payments</CardTitle>
-              <CardDescription>Upcoming automatic payments</CardDescription>
+              <CardDescription>Upcoming rent payments</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {scheduledPayments.map((payment) => (
-                  <div key={payment.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center space-x-4">
-                      <div className="p-2 bg-blue-100 rounded-lg">
-                        <Clock className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium">₦{payment.amount.toLocaleString()}</p>
-                        <p className="text-sm text-muted-foreground">{payment.date} • {payment.method}</p>
-                      </div>
-                    </div>
-                    <Badge variant="outline" className={getStatusColor(payment.status)}>
-                      {payment.status}
-                    </Badge>
+              {loadingScheduled ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="mt-2 text-sm text-muted-foreground">Loading scheduled payments...</p>
                   </div>
-                ))}
-              </div>
+                </div>
+              ) : scheduledPayments.length === 0 ? (
+                <div className="text-center py-8">
+                  <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-muted-foreground">No scheduled payments</p>
+                  <p className="text-sm text-muted-foreground mt-1">Your next payment will appear here after you make a payment</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {scheduledPayments.map((payment) => {
+                    const scheduledDate = payment.scheduledDate
+                      ? new Date(payment.scheduledDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                      : 'TBD';
+                    const daysUntil = payment.scheduledDate
+                      ? Math.ceil((new Date(payment.scheduledDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+                      : null;
+
+                    return (
+                      <div key={payment.id} className="flex items-center justify-between p-4 border rounded-lg bg-blue-50 border-blue-200">
+                        <div className="flex items-center space-x-4">
+                          <div className="p-2 bg-blue-100 rounded-lg">
+                            <Calendar className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-blue-900">
+                              {payment.currency || '₦'}{payment.amount?.toLocaleString()}
+                              <span className="text-sm font-normal text-blue-700 ml-2">
+                                ({payment.rentFrequency === 'annual' ? 'Annual' : 'Monthly'} Rent)
+                              </span>
+                            </p>
+                            <p className="text-sm text-blue-700">
+                              Due: {scheduledDate}
+                              {daysUntil !== null && daysUntil > 0 && (
+                                <span className="ml-2">({daysUntil} days remaining)</span>
+                              )}
+                            </p>
+                            {payment.lease && (
+                              <p className="text-xs text-blue-600 mt-1">
+                                {payment.lease.properties?.name} - Unit {payment.lease.units?.unitNumber}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
+                          Scheduled
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -661,26 +890,111 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
           <Card>
             <CardHeader>
               <CardTitle>Auto-Pay Settings</CardTitle>
-              <CardDescription>Automatically pay rent each month</CardDescription>
+              <CardDescription>Automatically pay rent each {autopaySettings?.rentFrequency === 'annual' ? 'year' : 'month'}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
+              {/* Enable/Disable Toggle */}
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium">Enable Auto-Pay</p>
-                  <p className="text-sm text-muted-foreground">Automatically charge your default payment method on the 1st of each month</p>
+                  <p className="text-sm text-muted-foreground">
+                    Automatically charge your selected payment method on your chosen day
+                  </p>
                 </div>
                 <Button
-                  variant={currentRent.autopayEnabled ? "destructive" : "default"}
+                  variant={autopaySettings?.enabled ? "destructive" : "default"}
                   onClick={handleToggleAutoPay}
+                  disabled={autopayLoading}
                 >
-                  {currentRent.autopayEnabled ? "Disable" : "Enable"}
+                  {autopayLoading ? 'Updating...' : autopaySettings?.enabled ? "Disable" : "Enable"}
                 </Button>
               </div>
-              {currentRent.autopayEnabled && (
+
+              {/* Payment Method Selection */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Payment Card</Label>
+                {paymentMethods.length === 0 ? (
+                  <div className="text-sm text-muted-foreground p-3 border rounded-lg bg-muted/50">
+                    <p>No payment methods added yet.</p>
+                    <Button
+                      variant="link"
+                      className="p-0 h-auto text-primary"
+                      onClick={() => setShowAddCardDialog(true)}
+                    >
+                      Add a card to enable auto-pay
+                    </Button>
+                  </div>
+                ) : (
+                  <Select
+                    value={selectedAutopayCard}
+                    onValueChange={handleUpdateAutopayCard}
+                    disabled={!autopaySettings?.enabled}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a card for auto-pay" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {paymentMethods.map((method) => (
+                        <SelectItem key={method.id} value={method.id}>
+                          <div className="flex items-center gap-2">
+                            <CreditCard className="h-4 w-4" />
+                            <span>{method.cardBrand || 'Card'} •••• {method.cardLast4}</span>
+                            {method.isDefault && (
+                              <Badge variant="secondary" className="text-xs">Default</Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+
+              {/* Payment Day Selection */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Payment Day</Label>
+                <Select
+                  value={autopayDay.toString()}
+                  onValueChange={(val) => handleUpdateAutopayDay(parseInt(val))}
+                  disabled={!autopaySettings?.enabled}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select day of month" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
+                      <SelectItem key={day} value={day.toString()}>
+                        Day {day} of each {autopaySettings?.rentFrequency === 'annual' ? 'year' : 'month'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  We limit to day 28 to ensure consistent payments across all months
+                </p>
+              </div>
+
+              {/* Status Alert */}
+              {autopaySettings?.enabled && selectedAutopayCard && (
+                <Alert className="bg-green-50 border-green-200">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800">
+                    Auto-pay is enabled. Your {autopaySettings?.rentFrequency === 'annual' ? 'annual' : 'monthly'} rent of{' '}
+                    <strong>₦{(autopaySettings?.amount || 0).toLocaleString()}</strong> will be automatically charged to{' '}
+                    <strong>
+                      {paymentMethods.find(m => m.id === selectedAutopayCard)?.cardBrand || 'Card'} ••••{' '}
+                      {paymentMethods.find(m => m.id === selectedAutopayCard)?.cardLast4}
+                    </strong>{' '}
+                    on day {autopayDay} of each {autopaySettings?.rentFrequency === 'annual' ? 'year' : 'month'}.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {!autopaySettings?.enabled && (
                 <Alert>
-                  <CheckCircle2 className="h-4 w-4" />
+                  <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    Auto-pay is enabled. Your rent will be automatically charged to Visa •••• 4242 on the 1st of each month.
+                    Auto-pay is disabled. You will need to manually pay your rent each {autopaySettings?.rentFrequency === 'annual' ? 'year' : 'month'}.
                   </AlertDescription>
                 </Alert>
               )}

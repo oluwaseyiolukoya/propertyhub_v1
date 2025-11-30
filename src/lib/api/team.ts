@@ -151,6 +151,15 @@ export async function deleteTeamMember(memberId: string): Promise<ApiResponse<an
 }
 
 /**
+ * Reset a team member's password (generates a new temporary password)
+ */
+export async function resetTeamMemberPassword(
+  memberId: string
+): Promise<ApiResponse<{ temporaryPassword: string; expiresAt: string; emailSent?: boolean }>> {
+  return apiClient.post(`/api/team/members/${memberId}/reset-password`, {});
+}
+
+/**
  * Set delegation for a team member
  */
 export async function setDelegation(

@@ -12,7 +12,9 @@ import {
   AlertCircle,
   Loader2,
   Download,
-  ExternalLink
+  ExternalLink,
+  MoreVertical,
+  Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -21,15 +23,33 @@ import {
   approveVerification,
   rejectVerification,
   getVerificationAnalytics,
-  getDocumentDownloadUrl
+  getDocumentDownloadUrl,
+  deleteVerificationRequest
 } from '../../lib/api/verification';
 import type { VerificationRequest, VerificationAnalytics } from '../../types/verification';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
+import { Button } from '../ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../ui/alert-dialog';
 
 export const VerificationManagement: React.FC = () => {
   const [requests, setRequests] = useState<VerificationRequest[]>([]);
   const [analytics, setAnalytics] = useState<VerificationAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('pending');
+  const [filter, setFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
@@ -39,6 +59,9 @@ export const VerificationManagement: React.FC = () => {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [requestToDelete, setRequestToDelete] = useState<VerificationRequest | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     loadRequests();
@@ -186,6 +209,29 @@ export const VerificationManagement: React.FC = () => {
       toast.error(error.response?.data?.error || 'Failed to reject verification');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleDeleteClick = (request: VerificationRequest) => {
+    setRequestToDelete(request);
+    setShowDeleteDialog(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!requestToDelete) return;
+
+    try {
+      setDeleteLoading(true);
+      await deleteVerificationRequest(requestToDelete.id);
+      toast.success('Verification request deleted successfully');
+      setShowDeleteDialog(false);
+      setRequestToDelete(null);
+      await loadRequests();
+      await loadAnalytics();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to delete verification request');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -409,13 +455,26 @@ export const VerificationManagement: React.FC = () => {
                       {new Date(request.submittedAt).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <button
-                        onClick={() => handleViewDetails(request.id)}
-                        className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
-                      >
-                        <Eye className="h-4 w-4" />
-                        View
-                      </button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleViewDetails(request.id)}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleDeleteClick(request)}
+                            className="text-red-600 focus:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                   </tr>
                 ))}
@@ -625,6 +684,45 @@ export const VerificationManagement: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Verification Request</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this verification request?
+              {requestToDelete && (
+                <span className="block mt-2 text-sm">
+                  <strong>Request ID:</strong> {requestToDelete.id.substring(0, 8)}...
+                  <br />
+                  <strong>Customer:</strong> {(requestToDelete as any).customerEmail || requestToDelete.customerId.substring(0, 8) + '...'}
+                </span>
+              )}
+              <span className="block mt-2 text-red-600 font-medium">
+                This action cannot be undone.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={deleteLoading}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleteLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

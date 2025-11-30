@@ -74,6 +74,32 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
   const [assignmentPropertyUnits, setAssignmentPropertyUnits] = useState<any[]>([]);
   const [isAssigning, setIsAssigning] = useState(false);
 
+  // Track rent frequency for selected units
+  const [selectedUnitRentFrequency, setSelectedUnitRentFrequency] = useState<'monthly' | 'annual'>('monthly');
+  const [assignmentUnitRentFrequency, setAssignmentUnitRentFrequency] = useState<'monthly' | 'annual'>('monthly');
+
+  // Track indefinite lease option
+  const [isIndefiniteLease, setIsIndefiniteLease] = useState(false);
+  const [isAssignmentIndefiniteLease, setIsAssignmentIndefiniteLease] = useState(false);
+
+  // Helper to get rent frequency from unit features
+  const getUnitRentFrequency = (unit: any): 'monthly' | 'annual' => {
+    if (!unit) return 'monthly';
+    // Check features.nigeria.rentFrequency or features.rentFrequency
+    if (unit.features) {
+      if (typeof unit.features === 'string') {
+        try {
+          const parsed = JSON.parse(unit.features);
+          return parsed.nigeria?.rentFrequency || parsed.rentFrequency || 'monthly';
+        } catch {
+          return 'monthly';
+        }
+      }
+      return unit.features.nigeria?.rentFrequency || unit.features.rentFrequency || 'monthly';
+    }
+    return unit.rentFrequency || 'monthly';
+  };
+
   // Helper to format dates for display (e.g., "Nov 19, 2025")
   const formatDisplayDate = (value?: string | Date | null) => {
     if (!value) return 'N/A';
@@ -161,24 +187,36 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
       const res = await getLeases();
       if (!res.error && Array.isArray(res.data)) {
         // Transform lease data to tenant format
-        const allTenantsData = res.data.map((lease: any) => ({
-          id: lease.users?.id || lease.tenantId,
-          name: lease.users?.name || 'Unknown',
-          email: lease.users?.email || '',
-          phone: lease.users?.phone || '',
-          unit: lease.units?.unitNumber || '',
-          property: lease.properties?.name || '',
-          propertyId: lease.properties?.id || '',
-          currency: lease.properties?.currency || 'USD',
-          leaseStart: lease.startDate,
-          leaseEnd: lease.endDate,
-          rent: lease.monthlyRent,
-          status: lease.status === 'active' ? 'Active' : lease.status === 'terminated' ? 'Terminated' : 'Pending',
-          occupancyDate: lease.startDate,
-          apartmentId: lease.units?.unitNumber || '',
-          leaseId: lease.id,
-          createdAt: lease.createdAt || new Date()
-        }));
+        const allTenantsData = res.data.map((lease: any) => {
+          // Extract rent frequency from unit features
+          let rentFrequency: 'monthly' | 'annual' = 'monthly';
+          if (lease.units?.features) {
+            const features = typeof lease.units.features === 'string'
+              ? JSON.parse(lease.units.features)
+              : lease.units.features;
+            rentFrequency = features.nigeria?.rentFrequency || features.rentFrequency || 'monthly';
+          }
+
+          return {
+            id: lease.users?.id || lease.tenantId,
+            name: lease.users?.name || 'Unknown',
+            email: lease.users?.email || '',
+            phone: lease.users?.phone || '',
+            unit: lease.units?.unitNumber || '',
+            property: lease.properties?.name || '',
+            propertyId: lease.properties?.id || '',
+            currency: lease.properties?.currency || lease.currency || 'NGN',
+            leaseStart: lease.startDate,
+            leaseEnd: lease.endDate,
+            rent: lease.monthlyRent,
+            rentFrequency, // Include rent frequency
+            status: lease.status === 'active' ? 'Active' : lease.status === 'terminated' ? 'Terminated' : 'Pending',
+            occupancyDate: lease.startDate,
+            apartmentId: lease.units?.unitNumber || '',
+            leaseId: lease.id,
+            createdAt: lease.createdAt || new Date()
+          };
+        });
 
         // Group by tenant ID and keep only the most recent lease per tenant
         // Prioritize Active leases over Terminated ones
@@ -248,8 +286,22 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
       if (!newTenant.propertyId) throw new Error('Please select a property');
       if (!newTenant.unitId) throw new Error('Please select a unit');
       if (!newTenant.name || !newTenant.email) throw new Error('Please enter tenant name and email');
-      if (!newTenant.leaseStart || !newTenant.leaseEnd) throw new Error('Please set lease start and end dates');
-      if (!newTenant.rent) throw new Error('Please enter monthly rent');
+      if (!newTenant.leaseStart) throw new Error('Please set lease start date');
+      if (!isIndefiniteLease && !newTenant.leaseEnd) throw new Error('Please set lease end date or mark as indefinite');
+      if (!newTenant.rent) throw new Error('Please enter rent amount');
+
+      // Validate lease dates (only if not indefinite)
+      const startDate = new Date(newTenant.leaseStart);
+      if (!isIndefiniteLease && newTenant.leaseEnd) {
+        const endDate = new Date(newTenant.leaseEnd);
+        if (endDate <= startDate) {
+          throw new Error('Lease End date must be after Lease Start date');
+        }
+      }
+
+      // Get currency from selected property
+      const selectedProperty = properties.find(p => p.id === newTenant.propertyId);
+      const propertyCurrency = selectedProperty?.currency || 'NGN';
 
       const payload = {
         propertyId: String(newTenant.propertyId),
@@ -258,10 +310,11 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
         tenantEmail: newTenant.email,
         tenantPhone: newTenant.phone || undefined,
         startDate: newTenant.leaseStart,
-        endDate: newTenant.leaseEnd,
+        endDate: isIndefiniteLease ? undefined : newTenant.leaseEnd || undefined,
         monthlyRent: Number(newTenant.rent),
         securityDeposit: undefined,
-        currency: 'USD',
+        isIndefinite: isIndefiniteLease,
+        currency: propertyCurrency,
         terms: undefined,
         specialClauses: undefined,
         sendInvitation: true,
@@ -269,17 +322,21 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
         tempPassword: newTenant.password || undefined
       };
 
+      console.log('📤 Creating lease payload:', payload);
       const res = await createLease(payload);
+      console.log('📥 Create lease response:', res);
       if ((res as any).error) throw new Error((res as any).error.error || 'Failed to create lease');
 
-      // Capture the generated password and tenant ID from the response
+      // Capture the generated password, tenant ID, and email status from the response
       const generatedPassword = (res as any).data?.tempPassword;
       const newTenantId = (res as any).data?.tenant?.id;
+      const emailSent = (res as any).data?.emailSent;
 
       console.log('✅ Tenant created successfully');
       if (generatedPassword) {
         console.log('🔐 Generated password:', generatedPassword);
       }
+      console.log('📧 Email sent:', emailSent);
 
       // Reload tenants using the shared loader so the shape stays consistent
       await loadTenants();
@@ -299,10 +356,16 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
         name: '', email: '', phone: '', unitId: '', propertyId: '',
         leaseStart: '', leaseEnd: '', rent: '', occupancyDate: '', password: ''
       });
+      setSelectedUnitRentFrequency('monthly'); // Reset rent frequency
+      setIsIndefiniteLease(false); // Reset indefinite lease
       setShowAddTenant(false);
 
       if (generatedPassword) {
-        toast.success('Tenant created! A temporary password has been generated.');
+        if (emailSent) {
+          toast.success('Tenant created! Welcome email with login credentials has been sent to their email address.');
+        } else {
+          toast.success('Tenant created! A temporary password has been generated. (Email could not be sent - please share credentials manually)');
+        }
       } else {
         toast.success('Tenant created and assigned successfully');
       }
@@ -417,11 +480,25 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
     try {
       if (!assignmentData.propertyId) throw new Error('Please select a property');
       if (!assignmentData.unitId) throw new Error('Please select a unit');
-      if (!assignmentData.leaseStart || !assignmentData.leaseEnd) throw new Error('Please set lease start and end dates');
-      if (!assignmentData.rent) throw new Error('Please enter monthly rent');
+      if (!assignmentData.leaseStart) throw new Error('Please set lease start date');
+      if (!isAssignmentIndefiniteLease && !assignmentData.leaseEnd) throw new Error('Please set lease end date or mark as indefinite');
+      if (!assignmentData.rent) throw new Error('Please enter rent amount');
+
+      // Validate lease dates (only if not indefinite)
+      const startDate = new Date(assignmentData.leaseStart);
+      if (!isAssignmentIndefiniteLease && assignmentData.leaseEnd) {
+        const endDate = new Date(assignmentData.leaseEnd);
+        if (endDate <= startDate) {
+          throw new Error('Lease End date must be after Lease Start date');
+        }
+      }
 
       setIsAssigning(true);
       console.log('🏠 Assigning tenant to unit:', tenantToAssign.id, assignmentData);
+
+      // Get currency from selected property
+      const assignmentProperty = properties.find(p => p.id === assignmentData.propertyId);
+      const assignmentCurrency = assignmentProperty?.currency || 'NGN';
 
       const payload = {
         propertyId: String(assignmentData.propertyId),
@@ -430,22 +507,30 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
         tenantEmail: tenantToAssign.email,
         tenantPhone: tenantToAssign.phone || undefined,
         startDate: assignmentData.leaseStart,
-        endDate: assignmentData.leaseEnd,
+        endDate: isAssignmentIndefiniteLease ? undefined : assignmentData.leaseEnd || undefined,
         monthlyRent: Number(assignmentData.rent),
         securityDeposit: undefined,
-        currency: 'USD',
+        isIndefinite: isAssignmentIndefiniteLease,
+        currency: assignmentCurrency,
         terms: undefined,
         specialClauses: undefined,
         sendInvitation: false // Don't send invitation for existing tenant
       };
 
+      console.log('📤 Sending lease payload:', payload);
       const res = await createLease(payload);
-      if ((res as any).error) throw new Error((res as any).error.error || 'Failed to assign tenant to unit');
+      console.log('📥 Lease response:', res);
+      if ((res as any).error) {
+        const errorMsg = (res as any).error?.error || (res as any).error?.message || 'Failed to create lease';
+        throw new Error(errorMsg);
+      }
 
       console.log('✅ Tenant assigned to unit successfully');
       toast.success('Tenant assigned to unit successfully');
       setShowAssignUnitDialog(false);
       setTenantToAssign(null);
+      setAssignmentUnitRentFrequency('monthly'); // Reset rent frequency
+      setIsAssignmentIndefiniteLease(false); // Reset indefinite lease
       setAssignmentData({
         propertyId: '',
         unitId: '',
@@ -597,6 +682,8 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                       onValueChange={(v) => {
                         // Find the selected unit and auto-populate rent
                         const selectedUnit = propertyUnits.find((u: any) => String(u.id) === v);
+                        const rentFreq = getUnitRentFrequency(selectedUnit);
+                        setSelectedUnitRentFrequency(rentFreq);
                         setNewTenant({
                           ...newTenant,
                           unitId: v,
@@ -684,7 +771,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                   <h3 className="text-sm font-semibold text-gray-900">Financial Details</h3>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="rent">Monthly Rent</Label>
+                  <Label htmlFor="rent">{selectedUnitRentFrequency === 'annual' ? 'Annual Rent' : 'Monthly Rent'}</Label>
                   <Input
                     id="rent"
                     type="number"
@@ -754,36 +841,95 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                         <CalendarComponent
                           mode="single"
                           selected={newTenant.leaseStart ? new Date(newTenant.leaseStart) : undefined}
-                          onSelect={(date) => setNewTenant({...newTenant, leaseStart: date ? format(date, 'yyyy-MM-dd') : ''})}
+                          onSelect={(date) => {
+                            const newStartDate = date ? format(date, 'yyyy-MM-dd') : '';
+                            // If new start date is on or after current end date, clear the end date
+                            if (date && newTenant.leaseEnd) {
+                              const endDate = new Date(newTenant.leaseEnd);
+                              if (date >= endDate) {
+                                setNewTenant({...newTenant, leaseStart: newStartDate, leaseEnd: ''});
+                                toast.info('Lease End date has been cleared as it was before the new Start date');
+                                return;
+                              }
+                            }
+                            setNewTenant({...newTenant, leaseStart: newStartDate});
+                          }}
                           initialFocus
                         />
                       </PopoverContent>
                     </Popover>
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="leaseEnd">Lease End</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !newTenant.leaseEnd && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {newTenant.leaseEnd ? format(new Date(newTenant.leaseEnd), "PPP") : <span>Pick a date</span>}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarComponent
-                          mode="single"
-                          selected={newTenant.leaseEnd ? new Date(newTenant.leaseEnd) : undefined}
-                          onSelect={(date) => setNewTenant({...newTenant, leaseEnd: date ? format(date, 'yyyy-MM-dd') : ''})}
-                          initialFocus
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="leaseEnd">Lease End</Label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="indefiniteLease"
+                          checked={isIndefiniteLease}
+                          onChange={(e) => {
+                            setIsIndefiniteLease(e.target.checked);
+                            if (e.target.checked) {
+                              setNewTenant({...newTenant, leaseEnd: ''});
+                            }
+                          }}
+                          className="h-4 w-4 rounded border-gray-300"
                         />
-                      </PopoverContent>
-                    </Popover>
+                        <Label htmlFor="indefiniteLease" className="text-sm font-normal text-gray-600 cursor-pointer">
+                          Indefinite Lease
+                        </Label>
+                      </div>
+                    </div>
+                    {isIndefiniteLease ? (
+                      <div className="p-3 bg-gray-50 border rounded-md text-sm text-gray-600">
+                        <p>This lease has no fixed end date. The tenant will remain until either party terminates the agreement.</p>
+                      </div>
+                    ) : (
+                      <>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !newTenant.leaseEnd && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {newTenant.leaseEnd ? format(new Date(newTenant.leaseEnd), "PPP") : <span>Pick a date</span>}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <CalendarComponent
+                              mode="single"
+                              selected={newTenant.leaseEnd ? new Date(newTenant.leaseEnd) : undefined}
+                              onSelect={(date) => {
+                                if (date && newTenant.leaseStart) {
+                                  const startDate = new Date(newTenant.leaseStart);
+                                  if (date <= startDate) {
+                                    toast.error('Lease End date must be after Lease Start date');
+                                    return;
+                                  }
+                                }
+                                setNewTenant({...newTenant, leaseEnd: date ? format(date, 'yyyy-MM-dd') : ''});
+                              }}
+                              disabled={(date) => {
+                                // Disable dates on or before lease start date
+                                if (newTenant.leaseStart) {
+                                  const startDate = new Date(newTenant.leaseStart);
+                                  return date <= startDate;
+                                }
+                                return false;
+                              }}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        {!newTenant.leaseStart && (
+                          <p className="text-xs text-amber-600">Please select Lease Start date first</p>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1009,7 +1155,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                           <CalendarIcon className="h-3 w-3 mr-1" />
                           {formatDisplayDate(tenant.leaseStart)}
                         </div>
-                        <div className="text-gray-500">to {formatDisplayDate(tenant.leaseEnd)}</div>
+                        <div className="text-gray-500">to {tenant.leaseEnd ? formatDisplayDate(tenant.leaseEnd) : 'Indefinite'}</div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -1550,11 +1696,13 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                     <Label className="text-xs text-gray-500">Lease End Date</Label>
                     <p className="font-medium flex items-center gap-1">
                       <CalendarIcon className="h-3 w-3" />
-                      {formatDisplayDate(selectedTenant.leaseEnd)}
+                      {selectedTenant.leaseEnd ? formatDisplayDate(selectedTenant.leaseEnd) : 'Indefinite'}
                     </p>
                   </div>
                   <div>
-                    <Label className="text-xs text-gray-500">Monthly Rent</Label>
+                    <Label className="text-xs text-gray-500">
+                      {selectedTenant.rentFrequency === 'annual' ? 'Annual Rent' : 'Monthly Rent'}
+                    </Label>
                     <p className="font-medium text-lg">
                       {formatCurrency(selectedTenant.rent, selectedTenant.currency)}
                     </p>
@@ -1682,11 +1830,13 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                       <Label className="text-xs text-gray-500">Lease End Date</Label>
                       <p className="font-medium flex items-center gap-1">
                         <CalendarIcon className="h-3 w-3" />
-                        {formatDisplayDate(selectedTenant.leaseEnd)}
+                        {selectedTenant.leaseEnd ? formatDisplayDate(selectedTenant.leaseEnd) : 'Indefinite'}
                       </p>
                     </div>
                     <div>
-                      <Label className="text-xs text-gray-500">Monthly Rent</Label>
+                      <Label className="text-xs text-gray-500">
+                        {selectedTenant.rentFrequency === 'annual' ? 'Annual Rent' : 'Monthly Rent'}
+                      </Label>
                       <p className="font-medium">
                         {formatCurrency(selectedTenant.rent, selectedTenant.currency)}
                       </p>
@@ -1799,6 +1949,8 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                     onValueChange={(v) => {
                       // Find the selected unit and auto-populate rent
                       const selectedUnit = assignmentPropertyUnits.find((u: any) => String(u.id) === v);
+                      const rentFreq = getUnitRentFrequency(selectedUnit);
+                      setAssignmentUnitRentFrequency(rentFreq);
                       setAssignmentData({
                         ...assignmentData,
                         unitId: v,
@@ -1860,42 +2012,101 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                       <CalendarComponent
                         mode="single"
                         selected={assignmentData.leaseStart ? new Date(assignmentData.leaseStart) : undefined}
-                        onSelect={(date) => setAssignmentData({ ...assignmentData, leaseStart: date ? format(date, 'yyyy-MM-dd') : '' })}
+                        onSelect={(date) => {
+                          const newStartDate = date ? format(date, 'yyyy-MM-dd') : '';
+                          // If new start date is on or after current end date, clear the end date
+                          if (date && assignmentData.leaseEnd) {
+                            const endDate = new Date(assignmentData.leaseEnd);
+                            if (date >= endDate) {
+                              setAssignmentData({ ...assignmentData, leaseStart: newStartDate, leaseEnd: '' });
+                              toast.info('Lease End date has been cleared as it was before the new Start date');
+                              return;
+                            }
+                          }
+                          setAssignmentData({ ...assignmentData, leaseStart: newStartDate });
+                        }}
                         initialFocus
                       />
                     </PopoverContent>
                   </Popover>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="assign-lease-end">Lease End Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !assignmentData.leaseEnd && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {assignmentData.leaseEnd ? format(new Date(assignmentData.leaseEnd), "PPP") : <span>Pick a date</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <CalendarComponent
-                        mode="single"
-                        selected={assignmentData.leaseEnd ? new Date(assignmentData.leaseEnd) : undefined}
-                        onSelect={(date) => setAssignmentData({ ...assignmentData, leaseEnd: date ? format(date, 'yyyy-MM-dd') : '' })}
-                        initialFocus
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="assign-lease-end">Lease End Date</Label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="assignIndefiniteLease"
+                        checked={isAssignmentIndefiniteLease}
+                        onChange={(e) => {
+                          setIsAssignmentIndefiniteLease(e.target.checked);
+                          if (e.target.checked) {
+                            setAssignmentData({ ...assignmentData, leaseEnd: '' });
+                          }
+                        }}
+                        className="h-4 w-4 rounded border-gray-300"
                       />
-                    </PopoverContent>
-                  </Popover>
+                      <Label htmlFor="assignIndefiniteLease" className="text-sm font-normal text-gray-600 cursor-pointer">
+                        Indefinite Lease
+                      </Label>
+                    </div>
+                  </div>
+                  {isAssignmentIndefiniteLease ? (
+                    <div className="p-3 bg-gray-50 border rounded-md text-sm text-gray-600">
+                      <p>This lease has no fixed end date. The tenant will remain until either party terminates the agreement.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !assignmentData.leaseEnd && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {assignmentData.leaseEnd ? format(new Date(assignmentData.leaseEnd), "PPP") : <span>Pick a date</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            mode="single"
+                            selected={assignmentData.leaseEnd ? new Date(assignmentData.leaseEnd) : undefined}
+                            onSelect={(date) => {
+                              if (date && assignmentData.leaseStart) {
+                                const startDate = new Date(assignmentData.leaseStart);
+                                if (date <= startDate) {
+                                  toast.error('Lease End date must be after Lease Start date');
+                                  return;
+                                }
+                              }
+                              setAssignmentData({ ...assignmentData, leaseEnd: date ? format(date, 'yyyy-MM-dd') : '' });
+                            }}
+                            disabled={(date) => {
+                              // Disable dates on or before lease start date
+                              if (assignmentData.leaseStart) {
+                                const startDate = new Date(assignmentData.leaseStart);
+                                return date <= startDate;
+                              }
+                              return false;
+                            }}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      {!assignmentData.leaseStart && (
+                        <p className="text-xs text-amber-600">Please select Lease Start date first</p>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
 
-              {/* Monthly Rent */}
+              {/* Rent */}
               <div className="grid gap-2">
-                <Label htmlFor="assign-rent">Monthly Rent</Label>
+                <Label htmlFor="assign-rent">{assignmentUnitRentFrequency === 'annual' ? 'Annual Rent' : 'Monthly Rent'}</Label>
                 <Input
                   id="assign-rent"
                   type="number"
@@ -1945,7 +2156,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
             </Button>
             <Button
               onClick={handleAssignUnit}
-              disabled={isAssigning || !assignmentData.propertyId || !assignmentData.unitId || !assignmentData.leaseStart || !assignmentData.leaseEnd || !assignmentData.rent}
+              disabled={isAssigning || !assignmentData.propertyId || !assignmentData.unitId || !assignmentData.leaseStart || (!isAssignmentIndefiniteLease && !assignmentData.leaseEnd) || !assignmentData.rent}
             >
               {isAssigning ? (
                 <>

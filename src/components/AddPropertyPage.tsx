@@ -61,9 +61,13 @@ interface AddPropertyPageProps {
   mode?: 'add' | 'edit';
   managers?: any[];
   onManagerCreated?: () => Promise<void>; // Callback to refresh managers in parent
+  propertyLimit?: number;
+  currentPropertyCount?: number;
+  unitLimit?: number;
+  currentUnitCount?: number;
 }
 
-export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'add', managers = [], onManagerCreated }: AddPropertyPageProps) {
+export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'add', managers = [], onManagerCreated, propertyLimit, currentPropertyCount = 0, unitLimit, currentUnitCount = 0 }: AddPropertyPageProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     // Basic Information
@@ -175,6 +179,7 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
   }, [initialValues]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCreateManagerDialog, setShowCreateManagerDialog] = useState(false);
   const [isCreatingManager, setIsCreatingManager] = useState(false);
   const [localManagers, setLocalManagers] = useState(managers);
@@ -291,10 +296,23 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
         if (!formData.city.trim()) newErrors.city = 'City is required';
         if (!formData.state) newErrors.state = 'State is required';
         if (!formData.postalCode.trim()) newErrors.postalCode = 'Postal code is required';
+        // Check property limit on step 1 (early warning)
+        if (mode === 'add' && propertyLimit !== undefined && currentPropertyCount >= propertyLimit) {
+          newErrors.propertyLimit = `Property limit reached (${currentPropertyCount}/${propertyLimit}). Please upgrade your plan.`;
+        }
         break;
       case 2:
         if (!formData.totalUnits.trim()) newErrors.totalUnits = 'Total units is required';
         if (parseInt(formData.totalUnits) <= 0) newErrors.totalUnits = 'Total units must be greater than 0';
+        // Check unit limit
+        if (mode === 'add' && unitLimit !== undefined && unitLimit > 0) {
+          const totalUnitsToAdd = parseInt(formData.totalUnits) || 0;
+          const newTotalUnits = currentUnitCount + totalUnitsToAdd;
+          if (newTotalUnits > unitLimit) {
+            const remainingUnits = Math.max(0, unitLimit - currentUnitCount);
+            newErrors.totalUnits = `Unit limit exceeded. You can only add ${remainingUnits} more units (${currentUnitCount}/${unitLimit} used).`;
+          }
+        }
         break;
       case 3:
         if (!formData.avgRent.trim()) newErrors.avgRent = 'Average rent is required';
@@ -392,8 +410,32 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
     }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    // Prevent double submission
+    if (isSubmitting) {
+      return;
+    }
+
     if (validateStep(currentStep)) {
+      // Validate property limit (only for new properties, not edits)
+      if (mode === 'add' && propertyLimit !== undefined) {
+        if (currentPropertyCount >= propertyLimit) {
+          toast.error(`Property limit reached. Your plan allows ${propertyLimit} properties. Please upgrade your plan to add more properties.`);
+          return;
+        }
+      }
+
+      // Validate unit limit
+      const totalUnitsToAdd = parseInt(formData.totalUnits) || 0;
+      if (mode === 'add' && unitLimit !== undefined && unitLimit > 0) {
+        const newTotalUnits = currentUnitCount + totalUnitsToAdd;
+        if (newTotalUnits > unitLimit) {
+          const remainingUnits = Math.max(0, unitLimit - currentUnitCount);
+          toast.error(`Unit limit exceeded. Your plan allows ${unitLimit} total units. You currently have ${currentUnitCount} units and can only add ${remainingUnits} more. Please upgrade your plan.`);
+          return;
+        }
+      }
+
       const propertyData = {
         ...formData,
         id: Date.now(),
@@ -425,10 +467,20 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
         }
       };
 
-      onSave(propertyData);
-      if (mode === 'add') {
-        toast.success('Property added successfully!');
+      // Set submitting state to prevent double clicks
+      setIsSubmitting(true);
+
+      try {
+        await onSave(propertyData);
+        if (mode === 'add') {
+          toast.success('Property added successfully!');
+        }
+      } catch (error: any) {
+        toast.error(error?.message || 'Failed to save property');
+        setIsSubmitting(false);
       }
+      // Note: We don't reset isSubmitting on success because the component
+      // will navigate away after successful save
     }
   };
 
@@ -1298,6 +1350,40 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
         </div>
       </header>
 
+      {/* Subscription Limits Warning Banner */}
+      {mode === 'add' && propertyLimit !== undefined && (
+        <div className="bg-gray-50 border-b px-4 sm:px-6 lg:px-8 py-3">
+          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-gray-500" />
+                <span className="text-sm text-gray-600">
+                  Properties: <span className={`font-medium ${currentPropertyCount >= propertyLimit ? 'text-red-600' : 'text-gray-900'}`}>
+                    {currentPropertyCount}/{propertyLimit}
+                  </span>
+                </span>
+              </div>
+              {unitLimit !== undefined && unitLimit > 0 && (
+                <div className="flex items-center gap-2">
+                  <Home className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-gray-600">
+                    Units: <span className={`font-medium ${currentUnitCount >= unitLimit ? 'text-red-600' : 'text-gray-900'}`}>
+                      {currentUnitCount}/{unitLimit}
+                    </span>
+                  </span>
+                </div>
+              )}
+            </div>
+            {(currentPropertyCount >= propertyLimit || (unitLimit && currentUnitCount >= unitLimit)) && (
+              <Badge variant="destructive" className="text-xs">
+                <AlertCircle className="h-3 w-3 mr-1" />
+                Limit Reached - Upgrade Required
+              </Badge>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="p-4 lg:p-8">
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-4 gap-6">
@@ -1379,9 +1465,22 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
 
                 <div className="flex space-x-4">
                   {currentStep === steps.length ? (
-                    <Button onClick={handleSubmit} className="bg-gradient-to-r from-gray-900 to-black hover:from-black hover:to-gray-900 text-white">
-                      <Save className="h-4 w-4 mr-2" />
-                      {mode === 'edit' ? 'Save Changes' : 'Add Property'}
+                    <Button
+                      onClick={handleSubmit}
+                      disabled={isSubmitting}
+                      className="bg-gradient-to-r from-gray-900 to-black hover:from-black hover:to-gray-900 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          {mode === 'edit' ? 'Saving...' : 'Adding Property...'}
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-2" />
+                          {mode === 'edit' ? 'Save Changes' : 'Add Property'}
+                        </>
+                      )}
                     </Button>
                   ) : (
                     <Button onClick={handleNext}>

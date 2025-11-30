@@ -143,7 +143,7 @@ interface InvoiceAttachmentDetail {
   metadata?: any;
 }
 
-export const PurchaseOrdersPage: React.FC<{ projectId: string }> = ({ projectId }) => {
+export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoices?: boolean }> = ({ projectId, canApproveInvoices = true }) => {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
@@ -1473,14 +1473,18 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string }> = ({ projectId 
                               <FileText className="w-4 h-4 mr-2" />
                               Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleApprovePO(po.id)}>
-                              <CheckCircle className="w-4 h-4 mr-2" />
-                              Approve
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleRejectPO(po.id, 'Rejected by user')}>
-                              <XCircle className="w-4 h-4 mr-2" />
-                              Reject
-                            </DropdownMenuItem>
+                            {canApproveInvoices && (
+                              <>
+                                <DropdownMenuItem onClick={() => handleApprovePO(po.id)}>
+                                  <CheckCircle className="w-4 h-4 mr-2" />
+                                  Approve
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleRejectPO(po.id, 'Rejected by user')}>
+                                  <XCircle className="w-4 h-4 mr-2" />
+                                  Reject
+                                </DropdownMenuItem>
+                              </>
+                            )}
                             <DropdownMenuItem onClick={() => handleDeletePO(po.id)}>
                               <XCircle className="w-4 h-4 mr-2 text-red-500" />
                               <span className="text-red-500">Delete</span>

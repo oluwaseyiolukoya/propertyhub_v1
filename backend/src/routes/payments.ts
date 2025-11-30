@@ -504,6 +504,8 @@ router.get('/verify/:reference', async (req: AuthRequest, res: Response) => {
     else if (data.status === 'abandoned') mappedStatus = 'failed';
 
     // Update DB record
+    const paidAt = data.paid_at ? new Date(data.paid_at) : mappedStatus === 'success' ? new Date() : payment.paidAt || undefined;
+
     const updated = await prisma.payments.updateMany({
       where: { customerId, provider: 'paystack', providerReference: reference },
       data: {
@@ -511,10 +513,75 @@ router.get('/verify/:reference', async (req: AuthRequest, res: Response) => {
         currency: data.currency || payment.currency,
         providerFee: data.fees || payment.providerFee || undefined,
         paymentMethod: data.channel || payment.paymentMethod || undefined,
-        paidAt: data.paid_at ? new Date(data.paid_at) : mappedStatus === 'success' ? new Date() : payment.paidAt || undefined,
+        paidAt,
         updatedAt: new Date(),
       }
     });
+
+    // If payment successful and it's a rent payment, update lease and create next scheduled payment
+    if (mappedStatus === 'success' && payment.type === 'rent' && payment.leaseId) {
+      try {
+        // Get lease details to determine rent frequency
+        const lease = await prisma.leases.findUnique({
+          where: { id: payment.leaseId },
+          include: {
+            units: { select: { features: true } }
+          }
+        });
+
+        if (lease) {
+          // Determine rent frequency from unit features
+          const unitFeatures = lease.units?.features as any;
+          const rentFrequency = unitFeatures?.nigeria?.rentFrequency || unitFeatures?.rentFrequency || 'monthly';
+          const isAnnualRent = rentFrequency === 'annual';
+
+          // Calculate next payment due date
+          const paymentDate = paidAt || new Date();
+          let nextPaymentDue: Date;
+
+          if (isAnnualRent) {
+            // For annual rent, next payment is 1 year from now
+            nextPaymentDue = new Date(paymentDate);
+            nextPaymentDue.setFullYear(nextPaymentDue.getFullYear() + 1);
+          } else {
+            // For monthly rent, next payment is 1 month from now
+            nextPaymentDue = new Date(paymentDate);
+            nextPaymentDue.setMonth(nextPaymentDue.getMonth() + 1);
+          }
+
+          // Create a scheduled payment record for the next payment
+          const scheduledReference = `SCH-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          await prisma.payments.create({
+            data: {
+              id: randomUUID(),
+              customerId,
+              propertyId: payment.propertyId,
+              unitId: payment.unitId,
+              leaseId: payment.leaseId,
+              tenantId: payment.tenantId,
+              amount: lease.monthlyRent,
+              currency: payment.currency || 'NGN',
+              status: 'scheduled',
+              type: 'rent',
+              provider: 'paystack',
+              providerReference: scheduledReference,
+              metadata: {
+                leaseNumber: lease.leaseNumber,
+                rentFrequency,
+                previousPaymentRef: reference,
+                scheduledDate: nextPaymentDue.toISOString()
+              } as any,
+              updatedAt: new Date()
+            }
+          });
+
+          console.log(`[Payments] Created scheduled payment for ${nextPaymentDue.toISOString()}, frequency: ${rentFrequency}`);
+        }
+      } catch (scheduleError: any) {
+        console.error('[Payments] Failed to create scheduled payment:', scheduleError?.message || scheduleError);
+        // Don't fail the verification if scheduled payment creation fails
+      }
+    }
 
     // Emit realtime update
     try {
@@ -522,7 +589,7 @@ router.get('/verify/:reference', async (req: AuthRequest, res: Response) => {
       if (payment.tenantId) emitToUser(payment.tenantId, 'payment:updated', { reference, status: mappedStatus });
     } catch {}
 
-    return res.json({ reference, status: mappedStatus });
+    return res.json({ reference, status: mappedStatus, paidAt });
   } catch (error: any) {
     console.error('Verify payment error:', error);
     return res.status(500).json({ error: 'Failed to verify payment' });
@@ -567,6 +634,69 @@ router.get('/by-reference/:reference', async (req: AuthRequest, res: Response) =
   } catch (error: any) {
     console.error('Get payment by reference error:', error);
     return res.status(500).json({ error: 'Failed to fetch payment' });
+  }
+});
+
+// Get scheduled payments (for tenant or owner/manager)
+router.get('/scheduled', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const customerId = req.user?.customerId;
+    const role = (req.user?.role || '').toLowerCase();
+
+    if (!userId || !customerId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const where: any = {
+      customerId,
+      status: 'scheduled',
+      type: 'rent'
+    };
+
+    // Scope by role
+    if (role === 'tenant') {
+      where.tenantId = userId;
+    } else if (['owner', 'property owner', 'property_owner'].includes(role)) {
+      where.properties = { ownerId: userId };
+    } else if (['manager', 'property_manager'].includes(role)) {
+      where.properties = { property_managers: { some: { managerId: userId, isActive: true } } };
+    }
+
+    const scheduledPayments = await prisma.payments.findMany({
+      where,
+      include: {
+        leases: {
+          select: {
+            id: true,
+            leaseNumber: true,
+            properties: { select: { id: true, name: true } },
+            units: { select: { id: true, unitNumber: true } },
+            users: { select: { id: true, name: true, email: true } }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    // Transform to include scheduled date from metadata
+    const transformed = scheduledPayments.map(p => {
+      const metadata = p.metadata as any;
+      return {
+        id: p.id,
+        amount: p.amount,
+        currency: p.currency,
+        status: p.status,
+        type: p.type,
+        scheduledDate: metadata?.scheduledDate || null,
+        rentFrequency: metadata?.rentFrequency || 'monthly',
+        lease: p.leases,
+        createdAt: p.createdAt
+      };
+    });
+
+    return res.json(transformed);
+  } catch (error: any) {
+    console.error('Get scheduled payments error:', error);
+    return res.status(500).json({ error: 'Failed to fetch scheduled payments' });
   }
 });
 

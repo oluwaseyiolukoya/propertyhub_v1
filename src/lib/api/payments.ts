@@ -124,3 +124,67 @@ export const recordManualPayment = async (payload: {
   );
 };
 
+/**
+ * Get scheduled payments
+ */
+export const getScheduledPayments = async () => {
+  return apiClient.get<any[]>('/api/payments/scheduled');
+};
+
+/**
+ * Verify payment by reference
+ */
+export const verifyPayment = async (reference: string) => {
+  return apiClient.get<{ reference: string; status: string; paidAt?: string }>(
+    `/api/payments/verify/${reference}`
+  );
+};
+
+/**
+ * Get auto-pay settings
+ */
+export interface AutoPaySettings {
+  enabled: boolean;
+  paymentMethodId: string | null;
+  paymentMethod: {
+    id: string;
+    cardBrand: string | null;
+    cardLast4: string | null;
+    cardExpMonth: string | null;
+    cardExpYear: string | null;
+  } | null;
+  dayOfMonth: number;
+  amount: number;
+  currency: string;
+  rentFrequency: string;
+  leaseId: string;
+}
+
+export const getAutopaySettings = async () => {
+  return apiClient.get<AutoPaySettings>('/api/tenant/autopay/settings');
+};
+
+/**
+ * Update auto-pay settings
+ */
+export const updateAutopaySettings = async (settings: {
+  enabled: boolean;
+  paymentMethodId?: string | null;
+  dayOfMonth?: number;
+}) => {
+  return apiClient.post<{ success: boolean; message: string; settings: any }>(
+    '/api/tenant/autopay/settings',
+    settings
+  );
+};
+
+/**
+ * Process auto-pay manually (trigger payment)
+ */
+export const processAutopay = async () => {
+  return apiClient.post<{ success: boolean; message: string; payment: any }>(
+    '/api/tenant/autopay/process',
+    {}
+  );
+};
+

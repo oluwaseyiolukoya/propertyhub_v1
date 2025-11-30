@@ -136,6 +136,13 @@ export const getDocumentDownloadUrl = async (documentId: string) => {
 };
 
 /**
+ * Delete verification request (admin)
+ */
+export const deleteVerificationRequest = async (requestId: string) => {
+  return apiClient.delete<{ success: boolean }>(`/api/admin/verification/requests/${requestId}`);
+};
+
+/**
  * Get provider logs (admin)
  */
 export const getProviderLogs = async (provider?: string, limit: number = 50) => {

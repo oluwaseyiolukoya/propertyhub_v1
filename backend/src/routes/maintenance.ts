@@ -100,7 +100,29 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         }
       };
     } else if (role === 'tenant') {
-      where.reportedById = userId;
+      // Tenants can see tickets they reported OR tickets for their unit
+      // First, find the tenant's active lease to get their unit
+      const tenantLease = await prisma.leases.findFirst({
+        where: {
+          tenantId: userId,
+          status: 'active'
+        },
+        select: {
+          unitId: true,
+          propertyId: true
+        }
+      });
+
+      if (tenantLease) {
+        // Tenant can see tickets they reported OR tickets for their unit
+        where.OR = [
+          { reportedById: userId },
+          { unitId: tenantLease.unitId }
+        ];
+      } else {
+        // No active lease, only show tickets they reported
+        where.reportedById = userId;
+      }
     } else {
       return res.status(403).json({ error: 'Access denied' });
     }
@@ -184,19 +206,19 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id;
-    const role = req.user?.role;
+    const role = (req.user?.role || '').toLowerCase();
 
-  const whereCondition: any = {
+    const whereCondition: any = {
       id,
       OR: []
     };
 
-  if (role === 'owner' || role === 'property owner') {
-    whereCondition.OR.push({ property: { ownerId: userId } });
-  } else if (role === 'manager' || role === 'property manager') {
+    if (role === 'owner' || role === 'property owner') {
+      whereCondition.OR.push({ property: { ownerId: userId } });
+    } else if (role === 'manager' || role === 'property manager') {
       whereCondition.OR.push({
         property: {
-        property_managers: {
+          property_managers: {
             some: {
               managerId: userId,
               isActive: true
@@ -205,7 +227,21 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
         }
       });
     } else if (role === 'tenant') {
+      // Tenant can view tickets they reported OR tickets for their unit
       whereCondition.OR.push({ reportedById: userId });
+
+      // Also check if ticket is for tenant's unit
+      const tenantLease = await prisma.leases.findFirst({
+        where: {
+          tenantId: userId,
+          status: 'active'
+        },
+        select: { unitId: true }
+      });
+
+      if (tenantLease?.unitId) {
+        whereCondition.OR.push({ unitId: tenantLease.unitId });
+      }
     }
 
   const request = await prisma.maintenance_requests.findFirst({
@@ -404,26 +440,44 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const userId = req.user?.id;
     const customerId = req.user?.customerId;
-    const role = req.user?.role;
+    const role = (req.user?.role || '').toLowerCase();
+
+    // Build access conditions
+    const accessConditions: any[] = [
+      { property: { ownerId: userId } },
+      {
+        property: {
+          property_managers: {
+            some: {
+              managerId: userId,
+              isActive: true
+            }
+          }
+        }
+      },
+      { reportedById: userId }
+    ];
+
+    // For tenants, also allow access if the ticket is for their unit
+    if (role === 'tenant') {
+      const tenantLease = await prisma.leases.findFirst({
+        where: {
+          tenantId: userId,
+          status: 'active'
+        },
+        select: { unitId: true }
+      });
+
+      if (tenantLease?.unitId) {
+        accessConditions.push({ unitId: tenantLease.unitId });
+      }
+    }
 
     // Check access
-  const existing = await prisma.maintenance_requests.findFirst({
+    const existing = await prisma.maintenance_requests.findFirst({
       where: {
         id,
-        OR: [
-          { property: { ownerId: userId } },
-          {
-            property: {
-            property_managers: {
-                some: {
-                  managerId: userId,
-                  isActive: true
-                }
-              }
-            }
-          },
-          { reportedById: userId }
-        ]
+        OR: accessConditions
       },
       include: { property: true }
     });
@@ -708,21 +762,39 @@ router.post('/:id/replies', async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Note is required' });
     }
 
+    // Build access conditions based on role
+    const accessConditions: any[] = [
+      { reportedById: userId },
+      { property: { ownerId: userId } },
+      {
+        property: {
+          property_managers: {
+            some: { managerId: userId, isActive: true }
+          }
+        }
+      }
+    ];
+
+    // For tenants, also allow access if the ticket is for their unit
+    if (role === 'tenant') {
+      const tenantLease = await prisma.leases.findFirst({
+        where: {
+          tenantId: userId,
+          status: 'active'
+        },
+        select: { unitId: true }
+      });
+
+      if (tenantLease?.unitId) {
+        accessConditions.push({ unitId: tenantLease.unitId });
+      }
+    }
+
     // Ensure user has access
     const request = await prisma.maintenance_requests.findFirst({
       where: {
         id,
-        OR: [
-          { reportedById: userId },
-          { property: { ownerId: userId } },
-          {
-            property: {
-              property_managers: {
-                some: { managerId: userId, isActive: true }
-              }
-            }
-          }
-        ]
+        OR: accessConditions
       },
       include: { property: true }
     });

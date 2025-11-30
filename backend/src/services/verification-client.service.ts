@@ -57,7 +57,18 @@ export class VerificationClientService {
       return response.data;
     } catch (error: any) {
       console.error('[VerificationClient] Failed to submit verification:', error.message);
-      throw new Error(error.response?.data?.error || 'Failed to submit verification');
+      if (error.response) {
+        console.error('[VerificationClient] Response status:', error.response.status);
+        console.error('[VerificationClient] Response data:', error.response.data);
+      } else if (error.request) {
+        console.error('[VerificationClient] No response received:', error.request);
+      }
+      console.error('[VerificationClient] Request payload:', {
+        customerId,
+        customerType,
+        customerEmail,
+      });
+      throw new Error(error.response?.data?.error || error.message || 'Failed to submit verification');
     }
   }
 
@@ -239,6 +250,24 @@ export class VerificationClientService {
     } catch (error: any) {
       console.error('[VerificationClient] Failed to reject request:', error.message);
       throw new Error(error.response?.data?.error || 'Failed to reject verification');
+    }
+  }
+
+  /**
+   * Delete verification request (admin)
+   * @param requestId - Verification request ID
+   */
+  async deleteRequest(requestId: string) {
+    try {
+      console.log(`[VerificationClient] Deleting request ${requestId}`);
+
+      const response = await this.client.delete(`/api/admin/requests/${requestId}`);
+
+      console.log(`[VerificationClient] ✅ Request deleted`);
+      return response.data;
+    } catch (error: any) {
+      console.error('[VerificationClient] Failed to delete request:', error.message);
+      throw new Error(error.response?.data?.error || 'Failed to delete verification request');
     }
   }
 

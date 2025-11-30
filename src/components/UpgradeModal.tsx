@@ -147,7 +147,7 @@ export function UpgradeModal({ open, onClose, onSuccess }: UpgradeModalProps) {
       console.log('[UpgradeModal] Initializing payment for plan:', selectedPlan);
 
       // Initialize payment with backend - this will return authorization URL
-      const response = await initializeUpgrade(selectedPlan);
+      const response = await initializeUpgrade(selectedPlan, billingCycle);
       console.log('[UpgradeModal] Response:', response);
 
       if (response.data?.authorizationUrl) {

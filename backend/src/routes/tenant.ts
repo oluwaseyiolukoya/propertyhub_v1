@@ -8,6 +8,40 @@ const router = express.Router();
 
 router.use(authMiddleware);
 
+// Helper function to calculate next payment due date
+function calculateNextPaymentDue(lastPaymentDate: Date | null, leaseStartDate: Date, isAnnualRent: boolean): Date {
+  const today = new Date();
+  const leaseStart = new Date(leaseStartDate);
+
+  if (lastPaymentDate) {
+    // Calculate from last payment
+    const nextDue = new Date(lastPaymentDate);
+    if (isAnnualRent) {
+      nextDue.setFullYear(nextDue.getFullYear() + 1);
+    } else {
+      nextDue.setMonth(nextDue.getMonth() + 1);
+    }
+    return nextDue;
+  }
+
+  // No payment yet - the first payment is due at lease start
+  // If lease start is in the future, payment is due at lease start
+  // If lease start is in the past, payment was due at lease start (overdue)
+  // We return the lease start date to show the tenant they need to pay
+
+  if (isAnnualRent) {
+    // For annual rent with no payment:
+    // - First payment is always due at lease start
+    // - Return lease start date even if in the past (to show it's overdue)
+    return leaseStart;
+  } else {
+    // For monthly rent with no payment:
+    // - First payment is due at lease start
+    // - If lease start is in the past, they're overdue from that date
+    return leaseStart;
+  }
+}
+
 // Get all tenants for property owner/manager (including assigned and unassigned)
 router.get('/all', async (req: AuthRequest, res: Response) => {
   try {
@@ -184,20 +218,124 @@ router.get('/dashboard/overview', async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Calculate days until rent due (assuming rent due on 1st of month)
     const today = new Date();
-    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-    const daysUntilDue = Math.ceil((nextMonth.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-    // TODO: payments, maintenance_requests, notifications tables don't exist yet
-    // These will be added in future migrations
-    const lastPayment = null;
-    const daysSinceLastPayment = 0;
-    const isOverdue = false;
-    const totalPaidThisYear = { _sum: { amount: 0 } };
-    const pendingMaintenance = 0;
-    const recentMaintenance: any[] = [];
-    const recentPayments: any[] = [];
+    // Get rent frequency from unit features
+    const unitFeatures = activeLease.units?.features as any;
+    const rentFrequency = unitFeatures?.nigeria?.rentFrequency || unitFeatures?.rentFrequency || 'monthly';
+    const isAnnualRent = rentFrequency === 'annual';
+
+    // Get the last successful payment and scheduled payment for this lease
+    let lastPayment: any = null;
+    let scheduledPayment: any = null;
+    let recentPayments: any[] = [];
+    let totalPaidThisYear = { _sum: { amount: 0 } };
+
+    try {
+      // Get last successful rent payment
+      lastPayment = await prisma.payments.findFirst({
+        where: {
+          leaseId: activeLease.id,
+          type: 'rent',
+          status: 'success'
+        },
+        orderBy: { paidAt: 'desc' }
+      });
+
+      // Get scheduled payment (next payment due)
+      scheduledPayment = await prisma.payments.findFirst({
+        where: {
+          leaseId: activeLease.id,
+          type: 'rent',
+          status: 'scheduled'
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      // Get recent payments
+      const recentPaymentsList = await prisma.payments.findMany({
+        where: {
+          leaseId: activeLease.id,
+          type: 'rent',
+          status: { in: ['success', 'paid'] }
+        },
+        orderBy: { paidAt: 'desc' },
+        take: 5
+      });
+      recentPayments = recentPaymentsList.map(p => ({
+        id: p.id,
+        amount: p.amount,
+        paymentDate: p.paidAt,
+        paymentMethod: p.paymentMethod || p.provider
+      }));
+
+      // Get total paid this year
+      const startOfYear = new Date(today.getFullYear(), 0, 1);
+      totalPaidThisYear = await prisma.payments.aggregate({
+        where: {
+          leaseId: activeLease.id,
+          type: 'rent',
+          status: { in: ['success', 'paid'] },
+          paidAt: { gte: startOfYear }
+        },
+        _sum: { amount: true }
+      });
+    } catch (paymentError) {
+      console.error('Error fetching payment data:', paymentError);
+    }
+
+    // Calculate next payment due date
+    let nextPaymentDue: Date;
+
+    // Check if there's a scheduled payment
+    if (scheduledPayment?.metadata) {
+      const metadata = scheduledPayment.metadata as any;
+      if (metadata.scheduledDate) {
+        nextPaymentDue = new Date(metadata.scheduledDate);
+      } else {
+        // Fallback calculation
+        nextPaymentDue = calculateNextPaymentDue(lastPayment?.paidAt, activeLease.startDate, isAnnualRent);
+      }
+    } else if (lastPayment?.paidAt) {
+      // Calculate from last payment
+      nextPaymentDue = calculateNextPaymentDue(lastPayment.paidAt, activeLease.startDate, isAnnualRent);
+    } else {
+      // No payments yet - due from lease start or 1st of next month
+      nextPaymentDue = calculateNextPaymentDue(null, activeLease.startDate, isAnnualRent);
+    }
+
+    const daysUntilDue = Math.ceil((nextPaymentDue.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const isOverdue = daysUntilDue < 0;
+
+    // Get maintenance data
+    let pendingMaintenance = 0;
+    let recentMaintenance: any[] = [];
+    try {
+      pendingMaintenance = await prisma.maintenance_requests.count({
+        where: {
+          OR: [
+            { reportedById: userId },
+            { unitId: activeLease.unitId }
+          ],
+          status: { notIn: ['completed', 'cancelled'] }
+        }
+      });
+
+      const maintenanceList = await prisma.maintenance_requests.findMany({
+        where: {
+          OR: [
+            { reportedById: userId },
+            { unitId: activeLease.unitId }
+          ]
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5
+      });
+      recentMaintenance = maintenanceList;
+    } catch (maintenanceError) {
+      console.error('Error fetching maintenance data:', maintenanceError);
+    }
+
     const unreadNotifications = 0;
     const announcements: any[] = [];
 
@@ -228,17 +366,22 @@ router.get('/dashboard/overview', async (req: AuthRequest, res: Response) => {
         securityDeposit: activeLease.securityDeposit,
         currency: activeLease.currency,
         daysUntilLeaseEnd,
-        isExpiringSoon: daysUntilLeaseEnd <= 60
+        isExpiringSoon: daysUntilLeaseEnd <= 60,
+        rentFrequency: rentFrequency // 'monthly' or 'annual'
       },
       property: activeLease.properties,
-      unit: activeLease.units,
+      unit: {
+        ...activeLease.units,
+        rentFrequency: rentFrequency // Also include at unit level for convenience
+      },
       rent: {
         monthlyAmount: activeLease.monthlyRent,
         daysUntilDue,
-        nextPaymentDue: nextMonth.toISOString().split('T')[0],
-        lastPaymentDate: lastPayment?.paymentDate || null,
+        nextPaymentDue: nextPaymentDue.toISOString().split('T')[0],
+        lastPaymentDate: lastPayment?.paidAt || null,
         isOverdue,
-        totalPaidThisYear: totalPaidThisYear._sum.amount || 0
+        totalPaidThisYear: totalPaidThisYear._sum?.amount || 0,
+        rentFrequency
       },
       maintenance: {
         pending: pendingMaintenance,
@@ -717,10 +860,16 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ error: 'Access denied. Only property owners and managers can delete tenants.' });
     }
 
-    // Find the tenant user with their leases
+    // Find the tenant user with their leases and KYC info
     const tenant = await prisma.users.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        customerId: true,
+        kycVerificationId: true,
         leases: {
           include: {
             properties: {
@@ -760,7 +909,10 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // First, free up all units and delete all leases
+    // Comprehensive deletion of all tenant-related data
+    console.log('🗑️  Starting comprehensive tenant deletion for:', tenant.email);
+
+    // 1. Free up all units and delete all leases
     for (const lease of tenant.leases) {
       // Update unit status to vacant
       await prisma.units.update({
@@ -771,16 +923,55 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
         }
       });
 
-      // Delete the lease (we can't just terminate it because of foreign key constraints)
+      // Delete the lease
       await prisma.leases.delete({
         where: { id: lease.id }
       });
     }
+    console.log('✅ Deleted', tenant.leases.length, 'leases');
 
-    // Delete any activity logs for this tenant to avoid foreign key constraint issues
-    await prisma.activity_logs.deleteMany({
+    // 2. Delete payments associated with this tenant
+    const deletedPayments = await prisma.payments.deleteMany({
+      where: { tenantId: id }
+    });
+    console.log('✅ Deleted', deletedPayments.count, 'payments');
+
+    // 3. Delete payment methods (should cascade, but let's be explicit)
+    const deletedPaymentMethods = await prisma.payment_methods.deleteMany({
+      where: { tenantId: id }
+    });
+    console.log('✅ Deleted', deletedPaymentMethods.count, 'payment methods');
+
+    // 4. Delete maintenance requests reported by this tenant
+    const deletedMaintenanceRequests = await prisma.maintenance_requests.deleteMany({
+      where: { reportedById: id }
+    });
+    console.log('✅ Deleted', deletedMaintenanceRequests.count, 'maintenance requests');
+
+    // 5. Delete documents (should cascade, but let's be explicit)
+    const deletedDocuments = await prisma.documents.deleteMany({
+      where: { tenantId: id }
+    });
+    console.log('✅ Deleted', deletedDocuments.count, 'documents');
+
+    // 6. Delete any activity logs for this tenant
+    const deletedActivityLogs = await prisma.activity_logs.deleteMany({
       where: { userId: id }
     });
+    console.log('✅ Deleted', deletedActivityLogs.count, 'activity logs');
+
+    // 7. Delete verification requests if tenant has a kycVerificationId
+    if (tenant.kycVerificationId) {
+      try {
+        // Try to delete from verification service
+        const { verificationClient } = await import('../services/verification-client.service');
+        await verificationClient.deleteRequest(tenant.kycVerificationId);
+        console.log('✅ Deleted verification request from verification service');
+      } catch (verificationError) {
+        console.warn('⚠️ Could not delete verification request:', verificationError);
+        // Continue with deletion even if verification service fails
+      }
+    }
 
     // Log the deletion activity before deleting the tenant
     if (tenant.customerId) {
@@ -792,15 +983,16 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
           action: 'delete',
           entity: 'tenant',
           entityId: id,
-          description: `Tenant ${tenant.name} (${tenant.email}) deleted`
+          description: `Tenant ${tenant.name} (${tenant.email}) deleted completely`
         }
       });
     }
 
-    // Delete the tenant user
+    // 8. Finally, delete the tenant user record
     await prisma.users.delete({
       where: { id }
     });
+    console.log('✅ Deleted tenant user record');
 
     console.log('✅ Tenant deleted:', tenant.email);
 
@@ -911,6 +1103,399 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       error: 'Failed to update tenant',
       details: error.message
     });
+  }
+});
+
+// Get auto-pay settings for tenant
+router.get('/autopay/settings', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const role = req.user?.role;
+
+    if (role !== 'tenant') {
+      return res.status(403).json({ error: 'Access denied. Tenant access only.' });
+    }
+
+    // Get tenant's active lease
+    const lease = await prisma.leases.findFirst({
+      where: { tenantId: userId, status: 'active' },
+      select: {
+        id: true,
+        monthlyRent: true,
+        currency: true,
+        specialClauses: true,
+        units: {
+          select: {
+            features: true
+          }
+        }
+      }
+    });
+
+    if (!lease) {
+      return res.status(404).json({ error: 'No active lease found' });
+    }
+
+    // Get auto-pay settings from lease's specialClauses
+    const clauses = lease.specialClauses as any || {};
+    const autopaySettings = clauses.autopay || null;
+
+    // Get default payment method
+    const customerId = req.user?.customerId;
+    const defaultPaymentMethod = await prisma.payment_methods.findFirst({
+      where: {
+        customerId,
+        tenantId: userId,
+        isDefault: true,
+        isActive: true
+      },
+      select: {
+        id: true,
+        cardBrand: true,
+        cardLast4: true,
+        cardExpMonth: true,
+        cardExpYear: true
+      }
+    });
+
+    // Get rent frequency
+    const unitFeatures = lease.units?.features as any;
+    const rentFrequency = unitFeatures?.nigeria?.rentFrequency || unitFeatures?.rentFrequency || 'monthly';
+
+    return res.json({
+      enabled: autopaySettings?.enabled || false,
+      paymentMethodId: autopaySettings?.paymentMethodId || defaultPaymentMethod?.id || null,
+      paymentMethod: defaultPaymentMethod,
+      dayOfMonth: autopaySettings?.dayOfMonth || 1,
+      amount: lease.monthlyRent,
+      currency: lease.currency || 'NGN',
+      rentFrequency,
+      leaseId: lease.id
+    });
+  } catch (error: any) {
+    console.error('Get autopay settings error:', error);
+    return res.status(500).json({ error: 'Failed to get auto-pay settings' });
+  }
+});
+
+// Update auto-pay settings for tenant
+router.post('/autopay/settings', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const role = req.user?.role;
+    const customerId = req.user?.customerId;
+
+    if (role !== 'tenant') {
+      return res.status(403).json({ error: 'Access denied. Tenant access only.' });
+    }
+
+    const { enabled, paymentMethodId, dayOfMonth = 1 } = req.body;
+
+    // Validate day of month
+    const day = Math.min(28, Math.max(1, parseInt(dayOfMonth) || 1));
+
+    // Get tenant's active lease
+    const lease = await prisma.leases.findFirst({
+      where: { tenantId: userId, status: 'active' }
+    });
+
+    if (!lease) {
+      return res.status(404).json({ error: 'No active lease found' });
+    }
+
+    // If enabling, validate payment method exists and belongs to tenant
+    if (enabled && paymentMethodId) {
+      const paymentMethod = await prisma.payment_methods.findFirst({
+        where: {
+          id: paymentMethodId,
+          customerId,
+          tenantId: userId,
+          isActive: true
+        }
+      });
+
+      if (!paymentMethod) {
+        return res.status(400).json({ error: 'Invalid payment method' });
+      }
+    }
+
+    // Update lease's specialClauses with autopay settings
+    const currentClauses = (lease.specialClauses as any) || {};
+    const updatedClauses = {
+      ...currentClauses,
+      autopay: {
+        enabled: !!enabled,
+        paymentMethodId: enabled ? paymentMethodId : null,
+        dayOfMonth: day,
+        updatedAt: new Date().toISOString()
+      }
+    };
+
+    await prisma.leases.update({
+      where: { id: lease.id },
+      data: {
+        specialClauses: updatedClauses,
+        updatedAt: new Date()
+      }
+    });
+
+    // If enabling and no scheduled payment exists, create one
+    if (enabled && paymentMethodId) {
+      // Check if there's already a scheduled payment
+      const existingScheduled = await prisma.payments.findFirst({
+        where: {
+          leaseId: lease.id,
+          status: 'scheduled',
+          type: 'rent'
+        }
+      });
+
+      if (!existingScheduled) {
+        // Calculate next payment date
+        const today = new Date();
+        let nextPaymentDate = new Date(today.getFullYear(), today.getMonth(), day);
+
+        // If the day has passed this month, schedule for next month
+        if (nextPaymentDate <= today) {
+          nextPaymentDate.setMonth(nextPaymentDate.getMonth() + 1);
+        }
+
+        // Get rent frequency
+        const leaseWithUnit = await prisma.leases.findUnique({
+          where: { id: lease.id },
+          include: { units: { select: { features: true } } }
+        });
+        const unitFeatures = leaseWithUnit?.units?.features as any;
+        const rentFrequency = unitFeatures?.nigeria?.rentFrequency || unitFeatures?.rentFrequency || 'monthly';
+
+        // Create scheduled payment
+        await prisma.payments.create({
+          data: {
+            id: randomUUID(),
+            customerId: customerId!,
+            propertyId: lease.propertyId,
+            unitId: lease.unitId,
+            leaseId: lease.id,
+            tenantId: userId,
+            amount: lease.monthlyRent,
+            currency: lease.currency || 'NGN',
+            status: 'scheduled',
+            type: 'rent',
+            provider: 'paystack',
+            providerReference: `SCH-AUTO-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            paymentMethodId,
+            metadata: {
+              scheduledDate: nextPaymentDate.toISOString(),
+              rentFrequency,
+              autopay: true
+            } as any,
+            updatedAt: new Date()
+          }
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: enabled ? 'Auto-pay enabled successfully' : 'Auto-pay disabled',
+      settings: {
+        enabled: !!enabled,
+        paymentMethodId: enabled ? paymentMethodId : null,
+        dayOfMonth: day
+      }
+    });
+  } catch (error: any) {
+    console.error('Update autopay settings error:', error);
+    return res.status(500).json({ error: 'Failed to update auto-pay settings' });
+  }
+});
+
+// Process auto-payments (called by cron job or manually)
+router.post('/autopay/process', async (req: AuthRequest, res: Response) => {
+  try {
+    // This endpoint should be called by a cron job or admin
+    // For security, we'll allow tenant to trigger their own payment manually
+    const userId = req.user?.id;
+    const role = req.user?.role;
+    const customerId = req.user?.customerId;
+
+    if (role !== 'tenant') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Get tenant's scheduled payment that's due
+    const today = new Date();
+    const scheduledPayment = await prisma.payments.findFirst({
+      where: {
+        tenantId: userId,
+        status: 'scheduled',
+        type: 'rent',
+        paymentMethodId: { not: null }
+      },
+      include: {
+        payment_methods: true,
+        leases: {
+          include: {
+            properties: { select: { customerId: true } }
+          }
+        }
+      }
+    });
+
+    if (!scheduledPayment) {
+      return res.status(404).json({ error: 'No scheduled payment found' });
+    }
+
+    // Check if payment is due
+    const metadata = scheduledPayment.metadata as any;
+    const scheduledDate = metadata?.scheduledDate ? new Date(metadata.scheduledDate) : null;
+
+    if (scheduledDate && scheduledDate > today) {
+      return res.status(400).json({
+        error: 'Payment not yet due',
+        scheduledDate: scheduledDate.toISOString()
+      });
+    }
+
+    // Get owner's Paystack settings
+    const ownerCustomerId = scheduledPayment.leases?.properties?.customerId;
+    if (!ownerCustomerId) {
+      return res.status(400).json({ error: 'Property owner not found' });
+    }
+
+    const settings = await prisma.payment_settings.findFirst({
+      where: { customerId: ownerCustomerId, provider: 'paystack', isEnabled: true }
+    });
+
+    if (!settings?.secretKey) {
+      return res.status(400).json({ error: 'Owner has not configured Paystack' });
+    }
+
+    // Get payment method authorization code
+    const authCode = scheduledPayment.payment_methods?.authorizationCode;
+    if (!authCode) {
+      return res.status(400).json({ error: 'Payment method not properly configured' });
+    }
+
+    // Charge the card using Paystack
+    const chargeResponse = await fetch('https://api.paystack.co/transaction/charge_authorization', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${settings.secretKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        authorization_code: authCode,
+        email: req.user?.email || `tenant-${userId}@autopay.local`,
+        amount: Math.round(scheduledPayment.amount * 100),
+        currency: scheduledPayment.currency || 'NGN',
+        reference: `AUTO-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        metadata: {
+          leaseId: scheduledPayment.leaseId,
+          tenantId: userId,
+          type: 'autopay_rent',
+          scheduledPaymentId: scheduledPayment.id
+        }
+      })
+    });
+
+    const chargeData = await chargeResponse.json();
+
+    if (!chargeResponse.ok || !chargeData.status || chargeData.data?.status !== 'success') {
+      console.error('Auto-pay charge failed:', chargeData);
+
+      // Update scheduled payment to failed
+      await prisma.payments.update({
+        where: { id: scheduledPayment.id },
+        data: {
+          status: 'failed',
+          metadata: {
+            ...metadata,
+            failedAt: new Date().toISOString(),
+            failureReason: chargeData.message || 'Charge failed'
+          } as any,
+          updatedAt: new Date()
+        }
+      });
+
+      return res.status(400).json({
+        error: 'Auto-pay charge failed',
+        message: chargeData.message || 'Payment was declined'
+      });
+    }
+
+    // Payment successful - update the scheduled payment
+    await prisma.payments.update({
+      where: { id: scheduledPayment.id },
+      data: {
+        status: 'success',
+        providerReference: chargeData.data.reference,
+        paidAt: new Date(),
+        metadata: {
+          ...metadata,
+          paidViaAutopay: true,
+          paystackReference: chargeData.data.reference
+        } as any,
+        updatedAt: new Date()
+      }
+    });
+
+    // Create next scheduled payment
+    const rentFrequency = metadata?.rentFrequency || 'monthly';
+    const isAnnual = rentFrequency === 'annual';
+
+    let nextPaymentDate = new Date();
+    if (isAnnual) {
+      nextPaymentDate.setFullYear(nextPaymentDate.getFullYear() + 1);
+    } else {
+      nextPaymentDate.setMonth(nextPaymentDate.getMonth() + 1);
+    }
+
+    // Get autopay day from lease
+    const lease = await prisma.leases.findUnique({
+      where: { id: scheduledPayment.leaseId! }
+    });
+    const clauses = (lease?.specialClauses as any) || {};
+    const autopayDay = clauses.autopay?.dayOfMonth || 1;
+    nextPaymentDate.setDate(autopayDay);
+
+    await prisma.payments.create({
+      data: {
+        id: randomUUID(),
+        customerId: scheduledPayment.customerId,
+        propertyId: scheduledPayment.propertyId,
+        unitId: scheduledPayment.unitId,
+        leaseId: scheduledPayment.leaseId,
+        tenantId: scheduledPayment.tenantId,
+        amount: scheduledPayment.amount,
+        currency: scheduledPayment.currency,
+        status: 'scheduled',
+        type: 'rent',
+        provider: 'paystack',
+        providerReference: `SCH-AUTO-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        paymentMethodId: scheduledPayment.paymentMethodId,
+        metadata: {
+          scheduledDate: nextPaymentDate.toISOString(),
+          rentFrequency,
+          autopay: true
+        } as any,
+        updatedAt: new Date()
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Auto-pay processed successfully',
+      payment: {
+        amount: scheduledPayment.amount,
+        currency: scheduledPayment.currency,
+        reference: chargeData.data.reference,
+        nextPaymentDate: nextPaymentDate.toISOString()
+      }
+    });
+  } catch (error: any) {
+    console.error('Process autopay error:', error);
+    return res.status(500).json({ error: 'Failed to process auto-pay' });
   }
 });
 

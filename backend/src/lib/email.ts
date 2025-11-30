@@ -318,6 +318,7 @@ interface TenantInvitationParams {
   propertyName: string;
   unitNumber: string;
   leaseStartDate: string;
+  companyName?: string; // Property owner's company name
   ownerName?: string;
   managerName?: string;
 }
@@ -333,13 +334,16 @@ export async function sendTenantInvitation(params: TenantInvitationParams): Prom
     propertyName,
     unitNumber,
     leaseStartDate,
+    companyName,
     ownerName,
     managerName
   } = params;
 
   const config = getEmailConfig();
-  const invitedBy = ownerName || managerName || 'Property Management';
-  const loginUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  // Use company name as the "invited by" reference, fallback to owner/manager name
+  const invitedBy = companyName || ownerName || managerName || 'Property Management';
+  // Production sign-in URL
+  const loginUrl = process.env.PRODUCTION_SIGNIN_URL || process.env.FRONTEND_URL || 'https://app.contrezz.com/signin';
 
   // Email content
   const emailSubject = `Welcome to ${propertyName} - Your Tenant Portal Access`;
@@ -361,7 +365,14 @@ Password: ${tempPassword}
 Portal: ${loginUrl}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-IMPORTANT: Please log in and change your password immediately for security.
+IMPORTANT NEXT STEPS:
+1. Log in using your credentials above
+2. Change your password immediately for security
+3. Complete your KYC (Know Your Customer) verification
+   - Upload a valid government-issued ID (National ID, Driver's License, or International Passport)
+   - Take a selfie for identity verification
+
+KYC verification is required to access all tenant features and services.
 
 If you have any questions or need assistance, please contact property management.
 
@@ -374,7 +385,30 @@ This is an automated email. Please do not reply to this message.
   `.trim();
 
   try {
-    const transporter = getTransporter();
+    console.log('📧 Attempting to send tenant invitation email to:', tenantEmail);
+    let transporter = getTransporter();
+
+    // Verify connection is still alive (handles stale pooled connections)
+    try {
+      await transporter.verify();
+      console.log('✅ SMTP connection verified for tenant invitation');
+    } catch (verifyError: any) {
+      console.error('❌ SMTP verification failed, creating fresh transporter:', verifyError.message);
+
+      // Create fresh transporter WITHOUT connection pooling
+      const nodemailer = require('nodemailer');
+      transporter = nodemailer.createTransport({
+        host: config.host,
+        port: config.port,
+        secure: config.secure,
+        auth: { user: config.auth.user, pass: config.auth.pass },
+        pool: false, // Disable connection pooling for fresh connection
+        tls: { rejectUnauthorized: false, minVersion: 'TLSv1.2' },
+        connectionTimeout: 10000,
+        greetingTimeout: 5000,
+        socketTimeout: 30000,
+      });
+    }
 
     const info = await transporter.sendMail({
       from: `"${invitedBy}" <${config.from}>`,
@@ -386,6 +420,7 @@ This is an automated email. Please do not reply to this message.
 
     console.log('✅ Tenant invitation email sent successfully!');
     console.log('📬 Message ID:', info.messageId);
+    console.log('📬 Recipient:', tenantEmail);
 
     return true;
   } catch (error: any) {
@@ -413,12 +448,15 @@ function generateTenantInvitationHtml(params: TenantInvitationParams): string {
     propertyName,
     unitNumber,
     leaseStartDate,
+    companyName,
     ownerName,
     managerName
   } = params;
 
-  const invitedBy = ownerName || managerName || 'Property Management';
-  const loginUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  // Use company name as the "invited by" reference, fallback to owner/manager name
+  const invitedBy = companyName || ownerName || managerName || 'Property Management';
+  // Production sign-in URL
+  const loginUrl = process.env.PRODUCTION_SIGNIN_URL || process.env.FRONTEND_URL || 'https://app.contrezz.com/signin';
 
   return `
 <!DOCTYPE html>
@@ -428,69 +466,152 @@ function generateTenantInvitationHtml(params: TenantInvitationParams): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Welcome to ${propertyName}</title>
   <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5; }
     .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background-color: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-    .content { background-color: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; }
-    .credentials { background-color: #fff; border: 2px solid #2563eb; padding: 20px; margin: 20px 0; border-radius: 8px; }
-    .credential-item { margin: 10px 0; }
-    .credential-label { font-weight: bold; color: #1f2937; }
-    .credential-value { color: #2563eb; font-size: 16px; }
-    .button { display: inline-block; background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-    .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
-    .warning { background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; margin: 20px 0; }
+    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 20px; text-align: center; border-radius: 10px 10px 0 0; }
+    .header h1 { margin: 0; font-size: 28px; font-weight: 600; }
+    .header p { margin: 10px 0 0; opacity: 0.9; font-size: 16px; }
+    .content { background-color: #ffffff; padding: 40px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .credentials { background-color: #f8f9fa; border-left: 4px solid #667eea; padding: 20px; margin: 20px 0; border-radius: 4px; }
+    .credential-item { margin: 12px 0; }
+    .credential-label { font-weight: 600; color: #666666; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .credential-value { color: #333333; font-size: 16px; font-family: 'Courier New', monospace; background: #fff; padding: 8px 12px; border-radius: 4px; display: inline-block; margin-top: 4px; border: 1px solid #e5e7eb; }
+    .button { display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white !important; padding: 14px 35px; text-decoration: none; border-radius: 6px; margin: 10px 0; font-weight: bold; }
+    .button:hover { opacity: 0.9; }
+    .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; background-color: #f9fafb; border-radius: 0 0 10px 10px; }
+    .warning { background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; margin: 20px 0; border-radius: 0 8px 8px 0; }
+    .kyc-section { background-color: #f0fdf4; border-left: 4px solid #10b981; padding: 20px; margin: 20px 0; border-radius: 4px; }
+    .kyc-section h3 { margin-top: 0; color: #065f46; }
+    .kyc-section ul { margin: 10px 0 0; padding-left: 20px; }
+    .kyc-section li { margin: 8px 0; color: #047857; }
+    .steps { background-color: #f8f9fa; padding: 20px; margin: 20px 0; border-radius: 8px; }
+    .step { display: flex; align-items: flex-start; margin: 15px 0; }
+    .step-number { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; margin-right: 12px; flex-shrink: 0; }
+    .step-content { flex: 1; }
+    .step-title { font-weight: 600; color: #333333; margin-bottom: 2px; }
+    .step-desc { color: #6b7280; font-size: 13px; }
+    .features { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
+    .feature { display: flex; align-items: center; gap: 8px; color: #374151; font-size: 14px; }
+    .feature-icon { color: #667eea; }
+    .property-info { background-color: #f8f9fa; border-left: 4px solid #667eea; padding: 20px; margin: 0 0 30px; border-radius: 4px; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h1>Welcome to ${propertyName}!</h1>
+      <h1>🏠 Welcome to ${propertyName}!</h1>
+      <p>Your new home awaits</p>
     </div>
     <div class="content">
-      <p>Dear ${tenantName},</p>
+      <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+        Dear <strong>${tenantName}</strong>,
+      </p>
 
-      <p>Your lease for <strong>Unit ${unitNumber}</strong> begins on <strong>${new Date(leaseStartDate).toLocaleDateString()}</strong>.</p>
+      <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 30px;">
+        Congratulations! Your lease for <strong>Unit ${unitNumber}</strong> begins on <strong>${new Date(leaseStartDate).toLocaleDateString()}</strong>.
+      </p>
 
-      <p>You have been invited by ${invitedBy} to access the Tenant Portal where you can:</p>
-      <ul>
-        <li>View your lease details</li>
-        <li>Submit maintenance requests</li>
-        <li>Make rental payments</li>
-        <li>Communicate with property management</li>
-      </ul>
+      <div class="property-info">
+        <h2 style="color: #667eea; margin: 0 0 15px; font-size: 18px; font-weight: 600;">Property Details</h2>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 8px 0; color: #666666; font-size: 14px; width: 40%;">Property:</td>
+            <td style="padding: 8px 0; color: #333333; font-size: 14px; font-weight: 500;">${propertyName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #666666; font-size: 14px;">Unit:</td>
+            <td style="padding: 8px 0; color: #333333; font-size: 14px; font-weight: 500;">${unitNumber}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #666666; font-size: 14px;">Lease Start:</td>
+            <td style="padding: 8px 0; color: #333333; font-size: 14px; font-weight: 500;">${new Date(leaseStartDate).toLocaleDateString()}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #666666; font-size: 14px;">Managed By:</td>
+            <td style="padding: 8px 0; color: #333333; font-size: 14px; font-weight: 500;">${invitedBy}</td>
+          </tr>
+        </table>
+      </div>
+
+      <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">
+        You have been invited to access the <strong>Tenant Portal</strong> where you can:
+      </p>
+
+      <div class="features">
+        <div class="feature"><span class="feature-icon">✓</span> View your lease details</div>
+        <div class="feature"><span class="feature-icon">✓</span> Submit maintenance requests</div>
+        <div class="feature"><span class="feature-icon">✓</span> Make rental payments</div>
+        <div class="feature"><span class="feature-icon">✓</span> Communicate with management</div>
+      </div>
 
       <div class="credentials">
-        <h3 style="margin-top: 0; color: #1f2937;">Your Login Credentials</h3>
+        <h3 style="margin-top: 0; color: #667eea; font-size: 18px; font-weight: 600;">🔐 Your Login Credentials</h3>
         <div class="credential-item">
-          <span class="credential-label">Email:</span><br>
+          <span class="credential-label">Email Address</span><br>
           <span class="credential-value">${tenantEmail}</span>
         </div>
         <div class="credential-item">
-          <span class="credential-label">Password:</span><br>
+          <span class="credential-label">Temporary Password</span><br>
           <span class="credential-value">${tempPassword}</span>
         </div>
         <div class="credential-item">
-          <span class="credential-label">Portal URL:</span><br>
-          <a href="${loginUrl}" class="credential-value">${loginUrl}</a>
+          <span class="credential-label">Portal URL</span><br>
+          <a href="${loginUrl}" style="color: #667eea; font-size: 16px; font-weight: 500;">${loginUrl}</a>
         </div>
       </div>
 
+      <div class="steps">
+        <h3 style="margin-top: 0; color: #333333; font-size: 18px; font-weight: 600;">📋 Next Steps</h3>
+        <div class="step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <div class="step-title">Log In to Your Account</div>
+            <div class="step-desc">Use your credentials above to access the tenant portal</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <div class="step-title">Change Your Password</div>
+            <div class="step-desc">Create a secure password for your account</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <div class="step-title">Complete KYC Verification</div>
+            <div class="step-desc">Verify your identity to unlock all features</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="kyc-section">
+        <h3>🛡️ KYC Verification Required</h3>
+        <p style="margin: 0 0 10px; color: #065f46;">To ensure security and comply with regulations, please complete your KYC (Know Your Customer) verification:</p>
+        <ul>
+          <li><strong>Upload a valid government-issued ID</strong> (National ID, Driver's License, or International Passport)</li>
+          <li><strong>Take a selfie</strong> for identity verification</li>
+        </ul>
+        <p style="margin: 15px 0 0; color: #047857; font-size: 13px;">⏱️ KYC verification typically takes 24-48 hours to process.</p>
+      </div>
+
       <div class="warning">
-        <strong>⚠️ IMPORTANT:</strong> Please log in and change your password immediately for security.
+        <strong>⚠️ Security Notice:</strong> Your temporary password will expire in 48 hours. Please log in and change it immediately.
       </div>
 
       <center>
-        <a href="${loginUrl}" class="button">Access Tenant Portal</a>
+        <a href="${loginUrl}" class="button">🚀 Access Tenant Portal</a>
       </center>
 
-      <p>If you have any questions or need assistance, please contact property management.</p>
+      <p style="margin-top: 30px; color: #333333;">If you have any questions or need assistance, please contact property management.</p>
 
-      <p>Best regards,<br>
-      ${invitedBy}<br>
+      <p style="color: #333333;">Best regards,<br>
+      <strong>${invitedBy}</strong><br>
       Property Management Team</p>
     </div>
     <div class="footer">
-      This is an automated email. Please do not reply to this message.
+      <p>This is an automated email from Contrezz Property Management Platform.</p>
+      <p>Please do not reply to this message.</p>
     </div>
   </div>
 </body>
@@ -2525,6 +2646,249 @@ This is an automated message from Contrezz.`;
   }
 }
 
+// ============================================================================
+// TENANT KYC APPROVAL/REJECTION BY OWNER
+// ============================================================================
+
+interface TenantKycApprovedParams {
+  tenantName: string;
+  tenantEmail: string;
+  propertyName: string;
+  approvedBy: string;
+  notes?: string;
+}
+
+export async function sendTenantKycApprovedEmail(params: TenantKycApprovedParams): Promise<boolean> {
+  try {
+    const config = getEmailConfig();
+    const loginUrl = process.env.PRODUCTION_SIGNIN_URL || process.env.FRONTEND_URL || 'https://app.contrezz.com/signin';
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KYC Verification Approved</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 20px; text-align: center; border-radius: 10px 10px 0 0;">
+      <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600;">✅ KYC Approved!</h1>
+      <p style="color: #ffffff; margin: 10px 0 0; font-size: 16px; opacity: 0.9;">Your identity has been verified</p>
+    </div>
+
+    <div style="background-color: #ffffff; padding: 40px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+      <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+        Dear <strong>${params.tenantName}</strong>,
+      </p>
+
+      <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+        Great news! Your KYC (Know Your Customer) verification has been <strong style="color: #10b981;">approved</strong> by ${params.approvedBy} at ${params.propertyName}.
+      </p>
+
+      <div style="background-color: #ecfdf5; border-left: 4px solid #10b981; padding: 20px; margin: 20px 0; border-radius: 4px;">
+        <h3 style="color: #065f46; margin: 0 0 10px; font-size: 16px;">🎉 What this means for you:</h3>
+        <ul style="margin: 0; padding-left: 20px; color: #047857;">
+          <li style="margin: 8px 0;">Full access to all tenant portal features</li>
+          <li style="margin: 8px 0;">Ability to make rental payments online</li>
+          <li style="margin: 8px 0;">Submit and track maintenance requests</li>
+          <li style="margin: 8px 0;">View and download lease documents</li>
+        </ul>
+      </div>
+
+      ${params.notes ? `
+      <div style="background-color: #f8f9fa; border-left: 4px solid #667eea; padding: 15px; margin: 20px 0; border-radius: 4px;">
+        <p style="margin: 0; color: #333333; font-size: 14px;"><strong>Note from property management:</strong></p>
+        <p style="margin: 10px 0 0; color: #666666; font-size: 14px;">${params.notes}</p>
+      </div>
+      ` : ''}
+
+      <center>
+        <a href="${loginUrl}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white !important; padding: 14px 35px; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: bold;">
+          🚀 Access Tenant Portal
+        </a>
+      </center>
+
+      <p style="color: #666666; font-size: 14px; margin-top: 30px;">
+        If you have any questions, please contact your property management.
+      </p>
+
+      <p style="color: #333333;">
+        Best regards,<br>
+        <strong>${params.propertyName}</strong><br>
+        Property Management Team
+      </p>
+    </div>
+
+    <div style="text-align: center; padding: 20px; color: #6b7280; font-size: 12px;">
+      <p>This is an automated email from Contrezz Property Management Platform.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim();
+
+    const text = `
+KYC Verification Approved!
+
+Dear ${params.tenantName},
+
+Great news! Your KYC (Know Your Customer) verification has been approved by ${params.approvedBy} at ${params.propertyName}.
+
+What this means for you:
+- Full access to all tenant portal features
+- Ability to make rental payments online
+- Submit and track maintenance requests
+- View and download lease documents
+
+${params.notes ? `Note from property management: ${params.notes}\n` : ''}
+
+Access your tenant portal: ${loginUrl}
+
+If you have any questions, please contact your property management.
+
+Best regards,
+${params.propertyName}
+Property Management Team
+    `.trim();
+
+    const transporter = getTransporter();
+    const info = await transporter.sendMail({
+      from: `"${params.propertyName}" <${config.from}>`,
+      to: params.tenantEmail,
+      subject: '✅ KYC Verification Approved - Full Access Granted!',
+      html,
+      text,
+    });
+
+    console.log('✅ [Tenant KYC Approved] Email sent successfully:', info.messageId);
+    return true;
+  } catch (error) {
+    console.error('❌ [Tenant KYC Approved] Failed to send email:', error);
+    return false;
+  }
+}
+
+interface TenantKycRejectedParams {
+  tenantName: string;
+  tenantEmail: string;
+  propertyName: string;
+  rejectedBy: string;
+  reason: string;
+}
+
+export async function sendTenantKycRejectedEmail(params: TenantKycRejectedParams): Promise<boolean> {
+  try {
+    const config = getEmailConfig();
+    const loginUrl = process.env.PRODUCTION_SIGNIN_URL || process.env.FRONTEND_URL || 'https://app.contrezz.com/signin';
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KYC Verification Update</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 40px 20px; text-align: center; border-radius: 10px 10px 0 0;">
+      <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600;">KYC Verification Update</h1>
+      <p style="color: #ffffff; margin: 10px 0 0; font-size: 16px; opacity: 0.9;">Action required</p>
+    </div>
+
+    <div style="background-color: #ffffff; padding: 40px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+      <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+        Dear <strong>${params.tenantName}</strong>,
+      </p>
+
+      <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+        We regret to inform you that your KYC verification could not be approved at this time.
+      </p>
+
+      <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 20px; margin: 20px 0; border-radius: 4px;">
+        <h3 style="color: #991b1b; margin: 0 0 10px; font-size: 16px;">📋 Reason for Rejection:</h3>
+        <p style="margin: 0; color: #7f1d1d; font-size: 14px;">${params.reason}</p>
+      </div>
+
+      <div style="background-color: #f8f9fa; padding: 20px; margin: 20px 0; border-radius: 8px;">
+        <h3 style="color: #333333; margin: 0 0 15px; font-size: 16px;">📝 What to do next:</h3>
+        <ol style="margin: 0; padding-left: 20px; color: #666666;">
+          <li style="margin: 8px 0;">Review the rejection reason above</li>
+          <li style="margin: 8px 0;">Ensure your documents are clear, legible, and valid</li>
+          <li style="margin: 8px 0;">Make sure the information matches your records</li>
+          <li style="margin: 8px 0;">Log in and resubmit your KYC documents</li>
+        </ol>
+      </div>
+
+      <center>
+        <a href="${loginUrl}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white !important; padding: 14px 35px; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: bold;">
+          🔄 Resubmit KYC Documents
+        </a>
+      </center>
+
+      <p style="color: #666666; font-size: 14px; margin-top: 30px;">
+        If you believe this was a mistake or need assistance, please contact your property management at ${params.propertyName}.
+      </p>
+
+      <p style="color: #333333;">
+        Best regards,<br>
+        <strong>${params.propertyName}</strong><br>
+        Property Management Team
+      </p>
+    </div>
+
+    <div style="text-align: center; padding: 20px; color: #6b7280; font-size: 12px;">
+      <p>This is an automated email from Contrezz Property Management Platform.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim();
+
+    const text = `
+KYC Verification Update
+
+Dear ${params.tenantName},
+
+We regret to inform you that your KYC verification could not be approved at this time.
+
+Reason for Rejection:
+${params.reason}
+
+What to do next:
+1. Review the rejection reason above
+2. Ensure your documents are clear, legible, and valid
+3. Make sure the information matches your records
+4. Log in and resubmit your KYC documents
+
+Resubmit your documents: ${loginUrl}
+
+If you believe this was a mistake or need assistance, please contact your property management at ${params.propertyName}.
+
+Best regards,
+${params.propertyName}
+Property Management Team
+    `.trim();
+
+    const transporter = getTransporter();
+    const info = await transporter.sendMail({
+      from: `"${params.propertyName}" <${config.from}>`,
+      to: params.tenantEmail,
+      subject: '❌ KYC Verification - Action Required',
+      html,
+      text,
+    });
+
+    console.log('✅ [Tenant KYC Rejected] Email sent successfully:', info.messageId);
+    return true;
+  } catch (error) {
+    console.error('❌ [Tenant KYC Rejected] Failed to send email:', error);
+    return false;
+  }
+}
+
 export default {
   testEmailConnection,
   sendTestEmail,
@@ -2537,4 +2901,6 @@ export default {
   sendKYCVerifiedEmail,
   sendManualVerificationEmail,
   sendKYCRejectionEmail,
+  sendTenantKycApprovedEmail,
+  sendTenantKycRejectedEmail,
 };

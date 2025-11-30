@@ -15,6 +15,9 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
+  RefreshCw,
+  Power,
+  Copy,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -50,6 +53,7 @@ import {
   updateTeamMember,
   deleteTeamMember,
   createTeamRole,
+  resetTeamMemberPassword,
   type TeamMember,
   type TeamRole,
   type CreateTeamMemberRequest,
@@ -95,6 +99,13 @@ export const TeamManagementTab: React.FC = () => {
   });
 
   const [submitting, setSubmitting] = useState(false);
+  const [actionMemberId, setActionMemberId] = useState<string | null>(null);
+  const [passwordResetInfo, setPasswordResetInfo] = useState<{
+    name: string;
+    email: string;
+    password: string;
+    expiresAt?: string;
+  } | null>(null);
 
   // Load data
   useEffect(() => {
@@ -233,6 +244,88 @@ export const TeamManagementTab: React.FC = () => {
     } catch (error) {
       console.error('Error removing team member:', error);
       toast.error('Failed to remove team member');
+    }
+  };
+
+  const handleResetPassword = async (member: TeamMember) => {
+    if (!confirm(`Generate a new temporary password for ${member.firstName} ${member.lastName}?`)) {
+      return;
+    }
+
+    setActionMemberId(member.id);
+    try {
+      const response = await resetTeamMemberPassword(member.id);
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to reset password');
+      }
+
+      const payload = response.data as any;
+      const tempPassword =
+        payload?.temporaryPassword ||
+        payload?.data?.temporaryPassword;
+      const expiresAt =
+        payload?.expiresAt ||
+        payload?.data?.expiresAt;
+      const emailSent =
+        payload?.emailSent ??
+        payload?.data?.emailSent;
+      if (!tempPassword) {
+        throw new Error('Temporary password not returned by server');
+      }
+
+      setPasswordResetInfo({
+        name: `${member.firstName} ${member.lastName}`,
+        email: member.email,
+        password: tempPassword,
+        expiresAt,
+      });
+
+      toast.success('Temporary password generated');
+    } catch (error: any) {
+      console.error('Error resetting team member password:', error);
+      toast.error(error.message || 'Failed to reset password');
+    } finally {
+      setActionMemberId(null);
+    }
+  };
+
+  const handleToggleMemberStatus = async (member: TeamMember) => {
+    const newStatus = member.status === 'active' ? 'inactive' : 'active';
+    if (
+      !confirm(
+        `Are you sure you want to ${newStatus === 'active' ? 'activate' : 'deactivate'} ${
+          member.firstName
+        } ${member.lastName}?`
+      )
+    ) {
+      return;
+    }
+
+    setActionMemberId(member.id);
+    try {
+      const response = await updateTeamMember(member.id, { status: newStatus });
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to update member status');
+      }
+
+      toast.success(`Team member ${newStatus === 'active' ? 'activated' : 'deactivated'}`);
+      loadData();
+    } catch (error: any) {
+      console.error('Error updating member status:', error);
+      toast.error(error.message || 'Failed to update member status');
+    } finally {
+      setActionMemberId(null);
+    }
+  };
+
+  const handleCopyPassword = async () => {
+    if (!passwordResetInfo) return;
+    try {
+      await navigator.clipboard.writeText(passwordResetInfo.password);
+      toast.success('Temporary password copied to clipboard');
+    } catch (err) {
+      console.error('Failed to copy password:', err);
+      toast.error('Failed to copy password');
     }
   };
 
@@ -555,6 +648,20 @@ export const TeamManagementTab: React.FC = () => {
                             <DropdownMenuItem onClick={() => openEditModal(member)}>
                               <Edit className="w-4 h-4 mr-2" />
                               Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleResetPassword(member)}
+                              disabled={actionMemberId === member.id}
+                            >
+                              <RefreshCw className="w-4 h-4 mr-2" />
+                              Reset Password
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleToggleMemberStatus(member)}
+                              disabled={actionMemberId === member.id}
+                            >
+                              <Power className="w-4 h-4 mr-2" />
+                              {member.status === 'active' ? 'Deactivate' : 'Activate'}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => handleDeleteMember(member)}
@@ -982,6 +1089,44 @@ export const TeamManagementTab: React.FC = () => {
             <Button onClick={handleAddRole} disabled={submitting}>
               {submitting ? 'Creating...' : 'Create Role'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Password Reset Modal */}
+      <Dialog open={!!passwordResetInfo} onOpenChange={(open) => !open && setPasswordResetInfo(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Temporary Password Generated</DialogTitle>
+            <DialogDescription>
+              Share this password securely with {passwordResetInfo?.name}. They will be prompted to set a
+              new password on next login.
+            </DialogDescription>
+          </DialogHeader>
+          {passwordResetInfo && (
+            <div className="space-y-4 py-2">
+              <div className="text-sm text-gray-600">
+                <p>
+                  <strong>User:</strong> {passwordResetInfo.name} ({passwordResetInfo.email})
+                </p>
+                {passwordResetInfo.expiresAt && (
+                  <p>
+                    <strong>Expires:</strong>{' '}
+                    {new Date(passwordResetInfo.expiresAt).toLocaleString()}
+                  </p>
+                )}
+              </div>
+              <div className="bg-gray-900 text-white rounded-md px-4 py-3 flex items-center justify-between">
+                <code className="text-lg font-mono">{passwordResetInfo.password}</code>
+                <Button variant="secondary" size="sm" onClick={handleCopyPassword}>
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy
+                </Button>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setPasswordResetInfo(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

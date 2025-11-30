@@ -177,6 +177,48 @@ router.post('/login', async (req: Request, res: Response) => {
         });
       }
 
+      // Load team member record if applicable (used for status checks & permissions)
+      let teamMemberRecord: any = null;
+      if (user.customerId) {
+        try {
+          teamMemberRecord = await prisma.team_members.findFirst({
+            where: {
+              user_id: user.id,
+              customer_id: user.customerId
+            },
+            include: {
+              role: true
+            }
+          });
+          console.log('🔍 Team member lookup result:', teamMemberRecord ? {
+            id: teamMemberRecord.id,
+            status: teamMemberRecord.status,
+            role: teamMemberRecord.role?.name
+          } : 'Not found');
+        } catch (teamErr) {
+          console.warn('⚠️ Failed to load team member record during login:', teamErr);
+        }
+      }
+
+      // Block login if team member status is inactive/suspended/banned
+      if (
+        teamMemberRecord &&
+        teamMemberRecord.status &&
+        ['inactive', 'suspended', 'banned'].includes(teamMemberRecord.status.toLowerCase())
+      ) {
+        console.log('❌ Login blocked - Team member inactive:', {
+          email: user.email,
+          status: teamMemberRecord.status,
+          customerId: user.customerId
+        });
+        return res.status(403).json({
+          error: 'Your team access has been disabled. Please contact your administrator.',
+          details: {
+            teamMemberStatus: teamMemberRecord.status
+          }
+        });
+      }
+
       // Allow 'invited' users to login (they'll be prompted to change password)
       // Only block if status is explicitly 'inactive' or 'suspended'
       if (user.status && ['inactive', 'suspended', 'banned'].includes(user.status.toLowerCase())) {
@@ -207,21 +249,24 @@ router.post('/login', async (req: Request, res: Response) => {
         // Also update team_members status if this user is a team member
         if (user.customerId) {
           try {
-            const teamMember = await prisma.team_members.findFirst({
-              where: {
-                user_id: user.id,
-                customer_id: user.customerId
-              }
-            });
+            if (!teamMemberRecord) {
+              teamMemberRecord = await prisma.team_members.findFirst({
+                where: {
+                  user_id: user.id,
+                  customer_id: user.customerId
+                }
+              });
+            }
 
-            if (teamMember) {
+            if (teamMemberRecord) {
               await prisma.team_members.update({
-                where: { id: teamMember.id },
+                where: { id: teamMemberRecord.id },
                 data: {
                   status: 'active',
                   joined_at: new Date()
                 }
               });
+              teamMemberRecord.status = 'active';
               console.log('✅ Team member status updated to active:', user.email);
             }
           } catch (e) {
@@ -262,31 +307,33 @@ router.post('/login', async (req: Request, res: Response) => {
       // Check if this user is a team member
       if (user.customerId) {
         try {
-          const teamMember = await prisma.team_members.findFirst({
-            where: {
-              user_id: user.id,
-              customer_id: user.customerId
-            },
-            include: {
-              team_roles: true
-            }
-          });
+          if (!teamMemberRecord) {
+            teamMemberRecord = await prisma.team_members.findFirst({
+              where: {
+                user_id: user.id,
+                customer_id: user.customerId
+              },
+              include: {
+                role: true
+              }
+            });
+          }
 
-          if (teamMember) {
+          if (teamMemberRecord) {
             // Team member: use role-based permissions
             console.log('✅ User is a team member, applying role-based permissions:', user.email);
-            teamMemberRole = teamMember.team_roles;
+            teamMemberRole = teamMemberRecord.role;
 
             // Build permissions from role + individual overrides
             permissions = {
               // From role
-              ...(teamMember.team_roles?.permissions || {}),
+              ...(teamMemberRecord.role?.permissions || {}),
               // Individual overrides from team_members table
-              canApproveInvoices: teamMember.can_approve_invoices ?? teamMember.team_roles?.can_approve_invoices,
-              approvalLimit: teamMember.approval_limit ?? teamMember.team_roles?.approval_limit,
-              canCreateInvoices: teamMember.can_create_invoices ?? teamMember.team_roles?.can_create_invoices,
-              canManageProjects: teamMember.can_manage_projects ?? teamMember.team_roles?.can_manage_projects,
-              canViewReports: teamMember.can_view_reports ?? teamMember.team_roles?.can_view_reports,
+              canApproveInvoices: teamMemberRecord.can_approve_invoices ?? teamMemberRecord.role?.can_approve_invoices,
+              approvalLimit: teamMemberRecord.approval_limit ?? teamMemberRecord.role?.approval_limit,
+              canCreateInvoices: teamMemberRecord.can_create_invoices ?? teamMemberRecord.role?.can_create_invoices,
+              canManageProjects: teamMemberRecord.can_manage_projects ?? teamMemberRecord.role?.can_manage_projects,
+              canViewReports: teamMemberRecord.can_view_reports ?? teamMemberRecord.role?.can_view_reports,
             };
 
             console.log('📋 Team member permissions:', permissions);
@@ -646,7 +693,7 @@ router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) =
               customer_id: user.customerId
             },
             include: {
-              team_roles: true
+              role: true
             }
           });
 
@@ -662,16 +709,16 @@ router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) =
             console.log('❌ [/account] User is team member (NOT OWNER):', user.email);
 
             // Team member: use role-based permissions
-            teamMemberRole = teamMember.team_roles;
+            teamMemberRole = teamMember.role;
             effectivePermissions = {
               // From role
-              ...(teamMember.team_roles?.permissions || {}),
+              ...(teamMember.role?.permissions || {}),
               // Individual overrides from team_members table
-              canApproveInvoices: teamMember.can_approve_invoices ?? teamMember.team_roles?.can_approve_invoices,
-              approvalLimit: teamMember.approval_limit ?? teamMember.team_roles?.approval_limit,
-              canCreateInvoices: teamMember.can_create_invoices ?? teamMember.team_roles?.can_create_invoices,
-              canManageProjects: teamMember.can_manage_projects ?? teamMember.team_roles?.can_manage_projects,
-              canViewReports: teamMember.can_view_reports ?? teamMember.team_roles?.can_view_reports,
+              canApproveInvoices: teamMember.can_approve_invoices ?? teamMember.role?.can_approve_invoices,
+              approvalLimit: teamMember.approval_limit ?? teamMember.role?.approval_limit,
+              canCreateInvoices: teamMember.can_create_invoices ?? teamMember.role?.can_create_invoices,
+              canManageProjects: teamMember.can_manage_projects ?? teamMember.role?.can_manage_projects,
+              canViewReports: teamMember.can_view_reports ?? teamMember.role?.can_view_reports,
             };
           } else {
             // No team_members record = ORIGINAL OWNER (account creator)
@@ -740,6 +787,17 @@ router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) =
       teamMemberRole: teamMemberRole?.name
     });
 
+    // For tenants, KYC is at user level. For others, it's at customer level.
+    const isTenant = user.role?.toLowerCase() === 'tenant';
+    const userKycData = isTenant ? {
+      requiresKyc: (user as any).requiresKyc || false,
+      kycStatus: (user as any).kycStatus || 'pending',
+      kycVerificationId: (user as any).kycVerificationId,
+      kycCompletedAt: (user as any).kycCompletedAt,
+      kycFailureReason: (user as any).kycFailureReason,
+      kycLastAttemptAt: (user as any).kycLastAttemptAt,
+    } : {};
+
     res.json({
       user: {
         id: user.id,
@@ -760,7 +818,9 @@ router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) =
           id: teamMemberRole.id,
           name: teamMemberRole.name,
           description: teamMemberRole.description
-        } : null
+        } : null,
+        // KYC fields for tenants
+        ...userKycData
       },
       customer: customer ? {
         id: customer.id,

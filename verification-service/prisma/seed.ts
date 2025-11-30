@@ -11,11 +11,13 @@ async function main() {
     where: { name: 'main_dashboard' },
   });
 
-  // Then create the new key
+  // Then create the new key using the API_KEY_MAIN_DASHBOARD from environment
+  const apiKeyValue = process.env.API_KEY_MAIN_DASHBOARD || 'c4453bd1f9ae085bed83385dcb4bc745374dd0eff62455e53d411985220194da';
+
   const apiKey = await prisma.api_keys.create({
     data: {
       name: 'main_dashboard',
-      key: 'vkey_fd6967cc3dbc5d1650b21b580df6f8f49cb7ddd79f1abd04',
+      key: apiKeyValue,
       isActive: true,
       permissions: ['read', 'write', 'admin'],
     },

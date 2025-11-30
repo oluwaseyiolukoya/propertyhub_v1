@@ -20,12 +20,12 @@ router.get('/projects/:projectId/purchase-orders', async (req: Request, res: Res
       return res.status(401).json({ error: 'Unauthorized: Missing user information' });
     }
 
-    // Verify project ownership
+    // Verify project access - Team members can access all customer projects
     const project = await prisma.developer_projects.findFirst({
       where: {
         id: projectId,
         customerId,
-        developerId: userId,
+        // Team members can access all customer projects (removed developerId check)
       },
     });
 
@@ -180,12 +180,12 @@ router.post('/projects/:projectId/purchase-orders', async (req: Request, res: Re
       return res.status(401).json({ error: 'Unauthorized: Missing user information' });
     }
 
-    // Verify project ownership
+    // Verify project access - Team members can access all customer projects
     const project = await prisma.developer_projects.findFirst({
       where: {
         id: projectId,
         customerId,
-        developerId: userId,
+        // Team members can access all customer projects (removed developerId check)
       },
     });
 

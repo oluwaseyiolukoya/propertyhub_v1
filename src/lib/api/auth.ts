@@ -172,7 +172,8 @@ export interface ChangePasswordRequest {
 export const changePassword = async (data: ChangePasswordRequest) => {
   return apiClient.post<{ message: string }>(
     API_ENDPOINTS.AUTH.CHANGE_PASSWORD,
-    data
+    data,
+    { suppressAuthRedirect: true } // Don't log user out on incorrect current password
   );
 };
 

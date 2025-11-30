@@ -1190,6 +1190,7 @@ router.post('/projects', async (req: Request, res: Response) => {
       location,
       city,
       state,
+      country = 'Nigeria',
       totalBudget,
       currency = 'NGN',
     } = req.body;
@@ -1216,6 +1217,7 @@ router.post('/projects', async (req: Request, res: Response) => {
         location,
         city,
         state,
+        country,
         totalBudget: parseFloat(totalBudget) || 0,
         currency,
       },
@@ -2253,6 +2255,50 @@ router.post('/projects/:projectId/invoices/:invoiceId/approve', async (req: Requ
       return res.status(404).json({ error: 'Project not found' });
     }
 
+    // Check if user has permission to approve invoices
+    // First, check if user is a team member
+    const teamMember = await prisma.team_members.findFirst({
+      where: {
+        user_id: userId,
+        customer_id: customerId,
+      },
+      include: {
+        role: true,
+      },
+    });
+
+    // Determine if user can approve invoices
+    let canApproveInvoices = false;
+    let approvalLimit: number | null = null;
+
+    if (teamMember) {
+      // Team member: check their permission (individual override or role permission)
+      canApproveInvoices = teamMember.can_approve_invoices ?? teamMember.role?.can_approve_invoices ?? false;
+      approvalLimit = teamMember.approval_limit ? Number(teamMember.approval_limit) :
+                      (teamMember.role?.approval_limit ? Number(teamMember.role.approval_limit) : null);
+
+      console.log('🔍 Team member invoice approval check:', {
+        userId,
+        teamMemberId: teamMember.id,
+        canApproveInvoices,
+        approvalLimit,
+        roleCanApprove: teamMember.role?.can_approve_invoices,
+        individualCanApprove: teamMember.can_approve_invoices,
+      });
+    } else {
+      // Not a team member = Owner/Admin, they can approve
+      canApproveInvoices = true;
+      console.log('✅ User is owner/admin, can approve invoices:', userId);
+    }
+
+    if (!canApproveInvoices) {
+      console.log('❌ User does not have permission to approve invoices:', userId);
+      return res.status(403).json({
+        error: 'You do not have permission to approve invoices',
+        message: 'Please contact your administrator to grant invoice approval permissions.'
+      });
+    }
+
     // Get the invoice
     const invoice = await prisma.project_invoices.findFirst({
       where: {
@@ -2271,6 +2317,24 @@ router.post('/projects/:projectId/invoices/:invoiceId/approve', async (req: Requ
 
     if (invoice.status === 'approved') {
       return res.status(400).json({ error: 'Invoice is already approved' });
+    }
+
+    // Check approval limit if set
+    if (approvalLimit !== null && approvalLimit > 0) {
+      const invoiceAmount = Number(invoice.amount);
+      if (invoiceAmount > approvalLimit) {
+        console.log('❌ Invoice amount exceeds approval limit:', {
+          invoiceAmount,
+          approvalLimit,
+          userId,
+        });
+        return res.status(403).json({
+          error: 'Invoice amount exceeds your approval limit',
+          message: `You can only approve invoices up to ${project.currency} ${approvalLimit.toLocaleString()}. This invoice is ${project.currency} ${invoiceAmount.toLocaleString()}.`,
+          invoiceAmount,
+          approvalLimit,
+        });
+      }
     }
 
     // Update invoice status to approved
@@ -2326,6 +2390,34 @@ router.post('/projects/:projectId/invoices/:invoiceId/reject', async (req: Reque
 
     if (!project) {
       return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Check if user has permission to approve/reject invoices
+    const teamMember = await prisma.team_members.findFirst({
+      where: {
+        user_id: userId,
+        customer_id: customerId,
+      },
+      include: {
+        role: true,
+      },
+    });
+
+    let canApproveInvoices = false;
+
+    if (teamMember) {
+      // Team member: check their permission
+      canApproveInvoices = teamMember.can_approve_invoices ?? teamMember.role?.can_approve_invoices ?? false;
+    } else {
+      // Not a team member = Owner/Admin
+      canApproveInvoices = true;
+    }
+
+    if (!canApproveInvoices) {
+      return res.status(403).json({
+        error: 'You do not have permission to reject invoices',
+        message: 'Please contact your administrator to grant invoice approval permissions.'
+      });
     }
 
     // Get the invoice

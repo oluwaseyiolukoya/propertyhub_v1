@@ -64,7 +64,9 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
         toast.success("Password changed successfully");
         handleClose();
       } else if (response.error) {
-        toast.error(response.error);
+        // Display the specific error message from the backend
+        const errorMessage = response.error.message || response.error.error || "Failed to change password";
+        toast.error(errorMessage);
       }
     } catch (error: any) {
       console.error("Error changing password:", error);

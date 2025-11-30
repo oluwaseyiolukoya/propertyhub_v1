@@ -60,8 +60,13 @@ import {
   Shield,
   Droplets,
   Target,
-  Settings
+  Settings,
+  Upload,
+  FileSpreadsheet,
+  AlertCircle,
+  X
 } from 'lucide-react';
+import { createProperty } from '../lib/api/properties';
 
 interface PropertiesPageProps {
   user: any;
@@ -72,9 +77,13 @@ interface PropertiesPageProps {
   onUpdateProperty?: (propertyId: number, updates: any) => void;
   onViewProperty?: (propertyId: string) => void;
   onEditProperty?: (propertyId: string) => void;
+  onNavigateToTenants?: () => void;
+  onNavigateToMaintenance?: () => void;
+  onRefreshProperties?: () => void;
+  onPropertyDeleted?: (propertyId: string) => void;
 }
 
-export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddProperty, properties, onUpdateProperty, onViewProperty, onEditProperty }: PropertiesPageProps) {
+export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddProperty, properties, onUpdateProperty, onViewProperty, onEditProperty, onNavigateToTenants, onNavigateToMaintenance, onRefreshProperties, onPropertyDeleted }: PropertiesPageProps) {
   const [activeTab, setActiveTab] = usePersistentState('properties-page-tab', 'overview');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -83,7 +92,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
   // Calculate smart base currency based on properties
   const smartBaseCurrency = getSmartBaseCurrency(properties);
   const [unitsData, setUnitsData] = useState<any[]>([]);
-  const [unitView, setUnitView] = useState<'list' | 'add'>('list');
+  const [showAddUnitDialog, setShowAddUnitDialog] = useState(false);
   const [unitSaving, setUnitSaving] = useState(false);
   const [unitForm, setUnitForm] = useState<any>({
     propertyId: '',
@@ -98,7 +107,6 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
     status: 'vacant',
     rentFrequency: 'monthly',
     serviceCharge: '',
-    cautionFee: '',
     legalFee: '',
     agentCommission: '',
     agreementFee: '',
@@ -117,6 +125,8 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
   const [isDeleting, setIsDeleting] = useState(false);
   const [showPropertyDeleteDialog, setShowPropertyDeleteDialog] = useState(false);
   const [propertyToDelete, setPropertyToDelete] = useState<any>(null);
+  const [deletedPropertyIds, setDeletedPropertyIds] = useState<Set<string>>(new Set());
+  const [isDeletingProperty, setIsDeletingProperty] = useState(false);
 
   // Expense management states
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -145,6 +155,15 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
   const [showEditUnitDialog, setShowEditUnitDialog] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState<any>(null);
   const [editingUnit, setEditingUnit] = useState(false);
+
+  // Import Properties states
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importData, setImportData] = useState<any[]>([]);
+  const [importErrors, setImportErrors] = useState<string[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
+  const [importResults, setImportResults] = useState<{ success: number; failed: number; errors: string[] } | null>(null);
 
   // Derived helpers for currently selected unit (view/edit)
   const selectedUnitNigeria =
@@ -386,6 +405,228 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
     }
   };
 
+  // Import Properties Functions
+  const sampleCSVData = `name,propertyType,address,city,state,postalCode,country,totalUnits,floors,yearBuilt,totalArea,lotSize,parking,currency,avgRent,securityDeposit,applicationFee,legalFee,agentCommission,serviceCharge,agreementFee,insuranceProvider,insurancePolicyNumber,insurancePremium,insuranceExpiration,propertyTaxes,description,notes,coverImage,images
+"Sunrise Apartments","Apartment Complex","123 Main Street","Lagos","Lagos","100001","Nigeria","12","3","2020","5000","2500","24","NGN","150000","300000","25000","50000","150000","30000","20000","AXA Mansard","POL-2024-001","500000","2025-12-31","250000","Modern apartment complex with swimming pool, gym, and 24/7 security","Near major shopping centers","https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800","https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800|https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800"
+"Palm Estate","Residential","45 Palm Avenue","Abuja","FCT","900001","Nigeria","8","2","2018","3500","1800","16","NGN","200000","400000","30000","75000","200000","40000","25000","Leadway Assurance","POL-2024-002","400000","2025-06-30","180000","Gated community with 24/7 security and backup power","Family-friendly neighborhood","https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800","https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800|https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800"
+"Ocean View Towers","High Rise","78 Marina Road","Lagos","Lagos","100002","Nigeria","24","8","2022","12000","4000","50","NGN","350000","700000","50000","100000","350000","60000","35000","AIICO Insurance","POL-2024-003","800000","2025-09-15","450000","Luxury waterfront apartments with panoramic ocean views","Premium location with easy access to Victoria Island","https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800","https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800|https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800"`;
+
+  const downloadSampleCSV = () => {
+    const blob = new Blob([sampleCSVData], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'property_import_template.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('Sample CSV template downloaded');
+  };
+
+  const parseCSV = (text: string): any[] => {
+    const lines = text.split('\n').filter(line => line.trim());
+    if (lines.length < 2) return [];
+
+    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+    const data: any[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const values: string[] = [];
+      let current = '';
+      let inQuotes = false;
+
+      for (const char of lines[i]) {
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          values.push(current.trim().replace(/^"|"$/g, ''));
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      values.push(current.trim().replace(/^"|"$/g, ''));
+
+      if (values.length === headers.length) {
+        const row: any = {};
+        headers.forEach((header, index) => {
+          row[header] = values[index];
+        });
+        data.push(row);
+      }
+    }
+
+    return data;
+  };
+
+  const validateImportData = (data: any[]): { valid: any[]; errors: string[] } => {
+    const errors: string[] = [];
+    const valid: any[] = [];
+    const requiredFields = ['name', 'propertyType', 'address', 'city', 'state', 'totalUnits'];
+
+    data.forEach((row, index) => {
+      const rowErrors: string[] = [];
+
+      // Check required fields
+      requiredFields.forEach(field => {
+        if (!row[field] || row[field].toString().trim() === '') {
+          rowErrors.push(`Missing ${field}`);
+        }
+      });
+
+      // Validate numeric fields
+      const numericFields = ['totalUnits', 'floors', 'yearBuilt', 'totalArea', 'lotSize', 'parking',
+        'avgRent', 'securityDeposit', 'applicationFee', 'legalFee', 'agentCommission',
+        'serviceCharge', 'agreementFee', 'insurancePremium', 'propertyTaxes'];
+
+      numericFields.forEach(field => {
+        if (row[field] && row[field].toString().trim() !== '' && isNaN(parseFloat(row[field]))) {
+          rowErrors.push(`${field} must be a number`);
+        }
+      });
+
+      if (rowErrors.length > 0) {
+        errors.push(`Row ${index + 1}: ${rowErrors.join(', ')}`);
+      } else {
+        // Parse images - can be pipe-separated URLs
+        const imagesArray = row.images
+          ? row.images.split('|').map((url: string) => url.trim()).filter((url: string) => url)
+          : [];
+
+        valid.push({
+          // Basic Information
+          name: row.name,
+          propertyType: row.propertyType,
+          address: row.address,
+          city: row.city,
+          state: row.state,
+          postalCode: row.postalCode || '',
+          country: row.country || 'Nigeria',
+
+          // Property Details
+          totalUnits: parseInt(row.totalUnits) || 1,
+          floors: row.floors ? parseInt(row.floors) : undefined,
+          yearBuilt: row.yearBuilt ? parseInt(row.yearBuilt) : undefined,
+          totalArea: row.totalArea ? parseFloat(row.totalArea) : undefined,
+          lotSize: row.lotSize ? parseFloat(row.lotSize) : undefined,
+          parking: row.parking ? parseInt(row.parking) : undefined,
+
+          // Financial Information
+          currency: row.currency || 'NGN',
+          avgRent: row.avgRent ? parseFloat(row.avgRent) : undefined,
+          securityDeposit: row.securityDeposit ? parseFloat(row.securityDeposit) : undefined,
+          applicationFee: row.applicationFee ? parseFloat(row.applicationFee) : undefined,
+          legalFee: row.legalFee ? parseFloat(row.legalFee) : undefined,
+          agentCommission: row.agentCommission ? parseFloat(row.agentCommission) : undefined,
+          serviceCharge: row.serviceCharge ? parseFloat(row.serviceCharge) : undefined,
+          agreementFee: row.agreementFee ? parseFloat(row.agreementFee) : undefined,
+
+          // Insurance & Legal
+          insuranceProvider: row.insuranceProvider || undefined,
+          insurancePolicyNumber: row.insurancePolicyNumber || undefined,
+          insurancePremium: row.insurancePremium ? parseFloat(row.insurancePremium) : undefined,
+          insuranceExpiration: row.insuranceExpiration || undefined,
+          propertyTaxes: row.propertyTaxes ? parseFloat(row.propertyTaxes) : undefined,
+
+          // Additional Information
+          description: row.description || '',
+          notes: row.notes || '',
+
+          // Images
+          coverImage: row.coverImage || (imagesArray.length > 0 ? imagesArray[0] : ''),
+          images: imagesArray,
+        });
+      }
+    });
+
+    return { valid, errors };
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.csv')) {
+      toast.error('Please select a CSV file');
+      return;
+    }
+
+    setImportFile(file);
+    setImportErrors([]);
+    setImportResults(null);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const parsed = parseCSV(text);
+      const { valid, errors } = validateImportData(parsed);
+
+      setImportData(valid);
+      setImportErrors(errors);
+
+      if (valid.length === 0 && errors.length > 0) {
+        toast.error('No valid properties found in the file');
+      } else if (valid.length > 0) {
+        toast.success(`Found ${valid.length} valid properties to import`);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImportProperties = async () => {
+    if (importData.length === 0) {
+      toast.error('No valid properties to import');
+      return;
+    }
+
+    setIsImporting(true);
+    setImportProgress(0);
+
+    let success = 0;
+    let failed = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < importData.length; i++) {
+      const property = importData[i];
+
+      try {
+        const res = await createProperty(property);
+        if (res.error) {
+          throw new Error(res.error.error || 'Failed to create property');
+        }
+        success++;
+      } catch (error: any) {
+        failed++;
+        errors.push(`"${property.name}": ${error.message || 'Unknown error'}`);
+      }
+
+      setImportProgress(Math.round(((i + 1) / importData.length) * 100));
+    }
+
+    setImportResults({ success, failed, errors });
+    setIsImporting(false);
+
+    if (success > 0) {
+      toast.success(`Successfully imported ${success} properties`);
+      // Trigger a refresh of the properties list
+      window.location.reload();
+    }
+
+    if (failed > 0) {
+      toast.error(`Failed to import ${failed} properties`);
+    }
+  };
+
+  const resetImportDialog = () => {
+    setShowImportDialog(false);
+    setImportFile(null);
+    setImportData([]);
+    setImportErrors([]);
+    setImportProgress(0);
+    setImportResults(null);
+  };
+
   // Expense Management Functions
   const loadExpenses = async () => {
     try {
@@ -532,19 +773,22 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
     return unitsData.filter(u => u.propertyId === propertyId);
   };
 
-  // Calculate portfolio metrics from properties
+  // Filter out deleted properties for immediate UI feedback
+  const visibleProperties = properties.filter(property => !deletedPropertyIds.has(property.id));
+
+  // Calculate portfolio metrics from visible properties (excludes deleted)
   const portfolioMetrics = {
-    totalProperties: properties.length,
-    totalUnits: properties.reduce((sum, p) => sum + (p._count?.units || p.totalUnits || 0), 0),
-    occupiedUnits: properties.reduce((sum, p) => sum + (p.occupiedUnits || 0), 0),
-    vacantUnits: properties.reduce((sum, p) => {
+    totalProperties: visibleProperties.length,
+    totalUnits: visibleProperties.reduce((sum, p) => sum + (p._count?.units || p.totalUnits || 0), 0),
+    occupiedUnits: visibleProperties.reduce((sum, p) => sum + (p.occupiedUnits || 0), 0),
+    vacantUnits: visibleProperties.reduce((sum, p) => {
       const total = p._count?.units || p.totalUnits || 0;
       const occ = p.occupiedUnits || 0;
       return sum + Math.max(total - occ, 0);
     }, 0),
-    totalRevenue: properties.reduce((sum, p) => sum + (p.totalMonthlyIncome || 0), 0),
-    avgOccupancy: properties.length > 0 ?
-      properties.reduce((sum, p) => sum + (p.occupancyRate ?? (((p.occupiedUnits || 0) / ((p._count?.units || p.totalUnits || 1))) * 100)), 0) / properties.length : 0,
+    totalRevenue: visibleProperties.reduce((sum, p) => sum + (p.totalMonthlyIncome || 0), 0),
+    avgOccupancy: visibleProperties.length > 0 ?
+      visibleProperties.reduce((sum, p) => sum + (p.occupancyRate ?? (((p.occupiedUnits || 0) / ((p._count?.units || p.totalUnits || 1))) * 100)), 0) / visibleProperties.length : 0,
     maintenanceRequests: maintenanceData.length
   };
 
@@ -568,7 +812,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
     email: u.leases?.[0]?.users?.email || null
   }));
 
-  const filteredProperties = properties.filter(property => {
+  const filteredProperties = visibleProperties.filter(property => {
     const matchesSearch = property.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          property.address.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || property.status === statusFilter;
@@ -692,9 +936,20 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
   const handleConfirmDeleteProperty = async () => {
     if (!propertyToDelete) return;
 
+    const propertyId = propertyToDelete.id;
+    const propertyName = propertyToDelete.name;
+
     try {
-      setIsDeleting(true);
-      const response = await deleteProperty(propertyToDelete.id);
+      setIsDeletingProperty(true);
+
+      // Close dialog immediately and show progress toast
+      setShowPropertyDeleteDialog(false);
+      const toastId = toast.loading(`Deleting "${propertyName}"...`);
+
+      // Immediately remove from UI for instant feedback
+      setDeletedPropertyIds(prev => new Set([...prev, propertyId]));
+
+      const response = await deleteProperty(propertyId);
 
       if ((response as any).error) {
         // Extract the error message from the error object
@@ -702,19 +957,25 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
         throw new Error(errorMessage);
       }
 
-      toast.success('Property deleted successfully');
-      setShowPropertyDeleteDialog(false);
+      toast.success(`"${propertyName}" deleted successfully`, { id: toastId });
       setPropertyToDelete(null);
 
-      // Refresh the properties list by removing the deleted property
-      if (onUpdateProperty) {
-        // Trigger a refresh by calling parent's update callback
-        window.location.reload(); // Or better: call a refresh function from parent
+      // Notify parent to refresh the properties list
+      if (onPropertyDeleted) {
+        onPropertyDeleted(propertyId);
+      } else if (onRefreshProperties) {
+        onRefreshProperties();
       }
     } catch (e: any) {
+      // Revert the UI change on error
+      setDeletedPropertyIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(propertyId);
+        return newSet;
+      });
       toast.error(e?.message || 'Failed to delete property');
     } finally {
-      setIsDeleting(false);
+      setIsDeletingProperty(false);
     }
   };
 
@@ -732,9 +993,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
             </div>
 
             <div className="flex items-center space-x-4">
-              <Button variant="outline">
-                <Download className="h-4 w-4 mr-2" />
-                Export
+              <Button variant="outline" onClick={() => setShowImportDialog(true)}>
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Import
               </Button>
               <Button onClick={onNavigateToAddProperty}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -825,7 +1086,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {properties.map((property) => (
+                      {visibleProperties.map((property) => (
                         <div key={property.id} className="flex items-center justify-between p-3 border rounded-lg">
                           <div className="flex items-center space-x-3">
                             <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
@@ -882,15 +1143,39 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                       <Plus className="h-6 w-6 mb-2" />
                       Add Property
                     </Button>
-                    <Button variant="outline" className="h-20 flex-col">
+                    <Button
+                      variant="outline"
+                      className="h-20 flex-col"
+                      onClick={() => {
+                        if (onNavigateToTenants) {
+                          onNavigateToTenants();
+                        } else {
+                          toast.info('Tenant management feature coming soon!');
+                        }
+                      }}
+                    >
                       <Users className="h-6 w-6 mb-2" />
-                      Find Tenants
+                      Manage Tenants
                     </Button>
-                    <Button variant="outline" className="h-20 flex-col">
+                    <Button
+                      variant="outline"
+                      className="h-20 flex-col"
+                      onClick={() => {
+                        if (onNavigateToMaintenance) {
+                          onNavigateToMaintenance();
+                        } else {
+                          toast.info('Maintenance scheduling feature coming soon!');
+                        }
+                      }}
+                    >
                       <Wrench className="h-6 w-6 mb-2" />
                       Schedule Maintenance
                     </Button>
-                    <Button variant="outline" className="h-20 flex-col">
+                    <Button
+                      variant="outline"
+                      className="h-20 flex-col"
+                      onClick={() => setActiveTab('reports')}
+                    >
                       <FileText className="h-6 w-6 mb-2" />
                       Generate Report
                     </Button>
@@ -1224,15 +1509,74 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     <DollarSign className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">
-                      {formatCurrency(
-                        unitsData.length > 0
-                          ? unitsData.reduce((sum, u) => sum + (u.monthlyRent || 0), 0) / unitsData.length
-                          : 0,
-                        smartBaseCurrency
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground">Per unit per month</p>
+                    {(() => {
+                      if (unitsData.length === 0) {
+                        return (
+                          <>
+                            <div className="text-2xl font-bold">{formatCurrency(0, smartBaseCurrency)}</div>
+                            <p className="text-xs text-muted-foreground">No units</p>
+                          </>
+                        );
+                      }
+
+                      // Helper to safely get rent frequency from unit
+                      const getRentFrequency = (unit: any): string => {
+                        // Try to get features - it might be a string that needs parsing or an object
+                        let features = unit.features;
+                        if (typeof features === 'string') {
+                          try {
+                            features = JSON.parse(features);
+                          } catch {
+                            features = {};
+                          }
+                        }
+                        // Check various possible paths for rentFrequency
+                        return features?.nigeria?.rentFrequency ||
+                               features?.rentFrequency ||
+                               unit.rentFrequency ||
+                               'monthly';
+                      };
+
+                      // Get frequencies for all units
+                      const frequencies = unitsData.map(u => getRentFrequency(u));
+                      const allMonthly = frequencies.every(f => f === 'monthly');
+                      const allAnnual = frequencies.every(f => f === 'annual');
+
+                      if (allAnnual) {
+                        // All units are annual - show annual average directly
+                        const avgAnnualRent = unitsData.reduce((sum, u) => sum + (u.monthlyRent || 0), 0) / unitsData.length;
+                        return (
+                          <>
+                            <div className="text-2xl font-bold">{formatCurrency(avgAnnualRent, smartBaseCurrency)}</div>
+                            <p className="text-xs text-muted-foreground">Per unit per year</p>
+                          </>
+                        );
+                      } else if (allMonthly) {
+                        // All units are monthly - show monthly average directly
+                        const avgMonthlyRent = unitsData.reduce((sum, u) => sum + (u.monthlyRent || 0), 0) / unitsData.length;
+                        return (
+                          <>
+                            <div className="text-2xl font-bold">{formatCurrency(avgMonthlyRent, smartBaseCurrency)}</div>
+                            <p className="text-xs text-muted-foreground">Per unit per month</p>
+                          </>
+                        );
+                      } else {
+                        // Mixed frequencies - convert all to monthly for comparison
+                        const totalMonthlyRent = unitsData.reduce((sum, u, idx) => {
+                          const rent = u.monthlyRent || 0;
+                          const freq = frequencies[idx];
+                          // If annual, divide by 12 to get monthly equivalent
+                          return sum + (freq === 'annual' ? rent / 12 : rent);
+                        }, 0);
+                        const avgMonthlyRent = totalMonthlyRent / unitsData.length;
+                        return (
+                          <>
+                            <div className="text-2xl font-bold">{formatCurrency(avgMonthlyRent, smartBaseCurrency)}</div>
+                            <p className="text-xs text-muted-foreground">Per unit per month (avg)</p>
+                          </>
+                        );
+                      }
+                    })()}
                   </CardContent>
                 </Card>
               </div>
@@ -1260,13 +1604,12 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           </SelectContent>
                         </Select>
                       </div>
-                      <Button onClick={() => setUnitView('add')}>
+                      <Button onClick={() => setShowAddUnitDialog(true)}>
                         <Plus className="h-4 w-4 mr-2" />
                         Add Unit
                       </Button>
                     </div>
 
-                    {unitView === 'list' && (
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -1373,218 +1716,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         })}
                       </TableBody>
                     </Table>
-                    )}
                   </div>
                 </CardContent>
               </Card>
-              {unitView === 'add' && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Add New Unit</CardTitle>
-                    <CardDescription>Create a unit under one of your properties.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                  <div className="grid gap-4">
-                    <div className="grid gap-2">
-                      <label className="text-sm font-medium" htmlFor="propertyId">Property</label>
-                      <Select value={unitForm.propertyId} onValueChange={(v) => setUnitForm({ ...unitForm, propertyId: v })}>
-                        <SelectTrigger id="propertyId">
-                          <SelectValue placeholder="Select property" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {properties.map((p: any) => (
-                            <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="unitNumber">Unit Number</label>
-                        <Input id="unitNumber" value={unitForm.unitNumber} onChange={(e) => setUnitForm({ ...unitForm, unitNumber: e.target.value })} placeholder="A101" />
-                      </div>
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="type">Type</label>
-                        <Input id="type" value={unitForm.type} onChange={(e) => setUnitForm({ ...unitForm, type: e.target.value })} placeholder="2-bedroom" />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="bedrooms">Bedrooms</label>
-                        <Input id="bedrooms" type="number" value={unitForm.bedrooms} onChange={(e) => setUnitForm({ ...unitForm, bedrooms: e.target.value })} placeholder="2" />
-                      </div>
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="bathrooms">Bathrooms</label>
-                        <Input id="bathrooms" type="number" value={unitForm.bathrooms} onChange={(e) => setUnitForm({ ...unitForm, bathrooms: e.target.value })} placeholder="1" />
-                      </div>
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="floor">Floor</label>
-                        <Input id="floor" type="number" value={unitForm.floor} onChange={(e) => setUnitForm({ ...unitForm, floor: e.target.value })} placeholder="3" />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="size">Size (sqft)</label>
-                        <Input id="size" type="number" value={unitForm.size} onChange={(e) => setUnitForm({ ...unitForm, size: e.target.value })} placeholder="900" />
-                      </div>
-                      <div className="grid gap-2">
-                        <div className="flex items-center justify-between">
-                          <label className="text-sm font-medium" htmlFor="monthlyRent">Rent</label>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-600">Frequency</span>
-                            <Select value={unitForm.rentFrequency} onValueChange={(v) => setUnitForm({ ...unitForm, rentFrequency: v })}>
-                              <SelectTrigger className="h-8 w-28">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="monthly">Monthly</SelectItem>
-                                <SelectItem value="annual">Annual</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        <Input id="monthlyRent" type="number" value={unitForm.monthlyRent} onChange={(e) => setUnitForm({ ...unitForm, monthlyRent: e.target.value })} placeholder="1200000" />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="securityDeposit">Security Deposit</label>
-                        <Input id="securityDeposit" type="number" value={unitForm.securityDeposit} onChange={(e) => setUnitForm({ ...unitForm, securityDeposit: e.target.value })} placeholder="500" />
-                      </div>
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="status">Status</label>
-                        <Select value={unitForm.status} onValueChange={(v) => setUnitForm({ ...unitForm, status: v })}>
-                          <SelectTrigger id="status">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="vacant">Vacant</SelectItem>
-                            <SelectItem value="occupied">Occupied</SelectItem>
-                            <SelectItem value="maintenance">Maintenance</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="serviceCharge">Service Charge</label>
-                        <Input id="serviceCharge" type="number" value={unitForm.serviceCharge} onChange={(e) => setUnitForm({ ...unitForm, serviceCharge: e.target.value })} placeholder="0" />
-                      </div>
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="cautionFee">Caution Fee</label>
-                        <Input id="cautionFee" type="number" value={unitForm.cautionFee} onChange={(e) => setUnitForm({ ...unitForm, cautionFee: e.target.value })} placeholder="0" />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="legalFee">Legal Fee</label>
-                        <Input id="legalFee" type="number" value={unitForm.legalFee} onChange={(e) => setUnitForm({ ...unitForm, legalFee: e.target.value })} placeholder="0" />
-                      </div>
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="agentCommission">Agency Fee</label>
-                        <Input id="agentCommission" type="number" value={unitForm.agentCommission} onChange={(e) => setUnitForm({ ...unitForm, agentCommission: e.target.value })} placeholder="0" />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="agreementFee">Agreement Fee</label>
-                        <Input id="agreementFee" type="number" value={unitForm.agreementFee} onChange={(e) => setUnitForm({ ...unitForm, agreementFee: e.target.value })} placeholder="0" />
-                      </div>
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="wasteFee">Waste Management</label>
-                        <Input id="wasteFee" type="number" value={unitForm.wasteFee} onChange={(e) => setUnitForm({ ...unitForm, wasteFee: e.target.value })} placeholder="0" />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="estateDues">Estate Dues</label>
-                        <Input id="estateDues" type="number" value={unitForm.estateDues} onChange={(e) => setUnitForm({ ...unitForm, estateDues: e.target.value })} placeholder="0" />
-                      </div>
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="electricityMeter">Electricity Meter No.</label>
-                        <Input id="electricityMeter" value={unitForm.electricityMeter} onChange={(e) => setUnitForm({ ...unitForm, electricityMeter: e.target.value })} placeholder="Prepaid meter no." />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="flex items-center justify-between">
-                        <label className="text-sm font-medium">Prepaid Meter</label>
-                        <Switch checked={unitForm.prepaidMeter} onCheckedChange={(v) => setUnitForm({ ...unitForm, prepaidMeter: v })} />
-                      </div>
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium" htmlFor="waterSource">Water Source</label>
-                        <Select value={unitForm.waterSource} onValueChange={(v) => setUnitForm({ ...unitForm, waterSource: v })}>
-                          <SelectTrigger id="waterSource">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="public">Public</SelectItem>
-                            <SelectItem value="borehole">Borehole</SelectItem>
-                            <SelectItem value="well">Well</SelectItem>
-                            <SelectItem value="tanker">Tanker Supply</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium">Parking Available</label>
-                      <Switch checked={unitForm.parkingAvailable} onCheckedChange={(v) => setUnitForm({ ...unitForm, parkingAvailable: v })} />
-                    </div>
-                  </div>
-                  <div className="flex justify-end gap-2 pt-2">
-                    <Button variant="outline" onClick={() => setUnitView('list')}>Cancel</Button>
-                    <Button disabled={unitSaving} onClick={async () => {
-                      try {
-                        if (!unitForm.propertyId || !unitForm.unitNumber || !unitForm.type || !unitForm.monthlyRent) {
-                          toast.error('Please fill required fields');
-                          return;
-                        }
-                        setUnitSaving(true);
-                        const payload: any = {
-                          propertyId: unitForm.propertyId,
-                          unitNumber: unitForm.unitNumber,
-                          type: unitForm.type,
-                          floor: unitForm.floor ? Number(unitForm.floor) : undefined,
-                          bedrooms: unitForm.bedrooms ? Number(unitForm.bedrooms) : undefined,
-                          bathrooms: unitForm.bathrooms ? Number(unitForm.bathrooms) : undefined,
-                          size: unitForm.size ? Number(unitForm.size) : undefined,
-                          monthlyRent: Number(unitForm.monthlyRent),
-                          securityDeposit: unitForm.securityDeposit ? Number(unitForm.securityDeposit) : undefined,
-                          status: unitForm.status,
-                          features: {
-                            nigeria: {
-                              rentFrequency: unitForm.rentFrequency,
-                              serviceCharge: unitForm.serviceCharge ? Number(unitForm.serviceCharge) : undefined,
-                              cautionFee: unitForm.cautionFee ? Number(unitForm.cautionFee) : undefined,
-                              legalFee: unitForm.legalFee ? Number(unitForm.legalFee) : undefined,
-                              agentCommission: unitForm.agentCommission ? Number(unitForm.agentCommission) : undefined,
-                              agreementFee: unitForm.agreementFee ? Number(unitForm.agreementFee) : undefined,
-                              electricityMeter: unitForm.electricityMeter || undefined,
-                              prepaidMeter: unitForm.prepaidMeter,
-                              wasteFee: unitForm.wasteFee ? Number(unitForm.wasteFee) : undefined,
-                              estateDues: unitForm.estateDues ? Number(unitForm.estateDues) : undefined,
-                              waterSource: unitForm.waterSource,
-                              parkingAvailable: unitForm.parkingAvailable
-                            }
-                          }
-                        };
-                        const res = await createUnit(payload);
-                        if ((res as any).error) throw new Error((res as any).error.error || 'Failed to create unit');
-                        toast.success('Unit created');
-                        setUnitView('list');
-                        setUnitForm({ propertyId: '', unitNumber: '', type: '', floor: '', bedrooms: '', bathrooms: '', size: '', monthlyRent: '', securityDeposit: '', status: 'vacant' });
-                        const uRes = await getUnits();
-                        if (!uRes.error && Array.isArray(uRes.data)) setUnitsData(uRes.data);
-                      } catch (e: any) {
-                        toast.error(e?.message || 'Failed to create unit');
-                      } finally {
-                        setUnitSaving(false);
-                      }
-                    }}>Save Unit</Button>
-                  </div>
-                  </CardContent>
-                </Card>
-              )}
             </TabsContent>
 
             <TabsContent value="financials" className="space-y-6">
@@ -1705,7 +1839,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {properties.map((property) => (
+                      {visibleProperties.map((property) => (
                         <TableRow key={property.id}>
                           <TableCell>
                             <div>
@@ -2935,13 +3069,27 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
 
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="editMonthlyRent">Monthly Rent</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium" htmlFor="editMonthlyRent">Rent</label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-600">Frequency</span>
+                    <Select value={unitForm.rentFrequency} onValueChange={(v) => setUnitForm({ ...unitForm, rentFrequency: v })}>
+                      <SelectTrigger className="h-8 w-28">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="annual">Annual</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
                 <Input
                   id="editMonthlyRent"
                   type="number"
                   value={unitForm.monthlyRent}
                   onChange={(e) => setUnitForm({ ...unitForm, monthlyRent: e.target.value })}
-                  placeholder="1200"
+                  placeholder={unitForm.rentFrequency === 'annual' ? 'Enter annual rent' : 'Enter monthly rent'}
                 />
               </div>
               <div className="grid gap-2">
@@ -2957,27 +3105,15 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
             </div>
 
             {/* Additional Fees & Utilities - mirror Add Unit fields */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="editServiceCharge">Service Charge</label>
-                <Input
-                  id="editServiceCharge"
-                  type="number"
-                  value={unitForm.serviceCharge}
-                  onChange={(e) => setUnitForm({ ...unitForm, serviceCharge: e.target.value })}
-                  placeholder="0"
-                />
-              </div>
-              <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="editCautionFee">Caution Fee</label>
-                <Input
-                  id="editCautionFee"
-                  type="number"
-                  value={unitForm.cautionFee}
-                  onChange={(e) => setUnitForm({ ...unitForm, cautionFee: e.target.value })}
-                  placeholder="0"
-                />
-              </div>
+            <div className="grid gap-2">
+              <label className="text-sm font-medium" htmlFor="editServiceCharge">Service Charge</label>
+              <Input
+                id="editServiceCharge"
+                type="number"
+                value={unitForm.serviceCharge}
+                onChange={(e) => setUnitForm({ ...unitForm, serviceCharge: e.target.value })}
+                placeholder="0"
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -3230,7 +3366,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     <SelectValue placeholder="Select property" />
                   </SelectTrigger>
                   <SelectContent>
-                    {properties.map(property => (
+                    {visibleProperties.map(property => (
                       <SelectItem key={property.id} value={property.id}>
                         {property.name}
                       </SelectItem>
@@ -3456,6 +3592,423 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                 </>
               )}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add New Unit Dialog */}
+      <Dialog open={showAddUnitDialog} onOpenChange={setShowAddUnitDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New Unit</DialogTitle>
+            <DialogDescription>Create a unit under one of your properties.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <label className="text-sm font-medium" htmlFor="dialog-propertyId">Property *</label>
+              <Select value={unitForm.propertyId} onValueChange={(v) => setUnitForm({ ...unitForm, propertyId: v })}>
+                <SelectTrigger id="dialog-propertyId">
+                  <SelectValue placeholder="Select property" />
+                </SelectTrigger>
+                <SelectContent>
+                  {visibleProperties.map((p: any) => (
+                    <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="dialog-unitNumber">Unit Number *</label>
+                <Input id="dialog-unitNumber" value={unitForm.unitNumber} onChange={(e) => setUnitForm({ ...unitForm, unitNumber: e.target.value })} placeholder="A101" />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="dialog-type">Type *</label>
+                <Input id="dialog-type" value={unitForm.type} onChange={(e) => setUnitForm({ ...unitForm, type: e.target.value })} placeholder="2-bedroom" />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="dialog-bedrooms">Bedrooms</label>
+                <Input id="dialog-bedrooms" type="number" value={unitForm.bedrooms} onChange={(e) => setUnitForm({ ...unitForm, bedrooms: e.target.value })} placeholder="2" />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="dialog-bathrooms">Bathrooms</label>
+                <Input id="dialog-bathrooms" type="number" value={unitForm.bathrooms} onChange={(e) => setUnitForm({ ...unitForm, bathrooms: e.target.value })} placeholder="1" />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="dialog-floor">Floor</label>
+                <Input id="dialog-floor" type="number" value={unitForm.floor} onChange={(e) => setUnitForm({ ...unitForm, floor: e.target.value })} placeholder="3" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="dialog-size">Size (sqft)</label>
+                <Input id="dialog-size" type="number" value={unitForm.size} onChange={(e) => setUnitForm({ ...unitForm, size: e.target.value })} placeholder="900" />
+              </div>
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium" htmlFor="dialog-monthlyRent">Rent *</label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-600">Frequency</span>
+                    <Select value={unitForm.rentFrequency} onValueChange={(v) => setUnitForm({ ...unitForm, rentFrequency: v })}>
+                      <SelectTrigger className="h-8 w-28">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="annual">Annual</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <Input id="dialog-monthlyRent" type="number" value={unitForm.monthlyRent} onChange={(e) => setUnitForm({ ...unitForm, monthlyRent: e.target.value })} placeholder="1200000" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="dialog-securityDeposit">Security Deposit</label>
+                <Input id="dialog-securityDeposit" type="number" value={unitForm.securityDeposit} onChange={(e) => setUnitForm({ ...unitForm, securityDeposit: e.target.value })} placeholder="500" />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="dialog-status">Status</label>
+                <Select value={unitForm.status} onValueChange={(v) => setUnitForm({ ...unitForm, status: v })}>
+                  <SelectTrigger id="dialog-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="vacant">Vacant</SelectItem>
+                    <SelectItem value="occupied">Occupied</SelectItem>
+                    <SelectItem value="maintenance">Maintenance</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Additional Fees Section */}
+            <div className="border-t pt-4 mt-2">
+              <h4 className="text-sm font-semibold mb-3">Additional Fees & Utilities</h4>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="dialog-serviceCharge">Service Charge</label>
+                <Input id="dialog-serviceCharge" type="number" value={unitForm.serviceCharge} onChange={(e) => setUnitForm({ ...unitForm, serviceCharge: e.target.value })} placeholder="0" />
+              </div>
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium" htmlFor="dialog-legalFee">Legal Fee</label>
+                  <Input id="dialog-legalFee" type="number" value={unitForm.legalFee} onChange={(e) => setUnitForm({ ...unitForm, legalFee: e.target.value })} placeholder="0" />
+                </div>
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium" htmlFor="dialog-agentCommission">Agency Fee</label>
+                  <Input id="dialog-agentCommission" type="number" value={unitForm.agentCommission} onChange={(e) => setUnitForm({ ...unitForm, agentCommission: e.target.value })} placeholder="0" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium" htmlFor="dialog-agreementFee">Agreement Fee</label>
+                  <Input id="dialog-agreementFee" type="number" value={unitForm.agreementFee} onChange={(e) => setUnitForm({ ...unitForm, agreementFee: e.target.value })} placeholder="0" />
+                </div>
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium" htmlFor="dialog-wasteFee">Waste Management</label>
+                  <Input id="dialog-wasteFee" type="number" value={unitForm.wasteFee} onChange={(e) => setUnitForm({ ...unitForm, wasteFee: e.target.value })} placeholder="0" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium" htmlFor="dialog-estateDues">Estate Dues</label>
+                  <Input id="dialog-estateDues" type="number" value={unitForm.estateDues} onChange={(e) => setUnitForm({ ...unitForm, estateDues: e.target.value })} placeholder="0" />
+                </div>
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium" htmlFor="dialog-electricityMeter">Electricity Meter No.</label>
+                  <Input id="dialog-electricityMeter" value={unitForm.electricityMeter} onChange={(e) => setUnitForm({ ...unitForm, electricityMeter: e.target.value })} placeholder="Prepaid meter no." />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                  <label className="text-sm font-medium">Prepaid Meter</label>
+                  <Switch checked={unitForm.prepaidMeter} onCheckedChange={(v) => setUnitForm({ ...unitForm, prepaidMeter: v })} />
+                </div>
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium" htmlFor="dialog-waterSource">Water Source</label>
+                  <Select value={unitForm.waterSource} onValueChange={(v) => setUnitForm({ ...unitForm, waterSource: v })}>
+                    <SelectTrigger id="dialog-waterSource">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="public">Public</SelectItem>
+                      <SelectItem value="borehole">Borehole</SelectItem>
+                      <SelectItem value="well">Well</SelectItem>
+                      <SelectItem value="tanker">Tanker Supply</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-2 bg-gray-50 rounded mt-3">
+                <label className="text-sm font-medium">Parking Available</label>
+                <Switch checked={unitForm.parkingAvailable} onCheckedChange={(v) => setUnitForm({ ...unitForm, parkingAvailable: v })} />
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button variant="outline" onClick={() => setShowAddUnitDialog(false)}>Cancel</Button>
+            <Button disabled={unitSaving} onClick={async () => {
+              try {
+                if (!unitForm.propertyId || !unitForm.unitNumber || !unitForm.type || !unitForm.monthlyRent) {
+                  toast.error('Please fill required fields (Property, Unit Number, Type, Rent)');
+                  return;
+                }
+                setUnitSaving(true);
+                const payload: any = {
+                  propertyId: unitForm.propertyId,
+                  unitNumber: unitForm.unitNumber,
+                  type: unitForm.type,
+                  floor: unitForm.floor ? Number(unitForm.floor) : undefined,
+                  bedrooms: unitForm.bedrooms ? Number(unitForm.bedrooms) : undefined,
+                  bathrooms: unitForm.bathrooms ? Number(unitForm.bathrooms) : undefined,
+                  size: unitForm.size ? Number(unitForm.size) : undefined,
+                  monthlyRent: Number(unitForm.monthlyRent),
+                  securityDeposit: unitForm.securityDeposit ? Number(unitForm.securityDeposit) : undefined,
+                  status: unitForm.status,
+                  features: {
+                    nigeria: {
+                      rentFrequency: unitForm.rentFrequency,
+                      serviceCharge: unitForm.serviceCharge ? Number(unitForm.serviceCharge) : undefined,
+                      legalFee: unitForm.legalFee ? Number(unitForm.legalFee) : undefined,
+                      agentCommission: unitForm.agentCommission ? Number(unitForm.agentCommission) : undefined,
+                      agreementFee: unitForm.agreementFee ? Number(unitForm.agreementFee) : undefined,
+                      electricityMeter: unitForm.electricityMeter || undefined,
+                      prepaidMeter: unitForm.prepaidMeter,
+                      wasteFee: unitForm.wasteFee ? Number(unitForm.wasteFee) : undefined,
+                      estateDues: unitForm.estateDues ? Number(unitForm.estateDues) : undefined,
+                      waterSource: unitForm.waterSource,
+                      parkingAvailable: unitForm.parkingAvailable
+                    }
+                  }
+                };
+                const res = await createUnit(payload);
+                if ((res as any).error) throw new Error((res as any).error.error || 'Failed to create unit');
+                toast.success('Unit created successfully');
+                setShowAddUnitDialog(false);
+                setUnitForm({
+                  propertyId: '', unitNumber: '', type: '', floor: '', bedrooms: '', bathrooms: '',
+                  size: '', monthlyRent: '', securityDeposit: '', status: 'vacant', rentFrequency: 'monthly',
+                  serviceCharge: '', legalFee: '', agentCommission: '', agreementFee: '',
+                  electricityMeter: '', prepaidMeter: false, wasteFee: '', estateDues: '', waterSource: 'public', parkingAvailable: true
+                });
+                const uRes = await getUnits();
+                if (!uRes.error && Array.isArray(uRes.data)) setUnitsData(uRes.data);
+              } catch (e: any) {
+                toast.error(e?.message || 'Failed to create unit');
+              } finally {
+                setUnitSaving(false);
+              }
+            }}>
+              {unitSaving ? 'Saving...' : 'Save Unit'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Properties Dialog */}
+      <Dialog open={showImportDialog} onOpenChange={(open) => !isImporting && (open ? setShowImportDialog(true) : resetImportDialog())}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSpreadsheet className="h-5 w-5" />
+              Import Properties
+            </DialogTitle>
+            <DialogDescription>
+              Upload a CSV file to import multiple properties at once. Download the sample template to see the required format.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* Step 1: Download Template */}
+            <div className="border rounded-lg p-4 bg-gray-50">
+              <h4 className="font-medium mb-2 flex items-center gap-2">
+                <span className="bg-gray-900 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">1</span>
+                Download Template
+              </h4>
+              <p className="text-sm text-gray-600 mb-3">
+                Download our CSV template with sample data to understand the required format.
+              </p>
+              <Button variant="outline" onClick={downloadSampleCSV}>
+                <Download className="h-4 w-4 mr-2" />
+                Download Sample CSV
+              </Button>
+            </div>
+
+            {/* Step 2: Upload File */}
+            <div className="border rounded-lg p-4">
+              <h4 className="font-medium mb-2 flex items-center gap-2">
+                <span className="bg-gray-900 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">2</span>
+                Upload Your File
+              </h4>
+              <p className="text-sm text-gray-600 mb-3">
+                Select your CSV file with property data. Required fields: name, propertyType, address, city, state, totalUnits.
+              </p>
+              <div className="flex items-center gap-3">
+                <Input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileSelect}
+                  disabled={isImporting}
+                  className="flex-1"
+                />
+                {importFile && (
+                  <Button variant="ghost" size="sm" onClick={() => {
+                    setImportFile(null);
+                    setImportData([]);
+                    setImportErrors([]);
+                    setImportResults(null);
+                  }}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              {importFile && (
+                <p className="text-sm text-green-600 mt-2">
+                  ✓ Selected: {importFile.name}
+                </p>
+              )}
+            </div>
+
+            {/* Validation Results */}
+            {(importData.length > 0 || importErrors.length > 0) && !importResults && (
+              <div className="border rounded-lg p-4">
+                <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <span className="bg-gray-900 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">3</span>
+                  Validation Results
+                </h4>
+
+                {importData.length > 0 && (
+                  <div className="flex items-center gap-2 text-green-600 mb-2">
+                    <CheckCircle className="h-4 w-4" />
+                    <span className="text-sm">{importData.length} valid properties ready to import</span>
+                  </div>
+                )}
+
+                {importErrors.length > 0 && (
+                  <div className="mt-2">
+                    <div className="flex items-center gap-2 text-red-600 mb-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <span className="text-sm">{importErrors.length} rows with errors (will be skipped)</span>
+                    </div>
+                    <div className="max-h-32 overflow-y-auto bg-red-50 rounded p-2">
+                      {importErrors.slice(0, 5).map((error, idx) => (
+                        <p key={idx} className="text-xs text-red-600">{error}</p>
+                      ))}
+                      {importErrors.length > 5 && (
+                        <p className="text-xs text-red-600 font-medium">...and {importErrors.length - 5} more errors</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Preview Table */}
+                {importData.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-sm font-medium mb-2">Preview (first 3 properties):</p>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs">Name</TableHead>
+                            <TableHead className="text-xs">Location</TableHead>
+                            <TableHead className="text-xs">Units</TableHead>
+                            <TableHead className="text-xs">Rent</TableHead>
+                            <TableHead className="text-xs">Images</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {importData.slice(0, 3).map((prop, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell className="text-xs">
+                                <div>
+                                  <p className="font-medium">{prop.name}</p>
+                                  <p className="text-gray-500">{prop.propertyType}</p>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-xs">{prop.city}, {prop.state}</TableCell>
+                              <TableCell className="text-xs">{prop.totalUnits}</TableCell>
+                              <TableCell className="text-xs">{prop.avgRent ? formatCurrency(prop.avgRent, prop.currency || 'NGN') : '-'}</TableCell>
+                              <TableCell className="text-xs">
+                                {prop.images && prop.images.length > 0 ? (
+                                  <span className="text-green-600">✓ {prop.images.length} image(s)</span>
+                                ) : (
+                                  <span className="text-gray-400">No images</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Import Progress */}
+            {isImporting && (
+              <div className="border rounded-lg p-4">
+                <h4 className="font-medium mb-2">Importing Properties...</h4>
+                <Progress value={importProgress} className="mb-2" />
+                <p className="text-sm text-gray-600">{importProgress}% complete</p>
+              </div>
+            )}
+
+            {/* Import Results */}
+            {importResults && (
+              <div className="border rounded-lg p-4">
+                <h4 className="font-medium mb-2">Import Complete</h4>
+                <div className="space-y-2">
+                  {importResults.success > 0 && (
+                    <div className="flex items-center gap-2 text-green-600">
+                      <CheckCircle className="h-4 w-4" />
+                      <span className="text-sm">{importResults.success} properties imported successfully</span>
+                    </div>
+                  )}
+                  {importResults.failed > 0 && (
+                    <div className="flex items-center gap-2 text-red-600">
+                      <AlertCircle className="h-4 w-4" />
+                      <span className="text-sm">{importResults.failed} properties failed to import</span>
+                    </div>
+                  )}
+                  {importResults.errors.length > 0 && (
+                    <div className="max-h-32 overflow-y-auto bg-red-50 rounded p-2 mt-2">
+                      {importResults.errors.map((error, idx) => (
+                        <p key={idx} className="text-xs text-red-600">{error}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button variant="outline" onClick={resetImportDialog} disabled={isImporting}>
+              {importResults ? 'Close' : 'Cancel'}
+            </Button>
+            {!importResults && (
+              <Button
+                onClick={handleImportProperties}
+                disabled={importData.length === 0 || isImporting}
+                className="bg-gray-900 hover:bg-black"
+              >
+                {isImporting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Import {importData.length} Properties
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>

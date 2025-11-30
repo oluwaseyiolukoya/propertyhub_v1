@@ -142,18 +142,58 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
 
   const currentYear = new Date().getFullYear();
 
-  // Use real data if available, otherwise calculate from mock data
-  const totalRevenue = Number(financialData?.totalRevenue || monthlyRevenueData.reduce((sum, month) => sum + month.revenue, 0)) || 0;
-  const totalExpenses = Number(financialData?.estimatedExpenses || monthlyRevenueData.reduce((sum, month) => sum + month.expenses, 0)) || 0;
-  const totalNetIncome = Number(financialData?.netOperatingIncome || (totalRevenue - totalExpenses)) || 0;
-  const averageOccupancy = Number(financialData?.occupancyRate || (properties.length > 0
-    ? properties.reduce((sum, p) => sum + (p.occupancyRate || 0), 0) / properties.length
-    : 0)) || 0;
-  const portfolioCapRate = Number(financialData?.portfolioCapRate || (propertyPerformance.length > 0
-    ? propertyPerformance.reduce((sum, p) => sum + (p.capRate || 0), 0) / propertyPerformance.length
-    : 0)) || 0;
+  // Calculate totals from real property performance data (from API)
+  // This ensures we use actual database values, not mock data
+  const calculatedTotalRevenue = propertyPerformanceData.length > 0
+    ? propertyPerformanceData.reduce((sum, p) => sum + (p.monthlyRevenue || 0), 0)
+    : 0;
 
-  const operatingMargin = Number(financialData?.operatingMargin || (totalRevenue > 0 ? (totalNetIncome / totalRevenue) * 100 : 0)) || 0;
+  const calculatedTotalExpenses = propertyPerformanceData.length > 0
+    ? propertyPerformanceData.reduce((sum, p) => sum + (p.monthlyExpenses || 0), 0)
+    : 0;
+
+  const calculatedTotalNetIncome = calculatedTotalRevenue - calculatedTotalExpenses;
+
+  // Use API financial data if available, otherwise use calculated values from property performance
+  // Note: We check if financialData exists AND has properties loaded (not just truthy values)
+  const hasRealFinancialData = financialData && (financialData.totalProperties > 0 || propertyPerformanceData.length > 0);
+
+  const totalRevenue = hasRealFinancialData
+    ? (financialData?.totalRevenue ?? calculatedTotalRevenue)
+    : calculatedTotalRevenue;
+
+  const totalExpenses = hasRealFinancialData
+    ? (financialData?.estimatedExpenses ?? calculatedTotalExpenses)
+    : calculatedTotalExpenses;
+
+  const totalNetIncome = hasRealFinancialData
+    ? (financialData?.netOperatingIncome ?? calculatedTotalNetIncome)
+    : calculatedTotalNetIncome;
+
+  // Calculate occupancy from property performance data
+  const calculatedOccupancy = propertyPerformanceData.length > 0
+    ? propertyPerformanceData.reduce((sum, p) => sum + (p.occupancyRate || 0), 0) / propertyPerformanceData.length
+    : 0;
+
+  const averageOccupancy = hasRealFinancialData
+    ? (financialData?.occupancyRate ?? calculatedOccupancy)
+    : calculatedOccupancy;
+
+  // Calculate cap rate from property performance data
+  const calculatedCapRate = propertyPerformanceData.length > 0
+    ? propertyPerformanceData.reduce((sum, p) => sum + (p.capRate || 0), 0) / propertyPerformanceData.length
+    : 0;
+
+  const portfolioCapRate = hasRealFinancialData
+    ? (financialData?.portfolioCapRate ?? calculatedCapRate)
+    : calculatedCapRate;
+
+  // Calculate operating margin
+  const calculatedOperatingMargin = totalRevenue > 0 ? (totalNetIncome / totalRevenue) * 100 : 0;
+
+  const operatingMargin = hasRealFinancialData
+    ? (financialData?.operatingMargin ?? calculatedOperatingMargin)
+    : calculatedOperatingMargin;
 
   const yearOverYearGrowth = 12.5; // Mock data
   const revenueGrowth = 8.3;
@@ -172,17 +212,33 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
     : (filteredProperties[0]?.currency || properties.find(p => p.id.toString() === selectedProperty)?.currency || 'NGN');
 
   // Calculate filtered totals based on selected property
+  // For "All Properties", use the calculated totals from property performance data
   const filteredTotalRevenue = selectedProperty === 'all'
-    ? totalRevenue
-    : filteredProperties.reduce((sum, p) => sum + (p.monthlyRevenue || 0), 0);
+    ? (propertyPerformanceData.length > 0
+        ? propertyPerformanceData.reduce((sum, p) => sum + (p.monthlyRevenue || 0), 0)
+        : totalRevenue)
+    : filteredProperties.reduce((sum, p) => sum + (p.revenue || p.monthlyRevenue || 0), 0);
 
   const filteredTotalExpenses = selectedProperty === 'all'
-    ? totalExpenses
-    : filteredProperties.reduce((sum, p) => sum + (p.monthlyExpenses || 0), 0);
+    ? (propertyPerformanceData.length > 0
+        ? propertyPerformanceData.reduce((sum, p) => sum + (p.monthlyExpenses || 0), 0)
+        : totalExpenses)
+    : filteredProperties.reduce((sum, p) => sum + (p.expenses || p.monthlyExpenses || 0), 0);
 
-  const filteredTotalNetIncome = selectedProperty === 'all'
-    ? totalNetIncome
-    : (filteredTotalRevenue - filteredTotalExpenses);
+  const filteredTotalNetIncome = filteredTotalRevenue - filteredTotalExpenses;
+
+  // Calculate filtered cap rate and operating margin based on selected property
+  const filteredCapRate = selectedProperty === 'all'
+    ? (propertyPerformanceData.length > 0
+        ? propertyPerformanceData.reduce((sum, p) => sum + (p.capRate || 0), 0) / propertyPerformanceData.length
+        : portfolioCapRate)
+    : (filteredProperties.length > 0
+        ? filteredProperties.reduce((sum, p) => sum + (p.capRate || 0), 0) / filteredProperties.length
+        : 0);
+
+  const filteredOperatingMargin = filteredTotalRevenue > 0
+    ? (filteredTotalNetIncome / filteredTotalRevenue) * 100
+    : 0;
 
   const exportReport = (type: string) => {
     // Mock export functionality
@@ -307,15 +363,15 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <div className="flex items-center gap-2">
-                <CardTitle className="text-sm font-medium">Portfolio Cap Rate</CardTitle>
+                <CardTitle className="text-sm font-medium">{selectedProperty === 'all' ? 'Portfolio Cap Rate' : 'Property Cap Rate'}</CardTitle>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Info className="h-4 w-4 text-muted-foreground cursor-help" />
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
                     <p className="font-semibold mb-1">How it's calculated:</p>
-                    <p className="text-xs">Your portfolio-wide Capitalization Rate. Measures the annual return on investment across all properties combined.</p>
-                    <p className="text-xs mt-1 italic">Formula: (Annual NOI ÷ Total Portfolio Value) × 100</p>
+                    <p className="text-xs">{selectedProperty === 'all' ? 'Your portfolio-wide Capitalization Rate. Measures the annual return on investment across all properties combined.' : 'This property\'s Capitalization Rate. Measures the annual return on investment for this specific property.'}</p>
+                    <p className="text-xs mt-1 italic">Formula: (Annual NOI ÷ Property Value) × 100</p>
                     <p className="text-xs mt-1 text-blue-600">Industry benchmark: 4-10% depending on market and property type.</p>
                   </TooltipContent>
                 </Tooltip>
@@ -323,9 +379,9 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
               <Percent className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{portfolioCapRate.toFixed(1)}%</div>
+              <div className="text-2xl font-bold">{filteredCapRate.toFixed(1)}%</div>
               <div className="flex items-center text-xs text-gray-600 mt-1">
-                Above market average
+                {filteredCapRate > 6 ? 'Above market average' : filteredCapRate > 4 ? 'Market average' : 'Below market average'}
               </div>
             </CardContent>
           </Card>
@@ -349,10 +405,10 @@ export const FinancialReports = ({ properties, user }: FinancialReportsProps) =>
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{operatingMargin.toFixed(1)}%</div>
+              <div className="text-2xl font-bold">{filteredOperatingMargin.toFixed(1)}%</div>
               <div className="flex items-center text-xs text-green-600 mt-1">
                 <ArrowUpRight className="h-3 w-3 mr-1" />
-                Healthy margin
+                {filteredOperatingMargin > 60 ? 'Healthy margin' : filteredOperatingMargin > 40 ? 'Moderate margin' : 'Low margin'}
               </div>
             </CardContent>
           </Card>
