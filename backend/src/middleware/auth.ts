@@ -49,48 +49,35 @@ export const authMiddleware = async (
     // We rely on /api/auth/validate-session for authoritative checks (role/status/isActive)
     if (process.env.ENABLE_PERMISSIONS_UPDATE_CHECK === 'true') {
       try {
-        // Check if it's an internal admin user or a customer user
-        let userRecord;
-
-        // First check admins table (for Super Admin)
-        const admin = await prisma.admins.findUnique({
-          where: { id: decoded.id }
-        });
-
-        if (admin) {
-          userRecord = admin;
-        } else {
-          // Check users table (for internal admin users and customer users)
-          userRecord = await prisma.users.findUnique({
-            where: { id: decoded.id },
-            select: {
-              id: true,
-              customerId: true,
-              updatedAt: true,
-              role: true,
-              permissions: true,
-              customer_users: {
-                select: {
-                  customerId: true,
-                  role: true,
-                  isActive: true,
-                }
+        // Check users table (all users including internal admins are stored here)
+        const userRecord = await prisma.users.findUnique({
+          where: { id: decoded.id },
+          select: {
+            id: true,
+            customerId: true,
+            updatedAt: true,
+            role: true,
+            permissions: true,
+            customer_users: {
+              select: {
+                customerId: true,
+                role: true,
+                isActive: true,
               }
             }
-          });
-        }
+          }
+        });
 
         if (userRecord) {
-          const isFromUsersTable = !admin;
-          const isInternalAdmin = isFromUsersTable && userRecord.customerId === null;
+          const isInternalAdmin = userRecord.customerId === null;
           const membership = Array.isArray((userRecord as any).customer_users) ? (userRecord as any).customer_users[0] : null;
-          const isCustomerUser = !!membership || (isFromUsersTable && userRecord.customerId !== null);
+          const isCustomerUser = !!membership || userRecord.customerId !== null;
 
           // Enrich req.user from membership when present
           if (membership && req.user) {
             req.user.customerId = membership.customerId;
             req.user.role = membership.role || req.user.role;
-          } else if (isFromUsersTable && req.user) {
+          } else if (req.user) {
             req.user.customerId = (userRecord as any).customerId ?? null;
           }
 
@@ -144,36 +131,8 @@ export const adminOnly = async (
       return res.status(403).json({ error: 'Access denied. Admin only.' });
     }
 
-    // DATABASE CHECK (with graceful fallback if table doesn't exist)
-    // Check if user is a Super Admin (from admins table)
-    let admin: any = null;
-    try {
-      admin = await prisma.admins.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          email: true,
-          isActive: true,
-          role: true
-        }
-      });
-    } catch (e: any) {
-      console.warn('⚠️ Admin lookup skipped (admins table may be missing):', e?.message || e);
-      admin = null;
-    }
-
-    if (admin) {
-      // Enforce active status for Super Admins
-      if (admin.isActive === false) {
-        console.log('❌ Admin access denied: Super Admin inactive -', admin.email);
-        return res.status(403).json({ error: 'Account is inactive' });
-      }
-      // Super Admin has access
-      console.log('✅ Admin access granted: Super Admin -', admin.email);
-      return next();
-    }
-
-    // Check if user is an Internal Admin User (from users table with customerId = null)
+    // DATABASE CHECK - All users (including internal admins) are in the users table
+    // Internal admins have customerId = null and admin-type roles
     let internalUser: any = null;
     try {
       internalUser = await prisma.users.findUnique({

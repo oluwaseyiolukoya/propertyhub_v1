@@ -23,20 +23,9 @@ model activity_logs {
   users       users?     @relation(fields: [userId], references: [id])
 }
 
-model admins {
-  id                     String                    @id
-  email                  String                    @unique
-  password               String
-  name                   String
-  role                   String                    @default("super_admin")
-  isActive               Boolean                   @default(true)
-  createdAt              DateTime                  @default(now())
-  updatedAt              DateTime
-  lastLogin              DateTime?
-  reviewed_applications  onboarding_applications[] @relation("reviewed_by")
-  approved_applications  onboarding_applications[] @relation("approved_by")
-  activated_applications onboarding_applications[] @relation("activated_by")
-}
+// Note: Admin users are stored in the 'users' table with customerId = null
+// The separate 'admins' model has been removed in favor of a unified users table
+// Internal admin roles: super_admin, admin, support, finance, operations
 
 model onboarding_applications {
   id                   String     @id @default(uuid())
@@ -84,9 +73,9 @@ model onboarding_applications {
   activationEmailSentAt DateTime?
   createdAt            DateTime   @default(now())
   updatedAt            DateTime   @updatedAt
-  reviewer             admins?    @relation("reviewed_by", fields: [reviewedBy], references: [id])
-  approver             admins?    @relation("approved_by", fields: [approvedBy], references: [id])
-  activator            admins?    @relation("activated_by", fields: [activatedBy], references: [id])
+  reviewer             users?     @relation("reviewed_by", fields: [reviewedBy], references: [id])
+  approver             users?     @relation("approved_by", fields: [approvedBy], references: [id])
+  activator            users?     @relation("activated_by", fields: [activatedBy], references: [id])
   customer             customers? @relation(fields: [customerId], references: [id])
   plan                 plans?     @relation(fields: [selectedPlanId], references: [id])
 
@@ -803,6 +792,10 @@ model users {
   email_queue                                                                   email_queue[]
   notification_templates                                                        notification_templates[]
   notification_logs                                                             notification_logs[]
+  // Admin relations for onboarding applications
+  reviewed_applications                                                         onboarding_applications[] @relation("reviewed_by")
+  approved_applications                                                         onboarding_applications[] @relation("approved_by")
+  activated_applications                                                        onboarding_applications[] @relation("activated_by")
 }
 
 model maintenance_requests {

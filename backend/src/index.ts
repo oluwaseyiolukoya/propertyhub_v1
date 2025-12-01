@@ -308,12 +308,17 @@ app.get("/api/_diag/db", async (req: Request, res: Response) => {
   try {
     // Basic connectivity
     await prisma.$queryRaw`SELECT 1`;
-    // Try to introspect a few critical tables, but ignore if not present
-    let adminsCount: number | null = null;
+    // Try to count internal admin users (customerId = null with admin roles)
+    let internalAdminsCount: number | null = null;
     try {
-      adminsCount = await prisma.admins.count();
+      internalAdminsCount = await prisma.users.count({
+        where: {
+          customerId: null,
+          role: { in: ['super_admin', 'admin', 'support', 'finance', 'operations'] }
+        }
+      });
     } catch (e) {
-      adminsCount = null;
+      internalAdminsCount = null;
     }
     res.json({
       status: "ok",
@@ -321,7 +326,7 @@ app.get("/api/_diag/db", async (req: Request, res: Response) => {
       uptime: process.uptime(),
       database: {
         connected: true,
-        adminsCount,
+        internalAdminsCount,
       },
     });
   } catch (e: any) {

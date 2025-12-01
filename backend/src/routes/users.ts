@@ -46,12 +46,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
     // Try database first
     try {
-      // Fetch Super Admins from admins table
-      const admins = await prisma.admins.findMany({
-        orderBy: { createdAt: 'desc' }
-      });
-
-      // Fetch internal users from users table (where customerId is null)
+      // All internal admin users are in the users table with customerId = null
       const where: any = {
         customerId: null // ONLY internal admin users (not associated with customers)
       };
@@ -78,55 +73,15 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         orderBy: { createdAt: 'desc' }
       });
 
-      // Transform admins to match user structure
-      const transformedAdmins = admins.map(admin => ({
-        id: admin.id,
-        customerId: null,
-        name: admin.name,
-        email: admin.email,
-        phone: admin.phone || '',
-        role: 'Super Admin', // Distinguish from regular admin users
-        department: 'Administration',
-        company: 'Contrezz Admin',
-        isActive: true,
-        status: 'active',
-        lastLogin: admin.lastLogin,
-        invitedAt: null,
-        acceptedAt: null,
-        permissions: [],
-        createdAt: admin.createdAt,
-        updatedAt: admin.updatedAt,
-        isSuperAdmin: true // Flag to identify super admins
-      }));
-
-      // Remove passwords from internal users
+      // Remove passwords and add isSuperAdmin flag based on role
       const usersWithoutPassword = internalUsers.map(({ password, ...user }) => ({
         ...user,
-        isSuperAdmin: false
+        isSuperAdmin: ['super_admin', 'admin'].includes(user.role?.toLowerCase() || '')
       }));
 
-      // Combine both lists
-      const allUsers = [...transformedAdmins, ...usersWithoutPassword];
+      console.log('✅ Internal admin users fetched:', usersWithoutPassword.length);
 
-      // Apply search filter to super admins if needed
-      let filteredUsers = allUsers;
-      if (search) {
-        const searchLower = (search as string).toLowerCase();
-        filteredUsers = allUsers.filter(user =>
-          user.name.toLowerCase().includes(searchLower) ||
-          user.email.toLowerCase().includes(searchLower) ||
-          (user.department && user.department.toLowerCase().includes(searchLower)) ||
-          (user.company && user.company.toLowerCase().includes(searchLower))
-        );
-      }
-
-      console.log('✅ Users fetched:', {
-        superAdmins: transformedAdmins.length,
-        internalUsers: usersWithoutPassword.length,
-        total: filteredUsers.length
-      });
-
-      return res.json(filteredUsers);
+      return res.json(usersWithoutPassword);
     } catch (dbError: any) {
       // Database not available, return mock data
       console.log('📝 Using mock internal admin users data');
@@ -193,13 +148,10 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Missing required fields: name, email, role' });
     }
 
-    // Check if email already exists in users or admins
-    const [existingUser, existingAdmin] = await Promise.all([
-      prisma.users.findUnique({ where: { email } }),
-      prisma.admins.findUnique({ where: { email } })
-    ]);
+    // Check if email already exists in users table
+    const existingUser = await prisma.users.findUnique({ where: { email } });
 
-    if (existingUser || existingAdmin) {
+    if (existingUser) {
       return res.status(400).json({ error: 'Email already exists' });
     }
 

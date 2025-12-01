@@ -23,12 +23,14 @@ router.post('/', async (req: Request, res: Response) => {
 
     console.log('[Forgot Password] Request for email:', email);
 
-    // Check if email exists across all user tables
+    // Check if email exists across user tables
+    // Note: All users (including internal admins) are stored in the 'users' table
+    // Internal admins have customerId = null and role like 'super_admin', 'admin', etc.
     let account: any = null;
     let accountType: string = '';
     let tableName: string = '';
 
-    // 1. Check users table
+    // 1. Check users table (includes all user types: admins, owners, managers, tenants, developers)
     const user = await prisma.users.findUnique({
       where: { email: email.toLowerCase() },
       select: {
@@ -36,39 +38,22 @@ router.post('/', async (req: Request, res: Response) => {
         email: true,
         name: true,
         role: true,
-        isActive: true
+        isActive: true,
+        customerId: true
       }
     });
 
     if (user) {
       account = user;
-      accountType = 'User';
+      // Determine account type based on role and customerId
+      const isInternalAdmin = user.customerId === null &&
+        ['super_admin', 'admin', 'support', 'finance', 'operations'].includes(user.role?.toLowerCase() || '');
+      accountType = isInternalAdmin ? 'Admin' : 'User';
       tableName = 'users';
-      console.log('[Forgot Password] Found in users table, role:', user.role);
+      console.log('[Forgot Password] Found in users table, role:', user.role, ', isInternalAdmin:', isInternalAdmin);
     }
 
-    // 2. Check admins table
-    if (!account) {
-      const admin = await prisma.admins.findUnique({
-        where: { email: email.toLowerCase() },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          role: true,
-          isActive: true
-        }
-      });
-
-      if (admin) {
-        account = admin;
-        accountType = 'Admin';
-        tableName = 'admins';
-        console.log('[Forgot Password] Found in admins table, role:', admin.role);
-      }
-    }
-
-    // 3. Check customers table
+    // 2. Check customers table
     if (!account) {
       const customer = await prisma.customers.findUnique({
         where: { email: email.toLowerCase() },
@@ -148,14 +133,8 @@ router.post('/', async (req: Request, res: Response) => {
     try {
       switch (tableName) {
         case 'users':
+          // All users (including internal admins) are in the users table
           await prisma.users.update({
-            where: { id: account.id },
-            data: { password: hashedPassword }
-          });
-          break;
-
-        case 'admins':
-          await prisma.admins.update({
             where: { id: account.id },
             data: { password: hashedPassword }
           });
@@ -210,7 +189,7 @@ router.post('/', async (req: Request, res: Response) => {
       console.error('[Forgot Password] Error details:', emailResult.error);
 
       // Rollback password change if email fails
-      if (tableName === 'users' || tableName === 'admins') {
+      if (tableName === 'users') {
         // Note: In production, you might want to keep the old password or handle this differently
         console.log('[Forgot Password] Email failed - temporary password set but not delivered');
       }

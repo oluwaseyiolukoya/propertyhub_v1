@@ -19,60 +19,13 @@ router.post('/login', async (req: Request, res: Response) => {
     // Database authentication ONLY
     try {
       // AUTO-DETECTION: When userType is not provided, check all tables automatically
-      // First check admin tables, then fall through to customer users
+      // All users (including internal admins) are stored in the 'users' table
+      // Internal admins have customerId = null
       if (!userType || userType === 'admin') {
         console.log('🔍 Admin login attempt:', { email, userType: userType || 'auto-detect' });
 
-        // First, try Super Admin table
-        const admin = await prisma.admins.findUnique({ where: { email } });
-        console.log('🔍 Super Admin found:', admin ? `Yes (${admin.email})` : 'No');
-
-        if (admin) {
-          const isValidPassword = await bcrypt.compare(password, admin.password);
-          console.log('🔍 Super Admin password valid:', isValidPassword);
-
-          if (!isValidPassword) {
-            console.log('❌ Invalid password for Super Admin');
-            return res.status(401).json({ error: 'Invalid credentials' });
-          }
-
-          // Block inactive super admins
-          if (admin.isActive === false) {
-            console.log('❌ Super Admin account inactive');
-            return res.status(403).json({ error: 'Account is inactive' });
-          }
-
-          // Update last login for Super Admin
-          try {
-            await prisma.admins.update({
-              where: { id: admin.id },
-              data: { lastLogin: new Date() }
-            });
-          } catch (e) {
-            console.warn('⚠️ Failed to update Super Admin lastLogin:', e);
-          }
-
-          const token = (jwt as any).sign(
-            { id: admin.id, email: admin.email, role: admin.role },
-            process.env.JWT_SECRET || 'secret',
-            { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
-          );
-
-          console.log('✅ Super Admin login successful');
-          return res.json({
-            token,
-            user: {
-              id: admin.id,
-              email: admin.email,
-              name: admin.name,
-              role: admin.role,
-              userType: 'admin'
-            }
-          });
-        }
-
-        // If not Super Admin, try Internal Admin Users (customerId = null)
-        console.log('🔍 Checking Internal Admin Users table...');
+        // Check Internal Admin Users (customerId = null) in users table
+        console.log('🔍 Checking users table for internal admin...');
         const internalUser = await prisma.users.findUnique({
           where: { email }
         });
@@ -528,25 +481,7 @@ router.get('/validate-session', authMiddleware, async (req: AuthRequest, res: Re
       });
     }
 
-    // 1) Check Super Admins table
-    const admin = await prisma.admins.findUnique({
-      where: { id: tokenUser.id },
-      select: { isActive: true }
-    });
-
-    if (admin) {
-      if (!admin.isActive) {
-        return res.status(403).json({
-          valid: false,
-          reason: 'Your account has been deactivated',
-          forceLogout: true
-        });
-      }
-      // Super admins are valid if active
-      return res.json({ valid: true });
-    }
-
-    // 2) Check Users table (internal admins and customer users)
+    // Check Users table (all users including internal admins are stored here)
     const dbUser = await prisma.users.findUnique({
       where: { id: tokenUser.id },
       select: {
@@ -614,21 +549,6 @@ router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) =
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // If token belongs to Super Admin, return admin account info
-    const admin = await prisma.admins.findUnique({ where: { id: userId } });
-    if (admin) {
-      return res.json({
-        user: {
-          id: admin.id,
-          name: admin.name,
-          email: admin.email,
-          role: admin.role,
-          status: admin.isActive ? 'active' : 'inactive'
-        },
-        customer: null
-      });
-    }
-
     // Fetch user with customer details (internal admin users and customer users)
     const user = await prisma.users.findUnique({
       where: { id: userId },
@@ -645,7 +565,26 @@ router.get('/account', authMiddleware, async (req: AuthRequest, res: Response) =
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Return relevant account information
+    // Handle internal admin users (customerId = null)
+    // Internal admin roles: super_admin, admin, support, finance, operations
+    if (!user.customerId) {
+      const isInternalAdmin = ['super_admin', 'admin', 'support', 'finance', 'operations'].includes(user.role?.toLowerCase() || '');
+      return res.json({
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          status: user.isActive ? 'active' : 'inactive',
+          userType: isInternalAdmin ? 'admin' : user.role
+        },
+        customer: null,
+        isOwner: false,
+        permissions: user.permissions || {}
+      });
+    }
+
+    // Return relevant account information for customer users
     const customer = (user as any).customers || null;
     const plan = customer?.plans || null;
 
