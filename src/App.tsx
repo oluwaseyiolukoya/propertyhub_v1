@@ -1,34 +1,42 @@
-import React, { useState, useEffect } from 'react';
-import { LandingPage } from './components/LandingPage';
-import { GetStartedPage } from './components/GetStartedPage';
-import { AccountUnderReviewPage } from './components/AccountUnderReviewPage';
-import { ApplicationStatusPage } from './components/ApplicationStatusPage';
-import { APIDocumentation } from './components/APIDocumentation';
-import { IntegrationsPage } from './components/IntegrationsPage';
-import { AboutPage } from './components/AboutPage';
-import { ContactPage } from './components/ContactPage';
-import { ScheduleDemoPage } from './components/ScheduleDemoPage';
-import { BlogPage } from './components/BlogPage';
-import { CareersPage } from './components/CareersPage';
-import { HelpCenterPage } from './components/HelpCenterPage';
-import { CommunityPage } from './components/CommunityPage';
-import { NewDiscussionPage } from './components/NewDiscussionPage';
-import { StatusPage } from './components/StatusPage';
-import { SecurityPage } from './components/SecurityPage';
-import { LoginPage } from './components/LoginPage';
-import { PropertyOwnerDashboard } from './components/PropertyOwnerDashboard';
-import { SuperAdminDashboard } from './components/SuperAdminDashboard';
-import { PropertyManagerDashboard } from './components/PropertyManagerDashboard';
-import TenantDashboard from './components/TenantDashboard';
-import { DeveloperDashboardRefactored } from './modules/developer-dashboard';
-import { Toaster } from './components/ui/sonner';
-import { toast } from 'sonner';
-import { getUserData, getUserType, removeAuthToken, verifyToken } from './lib/api';
-import { setupActiveSessionValidation } from './lib/sessionValidator';
-import { getAccountInfo } from './lib/api/auth';
-import { sessionManager } from './lib/sessionManager';
-import { initializeSocket } from './lib/socket';
-import { safeStorage } from './lib/safeStorage';
+import React, { useState, useEffect } from "react";
+import { LandingPage } from "./components/LandingPage";
+import { GetStartedPage } from "./components/GetStartedPage";
+import { AccountUnderReviewPage } from "./components/AccountUnderReviewPage";
+import { ApplicationStatusPage } from "./components/ApplicationStatusPage";
+import { APIDocumentation } from "./components/APIDocumentation";
+import { IntegrationsPage } from "./components/IntegrationsPage";
+import { AboutPage } from "./components/AboutPage";
+import { ContactPage } from "./components/ContactPage";
+import { ScheduleDemoPage } from "./components/ScheduleDemoPage";
+import { BlogPage } from "./components/BlogPage";
+import { CareersPage } from "./components/CareersPage";
+import { HelpCenterPage } from "./components/HelpCenterPage";
+import { CommunityPage } from "./components/CommunityPage";
+import { NewDiscussionPage } from "./components/NewDiscussionPage";
+import { StatusPage } from "./components/StatusPage";
+import { SecurityPage } from "./components/SecurityPage";
+import { LoginPage } from "./components/LoginPage";
+import { PropertyOwnerDashboard } from "./components/PropertyOwnerDashboard";
+import { SuperAdminDashboard } from "./components/SuperAdminDashboard";
+import { PropertyManagerDashboard } from "./components/PropertyManagerDashboard";
+import TenantDashboard from "./components/TenantDashboard";
+import { DeveloperDashboardRefactored } from "./modules/developer-dashboard";
+import { Toaster } from "./components/ui/sonner";
+import { toast } from "sonner";
+import {
+  getUserData,
+  getUserType,
+  removeAuthToken,
+  verifyToken,
+} from "./lib/api";
+import {
+  setupActiveSessionValidation,
+  checkSessionValidity,
+} from "./lib/sessionValidator";
+import { getAccountInfo } from "./lib/api/auth";
+import { sessionManager } from "./lib/sessionManager";
+import { initializeSocket } from "./lib/socket";
+import { safeStorage } from "./lib/safeStorage";
 import {
   getManagers as apiGetManagers,
   createManager as apiCreateManager,
@@ -36,18 +44,18 @@ import {
   removeManagerFromProperty as apiRemoveManagerFromProperty,
   updateManager as apiUpdateManager,
   deactivateManager as apiDeactivateManager,
-} from './lib/api/property-managers';
-import { usePlatformBranding } from './hooks/usePlatformBranding';
-import StorageTest from './components/StorageTest';
-import CheckAuth from './components/CheckAuth';
-import { verifyUpgrade } from './lib/api/subscriptions';
-import { KYCVerificationPage } from './components/KYCVerificationPage';
+} from "./lib/api/property-managers";
+import { usePlatformBranding } from "./hooks/usePlatformBranding";
+import StorageTest from "./components/StorageTest";
+import CheckAuth from "./components/CheckAuth";
+import { verifyUpgrade } from "./lib/api/subscriptions";
+import { KYCVerificationPage } from "./components/KYCVerificationPage";
 
 function App() {
   // Load platform branding (logo and favicon)
   usePlatformBranding();
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [userType, setUserType] = useState<string>('');
+  const [userType, setUserType] = useState<string>("");
   const [customerData, setCustomerData] = useState<any>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [showLanding, setShowLanding] = useState(true);
@@ -69,7 +77,11 @@ function App() {
   const [showSecurity, setShowSecurity] = useState(false);
   const [showStorageTest, setShowStorageTest] = useState(false);
   const [showCheckAuth, setShowCheckAuth] = useState(false);
-  const [signupData, setSignupData] = useState<{ role: string; email: string; name: string } | null>(null);
+  const [signupData, setSignupData] = useState<{
+    role: string;
+    email: string;
+    name: string;
+  } | null>(null);
 
   // Managers and assignments loaded from backend
   const [managers, setManagers] = useState<any[]>([]);
@@ -86,9 +98,9 @@ function App() {
         const response = await verifyToken();
         if (response.data && response.data.valid) {
           // Hydrate latest user info and correct userType from backend if needed
-          console.log('[App] ========== CHECKING AUTH ON MOUNT ==========');
+          console.log("[App] ========== CHECKING AUTH ON MOUNT ==========");
           const acct = await getAccountInfo();
-          console.log('[App] Account response on mount:', {
+          console.log("[App] Account response on mount:", {
             hasError: !!acct.error,
             hasData: !!acct.data,
             error: acct.error,
@@ -96,7 +108,10 @@ function App() {
 
           // Check for KYC error in response
           if (acct.error?.kycRequired) {
-            console.log('[App] ✅ KYC required on mount (from error), showing verification page. Status:', acct.error.kycStatus);
+            console.log(
+              "[App] ✅ KYC required on mount (from error), showing verification page. Status:",
+              acct.error.kycStatus
+            );
             setCurrentUser(storedUser);
             const derivedType = deriveUserTypeFromUser(storedUser);
             setUserType(derivedType || storedUserType);
@@ -106,7 +121,9 @@ function App() {
             return;
           }
 
-          const refreshedUser = acct.data?.user ? { ...storedUser, ...acct.data.user } : storedUser;
+          const refreshedUser = acct.data?.user
+            ? { ...storedUser, ...acct.data.user }
+            : storedUser;
           const customer = acct.data?.customer;
 
           setCurrentUser(refreshedUser);
@@ -115,21 +132,23 @@ function App() {
           // Prefer backend-provided userType, then fall back to derived
           const backendUserType = (acct.data?.user as any)?.userType;
           const derivedType = deriveUserTypeFromUser(refreshedUser);
-          const finalType = backendUserType || derivedType || storedUserType || '';
+          const finalType =
+            backendUserType || derivedType || storedUserType || "";
           setUserType(finalType);
 
-          console.log('[App] ========== CUSTOMER DATA ON MOUNT ==========');
-          console.log('📦 Customer exists:', !!customer);
-          console.log('📦 Customer ID:', customer?.id);
-          console.log('📦 Customer KYC Status:', customer?.kycStatus);
-          console.log('📦 Customer Requires KYC:', customer?.requiresKyc);
-          console.log('📦 Final User Type:', finalType);
-          console.log('[App] ================================================');
+          console.log("[App] ========== CUSTOMER DATA ON MOUNT ==========");
+          console.log("📦 Customer exists:", !!customer);
+          console.log("📦 Customer ID:", customer?.id);
+          console.log("📦 Customer KYC Status:", customer?.kycStatus);
+          console.log("📦 Customer Requires KYC:", customer?.requiresKyc);
+          console.log("📦 Final User Type:", finalType);
+          console.log("[App] ================================================");
 
           // Check if KYC required and not completed
           // For tenants: KYC is at user level. For others: at customer level.
           const user = acct.data?.user;
-          const isTenant = user?.role?.toLowerCase() === 'tenant' || finalType === 'tenant';
+          const isTenant =
+            user?.role?.toLowerCase() === "tenant" || finalType === "tenant";
 
           // Valid completed statuses: 'verified' (auto) or 'manually_verified' (admin)
           let needsKyc = false;
@@ -137,23 +156,25 @@ function App() {
           if (isTenant) {
             // Tenant KYC check - at user level
             // For tenants, owner_approved is also a valid completed KYC status
-            needsKyc = user?.requiresKyc &&
-                user?.kycStatus !== 'verified' &&
-                user?.kycStatus !== 'manually_verified' &&
-                user?.kycStatus !== 'owner_approved';
+            needsKyc =
+              user?.requiresKyc &&
+              user?.kycStatus !== "verified" &&
+              user?.kycStatus !== "manually_verified" &&
+              user?.kycStatus !== "owner_approved";
 
-            console.log('[App] Tenant KYC Check on mount:', {
+            console.log("[App] Tenant KYC Check on mount:", {
               requiresKyc: user?.requiresKyc,
               kycStatus: user?.kycStatus,
               needsKyc: needsKyc,
             });
           } else {
             // Non-tenant KYC check - at customer level
-            needsKyc = customer?.requiresKyc &&
-                customer?.kycStatus !== 'verified' &&
-                customer?.kycStatus !== 'manually_verified';
+            needsKyc =
+              customer?.requiresKyc &&
+              customer?.kycStatus !== "verified" &&
+              customer?.kycStatus !== "manually_verified";
 
-            console.log('[App] Customer KYC Check on mount:', {
+            console.log("[App] Customer KYC Check on mount:", {
               requiresKyc: customer?.requiresKyc,
               kycStatus: customer?.kycStatus,
               needsKyc: needsKyc,
@@ -162,17 +183,22 @@ function App() {
 
           if (needsKyc) {
             const kycStatus = isTenant ? user?.kycStatus : customer?.kycStatus;
-            console.log('[App] ✅ KYC required on mount, showing verification page. Status:', kycStatus);
+            console.log(
+              "[App] ✅ KYC required on mount, showing verification page. Status:",
+              kycStatus
+            );
             setShowKYCVerification(true);
             setShowLanding(false);
             setIsAuthChecking(false);
             return;
           } else {
-            console.log('[App] ❌ KYC NOT required or already completed on mount, proceeding to dashboard');
+            console.log(
+              "[App] ❌ KYC NOT required or already completed on mount, proceeding to dashboard"
+            );
           }
 
           // Load managers if owner
-          if (finalType === 'owner' || finalType === 'property-owner') {
+          if (finalType === "owner" || finalType === "property-owner") {
             await loadManagers();
           }
         } else {
@@ -188,9 +214,9 @@ function App() {
 
   // Check for special test routes
   useEffect(() => {
-    if (window.location.pathname === '/storage-test') {
+    if (window.location.pathname === "/storage-test") {
       setShowStorageTest(true);
-    } else if (window.location.pathname === '/check-auth') {
+    } else if (window.location.pathname === "/check-auth") {
       setShowCheckAuth(true);
     }
   }, []);
@@ -198,12 +224,15 @@ function App() {
   // Ensure socket is connected for all authenticated users (tenant, owner, manager, admin)
   useEffect(() => {
     if (!currentUser) return;
-    const token = safeStorage.getItem('auth_token');
+    const token = safeStorage.getItem("auth_token");
     if (token) {
       // Initialize socket asynchronously without blocking the app
       initializeSocket(token).catch((error) => {
         // Silently handle socket initialization errors - app works without WebSocket
-        console.debug('WebSocket initialization skipped:', error?.message || 'Server unavailable');
+        console.debug(
+          "WebSocket initialization skipped:",
+          error?.message || "Server unavailable"
+        );
       });
     }
   }, [currentUser]);
@@ -211,48 +240,83 @@ function App() {
   // Handle Paystack redirect: ?payment_ref=...
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const paymentRef = params.get('payment_ref');
+    const paymentRef = params.get("payment_ref");
     if (!paymentRef || !currentUser) return;
     // Query backend for status and notify
     const fetchStatus = async () => {
       try {
         // Always verify with Paystack via backend to ensure accurate status
-        const verifyResp = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/payments/verify/${encodeURIComponent(paymentRef)}`, {
-          headers: { Authorization: `Bearer ${safeStorage.getItem('auth_token') || ''}` },
-          cache: 'no-store',
-        });
+        const verifyResp = await fetch(
+          `${
+            import.meta.env.VITE_API_URL || "http://localhost:5000"
+          }/api/payments/verify/${encodeURIComponent(paymentRef)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${
+                safeStorage.getItem("auth_token") || ""
+              }`,
+            },
+            cache: "no-store",
+          }
+        );
         if (verifyResp.ok) {
           const v = await verifyResp.json();
-          if (v?.status === 'success') toast.success('Payment successful', { description: `Ref ${paymentRef}` });
-          else if (v?.status === 'failed') toast.error('Payment failed', { description: `Ref ${paymentRef}` });
-          else toast.info(`Payment ${v?.status || 'pending'}`, { description: `Ref ${paymentRef}` });
+          if (v?.status === "success")
+            toast.success("Payment successful", {
+              description: `Ref ${paymentRef}`,
+            });
+          else if (v?.status === "failed")
+            toast.error("Payment failed", { description: `Ref ${paymentRef}` });
+          else
+            toast.info(`Payment ${v?.status || "pending"}`, {
+              description: `Ref ${paymentRef}`,
+            });
           // Broadcast browser event so pages can refresh immediately
-          window.dispatchEvent(new CustomEvent('payment:updated', { detail: { reference: paymentRef, status: v?.status } }));
+          window.dispatchEvent(
+            new CustomEvent("payment:updated", {
+              detail: { reference: paymentRef, status: v?.status },
+            })
+          );
         } else {
           // Fallback to local record if verification failed
-          const resp = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/payments/by-reference/${encodeURIComponent(paymentRef)}`, {
-          headers: { Authorization: `Bearer ${safeStorage.getItem('auth_token') || ''}` },
-          cache: 'no-store',
-        });
+          const resp = await fetch(
+            `${
+              import.meta.env.VITE_API_URL || "http://localhost:5000"
+            }/api/payments/by-reference/${encodeURIComponent(paymentRef)}`,
+            {
+              headers: {
+                Authorization: `Bearer ${
+                  safeStorage.getItem("auth_token") || ""
+                }`,
+              },
+              cache: "no-store",
+            }
+          );
           const data = await resp.json();
           if (resp.ok && data?.status) {
-          if (data.status === 'success') {
-            toast.success('Payment successful', { description: `Ref ${paymentRef}` });
-          } else if (data.status === 'failed') {
-            toast.error('Payment failed', { description: `Ref ${paymentRef}` });
+            if (data.status === "success") {
+              toast.success("Payment successful", {
+                description: `Ref ${paymentRef}`,
+              });
+            } else if (data.status === "failed") {
+              toast.error("Payment failed", {
+                description: `Ref ${paymentRef}`,
+              });
+            } else {
+              toast.info(`Payment ${data.status}`, {
+                description: `Ref ${paymentRef}`,
+              });
+            }
           } else {
-            toast.info(`Payment ${data.status}`, { description: `Ref ${paymentRef}` });
-          }
-          } else {
-            toast.error(data?.error || 'Unable to verify payment');
+            toast.error(data?.error || "Unable to verify payment");
           }
         }
       } catch (e: any) {
-        toast.error('Unable to verify payment');
+        toast.error("Unable to verify payment");
       } finally {
         // Clean URL
         const url = new URL(window.location.href);
-        url.searchParams.delete('payment_ref');
+        url.searchParams.delete("payment_ref");
         window.history.replaceState({}, document.title, url.toString());
       }
     };
@@ -268,44 +332,49 @@ function App() {
 
     const url = new URL(window.location.href);
     const pathname = url.pathname;
-    if (!pathname.includes('/upgrade/callback')) return;
+    if (!pathname.includes("/upgrade/callback")) return;
 
     const reference =
-      url.searchParams.get('reference') ||
-      sessionStorage.getItem('upgrade_reference');
+      url.searchParams.get("reference") ||
+      sessionStorage.getItem("upgrade_reference");
     if (!reference) return;
 
     const handleUpgradeCallback = async () => {
       try {
-        console.log('[App] Handling subscription upgrade callback with reference:', reference);
-        toast.info('Verifying subscription upgrade...');
+        console.log(
+          "[App] Handling subscription upgrade callback with reference:",
+          reference
+        );
+        toast.info("Verifying subscription upgrade...");
 
         const resp = await verifyUpgrade(reference);
-        console.log('[App] Upgrade verification response:', resp.data);
+        console.log("[App] Upgrade verification response:", resp.data);
 
         if (!resp.data?.success) {
-          throw new Error(resp.data?.message || 'Upgrade verification failed');
+          throw new Error(resp.data?.message || "Upgrade verification failed");
         }
 
         // Clear stored reference and clean URL
-        sessionStorage.removeItem('upgrade_reference');
-        sessionStorage.removeItem('upgrade_plan_id');
-        url.searchParams.delete('reference');
+        sessionStorage.removeItem("upgrade_reference");
+        sessionStorage.removeItem("upgrade_plan_id");
+        url.searchParams.delete("reference");
         window.history.replaceState({}, document.title, url.toString());
 
-        toast.success('Plan upgraded successfully! Reloading your dashboard...');
+        toast.success(
+          "Plan upgraded successfully! Reloading your dashboard..."
+        );
 
         // Full reload to ensure all dashboard components refetch subscription
         // and account data and immediately reflect the new plan/limits.
         setTimeout(() => {
-          window.location.href = '/developer/settings?tab=billing';
+          window.location.href = "/developer/settings?tab=billing";
         }, 1500);
       } catch (error: any) {
-        console.error('[App] Subscription upgrade verification error:', error);
+        console.error("[App] Subscription upgrade verification error:", error);
         const message =
           error?.response?.data?.error ||
           error?.message ||
-          'Failed to verify subscription upgrade';
+          "Failed to verify subscription upgrade";
         toast.error(message);
       }
     };
@@ -317,58 +386,82 @@ function App() {
   useEffect(() => {
     // Session manager is automatically initialized
     // Sessions will persist across page refreshes using localStorage
-    console.log('🔐 Session manager initialized - sessions will persist across page refreshes');
+    console.log(
+      "🔐 Session manager initialized - sessions will persist across page refreshes"
+    );
   }, []);
 
   // Listen for permissions update and account blocked events
   useEffect(() => {
     const handlePermissionsUpdated = (event: any) => {
-      const message = event.detail?.message || 'Your permissions have been updated. Please log in again.';
+      const message =
+        event.detail?.message ||
+        "Your permissions have been updated. Please log in again.";
       toast.warning(message, {
         duration: 5000,
-        description: 'You will be redirected to the login page shortly.',
+        description: "You will be redirected to the login page shortly.",
       });
     };
     const handleAccountBlocked = (event: any) => {
-      const message = event.detail?.message || 'Your account has been deactivated.';
+      const message =
+        event.detail?.message || "Your account has been deactivated.";
       toast.error(message, {
         duration: 4000,
       });
       // Force logout immediately
       sessionManager.clearSessionManually();
       setCurrentUser(null);
-      setUserType('');
+      setUserType("");
     };
 
-    window.addEventListener('permissionsUpdated', handlePermissionsUpdated);
-    window.addEventListener('accountBlocked', handleAccountBlocked);
+    // Handle session revoked event
+    const handleSessionRevoked = (event: any) => {
+      const message =
+        event.detail?.message ||
+        "Your session has been revoked. Please log in again.";
+      toast.error(message, {
+        duration: 4000,
+      });
+      // Force logout immediately
+      sessionManager.clearSessionManually();
+      setCurrentUser(null);
+      setUserType("");
+    };
+
+    window.addEventListener("permissionsUpdated", handlePermissionsUpdated);
+    window.addEventListener("accountBlocked", handleAccountBlocked);
+    window.addEventListener("sessionRevoked", handleSessionRevoked);
 
     return () => {
-      window.removeEventListener('permissionsUpdated', handlePermissionsUpdated);
-      window.removeEventListener('accountBlocked', handleAccountBlocked);
+      window.removeEventListener(
+        "permissionsUpdated",
+        handlePermissionsUpdated
+      );
+      window.removeEventListener("accountBlocked", handleAccountBlocked);
+      window.removeEventListener("sessionRevoked", handleSessionRevoked);
     };
   }, []);
 
   const handleLogin = async (type: string, userData: any) => {
-    console.log('🔐 Login - Initial Type:', type);
-    console.log('👤 User Data:', userData);
-    console.log('📋 User Role:', userData?.role);
-    console.log('🏢 Customer ID:', userData?.customerId);
-    console.log('🎯 UserType from backend:', userData?.userType);
+    console.log("🔐 Login - Initial Type:", type);
+    console.log("👤 User Data:", userData);
+    console.log("📋 User Role:", userData?.role);
+    console.log("🏢 Customer ID:", userData?.customerId);
+    console.log("🎯 UserType from backend:", userData?.userType);
 
     setCurrentUser(userData);
     const derivedType = deriveUserTypeFromUser(userData);
     const finalType = userData?.userType || derivedType || type;
 
-    console.log('🔍 Derived Type:', derivedType);
-    console.log('✅ Final UserType:', finalType);
+    console.log("🔍 Derived Type:", derivedType);
+    console.log("✅ Final UserType:", finalType);
 
     setUserType(finalType);
 
     // Fetch customer data to check plan category and KYC status
-    console.log('[App] ========== FETCHING ACCOUNT INFO ==========');
+    console.log("[App] ========== FETCHING ACCOUNT INFO ==========");
     const acct = await getAccountInfo();
-    console.log('[App] Account response:', {
+    console.log("[App] Account response:", {
       hasError: !!acct.error,
       hasData: !!acct.data,
       error: acct.error,
@@ -376,7 +469,10 @@ function App() {
 
     // Check for KYC error in response
     if (acct.error?.kycRequired) {
-      console.log('[App] ✅ KYC required after login (from error), showing verification page. Status:', acct.error.kycStatus);
+      console.log(
+        "[App] ✅ KYC required after login (from error), showing verification page. Status:",
+        acct.error.kycStatus
+      );
       setShowKYCVerification(true);
       setShowLanding(false);
       return; // Don't proceed to dashboard
@@ -384,19 +480,20 @@ function App() {
 
     const customer = acct.data?.customer;
     setCustomerData(customer || null);
-    console.log('[App] ========== CUSTOMER DATA ==========');
-    console.log('📦 Customer exists:', !!customer);
-    console.log('📦 Customer ID:', customer?.id);
-    console.log('📦 Customer Plan Category:', customer?.plan?.category);
-    console.log('📦 Customer KYC Status:', customer?.kycStatus);
-    console.log('📦 Customer Requires KYC:', customer?.requiresKyc);
-    console.log('[App] ========================================');
+    console.log("[App] ========== CUSTOMER DATA ==========");
+    console.log("📦 Customer exists:", !!customer);
+    console.log("📦 Customer ID:", customer?.id);
+    console.log("📦 Customer Plan Category:", customer?.plan?.category);
+    console.log("📦 Customer KYC Status:", customer?.kycStatus);
+    console.log("📦 Customer Requires KYC:", customer?.requiresKyc);
+    console.log("[App] ========================================");
 
     // Check if KYC required and not completed
     // For tenants: KYC is at user level (from acct.data.user)
     // For others: KYC is at customer level (from acct.data.customer)
     const user = acct.data?.user;
-    const isTenant = user?.role?.toLowerCase() === 'tenant' || finalType === 'tenant';
+    const isTenant =
+      user?.role?.toLowerCase() === "tenant" || finalType === "tenant";
 
     // Valid completed statuses: 'verified' (auto) or 'manually_verified' (admin)
     let needsKyc = false;
@@ -404,23 +501,25 @@ function App() {
     if (isTenant) {
       // Tenant KYC check - at user level
       // For tenants, owner_approved is also a valid completed KYC status
-      needsKyc = user?.requiresKyc &&
-          user?.kycStatus !== 'verified' &&
-          user?.kycStatus !== 'manually_verified' &&
-          user?.kycStatus !== 'owner_approved';
+      needsKyc =
+        user?.requiresKyc &&
+        user?.kycStatus !== "verified" &&
+        user?.kycStatus !== "manually_verified" &&
+        user?.kycStatus !== "owner_approved";
 
-      console.log('[App] Tenant KYC Check:', {
+      console.log("[App] Tenant KYC Check:", {
         requiresKyc: user?.requiresKyc,
         kycStatus: user?.kycStatus,
         needsKyc: needsKyc,
       });
     } else {
       // Non-tenant KYC check - at customer level
-      needsKyc = customer?.requiresKyc &&
-          customer?.kycStatus !== 'verified' &&
-          customer?.kycStatus !== 'manually_verified';
+      needsKyc =
+        customer?.requiresKyc &&
+        customer?.kycStatus !== "verified" &&
+        customer?.kycStatus !== "manually_verified";
 
-      console.log('[App] Customer KYC Check:', {
+      console.log("[App] Customer KYC Check:", {
         requiresKyc: customer?.requiresKyc,
         kycStatus: customer?.kycStatus,
         needsKyc: needsKyc,
@@ -429,27 +528,32 @@ function App() {
 
     if (needsKyc) {
       const kycStatus = isTenant ? user?.kycStatus : customer?.kycStatus;
-      console.log('[App] ✅ KYC required after login, showing verification page. Status:', kycStatus);
+      console.log(
+        "[App] ✅ KYC required after login, showing verification page. Status:",
+        kycStatus
+      );
       setShowKYCVerification(true);
       setShowLanding(false);
       return; // Don't proceed to dashboard
     } else {
-      console.log('[App] ❌ KYC NOT required or already completed, proceeding to dashboard');
+      console.log(
+        "[App] ❌ KYC NOT required or already completed, proceeding to dashboard"
+      );
     }
   };
 
   const handleLogout = () => {
     sessionManager.clearSessionManually();
     setCurrentUser(null);
-    setUserType('');
+    setUserType("");
     setCustomerData(null);
   };
 
   const handleBackToHome = () => {
     // Navigate to landing page
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
     setCurrentUser(null);
-    setUserType('');
+    setUserType("");
     setShowLanding(true);
     setShowGetStarted(false);
     setShowAccountReview(false);
@@ -470,7 +574,7 @@ function App() {
   };
 
   const handleNavigateToLogin = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
     setShowLanding(false);
     setShowGetStarted(false);
     setShowAccountReview(false);
@@ -489,7 +593,7 @@ function App() {
   };
 
   const handleNavigateToGetStarted = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
     setShowLanding(false);
     setShowGetStarted(true);
     setShowAccountReview(false);
@@ -509,7 +613,7 @@ function App() {
   };
 
   const handleNavigateToApplicationStatus = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
     setShowLanding(false);
     setShowGetStarted(false);
     setShowAccountReview(false);
@@ -529,7 +633,7 @@ function App() {
   };
 
   const handleNavigateToAPIDocumentation = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
     setShowLanding(false);
     setShowGetStarted(false);
     setShowAccountReview(false);
@@ -549,7 +653,7 @@ function App() {
   };
 
   const handleNavigateToIntegrations = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
     setShowLanding(false);
     setShowGetStarted(false);
     setShowAccountReview(false);
@@ -568,7 +672,7 @@ function App() {
   };
 
   const handleNavigateToAbout = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
     setShowLanding(false);
     setShowGetStarted(false);
     setShowAccountReview(false);
@@ -587,7 +691,7 @@ function App() {
   };
 
   const handleNavigateToContact = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
     setShowLanding(false);
     setShowGetStarted(false);
     setShowAccountReview(false);
@@ -606,7 +710,7 @@ function App() {
   };
 
   const handleNavigateToScheduleDemo = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
     setShowLanding(false);
     setShowGetStarted(false);
     setShowAccountReview(false);
@@ -625,7 +729,7 @@ function App() {
   };
 
   const handleNavigateToBlog = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
     setShowLanding(false);
     setShowGetStarted(false);
     setShowAccountReview(false);
@@ -644,7 +748,7 @@ function App() {
   };
 
   const handleNavigateToCareers = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
     setShowLanding(false);
     setShowGetStarted(false);
     setShowAccountReview(false);
@@ -663,7 +767,7 @@ function App() {
   };
 
   const handleNavigateToHelpCenter = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
     setShowLanding(false);
     setShowGetStarted(false);
     setShowAccountReview(false);
@@ -682,7 +786,7 @@ function App() {
   };
 
   const handleNavigateToCommunity = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
     setShowLanding(false);
     setShowGetStarted(false);
     setShowAccountReview(false);
@@ -701,7 +805,7 @@ function App() {
   };
 
   const handleNavigateToNewDiscussion = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
     setShowLanding(false);
     setShowGetStarted(false);
     setShowAccountReview(false);
@@ -720,7 +824,7 @@ function App() {
   };
 
   const handleNavigateToStatus = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
     setShowLanding(false);
     setShowGetStarted(false);
     setShowAccountReview(false);
@@ -738,7 +842,7 @@ function App() {
   };
 
   const handleNavigateToSecurity = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
     setShowLanding(false);
     setShowGetStarted(false);
     setShowAccountReview(false);
@@ -777,20 +881,54 @@ function App() {
   // Global active-session validation on any user interaction
   useEffect(() => {
     if (!currentUser) return;
-    const cleanup = setupActiveSessionValidation((reason) => {
-      toast.error(reason || 'Your account has been deactivated');
-      sessionManager.clearSessionManually();
-      setCurrentUser(null);
-      setUserType('');
-    });
+    const cleanup = setupActiveSessionValidation(
+      // onInvalidSession callback
+      (reason) => {
+        toast.error(reason || "Your account has been deactivated");
+        sessionManager.clearSessionManually();
+        setCurrentUser(null);
+        setUserType("");
+      },
+      // onRequiresKyc callback - redirect to KYC verification page
+      () => {
+        console.log("[App] KYC required - redirecting to verification page");
+        toast.info("Identity verification required");
+        setShowKYCVerification(true);
+        setShowLanding(false);
+      }
+    );
     return cleanup;
   }, [currentUser]);
 
+  // Periodic session validation to enforce KYC redirect without user interaction
+  useEffect(() => {
+    if (!currentUser) return;
+    const intervalId = setInterval(() => {
+      checkSessionValidity(
+        (reason) => {
+          toast.error(reason || "Your account has been deactivated");
+          sessionManager.clearSessionManually();
+          setCurrentUser(null);
+          setUserType("");
+        },
+        () => {
+          console.log(
+            "[App] Periodic check: KYC required - redirecting to verification page"
+          );
+          setShowKYCVerification(true);
+          setShowLanding(false);
+        }
+      );
+    }, 60000); // every 60s
+    return () => clearInterval(intervalId);
+  }, [currentUser]);
   // Helpers to map assignments from API managers into a flat list the UI can use
   const rebuildAssignmentsFromManagers = (mgrs: any[]) => {
     const flat = [] as any[];
     for (const m of mgrs) {
-      const assignments = Array.isArray(m.property_managers) ? m.property_managers : [];
+      const assignments = Array.isArray(m.property_managers)
+        ? m.property_managers
+        : [];
       for (const a of assignments) {
         flat.push({
           id: a.id || `${m.id}-${a.properties?.id}`,
@@ -808,60 +946,85 @@ function App() {
   // Load managers from backend
   const loadManagers = async () => {
     try {
-      console.log('🔄 Loading managers...');
+      console.log("🔄 Loading managers...");
       const res = await apiGetManagers();
-      console.log('📦 Managers response:', res);
+      console.log("📦 Managers response:", res);
       if (res.data) {
         console.log(`✅ Loaded ${res.data.length} managers`);
         setManagers(res.data);
         rebuildAssignmentsFromManagers(res.data);
       } else if (res.error) {
-        console.error('❌ Error loading managers:', res.error);
+        console.error("❌ Error loading managers:", res.error);
       }
     } catch (error) {
-      console.error('❌ Exception loading managers:', error);
+      console.error("❌ Exception loading managers:", error);
     }
   };
 
   // Manager management functions (now backed by API)
   const addManager = async (managerData: any) => {
     const res = await apiCreateManager(managerData);
-    if (res.error) throw new Error(res.error.error || 'Failed to create manager');
+    if (res.error)
+      throw new Error(res.error.error || "Failed to create manager");
     const created = res.data as any;
     // Preserve credentials shape expected by child component
-    const username = managerData.credentials?.username || (managerData.email?.split('@')[0] || 'user');
-    const tempPassword = managerData.credentials?.tempPassword || (created as any).tempPassword;
-    const managerWithCreds = { ...created, credentials: { username, tempPassword } };
+    const username =
+      managerData.credentials?.username ||
+      managerData.email?.split("@")[0] ||
+      "user";
+    const tempPassword =
+      managerData.credentials?.tempPassword || (created as any).tempPassword;
+    const managerWithCreds = {
+      ...created,
+      credentials: { username, tempPassword },
+    };
     await loadManagers();
     return managerWithCreds;
   };
 
-  const assignManager = async (managerId: string, propertyId: string, permissions?: any) => {
-    const res = await apiAssignManagerToProperty(managerId, propertyId, permissions);
-    if (res.error) throw new Error(res.error.error || 'Failed to assign manager');
+  const assignManager = async (
+    managerId: string,
+    propertyId: string,
+    permissions?: any
+  ) => {
+    const res = await apiAssignManagerToProperty(
+      managerId,
+      propertyId,
+      permissions
+    );
+    if (res.error)
+      throw new Error(res.error.error || "Failed to assign manager");
     await loadManagers();
   };
 
   const removeManager = async (managerId: string, propertyId: string) => {
     const res = await apiRemoveManagerFromProperty(managerId, propertyId);
-    if (res.error) throw new Error(res.error.error || 'Failed to remove manager');
+    if (res.error)
+      throw new Error(res.error.error || "Failed to remove manager");
     await loadManagers();
   };
 
   const updateManager = async (managerId: string, updates: any) => {
     const res = await apiUpdateManager(managerId, updates);
-    if (res.error) throw new Error(res.error.error || 'Failed to update manager');
+    if (res.error)
+      throw new Error(res.error.error || "Failed to update manager");
     await loadManagers();
   };
 
   const deactivateManager = async (managerId: string) => {
     const res = await apiDeactivateManager(managerId);
-    if (res.error) throw new Error(res.error.error || 'Failed to deactivate manager');
+    if (res.error)
+      throw new Error(res.error.error || "Failed to deactivate manager");
     await loadManagers();
   };
 
   // Debug: Log current state
-  console.log('Current State - UserType:', userType, 'CurrentUser:', currentUser);
+  console.log(
+    "Current State - UserType:",
+    userType,
+    "CurrentUser:",
+    currentUser
+  );
 
   // Show loading while checking auth
   if (isAuthChecking) {
@@ -1154,7 +1317,9 @@ function App() {
       <>
         <AccountUnderReviewPage
           onBackToHome={handleBackToHome}
-          userRole={signupData.role as 'property-owner' | 'property-manager' | 'tenant'}
+          userRole={
+            signupData.role as "property-owner" | "property-manager" | "tenant"
+          }
           userEmail={signupData.email}
           userName={signupData.name}
         />
@@ -1167,9 +1332,7 @@ function App() {
   if (!currentUser && showApplicationStatus) {
     return (
       <>
-        <ApplicationStatusPage
-          onBackToHome={handleBackToHome}
-        />
+        <ApplicationStatusPage onBackToHome={handleBackToHome} />
         <Toaster />
       </>
     );
@@ -1190,10 +1353,31 @@ function App() {
   }
 
   // Show login if no user but landing is dismissed
-  if (!currentUser && !showLanding && !showGetStarted && !showAccountReview && !showAPIDocumentation && !showIntegrations && !showAbout && !showContact && !showScheduleDemo && !showBlog && !showCareers && !showHelpCenter && !showCommunity && !showNewDiscussion && !showStatus && !showSecurity) {
+  if (
+    !currentUser &&
+    !showLanding &&
+    !showGetStarted &&
+    !showAccountReview &&
+    !showAPIDocumentation &&
+    !showIntegrations &&
+    !showAbout &&
+    !showContact &&
+    !showScheduleDemo &&
+    !showBlog &&
+    !showCareers &&
+    !showHelpCenter &&
+    !showCommunity &&
+    !showNewDiscussion &&
+    !showStatus &&
+    !showSecurity
+  ) {
     return (
       <>
-        <LoginPage onLogin={handleLogin} onBackToHome={handleBackToHome} onNavigateToScheduleDemo={handleNavigateToScheduleDemo} />
+        <LoginPage
+          onLogin={handleLogin}
+          onBackToHome={handleBackToHome}
+          onNavigateToScheduleDemo={handleNavigateToScheduleDemo}
+        />
         <Toaster />
       </>
     );
@@ -1242,20 +1426,28 @@ function App() {
   // IMPORTANT: Enforce KYC before rendering ANY customer dashboard
   // When showKYCVerification is true, we short-circuit and show ONLY the KYC page.
   // This must come BEFORE all dashboard conditions (owner, manager, tenant, developer).
-  if (showKYCVerification && currentUser && !(userType === 'admin' || userType === 'super-admin')) {
+  if (
+    showKYCVerification &&
+    currentUser &&
+    !(userType === "admin" || userType === "super-admin")
+  ) {
     return (
       <>
         <KYCVerificationPage
           onVerificationComplete={async () => {
-            console.log('[App] KYC verification complete, reloading account info...');
+            console.log(
+              "[App] KYC verification complete, reloading account info..."
+            );
             setShowKYCVerification(false);
             // Reload account info to get updated KYC status
             try {
               const acct = await getAccountInfo();
               setCustomerData(acct.data?.customer || null);
-              toast.success('Identity verification complete! Welcome to your dashboard.');
+              toast.success(
+                "Identity verification complete! Welcome to your dashboard."
+              );
             } catch (error) {
-              console.error('[App] Failed to reload account info:', error);
+              console.error("[App] Failed to reload account info:", error);
             }
           }}
         />
@@ -1265,7 +1457,7 @@ function App() {
   }
 
   // Show Owner Dashboard if property owner
-  if (userType === 'owner' || userType === 'property-owner') {
+  if (userType === "owner" || userType === "property-owner") {
     return (
       <>
         <PropertyOwnerDashboard
@@ -1286,20 +1478,17 @@ function App() {
   }
 
   // Show Super Admin Dashboard if super admin
-  if (userType === 'admin' || userType === 'super-admin') {
+  if (userType === "admin" || userType === "super-admin") {
     return (
       <>
-        <SuperAdminDashboard
-          user={currentUser}
-          onLogout={handleLogout}
-        />
+        <SuperAdminDashboard user={currentUser} onLogout={handleLogout} />
         <Toaster />
       </>
     );
   }
 
   // Show Property Manager Dashboard if property manager
-  if (userType === 'manager' || userType === 'property-manager') {
+  if (userType === "manager" || userType === "property-manager") {
     return (
       <>
         <PropertyManagerDashboard
@@ -1313,7 +1502,7 @@ function App() {
   }
 
   // Show Tenant Dashboard if tenant
-  if (userType === 'tenant') {
+  if (userType === "tenant") {
     return (
       <>
         <TenantDashboard />
@@ -1324,10 +1513,13 @@ function App() {
 
   // Show Developer Dashboard ONLY if user role is developer or property-developer
   // Property owners/managers with development plans should NOT be routed here
-  if (userType === 'developer' || userType === 'property-developer') {
+  if (userType === "developer" || userType === "property-developer") {
     return (
       <>
-        <DeveloperDashboardRefactored user={currentUser} onLogout={handleLogout} />
+        <DeveloperDashboardRefactored
+          user={currentUser}
+          onLogout={handleLogout}
+        />
         <Toaster />
       </>
     );
@@ -1360,47 +1552,56 @@ export default App;
 // Helpers
 function deriveUserTypeFromUser(user: any): string {
   if (!user) {
-    console.log('⚠️ deriveUserTypeFromUser: No user provided');
-    return '';
+    console.log("⚠️ deriveUserTypeFromUser: No user provided");
+    return "";
   }
 
-  const role = (user.role || '').toString().toLowerCase();
+  const role = (user.role || "").toString().toLowerCase();
   const isInternal = !user.customerId; // internal users have no customerId
 
-  console.log('🔍 deriveUserTypeFromUser:');
-  console.log('   - Original role:', user.role);
-  console.log('   - Normalized role:', role);
-  console.log('   - customerId:', user.customerId);
-  console.log('   - isInternal:', isInternal);
+  console.log("🔍 deriveUserTypeFromUser:");
+  console.log("   - Original role:", user.role);
+  console.log("   - Normalized role:", role);
+  console.log("   - customerId:", user.customerId);
+  console.log("   - isInternal:", isInternal);
 
   if (isInternal) {
-    console.log('   → Internal user detected');
-    if (role === 'super_admin' || role === 'super admin' || role === 'superadmin') return 'super-admin';
-    if (role === 'admin') return 'admin';
-    if (role === 'billing' || role === 'support' || role === 'analyst') return 'admin'; // internal dashboards
-    return 'admin';
+    console.log("   → Internal user detected");
+    if (
+      role === "super_admin" ||
+      role === "super admin" ||
+      role === "superadmin"
+    )
+      return "super-admin";
+    if (role === "admin") return "admin";
+    if (role === "billing" || role === "support" || role === "analyst")
+      return "admin"; // internal dashboards
+    return "admin";
   }
 
-  console.log('   → Customer user (has customerId)');
+  console.log("   → Customer user (has customerId)");
 
-  if (role === 'owner' || role === 'property owner') {
-    console.log('   → Matched: owner');
-    return 'owner';
+  if (role === "owner" || role === "property owner") {
+    console.log("   → Matched: owner");
+    return "owner";
   }
-  if (role === 'manager' || role === 'property manager') {
-    console.log('   → Matched: property-manager');
-    return 'property-manager';
+  if (role === "manager" || role === "property manager") {
+    console.log("   → Matched: property-manager");
+    return "property-manager";
   }
-  if (role === 'tenant') {
-    console.log('   → Matched: tenant');
-    return 'tenant';
+  if (role === "tenant") {
+    console.log("   → Matched: tenant");
+    return "tenant";
   }
-  if (role === 'developer' || role === 'property-developer' || role === 'property developer') {
-    console.log('   → Matched: developer');
-    return 'developer';
+  if (
+    role === "developer" ||
+    role === "property-developer" ||
+    role === "property developer"
+  ) {
+    console.log("   → Matched: developer");
+    return "developer";
   }
 
-  console.log('   → No match! Returning empty string');
-  return '';
+  console.log("   → No match! Returning empty string");
+  return "";
 }
-

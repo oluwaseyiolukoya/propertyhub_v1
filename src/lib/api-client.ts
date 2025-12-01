@@ -135,7 +135,7 @@ async function request<T>(
       }
     }
 
-    // Handle 401 Unauthorized - check for permissions update (unless suppressed)
+    // Handle 401 Unauthorized - check for permissions update or session revoked (unless suppressed)
     if (response.status === 401 && !extra?.suppressAuthRedirect) {
       if ((data as any)?.code === 'PERMISSIONS_UPDATED') {
         // Show a toast notification before redirecting
@@ -151,6 +151,17 @@ async function request<T>(
         }, 2000);
 
         throw new Error('Permissions updated');
+      } else if ((data as any)?.code === 'SESSION_REVOKED' || (data as any)?.code === 'SESSION_EXPIRED') {
+        // Session was revoked or expired
+        const event = new CustomEvent('sessionRevoked', {
+          detail: { message: (data as any)?.error || 'Your session has been revoked. Please log in again.' }
+        });
+        window.dispatchEvent(event);
+
+        // Clear auth and redirect immediately
+        removeAuthToken();
+        window.location.href = '/';
+        throw new Error('Session revoked');
       } else {
         // Regular unauthorized error
         removeAuthToken();

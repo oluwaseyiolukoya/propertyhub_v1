@@ -45,6 +45,50 @@ export const authMiddleware = async (
     req.user = decoded;
     console.log('✅ Auth success:', decoded.role, decoded.email, 'accessing', req.method, req.path);
 
+    // Check if session is revoked
+    try {
+      const session = await prisma.sessions.findFirst({
+        where: {
+          token,
+          userId: decoded.id
+        },
+        select: {
+          isActive: true,
+          expiresAt: true
+        }
+      });
+
+      if (session) {
+        // Session exists in database - check if it's active
+        if (!session.isActive) {
+          console.log('❌ Session revoked for user:', decoded.email);
+          return res.status(401).json({
+            error: 'Your session has been revoked. Please log in again.',
+            code: 'SESSION_REVOKED'
+          });
+        }
+
+        // Check if session expired
+        if (session.expiresAt && session.expiresAt < new Date()) {
+          console.log('❌ Session expired for user:', decoded.email);
+          return res.status(401).json({
+            error: 'Your session has expired. Please log in again.',
+            code: 'SESSION_EXPIRED'
+          });
+        }
+
+        // Update last active time
+        await prisma.sessions.update({
+          where: { token },
+          data: { lastActive: new Date() }
+        }).catch(err => console.warn('Failed to update session lastActive:', err));
+      }
+      // If session doesn't exist, allow (for backward compatibility with old tokens)
+    } catch (sessionError) {
+      console.warn('⚠️ Session check failed:', sessionError);
+      // Don't block request if session check fails
+    }
+
     // Optional: feature-flagged permissions change invalidation (disabled by default)
     // We rely on /api/auth/validate-session for authoritative checks (role/status/isActive)
     if (process.env.ENABLE_PERMISSIONS_UPDATE_CHECK === 'true') {
