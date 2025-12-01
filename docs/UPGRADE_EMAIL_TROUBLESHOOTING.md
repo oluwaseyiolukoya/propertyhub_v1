@@ -192,3 +192,6 @@ sendPlanUpgradeEmail({
 **Status**: Investigating  
 **Priority**: High - Email notifications are critical for user experience
 
+
+
+

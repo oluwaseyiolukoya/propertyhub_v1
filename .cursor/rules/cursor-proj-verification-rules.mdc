@@ -1,0 +1,246 @@
+---
+# Cursor AI Rules for Database Migration Management
+
+## 🔴 CRITICAL: Database Schema Management Rules
+
+### Rule 1: NEVER Create Tables or Alter Schema Manually
+
+**FORBIDDEN ACTIONS:**
+
+- ❌ NEVER use `psql` commands to CREATE TABLE
+- ❌ NEVER use `psql` commands to ALTER TABLE
+- ❌ NEVER use `psql` commands to DROP TABLE
+- ❌ NEVER use `psql` commands to ADD COLUMN
+- ❌ NEVER use `psql` commands to DROP COLUMN
+- ❌ NEVER use raw SQL to modify database schema
+- ❌ NEVER use database GUI tools to modify schema
+- ❌ NEVER use `npx prisma db push` in production or when migrations exist
+
+**REASON:** Manual schema changes create drift between Prisma's migration history and the actual database, causing "table does not exist" errors and breaking the application.
+
+### Rule 2: ALWAYS Use Prisma Migrations for Schema Changes
+
+**REQUIRED WORKFLOW:**
+
+1. Edit `backend/prisma/schema.prisma` FIRST
+2. Run `cd backend && bash scripts/create-migration.sh "describe_change"`
+3. Review the generated SQL in `prisma/migrations/`
+4. Test locally with `npm run dev`
+5. Commit to git immediately: `git add prisma/migrations/ prisma/schema.prisma`
+6. NEVER skip any of these steps
+
+**ALLOWED COMMANDS:**
+
+- ✅ `npx prisma migrate dev --name "description"` (development)
+- ✅ `npx prisma migrate deploy` (production)
+- ✅ `npx prisma migrate status` (checking status)
+- ✅ `npx prisma migrate resolve --applied "name"` (fixing failed migrations)
+- ✅ `bash scripts/create-migration.sh "name"` (preferred helper script)
+
+### Rule 3: ALWAYS Check Migration Health Before Changes
+
+**BEFORE making any database changes:**
+
+```bash
+cd backend && bash scripts/check-migration-health.sh
+```
+
+**If health check fails:**
+
+- Fix the issues reported by the script
+- NEVER proceed with schema changes until health check passes
+- Consult `docs/WHY_DATABASE_BREAKS_AND_PERMANENT_SOLUTION.md`
+
+### Rule 4: Migration Files Are Sacred
+
+**RULES:**
+
+- ❌ NEVER edit migration files after they are created
+- ❌ NEVER delete migration files
+- ❌ NEVER rename migration files
+- ✅ ALWAYS commit migration files immediately after creation
+- ✅ ALWAYS include migration files in git commits
+- ✅ If a migration is wrong, create a NEW migration to fix it
+
+### Rule 5: schema.prisma is the Single Source of Truth
+
+**PRINCIPLES:**
+
+- `backend/prisma/schema.prisma` is the ONLY place to define database schema
+- The database should ALWAYS match schema.prisma
+- If they don't match, create a migration to sync them
+- NEVER modify the database to match schema.prisma manually
+
+### Rule 6: Emergency Procedures Only
+
+**IF you must fix a broken database manually (emergency only):**
+
+1. Document EXACTLY what SQL you ran
+2. Immediately create a migration that matches those changes
+3. Mark the migration as applied: `npx prisma migrate resolve --applied "name"`
+4. Update the team in documentation
+5. This should be EXTREMELY RARE (once a year at most)
+
+## 🎯 Code Review Checklist for AI
+
+**Before suggesting any database-related code, verify:**
+
+- [ ] Is this modifying database schema? → Use Prisma migrations
+- [ ] Am I suggesting manual SQL for schema changes? → STOP, use migrations instead
+- [ ] Am I suggesting `prisma db push`? → Only for rapid prototyping, NEVER for tracked schemas
+- [ ] Are there existing migrations? → ALWAYS use `migrate dev`, NEVER `db push`
+- [ ] Is the migration committed to git? → Remind user to commit
+
+## 📋 Approved Patterns
+
+### ✅ CORRECT: Adding a New Table
+
+```typescript
+// 1. Edit backend/prisma/schema.prisma
+model new_table {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+}
+
+// 2. Run migration script
+// Terminal: cd backend && bash scripts/create-migration.sh "add_new_table"
+
+// 3. Commit
+// Terminal: git add prisma/migrations/ prisma/schema.prisma
+// Terminal: git commit -m "migration: add new_table"
+```
+
+### ✅ CORRECT: Adding a Column
+
+```typescript
+// 1. Edit backend/prisma/schema.prisma
+model users {
+  // ... existing fields
+  newField String? // Add this
+}
+
+// 2. Run migration script
+// Terminal: cd backend && bash scripts/create-migration.sh "add_newField_to_users"
+
+// 3. Commit immediately
+```
+
+### ❌ WRONG: Manual Table Creation
+
+```bash
+# NEVER DO THIS:
+psql -U user database <<EOF
+CREATE TABLE new_table (
+  id TEXT PRIMARY KEY,
+  name TEXT
+);
+EOF
+
+# This breaks Prisma's migration tracking!
+```
+
+### ❌ WRONG: Using db push with existing migrations
+
+```bash
+# NEVER DO THIS if migrations exist:
+npx prisma db push
+
+# This bypasses migration history and causes drift!
+```
+
+## 🚨 Error Response Protocol
+
+**If user asks to:**
+
+1. "Create a table using SQL" → Respond: "I'll help you create a Prisma migration instead. This ensures proper tracking."
+2. "Run ALTER TABLE" → Respond: "Let's use a Prisma migration for this. I'll guide you through the proper workflow."
+3. "Use prisma db push" → Respond: "Since migrations exist, we should use `prisma migrate dev` instead to maintain history."
+4. "Fix the database manually" → Respond: "Let's check migration health first, then create a proper migration if needed."
+
+## 📚 Reference Documentation
+
+**When helping with database issues, reference:**
+
+- `QUICK_START_DATABASE_WORKFLOW.md` - Quick reference
+- `MIGRATION_WORKFLOW.md` - Complete guide
+- `docs/WHY_DATABASE_BREAKS_AND_PERMANENT_SOLUTION.md` - Root cause analysis
+- `backend/scripts/README.md` - Script documentation
+
+## 🎓 Teaching Points
+
+**When user is learning, explain:**
+
+1. **Why migrations matter:** They keep database schema in sync across all environments
+2. **Why manual SQL breaks things:** Prisma doesn't know about manual changes
+3. **Why db push is dangerous:** It bypasses migration history
+4. **Why schema.prisma is truth:** Single source prevents conflicts
+
+## ⚡ Quick Commands to Suggest
+
+**Instead of manual SQL, always suggest:**
+
+```bash
+# Check health
+cd backend && bash scripts/check-migration-health.sh
+
+# Create migration
+cd backend && bash scripts/create-migration.sh "describe_change"
+
+# Check status
+cd backend && npx prisma migrate status
+
+# Deploy to production
+cd backend && npx prisma migrate deploy
+```
+
+## 🔒 Production Deployment Rules
+
+**For production environments:**
+
+- ✅ ONLY use `npx prisma migrate deploy`
+- ❌ NEVER use `npx prisma migrate dev`
+- ❌ NEVER use `npx prisma db push`
+- ❌ NEVER run manual SQL for schema changes
+- ✅ ALWAYS run health check before deploying
+- ✅ ALWAYS have a backup before deploying
+
+## 🎯 Success Criteria
+
+**A database change is done correctly when:**
+
+1. ✅ schema.prisma was edited first
+2. ✅ Migration was created using the script
+3. ✅ Migration file exists in `prisma/migrations/`
+4. ✅ Migration is committed to git
+5. ✅ Health check passes
+6. ✅ Application works locally
+7. ✅ No manual SQL was used
+
+## 🚀 Enforcement
+
+**AI Assistant MUST:**
+
+- Refuse to generate manual SQL for schema changes
+- Always suggest the proper migration workflow
+- Remind user to commit migrations
+- Check if migrations exist before suggesting `db push`
+- Reference documentation when explaining
+- Validate that proper workflow is followed
+
+**AI Assistant MUST NOT:**
+
+- Suggest manual table creation
+- Suggest manual column addition
+- Suggest `prisma db push` when migrations exist
+- Skip migration creation steps
+- Forget to remind about git commits
+- Allow schema changes without migrations
+
+---
+
+**Last Updated:** November 23, 2025
+**Status:** ENFORCED - These rules prevent database schema breakage
+**Severity:** CRITICAL - Violations cause production issues
+
+## alwaysApply: true

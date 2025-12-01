@@ -1,9 +1,10 @@
 /**
  * Session Validator - Active Session Validation on User Interaction
- * 
+ *
  * This validates the user's token against the database whenever they interact
  * with the page. If their role/permissions changed, they're immediately logged out.
- * 
+ * If KYC verification is required, user is redirected to KYC page.
+ *
  * Best Practice: Combines with Socket.io real-time notifications for 100% coverage
  */
 
@@ -13,6 +14,8 @@ interface ValidationResponse {
   valid: boolean;
   reason?: string;
   forceLogout?: boolean;
+  requiresKyc?: boolean;
+  kycStatus?: string | null;
 }
 
 let isValidating = false;
@@ -65,7 +68,7 @@ export const validateSession = async (): Promise<ValidationResponse> => {
     return data || { valid: true };
   } catch (error: any) {
     isValidating = false;
-    
+
     // If we get 401 or 403, session is invalid
     if (error.status === 401) {
       return {
@@ -84,14 +87,24 @@ export const validateSession = async (): Promise<ValidationResponse> => {
 /**
  * Setup click listener to validate session on any user interaction
  */
-export const setupActiveSessionValidation = (onInvalidSession: (reason: string) => void) => {
+export const setupActiveSessionValidation = (
+  onInvalidSession: (reason: string) => void,
+  onRequiresKyc?: () => void
+) => {
   // Validate on any click
   const handleClick = async () => {
     const result = await validateSession();
-    
+
     if (!result.valid && result.forceLogout) {
       console.log('🔐 Session invalid - forcing logout:', result.reason);
       onInvalidSession(result.reason || 'Your account settings have changed');
+      return;
+    }
+
+    // Check if KYC is required
+    if (result.requiresKyc && onRequiresKyc) {
+      console.log('🔐 KYC verification required - redirecting to verification page. Status:', result.kycStatus);
+      onRequiresKyc();
     }
   };
 
@@ -107,14 +120,25 @@ export const setupActiveSessionValidation = (onInvalidSession: (reason: string) 
 /**
  * Manually trigger session validation (for programmatic checks)
  */
-export const checkSessionValidity = async (onInvalidSession: (reason: string) => void) => {
+export const checkSessionValidity = async (
+  onInvalidSession: (reason: string) => void,
+  onRequiresKyc?: () => void
+) => {
   const result = await validateSession();
-  
+
   if (!result.valid && result.forceLogout) {
     console.log('🔐 Session invalid - forcing logout:', result.reason);
     onInvalidSession(result.reason || 'Your account settings have changed');
+    return false;
   }
-  
+
+  // Check if KYC is required
+  if (result.requiresKyc && onRequiresKyc) {
+    console.log('🔐 KYC verification required - redirecting to verification page. Status:', result.kycStatus);
+    onRequiresKyc();
+    return false;
+  }
+
   return result.valid;
 };
 

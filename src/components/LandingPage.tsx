@@ -256,10 +256,10 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
               </Badge>
               <h1 className="text-4xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight">
                 Property Management & Development.
-                <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> Simplified. Automated. All-in-One.</span>
+                <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> Simplified Reporting.</span>
               </h1>
               <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-                Whether you're managing rental properties or developing new projects, Contrezz gives you the tools to automate operations, track budgets, collect rent on time, and grow your portfolio. Built for Nigerian property professionals.
+                Automate operations, track budgets, and collect rent on time. Built for Nigerian property professionals.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button

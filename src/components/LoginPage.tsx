@@ -10,7 +10,8 @@ import {
   Eye,
   EyeOff,
   ArrowLeft,
-  AlertCircle
+  AlertCircle,
+  Shield
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PasswordSetup } from './PasswordSetup';
@@ -28,7 +29,8 @@ interface LoginPageProps {
 export function LoginPage({ onLogin, onBackToHome, onNavigateToScheduleDemo }: LoginPageProps) {
   const [loginForm, setLoginForm] = useState({
     email: '',
-    password: ''
+    password: '',
+    twoFactorCode: ''
   });
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -37,6 +39,7 @@ export function LoginPage({ onLogin, onBackToHome, onNavigateToScheduleDemo }: L
   const [error, setError] = useState<string>('');
   const [hasCustomLogo, setHasCustomLogo] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [twoFactorRequired, setTwoFactorRequired] = useState(false);
 
   // Check for invitation parameters and messages on component mount
   useEffect(() => {
@@ -79,10 +82,29 @@ export function LoginPage({ onLogin, onBackToHome, onNavigateToScheduleDemo }: L
       const response = await login({
         email: loginForm.email,
         password: loginForm.password,
+        twoFactorCode: loginForm.twoFactorCode || undefined,
       });
 
       if (response.error) {
         const code = response.error.statusCode;
+        const errorCode = (response.error as any)?.code;
+        console.log('🔐 Login error response:', { statusCode: code, errorCode, fullError: response.error });
+        if (errorCode === 'TWO_FACTOR_CODE_REQUIRED') {
+          setTwoFactorRequired(true);
+          setError(''); // Clear any previous error - this is not a failure
+          toast.success('Password verified! Please enter your 2FA code.');
+          setIsLoading(false);
+          return;
+        }
+
+        if (errorCode === 'INVALID_TWO_FACTOR_CODE') {
+          setTwoFactorRequired(true);
+          setError('Invalid two-factor authentication code.');
+          toast.error('Invalid two-factor authentication code.');
+          setIsLoading(false);
+          return;
+        }
+
         let message = response.error.error || 'Login failed';
         if (code === 401) {
           message = 'Invalid email or password.';
@@ -111,6 +133,11 @@ export function LoginPage({ onLogin, onBackToHome, onNavigateToScheduleDemo }: L
         console.log('   - Calling onLogin with:', { type: resolvedUserType, user: response.data.user });
 
         onLogin(resolvedUserType, response.data.user);
+        setTwoFactorRequired(false);
+        setLoginForm(prev => ({
+          ...prev,
+          twoFactorCode: ''
+        }));
       }
     } catch (err: any) {
       const errorMessage = err?.message === 'Failed to connect to the server'
@@ -146,7 +173,8 @@ export function LoginPage({ onLogin, onBackToHome, onNavigateToScheduleDemo }: L
       setInvitationData(null);
       setLoginForm({
         email: invitationData?.email || '',
-        password: ''
+        password: '',
+        twoFactorCode: ''
       });
     } catch (err: any) {
       toast.error(err.message || 'Failed to setup password');
@@ -218,71 +246,137 @@ export function LoginPage({ onLogin, onBackToHome, onNavigateToScheduleDemo }: L
                           </div>
                         )}
 
-                        {/* Email Input */}
-                        <div className="space-y-2">
-                          <Label htmlFor="email">Email Address</Label>
-                          <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                            <Input
-                              id="email"
-                              type="email"
-                              placeholder="your.email@example.com"
-                              value={loginForm.email}
-                              onChange={(e) => setLoginForm(prev => ({ ...prev, email: e.target.value }))}
-                              className="pl-10 h-12"
-                              required
-                            />
-                          </div>
-                        </div>
+                        {/* Step 1: Email & Password (hidden when 2FA is required) */}
+                        {!twoFactorRequired && (
+                          <>
+                            {/* Email Input */}
+                            <div className="space-y-2">
+                              <Label htmlFor="email">Email Address</Label>
+                              <div className="relative">
+                                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                                <Input
+                                  id="email"
+                                  type="email"
+                                  placeholder="your.email@example.com"
+                                  value={loginForm.email}
+                                  onChange={(e) => setLoginForm(prev => ({ ...prev, email: e.target.value }))}
+                                  className="pl-10 h-12"
+                                  required
+                                />
+                              </div>
+                            </div>
 
-                        {/* Password Input */}
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label htmlFor="password">Password</Label>
+                            {/* Password Input */}
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <Label htmlFor="password">Password</Label>
+                                <Button
+                                  type="button"
+                                  variant="link"
+                                  className="p-0 h-auto text-sm"
+                                  onClick={() => setShowForgotPassword(true)}
+                                >
+                                  Forgot password?
+                                </Button>
+                              </div>
+                              <div className="relative">
+                                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                                <Input
+                                  id="password"
+                                  type={showPassword ? "text" : "password"}
+                                  placeholder="Enter your password"
+                                  value={loginForm.password}
+                                  onChange={(e) => setLoginForm(prev => ({ ...prev, password: e.target.value }))}
+                                  className="pl-10 pr-10 h-12"
+                                  required
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setShowPassword(!showPassword)}
+                                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                >
+                                  {showPassword ? (
+                                    <EyeOff className="h-4 w-4" />
+                                  ) : (
+                                    <Eye className="h-4 w-4" />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          </>
+                        )}
+
+                        {/* Step 2: Two-Factor Authentication */}
+                        {twoFactorRequired && (
+                          <div className="space-y-4">
+                            {/* User info reminder */}
+                            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                              <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                <Mail className="h-5 w-5 text-blue-600" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{loginForm.email}</p>
+                                <p className="text-xs text-gray-500">Password verified ✓</p>
+                              </div>
+                            </div>
+
+                            {/* 2FA Code Input */}
+                            <div className="space-y-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                              <div className="flex items-center gap-2 text-blue-700">
+                                <Shield className="h-5 w-5" />
+                                <span className="font-medium">Two-Factor Authentication</span>
+                              </div>
+                              <p className="text-sm text-blue-600">
+                                Enter the 6-digit code from your authenticator app.
+                              </p>
+                              <div className="relative">
+                                <Input
+                                  id="twoFactorCode"
+                                  type="text"
+                                  inputMode="numeric"
+                                  pattern="\d*"
+                                  maxLength={6}
+                                  placeholder="000000"
+                                  value={loginForm.twoFactorCode}
+                                  onChange={(e) =>
+                                    setLoginForm(prev => ({ ...prev, twoFactorCode: e.target.value.replace(/\D/g, '') }))
+                                  }
+                                  className="h-14 text-center text-2xl tracking-[0.5em] font-mono"
+                                  autoFocus
+                                />
+                              </div>
+                            </div>
+
+                            {/* Back button */}
                             <Button
                               type="button"
-                              variant="link"
-                              className="p-0 h-auto text-sm"
-                              onClick={() => setShowForgotPassword(true)}
+                              variant="ghost"
+                              className="w-full text-gray-600"
+                              onClick={() => {
+                                setTwoFactorRequired(false);
+                                setLoginForm(prev => ({ ...prev, twoFactorCode: '' }));
+                              }}
                             >
-                              Forgot password?
+                              ← Use a different account
                             </Button>
                           </div>
-                          <div className="relative">
-                            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                            <Input
-                              id="password"
-                              type={showPassword ? "text" : "password"}
-                              placeholder="Enter your password"
-                              value={loginForm.password}
-                              onChange={(e) => setLoginForm(prev => ({ ...prev, password: e.target.value }))}
-                              className="pl-10 pr-10 h-12"
-                              required
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowPassword(!showPassword)}
-                              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                            >
-                              {showPassword ? (
-                                <EyeOff className="h-4 w-4" />
-                              ) : (
-                                <Eye className="h-4 w-4" />
-                              )}
-                            </button>
-                          </div>
-                        </div>
+                        )}
 
                         {/* Submit Button */}
                         <Button
                           type="submit"
                           className="w-full h-12"
-                          disabled={isLoading || !loginForm.email || !loginForm.password}
+                          disabled={isLoading || !loginForm.email || !loginForm.password || (twoFactorRequired && loginForm.twoFactorCode.length !== 6)}
                         >
                           {isLoading ? (
                             <>
                               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                              Signing in...
+                              {twoFactorRequired ? 'Verifying...' : 'Signing in...'}
+                            </>
+                          ) : twoFactorRequired ? (
+                            <>
+                              <Shield className="h-4 w-4 mr-2" />
+                              Verify & Sign In
                             </>
                           ) : (
                             'Sign In'

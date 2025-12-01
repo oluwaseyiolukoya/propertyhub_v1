@@ -285,3 +285,6 @@ If migrations are completely broken:
 
 **Remember:** Migrations are your friend! They keep your database in sync across all environments. Follow the workflow and you'll never have schema issues again. 🎉
 
+
+
+

@@ -156,3 +156,6 @@ const formattedPrice = new Intl.NumberFormat('en-NG', {
 **Status**: ✅ Fixed  
 **Impact**: Critical - Affects all payments and pricing displays
 
+
+
+

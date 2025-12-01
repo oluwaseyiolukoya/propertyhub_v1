@@ -71,6 +71,8 @@ router.post('/change-plan', authMiddleware, async (req: AuthRequest, res: Respon
       planCategory: newPlan.category,
       userLimit: newPlan.userLimit,
       storageLimit: newPlan.storageLimit,
+      // Also update storage_limit in bytes (storageLimit is in MB)
+      storage_limit: BigInt((newPlan.storageLimit || 0) * 1024 * 1024),
       mrr: newMRR,
       updatedAt: new Date()
     };
@@ -726,6 +728,8 @@ router.post('/upgrade/verify', authMiddleware, async (req: AuthRequest, res: Res
       planCategory: newPlan.category,
       userLimit: newPlan.userLimit,
       storageLimit: newPlan.storageLimit,
+      // Also update storage_limit in bytes (storageLimit is in MB)
+      storage_limit: BigInt((newPlan.storageLimit || 0) * 1024 * 1024),
       mrr: newMRR,
       status: 'active',
       billingCycle,

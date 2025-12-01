@@ -31,6 +31,7 @@ import { getSubscriptionStatus } from '../lib/api/subscription';
 import { verifyUpgrade } from '../lib/api/subscriptions';
 import { apiClient } from '../lib/api-client';
 import { PlatformLogo } from './PlatformLogo';
+import { TRIAL_PLAN_LIMITS } from '../lib/constants/subscriptions';
 
 interface PropertyOwnerDashboardProps {
   user: any;
@@ -205,8 +206,21 @@ export function PropertyOwnerDashboard({
     setCurrentView('dashboard');
   }, []);
 
+  // Clear the settings tab hint once the user leaves the settings view
+  useEffect(() => {
+    if (currentView !== 'settings' && settingsInitialTab) {
+      setSettingsInitialTab(undefined);
+    }
+  }, [currentView, settingsInitialTab]);
+
   // Calculate smart base currency based on properties
   const smartBaseCurrency = getSmartBaseCurrency(properties);
+  const derivedPropertyLimit =
+    accountInfo?.customer?.propertyLimit ??
+    (!accountInfo?.customer?.planId ? TRIAL_PLAN_LIMITS.properties : undefined);
+  const derivedUnitLimit =
+    accountInfo?.customer?.plan?.unitLimit ??
+    (!accountInfo?.customer?.planId ? TRIAL_PLAN_LIMITS.units : undefined);
 
   // Fetch dashboard data, properties, and account info
   const fetchData = async (silent = false) => {
@@ -275,15 +289,24 @@ export function PropertyOwnerDashboard({
     }
   };
 
-  // Handle Paystack subscription upgrade callback for property owners:
+  // Handle Paystack payment callbacks for property owners:
   // FRONTEND_URL/?payment_callback=upgrade&tab=billing&reference=...
+  // FRONTEND_URL/?payment_callback=payment_method&tab=billing&reference=...
   useEffect(() => {
     try {
       const url = new URL(window.location.href);
       const params = url.searchParams;
       const paymentCallback = params.get('payment_callback');
       const reference =
-        params.get('reference') || sessionStorage.getItem('upgrade_reference');
+        params.get('reference') || params.get('trxref') || sessionStorage.getItem('upgrade_reference');
+
+      // Handle payment_method callback - navigate to settings billing tab
+      if (paymentCallback === 'payment_method') {
+        console.log('[PropertyOwnerDashboard] Detected payment_method callback, navigating to settings...');
+        setSettingsInitialTab('billing');
+        setCurrentView('settings');
+        return;
+      }
 
       if (paymentCallback !== 'upgrade' || !reference) {
         return;
@@ -1043,6 +1066,10 @@ export function PropertyOwnerDashboard({
               mode="edit"
               managers={managers}
               onManagerCreated={onRefreshManagers}
+              propertyLimit={derivedPropertyLimit}
+              currentPropertyCount={accountInfo?.customer?.actualPropertiesCount ?? properties.length}
+              unitLimit={derivedUnitLimit}
+              currentUnitCount={accountInfo?.customer?.actualUnitsCount ?? units.length}
               onSave={async (data: any) => {
                 try {
                   if (!selectedProperty?.id) throw new Error('Missing property id');
@@ -1178,9 +1205,9 @@ export function PropertyOwnerDashboard({
               onBack={() => setCurrentView('dashboard')}
               managers={managers}
               onManagerCreated={onRefreshManagers}
-              propertyLimit={accountInfo?.customer?.propertyLimit}
+              propertyLimit={derivedPropertyLimit}
               currentPropertyCount={accountInfo?.customer?.actualPropertiesCount ?? properties.length}
-              unitLimit={accountInfo?.customer?.plan?.unitLimit}
+              unitLimit={derivedUnitLimit}
               currentUnitCount={accountInfo?.customer?.actualUnitsCount ?? units.length}
               onSave={(propertyData) => {
                 // Persist to backend, then refresh list
@@ -1267,7 +1294,10 @@ export function PropertyOwnerDashboard({
               {/* Trial Status Banner */}
               <TrialStatusBanner
                 onUpgradeClick={() => setShowUpgradeModal(true)}
-                onAddPaymentMethod={() => setCurrentView('settings')}
+                onAddPaymentMethod={() => {
+                  setSettingsInitialTab('billing');
+                  setCurrentView('settings');
+                }}
               />
 
               {/* Key Metrics */}

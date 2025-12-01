@@ -61,10 +61,42 @@ export const KYCVerificationPage: React.FC<KYCVerificationPageProps> = ({ onVeri
     { id: '2', type: '', typeName: '', file: null, documentNumber: '', uploaded: false, uploading: false },
   ]);
   const [submitting, setSubmitting] = useState(false);
+  const [autoRefreshCountdown, setAutoRefreshCountdown] = useState(60);
 
   useEffect(() => {
     loadKYCStatus();
   }, []);
+
+  // Auto-refresh every minute when verification is in progress
+  useEffect(() => {
+    if (kycStatus?.kycStatus !== 'in_progress') {
+      return;
+    }
+
+    // Reset countdown when entering in_progress state
+    setAutoRefreshCountdown(60);
+
+    // Countdown timer (updates every second)
+    const countdownInterval = setInterval(() => {
+      setAutoRefreshCountdown((prev) => {
+        if (prev <= 1) {
+          return 60; // Reset after reaching 0
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    // Auto-refresh every 60 seconds
+    const refreshInterval = setInterval(() => {
+      console.log('[KYC] Auto-refreshing verification status...');
+      loadKYCStatus();
+    }, 60000);
+
+    return () => {
+      clearInterval(countdownInterval);
+      clearInterval(refreshInterval);
+    };
+  }, [kycStatus?.kycStatus]);
 
   const loadKYCStatus = async () => {
     try {
@@ -372,12 +404,19 @@ export const KYCVerificationPage: React.FC<KYCVerificationPageProps> = ({ onVeri
                 This process usually takes a few minutes.
               </p>
             </div>
+            <div className="text-center text-sm text-gray-500">
+              <Clock className="inline-block h-4 w-4 mr-1 align-middle" />
+              Auto-refreshing in {autoRefreshCountdown} second{autoRefreshCountdown !== 1 ? 's' : ''}
+            </div>
             <Button
-              onClick={loadKYCStatus}
+              onClick={() => {
+                loadKYCStatus();
+                setAutoRefreshCountdown(60);
+              }}
               variant="outline"
               className="w-full"
             >
-              Refresh Status
+              Refresh Now
             </Button>
             <Button
               variant="ghost"

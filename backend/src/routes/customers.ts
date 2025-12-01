@@ -6,13 +6,28 @@ import prisma from "../lib/db";
 import { emitToAdmins, emitToCustomer } from "../lib/socket";
 import { captureSnapshotOnChange } from "../lib/mrr-snapshot";
 import { calculateTrialEndDate } from "../lib/trial-config";
-import { sendCustomerInvitation } from "../lib/email";
+import { sendCustomerInvitation, sendEmail } from "../lib/email";
 
 const router = express.Router();
 
 // Apply auth middleware to all routes
 router.use(authMiddleware);
 router.use(adminOnly);
+
+const DEFAULT_TRIAL_LIMITS = {
+  properties: 1,
+  units: 5,
+  users: 2,
+  storageMb: 1024, // 1GB expressed in MB (legacy storageLimit uses MB)
+};
+
+const parseOptionalInt = (value: any): number | undefined => {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? undefined : parsed;
+};
 
 // Mock data for development
 const mockCustomers = [
@@ -221,6 +236,10 @@ router.post("/", async (req: AuthRequest, res: Response) => {
       notes,
     } = req.body;
 
+    const parsedPropertyLimit = parseOptionalInt(propertyLimit);
+    const parsedUserLimit = parseOptionalInt(userLimit);
+    const parsedStorageLimit = parseOptionalInt(storageLimit);
+
     // Validate required fields
     if (!company || !owner || !email) {
       return res.status(400).json({ error: "Missing required fields" });
@@ -295,12 +314,17 @@ router.post("/", async (req: AuthRequest, res: Response) => {
     const planCategory = plan?.category || "property_management";
     const finalPropertyLimit =
       plan?.category === "property_management"
-        ? propertyLimit || plan?.propertyLimit || 5
+        ? parsedPropertyLimit ?? plan?.propertyLimit ?? DEFAULT_TRIAL_LIMITS.properties
         : 0; // Set to 0 for developers (they use projectLimit instead)
     const finalProjectLimit =
       plan?.category === "development"
-        ? propertyLimit || plan?.projectLimit || 3 // propertyLimit field is reused for projectLimit
+        ? parsedPropertyLimit ?? plan?.projectLimit ?? DEFAULT_TRIAL_LIMITS.properties // propertyLimit field is reused for projectLimit
         : 0; // Set to 0 for property owners/managers
+
+    const finalUserLimit =
+      parsedUserLimit ?? plan?.userLimit ?? DEFAULT_TRIAL_LIMITS.users;
+    const finalStorageLimit =
+      parsedStorageLimit ?? plan?.storageLimit ?? DEFAULT_TRIAL_LIMITS.storageMb;
 
     console.log("Plan category:", planCategory);
     console.log("Property limit:", finalPropertyLimit);
@@ -329,8 +353,8 @@ router.post("/", async (req: AuthRequest, res: Response) => {
         country: country || "Nigeria",
         propertyLimit: finalPropertyLimit,
         projectLimit: finalProjectLimit,
-        userLimit: userLimit || plan?.userLimit || 3,
-        storageLimit: storageLimit || plan?.storageLimit || 1000,
+        userLimit: finalUserLimit,
+        storageLimit: finalStorageLimit,
         propertiesCount: properties || 0, // Add properties count
         projectsCount: plan?.category === "development" ? properties || 0 : 0, // Use properties field for projects count if developer
         unitsCount: units || 0, // Add units count
@@ -344,6 +368,36 @@ router.post("/", async (req: AuthRequest, res: Response) => {
         plans: true,
       },
     });
+
+    // Notify internal admin mailbox about the new customer (non-blocking)
+    (async () => {
+      try {
+        const planNameSafe = plan?.name || planName || finalPlanId || "N/A";
+        const html = `
+          <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111">
+            <h2 style="margin:0 0 12px">🆕 New Customer Account Created</h2>
+            <p style="margin:0 0 16px">A new customer has been created in Contrezz.</p>
+            <table style="border-collapse:collapse">
+              <tr><td style="padding:4px 8px;color:#555">Company</td><td style="padding:4px 8px;font-weight:600">${company}</td></tr>
+              <tr><td style="padding:4px 8px;color:#555">Owner</td><td style="padding:4px 8px">${owner}</td></tr>
+              <tr><td style="padding:4px 8px;color:#555">Email</td><td style="padding:4px 8px">${email}</td></tr>
+              <tr><td style="padding:4px 8px;color:#555">Plan</td><td style="padding:4px 8px">${planNameSafe}</td></tr>
+              <tr><td style="padding:4px 8px;color:#555">Billing Cycle</td><td style="padding:4px 8px">${billingCycle || "monthly"}</td></tr>
+              <tr><td style="padding:4px 8px;color:#555">Status</td><td style="padding:4px 8px">${status || "trial"}</td></tr>
+              <tr><td style="padding:4px 8px;color:#555">Country</td><td style="padding:4px 8px">${country || "Nigeria"}</td></tr>
+            </table>
+            <p style="margin-top:16px;color:#777;font-size:12px">Sent automatically by Contrezz</p>
+          </div>
+        `;
+        await sendEmail({
+          to: "admin@contrezz.com",
+          subject: `New customer created: ${company} (${owner})`,
+          html,
+        });
+      } catch (err) {
+        console.error("Failed to send admin new-customer notification:", err);
+      }
+    })();
 
     // Determine user role based on customer type
     let userRole = "owner"; // Default to owner
@@ -615,6 +669,10 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
       trialEndsAt, // Accept trial end date
     } = req.body;
 
+    const parsedPropertyLimit = parseOptionalInt(propertyLimit);
+    const parsedUserLimit = parseOptionalInt(userLimit);
+    const parsedStorageLimit = parseOptionalInt(storageLimit);
+
     // Get existing customer first
     const existingCustomer = await prisma.customers.findUnique({
       where: { id },
@@ -664,15 +722,29 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
     }
 
     // Determine plan category and limits based on plan (similar to create route)
-    const planCategory = plan?.category || existingCustomer.planCategory || "property_management";
+    const planCategoryResolved = plan?.category || existingCustomer.planCategory || "property_management";
+    const incomingPropertyLimit = parsedPropertyLimit;
     const finalPropertyLimit =
-      plan?.category === "property_management"
-        ? propertyLimit !== undefined ? propertyLimit : (existingCustomer.propertyLimit || plan?.propertyLimit || 5)
-        : 0; // Set to 0 for developers (they use projectLimit instead)
+      planCategoryResolved === "property_management"
+        ? incomingPropertyLimit !== undefined
+          ? incomingPropertyLimit
+          : (existingCustomer.propertyLimit ?? plan?.propertyLimit ?? DEFAULT_TRIAL_LIMITS.properties)
+        : 0; // Developers rely on project limits instead
     const finalProjectLimit =
-      plan?.category === "development"
-        ? propertyLimit !== undefined ? propertyLimit : (existingCustomer.projectLimit || plan?.projectLimit || 3)
-        : 0; // Set to 0 for property owners/managers
+      planCategoryResolved === "development"
+        ? incomingPropertyLimit !== undefined
+          ? incomingPropertyLimit
+          : (existingCustomer.projectLimit ?? plan?.projectLimit ?? DEFAULT_TRIAL_LIMITS.properties)
+        : 0;
+
+    const finalUserLimit =
+      parsedUserLimit !== undefined
+        ? parsedUserLimit
+        : plan?.userLimit ?? existingCustomer.userLimit ?? DEFAULT_TRIAL_LIMITS.users;
+    const finalStorageLimit =
+      parsedStorageLimit !== undefined
+        ? parsedStorageLimit
+        : plan?.storageLimit ?? existingCustomer.storageLimit ?? DEFAULT_TRIAL_LIMITS.storageMb;
 
     // Handle subscription date changes based on status
     let subscriptionStartDate = existingCustomer.subscriptionStartDate;
@@ -723,7 +795,7 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
         industry,
         companySize,
         planId: finalPlanId,
-        planCategory: planCategory, // Update plan category
+        planCategory: planCategoryResolved, // Update plan category
         billingCycle,
         mrr: calculatedMRR, // Set calculated MRR
         status,
@@ -737,10 +809,10 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
         country,
         propertyLimit: finalPropertyLimit,
         projectLimit: finalProjectLimit, // Update project limit
-        userLimit,
-        storageLimit,
+        userLimit: finalUserLimit,
+        storageLimit: finalStorageLimit,
         propertiesCount: properties !== undefined ? properties : existingCustomer.propertiesCount, // Update properties count
-        projectsCount: plan?.category === "development" && properties !== undefined ? properties : (existingCustomer.projectsCount || 0), // Update projects count
+        projectsCount: planCategoryResolved === "development" && properties !== undefined ? properties : (existingCustomer.projectsCount || 0), // Update projects count
         unitsCount: units !== undefined ? units : existingCustomer.unitsCount, // Update units count
         notes: notes !== undefined ? notes : existingCustomer.notes, // Update notes field
       },

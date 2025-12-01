@@ -65,6 +65,17 @@ export function SubscriptionManagement({
   onChangeBillingCycle,
   onCancelSubscription,
 }: SubscriptionManagementProps) {
+  const currencyCode = subscriptionData.currency || 'USD';
+  const formatMoney = (value: number) =>
+    new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currencyCode,
+      maximumFractionDigits: 2,
+    }).format(value || 0);
+  const formatLimitValue = (limit?: number) => (limit && limit > 0 ? limit : 'Unlimited');
+  const getUsagePercent = (used: number, limit?: number) =>
+    limit && limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
+
   return (
     <>
       <div className="space-y-6">
@@ -86,7 +97,7 @@ export function SubscriptionManagement({
                   </Badge>
                 </div>
                 <p className="text-gray-600 text-sm mb-4">
-                  ${subscriptionData.amount}/month • Billed {subscriptionData.billingCycle}
+                  {formatMoney(subscriptionData.amount)} • Billed {subscriptionData.billingCycle}
                 </p>
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Calendar className="h-4 w-4" />
@@ -118,11 +129,11 @@ export function SubscriptionManagement({
                   <div className="flex justify-between text-sm mb-2">
                     <span className="text-gray-600">Properties</span>
                     <span className="text-gray-900">
-                      {subscriptionData.usageStats.propertiesUsed} / {subscriptionData.properties}
+                    {subscriptionData.usageStats.propertiesUsed} / {formatLimitValue(subscriptionData.properties)}
                     </span>
                   </div>
                   <Progress
-                    value={(subscriptionData.usageStats.propertiesUsed / subscriptionData.properties) * 100}
+                  value={getUsagePercent(subscriptionData.usageStats.propertiesUsed, subscriptionData.properties)}
                   />
                 </div>
 
@@ -130,11 +141,11 @@ export function SubscriptionManagement({
                   <div className="flex justify-between text-sm mb-2">
                     <span className="text-gray-600">Units</span>
                     <span className="text-gray-900">
-                      {subscriptionData.usageStats.unitsUsed} / {subscriptionData.units}
+                    {subscriptionData.usageStats.unitsUsed} / {formatLimitValue(subscriptionData.units)}
                     </span>
                   </div>
                   <Progress
-                    value={(subscriptionData.usageStats.unitsUsed / subscriptionData.units) * 100}
+                  value={getUsagePercent(subscriptionData.usageStats.unitsUsed, subscriptionData.units)}
                   />
                 </div>
 
@@ -142,11 +153,11 @@ export function SubscriptionManagement({
                   <div className="flex justify-between text-sm mb-2">
                     <span className="text-gray-600">Property Managers</span>
                     <span className="text-gray-900">
-                      {subscriptionData.usageStats.managersUsed} / {subscriptionData.managers}
+                    {subscriptionData.usageStats.managersUsed} / {formatLimitValue(subscriptionData.managers)}
                     </span>
                   </div>
                   <Progress
-                    value={(subscriptionData.usageStats.managersUsed / subscriptionData.managers) * 100}
+                  value={getUsagePercent(subscriptionData.usageStats.managersUsed, subscriptionData.managers)}
                   />
                 </div>
 
@@ -154,11 +165,11 @@ export function SubscriptionManagement({
                   <div className="flex justify-between text-sm mb-2">
                     <span className="text-gray-600">Storage</span>
                     <span className="text-gray-900">
-                      {subscriptionData.usageStats.storageUsed} GB / {subscriptionData.usageStats.storageLimit} GB
+                    {subscriptionData.usageStats.storageUsed} GB / {formatLimitValue(subscriptionData.usageStats.storageLimit)} GB
                     </span>
                   </div>
                   <Progress
-                    value={(subscriptionData.usageStats.storageUsed / subscriptionData.usageStats.storageLimit) * 100}
+                  value={getUsagePercent(subscriptionData.usageStats.storageUsed, subscriptionData.usageStats.storageLimit)}
                   />
                 </div>
               </div>
@@ -180,7 +191,7 @@ export function SubscriptionManagement({
             ) : (
               <div className="grid md:grid-cols-3 gap-4">
                 {availablePlans.map((plan) => {
-                  const isCurrent = plan.name === subscriptionData.plan;
+                  const isCurrent = plan.id === subscriptionData.planId || plan.name === subscriptionData.plan;
                   return (
                     <div
                       key={plan.id}
@@ -196,7 +207,11 @@ export function SubscriptionManagement({
                       <h4 className="font-semibold mb-2">{plan.name}</h4>
                       <p className="text-gray-600 text-sm mb-4">{plan.description}</p>
                       <p className="text-gray-900 text-2xl font-bold mb-4">
-                        ${plan.monthlyPrice}
+                        {new Intl.NumberFormat('en-US', {
+                          style: 'currency',
+                          currency: plan.currency || currencyCode,
+                          maximumFractionDigits: 2,
+                        }).format(plan.monthlyPrice)}
                         <span className="text-sm font-normal text-gray-600">/mo</span>
                       </p>
                       <ul className="space-y-2 text-sm text-gray-600 mb-4">
@@ -204,6 +219,12 @@ export function SubscriptionManagement({
                           <CheckCircle className="h-4 w-4 text-green-600" />
                           Up to {plan.propertyLimit} properties
                         </li>
+                        {plan.unitLimit && (
+                          <li className="flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            {plan.unitLimit} units
+                          </li>
+                        )}
                         <li className="flex items-center gap-2">
                           <CheckCircle className="h-4 w-4 text-green-600" />
                           {plan.userLimit} users
@@ -247,7 +268,7 @@ export function SubscriptionManagement({
               <p className="text-center py-4">Loading plans...</p>
             ) : (() => {
               // Get current plan price
-              const currentPlanPrice = subscriptionData?.plan?.monthlyPrice || 0;
+              const currentPlanPrice = subscriptionData.planMonthlyPrice || subscriptionData.amount || 0;
 
               // Sort plans by price
               const sortedPlans = [...availablePlans].sort(
@@ -261,12 +282,12 @@ export function SubscriptionManagement({
 
               // Get current plan
               const currentPlan = availablePlans.find(
-                (plan) => plan.id === subscriptionData?.planId
+                (plan) => plan.id === subscriptionData.planId
               );
 
               // Separate current and upgrade plans
               const upgradePlans = visiblePlans.filter(
-                (plan) => plan.id !== subscriptionData?.planId
+                (plan) => plan.id !== subscriptionData.planId
               );
 
               return (
@@ -293,7 +314,7 @@ export function SubscriptionManagement({
                         </div>
                         <div className="text-right">
                           <p className="text-lg font-semibold text-gray-900">
-                            ${currentPlan.monthlyPrice}
+                            {formatMoney(currentPlan.monthlyPrice)}
                           </p>
                           <p className="text-sm text-gray-600">/month</p>
                         </div>
@@ -341,7 +362,11 @@ export function SubscriptionManagement({
                               </div>
                               <p className="text-gray-600 text-sm mb-3">{plan.description}</p>
                               <p className="text-gray-900 text-2xl font-bold mb-3">
-                                ${plan.monthlyPrice}
+                                {new Intl.NumberFormat('en-US', {
+                                  style: 'currency',
+                                  currency: plan.currency || currencyCode,
+                                  maximumFractionDigits: 2,
+                                }).format(plan.monthlyPrice)}
                                 <span className="text-sm font-normal text-gray-600">/mo</span>
                               </p>
                               <ul className="space-y-1 text-sm text-gray-600">
@@ -350,6 +375,9 @@ export function SubscriptionManagement({
                                 )}
                                 {plan.category === 'development' && plan.projectLimit && (
                                   <li>• Up to {plan.projectLimit} projects</li>
+                                )}
+                                {plan.category === 'property_management' && plan.unitLimit && (
+                                  <li>• {plan.unitLimit} units</li>
                                 )}
                                 <li>• {plan.userLimit} users</li>
                                 <li>• {plan.storageLimit} MB storage</li>

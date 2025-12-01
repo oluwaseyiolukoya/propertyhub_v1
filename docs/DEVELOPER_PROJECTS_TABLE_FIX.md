@@ -173,3 +173,6 @@ But this would break the application, so it's not recommended.
 - Indexes remain intact
 - Foreign key relationships (if any) remain valid
 
+
+
+

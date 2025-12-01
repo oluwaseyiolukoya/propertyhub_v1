@@ -570,10 +570,16 @@ export function GetStartedPage({ onBackToHome, onNavigateToLogin, onSignupComple
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="individual">Individual Investor</SelectItem>
-                  <SelectItem value="llc">LLC</SelectItem>
+                  <SelectItem value="llc">LLC (Limited Liability Company)</SelectItem>
                   <SelectItem value="corporation">Corporation</SelectItem>
                   <SelectItem value="partnership">Partnership</SelectItem>
                   <SelectItem value="trust">Trust/Estate</SelectItem>
+                  <SelectItem value="sole-proprietorship">Sole Proprietorship</SelectItem>
+                  <SelectItem value="private-limited">Private Limited Company (Ltd)</SelectItem>
+                  <SelectItem value="public-limited">Public Limited Company (PLC)</SelectItem>
+                  <SelectItem value="business-name">Registered Business Name (BN)</SelectItem>
+                  <SelectItem value="cooperative">Cooperative Society</SelectItem>
+                  <SelectItem value="ngo">NGO/Non-Profit</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -623,7 +629,7 @@ export function GetStartedPage({ onBackToHome, onNavigateToLogin, onSignupComple
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="portfolioValue">Estimated Portfolio Value</Label>
+              <Label htmlFor="portfolioValue">Estimated Portfolio Value (NGN)</Label>
               <Select
                 value={formData.portfolioValue}
                 onValueChange={(value) => handleInputChange('portfolioValue', value)}
@@ -632,12 +638,14 @@ export function GetStartedPage({ onBackToHome, onNavigateToLogin, onSignupComple
                   <SelectValue placeholder="Select range" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="under-500k">Under $500K</SelectItem>
-                  <SelectItem value="500k-1m">$500K - $1M</SelectItem>
-                  <SelectItem value="1m-5m">$1M - $5M</SelectItem>
-                  <SelectItem value="5m-10m">$5M - $10M</SelectItem>
-                  <SelectItem value="10m-25m">$10M - $25M</SelectItem>
-                  <SelectItem value="25m+">$25M+</SelectItem>
+                  <SelectItem value="under-50m">Under ₦50M</SelectItem>
+                  <SelectItem value="50m-100m">₦50M - ₦100M</SelectItem>
+                  <SelectItem value="100m-250m">₦100M - ₦250M</SelectItem>
+                  <SelectItem value="250m-500m">₦250M - ₦500M</SelectItem>
+                  <SelectItem value="500m-1b">₦500M - ₦1B</SelectItem>
+                  <SelectItem value="1b-5b">₦1B - ₦5B</SelectItem>
+                  <SelectItem value="5b-10b">₦5B - ₦10B</SelectItem>
+                  <SelectItem value="10b+">₦10B+</SelectItem>
                 </SelectContent>
               </Select>
             </div>

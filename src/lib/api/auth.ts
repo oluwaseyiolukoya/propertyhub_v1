@@ -9,6 +9,7 @@ export interface LoginRequest {
   email: string;
   password: string;
   userType?: string; // Optional - backend will auto-detect from database
+  twoFactorCode?: string;
 }
 
 export interface LoginResponse {
@@ -175,5 +176,44 @@ export const changePassword = async (data: ChangePasswordRequest) => {
     data,
     { suppressAuthRedirect: true } // Don't log user out on incorrect current password
   );
+};
+
+/**
+ * Two-factor authentication helpers
+ */
+export const initializeTwoFactor = async () => {
+  return apiClient.post<{ secret: string; otpauthUrl: string }>(
+    API_ENDPOINTS.AUTH.TWO_FACTOR_INITIALIZE,
+    {}
+  );
+};
+
+export const verifyTwoFactorSetup = async (code: string) => {
+  return apiClient.post<{ message: string }>(
+    API_ENDPOINTS.AUTH.TWO_FACTOR_VERIFY,
+    { code }
+  );
+};
+
+export const disableTwoFactor = async (password: string) => {
+  return apiClient.post<{ message: string }>(
+    API_ENDPOINTS.AUTH.TWO_FACTOR_DISABLE,
+    { password }
+  );
+};
+
+/**
+ * Session management helpers
+ */
+export const getSessions = async () => {
+  return apiClient.get<{ sessions: any[] }>(API_ENDPOINTS.AUTH.SESSIONS);
+};
+
+export const revokeSession = async (sessionId: string) => {
+  return apiClient.delete<{ message: string }>(API_ENDPOINTS.AUTH.REVOKE_SESSION(sessionId));
+};
+
+export const revokeAllSessions = async () => {
+  return apiClient.post<{ message: string }>(API_ENDPOINTS.AUTH.REVOKE_ALL_SESSIONS, {});
 };
 

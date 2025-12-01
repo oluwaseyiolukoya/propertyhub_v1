@@ -1,0 +1,710 @@
+---
+alwaysApply: true
+# Cursor AI Rules for Payment Integration (Paystack & Other Gateways)
+
+## 🔴 CRITICAL: Payment Integration Rules
+
+### Rule 1: NEVER Use Frontend Environment Variables for Payment Keys
+
+**FORBIDDEN ACTIONS:**
+
+- ❌ NEVER use `VITE_PAYSTACK_PUBLIC_KEY` or any frontend env var for payment keys
+- ❌ NEVER use `window.PaystackPop.setup()` with hardcoded or frontend keys
+- ❌ NEVER expose payment keys in frontend code or build artifacts
+- ❌ NEVER use Paystack Pop/Inline modal for payment initialization
+- ❌ NEVER trust frontend-provided payment amounts or metadata
+
+**REASON:** Frontend environment variables are baked into the build at compile time and exposed in browser. If missing during build, they're `undefined` forever. Payment keys should NEVER be in frontend code.
+
+### Rule 2: ALWAYS Use Backend-Initiated Payment Flow
+
+**REQUIRED WORKFLOW:**
+
+1. Frontend calls backend API endpoint (e.g., `/api/subscriptions/upgrade/initialize`)
+2. Backend validates user, calculates amount, and calls Paystack API with secret key
+3. Backend receives `authorization_url` from Paystack
+4. Backend returns `authorization_url` to frontend
+5. Frontend redirects user to `authorization_url`
+6. User completes payment on Paystack's secure page
+7. Paystack redirects back to your callback URL
+8. Frontend detects callback and calls backend verification endpoint
+9. Backend verifies payment with Paystack using secret key
+10. Backend updates database and returns success/failure
+
+**ALLOWED PATTERN:**
+
+```typescript
+// ✅ CORRECT: Frontend
+const response = await initializePayment(data);
+if (response.data?.authorizationUrl) {
+  sessionStorage.setItem('payment_reference', response.data.reference);
+  window.location.href = response.data.authorizationUrl; // Redirect
+}
+
+// ✅ CORRECT: Backend
+const paystackResponse = await fetch('https://api.paystack.co/transaction/initialize', {
+  method: 'POST',
+  headers: {
+    Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`, // From backend env
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    email: user.email,
+    amount: calculatedAmount, // Backend calculates, not frontend
+    currency: 'NGN',
+    reference: generatedReference,
+    callback_url: `${process.env.FRONTEND_URL}/?payment_callback=type&tab=billing`
+  })
+});
+```
+
+**FORBIDDEN PATTERN:**
+
+```typescript
+// ❌ WRONG: Using Paystack Pop with frontend key
+const handler = window.PaystackPop.setup({
+  key: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY, // ❌ Frontend env var
+  email: user.email,
+  amount: amount, // ❌ Frontend-provided amount
+  callback: (response) => { /* ... */ }
+});
+handler.openIframe();
+```
+
+### Rule 3: ALWAYS Use Root Domain for Callback URLs (SPA Compatibility)
+
+**RULES:**
+
+- ✅ ALWAYS use root domain + query parameters for callbacks
+- ✅ ALWAYS include `payment_callback` parameter to identify payment type
+- ✅ ALWAYS include `tab` parameter to open correct settings tab
+- ❌ NEVER use path-based callbacks like `/payment/callback` or `/upgrade/callback`
+- ❌ NEVER assume URL routing exists in SPA
+
+**CORRECT CALLBACK URL PATTERN:**
+
+```typescript
+// ✅ CORRECT: Works in SPA without URL routing
+callback_url: `${process.env.FRONTEND_URL}/?payment_callback=upgrade&tab=billing`
+callback_url: `${process.env.FRONTEND_URL}/?payment_callback=payment_method&tab=billing`
+callback_url: `${process.env.FRONTEND_URL}/?payment_callback=subscription&tab=billing`
+```
+
+**WRONG CALLBACK URL PATTERN:**
+
+```typescript
+// ❌ WRONG: Returns 404 in SPA
+callback_url: `${process.env.FRONTEND_URL}/upgrade/callback`
+callback_url: `${process.env.FRONTEND_URL}/payment/success`
+callback_url: `${process.env.FRONTEND_URL}/developer/settings?tab=billing` // Path-based
+```
+
+**REASON:** Single Page Applications (SPAs) without React Router or similar don't have server-side routing. Path-based URLs return 404. Always use root domain with query parameters.
+
+### Rule 4: ALWAYS Handle Both Success AND Failure Callbacks
+
+**REQUIRED CALLBACK HANDLING:**
+
+1. Detect callback on page load using query parameters
+2. Auto-navigate to relevant page (e.g., settings)
+3. Call backend verification endpoint
+4. Handle success: Show toast, update UI, clean up URL
+5. Handle failure: Show error toast, clean up URL, stay on page
+6. Clean up session storage and URL parameters
+7. NEVER redirect to path-based URLs on error
+
+**CORRECT ERROR HANDLING:**
+
+```typescript
+// ✅ CORRECT: Stay on page, clean up, show error
+catch (error: any) {
+  console.error('Payment verification error:', error);
+  toast.error(error.response?.data?.error || 'Payment failed');
+
+  // Clean up
+  sessionStorage.removeItem('payment_reference');
+  const url = new URL(window.location.href);
+  url.searchParams.delete('reference');
+  url.searchParams.delete('payment_callback');
+  window.history.replaceState({}, '', url.toString());
+
+  // Stay on current page (no redirect)
+  setActiveTab('billing');
+}
+```
+
+**WRONG ERROR HANDLING:**
+
+```typescript
+// ❌ WRONG: Redirects to path-based URL (causes 404)
+catch (error: any) {
+  toast.error('Payment failed');
+  setTimeout(() => {
+    window.location.href = '/settings?tab=billing'; // ❌ 404 in SPA!
+  }, 3000);
+}
+```
+
+### Rule 5: ALWAYS Auto-Navigate to Relevant Page After Callback
+
+**RULES:**
+
+- ✅ ALWAYS detect `payment_callback` parameter at app/dashboard level
+- ✅ ALWAYS auto-navigate to settings/billing page
+- ✅ ALWAYS set correct tab using `tab` query parameter
+- ✅ ALWAYS let component-level callback handlers verify payment
+- ❌ NEVER leave user on blank/wrong page after payment
+
+**CORRECT PATTERN:**
+
+```typescript
+// ✅ CORRECT: In main dashboard component
+useEffect(() => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const paymentCallback = urlParams.get('payment_callback');
+
+  if (paymentCallback === 'payment_method' || paymentCallback === 'upgrade') {
+    console.log('Detected payment callback, navigating to settings...');
+    setCurrentPage('settings'); // Auto-navigate
+    // Component will handle verification based on 'tab' parameter
+  }
+}, []);
+```
+
+### Rule 6: ALWAYS Verify Payments on Backend
+
+**RULES:**
+
+- ✅ ALWAYS verify payment status with Paystack using backend secret key
+- ✅ ALWAYS check `transaction.status === 'success'` before updating database
+- ✅ ALWAYS validate metadata (planId, userId, customerId, etc.)
+- ✅ ALWAYS use idempotent operations (check if already processed)
+- ❌ NEVER trust frontend-provided payment status
+- ❌ NEVER update database without backend verification
+
+**CORRECT VERIFICATION:**
+
+```typescript
+// ✅ CORRECT: Backend verification
+const verifyResponse = await fetch(
+  `https://api.paystack.co/transaction/verify/${reference}`,
+  {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`
+    }
+  }
+);
+
+const verifyData = await verifyResponse.json();
+
+if (!verifyResponse.ok || !verifyData?.status) {
+  return res.status(400).json({ error: 'Payment verification failed' });
+}
+
+const transaction = verifyData.data;
+
+if (transaction.status !== 'success') {
+  return res.status(400).json({ error: 'Payment was not successful' });
+}
+
+// Validate metadata
+const metadata = transaction.metadata || {};
+if (!metadata.planId || !metadata.userId) {
+  return res.status(400).json({ error: 'Invalid payment metadata' });
+}
+
+// Check idempotency (already processed?)
+const existingPayment = await prisma.payments.findUnique({
+  where: { providerReference: reference }
+});
+
+if (existingPayment && existingPayment.status === 'completed') {
+  return res.json({ success: true, message: 'Payment already processed' });
+}
+
+// Now safe to update database
+await prisma.$transaction([
+  // Update subscription
+  // Update invoice
+  // Record payment
+]);
+```
+
+### Rule 7: ALWAYS Store Payment References Properly
+
+**RULES:**
+
+- ✅ ALWAYS generate unique references on backend (not frontend)
+- ✅ ALWAYS store reference in session storage before redirect
+- ✅ ALWAYS include metadata in Paystack initialization
+- ✅ ALWAYS clean up session storage after verification
+- ❌ NEVER rely solely on URL parameters (can be lost)
+
+**CORRECT PATTERN:**
+
+```typescript
+// ✅ CORRECT: Backend generates reference
+const reference = `UPG-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+// ✅ CORRECT: Frontend stores before redirect
+sessionStorage.setItem('payment_reference', response.data.reference);
+sessionStorage.setItem('payment_type', 'upgrade');
+window.location.href = authorizationUrl;
+
+// ✅ CORRECT: Callback checks both sources
+const reference = urlParams.get('reference') ||
+                  sessionStorage.getItem('payment_reference');
+
+// ✅ CORRECT: Clean up after verification
+sessionStorage.removeItem('payment_reference');
+sessionStorage.removeItem('payment_type');
+```
+
+### Rule 8: ALWAYS Include Comprehensive Metadata
+
+**RULES:**
+
+- ✅ ALWAYS include userId, customerId, planId, invoiceId in metadata
+- ✅ ALWAYS include payment type ('upgrade', 'subscription', 'payment_method')
+- ✅ ALWAYS validate metadata on backend before processing
+- ❌ NEVER rely on frontend to provide critical metadata
+
+**CORRECT METADATA:**
+
+```typescript
+// ✅ CORRECT: Backend includes comprehensive metadata
+body: JSON.stringify({
+  email: customer.email,
+  amount: Math.round(amount * 100),
+  currency: 'NGN',
+  reference: reference,
+  metadata: {
+    customerId: customer.id,
+    userId: user.id,
+    planId: newPlan.id,
+    invoiceId: invoice.id,
+    type: 'upgrade',
+    billingCycle: 'monthly'
+  },
+  callback_url: `${process.env.FRONTEND_URL}/?payment_callback=upgrade&tab=billing`
+})
+```
+
+### Rule 9: ALWAYS Handle Edge Cases
+
+**REQUIRED EDGE CASE HANDLING:**
+
+1. **User closes browser during payment**
+   - ✅ Store reference in session storage
+   - ✅ Check on next login if pending payment exists
+   - ✅ Prompt user to verify payment status
+
+2. **Payment succeeds but callback fails**
+   - ✅ Implement webhook handler for async verification
+   - ✅ Check payment status on page load if reference exists
+   - ✅ Show "Verifying payment..." state
+
+3. **User clicks back button**
+   - ✅ Clean up URL parameters
+   - ✅ Don't re-verify already processed payments (idempotency)
+
+4. **Multiple tabs open**
+   - ✅ Use session storage (not local storage)
+   - ✅ Verify payment only once (idempotency check)
+
+5. **Network errors during verification**
+   - ✅ Show retry button
+   - ✅ Don't auto-redirect on error
+   - ✅ Keep reference for manual retry
+
+### Rule 10: ALWAYS Test Complete Flow
+
+**TESTING CHECKLIST:**
+
+Before deploying payment integration, test:
+
+- [ ] Initialize payment (success)
+- [ ] Initialize payment (network error)
+- [ ] Complete payment (success)
+- [ ] Complete payment (failure/decline)
+- [ ] Cancel payment (close browser)
+- [ ] Callback handling (success)
+- [ ] Callback handling (failure)
+- [ ] Verify payment (success)
+- [ ] Verify payment (already processed)
+- [ ] Verify payment (network error)
+- [ ] URL cleanup after success
+- [ ] URL cleanup after failure
+- [ ] Session storage cleanup
+- [ ] Correct page/tab navigation
+- [ ] Error messages display correctly
+- [ ] Success messages display correctly
+- [ ] Database updates correctly
+- [ ] Idempotency (no duplicate processing)
+
+**Test Cards (Paystack):**
+- Success: `4084 0840 8408 4081` (CVV: 408, Expiry: any future date)
+- Decline: `5060 6666 6666 6666 6666` (CVV: 123)
+
+---
+
+## 📋 Payment Integration Checklist
+
+When adding ANY new payment feature, verify:
+
+### Backend Checklist
+
+- [ ] Payment initialization endpoint created
+- [ ] Uses `process.env.PAYSTACK_SECRET_KEY` from backend
+- [ ] Generates unique reference on backend
+- [ ] Calculates amount on backend (never trust frontend)
+- [ ] Includes comprehensive metadata
+- [ ] Returns `authorizationUrl` to frontend
+- [ ] Callback URL uses root domain + query parameters
+- [ ] Callback URL includes `payment_callback` and `tab` parameters
+- [ ] Verification endpoint created
+- [ ] Verifies with Paystack using secret key
+- [ ] Checks `transaction.status === 'success'`
+- [ ] Validates metadata
+- [ ] Implements idempotency check
+- [ ] Updates database in transaction
+- [ ] Returns clear success/error messages
+
+### Frontend Checklist
+
+- [ ] Calls backend initialization endpoint
+- [ ] Stores reference in session storage
+- [ ] Redirects to `authorizationUrl` (not Paystack Pop)
+- [ ] Detects callback at app/dashboard level
+- [ ] Auto-navigates to relevant page
+- [ ] Component detects callback and verifies
+- [ ] Handles success: toast, UI update, cleanup
+- [ ] Handles failure: error toast, cleanup, stay on page
+- [ ] Cleans up URL parameters
+- [ ] Cleans up session storage
+- [ ] No path-based redirects on error
+- [ ] Shows loading states during verification
+- [ ] Implements retry mechanism for network errors
+
+---
+
+## 🎯 Approved Payment Patterns
+
+### ✅ CORRECT: Upgrade Plan Flow
+
+```typescript
+// Frontend: UpgradeModal.tsx
+const handlePayment = async () => {
+  try {
+    setLoading(true);
+    const response = await initializeUpgrade(selectedPlan);
+
+    if (response.data?.authorizationUrl) {
+      sessionStorage.setItem("upgrade_reference", response.data.reference);
+      sessionStorage.setItem("upgrade_plan_id", selectedPlan);
+      toast.info("Redirecting to payment gateway...");
+
+      setTimeout(() => {
+        window.location.href = response.data.authorizationUrl;
+      }, 1000);
+    } else {
+      throw new Error("No authorization URL received");
+    }
+  } catch (error: any) {
+    toast.error(error.response?.data?.error || "Failed to initialize payment");
+    setLoading(false);
+  }
+};
+
+// Frontend: DeveloperDashboardRefactored.tsx
+useEffect(() => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const paymentCallback = urlParams.get("payment_callback");
+
+  if (paymentCallback === "upgrade") {
+    setCurrentPage("settings"); // Auto-navigate
+  }
+}, []);
+
+// Frontend: DeveloperSettings.tsx
+useEffect(() => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const reference = urlParams.get("reference");
+  const paymentCallback = urlParams.get("payment_callback");
+
+  if (reference && paymentCallback === "upgrade") {
+    handlePaymentCallback(reference);
+  }
+}, []);
+
+const handlePaymentCallback = async (reference: string) => {
+  try {
+    toast.info("Verifying payment...");
+    const response = await verifyUpgrade(reference);
+
+    if (response.data?.success) {
+      sessionStorage.removeItem("upgrade_reference");
+      sessionStorage.removeItem("upgrade_plan_id");
+
+      toast.success("Plan upgraded successfully!");
+
+      // Clean up URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete("reference");
+      url.searchParams.delete("payment_callback");
+      window.history.replaceState({}, "", url.toString());
+
+      // Refresh data
+      await fetchAccountData();
+    } else {
+      throw new Error("Verification failed");
+    }
+  } catch (error: any) {
+    toast.error(error.response?.data?.error || "Payment verification failed");
+
+    // Clean up without redirect
+    sessionStorage.removeItem("upgrade_reference");
+    const url = new URL(window.location.href);
+    url.searchParams.delete("reference");
+    url.searchParams.delete("payment_callback");
+    window.history.replaceState({}, "", url.toString());
+  }
+};
+
+// Backend: subscriptions.ts
+router.post("/upgrade/initialize", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { planId } = req.body;
+
+    // Validate and calculate
+    const user = await prisma.users.findUnique({ where: { id: userId } });
+    const plan = await prisma.plans.findUnique({ where: { id: planId } });
+    const amount = plan.monthlyPrice;
+
+    // Generate reference
+    const reference = `UPG-${Date.now()}-${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
+
+    // Initialize with Paystack
+    const paystackResponse = await fetch(
+      "https://api.paystack.co/transaction/initialize",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: user.email,
+          amount: Math.round(amount * 100),
+          currency: "NGN",
+          reference,
+          metadata: {
+            customerId: user.customerId,
+            userId: user.id,
+            planId: plan.id,
+            type: "upgrade",
+          },
+          callback_url: `${process.env.FRONTEND_URL}/?payment_callback=upgrade&tab=billing`,
+        }),
+      }
+    );
+
+    const data = await paystackResponse.json();
+
+    res.json({
+      authorizationUrl: data.data?.authorization_url,
+      reference,
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to initialize payment" });
+  }
+});
+
+router.post("/upgrade/verify", authMiddleware, async (req, res) => {
+  try {
+    const { reference } = req.body;
+
+    // Verify with Paystack
+    const verifyResponse = await fetch(
+      `https://api.paystack.co/transaction/verify/${reference}`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+        },
+      }
+    );
+
+    const verifyData = await verifyResponse.json();
+
+    if (!verifyResponse.ok || verifyData.data?.status !== "success") {
+      return res.status(400).json({ error: "Payment was not successful" });
+    }
+
+    const metadata = verifyData.data.metadata;
+
+    // Check idempotency
+    const existing = await prisma.payments.findUnique({
+      where: { providerReference: reference },
+    });
+
+    if (existing?.status === "completed") {
+      return res.json({ success: true, message: "Already processed" });
+    }
+
+    // Update database
+    await prisma.$transaction([
+      prisma.customers.update({
+        where: { id: metadata.customerId },
+        data: { planId: metadata.planId },
+      }),
+      prisma.payments.create({
+        data: {
+          customerId: metadata.customerId,
+          amount: verifyData.data.amount / 100,
+          currency: verifyData.data.currency,
+          status: "completed",
+          providerReference: reference,
+        },
+      }),
+    ]);
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: "Verification failed" });
+  }
+});
+```
+
+---
+
+## 🚨 Error Response Protocol
+
+**If developer asks to:**
+
+1. "Use Paystack Pop for payment" → Respond: "We use redirect flow for better security. The backend provides authorization URL."
+2. "Add VITE_PAYSTACK_PUBLIC_KEY" → Respond: "Payment keys should never be in frontend. Backend handles all Paystack communication."
+3. "Redirect to /payment/callback" → Respond: "SPA doesn't support path-based callbacks. Use root domain with query parameters."
+4. "Trust frontend payment amount" → Respond: "Always calculate amounts on backend to prevent tampering."
+5. "Skip payment verification" → Respond: "Always verify with Paystack backend before updating database."
+
+---
+
+## 📚 Reference Documentation
+
+**When helping with payment integration, reference:**
+
+- This file (`.cursorrules-payment-integration`)
+- `PAYSTACK_REDIRECT_FLOW_COMPLETE.md` - Complete implementation guide
+- Paystack API docs: https://paystack.com/docs/api/
+- Backend routes: `backend/src/routes/subscriptions.ts`, `backend/src/routes/payment-methods.ts`
+
+---
+
+## 🎓 Teaching Points
+
+**When developer is learning, explain:**
+
+1. **Why redirect flow is better:** More secure, no frontend keys, works in all browsers
+2. **Why backend verification matters:** Prevents fraud, ensures data integrity
+3. **Why root domain callbacks:** SPA compatibility, no 404 errors
+4. **Why metadata is critical:** Links payment to user/plan/invoice for verification
+5. **Why idempotency matters:** Prevents duplicate processing if user refreshes
+
+---
+
+## ⚡ Quick Commands to Suggest
+
+**For payment integration:**
+
+```bash
+# Check environment variables
+grep PAYSTACK backend/.env
+
+# Test payment initialization
+curl -X POST http://localhost:5000/api/subscriptions/upgrade/initialize \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"planId":"plan-id"}'
+
+# Test payment verification
+curl -X POST http://localhost:5000/api/subscriptions/upgrade/verify \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"reference":"test-ref"}'
+```
+
+---
+
+## 🔒 Security Checklist
+
+**Before deploying payment integration:**
+
+- [ ] No payment keys in frontend code
+- [ ] No payment keys in git history
+- [ ] Backend validates all inputs
+- [ ] Backend calculates all amounts
+- [ ] Backend verifies all payments
+- [ ] Metadata includes user/customer IDs
+- [ ] Idempotency check implemented
+- [ ] Database updates in transactions
+- [ ] Error messages don't leak sensitive info
+- [ ] Logs don't contain payment details
+- [ ] HTTPS enforced in production
+- [ ] CORS properly configured
+
+---
+
+## 🎯 Success Criteria
+
+**A payment integration is done correctly when:**
+
+1. ✅ No frontend environment variables for payment keys
+2. ✅ Backend initializes payment with Paystack
+3. ✅ Frontend redirects to authorization URL
+4. ✅ Callback URL uses root domain + query parameters
+5. ✅ Auto-navigation to settings/billing page works
+6. ✅ Backend verifies payment before database update
+7. ✅ Success and failure cases both handled
+8. ✅ URL and session storage cleaned up
+9. ✅ No 404 errors in any scenario
+10. ✅ Idempotency prevents duplicate processing
+11. ✅ All edge cases tested
+12. ✅ Security checklist passed
+
+---
+
+## 🚀 Enforcement
+
+**AI Assistant MUST:**
+
+- Refuse to use Paystack Pop or frontend payment keys
+- Always suggest backend-initiated redirect flow
+- Always use root domain for callback URLs
+- Always implement backend verification
+- Always handle both success and failure
+- Always clean up URL parameters and session storage
+- Remind developer to test complete flow
+- Reference this documentation when explaining
+
+**AI Assistant MUST NOT:**
+
+- Suggest using `VITE_PAYSTACK_PUBLIC_KEY`
+- Suggest using `window.PaystackPop.setup()`
+- Suggest path-based callback URLs
+- Skip backend verification
+- Trust frontend-provided amounts or metadata
+- Redirect to paths on error (causes 404)
+- Skip idempotency checks
+
+---
+
+**Last Updated:** November 24, 2025
+**Status:** ENFORCED - These rules prevent payment integration issues
+**Severity:** CRITICAL - Violations cause security issues and broken payments
+**Related:** `.cursorrules` (database), `.cursorrules-code-changes` (state management)
+
+---

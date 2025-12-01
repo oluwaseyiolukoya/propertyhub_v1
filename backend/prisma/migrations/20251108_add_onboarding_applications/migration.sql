@@ -1,5 +1,5 @@
--- CreateTable
-CREATE TABLE "onboarding_applications" (
+-- CreateTable (without foreign keys - they will be added by later migrations after referenced tables exist)
+CREATE TABLE IF NOT EXISTS "onboarding_applications" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "applicationType" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -42,19 +42,13 @@ CREATE TABLE "onboarding_applications" (
     "referralSource" TEXT,
     "metadata" JSONB,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "onboarding_applications_reviewedBy_fkey" FOREIGN KEY ("reviewedBy") REFERENCES "admins"("id") ON DELETE SET NULL ON UPDATE CASCADE,
-    CONSTRAINT "onboarding_applications_approvedBy_fkey" FOREIGN KEY ("approvedBy") REFERENCES "admins"("id") ON DELETE SET NULL ON UPDATE CASCADE,
-    CONSTRAINT "onboarding_applications_activatedBy_fkey" FOREIGN KEY ("activatedBy") REFERENCES "admins"("id") ON DELETE SET NULL ON UPDATE CASCADE,
-    CONSTRAINT "onboarding_applications_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "customers"("id") ON DELETE SET NULL ON UPDATE CASCADE,
-    CONSTRAINT "onboarding_applications_selectedPlanId_fkey" FOREIGN KEY ("selectedPlanId") REFERENCES "plans"("id") ON DELETE SET NULL ON UPDATE CASCADE
+    "updatedAt" TIMESTAMP(3) NOT NULL
 );
 
 -- CreateIndex
-CREATE INDEX "onboarding_applications_status_idx" ON "onboarding_applications"("status");
-CREATE INDEX "onboarding_applications_applicationType_idx" ON "onboarding_applications"("applicationType");
-CREATE INDEX "onboarding_applications_email_idx" ON "onboarding_applications"("email");
-CREATE INDEX "onboarding_applications_createdAt_idx" ON "onboarding_applications"("createdAt");
-CREATE INDEX "onboarding_applications_reviewStatus_idx" ON "onboarding_applications"("reviewStatus");
+CREATE INDEX IF NOT EXISTS "onboarding_applications_status_idx" ON "onboarding_applications"("status");
+CREATE INDEX IF NOT EXISTS "onboarding_applications_applicationType_idx" ON "onboarding_applications"("applicationType");
+CREATE INDEX IF NOT EXISTS "onboarding_applications_email_idx" ON "onboarding_applications"("email");
+CREATE INDEX IF NOT EXISTS "onboarding_applications_createdAt_idx" ON "onboarding_applications"("createdAt");
+CREATE INDEX IF NOT EXISTS "onboarding_applications_reviewStatus_idx" ON "onboarding_applications"("reviewStatus");
 

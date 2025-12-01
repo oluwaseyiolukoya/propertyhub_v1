@@ -26,6 +26,7 @@ import {
   getDocumentDownloadUrl,
   deleteVerificationRequest
 } from '../../lib/api/verification';
+import { resetCustomerKyc } from '../../lib/api/verification';
 import type { VerificationRequest, VerificationAnalytics } from '../../types/verification';
 import {
   DropdownMenu,
@@ -232,6 +233,27 @@ export const VerificationManagement: React.FC = () => {
       toast.error(error.response?.data?.error || 'Failed to delete verification request');
     } finally {
       setDeleteLoading(false);
+    }
+  };
+
+  const handleResetKyc = async (customerId: string) => {
+    if (!confirm('Reset KYC for this customer? They will be required to resubmit verification.')) {
+      return;
+    }
+    try {
+      setActionLoading(true);
+      const resp = await resetCustomerKyc(customerId);
+      if ((resp as any).error) {
+        throw new Error((resp as any).error?.message || (resp as any).error?.error || 'Failed to reset KYC');
+      }
+      toast.success('Customer KYC reset successfully');
+      await loadRequests();
+      await loadAnalytics();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to reset KYC');
+      console.error(error);
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -465,6 +487,12 @@ export const VerificationManagement: React.FC = () => {
                           <DropdownMenuItem onClick={() => handleViewDetails(request.id)}>
                             <Eye className="h-4 w-4 mr-2" />
                             View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleResetKyc(request.customerId)}
+                          >
+                            <AlertCircle className="h-4 w-4 mr-2" />
+                            Reset KYC
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => handleDeleteClick(request)}

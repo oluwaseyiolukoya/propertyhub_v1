@@ -163,18 +163,29 @@ router.post('/add', authMiddleware, async (req: AuthRequest, res: Response) => {
       exp_year: authorization.exp_year,
     });
 
-    // Check if this authorization code already exists
+    // Check if this authorization code already exists OR if the same card details exist
+    // (Paystack may issue different authorization codes for the same card)
     const existingMethod = await prisma.payment_methods.findFirst({
       where: {
         customerId,
-        authorizationCode: authorization.authorization_code,
         isActive: true,
+        OR: [
+          { authorizationCode: authorization.authorization_code },
+          {
+            AND: [
+              { cardLast4: authorization.last4 },
+              { cardBrand: authorization.brand || authorization.card_type },
+              { cardExpMonth: authorization.exp_month },
+              { cardExpYear: authorization.exp_year },
+            ]
+          }
+        ]
       },
     });
 
     // If method already exists, treat this as a no-op (idempotent) and optionally update default flag
     if (existingMethod) {
-      console.log('[Payment Methods] Payment method already exists:', existingMethod.id);
+      console.log('[Payment Methods] Payment method already exists (by auth code or card details):', existingMethod.id);
 
       // If caller wants this card as default, update defaults
       if (setAsDefault && !existingMethod.isDefault) {

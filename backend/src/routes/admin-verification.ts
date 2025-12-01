@@ -398,6 +398,9 @@ router.get('/documents/:documentId/download', authMiddleware, adminOnly, async (
 /**
  * Delete verification request (admin)
  * DELETE /api/admin/verification/requests/:requestId
+ *
+ * This endpoint deletes the verification request and resets the customer/user's
+ * KYC status so they can submit a new verification.
  */
 router.delete('/requests/:requestId', authMiddleware, adminOnly, async (req: AuthRequest, res: Response) => {
   try {
@@ -410,8 +413,8 @@ router.delete('/requests/:requestId', authMiddleware, adminOnly, async (req: Aut
 
     console.log('[Admin KYC] Deleting verification request:', requestId, 'by admin:', adminUserId);
 
-    // Get details before deletion for logging
-    let verificationDetails;
+    // Get details before deletion for logging and to reset KYC status
+    let verificationDetails: any;
     try {
       verificationDetails = await verificationClient.getRequestDetails(requestId);
     } catch (error) {
@@ -421,22 +424,65 @@ router.delete('/requests/:requestId', authMiddleware, adminOnly, async (req: Aut
     // Call verification microservice to delete
     const result = await verificationClient.deleteRequest(requestId);
 
-    // Log the deletion activity
+    // Reset KYC status so the user can submit a new verification
     if (verificationDetails?.customerId) {
+      const referenceId = verificationDetails.customerId;
+      const customerType = verificationDetails.customerType;
+      const isTenant = customerType === 'tenant';
+
+      if (isTenant) {
+        // For tenants, reset user-level KYC
+        console.log('[Admin KYC] Resetting tenant KYC status for user:', referenceId);
+        await prisma.users.update({
+          where: { id: referenceId },
+          data: {
+            kycStatus: null,
+            kycVerificationId: null,
+            kycCompletedAt: null,
+            kycFailureReason: null,
+            kycLastAttemptAt: null,
+            kycOwnerApprovalStatus: null,
+            kycReviewedByOwnerId: null,
+            kycOwnerReviewedAt: null,
+            kycOwnerNotes: null,
+            requiresKyc: true, // Still require KYC - user needs to submit new verification
+          },
+        });
+        console.log('[Admin KYC] ✅ Tenant KYC status reset - can now submit new verification');
+      } else {
+        // For non-tenants (owners, developers), reset customer-level KYC
+        console.log('[Admin KYC] Resetting customer KYC status for customer:', referenceId);
+        await prisma.customers.update({
+          where: { id: referenceId },
+          data: {
+            kycStatus: null,
+            kycVerificationId: null,
+            kycCompletedAt: null,
+            kycFailureReason: null,
+            kycLastAttemptAt: null,
+            kycVerifiedBy: null,
+            requiresKyc: true, // Still require KYC - customer needs to submit new verification
+          },
+        });
+        console.log('[Admin KYC] ✅ Customer KYC status reset - can now submit new verification');
+      }
+
+      // Log the deletion activity
       try {
         await prisma.activity_logs.create({
           data: {
             id: uuidv4(),
-            customerId: verificationDetails.customerId,
+            customerId: isTenant ? undefined : referenceId,
             userId: adminUserId,
             action: 'delete_verification_request',
             entity: 'verification_request',
             entityId: requestId,
-            description: `Admin deleted verification request`,
+            description: `Admin deleted verification request and reset KYC status`,
             metadata: {
               requestId,
               customerType: verificationDetails.customerType,
-              customerEmail: (verificationDetails as any).customerEmail
+              customerEmail: verificationDetails.customerEmail,
+              kycStatusReset: true,
             },
           },
         });
@@ -449,12 +495,145 @@ router.delete('/requests/:requestId', authMiddleware, adminOnly, async (req: Aut
 
     res.json({
       success: true,
-      message: 'Verification request deleted successfully',
+      message: 'Verification request deleted and KYC status reset. User can now submit a new verification.',
       data: result,
     });
   } catch (error: any) {
     console.error('[AdminVerificationRoutes] Delete error:', error);
     res.status(500).json({ error: error.message || 'Failed to delete verification request' });
+  }
+});
+
+/**
+ * Reset customer/user KYC status (admin)
+ * POST /api/admin/verification/customers/:customerId/reset
+ *
+ * - For non-tenant (customer-level KYC): resets customer KYC fields
+ * - For tenant (user-level KYC): if a tenant ID is provided via query (?userId=...), resets user KYC fields
+ * - Attempts to delete existing verification request from verification service when present
+ */
+router.post('/customers/:customerId/reset', authMiddleware, adminOnly, async (req: AuthRequest, res: Response) => {
+  try {
+    const { customerId } = req.params;
+    const { userId } = (req.query || {}) as { userId?: string };
+    const adminUserId = req.user?.id;
+
+    if (!adminUserId) {
+      return res.status(400).json({ error: 'Admin user ID not found' });
+    }
+
+    // If userId provided, reset tenant (user-level) KYC
+    if (userId) {
+      const user = await prisma.users.findUnique({
+        where: { id: userId },
+        select: { id: true, kycVerificationId: true, customerId: true, role: true }
+      });
+
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Best-effort delete from verification service
+      if (user.kycVerificationId) {
+        try {
+          await verificationClient.deleteRequest(user.kycVerificationId);
+          console.log('[Admin KYC] 🗑️ Deleted tenant verification request from verification service:', user.kycVerificationId);
+        } catch (e: any) {
+          console.warn('[Admin KYC] ⚠️ Could not delete tenant verification from service:', e?.message);
+        }
+      }
+
+      await prisma.users.update({
+        where: { id: user.id },
+        data: {
+          kycStatus: null,
+          kycVerificationId: null,
+          kycCompletedAt: null,
+          kycFailureReason: null,
+          kycLastAttemptAt: null,
+          kycOwnerApprovalStatus: null,
+          kycReviewedByOwnerId: null,
+          kycOwnerReviewedAt: null,
+          kycOwnerNotes: null,
+          requiresKyc: true
+        }
+      });
+
+      // Log activity (attach to customer if available)
+      try {
+        await prisma.activity_logs.create({
+          data: {
+            id: uuidv4(),
+            customerId: user.customerId || undefined,
+            userId: adminUserId,
+            action: 'reset_kyc_status',
+            entity: 'user',
+            entityId: user.id,
+            description: `Admin reset tenant KYC status`,
+            metadata: { userId: user.id }
+          }
+        });
+      } catch (logError) {
+        console.warn('[Admin KYC] Failed to create activity log for tenant reset:', logError);
+      }
+
+      return res.json({ success: true, message: 'Tenant KYC reset successfully' });
+    }
+
+    // Otherwise, reset customer-level KYC
+    const customer = await prisma.customers.findUnique({
+      where: { id: customerId },
+      select: { id: true, kycVerificationId: true }
+    });
+
+    if (!customer) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    // Best-effort delete from verification service
+    if (customer.kycVerificationId) {
+      try {
+        await verificationClient.deleteRequest(customer.kycVerificationId);
+        console.log('[Admin KYC] 🗑️ Deleted customer verification request from verification service:', customer.kycVerificationId);
+      } catch (e: any) {
+        console.warn('[Admin KYC] ⚠️ Could not delete customer verification from service:', e?.message);
+      }
+    }
+
+    await prisma.customers.update({
+      where: { id: customer.id },
+      data: {
+        kycStatus: null,
+        kycVerificationId: null,
+        kycCompletedAt: null,
+        kycFailureReason: null,
+        kycLastAttemptAt: null,
+        kycVerifiedBy: null,
+        requiresKyc: true
+      }
+    });
+
+    try {
+      await prisma.activity_logs.create({
+        data: {
+          id: uuidv4(),
+          customerId: customer.id,
+          userId: adminUserId,
+          action: 'reset_kyc_status',
+          entity: 'customer',
+          entityId: customer.id,
+          description: `Admin reset customer KYC status`,
+          metadata: { customerId: customer.id }
+        }
+      });
+    } catch (logError) {
+      console.warn('[Admin KYC] Failed to create activity log for customer reset:', logError);
+    }
+
+    return res.json({ success: true, message: 'Customer KYC reset successfully' });
+  } catch (error: any) {
+    console.error('[AdminVerificationRoutes] Reset KYC error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to reset KYC' });
   }
 });
 

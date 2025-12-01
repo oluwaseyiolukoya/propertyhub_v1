@@ -161,3 +161,6 @@ CREATE INDEX IF NOT EXISTS "idx_notification_templates_is_active" ON "notificati
 CREATE UNIQUE INDEX IF NOT EXISTS "project_invoices_invoiceNumber_key" ON "project_invoices"("invoiceNumber");
 CREATE UNIQUE INDEX IF NOT EXISTS "project_funding_referenceNumber_key" ON "project_funding"("referenceNumber");
 
+
+
+

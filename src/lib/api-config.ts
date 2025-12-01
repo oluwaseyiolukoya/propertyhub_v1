@@ -18,6 +18,12 @@ export const API_ENDPOINTS = {
     SETUP_PASSWORD: '/api/auth/setup-password',
     ACCOUNT: '/api/auth/account',
     CHANGE_PASSWORD: '/api/auth/change-password',
+    TWO_FACTOR_INITIALIZE: '/api/auth/2fa/initialize',
+    TWO_FACTOR_VERIFY: '/api/auth/2fa/verify',
+    TWO_FACTOR_DISABLE: '/api/auth/2fa/disable',
+    SESSIONS: '/api/auth/sessions',
+    REVOKE_SESSION: (id: string) => `/api/auth/sessions/${id}`,
+    REVOKE_ALL_SESSIONS: '/api/auth/sessions/revoke-all',
   },
 
   // Dashboard

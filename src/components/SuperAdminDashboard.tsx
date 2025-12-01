@@ -6,6 +6,8 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Avatar, AvatarFallback } from "./ui/avatar";
+import { Separator } from "./ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
@@ -22,6 +24,7 @@ import { VerificationManagement } from './admin/VerificationManagement';
 import { Footer } from './Footer';
 import { PlatformLogo } from './PlatformLogo';
 import { toast } from "sonner";
+import { changePassword } from "../lib/api/auth";
 import {
   initializeSocket,
   disconnectSocket,
@@ -81,7 +84,12 @@ import {
   Copy,
   CheckCircle,
   Key,
-  ArrowLeft
+  ArrowLeft,
+  User,
+  Shield,
+  ChevronDown,
+  HelpCircle,
+  AlertCircle
 } from 'lucide-react';
 import { Textarea } from './ui/textarea';
 import { useCurrency } from '../lib/CurrencyContext';
@@ -125,6 +133,7 @@ export function SuperAdminDashboard({
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   // Users data from API
   const [users, setUsers] = useState<any[]>([]);
@@ -1401,17 +1410,65 @@ export function SuperAdminDashboard({
                 )}
               </Button>
 
-              <div className="flex items-center space-x-2">
-                <div className="h-8 w-8 rounded-full bg-red-600 flex items-center justify-center">
-                  <span className="text-white text-xs sm:text-sm font-medium">
-                    {user.name.split(' ').map((n: string) => n[0]).join('')}
-                  </span>
-                </div>
-                <div className="hidden sm:block">
-                  <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                  <div className="text-xs text-gray-500">{user.role}</div>
-                </div>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="flex items-center gap-2 hover:bg-gray-100"
+                  >
+                    <Avatar className="w-8 h-8">
+                      <AvatarFallback className="bg-red-600 text-white text-sm font-medium">
+                        {user.name.split(' ').map((n: string) => n[0]).join('')}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="hidden sm:block text-left">
+                      <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                      <div className="text-xs text-gray-500">{user.role}</div>
+                    </div>
+                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col space-y-1">
+                      <p className="font-medium">{user.name}</p>
+                      <p className="text-xs text-gray-500 font-normal">
+                        {user.email}
+                      </p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer"
+                    onClick={() => setActiveTab('profile')}
+                  >
+                    <User className="w-4 h-4" />
+                    <span>Profile</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer"
+                    onClick={() => setActiveTab('change-password')}
+                  >
+                    <Shield className="w-4 h-4" />
+                    <span>Change Password</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer"
+                  >
+                    <HelpCircle className="w-4 h-4" />
+                    <span>Help & Support</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                    onClick={onLogout}
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Logout</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
@@ -1983,6 +2040,358 @@ export function SuperAdminDashboard({
             {activeTab === 'verifications' && <VerificationManagement />}
             {activeTab === 'support' && <SupportTickets />}
             {activeTab === 'settings' && <PlatformSettings />}
+
+            {/* Profile Tab */}
+            {activeTab === 'profile' && (
+              <div className="space-y-6">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                      Profile Settings
+                    </h1>
+                    <p className="text-gray-600">
+                      Manage your personal information and preferences
+                    </p>
+                  </div>
+                </div>
+
+                {/* Profile Information Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <User className="w-5 h-5" />
+                      Profile Information
+                    </CardTitle>
+                    <CardDescription>
+                      Update your personal information and profile details
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {/* Avatar Section */}
+                    <div className="flex items-center gap-6">
+                      <Avatar className="w-20 h-20">
+                        <AvatarFallback className="bg-red-600 text-white text-2xl font-semibold">
+                          {user.name.split(' ').map((n: string) => n[0]).join('')}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          <Badge variant="destructive" className="text-sm px-3 py-1">
+                            {user.role}
+                          </Badge>
+                          <Badge variant="outline" className="text-sm px-3 py-1">
+                            <Shield className="w-3 h-3 mr-1" />
+                            Admin Access
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-gray-500 mt-2">
+                          Administrator account with full system access
+                        </p>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Profile Details */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="admin-name" className="text-sm font-medium flex items-center gap-2">
+                          <User className="w-4 h-4 text-gray-500" />
+                          Full Name
+                        </Label>
+                        <Input
+                          id="admin-name"
+                          value={user.name}
+                          disabled
+                          className="bg-gray-50 font-medium"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="admin-email" className="text-sm font-medium flex items-center gap-2">
+                          <Mail className="w-4 h-4 text-gray-500" />
+                          Email Address
+                        </Label>
+                        <Input
+                          id="admin-email"
+                          type="email"
+                          value={user.email}
+                          disabled
+                          className="bg-gray-50"
+                        />
+                        <p className="text-xs text-gray-500">Primary contact email</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="admin-role" className="text-sm font-medium flex items-center gap-2">
+                          <Shield className="w-4 h-4 text-gray-500" />
+                          Role
+                        </Label>
+                        <Input
+                          id="admin-role"
+                          value={user.role}
+                          disabled
+                          className="bg-gray-50 font-medium"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="admin-id" className="text-sm font-medium flex items-center gap-2">
+                          <Key className="w-4 h-4 text-gray-500" />
+                          User ID
+                        </Label>
+                        <Input
+                          id="admin-id"
+                          value={user.id || 'N/A'}
+                          disabled
+                          className="bg-gray-50 font-mono text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Account Status */}
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                        Account Status
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600">Status</p>
+                            <p className="text-sm font-semibold text-gray-900">Active</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                            <Shield className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600">Access Level</p>
+                            <p className="text-sm font-semibold text-gray-900">Full Access</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                          <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                            <Key className="w-5 h-5 text-purple-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600">Permissions</p>
+                            <p className="text-sm font-semibold text-gray-900">All Granted</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Quick Actions */}
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-semibold text-gray-900">Quick Actions</h3>
+                      <div className="flex flex-wrap gap-3">
+                        <Button
+                          variant="outline"
+                          className="gap-2"
+                          onClick={() => setActiveTab('change-password')}
+                        >
+                          <Shield className="w-4 h-4" />
+                          Change Password
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="gap-2"
+                        >
+                          <HelpCircle className="w-4 h-4" />
+                          Help & Support
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Security Information Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Shield className="w-5 h-5" />
+                      Security Information
+                    </CardTitle>
+                    <CardDescription>
+                      Your account security details and recommendations
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+                      <div className="flex-1">
+                        <h4 className="text-sm font-semibold text-gray-900 mb-1">
+                          Security Best Practices
+                        </h4>
+                        <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
+                          <li>Change your password regularly</li>
+                          <li>Never share your admin credentials</li>
+                          <li>Use a strong, unique password</li>
+                          <li>Log out when using shared devices</li>
+                        </ul>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-4 border rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Key className="w-4 h-4 text-gray-500" />
+                          <h4 className="text-sm font-semibold text-gray-900">Password</h4>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-3">
+                          Last changed: Not available
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => setActiveTab('change-password')}
+                        >
+                          Change Password
+                        </Button>
+                      </div>
+
+                      <div className="p-4 border rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Mail className="w-4 h-4 text-gray-500" />
+                          <h4 className="text-sm font-semibold text-gray-900">Email Verified</h4>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-3">
+                          Your email is verified and active
+                        </p>
+                        <div className="flex items-center gap-2 text-green-600">
+                          <CheckCircle className="w-4 h-4" />
+                          <span className="text-sm font-medium">Verified</span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Change Password Tab */}
+            {activeTab === 'change-password' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Change Password</CardTitle>
+                  <CardDescription>Update your password to keep your account secure</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (isChangingPassword) return;
+                      const formElement = e.currentTarget as HTMLFormElement;
+
+                      const formData = new FormData(formElement);
+                      const currentPassword = (formData.get("currentPassword") as string) || "";
+                      const newPassword = (formData.get("newPassword") as string) || "";
+                      const confirmPassword = (formData.get("confirmPassword") as string) || "";
+
+                      // Validation – keep in sync with global password change feature
+                      if (!currentPassword || !newPassword || !confirmPassword) {
+                        toast.error("All fields are required");
+                        return;
+                      }
+
+                      if (newPassword.length < 6) {
+                        toast.error("New password must be at least 6 characters long");
+                        return;
+                      }
+
+                      if (newPassword !== confirmPassword) {
+                        toast.error("New passwords do not match");
+                        return;
+                      }
+
+                      if (currentPassword === newPassword) {
+                        toast.error("New password must be different from current password");
+                        return;
+                      }
+
+                      setIsChangingPassword(true);
+                      try {
+                        const response = await changePassword({
+                          currentPassword,
+                          newPassword,
+                        });
+
+                        if (response.data) {
+                          toast.success("Password changed successfully");
+                          formElement.reset();
+                        } else if (response.error) {
+                          const errorMessage =
+                            response.error.message ||
+                            response.error.error ||
+                            "Failed to change password";
+                          toast.error(errorMessage);
+                        }
+                      } catch (error: any) {
+                        console.error("Error changing password:", error);
+                        toast.error(error?.message || "Failed to change password");
+                      } finally {
+                        setIsChangingPassword(false);
+                      }
+                    }}
+                    className="space-y-4"
+                  >
+                    <div className="space-y-2">
+                      <Label htmlFor="currentPassword">Current Password</Label>
+                      <Input
+                        id="currentPassword"
+                        name="currentPassword"
+                        type="password"
+                        placeholder="Enter current password"
+                        required
+                        disabled={isChangingPassword}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="newPassword">New Password</Label>
+                      <Input
+                        id="newPassword"
+                        name="newPassword"
+                        type="password"
+                        placeholder="Enter new password"
+                        required
+                        disabled={isChangingPassword}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                      <Input
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        type="password"
+                        placeholder="Confirm new password"
+                        required
+                        disabled={isChangingPassword}
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      className="w-full sm:w-auto"
+                      disabled={isChangingPassword}
+                    >
+                      {isChangingPassword ? "Changing..." : "Change Password"}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </main>
       </div>

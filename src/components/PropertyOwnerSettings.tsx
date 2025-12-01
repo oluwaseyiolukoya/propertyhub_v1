@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import QRCode from 'qrcode';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -78,12 +79,12 @@ import {
   Crown,
   TrendingUp,
   PieChart,
-  Plus,
   Copy,
+  Plus,
   Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { getAccountInfo } from '../lib/api/auth';
+import { getAccountInfo, initializeTwoFactor, verifyTwoFactorSetup, disableTwoFactor } from '../lib/api/auth';
 import { updateCustomer } from '../lib/api/customers';
 import { apiClient } from '../lib/api-client';
 import { getSubscriptionPlans, changePlan, changeBillingCycle, cancelSubscription, type Plan } from '../lib/api/subscriptions';
@@ -94,6 +95,7 @@ import {
   unsubscribeFromAccountEvents
 } from '../lib/socket';
 import { API_BASE_URL } from '../lib/api-config';
+import { TRIAL_PLAN_LIMITS } from '../lib/constants/subscriptions';
 
 interface PropertyOwnerSettingsProps {
   user: {
@@ -124,8 +126,10 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
   const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   // Subscription management states
+  const [allPlans, setAllPlans] = useState<Plan[]>([]);
   const [availablePlans, setAvailablePlans] = useState<Plan[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
+  const [planCategory, setPlanCategory] = useState<string | undefined>(undefined);
   const [showChangePlanDialog, setShowChangePlanDialog] = useState(false);
   const [showChangeBillingDialog, setShowChangeBillingDialog] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
@@ -165,22 +169,29 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
 
   // Subscription state
   const [subscriptionData, setSubscriptionData] = useState({
-    plan: 'Professional',
-    status: 'active',
+    plan: 'Trial',
+    planId: '',
+    planCategory: 'property_management',
+    currency: 'USD',
+    planMonthlyPrice: 0,
+    planAnnualPrice: 0,
+    status: 'trial',
     billingCycle: 'monthly',
     nextBillingDate: '2024-04-01',
-    amount: 750,
-    properties: 12,
-    units: 240,
-    managers: 5,
+    amount: 0,
+    properties: TRIAL_PLAN_LIMITS.properties,
+    units: TRIAL_PLAN_LIMITS.units,
+    managers: TRIAL_PLAN_LIMITS.users,
     usageStats: {
-      propertiesUsed: 8,
-      unitsUsed: 182,
-      managersUsed: 3,
-      storageUsed: 2.4,
-      storageLimit: 50
+      propertiesUsed: 0,
+      unitsUsed: 0,
+      managersUsed: 0,
+      storageUsed: 0,
+      storageLimit: TRIAL_PLAN_LIMITS.storageMb
     }
   });
+
+  const bytesToGigabytes = (bytes: number) => Number((bytes / (1024 ** 3)).toFixed(2));
 
   // Fetch account data from database
   const fetchAccountData = async (silent = false) => {
@@ -244,23 +255,60 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
             ? new Date(new Date(customer.subscriptionStartDate).setMonth(new Date(customer.subscriptionStartDate).getMonth() + 1)).toISOString().split('T')[0]
             : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
+          const resolvedPlanCategory = customer.plan?.category || customer.planCategory || (customer.projectLimit ? 'development' : 'property_management');
+          setPlanCategory(resolvedPlanCategory);
+
+          const propertyLimit = customer.propertyLimit ?? TRIAL_PLAN_LIMITS.properties;
+          const unitsLimit =
+            (customer as any).unitLimit ??
+            (customer.plan?.unitLimit ??
+              (customer.planId ? 0 : TRIAL_PLAN_LIMITS.units));
+          const managersLimit = customer.userLimit ?? TRIAL_PLAN_LIMITS.users;
+          const storageLimitBytes = customer.storageLimitBytes ?? null;
+          const storageUsedBytes = customer.storageUsedBytes ?? 0;
+          const hasPaidPlan = Boolean(customer.planId);
+          const computedStorageLimitGb =
+            storageLimitBytes && storageLimitBytes > 0
+              ? bytesToGigabytes(storageLimitBytes)
+              : customer.storageLimit
+                ? Number((customer.storageLimit / 1024).toFixed(2))
+                : TRIAL_PLAN_LIMITS.storageMb / 1024;
+          const storageLimit = hasPaidPlan
+            ? computedStorageLimitGb
+            : TRIAL_PLAN_LIMITS.storageMb / 1024;
+          const storageUsed =
+            storageLimitBytes && storageLimitBytes > 0
+              ? bytesToGigabytes(storageUsedBytes)
+              : 0;
+          const billingCycle = customer.billingCycle || 'monthly';
+          const plan = customer.plan;
+          const resolvedPlanName = plan?.name || (customer.status === 'trial' ? 'Trial' : 'Custom Plan');
+          const resolvedPlanMonthlyPrice = plan?.monthlyPrice || 0;
+          const resolvedPlanAnnualPrice = plan?.annualPrice || 0;
+          const resolvedAmount = plan
+            ? (billingCycle === 'annual' ? resolvedPlanAnnualPrice : resolvedPlanMonthlyPrice)
+            : 0;
+
           setSubscriptionData({
-            plan: customer.plan?.name || 'Professional',
+            plan: resolvedPlanName,
+            planId: customer.planId || '',
+            planCategory: resolvedPlanCategory || 'property_management',
+            currency: plan?.currency || 'USD',
+            planMonthlyPrice: resolvedPlanMonthlyPrice,
+            planAnnualPrice: resolvedPlanAnnualPrice,
             status: customer.status || 'active',
-            billingCycle: customer.billingCycle || 'monthly',
+            billingCycle,
             nextBillingDate: nextBillingDate,
-            amount: customer.billingCycle === 'annual'
-              ? customer.plan?.annualPrice || 0
-              : customer.plan?.monthlyPrice || 0,
-            properties: customer.propertyLimit || 0,
-            units: customer.propertyLimit ? (customer.propertyLimit * 20) : 0, // Estimate: 20 units per property
-            managers: customer.userLimit || 0,
+            amount: resolvedAmount,
+            properties: propertyLimit,
+            units: unitsLimit,
+            managers: managersLimit,
             usageStats: {
               propertiesUsed: customer.actualPropertiesCount ?? customer.propertiesCount ?? 0,
               unitsUsed: customer.actualUnitsCount ?? customer.unitsCount ?? 0,
               managersUsed: customer.actualManagersCount ?? 0,
-              storageUsed: 0, // TODO: Calculate actual storage used
-              storageLimit: customer.storageLimit || 0
+              storageUsed,
+              storageLimit
             }
           });
 
@@ -333,7 +381,7 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
       try {
         const response = await getSubscriptionPlans();
         if (response.data) {
-          setAvailablePlans(response.data.plans);
+          setAllPlans(response.data.plans);
         }
       } catch (error) {
         console.error('Failed to load subscription plans:', error);
@@ -343,6 +391,23 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
     };
     loadPlans();
   }, []);
+
+  useEffect(() => {
+    if (!allPlans.length) {
+      setAvailablePlans([]);
+      return;
+    }
+
+    if (planCategory) {
+      setAvailablePlans(
+        allPlans.filter(
+          (plan) => (plan.category || 'property_management') === planCategory
+        )
+      );
+    } else {
+      setAvailablePlans(allPlans);
+    }
+  }, [allPlans, planCategory]);
 
   // Refresh data when window regains focus
   useEffect(() => {
@@ -385,25 +450,36 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
   const [loadingPermissions, setLoadingPermissions] = useState(false);
   const [savingPermissions, setSavingPermissions] = useState(false);
 
-  // Load permissions from database on mount
+  // Load permissions and security settings from database on mount
   useEffect(() => {
-    const loadPermissions = async () => {
+    const loadPermissionsAndSecurity = async () => {
       try {
         setLoadingPermissions(true);
-        console.log('🔄 Loading permissions from database...');
+        console.log('🔄 Loading permissions and security settings from database...');
+
+        // Load manager permissions
         const settingsResponse = await getSettings();
         const settings = settingsResponse.data;
         console.log('✅ Settings loaded:', settings);
         console.log('📦 Raw permissions from DB:', settings?.permissions);
 
+        // Load security settings
+        const securityResponse = await apiClient.get('/api/auth/security-settings');
+        console.log('🔐 Security settings loaded:', securityResponse.data);
+
         if (settings?.permissions && typeof settings.permissions === 'object') {
           console.log('📝 Applying permissions to state:', settings.permissions);
 
-          // Update security settings with loaded permissions
+          // Update security settings with loaded data
           setSecuritySettings(prev => {
             const updated = {
               ...prev,
-              // Only update permission-related fields
+              // Security settings from API
+              twoFactorEnabled: securityResponse.data?.twoFactorEnabled ?? prev.twoFactorEnabled,
+              sessionTimeout: String(securityResponse.data?.sessionTimeout ?? prev.sessionTimeout),
+              loginAlerts: securityResponse.data?.loginAlerts ?? prev.loginAlerts,
+              passwordLastChanged: securityResponse.data?.passwordLastChanged ?? prev.passwordLastChanged,
+              // Manager permissions from settings API
               managerCanViewUnits: settings.permissions.managerCanViewUnits ?? prev.managerCanViewUnits,
               managerCanCreateUnits: settings.permissions.managerCanCreateUnits ?? prev.managerCanCreateUnits,
               managerCanEditUnits: settings.permissions.managerCanEditUnits ?? prev.managerCanEditUnits,
@@ -421,15 +497,26 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
           });
         } else {
           console.log('⚠️ No permissions found in settings or invalid format');
+
+          // Still update security settings even if no permissions
+          if (securityResponse.data) {
+            setSecuritySettings(prev => ({
+              ...prev,
+              twoFactorEnabled: securityResponse.data.twoFactorEnabled ?? prev.twoFactorEnabled,
+              sessionTimeout: String(securityResponse.data.sessionTimeout ?? prev.sessionTimeout),
+              loginAlerts: securityResponse.data.loginAlerts ?? prev.loginAlerts,
+              passwordLastChanged: securityResponse.data.passwordLastChanged ?? prev.passwordLastChanged
+            }));
+          }
         }
       } catch (error: any) {
-        console.error('❌ Failed to load permissions:', error);
+        console.error('❌ Failed to load permissions and security settings:', error);
       } finally {
         setLoadingPermissions(false);
       }
     };
 
-    loadPermissions();
+    loadPermissionsAndSecurity();
   }, []);
 
   // Notification preferences
@@ -499,17 +586,66 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
     }
   }, [activeTab, accountInfo]);
 
-  // Payment methods
-  const [paymentMethods] = useState([
-    {
-      id: 'PM001',
-      type: 'card',
-      brand: 'Visa',
-      last4: '4242',
-      expiry: '12/2025',
-      isDefault: true
+  // Payment methods - fetched from API
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
+  const [loadingPaymentMethods, setLoadingPaymentMethods] = useState(false);
+
+  // Fetch payment methods from API
+  const fetchPaymentMethods = async () => {
+    try {
+      setLoadingPaymentMethods(true);
+      const { getPaymentMethods } = await import('../lib/api/payment-methods');
+      const response = await getPaymentMethods();
+      if (response.data?.data) {
+        setPaymentMethods(response.data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch payment methods:', error);
+    } finally {
+      setLoadingPaymentMethods(false);
     }
-  ]);
+  };
+
+  // Fetch sessions from API
+  const fetchSessions = async () => {
+    try {
+      setLoadingSessions(true);
+      const { getSessions } = await import('../lib/api/auth');
+      const response = await getSessions();
+      if (response.data?.sessions) {
+        setSessions(response.data.sessions);
+      }
+    } catch (error) {
+      console.error('Failed to fetch sessions:', error);
+    } finally {
+      setLoadingSessions(false);
+    }
+  };
+
+  // Fetch payment methods on mount and when billing tab is active
+  useEffect(() => {
+    if (activeTab === 'billing') {
+      fetchPaymentMethods();
+    }
+  }, [activeTab]);
+
+  // Fetch sessions when sessions tab is active
+  useEffect(() => {
+    if (activeTab === 'sessions') {
+      fetchSessions();
+    }
+  }, [activeTab]);
+
+  // Check for payment callback on mount and auto-switch to billing tab
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentCallback = urlParams.get('payment_callback');
+    const tab = urlParams.get('tab');
+
+    if (paymentCallback === 'payment_method' || tab === 'billing') {
+      setActiveTab('billing');
+    }
+  }, []);
 
   // Password change state
   const [passwordForm, setPasswordForm] = useState({
@@ -523,29 +659,9 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
     confirm: false
   });
 
-  // Mock sessions data
-  const [sessions] = useState([
-    {
-      id: 'SESSION001',
-      device: 'Desktop',
-      browser: 'Chrome 122',
-      os: 'Windows 11',
-      location: 'Metro City, CA',
-      ipAddress: '192.168.1.100',
-      lastActive: new Date().toISOString(),
-      isCurrent: true
-    },
-    {
-      id: 'SESSION002',
-      device: 'Mobile',
-      browser: 'Safari Mobile',
-      os: 'iOS 17.3',
-      location: 'Metro City, CA',
-      ipAddress: '192.168.1.105',
-      lastActive: new Date(Date.now() - 3600000).toISOString(),
-      isCurrent: false
-    }
-  ]);
+  // Sessions data
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
 
   // Mock activity log
   const [activityLog] = useState([
@@ -709,27 +825,128 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
     toast.info('Changes discarded');
   };
 
-  const handlePasswordChange = () => {
+  const handlePasswordChange = async () => {
+    // Validate inputs
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      toast.error('All fields are required');
+      return;
+    }
+
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       toast.error('Passwords do not match');
       return;
     }
-    if (passwordForm.newPassword.length < 8) {
-      toast.error('Password must be at least 8 characters');
+
+    if (passwordForm.newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
       return;
     }
-    setShowPasswordDialog(false);
-    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    toast.success('Password changed successfully');
+
+    if (passwordForm.currentPassword === passwordForm.newPassword) {
+      toast.error('New password must be different from current password');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+
+      const { changePassword } = await import('../lib/api/auth');
+      const response = await changePassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword
+      });
+
+      if (response.error) {
+        toast.error(response.error.error || 'Failed to change password');
+        return;
+      }
+
+      // Success
+      setShowPasswordDialog(false);
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      toast.success('Password changed successfully');
+
+      // Update security settings to reflect new password change date
+      setSecuritySettings(prev => ({
+        ...prev,
+        passwordLastChanged: new Date().toISOString()
+      }));
+
+    } catch (error: any) {
+      console.error('Password change error:', error);
+      toast.error('Failed to change password');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleExportData = () => {
-    toast.success('Data export started. You will receive an email when ready.');
+  const handleExportData = async () => {
+    try {
+      setIsSaving(true);
+      const response = await apiClient.post('/api/auth/export-data', {});
+
+      if (response.error) {
+        toast.error(response.error.error || 'Failed to request data export');
+        return;
+      }
+
+      toast.success('Data export started. You will receive an email when ready.');
+    } catch (error) {
+      console.error('Export data error:', error);
+      toast.error('Failed to request data export');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleDeleteAccount = () => {
-    toast.error('Account deletion requested. Please contact support.');
-    setShowDeleteDialog(false);
+  // Delete account state
+  const [deleteAccountForm, setDeleteAccountForm] = useState({
+    confirmPassword: '',
+    reason: '',
+    confirmText: ''
+  });
+
+  const handleDeleteAccount = async () => {
+    // Validate inputs
+    if (!deleteAccountForm.confirmPassword) {
+      toast.error('Please enter your password to confirm');
+      return;
+    }
+
+    if (deleteAccountForm.confirmText !== 'DELETE') {
+      toast.error('Please type DELETE to confirm account deletion');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+
+      const response = await apiClient.post('/api/auth/delete-account', {
+        confirmPassword: deleteAccountForm.confirmPassword,
+        reason: deleteAccountForm.reason
+      });
+
+      if (response.error) {
+        toast.error(response.error.error || 'Failed to delete account');
+        return;
+      }
+
+      // Success - account deleted
+      setShowDeleteDialog(false);
+      setDeleteAccountForm({ confirmPassword: '', reason: '', confirmText: '' });
+      toast.success('Account deleted successfully. Logging out...');
+
+      // Log out after 2 seconds
+      setTimeout(() => {
+        onLogout();
+      }, 2000);
+
+    } catch (error: any) {
+      console.error('Delete account error:', error);
+      toast.error('Failed to delete account');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Subscription management handlers
@@ -1107,6 +1324,8 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
               <BillingSection
                 billingHistory={billingHistory}
                 paymentMethods={paymentMethods}
+                loadingPaymentMethods={loadingPaymentMethods}
+                onPaymentMethodsChange={fetchPaymentMethods}
               />
             )}
 
@@ -1193,7 +1412,13 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
             )}
 
             {activeTab === 'sessions' && (
-              <SessionsSection sessions={sessions} getDeviceIcon={getDeviceIcon} formatTime={formatTime} />
+              <SessionsSection
+                sessions={sessions}
+                getDeviceIcon={getDeviceIcon}
+                formatTime={formatTime}
+                loadingSessions={loadingSessions}
+                onRefresh={fetchSessions}
+              />
             )}
 
             {activeTab === 'activity' && (
@@ -1315,7 +1540,7 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
 
       {/* Delete Account Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-red-600">Delete Account</DialogTitle>
             <DialogDescription>
@@ -1323,12 +1548,12 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
             </DialogDescription>
           </DialogHeader>
 
-          <div className="py-4">
+          <div className="space-y-4">
             <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
               <div className="flex items-start space-x-3">
                 <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
                 <div className="text-sm text-red-700">
-                  <p className="mb-1">Warning:</p>
+                  <p className="mb-1 font-semibold">Warning:</p>
                   <ul className="list-disc list-inside space-y-1">
                     <li>All your properties and units will be deleted</li>
                     <li>All managers and tenants will lose access</li>
@@ -1338,15 +1563,77 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
                 </div>
               </div>
             </div>
+
+            {/* Reason */}
+            <div>
+              <Label htmlFor="delete-reason">Reason for leaving (optional)</Label>
+              <Textarea
+                id="delete-reason"
+                placeholder="Help us improve by telling us why you're leaving..."
+                value={deleteAccountForm.reason}
+                onChange={(e) => setDeleteAccountForm({ ...deleteAccountForm, reason: e.target.value })}
+                className="mt-2"
+                rows={3}
+              />
+            </div>
+
+            {/* Password Confirmation */}
+            <div>
+              <Label htmlFor="delete-password">Confirm your password</Label>
+              <div className="relative mt-2">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  id="delete-password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={deleteAccountForm.confirmPassword}
+                  onChange={(e) => setDeleteAccountForm({ ...deleteAccountForm, confirmPassword: e.target.value })}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            {/* Type DELETE to confirm */}
+            <div>
+              <Label htmlFor="delete-confirm">Type <span className="font-bold">DELETE</span> to confirm</Label>
+              <Input
+                id="delete-confirm"
+                type="text"
+                placeholder="Type DELETE"
+                value={deleteAccountForm.confirmText}
+                onChange={(e) => setDeleteAccountForm({ ...deleteAccountForm, confirmText: e.target.value })}
+                className="mt-2"
+              />
+            </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDeleteDialog(false);
+                setDeleteAccountForm({ confirmPassword: '', reason: '', confirmText: '' });
+              }}
+              disabled={isSaving}
+            >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDeleteAccount}>
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete My Account
+            <Button
+              variant="destructive"
+              onClick={handleDeleteAccount}
+              disabled={isSaving || !deleteAccountForm.confirmPassword || deleteAccountForm.confirmText !== 'DELETE'}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete My Account
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1946,7 +2233,152 @@ function SubscriptionSection({ subscriptionData, onCancelClick }: any) {
 }
 
 // Billing Section Component
-function BillingSection({ billingHistory, paymentMethods }: any) {
+function BillingSection({ billingHistory, paymentMethods, loadingPaymentMethods, onPaymentMethodsChange }: any) {
+  const [isAddingMethod, setIsAddingMethod] = React.useState(false);
+  const [isRemovingMethod, setIsRemovingMethod] = React.useState<string | null>(null);
+  const [isSettingDefault, setIsSettingDefault] = React.useState<string | null>(null);
+  const [isVerifyingCallback, setIsVerifyingCallback] = React.useState(false);
+  const callbackProcessedRef = React.useRef(false);
+
+  // Check for payment callback on mount
+  React.useEffect(() => {
+    // Prevent double processing
+    if (callbackProcessedRef.current) {
+      return;
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const reference = urlParams.get('reference') || urlParams.get('trxref');
+    const paymentCallback = urlParams.get('payment_callback');
+
+    if (reference && paymentCallback === 'payment_method') {
+      callbackProcessedRef.current = true;
+      handlePaymentCallback(reference);
+    }
+  }, []);
+
+  const handlePaymentCallback = async (reference: string) => {
+    try {
+      setIsVerifyingCallback(true);
+      toast.info('Verifying card authorization...');
+
+      // Import dynamically to avoid circular dependencies
+      const { addPaymentMethod } = await import('../lib/api/payment-methods');
+      const response = await addPaymentMethod(reference, true);
+
+      if (response.error) {
+        toast.error(response.error.error || 'Failed to add payment method');
+      } else {
+        toast.success('Payment method added successfully!');
+        // Refresh payment methods list
+        await onPaymentMethodsChange?.();
+      }
+
+      // Clean up URL but keep on billing tab
+      const url = new URL(window.location.href);
+      url.searchParams.delete('reference');
+      url.searchParams.delete('payment_callback');
+      url.searchParams.delete('trxref');
+      // Keep tab=billing so the page stays on billing
+      window.history.replaceState({}, '', url.toString());
+
+      // Clean up session storage
+      sessionStorage.removeItem('payment_method_reference');
+    } catch (error: any) {
+      console.error('Payment callback error:', error);
+      toast.error('Failed to verify payment method');
+
+      // Clean up URL even on error
+      const url = new URL(window.location.href);
+      url.searchParams.delete('reference');
+      url.searchParams.delete('payment_callback');
+      url.searchParams.delete('trxref');
+      window.history.replaceState({}, '', url.toString());
+    } finally {
+      setIsVerifyingCallback(false);
+    }
+  };
+
+  const handleAddPaymentMethod = async () => {
+    try {
+      setIsAddingMethod(true);
+      toast.info('Initializing card authorization...');
+
+      const { initializeCardAuthorization } = await import('../lib/api/payment-methods');
+      const response = await initializeCardAuthorization();
+
+      if (response.error) {
+        toast.error(response.error.error || 'Failed to initialize card authorization');
+        return;
+      }
+
+      if (response.data?.data?.authorizationUrl) {
+        // Store reference for verification
+        sessionStorage.setItem('payment_method_reference', response.data.data.reference);
+
+        toast.info('Redirecting to payment gateway...');
+
+        // Redirect to Paystack
+        setTimeout(() => {
+          window.location.href = response.data.data.authorizationUrl;
+        }, 1000);
+      } else {
+        toast.error('No authorization URL received');
+      }
+    } catch (error: any) {
+      console.error('Add payment method error:', error);
+      toast.error(error.message || 'Failed to add payment method');
+    } finally {
+      setIsAddingMethod(false);
+    }
+  };
+
+  const handleSetDefault = async (methodId: string) => {
+    try {
+      setIsSettingDefault(methodId);
+
+      const { setDefaultPaymentMethod } = await import('../lib/api/payment-methods');
+      const response = await setDefaultPaymentMethod(methodId);
+
+      if (response.error) {
+        toast.error(response.error.error || 'Failed to set default payment method');
+      } else {
+        toast.success('Default payment method updated');
+        onPaymentMethodsChange?.();
+      }
+    } catch (error: any) {
+      console.error('Set default error:', error);
+      toast.error('Failed to set default payment method');
+    } finally {
+      setIsSettingDefault(null);
+    }
+  };
+
+  const handleRemoveMethod = async (methodId: string) => {
+    if (!window.confirm('Are you sure you want to remove this payment method?')) {
+      return;
+    }
+
+    try {
+      setIsRemovingMethod(methodId);
+
+      const { removePaymentMethod } = await import('../lib/api/payment-methods');
+      const response = await removePaymentMethod(methodId);
+
+      if (response.error) {
+        toast.error(response.error.error || 'Failed to remove payment method');
+      } else {
+        toast.success('Payment method removed');
+        onPaymentMethodsChange?.();
+      }
+    } catch (error: any) {
+      console.error('Remove payment method error:', error);
+      toast.error('Failed to remove payment method');
+    } finally {
+      setIsRemovingMethod(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Payment Methods */}
@@ -1959,37 +2391,92 @@ function BillingSection({ billingHistory, paymentMethods }: any) {
                 Manage your payment methods
               </CardDescription>
             </div>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Method
+            <Button onClick={handleAddPaymentMethod} disabled={isAddingMethod}>
+              {isAddingMethod ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Method
+                </>
+              )}
             </Button>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {paymentMethods.map((method: any) => (
-              <div key={method.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center gap-4">
-                  <div className="h-10 w-10 bg-gray-100 rounded flex items-center justify-center">
-                    <CreditCard className="h-5 w-5 text-gray-600" />
+          {isVerifyingCallback ? (
+            <div className="text-center py-8">
+              <Loader2 className="h-12 w-12 text-blue-500 mx-auto mb-3 animate-spin" />
+              <p className="text-sm text-gray-600">Verifying payment method...</p>
+              <p className="text-xs text-gray-400 mt-1">Please wait while we confirm your card</p>
+            </div>
+          ) : loadingPaymentMethods ? (
+            <div className="text-center py-8">
+              <Loader2 className="h-8 w-8 text-gray-400 mx-auto mb-3 animate-spin" />
+              <p className="text-sm text-gray-500">Loading payment methods...</p>
+            </div>
+          ) : paymentMethods.length === 0 ? (
+            <div className="text-center py-8">
+              <CreditCard className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-sm text-gray-500">No payment methods added yet</p>
+              <p className="text-xs text-gray-400 mt-1">Add a payment method to enable automatic billing</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {paymentMethods.map((method: any) => (
+                <div key={method.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 bg-gray-100 rounded flex items-center justify-center">
+                      <CreditCard className="h-5 w-5 text-gray-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {method.cardBrand || method.brand || 'Card'} •••• {method.cardLast4 || method.last4}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Expires {method.cardExpMonth || method.exp_month}/{method.cardExpYear || method.exp_year}
+                      </p>
+                    </div>
+                    {method.isDefault && (
+                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Default</Badge>
+                    )}
                   </div>
-                  <div>
-                    <p className="font-medium text-gray-900">
-                      {method.brand} •••• {method.last4}
-                    </p>
-                    <p className="text-sm text-gray-600">Expires {method.expiry}</p>
+                  <div className="flex items-center gap-2">
+                    {!method.isDefault && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleSetDefault(method.id)}
+                        disabled={isSettingDefault === method.id}
+                      >
+                        {isSettingDefault === method.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          'Set Default'
+                        )}
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => handleRemoveMethod(method.id)}
+                      disabled={isRemovingMethod === method.id}
+                    >
+                      {isRemovingMethod === method.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        'Remove'
+                      )}
+                    </Button>
                   </div>
-                  {method.isDefault && (
-                    <Badge variant="outline">Default</Badge>
-                  )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm">Edit</Button>
-                  <Button variant="ghost" size="sm" className="text-red-600">Remove</Button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -2051,342 +2538,647 @@ function BillingSection({ billingHistory, paymentMethods }: any) {
 
 // Security Section Component
 function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswordDialog, handleExportData, setShowDeleteDialog, formatDate, loadingPermissions, savingPermissions, onSavePermissions }: any) {
+  const [updatingSecuritySetting, setUpdatingSecuritySetting] = React.useState(false);
+  const [initializingTwoFactor, setInitializingTwoFactor] = React.useState(false);
+  const [twoFactorDialogOpen, setTwoFactorDialogOpen] = React.useState(false);
+  const [twoFactorSetup, setTwoFactorSetup] = React.useState<{ secret: string; otpauthUrl: string; qrCode: string }>({
+    secret: '',
+    otpauthUrl: '',
+    qrCode: ''
+  });
+  const [twoFactorCodeInput, setTwoFactorCodeInput] = React.useState('');
+  const [twoFactorDialogLoading, setTwoFactorDialogLoading] = React.useState(false);
+  const [twoFactorDisableDialogOpen, setTwoFactorDisableDialogOpen] = React.useState(false);
+  const [twoFactorDisablePassword, setTwoFactorDisablePassword] = React.useState('');
+  const [disableTwoFactorLoading, setDisableTwoFactorLoading] = React.useState(false);
+
+  const handleSecuritySettingChange = async (setting: 'loginAlerts' | 'sessionTimeout', value: any) => {
+    try {
+      setUpdatingSecuritySetting(true);
+      const payload: any = {};
+
+      if (setting === 'loginAlerts') {
+        payload.loginAlerts = value;
+      } else if (setting === 'sessionTimeout') {
+        payload.sessionTimeout = value === '1440' ? 1440 : parseInt(value, 10);
+      }
+
+      const response = await apiClient.put('/api/auth/security-settings', payload);
+      if ((response as any).error) {
+        throw new Error((response as any).error?.error || 'Failed to update security setting');
+      }
+
+      setSecuritySettings((prev: any) => ({
+        ...prev,
+        loginAlerts: setting === 'loginAlerts' ? value : prev.loginAlerts,
+        sessionTimeout: setting === 'sessionTimeout' ? value : prev.sessionTimeout,
+      }));
+
+      toast.success('Security setting updated');
+    } catch (error: any) {
+      console.error('Security setting update error:', error);
+      toast.error(error?.message || 'Failed to update security setting');
+    } finally {
+      setUpdatingSecuritySetting(false);
+    }
+  };
+
+  const startTwoFactorSetup = async () => {
+    try {
+      setInitializingTwoFactor(true);
+      const response = await initializeTwoFactor();
+
+      if (response.error) {
+        toast.error(response.error.error || 'Failed to initialize two-factor authentication');
+        return;
+      }
+
+      const secret = response.data?.secret;
+      const otpauthUrl = response.data?.otpauthUrl;
+      if (!secret || !otpauthUrl) {
+        toast.error('Invalid response from server');
+        return;
+      }
+
+      const qrCode = await QRCode.toDataURL(otpauthUrl);
+      setTwoFactorSetup({ secret, otpauthUrl, qrCode });
+      setTwoFactorCodeInput('');
+      setTwoFactorDialogOpen(true);
+    } catch (error: any) {
+      console.error('Initialize 2FA error:', error);
+      toast.error(error?.message || 'Failed to initialize two-factor authentication');
+    } finally {
+      setInitializingTwoFactor(false);
+    }
+  };
+
+  const confirmTwoFactorSetup = async () => {
+    if (!twoFactorCodeInput) {
+      toast.error('Enter the 6-digit code from your authenticator app');
+      return;
+    }
+
+    try {
+      setTwoFactorDialogLoading(true);
+      const response = await verifyTwoFactorSetup(twoFactorCodeInput);
+
+      if (response.error) {
+        toast.error(response.error.error || 'Failed to verify code');
+        return;
+      }
+
+      setSecuritySettings((prev: any) => ({
+        ...prev,
+        twoFactorEnabled: true,
+      }));
+
+      toast.success('Two-factor authentication enabled');
+      setTwoFactorDialogOpen(false);
+      setTwoFactorCodeInput('');
+    } catch (error: any) {
+      console.error('Verify 2FA error:', error);
+      toast.error(error?.message || 'Failed to verify code');
+    } finally {
+      setTwoFactorDialogLoading(false);
+    }
+  };
+
+  const copyTwoFactorSecret = async () => {
+    if (!twoFactorSetup.secret) return;
+    try {
+      await navigator.clipboard.writeText(twoFactorSetup.secret);
+      toast.success('Secret copied to clipboard');
+    } catch {
+      toast.error('Failed to copy secret');
+    }
+  };
+
+  const confirmDisableTwoFactor = async () => {
+    if (!twoFactorDisablePassword) {
+      toast.error('Please enter your password to disable two-factor authentication');
+      return;
+    }
+
+    try {
+      setDisableTwoFactorLoading(true);
+      const response = await disableTwoFactor(twoFactorDisablePassword);
+
+      if (response.error) {
+        toast.error(response.error.error || 'Failed to disable two-factor authentication');
+        return;
+      }
+
+      setSecuritySettings((prev: any) => ({
+        ...prev,
+        twoFactorEnabled: false,
+      }));
+
+      toast.success('Two-factor authentication disabled');
+      setTwoFactorDisablePassword('');
+      setTwoFactorDisableDialogOpen(false);
+    } catch (error: any) {
+      console.error('Disable 2FA error:', error);
+      toast.error(error?.message || 'Failed to disable two-factor authentication');
+    } finally {
+      setDisableTwoFactorLoading(false);
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Security Settings</CardTitle>
-          <CardDescription>
-            Manage your password and security preferences
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Password */}
-          <div className="flex items-center justify-between">
+    <>
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Security Settings</CardTitle>
+            <CardDescription>
+              Manage your password and security preferences
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Password */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-semibold text-gray-900">Password</h4>
+                <p className="text-sm text-gray-600">
+                  {securitySettings.passwordLastChanged
+                    ? `Last changed on ${formatDate(securitySettings.passwordLastChanged)}`
+                    : 'Never changed'}
+                </p>
+              </div>
+              <Button variant="outline" onClick={() => setShowPasswordDialog(true)}>
+                <Key className="h-4 w-4 mr-2" />
+                Change Password
+              </Button>
+            </div>
+
+            <Separator />
+
+            {/* Two-Factor Authentication */}
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <h4 className="font-semibold text-gray-900 mb-1">Two-Factor Authentication</h4>
+                <p className="text-sm text-gray-600">
+                  Add an extra layer of security to your account
+                </p>
+                {securitySettings.twoFactorEnabled && (
+                  <p className="text-xs text-green-600 mt-1">✓ Enabled</p>
+                )}
+              </div>
+              <Switch
+                checked={securitySettings.twoFactorEnabled}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    startTwoFactorSetup();
+                  } else {
+                    setTwoFactorDisableDialogOpen(true);
+                  }
+                }}
+                disabled={initializingTwoFactor || twoFactorDialogLoading || disableTwoFactorLoading}
+              />
+            </div>
+
+            <Separator />
+
+            {/* Login Alerts */}
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <h4 className="font-semibold text-gray-900 mb-1">Login Alerts</h4>
+                <p className="text-sm text-gray-600">
+                  Get notified about new login attempts
+                </p>
+              </div>
+              <Switch
+                checked={securitySettings.loginAlerts}
+                onCheckedChange={(checked) => handleSecuritySettingChange('loginAlerts', checked)}
+                disabled={updatingSecuritySetting}
+              />
+            </div>
+
+            <Separator />
+
+            {/* Session Timeout */}
             <div>
-              <h4 className="font-semibold text-gray-900">Password</h4>
-              <p className="text-sm text-gray-600">
-                Last changed on {formatDate(securitySettings.passwordLastChanged)}
+              <Label>Session Timeout</Label>
+              <Select
+                value={securitySettings.sessionTimeout}
+                onValueChange={(value) => handleSecuritySettingChange('sessionTimeout', value)}
+                disabled={updatingSecuritySetting}
+              >
+                <SelectTrigger className="mt-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="15">15 minutes</SelectItem>
+                  <SelectItem value="30">30 minutes</SelectItem>
+                  <SelectItem value="60">1 hour</SelectItem>
+                  <SelectItem value="120">2 hours</SelectItem>
+                  <SelectItem value="1440">Never (24 hours)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500 mt-1">
+                Your session will expire after this period of inactivity
               </p>
             </div>
-            <Button variant="outline" onClick={() => setShowPasswordDialog(true)}>
-              <Key className="h-4 w-4 mr-2" />
-              Change Password
-            </Button>
-          </div>
+          </CardContent>
+        </Card>
 
-          <Separator />
+        {/* Manager Permissions */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Manager Permissions</CardTitle>
+            <CardDescription>
+              Control default permissions for property managers
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Units Permissions */}
+            <div className="border rounded-lg p-4 space-y-4">
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-1">Units Management</h4>
+                <p className="text-sm text-gray-600">Control what managers can do with units</p>
+              </div>
 
-          {/* Two-Factor Authentication */}
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <h4 className="font-semibold text-gray-900 mb-1">Two-Factor Authentication</h4>
-              <p className="text-sm text-gray-600">
-                Add an extra layer of security to your account
-              </p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="unit-view"
+                    checked={securitySettings.managerCanViewUnits}
+                    onCheckedChange={(checked) =>
+                      setSecuritySettings({ ...securitySettings, managerCanViewUnits: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="unit-view" className="text-sm cursor-pointer">
+                    View Units
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="unit-create"
+                    checked={securitySettings.managerCanCreateUnits}
+                    onCheckedChange={(checked) =>
+                      setSecuritySettings({ ...securitySettings, managerCanCreateUnits: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="unit-create" className="text-sm cursor-pointer">
+                    Create Units
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="unit-edit"
+                    checked={securitySettings.managerCanEditUnits}
+                    onCheckedChange={(checked) =>
+                      setSecuritySettings({ ...securitySettings, managerCanEditUnits: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="unit-edit" className="text-sm cursor-pointer">
+                    Edit Units
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="unit-delete"
+                    checked={securitySettings.managerCanDeleteUnits}
+                    onCheckedChange={(checked) =>
+                      setSecuritySettings({ ...securitySettings, managerCanDeleteUnits: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="unit-delete" className="text-sm cursor-pointer">
+                    Delete Units
+                  </Label>
+                </div>
+              </div>
             </div>
-            <Switch
-              checked={securitySettings.twoFactorEnabled}
-              onCheckedChange={(checked) =>
-                setSecuritySettings({ ...securitySettings, twoFactorEnabled: checked })
-              }
-            />
-          </div>
 
-          <Separator />
+            {/* Properties Permissions */}
+            <div className="border rounded-lg p-4 space-y-4">
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-1">Properties Management</h4>
+                <p className="text-sm text-gray-600">Control what managers can do with properties</p>
+              </div>
 
-          {/* Login Alerts */}
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <h4 className="font-semibold text-gray-900 mb-1">Login Alerts</h4>
-              <p className="text-sm text-gray-600">
-                Get notified about new login attempts
-              </p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="property-view"
+                    checked={securitySettings.managerCanViewProperties}
+                    onCheckedChange={(checked) =>
+                      setSecuritySettings({ ...securitySettings, managerCanViewProperties: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="property-view" className="text-sm cursor-pointer">
+                    View Properties
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="property-edit"
+                    checked={securitySettings.managerCanEditProperty}
+                    onCheckedChange={(checked) =>
+                      setSecuritySettings({ ...securitySettings, managerCanEditProperty: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="property-edit" className="text-sm cursor-pointer">
+                    Edit Properties
+                  </Label>
+                </div>
+              </div>
             </div>
-            <Switch
-              checked={securitySettings.loginAlerts}
-              onCheckedChange={(checked) =>
-                setSecuritySettings({ ...securitySettings, loginAlerts: checked })
-              }
-            />
-          </div>
 
-          <Separator />
+            {/* Tenants Permissions */}
+            <div className="border rounded-lg p-4 space-y-4">
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-1">Tenants Management</h4>
+                <p className="text-sm text-gray-600">Control what managers can do with tenants</p>
+              </div>
 
-          {/* Session Timeout */}
-          <div>
-            <Label>Session Timeout</Label>
-            <Select
-              value={securitySettings.sessionTimeout}
-              onValueChange={(value) =>
-                setSecuritySettings({ ...securitySettings, sessionTimeout: value })
-              }
-            >
-              <SelectTrigger className="mt-2">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="15">15 minutes</SelectItem>
-                <SelectItem value="30">30 minutes</SelectItem>
-                <SelectItem value="60">1 hour</SelectItem>
-                <SelectItem value="120">2 hours</SelectItem>
-                <SelectItem value="never">Never</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="tenant-view"
+                    checked={securitySettings.managerCanViewTenants}
+                    onCheckedChange={(checked) =>
+                      setSecuritySettings({ ...securitySettings, managerCanViewTenants: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="tenant-view" className="text-sm cursor-pointer">
+                    View Tenants
+                  </Label>
+                </div>
 
-      {/* Manager Permissions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Manager Permissions</CardTitle>
-          <CardDescription>
-            Control default permissions for property managers
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Units Permissions */}
-          <div className="border rounded-lg p-4 space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="tenant-create"
+                    checked={securitySettings.managerCanCreateTenants}
+                    onCheckedChange={(checked) =>
+                      setSecuritySettings({ ...securitySettings, managerCanCreateTenants: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="tenant-create" className="text-sm cursor-pointer">
+                    Add Tenants
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="tenant-edit"
+                    checked={securitySettings.managerCanEditTenants}
+                    onCheckedChange={(checked) =>
+                      setSecuritySettings({ ...securitySettings, managerCanEditTenants: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="tenant-edit" className="text-sm cursor-pointer">
+                    Edit Tenants
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="tenant-delete"
+                    checked={securitySettings.managerCanDeleteTenants}
+                    onCheckedChange={(checked) =>
+                      setSecuritySettings({ ...securitySettings, managerCanDeleteTenants: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="tenant-delete" className="text-sm cursor-pointer">
+                    Remove Tenants
+                  </Label>
+                </div>
+              </div>
+            </div>
+
+            {/* Financial Permissions */}
+            <div className="border rounded-lg p-4 space-y-4">
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-1">Financial Access</h4>
+                <p className="text-sm text-gray-600">Control financial data visibility</p>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="financial-view"
+                    checked={securitySettings.managerCanViewFinancials}
+                    onCheckedChange={(checked) =>
+                      setSecuritySettings({ ...securitySettings, managerCanViewFinancials: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="financial-view" className="text-sm cursor-pointer">
+                    View Reports
+                  </Label>
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Save Button */}
+            <div className="flex items-center justify-between">
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex-1 mr-4">
+                <p className="text-sm text-blue-900">
+                  <strong>Note:</strong> These are default permissions. You can override them for individual managers
+                  in the Property Manager Management page.
+                </p>
+              </div>
+              <Button
+                onClick={onSavePermissions}
+                disabled={savingPermissions || loadingPermissions}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {savingPermissions ? 'Saving...' : 'Save Permissions'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Data & Privacy */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Data & Privacy</CardTitle>
+            <CardDescription>
+              Manage your data and privacy settings
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="flex items-center gap-3">
+                <Download className="h-5 w-5 text-gray-600" />
+                <div>
+                  <h4 className="font-semibold text-gray-900">Export Your Data</h4>
+                  <p className="text-sm text-gray-600">Download a copy of your data</p>
+                </div>
+              </div>
+              <Button variant="outline" onClick={handleExportData}>
+                Export
+              </Button>
+            </div>
+
+            <div className="flex items-center justify-between p-4 border border-red-200 rounded-lg bg-red-50">
+              <div className="flex items-center gap-3">
+                <Trash2 className="h-5 w-5 text-red-600" />
+                <div>
+                  <h4 className="font-semibold text-red-900">Delete Account</h4>
+                  <p className="text-sm text-red-700">Permanently delete your account and data</p>
+                </div>
+              </div>
+              <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}>
+                Delete
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Two-Factor Setup Dialog */}
+      <Dialog
+        open={twoFactorDialogOpen}
+        onOpenChange={(open) => {
+          setTwoFactorDialogOpen(open);
+          if (!open) {
+            setTwoFactorCodeInput('');
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enable Two-Factor Authentication</DialogTitle>
+            <DialogDescription>
+              Scan the QR code below with Google Authenticator, Authy, or any compatible app.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {twoFactorSetup.qrCode && (
+              <div className="flex flex-col items-center space-y-2">
+                <img src={twoFactorSetup.qrCode} alt="Two-factor QR code" className="w-48 h-48" />
+                <p className="text-sm text-gray-500 text-center">
+                  After scanning, enter the 6-digit code generated by your authenticator app.
+                </p>
+              </div>
+            )}
+
+            {twoFactorSetup.secret && (
+              <div className="bg-gray-50 border rounded-lg p-3 text-sm">
+                <p className="text-gray-600">Can't scan the QR code? Enter this key manually:</p>
+                <div className="flex items-center justify-between mt-2 gap-2">
+                  <code className="font-mono text-base text-blue-700 break-all">
+                    {twoFactorSetup.secret}
+                  </code>
+                  <Button variant="ghost" size="icon" onClick={copyTwoFactorSecret}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div>
-              <h4 className="font-semibold text-gray-900 mb-1">Units Management</h4>
-              <p className="text-sm text-gray-600">Control what managers can do with units</p>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="unit-view"
-                  checked={securitySettings.managerCanViewUnits}
-                  onCheckedChange={(checked) =>
-                    setSecuritySettings({ ...securitySettings, managerCanViewUnits: checked as boolean })
-                  }
-                />
-                <Label htmlFor="unit-view" className="text-sm cursor-pointer">
-                  View Units
-                </Label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="unit-create"
-                  checked={securitySettings.managerCanCreateUnits}
-                  onCheckedChange={(checked) =>
-                    setSecuritySettings({ ...securitySettings, managerCanCreateUnits: checked as boolean })
-                  }
-                />
-                <Label htmlFor="unit-create" className="text-sm cursor-pointer">
-                  Create Units
-                </Label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="unit-edit"
-                  checked={securitySettings.managerCanEditUnits}
-                  onCheckedChange={(checked) =>
-                    setSecuritySettings({ ...securitySettings, managerCanEditUnits: checked as boolean })
-                  }
-                />
-                <Label htmlFor="unit-edit" className="text-sm cursor-pointer">
-                  Edit Units
-                </Label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="unit-delete"
-                  checked={securitySettings.managerCanDeleteUnits}
-                  onCheckedChange={(checked) =>
-                    setSecuritySettings({ ...securitySettings, managerCanDeleteUnits: checked as boolean })
-                  }
-                />
-                <Label htmlFor="unit-delete" className="text-sm cursor-pointer">
-                  Delete Units
-                </Label>
-              </div>
+              <Label htmlFor="twoFactorCodeInput">Authenticator Code</Label>
+              <Input
+                id="twoFactorCodeInput"
+                placeholder="123456"
+                maxLength={6}
+                inputMode="numeric"
+                value={twoFactorCodeInput}
+                onChange={(e) => setTwoFactorCodeInput(e.target.value)}
+                className="mt-2"
+              />
             </div>
           </div>
 
-          {/* Properties Permissions */}
-          <div className="border rounded-lg p-4 space-y-4">
-            <div>
-              <h4 className="font-semibold text-gray-900 mb-1">Properties Management</h4>
-              <p className="text-sm text-gray-600">Control what managers can do with properties</p>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="property-view"
-                  checked={securitySettings.managerCanViewProperties}
-                  onCheckedChange={(checked) =>
-                    setSecuritySettings({ ...securitySettings, managerCanViewProperties: checked as boolean })
-                  }
-                />
-                <Label htmlFor="property-view" className="text-sm cursor-pointer">
-                  View Properties
-                </Label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="property-edit"
-                  checked={securitySettings.managerCanEditProperty}
-                  onCheckedChange={(checked) =>
-                    setSecuritySettings({ ...securitySettings, managerCanEditProperty: checked as boolean })
-                  }
-                />
-                <Label htmlFor="property-edit" className="text-sm cursor-pointer">
-                  Edit Properties
-                </Label>
-              </div>
-            </div>
-          </div>
-
-          {/* Tenants Permissions */}
-          <div className="border rounded-lg p-4 space-y-4">
-            <div>
-              <h4 className="font-semibold text-gray-900 mb-1">Tenants Management</h4>
-              <p className="text-sm text-gray-600">Control what managers can do with tenants</p>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="tenant-view"
-                  checked={securitySettings.managerCanViewTenants}
-                  onCheckedChange={(checked) =>
-                    setSecuritySettings({ ...securitySettings, managerCanViewTenants: checked as boolean })
-                  }
-                />
-                <Label htmlFor="tenant-view" className="text-sm cursor-pointer">
-                  View Tenants
-                </Label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="tenant-create"
-                  checked={securitySettings.managerCanCreateTenants}
-                  onCheckedChange={(checked) =>
-                    setSecuritySettings({ ...securitySettings, managerCanCreateTenants: checked as boolean })
-                  }
-                />
-                <Label htmlFor="tenant-create" className="text-sm cursor-pointer">
-                  Add Tenants
-                </Label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="tenant-edit"
-                  checked={securitySettings.managerCanEditTenants}
-                  onCheckedChange={(checked) =>
-                    setSecuritySettings({ ...securitySettings, managerCanEditTenants: checked as boolean })
-                  }
-                />
-                <Label htmlFor="tenant-edit" className="text-sm cursor-pointer">
-                  Edit Tenants
-                </Label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="tenant-delete"
-                  checked={securitySettings.managerCanDeleteTenants}
-                  onCheckedChange={(checked) =>
-                    setSecuritySettings({ ...securitySettings, managerCanDeleteTenants: checked as boolean })
-                  }
-                />
-                <Label htmlFor="tenant-delete" className="text-sm cursor-pointer">
-                  Remove Tenants
-                </Label>
-              </div>
-            </div>
-          </div>
-
-          {/* Financial Permissions */}
-          <div className="border rounded-lg p-4 space-y-4">
-            <div>
-              <h4 className="font-semibold text-gray-900 mb-1">Financial Access</h4>
-              <p className="text-sm text-gray-600">Control financial data visibility</p>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="financial-view"
-                  checked={securitySettings.managerCanViewFinancials}
-                  onCheckedChange={(checked) =>
-                    setSecuritySettings({ ...securitySettings, managerCanViewFinancials: checked as boolean })
-                  }
-                />
-                <Label htmlFor="financial-view" className="text-sm cursor-pointer">
-                  View Reports
-                </Label>
-              </div>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Save Button */}
-          <div className="flex items-center justify-between">
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex-1 mr-4">
-              <p className="text-sm text-blue-900">
-                <strong>Note:</strong> These are default permissions. You can override them for individual managers
-                in the Property Manager Management page.
-              </p>
-            </div>
+          <DialogFooter>
             <Button
-              onClick={onSavePermissions}
-              disabled={savingPermissions || loadingPermissions}
+              variant="outline"
+              onClick={() => {
+                setTwoFactorDialogOpen(false);
+                setTwoFactorCodeInput('');
+              }}
+              disabled={twoFactorDialogLoading}
             >
-              <Save className="h-4 w-4 mr-2" />
-              {savingPermissions ? 'Saving...' : 'Save Permissions'}
+              Cancel
             </Button>
-          </div>
-        </CardContent>
-      </Card>
+            <Button onClick={confirmTwoFactorSetup} disabled={twoFactorDialogLoading}>
+              {twoFactorDialogLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                'Enable 2FA'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* Data & Privacy */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Data & Privacy</CardTitle>
-          <CardDescription>
-            Manage your data and privacy settings
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div className="flex items-center gap-3">
-              <Download className="h-5 w-5 text-gray-600" />
-              <div>
-                <h4 className="font-semibold text-gray-900">Export Your Data</h4>
-                <p className="text-sm text-gray-600">Download a copy of your data</p>
-              </div>
+      {/* Disable Two-Factor Dialog */}
+      <Dialog
+        open={twoFactorDisableDialogOpen}
+        onOpenChange={(open) => {
+          setTwoFactorDisableDialogOpen(open);
+          if (!open) {
+            setTwoFactorDisablePassword('');
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Disable Two-Factor Authentication</DialogTitle>
+            <DialogDescription>
+              Enter your password to disable two-factor authentication. You can re-enable it at any time.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              Disabling two-factor authentication will make your account less secure.
             </div>
-            <Button variant="outline" onClick={handleExportData}>
-              Export
-            </Button>
+
+            <div>
+              <Label htmlFor="disableTwoFactorPassword">Password</Label>
+              <Input
+                id="disableTwoFactorPassword"
+                type="password"
+                placeholder="Enter your password"
+                value={twoFactorDisablePassword}
+                onChange={(e) => setTwoFactorDisablePassword(e.target.value)}
+                className="mt-2"
+              />
+            </div>
           </div>
 
-          <div className="flex items-center justify-between p-4 border border-red-200 rounded-lg bg-red-50">
-            <div className="flex items-center gap-3">
-              <Trash2 className="h-5 w-5 text-red-600" />
-              <div>
-                <h4 className="font-semibold text-red-900">Delete Account</h4>
-                <p className="text-sm text-red-700">Permanently delete your account and data</p>
-              </div>
-            </div>
-            <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}>
-              Delete
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setTwoFactorDisableDialogOpen(false);
+                setTwoFactorDisablePassword('');
+              }}
+              disabled={disableTwoFactorLoading}
+            >
+              Cancel
             </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+            <Button
+              variant="destructive"
+              onClick={confirmDisableTwoFactor}
+              disabled={disableTwoFactorLoading}
+            >
+              {disableTwoFactorLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Disabling...
+                </>
+              ) : (
+                'Disable 2FA'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -2602,7 +3394,58 @@ function DisplaySection({ displayPreferences, setDisplayPreferences }: any) {
 }
 
 // Sessions Section Component
-function SessionsSection({ sessions, getDeviceIcon, formatTime }: any) {
+function SessionsSection({ sessions, getDeviceIcon, formatTime, loadingSessions, onRefresh }: any) {
+  const [revokingSession, setRevokingSession] = React.useState<string | null>(null);
+  const [revokingAll, setRevokingAll] = React.useState(false);
+
+  const handleRevokeSession = async (sessionId: string) => {
+    if (!window.confirm('Are you sure you want to revoke this session? The device will be logged out.')) {
+      return;
+    }
+
+    try {
+      setRevokingSession(sessionId);
+      const { revokeSession } = await import('../lib/api/auth');
+      const response = await revokeSession(sessionId);
+
+      if (response.error) {
+        toast.error(response.error.error || 'Failed to revoke session');
+      } else {
+        toast.success('Session revoked successfully');
+        onRefresh?.();
+      }
+    } catch (error: any) {
+      console.error('Revoke session error:', error);
+      toast.error('Failed to revoke session');
+    } finally {
+      setRevokingSession(null);
+    }
+  };
+
+  const handleRevokeAllSessions = async () => {
+    if (!window.confirm('Are you sure you want to revoke all other sessions? All other devices will be logged out.')) {
+      return;
+    }
+
+    try {
+      setRevokingAll(true);
+      const { revokeAllSessions } = await import('../lib/api/auth');
+      const response = await revokeAllSessions();
+
+      if (response.error) {
+        toast.error(response.error.error || 'Failed to revoke sessions');
+      } else {
+        toast.success('All other sessions revoked successfully');
+        onRefresh?.();
+      }
+    } catch (error: any) {
+      console.error('Revoke all sessions error:', error);
+      toast.error('Failed to revoke sessions');
+    } finally {
+      setRevokingAll(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -2613,47 +3456,85 @@ function SessionsSection({ sessions, getDeviceIcon, formatTime }: any) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {sessions.map((session: any) => {
-              const DeviceIcon = getDeviceIcon(session.device);
-              return (
-                <div key={session.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                      <DeviceIcon className="h-5 w-5 text-gray-600" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-gray-900">{session.device}</p>
-                        {session.isCurrent && (
-                          <Badge variant="outline" className="text-green-600 border-green-600">
-                            Current
-                          </Badge>
-                        )}
+          {loadingSessions ? (
+            <div className="text-center py-8">
+              <Loader2 className="h-8 w-8 text-gray-400 mx-auto mb-3 animate-spin" />
+              <p className="text-sm text-gray-500">Loading sessions...</p>
+            </div>
+          ) : sessions.length === 0 ? (
+            <div className="text-center py-8">
+              <Monitor className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-sm text-gray-500">No active sessions found</p>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-4">
+                {sessions.map((session: any) => {
+                  const DeviceIcon = getDeviceIcon(session.device);
+                  return (
+                    <div key={session.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                          <DeviceIcon className="h-5 w-5 text-gray-600" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-gray-900">{session.device}</p>
+                            {session.isCurrent && (
+                              <Badge variant="outline" className="text-green-600 border-green-600">
+                                Current
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600">
+                            {session.browser} • {session.os}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {session.location} • {session.ipAddress}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            Last active: {formatTime(session.lastActive)}
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-sm text-gray-600">
-                        {session.browser} • {session.os}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {session.location} • {session.ipAddress}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        Last active: {formatTime(session.lastActive)}
-                      </p>
+                      {!session.isCurrent && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleRevokeSession(session.id)}
+                          disabled={revokingSession === session.id}
+                        >
+                          {revokingSession === session.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            'Revoke'
+                          )}
+                        </Button>
+                      )}
                     </div>
-                  </div>
-                  {!session.isCurrent && (
-                    <Button variant="ghost" size="sm" className="text-red-600">
-                      Revoke
-                    </Button>
+                  );
+                })}
+              </div>
+              {sessions.filter((s: any) => !s.isCurrent).length > 0 && (
+                <Button
+                  variant="outline"
+                  className="w-full mt-4"
+                  onClick={handleRevokeAllSessions}
+                  disabled={revokingAll}
+                >
+                  {revokingAll ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Revoking...
+                    </>
+                  ) : (
+                    'Revoke All Other Sessions'
                   )}
-                </div>
-              );
-            })}
-          </div>
-          <Button variant="outline" className="w-full mt-4">
-            Revoke All Other Sessions
-          </Button>
+                </Button>
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

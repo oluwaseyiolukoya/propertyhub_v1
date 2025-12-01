@@ -32,6 +32,7 @@ import {
   Edit,
   X
 } from 'lucide-react';
+import { TRIAL_PLAN_LIMITS } from '../lib/constants/subscriptions';
 
 interface AddCustomerPageProps {
   onBack: () => void;
@@ -111,9 +112,9 @@ export function AddCustomerPage({ onBack, onSave, onEditExisting, user }: AddCus
     state: '',
     zipCode: '',
     country: 'Nigeria',
-    propertyLimit: '5',
-    userLimit: '3',
-    storageLimit: '1000',
+    propertyLimit: String(TRIAL_PLAN_LIMITS.properties),
+    userLimit: String(TRIAL_PLAN_LIMITS.users),
+    storageLimit: String(TRIAL_PLAN_LIMITS.storageMb),
     notes: '',
     // Developer-specific fields
     firstName: '',

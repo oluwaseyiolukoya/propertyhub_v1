@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { onboardingService } from '../services/onboarding.service';
 import { applicationSchema } from '../validators/onboarding.validator';
-import { sendOnboardingConfirmation } from '../lib/email';
+import { sendOnboardingConfirmation, sendEmail } from '../lib/email';
 import { z } from 'zod';
 
 const router = express.Router();
@@ -113,6 +113,47 @@ router.post('/apply', rateLimitMiddleware, async (req: Request, res: Response) =
       console.error('[Onboarding] Full error object:', JSON.stringify(emailError, null, 2));
       // Don't fail the application submission if email fails
     }
+
+    // Send admin notification email (fire and forget)
+    (async () => {
+      try {
+        console.log('[Onboarding] 📧 Sending admin notification to admin@contrezz.com...');
+        const adminHtml = `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+            <h2 style="color:#2563eb">🔔 New Onboarding Application</h2>
+            <p>A new customer application has been submitted and is awaiting review.</p>
+            <table style="border-collapse:collapse;width:100%;margin-top:16px">
+              <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb">Applicant Name</td><td style="padding:8px;border:1px solid #e5e7eb">${application.name}</td></tr>
+              <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb">Email</td><td style="padding:8px;border:1px solid #e5e7eb">${application.email}</td></tr>
+              <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb">Application Type</td><td style="padding:8px;border:1px solid #e5e7eb">${application.applicationType}</td></tr>
+              <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb">Company</td><td style="padding:8px;border:1px solid #e5e7eb">${application.companyName || 'N/A'}</td></tr>
+              <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb">Phone</td><td style="padding:8px;border:1px solid #e5e7eb">${application.phone || 'N/A'}</td></tr>
+              <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb">City</td><td style="padding:8px;border:1px solid #e5e7eb">${application.city || 'N/A'}</td></tr>
+              <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb">Country</td><td style="padding:8px;border:1px solid #e5e7eb">${application.country || 'Nigeria'}</td></tr>
+              <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb">Submitted At</td><td style="padding:8px;border:1px solid #e5e7eb">${new Date().toLocaleString()}</td></tr>
+            </table>
+            <p style="margin-top:20px">
+              <a href="${process.env.FRONTEND_URL || 'https://contrezz.com'}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px">
+                Review Application
+              </a>
+            </p>
+            <p style="margin-top:16px;color:#6b7280;font-size:12px">This is an automated notification from Contrezz.</p>
+          </div>
+        `;
+        const adminEmailSent = await sendEmail({
+          to: 'admin@contrezz.com',
+          subject: `🔔 New Onboarding Application: ${application.name} (${application.applicationType})`,
+          html: adminHtml,
+        });
+        if (adminEmailSent) {
+          console.log('[Onboarding] ✅ Admin notification sent to admin@contrezz.com');
+        } else {
+          console.error('[Onboarding] ❌ Failed to send admin notification');
+        }
+      } catch (adminEmailError) {
+        console.error('[Onboarding] ❌ Error sending admin notification:', adminEmailError);
+      }
+    })();
 
     res.status(201).json({
       success: true,

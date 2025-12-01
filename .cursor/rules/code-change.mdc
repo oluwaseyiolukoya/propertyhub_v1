@@ -1,0 +1,293 @@
+---
+alwaysApply: true
+# Cursor AI Rules for Safe Code Changes
+
+## 🔴 CRITICAL: Non-Breaking Code Change Rules
+
+### Rule 1: NEVER Modify Unrelated Code
+
+**FORBIDDEN ACTIONS:**
+
+- ❌ NEVER change code in files/functions not directly related to the current task
+- ❌ NEVER "clean up" or "refactor" code that wasn't requested
+- ❌ NEVER remove imports, functions, or variables that appear "unused" without verification
+- ❌ NEVER change API response structures without updating all consumers
+- ❌ NEVER modify database queries that work correctly
+- ❌ NEVER update type definitions without checking all usages
+
+**REASON:** Seemingly minor changes can cascade into breaking other components that depend on the modified code.
+
+### Rule 2: ALWAYS Verify Impact Before Changes
+
+**REQUIRED WORKFLOW:**
+
+1. **Before ANY code change**, search for all usages of:
+   - Functions being modified
+   - Variables being renamed
+   - Types/interfaces being changed
+   - API endpoints being altered
+   - Database fields being updated
+
+2. **Use these commands to verify impact:**
+   ```bash
+   # Find all usages of a function/variable
+   grep -r "functionName" --include="*.ts" --include="*.tsx"
+
+   # Find all imports of a module
+   grep -r "from.*moduleName" --include="*.ts" --include="*.tsx"
+
+   # Find all API endpoint usages
+   grep -r "/api/endpoint" --include="*.ts" --include="*.tsx"
+   ```
+
+3. **Document affected files** before making changes
+
+### Rule 3: Preserve Existing Behavior
+
+**RULES:**
+
+- ✅ ALWAYS maintain backward compatibility for API responses
+- ✅ ALWAYS keep existing function signatures when adding new parameters (use optional params)
+- ✅ ALWAYS preserve existing return types (extend, don't replace)
+- ✅ ALWAYS keep existing props when modifying React components
+- ❌ NEVER change the meaning of existing fields/properties
+- ❌ NEVER remove fields from API responses without deprecation
+
+**CORRECT PATTERN - Adding a new field:**
+```typescript
+// BEFORE
+interface User {
+  id: string;
+  name: string;
+}
+
+// AFTER - Add new field, keep existing
+interface User {
+  id: string;
+  name: string;
+  email?: string; // New optional field
+}
+```
+
+**WRONG PATTERN - Breaking change:**
+```typescript
+// BEFORE
+interface User {
+  id: string;
+  name: string;
+}
+
+// AFTER - WRONG: Renamed field breaks consumers
+interface User {
+  userId: string; // ❌ Breaking change!
+  fullName: string; // ❌ Breaking change!
+}
+```
+
+### Rule 4: Isolate Changes
+
+**PRINCIPLES:**
+
+1. **One task, one scope**: Only modify files directly needed for the current task
+2. **Minimal changes**: Make the smallest possible change to achieve the goal
+3. **No side effects**: Changes should not affect unrelated functionality
+4. **Preserve working code**: If it works, don't touch it unless necessary
+
+**BEFORE making any change, ask:**
+- Is this file directly related to my task?
+- Will this change affect other components?
+- Can I achieve the goal with fewer modifications?
+- Am I changing something that already works?
+
+### Rule 5: Test Impact Awareness
+
+**REQUIRED CHECKS:**
+
+1. **Frontend changes**: Verify all pages/components that use modified code still work
+2. **Backend changes**: Verify all API consumers (frontend, other services) still work
+3. **Database changes**: Verify all queries using modified tables/columns still work
+4. **Type changes**: Verify all TypeScript files compile without errors
+
+### Rule 6: Safe Debugging Practices
+
+**WHEN DEBUGGING:**
+
+- ✅ Add console.logs for investigation (remove before committing)
+- ✅ Create isolated test cases
+- ✅ Use feature flags for experimental changes
+- ❌ NEVER modify multiple systems at once while debugging
+- ❌ NEVER "fix" other bugs you discover while debugging (note them, fix separately)
+- ❌ NEVER change working code to "see if it helps"
+
+**DEBUGGING WORKFLOW:**
+1. Reproduce the issue
+2. Add logging to understand the flow
+3. Identify the root cause
+4. Make the minimal fix
+5. Verify the fix doesn't break other things
+6. Remove debug logging
+
+### Rule 7: Component Dependency Awareness
+
+**BEFORE modifying a component, check:**
+
+```bash
+# Find all files that import this component
+grep -r "import.*ComponentName" --include="*.tsx"
+
+# Find all files that use this component
+grep -r "<ComponentName" --include="*.tsx"
+
+# Find all files that pass props to this component
+grep -r "ComponentName.*=" --include="*.tsx"
+```
+
+**NEVER modify:**
+- Prop types without updating all usages
+- Default prop values without checking consumers
+- Component state that other components depend on
+- Event handlers that parent components rely on
+
+### Rule 8: API Contract Preservation
+
+**API RESPONSE RULES:**
+
+```typescript
+// ✅ CORRECT: Add new fields, keep existing
+// Before
+{ success: true, data: { id: "1", name: "Test" } }
+
+// After - Added email field
+{ success: true, data: { id: "1", name: "Test", email: "test@test.com" } }
+
+// ❌ WRONG: Changed structure
+// Before
+{ success: true, data: { id: "1", name: "Test" } }
+
+// After - Changed structure breaks frontend
+{ success: true, result: { userId: "1", fullName: "Test" } }
+```
+
+**API ENDPOINT RULES:**
+- ✅ Add new endpoints freely
+- ✅ Add optional query parameters to existing endpoints
+- ❌ NEVER change existing endpoint paths
+- ❌ NEVER change required parameters to optional or vice versa
+- ❌ NEVER change response structure without versioning
+
+### Rule 9: State Management Safety
+
+**WHEN MODIFYING STATE:**
+
+- ✅ Add new state variables freely
+- ✅ Add new fields to existing state objects
+- ❌ NEVER remove state fields that components depend on
+- ❌ NEVER change state update logic without checking all subscribers
+- ❌ NEVER modify context providers without checking all consumers
+
+### Rule 10: Safe Refactoring Guidelines
+
+**IF REFACTORING IS REQUESTED:**
+
+1. **Create a checklist** of all affected files
+2. **Update all usages** in a single commit
+3. **Run full test suite** before and after
+4. **Verify no TypeScript errors** across the entire codebase
+5. **Test all affected features** manually
+
+**REFACTORING CHECKLIST:**
+- [ ] Listed all files using the code being refactored
+- [ ] Updated all import statements
+- [ ] Updated all function calls
+- [ ] Updated all type references
+- [ ] Verified TypeScript compilation
+- [ ] Tested affected features
+
+---
+
+## 📋 Pre-Change Checklist
+
+Before making ANY code change, verify:
+
+### Impact Assessment
+
+- [ ] Identified all files that import/use the code being changed
+- [ ] Checked for downstream dependencies
+- [ ] Verified API consumers won't break
+- [ ] Confirmed database queries won't fail
+
+### Change Scope
+
+- [ ] Changes are limited to files directly related to the task
+- [ ] No "cleanup" or "improvements" to unrelated code
+- [ ] No removal of "unused" code without verification
+- [ ] No changes to working functionality
+
+### Backward Compatibility
+
+- [ ] API responses maintain existing structure
+- [ ] Function signatures are backward compatible
+- [ ] Type definitions extend rather than replace
+- [ ] Props are additive, not breaking
+
+---
+
+## 🚨 Error Response Protocol
+
+**If developer asks to:**
+
+1. "Clean up this file while you're at it" → Respond: "I'll focus on the specific task to avoid breaking other components. We can clean up in a separate, focused change."
+
+2. "Fix all the issues you see" → Respond: "I'll fix the specific issue requested. Other issues should be addressed separately to avoid unintended side effects."
+
+3. "Refactor this to be better" → Respond: "I'll make minimal changes for the task. For refactoring, let's create a checklist of all affected files first."
+
+4. "Remove unused code" → Respond: "I'll verify this code is truly unused by searching for all references before removing."
+
+5. "Update the types" → Respond: "I'll extend the types rather than replace them to maintain backward compatibility."
+
+---
+
+## 🎯 Success Criteria
+
+**A code change is safe when:**
+
+1. ✅ Only files directly related to the task are modified
+2. ✅ All usages of modified code are updated
+3. ✅ API responses maintain backward compatibility
+4. ✅ Type definitions extend rather than replace
+5. ✅ No "cleanup" changes mixed with feature changes
+6. ✅ All TypeScript files compile without errors
+7. ✅ Existing tests still pass
+8. ✅ Related features still work correctly
+
+---
+
+## 🚀 Enforcement
+
+**AI Assistant MUST:**
+
+- Search for all usages before modifying any code
+- Make minimal changes to achieve the goal
+- Preserve existing API contracts
+- Extend types rather than replace them
+- Refuse to make unrelated changes
+- Document affected files before making changes
+
+**AI Assistant MUST NOT:**
+
+- Modify files unrelated to the current task
+- Remove "unused" code without verification
+- Change API response structures
+- Rename fields/functions without updating all usages
+- Mix refactoring with feature development
+- Make changes "while you're at it"
+
+---
+
+**Last Updated:** November 30, 2025
+**Status:** ENFORCED - These rules prevent breaking changes
+**Severity:** CRITICAL - Violations cause production issues
+**Related:** `.cursorrules` (database), `.cursorrules-payment-integration` (payments)
+
+---

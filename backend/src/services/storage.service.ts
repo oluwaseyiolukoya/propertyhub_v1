@@ -116,7 +116,8 @@ class StorageService {
     }
 
     const used = Number(customer.storage_used) || 0;
-    const limit = Number(customer.storage_limit) || 5368709120; // 5GB default
+    // Default to 1GB (trial limit) if storage_limit is not set
+    const limit = Number(customer.storage_limit) || 1073741824; // 1GB default (trial)
     const available = limit - used;
     const percentage = (used / limit) * 100;
     const canUpload = available >= fileSize;
@@ -442,7 +443,8 @@ class StorageService {
     });
 
     const used = Number(customer?.storage_used) || 0;
-    const limit = Number(customer?.storage_limit) || 5368709120;
+    // Default to 1GB (trial limit) if storage_limit is not set
+    const limit = Number(customer?.storage_limit) || 1073741824; // 1GB default (trial)
     const available = limit - used;
     const percentage = (used / limit) * 100;
 

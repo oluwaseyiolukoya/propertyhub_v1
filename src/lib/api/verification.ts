@@ -143,6 +143,21 @@ export const deleteVerificationRequest = async (requestId: string) => {
 };
 
 /**
+ * Reset customer KYC (admin)
+ */
+export const resetCustomerKyc = async (customerId: string) => {
+  return apiClient.post<{ success: boolean; message: string }>(`/api/admin/verification/customers/${customerId}/reset`, {});
+};
+
+/**
+ * Reset tenant (user-level) KYC (admin)
+ */
+export const resetTenantKyc = async (customerId: string, userId: string) => {
+  // Append userId as query param
+  return apiClient.post<{ success: boolean; message: string }>(`/api/admin/verification/customers/${customerId}/reset?userId=${encodeURIComponent(userId)}`, {});
+};
+
+/**
  * Get provider logs (admin)
  */
 export const getProviderLogs = async (provider?: string, limit: number = 50) => {

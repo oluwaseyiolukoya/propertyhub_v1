@@ -19,6 +19,7 @@ import {
   ActivationResult,
   ApplicationTimeline,
 } from '../types/onboarding.types';
+import { sendEmail } from '../lib/email';
 
 const prisma = new PrismaClient();
 
@@ -340,6 +341,35 @@ export class OnboardingService {
         },
       });
     }
+
+    // Notify internal admin mailbox about the new customer (non-blocking)
+    (async () => {
+      try {
+        const html = `
+          <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111">
+            <h2 style="margin:0 0 12px">🆕 New Customer Account Created (Onboarding)</h2>
+            <p style="margin:0 0 16px">A new customer has been created via onboarding.</p>
+            <table style="border-collapse:collapse">
+              <tr><td style="padding:4px 8px;color:#555">Company</td><td style="padding:4px 8px;font-weight:600">${customer.company}</td></tr>
+              <tr><td style="padding:4px 8px;color:#555">Owner</td><td style="padding:4px 8px">${customer.owner}</td></tr>
+              <tr><td style="padding:4px 8px;color:#555">Email</td><td style="padding:4px 8px">${customer.email}</td></tr>
+              <tr><td style="padding:4px 8px;color:#555">Plan ID</td><td style="padding:4px 8px">${customer.planId || 'N/A'}</td></tr>
+              <tr><td style="padding:4px 8px;color:#555">Billing Cycle</td><td style="padding:4px 8px">${customer.billingCycle || 'monthly'}</td></tr>
+              <tr><td style="padding:4px 8px;color:#555">Status</td><td style="padding:4px 8px">${customer.status}</td></tr>
+              <tr><td style="padding:4px 8px;color:#555">Country</td><td style="padding:4px 8px">${customer.country || 'Nigeria'}</td></tr>
+            </table>
+            <p style="margin-top:16px;color:#777;font-size:12px">Sent automatically by Contrezz</p>
+          </div>
+        `;
+        await sendEmail({
+          to: 'admin@contrezz.com',
+          subject: `New customer created (Onboarding): ${customer.company} (${customer.owner})`,
+          html,
+        });
+      } catch (err) {
+        console.error('Failed to send admin onboarding new-customer notification:', err);
+      }
+    })();
 
     // Log trial started event
     await prisma.subscription_events.create({
