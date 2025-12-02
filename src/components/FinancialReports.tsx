@@ -119,7 +119,10 @@ export const FinancialReports = ({
         }
 
         if (!monthlyRes.error && Array.isArray(monthlyRes.data)) {
+          console.log("📊 Monthly Revenue Data:", monthlyRes.data);
           setMonthlyData(monthlyRes.data);
+        } else {
+          console.error("❌ Monthly Revenue Error:", monthlyRes.error);
         }
 
         if (!performanceRes.error && Array.isArray(performanceRes.data)) {
@@ -1368,25 +1371,35 @@ export const FinancialReports = ({
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <ComposedChart data={monthlyRevenueData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <RechartsTooltip
-                      formatter={(value) => [currencyFormatter(value), ""]}
-                    />
-                    <Bar dataKey="revenue" fill="#8884d8" name="Revenue" />
-                    <Bar dataKey="expenses" fill="#82ca9d" name="Expenses" />
-                    <Line
-                      type="monotone"
-                      dataKey="netIncome"
-                      stroke="#ff7300"
-                      strokeWidth={3}
-                      name="Net Income"
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
+                {monthlyRevenueData.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-[300px] text-gray-500">
+                    <BarChart3 className="h-12 w-12 mb-3 text-gray-300" />
+                    <p className="font-medium">No financial data available</p>
+                    <p className="text-xs mt-1">
+                      Record payments and expenses to see monthly trends.
+                    </p>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <ComposedChart data={monthlyRevenueData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <RechartsTooltip
+                        formatter={(value) => [currencyFormatter(value), ""]}
+                      />
+                      <Bar dataKey="revenue" fill="#8884d8" name="Revenue" />
+                      <Bar dataKey="expenses" fill="#82ca9d" name="Expenses" />
+                      <Line
+                        type="monotone"
+                        dataKey="netIncome"
+                        stroke="#ff7300"
+                        strokeWidth={3}
+                        name="Net Income"
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                )}
               </CardContent>
             </Card>
 
