@@ -1,7 +1,7 @@
 /**
  * Data Comparison Script
  * Compare payment and expense data between environments
- * 
+ *
  * Usage:
  * - Local: npx tsx scripts/compare-data.ts
  * - Production: Run in DigitalOcean Console
@@ -25,7 +25,7 @@ async function compareData() {
     // 1. Count total records
     console.log('📊 RECORD COUNTS:');
     console.log('-'.repeat(60));
-    
+
     const [
       propertiesCount,
       unitsCount,
@@ -55,7 +55,7 @@ async function compareData() {
     // 2. Payment breakdown
     console.log('\n💰 PAYMENT BREAKDOWN:');
     console.log('-'.repeat(60));
-    
+
     const paymentsByStatus = await prisma.payments.groupBy({
       by: ['status'],
       _count: { id: true },
@@ -84,7 +84,7 @@ async function compareData() {
     // 3. Recent payments (last 10)
     console.log('\n📅 RECENT PAYMENTS (Last 10):');
     console.log('-'.repeat(60));
-    
+
     const recentPayments = await prisma.payments.findMany({
       take: 10,
       orderBy: { createdAt: 'desc' },
@@ -118,7 +118,7 @@ async function compareData() {
     // 4. Expense breakdown
     console.log('\n💸 EXPENSE BREAKDOWN:');
     console.log('-'.repeat(60));
-    
+
     const expensesByStatus = await prisma.expenses.groupBy({
       by: ['status'],
       _count: { id: true },
@@ -147,7 +147,7 @@ async function compareData() {
     // 5. Recent expenses (last 10)
     console.log('\n📅 RECENT EXPENSES (Last 10):');
     console.log('-'.repeat(60));
-    
+
     const recentExpenses = await prisma.expenses.findMany({
       take: 10,
       orderBy: { createdAt: 'desc' },
@@ -182,7 +182,7 @@ async function compareData() {
     // 6. Monthly revenue data (last 12 months)
     console.log('\n📈 MONTHLY REVENUE DATA (Last 12 Months):');
     console.log('-'.repeat(60));
-    
+
     const now = new Date();
     const from = new Date(now);
     from.setMonth(from.getMonth() - 11);
@@ -241,7 +241,7 @@ async function compareData() {
 
     console.log('\nMonth       Revenue      Expenses     Net Income');
     console.log('-'.repeat(60));
-    
+
     let totalRevenue = 0;
     let totalExpenses = 0;
 
@@ -275,11 +275,11 @@ async function compareData() {
     // 7. Data quality checks
     console.log('\n✅ DATA QUALITY CHECKS:');
     console.log('-'.repeat(60));
-    
+
     const paymentsWithoutPaidAt = await prisma.payments.count({
-      where: { 
+      where: {
         status: 'success',
-        paidAt: null 
+        paidAt: null
       }
     });
     console.log(`Success payments without paidAt: ${paymentsWithoutPaidAt}`);
