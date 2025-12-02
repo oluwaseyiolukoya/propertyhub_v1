@@ -1461,7 +1461,7 @@ export function PropertyOwnerDashboard({
                             </div>
                             <p className="text-sm text-gray-600">{property.address}</p>
                             <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                              <span>{(property.occupiedUnits ?? 0)}/{(property._count?.units ?? property.totalUnits ?? 0)} units occupied</span>
+                              <span>{(property.occupiedUnits ?? 0)}/{(property._count?.units ?? 0)} units occupied</span>
                             </div>
                             <p className="text-xs text-gray-500 mt-1">Manager: {property.property_managers?.[0]?.users?.name ?? 'Unassigned'}</p>
                           </div>

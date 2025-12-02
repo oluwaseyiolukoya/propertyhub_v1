@@ -13,9 +13,12 @@ router.use(requireKycVerification);
 router.get('/manager/analytics', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
-    const role = req.user?.role;
+    const roleRaw = req.user?.role || '';
+    const role = roleRaw.toLowerCase();
+    const isOwner = ['owner', 'property_owner', 'property owner'].includes(role);
+    const isManager = ['manager', 'property_manager', 'property manager'].includes(role);
 
-    if (role !== 'manager' && role !== 'property_manager' && role !== 'owner') {
+    if (!isManager && !isOwner) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -23,9 +26,9 @@ router.get('/manager/analytics', async (req: AuthRequest, res: Response) => {
 
     // Get properties accessible to the manager/owner
     const where: any = {};
-    if (role === 'owner') {
+    if (isOwner) {
       where.ownerId = userId;
-    } else if (role === 'manager' || role === 'property_manager') {
+    } else if (isManager) {
       where.property_managers = {
         some: {
           managerId: userId,
@@ -277,17 +280,20 @@ router.get('/manager/overview', async (req: AuthRequest, res: Response) => {
   try {
     const { propertyId } = req.query;
     const userId = req.user?.id;
-    const role = req.user?.role;
+    const roleRaw = req.user?.role || '';
+    const role = roleRaw.toLowerCase();
+    const isOwner = ['owner', 'property_owner', 'property owner'].includes(role);
+    const isManager = ['manager', 'property_manager', 'property manager'].includes(role);
 
-    if (role !== 'manager' && role !== 'owner') {
+    if (!isManager && !isOwner) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
     const where: any = {};
 
-    if (role === 'owner') {
+    if (isOwner) {
       where.ownerId = userId;
-    } else if (role === 'manager') {
+    } else if (isManager) {
       where.property_managers = {
         some: {
           managerId: userId,
@@ -501,9 +507,12 @@ router.get('/manager/property-performance', async (req: AuthRequest, res: Respon
   try {
     const { propertyId, period = '30' } = req.query;
     const userId = req.user?.id;
-    const role = req.user?.role;
+    const roleRaw = req.user?.role || '';
+    const role = roleRaw.toLowerCase();
+    const isOwner = ['owner', 'property_owner', 'property owner'].includes(role);
+    const isManager = ['manager', 'property_manager', 'property manager'].includes(role);
 
-    if (role !== 'manager' && role !== 'owner') {
+    if (!isManager && !isOwner) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -628,9 +637,11 @@ router.get('/manager/property-performance', async (req: AuthRequest, res: Respon
 router.get('/owner/overview', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
-    const role = req.user?.role;
+    const roleRaw = req.user?.role || '';
+    const role = roleRaw.toLowerCase();
+    const isOwner = ['owner', 'property_owner', 'property owner'].includes(role);
 
-    if (role !== 'owner') {
+    if (!isOwner) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -891,7 +902,9 @@ router.get('/manager/activities', async (req: AuthRequest, res: Response) => {
 router.get('/owner/activities', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
-    const role = req.user?.role;
+    const roleRaw = req.user?.role || '';
+    const role = roleRaw.toLowerCase();
+    const isOwner = ['owner', 'property_owner', 'property owner'].includes(role);
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 5;
     const skip = (page - 1) * limit;
@@ -899,7 +912,7 @@ router.get('/owner/activities', async (req: AuthRequest, res: Response) => {
     console.log('📋 Fetching owner activities:', { userId, role, page, limit });
 
     // Ensure user is an owner
-    if (role !== 'owner' && role !== 'property owner' && role !== 'property_owner') {
+    if (!isOwner) {
       return res.status(403).json({ error: 'Owner access required' });
     }
 
@@ -1015,9 +1028,11 @@ export default router;
 router.post('/owner/subscription/cancel', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
-    const role = (req.user?.role || '').toLowerCase();
+    const roleRaw = req.user?.role || '';
+    const role = roleRaw.toLowerCase();
+    const isOwner = ['owner', 'property_owner', 'property owner'].includes(role);
 
-    if (role !== 'owner' && role !== 'property owner' && role !== 'property_owner') {
+    if (!isOwner) {
       return res.status(403).json({ error: 'Access denied. Owner only.' });
     }
 

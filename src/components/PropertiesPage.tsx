@@ -777,18 +777,25 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
   const visibleProperties = properties.filter(property => !deletedPropertyIds.has(property.id));
 
   // Calculate portfolio metrics from visible properties (excludes deleted)
+  // Use _count.units (actual unit records) instead of totalUnits (metadata field)
+  const getActualUnitCount = (p: any) => p._count?.units ?? 0;
+  
   const portfolioMetrics = {
     totalProperties: visibleProperties.length,
-    totalUnits: visibleProperties.reduce((sum, p) => sum + (p._count?.units || p.totalUnits || 0), 0),
-    occupiedUnits: visibleProperties.reduce((sum, p) => sum + (p.occupiedUnits || 0), 0),
+    totalUnits: visibleProperties.reduce((sum, p) => sum + getActualUnitCount(p), 0),
+    occupiedUnits: visibleProperties.reduce((sum, p) => sum + (p.occupiedUnits ?? 0), 0),
     vacantUnits: visibleProperties.reduce((sum, p) => {
-      const total = p._count?.units || p.totalUnits || 0;
-      const occ = p.occupiedUnits || 0;
+      const total = getActualUnitCount(p);
+      const occ = p.occupiedUnits ?? 0;
       return sum + Math.max(total - occ, 0);
     }, 0),
     totalRevenue: visibleProperties.reduce((sum, p) => sum + (p.totalMonthlyIncome || 0), 0),
     avgOccupancy: visibleProperties.length > 0 ?
-      visibleProperties.reduce((sum, p) => sum + (p.occupancyRate ?? (((p.occupiedUnits || 0) / ((p._count?.units || p.totalUnits || 1))) * 100)), 0) / visibleProperties.length : 0,
+      visibleProperties.reduce((sum, p) => {
+        const total = getActualUnitCount(p);
+        const occ = p.occupiedUnits ?? 0;
+        return sum + (p.occupancyRate ?? (total > 0 ? (occ / total) * 100 : 0));
+      }, 0) / visibleProperties.length : 0,
     maintenanceRequests: maintenanceData.length
   };
 
@@ -1094,12 +1101,12 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                             </div>
                             <div>
                               <h4 className="font-medium">{property.name}</h4>
-                              <p className="text-sm text-gray-600">{property.occupiedUnits ?? 0}/{property._count?.units ?? property.totalUnits ?? 0} units</p>
+                              <p className="text-sm text-gray-600">{property.occupiedUnits ?? 0}/{property._count?.units ?? 0} units</p>
                             </div>
                           </div>
                           <div className="text-right">
                             <p className="font-medium">{formatCurrency(Number(property.totalMonthlyIncome) || 0, property.currency || 'NGN')}</p>
-                            <p className="text-sm text-gray-600">{(((property.occupiedUnits ?? 0) / ((property._count?.units ?? property.totalUnits ?? 1))) * 100).toFixed(1)}% occupied</p>
+                            <p className="text-sm text-gray-600">{((property._count?.units ?? 0) > 0 ? (((property.occupiedUnits ?? 0) / (property._count?.units ?? 1)) * 100).toFixed(1) : '0.0')}% occupied</p>
                           </div>
                         </div>
                       ))}
@@ -1305,13 +1312,13 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm">
                             <span>Units:</span>
-                            <span>{property.occupiedUnits ?? 0}/{property._count?.units ?? property.totalUnits ?? 0}</span>
+                            <span>{property.occupiedUnits ?? 0}/{property._count?.units ?? 0}</span>
                           </div>
                           <div className="flex justify-between text-sm">
                             <span>Occupancy:</span>
                             <span className="font-medium">{(
                               property.occupancyRate ?? (
-                                ((property.occupiedUnits ?? 0) / ((property._count?.units ?? property.totalUnits ?? 0) || 1)) * 100
+                                (property._count?.units ?? 0) > 0 ? ((property.occupiedUnits ?? 0) / (property._count?.units ?? 1)) * 100 : 0
                               )
                             ).toFixed(1)}%</span>
                           </div>
@@ -1398,11 +1405,11 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                                 <p className="text-xs text-gray-600">{property.city}, {property.state}</p>
                               </div>
                             </TableCell>
-                            <TableCell>{property.occupiedUnits ?? 0}/{property._count?.units ?? property.totalUnits ?? 0}</TableCell>
+                            <TableCell>{property.occupiedUnits ?? 0}/{property._count?.units ?? 0}</TableCell>
                             <TableCell>
                               <div className="flex items-center space-x-2">
-                                <span>{(((property.occupiedUnits ?? 0) / ((property._count?.units ?? property.totalUnits ?? 1))) * 100).toFixed(1)}%</span>
-                                <Progress value={(((property.occupiedUnits ?? 0) / ((property._count?.units ?? property.totalUnits ?? 1))) * 100)} className="w-16 h-2" />
+                                <span>{((property._count?.units ?? 0) > 0 ? (((property.occupiedUnits ?? 0) / (property._count?.units ?? 1)) * 100).toFixed(1) : '0.0')}%</span>
+                                <Progress value={(property._count?.units ?? 0) > 0 ? (((property.occupiedUnits ?? 0) / (property._count?.units ?? 1)) * 100) : 0} className="w-16 h-2" />
                               </div>
                             </TableCell>
                             <TableCell className="font-medium text-green-600">
@@ -1844,7 +1851,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           <TableCell>
                             <div>
                               <p className="font-medium">{property.name}</p>
-                              <p className="text-sm text-gray-600">{property.totalUnits} units</p>
+                              <p className="text-sm text-gray-600">{property._count?.units ?? 0} units</p>
                             </div>
                           </TableCell>
                           <TableCell className="font-medium text-green-600">
@@ -3274,7 +3281,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-500">Total Units</span>
-                  <span className="font-medium">{propertyToDelete.totalUnits}</span>
+                  <span className="font-medium">{propertyToDelete._count?.units ?? 0}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-500">Status</span>
@@ -3786,6 +3793,15 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                 };
                 const res = await createUnit(payload);
                 if ((res as any).error) throw new Error((res as any).error.error || 'Failed to create unit');
+                
+                // Get the created unit from response
+                const createdUnit = (res as any).data;
+                
+                // Optimistic UI update - add unit immediately to the list
+                if (createdUnit) {
+                  setUnitsData(prev => [...prev, createdUnit]);
+                }
+                
                 toast.success('Unit created successfully');
                 setShowAddUnitDialog(false);
                 setUnitForm({
@@ -3794,8 +3810,11 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                   serviceCharge: '', legalFee: '', agentCommission: '', agreementFee: '',
                   electricityMeter: '', prepaidMeter: false, wasteFee: '', estateDues: '', waterSource: 'public', parkingAvailable: true
                 });
-                const uRes = await getUnits();
-                if (!uRes.error && Array.isArray(uRes.data)) setUnitsData(uRes.data);
+                
+                // Background sync - refresh from server to ensure consistency
+                getUnits().then(uRes => {
+                  if (!uRes.error && Array.isArray(uRes.data)) setUnitsData(uRes.data);
+                });
               } catch (e: any) {
                 toast.error(e?.message || 'Failed to create unit');
               } finally {

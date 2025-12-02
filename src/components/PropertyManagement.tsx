@@ -419,7 +419,13 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
         status: unitForm.status
       };
 
-      await createUnit(unitData);
+      const res = await createUnit(unitData);
+      const createdUnit = (res as any)?.data;
+
+      // Optimistic UI update - add unit immediately
+      if (createdUnit) {
+        setUnits(prev => [...prev, createdUnit]);
+      }
 
       toast.success('Unit created successfully!');
       setShowAddUnit(false);
@@ -444,7 +450,7 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
         status: 'vacant'
       });
 
-      // Reload units
+      // Background sync - refresh from server to ensure consistency
       if (activeTab === 'units') {
         loadUnits();
       }
