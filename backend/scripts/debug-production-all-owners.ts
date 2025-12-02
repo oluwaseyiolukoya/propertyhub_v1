@@ -1,7 +1,20 @@
 import { PrismaClient } from "@prisma/client";
-import { format, startOfYear, endOfYear } from "date-fns";
 
 const prisma = new PrismaClient();
+
+// Helper functions to replace date-fns
+function getMonthName(monthIndex: number): string {
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return months[monthIndex];
+}
+
+function getYearStart(year: number): Date {
+  return new Date(year, 0, 1, 0, 0, 0, 0);
+}
+
+function getYearEnd(year: number): Date {
+  return new Date(year, 11, 31, 23, 59, 59, 999);
+}
 
 async function main() {
   try {
@@ -133,8 +146,8 @@ async function main() {
 
       // Simulate monthly revenue data
       const currentYear = new Date().getFullYear();
-      const yearStart = startOfYear(new Date(currentYear, 0, 1));
-      const yearEnd = endOfYear(new Date(currentYear, 11, 31));
+      const yearStart = getYearStart(currentYear);
+      const yearEnd = getYearEnd(currentYear);
 
       const yearPayments = await prisma.payments.findMany({
         where: {
@@ -171,17 +184,19 @@ async function main() {
       const monthlyData: { [key: string]: { revenue: number; expenses: number } } = {};
 
       for (let month = 0; month < 12; month++) {
-        const monthKey = format(new Date(currentYear, month, 1), "MMM");
+        const monthKey = getMonthName(month);
         monthlyData[monthKey] = { revenue: 0, expenses: 0 };
       }
 
       yearPayments.forEach((payment) => {
-        const monthKey = format(new Date(payment.paidAt!), "MMM");
+        const paidDate = new Date(payment.paidAt!);
+        const monthKey = getMonthName(paidDate.getMonth());
         monthlyData[monthKey].revenue += Number(payment.amount);
       });
 
       yearExpenses.forEach((expense) => {
-        const monthKey = format(new Date(expense.date), "MMM");
+        const expenseDate = new Date(expense.date);
+        const monthKey = getMonthName(expenseDate.getMonth());
         monthlyData[monthKey].expenses += Number(expense.amount);
       });
 
