@@ -2,8 +2,8 @@
  * Payments API
  */
 
-import { apiClient } from '../api-client';
-import { API_ENDPOINTS } from '../api-config';
+import { apiClient } from "../api-client";
+import { API_ENDPOINTS } from "../api-config";
 
 export interface Payment {
   id: string;
@@ -60,6 +60,15 @@ export const updatePayment = async (id: string, data: Partial<Payment>) => {
 };
 
 /**
+ * Delete payment
+ */
+export const deletePayment = async (id: string) => {
+  return apiClient.delete<{ success: boolean; message?: string }>(
+    API_ENDPOINTS.PAYMENTS.UPDATE(id)
+  );
+};
+
+/**
  * Get payment statistics
  */
 export const getPaymentStats = async (filters?: {
@@ -88,10 +97,11 @@ export const initializeTenantPayment = async (payload: {
   amount?: number;
   currency?: string;
 }) => {
-  return apiClient.post<{ authorizationUrl: string; reference: string; publicKey: string }>(
-    API_ENDPOINTS.PAYMENTS.INIT,
-    payload
-  );
+  return apiClient.post<{
+    authorizationUrl: string;
+    reference: string;
+    publicKey: string;
+  }>(API_ENDPOINTS.PAYMENTS.INIT, payload);
 };
 
 /**
@@ -101,10 +111,11 @@ export const initializeSubscriptionPayment = async (payload: {
   customerId: string;
   invoiceId: string;
 }) => {
-  return apiClient.post<{ authorizationUrl: string; reference: string; publicKey: string }>(
-    API_ENDPOINTS.PAYMENTS.INIT_SUBSCRIPTION,
-    payload
-  );
+  return apiClient.post<{
+    authorizationUrl: string;
+    reference: string;
+    publicKey: string;
+  }>(API_ENDPOINTS.PAYMENTS.INIT_SUBSCRIPTION, payload);
 };
 
 /**
@@ -128,7 +139,7 @@ export const recordManualPayment = async (payload: {
  * Get scheduled payments
  */
 export const getScheduledPayments = async () => {
-  return apiClient.get<any[]>('/api/payments/scheduled');
+  return apiClient.get<any[]>("/api/payments/scheduled");
 };
 
 /**
@@ -161,7 +172,7 @@ export interface AutoPaySettings {
 }
 
 export const getAutopaySettings = async () => {
-  return apiClient.get<AutoPaySettings>('/api/tenant/autopay/settings');
+  return apiClient.get<AutoPaySettings>("/api/tenant/autopay/settings");
 };
 
 /**
@@ -173,7 +184,7 @@ export const updateAutopaySettings = async (settings: {
   dayOfMonth?: number;
 }) => {
   return apiClient.post<{ success: boolean; message: string; settings: any }>(
-    '/api/tenant/autopay/settings',
+    "/api/tenant/autopay/settings",
     settings
   );
 };
@@ -183,8 +194,7 @@ export const updateAutopaySettings = async (settings: {
  */
 export const processAutopay = async () => {
   return apiClient.post<{ success: boolean; message: string; payment: any }>(
-    '/api/tenant/autopay/process',
+    "/api/tenant/autopay/process",
     {}
   );
 };
-

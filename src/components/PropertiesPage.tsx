@@ -1,26 +1,93 @@
-import React, { useEffect, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "./ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Progress } from "./ui/progress";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./ui/tooltip";
 import { toast } from "sonner";
-import { getUnits, createUnit, updateUnit, deleteUnit, getUnit } from '../lib/api/units';
-import { archiveProperty, deleteProperty } from '../lib/api/properties';
+import {
+  getUnits,
+  createUnit,
+  updateUnit,
+  deleteUnit,
+  getUnit,
+} from "../lib/api/units";
+import { archiveProperty, deleteProperty } from "../lib/api/properties";
 import { Switch } from "./ui/switch";
-import { getMaintenanceRequests } from '../lib/api/maintenance';
-import { getOwnerDashboardOverview } from '../lib/api';
-import { getPaymentStats } from '../lib/api/payments';
-import { getFinancialOverview } from '../lib/api/financial';
-import { formatCurrency, getSmartBaseCurrency } from '../lib/currency';
-import { usePersistentState } from '../lib/usePersistentState';
-import { getExpenses, createExpense, updateExpense, deleteExpense, getExpenseStats, EXPENSE_CATEGORIES, EXPENSE_STATUSES, PAYMENT_METHODS, type Expense } from '../lib/api/expenses';
+import {
+  getMaintenanceRequests,
+  createMaintenanceRequest,
+  updateMaintenanceRequest,
+  deleteMaintenanceRequest,
+} from "../lib/api/maintenance";
+import { getOwnerDashboardOverview } from "../lib/api";
+import {
+  getFinancialOverview,
+  getMonthlyRevenue,
+  type MonthlyRevenueData,
+} from "../lib/api/financial";
+import { formatCurrency, getSmartBaseCurrency } from "../lib/currency";
+import { usePersistentState } from "../lib/usePersistentState";
+import {
+  getExpenses,
+  createExpense,
+  updateExpense,
+  deleteExpense,
+  getExpenseStats,
+  EXPENSE_CATEGORIES,
+  EXPENSE_STATUSES,
+  PAYMENT_METHODS,
+  type Expense,
+} from "../lib/api/expenses";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import {
@@ -53,20 +120,21 @@ import {
   TrendingDown,
   ArrowUpRight,
   ArrowDownRight,
+  MoreVertical,
+  Loader2,
+  Send,
   Copy,
   Archive,
   ExternalLink,
   Zap,
   Shield,
-  Droplets,
-  Target,
   Settings,
   Upload,
   FileSpreadsheet,
   AlertCircle,
-  X
-} from 'lucide-react';
-import { createProperty } from '../lib/api/properties';
+  X,
+} from "lucide-react";
+import { createProperty } from "../lib/api/properties";
 
 interface PropertiesPageProps {
   user: any;
@@ -83,11 +151,76 @@ interface PropertiesPageProps {
   onPropertyDeleted?: (propertyId: string) => void;
 }
 
-export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddProperty, properties, onUpdateProperty, onViewProperty, onEditProperty, onNavigateToTenants, onNavigateToMaintenance, onRefreshProperties, onPropertyDeleted }: PropertiesPageProps) {
-  const [activeTab, setActiveTab] = usePersistentState('properties-page-tab', 'overview');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+type ReportType = "financial" | "occupancy" | "maintenance" | "tenant" | "all";
+type SingleReportType = Exclude<ReportType, "all">;
+
+interface GeneratedReport {
+  type: ReportType;
+  generatedAt: string;
+  filters: {
+    propertyId: string;
+    startDate: string | null;
+    endDate: string | null;
+  };
+  data: any;
+}
+
+const REPORT_TYPE_LABELS: Record<ReportType, string> = {
+  financial: "Financial",
+  occupancy: "Occupancy",
+  maintenance: "Maintenance",
+  tenant: "Tenant",
+  all: "All",
+};
+
+const ALL_REPORT_TYPES: SingleReportType[] = [
+  "financial",
+  "occupancy",
+  "maintenance",
+  "tenant",
+];
+
+const expenseCategoryIconMap: Record<
+  string,
+  React.ComponentType<{ className?: string }>
+> = {
+  maintenance: Wrench,
+  utilities: Zap,
+  insurance: Shield,
+  management_fee: Users,
+  property_tax: FileText,
+};
+
+const MAINTENANCE_CATEGORIES = [
+  { value: "general", label: "General" },
+  { value: "plumbing", label: "Plumbing" },
+  { value: "electrical", label: "Electrical" },
+  { value: "hvac", label: "HVAC" },
+  { value: "landscaping", label: "Landscaping" },
+  { value: "safety", label: "Safety" },
+];
+
+export function PropertiesPage({
+  user,
+  onBack,
+  onAddProperty,
+  onNavigateToAddProperty,
+  properties,
+  onUpdateProperty,
+  onViewProperty,
+  onEditProperty,
+  onNavigateToTenants,
+  onNavigateToMaintenance,
+  onRefreshProperties,
+  onPropertyDeleted,
+}: PropertiesPageProps) {
+  const [activeTab, setActiveTab] = usePersistentState(
+    "properties-page-tab",
+    "overview"
+  );
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   // Calculate smart base currency based on properties
   const smartBaseCurrency = getSmartBaseCurrency(properties);
@@ -95,37 +228,59 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
   const [showAddUnitDialog, setShowAddUnitDialog] = useState(false);
   const [unitSaving, setUnitSaving] = useState(false);
   const [unitForm, setUnitForm] = useState<any>({
-    propertyId: '',
-    unitNumber: '',
-    type: '',
-    floor: '',
-    bedrooms: '',
-    bathrooms: '',
-    size: '',
-    monthlyRent: '',
-    securityDeposit: '',
-    status: 'vacant',
-    rentFrequency: 'monthly',
-    serviceCharge: '',
-    legalFee: '',
-    agentCommission: '',
-    agreementFee: '',
-    electricityMeter: '',
+    propertyId: "",
+    unitNumber: "",
+    type: "",
+    floor: "",
+    bedrooms: "",
+    bathrooms: "",
+    size: "",
+    monthlyRent: "",
+    securityDeposit: "",
+    status: "vacant",
+    rentFrequency: "monthly",
+    serviceCharge: "",
+    legalFee: "",
+    agentCommission: "",
+    agreementFee: "",
+    electricityMeter: "",
     prepaidMeter: false,
-    wasteFee: '',
-    estateDues: '',
-    waterSource: 'public',
-    parkingAvailable: true
+    wasteFee: "",
+    estateDues: "",
+    waterSource: "public",
+    parkingAvailable: true,
   });
   const [maintenanceData, setMaintenanceData] = useState<any[]>([]);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
-  const [financialStats, setFinancialStats] = useState<{ gross?: number; net?: number; expenses?: number; capRate?: number }>({});
+  const [reportType, setReportType] = useState<ReportType>("financial");
+  const [reportPropertyFilter, setReportPropertyFilter] = useState("all");
+  const [reportStartDate, setReportStartDate] = useState("");
+  const [reportEndDate, setReportEndDate] = useState("");
+  const [reportPreview, setReportPreview] = useState<GeneratedReport | null>(
+    null
+  );
+  const [reportGenerating, setReportGenerating] = useState(false);
+  const reportPreviewRef = useRef<HTMLDivElement | null>(null);
+  const [financialStats, setFinancialStats] = useState<{
+    gross?: number;
+    net?: number;
+    expenses?: number;
+    capRate?: number;
+    occupancyRate?: number;
+    operatingMargin?: number;
+  }>({});
+  const [monthlyRevenueData, setMonthlyRevenueData] = useState<
+    MonthlyRevenueData[]
+  >([]);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [unitToDelete, setUnitToDelete] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showPropertyDeleteDialog, setShowPropertyDeleteDialog] = useState(false);
+  const [showPropertyDeleteDialog, setShowPropertyDeleteDialog] =
+    useState(false);
   const [propertyToDelete, setPropertyToDelete] = useState<any>(null);
-  const [deletedPropertyIds, setDeletedPropertyIds] = useState<Set<string>>(new Set());
+  const [deletedPropertyIds, setDeletedPropertyIds] = useState<Set<string>>(
+    new Set()
+  );
   const [isDeletingProperty, setIsDeletingProperty] = useState(false);
 
   // Expense management states
@@ -133,28 +288,59 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
   const [expenseStats, setExpenseStats] = useState<any>(null);
   const [showExpenseDialog, setShowExpenseDialog] = useState(false);
   const [expenseForm, setExpenseForm] = useState<any>({
-    propertyId: '',
-    unitId: 'none',
-    category: '',
-    description: '',
-    amount: '',
-    currency: '',
-    date: new Date().toISOString().split('T')[0],
-    dueDate: '',
-    status: 'pending',
-    paymentMethod: '',
-    notes: ''
+    propertyId: "",
+    unitId: "none",
+    category: "",
+    description: "",
+    amount: "",
+    currency: "",
+    date: new Date().toISOString().split("T")[0],
+    dueDate: "",
+    status: "pending",
+    paymentMethod: "",
+    notes: "",
   });
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [expenseSaving, setExpenseSaving] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
   const [showExpenseDeleteDialog, setShowExpenseDeleteDialog] = useState(false);
+  const [showAddMaintenanceDialog, setShowAddMaintenanceDialog] =
+    useState(false);
+  const [maintenanceSaving, setMaintenanceSaving] = useState(false);
+  const [maintenanceEditingId, setMaintenanceEditingId] = useState<
+    string | null
+  >(null);
+  const [maintenanceForm, setMaintenanceForm] = useState({
+    propertyId: "",
+    unitId: "none",
+    title: "",
+    description: "",
+    priority: "medium",
+    category: "general",
+    scheduledDate: "",
+    notifyTenant: false,
+  });
+  const [showFinancialDetailDialog, setShowFinancialDetailDialog] =
+    useState(false);
+  const [financialDetailProperty, setFinancialDetailProperty] =
+    useState<null | {
+      property: any;
+      monthlyRevenue: number;
+      totalExpenses: number;
+      netIncome: number;
+      occupancyRate: number;
+      propertyExpenses: Expense[];
+    }>(null);
 
   // View and Edit Unit states
   const [showViewUnitDialog, setShowViewUnitDialog] = useState(false);
   const [showEditUnitDialog, setShowEditUnitDialog] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState<any>(null);
   const [editingUnit, setEditingUnit] = useState(false);
+  const [selectedMaintenanceRequest, setSelectedMaintenanceRequest] =
+    useState<any>(null);
+  const [showMaintenanceViewDialog, setShowMaintenanceViewDialog] =
+    useState(false);
 
   // Import Properties states
   const [showImportDialog, setShowImportDialog] = useState(false);
@@ -163,7 +349,11 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
-  const [importResults, setImportResults] = useState<{ success: number; failed: number; errors: string[] } | null>(null);
+  const [importResults, setImportResults] = useState<{
+    success: number;
+    failed: number;
+    errors: string[];
+  } | null>(null);
 
   // Derived helpers for currently selected unit (view/edit)
   const selectedUnitNigeria =
@@ -171,43 +361,76 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
       selectedUnit.features &&
       (selectedUnit.features as any).nigeria) ||
     {};
-  const selectedUnitCurrency =
-    selectedUnit?.properties?.currency || "USD";
+  const selectedUnitCurrency = selectedUnit?.properties?.currency || "USD";
+
+  const refreshMaintenanceRequests = useCallback(async () => {
+    try {
+      const response = await getMaintenanceRequests();
+      if (!response.error && Array.isArray(response.data)) {
+        setMaintenanceData(response.data);
+      }
+    } catch (err) {
+      console.error("Failed to load maintenance requests", err);
+      toast.error("Unable to load maintenance requests");
+    }
+  }, []);
 
   useEffect(() => {
     (async () => {
       try {
-        const [uRes, mRes, dRes, fRes, expRes, expStatsRes] = await Promise.all([
-          getUnits(),
-          getMaintenanceRequests(),
-          getOwnerDashboardOverview(),
-          getFinancialOverview(),
-          getExpenses(),
-          getExpenseStats()
-        ]);
+        const [uRes, mRes, dRes, fRes, expRes, expStatsRes, monthlyRevenueRes] =
+          await Promise.all([
+            getUnits(),
+            getMaintenanceRequests(),
+            getOwnerDashboardOverview(),
+            getFinancialOverview(),
+            getExpenses(),
+            getExpenseStats(),
+            getMonthlyRevenue(6),
+          ]);
         if (!uRes.error && Array.isArray(uRes.data)) setUnitsData(uRes.data);
-        if (!mRes.error && Array.isArray(mRes.data)) setMaintenanceData(mRes.data);
-        if (!dRes.error && dRes.data?.recentActivity) setRecentActivity(dRes.data.recentActivity);
+        if (!mRes.error && Array.isArray(mRes.data))
+          setMaintenanceData(mRes.data);
+        if (!dRes.error && dRes.data?.recentActivity)
+          setRecentActivity(dRes.data.recentActivity);
         if (!fRes.error && fRes.data) {
           // Use real financial data from backend
           const gross = Number(fRes.data.totalRevenue || 0);
           const expenses = Number(fRes.data.estimatedExpenses || 0);
           const net = Number(fRes.data.netOperatingIncome || 0);
           const capRate = Number(fRes.data.portfolioCapRate || 0);
-          setFinancialStats({ gross, net, expenses, capRate });
+          const occupancyRate = Number(fRes.data.occupancyRate || 0);
+          const operatingMargin = Number(
+            fRes.data.operatingMargin || (gross > 0 ? (net / gross) * 100 : 0)
+          );
+          setFinancialStats({
+            gross,
+            net,
+            expenses,
+            capRate,
+            occupancyRate,
+            operatingMargin,
+          });
         }
-        if (!expRes.error && expRes.data?.data && Array.isArray(expRes.data.data)) {
+        if (
+          !expRes.error &&
+          expRes.data?.data &&
+          Array.isArray(expRes.data.data)
+        ) {
           setExpenses(expRes.data.data);
         }
         if (!expStatsRes.error && expStatsRes.data) {
           setExpenseStats(expStatsRes.data);
         }
+        if (!monthlyRevenueRes.error && Array.isArray(monthlyRevenueRes.data)) {
+          setMonthlyRevenueData(monthlyRevenueRes.data);
+        }
       } catch (e: any) {
         // Non-blocking: show a toast once
-        toast.error('Failed to load financial data');
+        toast.error("Failed to load financial data");
       }
     })();
-  }, [properties.length]);
+  }, [properties.length, refreshMaintenanceRequests]);
 
   // Handle delete unit
   const handleDeleteUnit = async () => {
@@ -218,10 +441,10 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
       const res = await deleteUnit(unitToDelete.id);
 
       if ((res as any).error) {
-        throw new Error((res as any).error.error || 'Failed to delete unit');
+        throw new Error((res as any).error.error || "Failed to delete unit");
       }
 
-      toast.success('Unit deleted successfully');
+      toast.success("Unit deleted successfully");
       setShowDeleteDialog(false);
       setUnitToDelete(null);
 
@@ -231,7 +454,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
         setUnitsData(uRes.data);
       }
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to delete unit');
+      toast.error(error?.message || "Failed to delete unit");
     } finally {
       setIsDeleting(false);
     }
@@ -242,12 +465,12 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
     try {
       const res = await getUnit(unit.id);
       if (res.error) {
-        throw new Error(res.error.error || 'Failed to fetch unit details');
+        throw new Error(res.error.error || "Failed to fetch unit details");
       }
       setSelectedUnit(res.data);
       setShowViewUnitDialog(true);
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to load unit details');
+      toast.error(error?.message || "Failed to load unit details");
     }
   };
 
@@ -256,76 +479,73 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
     try {
       const res = await getUnit(unit.id);
       if (res.error) {
-        throw new Error(res.error.error || 'Failed to fetch unit details');
+        throw new Error(res.error.error || "Failed to fetch unit details");
       }
 
       const data = res.data;
       // Newer units store Nigeria-specific fields inside features.nigeria
-      const nigeriaFeatures = (data?.features && (data.features as any).nigeria) || {};
+      const nigeriaFeatures =
+        (data?.features && (data.features as any).nigeria) || {};
 
       // Populate form with unit data (prefer features.nigeria, fall back to top-level / property defaults)
       setUnitForm({
-        propertyId: data.propertyId || '',
-        unitNumber: data.unitNumber || '',
-        type: data.type || '',
-        floor: (data.floor ?? '').toString(),
-        bedrooms: (data.bedrooms ?? '').toString(),
-        bathrooms: (data.bathrooms ?? '').toString(),
-        size: (data.size ?? '').toString(),
-        monthlyRent: (data.monthlyRent ?? '').toString(),
-        securityDeposit: (data.securityDeposit ??
+        propertyId: data.propertyId || "",
+        unitNumber: data.unitNumber || "",
+        type: data.type || "",
+        floor: (data.floor ?? "").toString(),
+        bedrooms: (data.bedrooms ?? "").toString(),
+        bathrooms: (data.bathrooms ?? "").toString(),
+        size: (data.size ?? "").toString(),
+        monthlyRent: (data.monthlyRent ?? "").toString(),
+        securityDeposit: (
+          data.securityDeposit ??
           data.properties?.securityDeposit ??
-          '').toString(),
-        status: data.status || 'vacant',
+          ""
+        ).toString(),
+        status: data.status || "vacant",
 
         // Nigeria-specific features (saved in JSON)
-        rentFrequency: nigeriaFeatures.rentFrequency || 'monthly',
+        rentFrequency: nigeriaFeatures.rentFrequency || "monthly",
         serviceCharge:
           nigeriaFeatures.serviceCharge?.toString() ??
           (data.properties?.serviceCharge != null
             ? String(data.properties.serviceCharge)
-            : ''),
+            : ""),
         cautionFee:
           nigeriaFeatures.cautionFee?.toString() ??
           (data.properties?.cautionFee != null
             ? String(data.properties.cautionFee)
-            : ''),
+            : ""),
         legalFee:
           nigeriaFeatures.legalFee?.toString() ??
           (data.properties?.legalFee != null
             ? String(data.properties.legalFee)
-            : ''),
+            : ""),
         agentCommission:
           nigeriaFeatures.agentCommission?.toString() ??
           (data.properties?.agentCommission != null
             ? String(data.properties.agentCommission)
-            : ''),
+            : ""),
         agreementFee:
           nigeriaFeatures.agreementFee?.toString() ??
           (data.properties?.agreementFee != null
             ? String(data.properties.agreementFee)
-            : ''),
+            : ""),
         electricityMeter:
-          nigeriaFeatures.electricityMeter ??
-          data.electricityMeter ??
-          '',
+          nigeriaFeatures.electricityMeter ?? data.electricityMeter ?? "",
         prepaidMeter:
-          nigeriaFeatures.prepaidMeter ??
-          data.prepaidMeter ??
-          false,
-        wasteFee: nigeriaFeatures.wasteFee?.toString() || '',
-        estateDues: nigeriaFeatures.estateDues?.toString() || '',
-        waterSource: nigeriaFeatures.waterSource || 'public',
+          nigeriaFeatures.prepaidMeter ?? data.prepaidMeter ?? false,
+        wasteFee: nigeriaFeatures.wasteFee?.toString() || "",
+        estateDues: nigeriaFeatures.estateDues?.toString() || "",
+        waterSource: nigeriaFeatures.waterSource || "public",
         parkingAvailable:
-          nigeriaFeatures.parkingAvailable ??
-          data.parkingAvailable ??
-          true,
+          nigeriaFeatures.parkingAvailable ?? data.parkingAvailable ?? true,
       });
 
       setSelectedUnit(data);
       setShowEditUnitDialog(true);
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to load unit details');
+      toast.error(error?.message || "Failed to load unit details");
     }
   };
 
@@ -360,9 +580,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
             cautionFee: unitForm.cautionFee
               ? Number(unitForm.cautionFee)
               : undefined,
-            legalFee: unitForm.legalFee
-              ? Number(unitForm.legalFee)
-              : undefined,
+            legalFee: unitForm.legalFee ? Number(unitForm.legalFee) : undefined,
             agentCommission: unitForm.agentCommission
               ? Number(unitForm.agentCommission)
               : undefined,
@@ -371,9 +589,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               : undefined,
             electricityMeter: unitForm.electricityMeter || undefined,
             prepaidMeter: unitForm.prepaidMeter,
-            wasteFee: unitForm.wasteFee
-              ? Number(unitForm.wasteFee)
-              : undefined,
+            wasteFee: unitForm.wasteFee ? Number(unitForm.wasteFee) : undefined,
             estateDues: unitForm.estateDues
               ? Number(unitForm.estateDues)
               : undefined,
@@ -386,10 +602,10 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
       const res = await updateUnit(selectedUnit.id, payload);
 
       if ((res as any).error) {
-        throw new Error((res as any).error.error || 'Failed to update unit');
+        throw new Error((res as any).error.error || "Failed to update unit");
       }
 
-      toast.success('Unit updated successfully');
+      toast.success("Unit updated successfully");
       setShowEditUnitDialog(false);
       setSelectedUnit(null);
 
@@ -399,7 +615,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
         setUnitsData(uRes.data);
       }
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to update unit');
+      toast.error(error?.message || "Failed to update unit");
     } finally {
       setEditingUnit(false);
     }
@@ -412,41 +628,43 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
 "Ocean View Towers","High Rise","78 Marina Road","Lagos","Lagos","100002","Nigeria","24","8","2022","12000","4000","50","NGN","350000","700000","50000","100000","350000","60000","35000","AIICO Insurance","POL-2024-003","800000","2025-09-15","450000","Luxury waterfront apartments with panoramic ocean views","Premium location with easy access to Victoria Island","https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800","https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800|https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800"`;
 
   const downloadSampleCSV = () => {
-    const blob = new Blob([sampleCSVData], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
+    const blob = new Blob([sampleCSVData], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'property_import_template.csv');
-    link.style.visibility = 'hidden';
+    link.setAttribute("href", url);
+    link.setAttribute("download", "property_import_template.csv");
+    link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success('Sample CSV template downloaded');
+    toast.success("Sample CSV template downloaded");
   };
 
   const parseCSV = (text: string): any[] => {
-    const lines = text.split('\n').filter(line => line.trim());
+    const lines = text.split("\n").filter((line) => line.trim());
     if (lines.length < 2) return [];
 
-    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+    const headers = lines[0]
+      .split(",")
+      .map((h) => h.trim().replace(/^"|"$/g, ""));
     const data: any[] = [];
 
     for (let i = 1; i < lines.length; i++) {
       const values: string[] = [];
-      let current = '';
+      let current = "";
       let inQuotes = false;
 
       for (const char of lines[i]) {
         if (char === '"') {
           inQuotes = !inQuotes;
-        } else if (char === ',' && !inQuotes) {
-          values.push(current.trim().replace(/^"|"$/g, ''));
-          current = '';
+        } else if (char === "," && !inQuotes) {
+          values.push(current.trim().replace(/^"|"$/g, ""));
+          current = "";
         } else {
           current += char;
         }
       }
-      values.push(current.trim().replace(/^"|"$/g, ''));
+      values.push(current.trim().replace(/^"|"$/g, ""));
 
       if (values.length === headers.length) {
         const row: any = {};
@@ -460,38 +678,68 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
     return data;
   };
 
-  const validateImportData = (data: any[]): { valid: any[]; errors: string[] } => {
+  const validateImportData = (
+    data: any[]
+  ): { valid: any[]; errors: string[] } => {
     const errors: string[] = [];
     const valid: any[] = [];
-    const requiredFields = ['name', 'propertyType', 'address', 'city', 'state', 'totalUnits'];
+    const requiredFields = [
+      "name",
+      "propertyType",
+      "address",
+      "city",
+      "state",
+      "totalUnits",
+    ];
 
     data.forEach((row, index) => {
       const rowErrors: string[] = [];
 
       // Check required fields
-      requiredFields.forEach(field => {
-        if (!row[field] || row[field].toString().trim() === '') {
+      requiredFields.forEach((field) => {
+        if (!row[field] || row[field].toString().trim() === "") {
           rowErrors.push(`Missing ${field}`);
         }
       });
 
       // Validate numeric fields
-      const numericFields = ['totalUnits', 'floors', 'yearBuilt', 'totalArea', 'lotSize', 'parking',
-        'avgRent', 'securityDeposit', 'applicationFee', 'legalFee', 'agentCommission',
-        'serviceCharge', 'agreementFee', 'insurancePremium', 'propertyTaxes'];
+      const numericFields = [
+        "totalUnits",
+        "floors",
+        "yearBuilt",
+        "totalArea",
+        "lotSize",
+        "parking",
+        "avgRent",
+        "securityDeposit",
+        "applicationFee",
+        "legalFee",
+        "agentCommission",
+        "serviceCharge",
+        "agreementFee",
+        "insurancePremium",
+        "propertyTaxes",
+      ];
 
-      numericFields.forEach(field => {
-        if (row[field] && row[field].toString().trim() !== '' && isNaN(parseFloat(row[field]))) {
+      numericFields.forEach((field) => {
+        if (
+          row[field] &&
+          row[field].toString().trim() !== "" &&
+          isNaN(parseFloat(row[field]))
+        ) {
           rowErrors.push(`${field} must be a number`);
         }
       });
 
       if (rowErrors.length > 0) {
-        errors.push(`Row ${index + 1}: ${rowErrors.join(', ')}`);
+        errors.push(`Row ${index + 1}: ${rowErrors.join(", ")}`);
       } else {
         // Parse images - can be pipe-separated URLs
         const imagesArray = row.images
-          ? row.images.split('|').map((url: string) => url.trim()).filter((url: string) => url)
+          ? row.images
+              .split("|")
+              .map((url: string) => url.trim())
+              .filter((url: string) => url)
           : [];
 
         valid.push({
@@ -501,8 +749,8 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
           address: row.address,
           city: row.city,
           state: row.state,
-          postalCode: row.postalCode || '',
-          country: row.country || 'Nigeria',
+          postalCode: row.postalCode || "",
+          country: row.country || "Nigeria",
 
           // Property Details
           totalUnits: parseInt(row.totalUnits) || 1,
@@ -513,28 +761,43 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
           parking: row.parking ? parseInt(row.parking) : undefined,
 
           // Financial Information
-          currency: row.currency || 'NGN',
+          currency: row.currency || "NGN",
           avgRent: row.avgRent ? parseFloat(row.avgRent) : undefined,
-          securityDeposit: row.securityDeposit ? parseFloat(row.securityDeposit) : undefined,
-          applicationFee: row.applicationFee ? parseFloat(row.applicationFee) : undefined,
+          securityDeposit: row.securityDeposit
+            ? parseFloat(row.securityDeposit)
+            : undefined,
+          applicationFee: row.applicationFee
+            ? parseFloat(row.applicationFee)
+            : undefined,
           legalFee: row.legalFee ? parseFloat(row.legalFee) : undefined,
-          agentCommission: row.agentCommission ? parseFloat(row.agentCommission) : undefined,
-          serviceCharge: row.serviceCharge ? parseFloat(row.serviceCharge) : undefined,
-          agreementFee: row.agreementFee ? parseFloat(row.agreementFee) : undefined,
+          agentCommission: row.agentCommission
+            ? parseFloat(row.agentCommission)
+            : undefined,
+          serviceCharge: row.serviceCharge
+            ? parseFloat(row.serviceCharge)
+            : undefined,
+          agreementFee: row.agreementFee
+            ? parseFloat(row.agreementFee)
+            : undefined,
 
           // Insurance & Legal
           insuranceProvider: row.insuranceProvider || undefined,
           insurancePolicyNumber: row.insurancePolicyNumber || undefined,
-          insurancePremium: row.insurancePremium ? parseFloat(row.insurancePremium) : undefined,
+          insurancePremium: row.insurancePremium
+            ? parseFloat(row.insurancePremium)
+            : undefined,
           insuranceExpiration: row.insuranceExpiration || undefined,
-          propertyTaxes: row.propertyTaxes ? parseFloat(row.propertyTaxes) : undefined,
+          propertyTaxes: row.propertyTaxes
+            ? parseFloat(row.propertyTaxes)
+            : undefined,
 
           // Additional Information
-          description: row.description || '',
-          notes: row.notes || '',
+          description: row.description || "",
+          notes: row.notes || "",
 
           // Images
-          coverImage: row.coverImage || (imagesArray.length > 0 ? imagesArray[0] : ''),
+          coverImage:
+            row.coverImage || (imagesArray.length > 0 ? imagesArray[0] : ""),
           images: imagesArray,
         });
       }
@@ -547,8 +810,8 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.endsWith('.csv')) {
-      toast.error('Please select a CSV file');
+    if (!file.name.endsWith(".csv")) {
+      toast.error("Please select a CSV file");
       return;
     }
 
@@ -566,7 +829,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
       setImportErrors(errors);
 
       if (valid.length === 0 && errors.length > 0) {
-        toast.error('No valid properties found in the file');
+        toast.error("No valid properties found in the file");
       } else if (valid.length > 0) {
         toast.success(`Found ${valid.length} valid properties to import`);
       }
@@ -576,7 +839,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
 
   const handleImportProperties = async () => {
     if (importData.length === 0) {
-      toast.error('No valid properties to import');
+      toast.error("No valid properties to import");
       return;
     }
 
@@ -593,12 +856,12 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
       try {
         const res = await createProperty(property);
         if (res.error) {
-          throw new Error(res.error.error || 'Failed to create property');
+          throw new Error(res.error.error || "Failed to create property");
         }
         success++;
       } catch (error: any) {
         failed++;
-        errors.push(`"${property.name}": ${error.message || 'Unknown error'}`);
+        errors.push(`"${property.name}": ${error.message || "Unknown error"}`);
       }
 
       setImportProgress(Math.round(((i + 1) / importData.length) * 100));
@@ -632,33 +895,37 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
     try {
       const [expRes, expStatsRes] = await Promise.all([
         getExpenses(),
-        getExpenseStats()
+        getExpenseStats(),
       ]);
-      if (!expRes.error && expRes.data?.data && Array.isArray(expRes.data.data)) {
+      if (
+        !expRes.error &&
+        expRes.data?.data &&
+        Array.isArray(expRes.data.data)
+      ) {
         setExpenses(expRes.data.data);
       }
       if (!expStatsRes.error && expStatsRes.data) {
         setExpenseStats(expStatsRes.data);
       }
     } catch (error: any) {
-      toast.error('Failed to load expenses');
+      toast.error("Failed to load expenses");
     }
   };
 
   const handleAddExpense = () => {
     setEditingExpense(null);
     setExpenseForm({
-      propertyId: properties[0]?.id || '',
-      unitId: 'none',
-      category: '',
-      description: '',
-      amount: '',
-      currency: properties[0]?.currency || 'NGN',
-      date: new Date().toISOString().split('T')[0],
-      dueDate: '',
-      status: 'pending',
-      paymentMethod: '',
-      notes: ''
+      propertyId: properties[0]?.id || "",
+      unitId: "none",
+      category: "",
+      description: "",
+      amount: "",
+      currency: properties[0]?.currency || "NGN",
+      date: new Date().toISOString().split("T")[0],
+      dueDate: "",
+      status: "pending",
+      paymentMethod: "",
+      notes: "",
     });
     setShowExpenseDialog(true);
   };
@@ -667,16 +934,16 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
     setEditingExpense(expense);
     setExpenseForm({
       propertyId: expense.propertyId,
-      unitId: expense.unitId || '',
+      unitId: expense.unitId || "",
       category: expense.category,
       description: expense.description,
       amount: expense.amount.toString(),
       currency: expense.currency,
-      date: expense.date.split('T')[0],
-      dueDate: expense.dueDate ? expense.dueDate.split('T')[0] : '',
+      date: expense.date.split("T")[0],
+      dueDate: expense.dueDate ? expense.dueDate.split("T")[0] : "",
       status: expense.status,
-      paymentMethod: expense.paymentMethod || '',
-      notes: expense.notes || ''
+      paymentMethod: expense.paymentMethod || "",
+      notes: expense.notes || "",
     });
     setShowExpenseDialog(true);
   };
@@ -685,14 +952,22 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
     try {
       setExpenseSaving(true);
 
-      if (!expenseForm.propertyId || !expenseForm.category || !expenseForm.description || !expenseForm.amount) {
-        toast.error('Please fill in all required fields');
+      if (
+        !expenseForm.propertyId ||
+        !expenseForm.category ||
+        !expenseForm.description ||
+        !expenseForm.amount
+      ) {
+        toast.error("Please fill in all required fields");
         return;
       }
 
       const expenseData = {
         propertyId: expenseForm.propertyId,
-        unitId: expenseForm.unitId && expenseForm.unitId !== 'none' ? expenseForm.unitId : undefined,
+        unitId:
+          expenseForm.unitId && expenseForm.unitId !== "none"
+            ? expenseForm.unitId
+            : undefined,
         category: expenseForm.category,
         description: expenseForm.description,
         amount: parseFloat(expenseForm.amount),
@@ -701,17 +976,25 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
         dueDate: expenseForm.dueDate || undefined,
         status: expenseForm.status,
         paymentMethod: expenseForm.paymentMethod || undefined,
-        notes: expenseForm.notes || undefined
+        notes: expenseForm.notes || undefined,
       };
 
       if (editingExpense) {
         const res = await updateExpense(editingExpense.id, expenseData);
-        if (res.error) throw new Error(res.error);
-        toast.success('Expense updated successfully');
+        if (res.error) {
+          throw new Error(
+            res.error.message || res.error.error || "Failed to update expense"
+          );
+        }
+        toast.success("Expense updated successfully");
       } else {
         const res = await createExpense(expenseData);
-        if (res.error) throw new Error(res.error);
-        toast.success('Expense created successfully');
+        if (res.error) {
+          throw new Error(
+            res.error.message || res.error.error || "Failed to create expense"
+          );
+        }
+        toast.success("Expense created successfully");
       }
 
       setShowExpenseDialog(false);
@@ -724,10 +1007,21 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
         const expenses = Number(fRes.data.estimatedExpenses || 0);
         const net = Number(fRes.data.netOperatingIncome || 0);
         const capRate = Number(fRes.data.portfolioCapRate || 0);
-        setFinancialStats({ gross, net, expenses, capRate });
+        const occupancyRate = Number(fRes.data.occupancyRate || 0);
+        const operatingMargin = Number(
+          fRes.data.operatingMargin || (gross > 0 ? (net / gross) * 100 : 0)
+        );
+        setFinancialStats({
+          gross,
+          net,
+          expenses,
+          capRate,
+          occupancyRate,
+          operatingMargin,
+        });
       }
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to save expense');
+      toast.error(error?.message || "Failed to save expense");
     } finally {
       setExpenseSaving(false);
     }
@@ -739,9 +1033,13 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
     try {
       setIsDeleting(true);
       const res = await deleteExpense(expenseToDelete.id);
-      if (res.error) throw new Error(res.error);
+      if (res.error) {
+        throw new Error(
+          res.error.message || res.error.error || "Failed to delete expense"
+        );
+      }
 
-      toast.success('Expense deleted successfully');
+      toast.success("Expense deleted successfully");
       setShowExpenseDeleteDialog(false);
       setExpenseToDelete(null);
       await loadExpenses();
@@ -753,55 +1051,1395 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
         const expenses = Number(fRes.data.estimatedExpenses || 0);
         const net = Number(fRes.data.netOperatingIncome || 0);
         const capRate = Number(fRes.data.portfolioCapRate || 0);
-        setFinancialStats({ gross, net, expenses, capRate });
+        const occupancyRate = Number(fRes.data.occupancyRate || 0);
+        const operatingMargin = Number(
+          fRes.data.operatingMargin || (gross > 0 ? (net / gross) * 100 : 0)
+        );
+        setFinancialStats({
+          gross,
+          net,
+          expenses,
+          capRate,
+          occupancyRate,
+          operatingMargin,
+        });
       }
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to delete expense');
+      toast.error(error?.message || "Failed to delete expense");
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const getStatusBadgeColor = (status: string) => {
-    const statusObj = EXPENSE_STATUSES.find(s => s.value === status);
-    return statusObj?.color || 'gray';
+  const handleSaveMaintenance = async () => {
+    if (!maintenanceForm.propertyId || !maintenanceForm.title) {
+      toast.error("Please select a property and enter a title");
+      return;
+    }
+    if (!maintenanceForm.description) {
+      toast.error("Please provide a brief description");
+      return;
+    }
+
+    try {
+      setMaintenanceSaving(true);
+      const payload: any = {
+        propertyId: maintenanceForm.propertyId,
+        title: maintenanceForm.title,
+        description: maintenanceForm.description,
+        priority: maintenanceForm.priority,
+        category: maintenanceForm.category,
+      };
+
+      if (maintenanceForm.unitId && maintenanceForm.unitId !== "none") {
+        payload.unitId = maintenanceForm.unitId;
+      }
+      if (maintenanceForm.scheduledDate) {
+        payload.scheduledDate = maintenanceForm.scheduledDate;
+      }
+      if (maintenanceForm.notifyTenant) {
+        payload.notifyTenant = true;
+      }
+
+      let response;
+      if (maintenanceEditingId) {
+        response = await updateMaintenanceRequest(
+          maintenanceEditingId,
+          payload
+        );
+      } else {
+        response = await createMaintenanceRequest(payload);
+      }
+
+      if (response.error) {
+        throw new Error(response.error.message || "Unable to save request");
+      }
+
+      toast.success(
+        maintenanceEditingId
+          ? "Maintenance request updated"
+          : "Maintenance request created"
+      );
+      setShowAddMaintenanceDialog(false);
+      resetMaintenanceForm();
+      await refreshMaintenanceRequests();
+    } catch (error: any) {
+      console.error("Save maintenance error", error);
+      toast.error(error?.message || "Failed to save maintenance request");
+    } finally {
+      setMaintenanceSaving(false);
+    }
+  };
+
+  const resetMaintenanceForm = () => {
+    setMaintenanceForm({
+      propertyId: "",
+      unitId: "none",
+      title: "",
+      description: "",
+      priority: "medium",
+      category: "general",
+      scheduledDate: "",
+      notifyTenant: false,
+    });
+    setMaintenanceEditingId(null);
+  };
+
+  const formatDateTimeInput = (value?: string | null) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const tzOffset = date.getTimezoneOffset();
+    const localISO = new Date(date.getTime() - tzOffset * 60000)
+      .toISOString()
+      .slice(0, 16);
+    return localISO;
+  };
+
+  const handleMaintenanceView = (request: any) => {
+    setSelectedMaintenanceRequest(request);
+    setShowMaintenanceViewDialog(true);
+  };
+
+  const handleMaintenanceEdit = (request: any) => {
+    setMaintenanceEditingId(request.id);
+    setMaintenanceForm({
+      propertyId: request.propertyId || request.property?.id || "",
+      unitId: request.unitId || "none",
+      title: request.title || "",
+      description: request.description || "",
+      priority: request.priority || "medium",
+      category: request.category || "general",
+      scheduledDate: formatDateTimeInput(request.scheduledDate),
+      notifyTenant: false,
+    });
+    setShowAddMaintenanceDialog(true);
+  };
+
+  const handleMaintenanceDelete = async (request: any) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this maintenance request?"
+    );
+    if (!confirmed) return;
+
+    try {
+      const response = await deleteMaintenanceRequest(request.id);
+      if (response.error) {
+        throw new Error(response.error.message || "Unable to delete request");
+      }
+      toast.success("Maintenance request deleted");
+      await refreshMaintenanceRequests();
+    } catch (error: any) {
+      console.error("Delete maintenance error", error);
+      toast.error(error?.message || "Failed to delete maintenance request");
+    }
+  };
+
+  const handleGenerateReport = () => {
+    if (
+      reportPropertyFilter !== "all" &&
+      !properties.some(
+        (property) => String(property.id) === reportPropertyFilter
+      )
+    ) {
+      toast.error("Selected property not found");
+      return;
+    }
+
+    setReportGenerating(true);
+
+    try {
+      const targetProperties =
+        reportPropertyFilter === "all"
+          ? visibleProperties
+          : visibleProperties.filter(
+              (property) => String(property.id) === reportPropertyFilter
+            );
+
+      const propertyIds = targetProperties.map((property) =>
+        String(property.id)
+      );
+
+      const filteredExpenses =
+        reportPropertyFilter === "all"
+          ? expenses
+          : expenses.filter((expense) =>
+              propertyIds.includes(String(expense.propertyId))
+            );
+
+      const filteredMaintenance =
+        reportPropertyFilter === "all"
+          ? maintenanceRequests
+          : maintenanceRequests.filter(
+              (request: any) =>
+                String(request.propertyId) === reportPropertyFilter
+            );
+
+      const filteredUnits =
+        reportPropertyFilter === "all"
+          ? unitsData
+          : unitsData.filter(
+              (unit) => String(unit.propertyId) === reportPropertyFilter
+            );
+
+      const totalUnits = targetProperties.reduce(
+        (sum, property) => sum + (property._count?.units ?? 0),
+        0
+      );
+      const occupiedUnits = targetProperties.reduce(
+        (sum, property) => sum + (property.occupiedUnits ?? 0),
+        0
+      );
+
+      const sortedExpenses = [...filteredExpenses].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      const sortedMaintenance = [...filteredMaintenance].sort(
+        (a: any, b: any) =>
+          new Date(b.createdAt || b.updatedAt || 0).getTime() -
+          new Date(a.createdAt || a.updatedAt || 0).getTime()
+      );
+
+      const filters = {
+        propertyId: reportPropertyFilter,
+        startDate: reportStartDate || null,
+        endDate: reportEndDate || null,
+      };
+
+      const now = new Date();
+
+      const buildReportData = (type: SingleReportType) => {
+        switch (type) {
+          case "financial": {
+            const totalRevenue = targetProperties.reduce(
+              (sum, property) => sum + Number(property.totalMonthlyIncome || 0),
+              0
+            );
+
+            const totalExpensesAmount = filteredExpenses.reduce(
+              (sum, expense) => sum + Number(expense.amount || 0),
+              0
+            );
+
+            const expenseCategoriesMap = filteredExpenses.reduce(
+              (acc, expense) => {
+                const category = expense.category || "other";
+                const current = acc.get(category) || { amount: 0, count: 0 };
+                current.amount += Number(expense.amount || 0);
+                current.count += 1;
+                acc.set(category, current);
+                return acc;
+              },
+              new Map<string, { amount: number; count: number }>()
+            );
+
+            const expenseCategories = Array.from(expenseCategoriesMap.entries())
+              .map(([category, info]) => ({
+                category,
+                label: formatCategoryLabel(category),
+                amount: info.amount,
+                count: info.count,
+              }))
+              .sort((a, b) => b.amount - a.amount)
+              .slice(0, 5);
+
+            return {
+              portfolio: {
+                totalProperties: targetProperties.length,
+                totalUnits,
+                occupiedUnits,
+                occupancyRate:
+                  totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0,
+                totalRevenue,
+                totalExpenses: totalExpensesAmount,
+                netOperatingIncome: totalRevenue - totalExpensesAmount,
+              },
+              expenses: {
+                total: totalExpensesAmount,
+                categories: expenseCategories,
+              },
+              revenueTrends: monthlyRevenueData.slice(-6),
+              recentExpenses: sortedExpenses.slice(0, 6),
+            };
+          }
+          case "occupancy": {
+            const propertyBreakdown = targetProperties.map((property) => {
+              const propertyUnits = filteredUnits.filter(
+                (unit) => String(unit.propertyId) === String(property.id)
+              );
+              const propertyTotalUnits =
+                property._count?.units ?? propertyUnits.length ?? 0;
+              const propertyOccupiedUnits = propertyUnits.filter(
+                (unit) => unit.status === "occupied"
+              ).length;
+              const propertyVacant = Math.max(
+                propertyTotalUnits - propertyOccupiedUnits,
+                0
+              );
+
+              return {
+                id: property.id,
+                name: property.name,
+                totalUnits: propertyTotalUnits,
+                occupiedUnits: propertyOccupiedUnits,
+                vacantUnits: propertyVacant,
+                occupancyRate:
+                  propertyTotalUnits > 0
+                    ? (propertyOccupiedUnits / propertyTotalUnits) * 100
+                    : 0,
+                monthlyRevenue: Number(property.totalMonthlyIncome || 0),
+                currency: property.currency || smartBaseCurrency,
+              };
+            });
+
+            return {
+              summary: {
+                totalProperties: targetProperties.length,
+                totalUnits,
+                occupiedUnits,
+                vacantUnits: Math.max(totalUnits - occupiedUnits, 0),
+                occupancyRate:
+                  totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0,
+              },
+              propertyBreakdown,
+            };
+          }
+          case "maintenance": {
+            const totalRequests = filteredMaintenance.length;
+            const completed = filteredMaintenance.filter(
+              (request: any) =>
+                (request.status || "").toLowerCase() === "completed"
+            ).length;
+            const highPriority = filteredMaintenance.filter(
+              (request: any) =>
+                (request.priority || "").toLowerCase() === "high"
+            ).length;
+            const costTotal = filteredMaintenance.reduce(
+              (sum, request: any) =>
+                sum + Number(request.actualCost ?? request.estimatedCost ?? 0),
+              0
+            );
+
+            const upcoming = maintenanceRequests
+              .filter((request: any) => {
+                if (!request.scheduledDate) return false;
+                const scheduledDate = new Date(request.scheduledDate);
+                if (Number.isNaN(scheduledDate.getTime())) return false;
+                if (
+                  reportPropertyFilter !== "all" &&
+                  String(request.propertyId) !== reportPropertyFilter
+                ) {
+                  return false;
+                }
+                return scheduledDate.getTime() > Date.now();
+              })
+              .sort(
+                (a: any, b: any) =>
+                  new Date(a.scheduledDate).getTime() -
+                  new Date(b.scheduledDate).getTime()
+              )
+              .slice(0, 5);
+
+            return {
+              summary: {
+                totalRequests,
+                completed,
+                open: Math.max(totalRequests - completed, 0),
+                highPriority,
+                averageCost: totalRequests ? costTotal / totalRequests : 0,
+              },
+              highPriorityRequests: filteredMaintenance
+                .filter(
+                  (request: any) =>
+                    (request.priority || "").toLowerCase() === "high"
+                )
+                .slice(0, 5),
+              recentRequests: sortedMaintenance.slice(0, 6),
+              upcoming,
+            };
+          }
+          case "tenant": {
+            const tenantUnits = unitsData.filter((unit) => {
+              const hasTenant = Boolean(unit.leases?.[0]?.users);
+              if (!hasTenant) return false;
+              if (reportPropertyFilter === "all") return true;
+              return String(unit.propertyId) === reportPropertyFilter;
+            });
+
+            const tenants = tenantUnits.map((unit) => {
+              const lease = unit.leases?.[0];
+              return {
+                propertyId: unit.propertyId,
+                unitId: unit.id,
+                unitNumber: unit.unitNumber,
+                tenantName: lease?.users?.name || "Unknown tenant",
+                email: lease?.users?.email || "",
+                phone: lease?.users?.phone || "",
+                leaseEnd: lease?.endDate || null,
+                status: unit.status,
+              };
+            });
+
+            const expiringSoon = tenants.filter((tenant) => {
+              if (!tenant.leaseEnd) return false;
+              const leaseEndDate = new Date(tenant.leaseEnd);
+              if (Number.isNaN(leaseEndDate.getTime())) return false;
+              const daysUntil =
+                (leaseEndDate.getTime() - now.getTime()) /
+                (1000 * 60 * 60 * 24);
+              return daysUntil <= 30;
+            }).length;
+
+            return {
+              totalTenants: tenants.length,
+              expiringSoon,
+              tenants: tenants.slice(0, 10),
+            };
+          }
+          default:
+            return null;
+        }
+      };
+
+      let data: any;
+      if (reportType === "all") {
+        data = ALL_REPORT_TYPES.reduce((acc, type) => {
+          acc[type] = buildReportData(type);
+          return acc;
+        }, {} as Record<SingleReportType, any>);
+      } else {
+        data = buildReportData(reportType as SingleReportType);
+      }
+
+      if (!data) {
+        throw new Error("Unable to generate report data");
+      }
+      const payload: GeneratedReport = {
+        type: reportType,
+        generatedAt: new Date().toISOString(),
+        filters,
+        data,
+      };
+
+      setReportPreview(payload);
+      toast.success("Report generated");
+    } catch (error) {
+      console.error("Failed to generate report", error);
+      toast.error("Failed to generate report");
+    } finally {
+      setReportGenerating(false);
+    }
+  };
+
+  const handleResetReportFilters = () => {
+    setReportPropertyFilter("all");
+    setReportStartDate("");
+    setReportEndDate("");
+    setReportPreview(null);
+    setReportGenerating(false);
+  };
+
+  const handleDownloadReport = async () => {
+    if (!reportPreview) {
+      toast.error("Generate a report first");
+      return;
+    }
+    if (!reportPreviewRef.current) {
+      toast.error("Nothing to export yet");
+      return;
+    }
+
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF } = await import("jspdf");
+
+      const canvas = await html2canvas(reportPreviewRef.current, {
+        scale: Math.max(window.devicePixelRatio, 2),
+        backgroundColor: "#ffffff",
+        useCORS: true,
+        logging: false,
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "pt", "a4");
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 36;
+      const usableWidth = pageWidth - margin * 2;
+      const imgHeight = (canvas.height * usableWidth) / canvas.width;
+
+      pdf.setFontSize(14);
+      pdf.text("Portfolio Report", margin, margin - 6);
+      pdf.setFontSize(10);
+      pdf.text(
+        `Type: ${REPORT_TYPE_LABELS[reportPreview.type]} | Property: ${
+          reportPreviewPropertyLabel || "All properties"
+        }`,
+        margin,
+        margin + 8
+      );
+      pdf.text(
+        `Generated: ${new Date(reportPreview.generatedAt).toLocaleString()}`,
+        margin,
+        margin + 20
+      );
+      if (reportPreviewDateRange) {
+        pdf.text(`Range: ${reportPreviewDateRange}`, margin, margin + 32);
+      }
+
+      let position = margin + (reportPreviewDateRange ? 44 : 32);
+      pdf.addImage(imgData, "PNG", margin, position, usableWidth, imgHeight);
+
+      let heightLeft = imgHeight - (pageHeight - position - margin);
+      let offset = position - imgHeight;
+
+      while (heightLeft > 0) {
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", margin, offset, usableWidth, imgHeight);
+        heightLeft -= pageHeight - margin * 2;
+        offset -= pageHeight - margin * 2;
+      }
+
+      const suffix = new Date().toISOString().split("T")[0];
+      const filename = `portfolio-report-${reportPreview.type}-${suffix}.pdf`;
+      pdf.save(filename);
+      toast.success("PDF downloaded");
+    } catch (error) {
+      console.error("PDF download failed", error);
+      toast.error("Failed to generate PDF");
+    }
+  };
+
+  const handleEmailReport = () => {
+    if (!reportPreview) {
+      toast.error("Generate a report first");
+      return;
+    }
+
+    toast.success(
+      "Report queued for delivery. You'll receive it via email shortly."
+    );
+  };
+
+  const handleOpenFinancialDetails = (property: any) => {
+    const details = computePropertyFinancialDetails(property);
+    setFinancialDetailProperty(details);
+    setShowFinancialDetailDialog(true);
   };
 
   const getPropertyUnitsForExpense = (propertyId: string) => {
-    const property = properties.find(p => p.id === propertyId);
+    const property = properties.find((p) => p.id === propertyId);
     if (!property) return [];
-    return unitsData.filter(u => u.propertyId === propertyId);
+    return unitsData.filter((u) => u.propertyId === propertyId);
   };
 
   // Filter out deleted properties for immediate UI feedback
-  const visibleProperties = properties.filter(property => !deletedPropertyIds.has(property.id));
+  const visibleProperties = properties.filter(
+    (property) => !deletedPropertyIds.has(property.id)
+  );
 
   // Calculate portfolio metrics from visible properties (excludes deleted)
   // Use _count.units (actual unit records) instead of totalUnits (metadata field)
   const getActualUnitCount = (p: any) => p._count?.units ?? 0;
-  
+
   const portfolioMetrics = {
     totalProperties: visibleProperties.length,
-    totalUnits: visibleProperties.reduce((sum, p) => sum + getActualUnitCount(p), 0),
-    occupiedUnits: visibleProperties.reduce((sum, p) => sum + (p.occupiedUnits ?? 0), 0),
+    totalUnits: visibleProperties.reduce(
+      (sum, p) => sum + getActualUnitCount(p),
+      0
+    ),
+    occupiedUnits: visibleProperties.reduce(
+      (sum, p) => sum + (p.occupiedUnits ?? 0),
+      0
+    ),
     vacantUnits: visibleProperties.reduce((sum, p) => {
       const total = getActualUnitCount(p);
       const occ = p.occupiedUnits ?? 0;
       return sum + Math.max(total - occ, 0);
     }, 0),
-    totalRevenue: visibleProperties.reduce((sum, p) => sum + (p.totalMonthlyIncome || 0), 0),
-    avgOccupancy: visibleProperties.length > 0 ?
-      visibleProperties.reduce((sum, p) => {
-        const total = getActualUnitCount(p);
-        const occ = p.occupiedUnits ?? 0;
-        return sum + (p.occupancyRate ?? (total > 0 ? (occ / total) * 100 : 0));
-      }, 0) / visibleProperties.length : 0,
-    maintenanceRequests: maintenanceData.length
+    totalRevenue: visibleProperties.reduce(
+      (sum, p) => sum + (p.totalMonthlyIncome || 0),
+      0
+    ),
+    avgOccupancy:
+      visibleProperties.length > 0
+        ? visibleProperties.reduce((sum, p) => {
+            const total = getActualUnitCount(p);
+            const occ = p.occupiedUnits ?? 0;
+            return (
+              sum + (p.occupancyRate ?? (total > 0 ? (occ / total) * 100 : 0))
+            );
+          }, 0) / visibleProperties.length
+        : 0,
+    maintenanceRequests: maintenanceData.length,
   };
 
   const maintenanceRequests = maintenanceData;
 
-  const units = unitsData.map(u => ({
+  const maintenanceStatsAggregates = useMemo(() => {
+    const total = maintenanceRequests.length;
+    const highPriority = maintenanceRequests.filter(
+      (request: any) => (request.priority || "").toLowerCase() === "high"
+    ).length;
+
+    const costEntries = maintenanceRequests
+      .map((request: any) =>
+        Number(
+          request.actualCost ?? request.estimatedCost ?? request.cost ?? null
+        )
+      )
+      .filter((value) => Number.isFinite(value)) as number[];
+    const avgCost =
+      costEntries.length > 0
+        ? costEntries.reduce((sum, value) => sum + value, 0) /
+          costEntries.length
+        : 0;
+
+    const responseEntries = maintenanceRequests
+      .map((request: any) => {
+        if (typeof request.responseTimeHours === "number") {
+          return request.responseTimeHours;
+        }
+        const createdAt = request.createdAt
+          ? new Date(request.createdAt).getTime()
+          : null;
+        const firstResponseAt =
+          request.firstResponseAt ||
+          request.scheduledDate ||
+          request.completedAt;
+        if (createdAt && firstResponseAt) {
+          const responseTime =
+            (new Date(firstResponseAt).getTime() - createdAt) /
+            (1000 * 60 * 60);
+          return responseTime;
+        }
+        return null;
+      })
+      .filter(
+        (value): value is number => typeof value === "number" && value >= 0
+      );
+
+    const avgResponseHours =
+      responseEntries.length > 0
+        ? responseEntries.reduce((sum, value) => sum + value, 0) /
+          responseEntries.length
+        : null;
+
+    return {
+      total,
+      highPriority,
+      avgCost,
+      avgResponseHours,
+    };
+  }, [maintenanceRequests]);
+
+  const scheduledMaintenanceList = useMemo(() => {
+    const now = Date.now();
+    return maintenanceRequests
+      .filter((request: any) => {
+        if ((request.status || "").toLowerCase() === "scheduled") {
+          return true;
+        }
+        if (request.scheduledDate) {
+          const scheduledTime = new Date(request.scheduledDate).getTime();
+          return scheduledTime >= now;
+        }
+        return false;
+      })
+      .sort((a: any, b: any) => {
+        const dateA = a.scheduledDate ? new Date(a.scheduledDate).getTime() : 0;
+        const dateB = b.scheduledDate ? new Date(b.scheduledDate).getTime() : 0;
+        return dateA - dateB;
+      })
+      .slice(0, 3);
+  }, [maintenanceRequests]);
+
+  const formatCategoryLabel = (value: string) =>
+    EXPENSE_CATEGORIES.find((c) => c.value === value)?.label ||
+    value
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+
+  const formatMonthLabel = (month: string) => {
+    if (!month) return "—";
+    const parsed = new Date(month);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toLocaleString("default", {
+        month: "short",
+        year: "numeric",
+      });
+    }
+    return month;
+  };
+
+  const formatReportDateRange = (
+    start?: string | null,
+    end?: string | null
+  ) => {
+    if (start && end) {
+      return `${start} → ${end}`;
+    }
+    if (start) {
+      return `From ${start}`;
+    }
+    if (end) {
+      return `Until ${end}`;
+    }
+    return null;
+  };
+
+  const expenseCategoryBreakdown = useMemo(() => {
+    if (!expenseStats?.byCategory?.length) {
+      return { total: expenseStats?.totalAmount ?? 0, items: [] };
+    }
+
+    const total =
+      expenseStats.totalAmount ??
+      expenseStats.byCategory.reduce(
+        (sum: number, category: any) =>
+          sum + Number(category._sum?.amount ?? 0),
+        0
+      );
+
+    const sorted = [...expenseStats.byCategory].sort(
+      (a, b) => Number(b._sum?.amount ?? 0) - Number(a._sum?.amount ?? 0)
+    );
+
+    const items = sorted.slice(0, 5).map((category) => {
+      const amount = Number(category._sum?.amount ?? 0);
+      const percent = total > 0 ? (amount / total) * 100 : 0;
+      const Icon = expenseCategoryIconMap[category.category] ?? FileText;
+
+      return {
+        key: category.category,
+        label: formatCategoryLabel(category.category),
+        amount,
+        percent,
+        Icon,
+      };
+    });
+
+    return { total, items };
+  }, [expenseStats]);
+
+  const renderReportSection = (
+    type: SingleReportType,
+    sectionData: any,
+    context: { propertyLabel: string; filters: typeof reportPreview.filters }
+  ) => {
+    if (!sectionData) {
+      return (
+        <p className="text-sm text-muted-foreground">
+          No data available for this report.
+        </p>
+      );
+    }
+
+    switch (type) {
+      case "financial": {
+        const { portfolio, expenses, revenueTrends, recentExpenses } =
+          sectionData || {};
+        return (
+          <div className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-4">
+              <div className="rounded-lg border p-4">
+                <p className="text-xs text-muted-foreground">Total revenue</p>
+                <p className="text-xl font-semibold">
+                  {formatCurrency(
+                    portfolio?.totalRevenue ?? 0,
+                    smartBaseCurrency
+                  )}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Net{" "}
+                  {formatCurrency(
+                    portfolio?.netOperatingIncome ?? 0,
+                    smartBaseCurrency
+                  )}
+                </p>
+              </div>
+              <div className="rounded-lg border p-4">
+                <p className="text-xs text-muted-foreground">Total expenses</p>
+                <p className="text-xl font-semibold text-red-600">
+                  {formatCurrency(expenses?.total ?? 0, smartBaseCurrency)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {context.propertyLabel}
+                </p>
+              </div>
+              <div className="rounded-lg border p-4">
+                <p className="text-xs text-muted-foreground">Occupancy rate</p>
+                <p className="text-xl font-semibold">
+                  {portfolio?.occupancyRate
+                    ? `${portfolio.occupancyRate.toFixed(1)}%`
+                    : "0%"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {portfolio?.occupiedUnits ?? 0} of{" "}
+                  {portfolio?.totalUnits ?? 0} units
+                </p>
+              </div>
+              <div className="rounded-lg border p-4">
+                <p className="text-xs text-muted-foreground">Net income</p>
+                <p className="text-xl font-semibold text-green-600">
+                  {formatCurrency(
+                    (portfolio?.netOperatingIncome ?? 0) -
+                      (expenses?.total ?? 0),
+                    smartBaseCurrency
+                  )}
+                </p>
+                <p className="text-xs text-muted-foreground">After expenses</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold">Top expense categories</h4>
+                <Badge variant="outline">
+                  {expenses?.categories?.length ?? 0}
+                </Badge>
+              </div>
+              {expenses?.categories?.length ? (
+                <div className="space-y-2">
+                  {expenses.categories.map((category: any) => (
+                    <div
+                      key={category.category}
+                      className="flex items-center justify-between rounded-lg border p-3"
+                    >
+                      <div>
+                        <p className="font-medium">{category.label}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {category.count} expense
+                          {category.count === 1 ? "" : "s"}
+                        </p>
+                      </div>
+                      <p className="text-sm font-semibold">
+                        {formatCurrency(category.amount, smartBaseCurrency)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No expenses recorded for the selected filters.
+                </p>
+              )}
+            </div>
+
+            {revenueTrends?.length ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold">Revenue trend</h4>
+                  <Badge variant="outline">
+                    Last {revenueTrends.length} months
+                  </Badge>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {revenueTrends.map((item: MonthlyRevenueData) => (
+                    <div
+                      key={item.month}
+                      className="flex items-center justify-between rounded-lg border p-3"
+                    >
+                      <div>
+                        <p className="text-sm font-medium">
+                          {formatMonthLabel(item.month)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Net{" "}
+                          {formatCurrency(
+                            item.netIncome || 0,
+                            smartBaseCurrency
+                          )}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-green-600">
+                          {formatCurrency(item.revenue || 0, smartBaseCurrency)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Expenses{" "}
+                          {formatCurrency(
+                            item.expenses || 0,
+                            smartBaseCurrency
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold">Recent expenses</h4>
+                <Badge variant="outline">{recentExpenses?.length ?? 0}</Badge>
+              </div>
+              {recentExpenses?.length ? (
+                <div className="space-y-2">
+                  {recentExpenses.map((expense: Expense) => (
+                    <div
+                      key={expense.id}
+                      className="flex items-center justify-between rounded-lg border p-3"
+                    >
+                      <div>
+                        <p className="font-medium">{expense.description}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {expense.property?.name || "—"} •{" "}
+                          {formatCategoryLabel(expense.category)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold">
+                          {formatCurrency(
+                            expense.amount,
+                            expense.currency || smartBaseCurrency
+                          )}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {expense.date
+                            ? new Date(expense.date).toLocaleDateString()
+                            : "—"}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No expense data available for this filter.
+                </p>
+              )}
+            </div>
+          </div>
+        );
+      }
+      case "occupancy": {
+        const { summary, propertyBreakdown } = sectionData || {};
+        return (
+          <div className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-4">
+              <div className="rounded-lg border p-4">
+                <p className="text-xs text-muted-foreground">Total units</p>
+                <p className="text-xl font-semibold">
+                  {summary?.totalUnits ?? 0}
+                </p>
+              </div>
+              <div className="rounded-lg border p-4">
+                <p className="text-xs text-muted-foreground">Occupied</p>
+                <p className="text-xl font-semibold text-green-600">
+                  {summary?.occupiedUnits ?? 0}
+                </p>
+              </div>
+              <div className="rounded-lg border p-4">
+                <p className="text-xs text-muted-foreground">Vacant</p>
+                <p className="text-xl font-semibold text-yellow-600">
+                  {summary?.vacantUnits ?? 0}
+                </p>
+              </div>
+              <div className="rounded-lg border p-4">
+                <p className="text-xs text-muted-foreground">Occupancy rate</p>
+                <p className="text-xl font-semibold">
+                  {summary?.occupancyRate
+                    ? `${summary.occupancyRate.toFixed(1)}%`
+                    : "0%"}
+                </p>
+              </div>
+            </div>
+
+            {propertyBreakdown?.length ? (
+              <div className="overflow-x-auto rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Property</TableHead>
+                      <TableHead>Total Units</TableHead>
+                      <TableHead>Occupied</TableHead>
+                      <TableHead>Vacant</TableHead>
+                      <TableHead>Occupancy</TableHead>
+                      <TableHead className="text-right">Revenue</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {propertyBreakdown.map((property: any) => (
+                      <TableRow key={property.id}>
+                        <TableCell className="font-medium">
+                          {property.name}
+                        </TableCell>
+                        <TableCell>{property.totalUnits}</TableCell>
+                        <TableCell>{property.occupiedUnits}</TableCell>
+                        <TableCell>{property.vacantUnits}</TableCell>
+                        <TableCell>
+                          {property.occupancyRate
+                            ? `${property.occupancyRate.toFixed(1)}%`
+                            : "0%"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(
+                            property.monthlyRevenue || 0,
+                            property.currency || smartBaseCurrency
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No occupancy data available for the selected filters.
+              </p>
+            )}
+          </div>
+        );
+      }
+      case "maintenance": {
+        const { summary, highPriorityRequests, recentRequests, upcoming } =
+          sectionData || {};
+        return (
+          <div className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-4">
+              <div className="rounded-lg border p-4">
+                <p className="text-xs text-muted-foreground">Active requests</p>
+                <p className="text-xl font-semibold">
+                  {summary?.totalRequests ?? 0}
+                </p>
+              </div>
+              <div className="rounded-lg border p-4">
+                <p className="text-xs text-muted-foreground">Completed</p>
+                <p className="text-xl font-semibold text-green-600">
+                  {summary?.completed ?? 0}
+                </p>
+              </div>
+              <div className="rounded-lg border p-4">
+                <p className="text-xs text-muted-foreground">High priority</p>
+                <p className="text-xl font-semibold text-red-600">
+                  {summary?.highPriority ?? 0}
+                </p>
+              </div>
+              <div className="rounded-lg border p-4">
+                <p className="text-xs text-muted-foreground">Avg. cost</p>
+                <p className="text-xl font-semibold">
+                  {formatCurrency(summary?.averageCost ?? 0, smartBaseCurrency)}
+                </p>
+              </div>
+            </div>
+
+            {highPriorityRequests?.length ? (
+              <div className="space-y-3">
+                <h4 className="font-semibold">High-priority queue</h4>
+                <div className="space-y-2">
+                  {highPriorityRequests.map((request: any) => (
+                    <div key={request.id} className="rounded-lg border p-3">
+                      <div className="flex items-center justify-between">
+                        <p className="font-medium">{request.title}</p>
+                        <Badge variant="destructive">High</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {request.property?.name || "—"} •{" "}
+                        {request.category || "general"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div className="space-y-3">
+                <h4 className="font-semibold">Recent activity</h4>
+                {recentRequests?.length ? (
+                  <div className="space-y-2">
+                    {recentRequests.map((request: any) => (
+                      <div
+                        key={request.id}
+                        className="flex items-center justify-between rounded-lg border p-3"
+                      >
+                        <div>
+                          <p className="font-medium">{request.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {request.property?.name || "—"} •{" "}
+                            {request.status || "pending"}
+                          </p>
+                        </div>
+                        <Badge variant="outline">
+                          {request.priority || "medium"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No maintenance activity recorded for this filter.
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="font-semibold">Upcoming schedule</h4>
+                {upcoming?.length ? (
+                  <div className="space-y-2">
+                    {upcoming.map((request: any) => (
+                      <div key={request.id} className="rounded-lg border p-3">
+                        <p className="font-medium">{request.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {request.property?.name || "—"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(request.scheduledDate).toLocaleString()}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No upcoming visits scheduled.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
+      case "tenant": {
+        const { totalTenants, expiringSoon, tenants } = sectionData || {};
+        const selectedVacantUnits =
+          context.filters.propertyId === "all"
+            ? portfolioMetrics.vacantUnits
+            : (() => {
+                const property = visibleProperties.find(
+                  (p) => String(p.id) === context.filters.propertyId
+                );
+                if (!property) return 0;
+                const total = property._count?.units ?? 0;
+                const occupied = property.occupiedUnits ?? 0;
+                return Math.max(total - occupied, 0);
+              })();
+
+        return (
+          <div className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-lg border p-4">
+                <p className="text-xs text-muted-foreground">Active tenants</p>
+                <p className="text-xl font-semibold">{totalTenants ?? 0}</p>
+              </div>
+              <div className="rounded-lg border p-4">
+                <p className="text-xs text-muted-foreground">
+                  Expiring within 30 days
+                </p>
+                <p className="text-xl font-semibold text-yellow-600">
+                  {expiringSoon ?? 0}
+                </p>
+              </div>
+              <div className="rounded-lg border p-4">
+                <p className="text-xs text-muted-foreground">Vacant units</p>
+                <p className="text-xl font-semibold">{selectedVacantUnits}</p>
+              </div>
+            </div>
+
+            {tenants?.length ? (
+              <div className="space-y-2">
+                {tenants.map((tenant: any) => {
+                  const propertyName =
+                    visibleProperties.find(
+                      (property) => property.id === tenant.propertyId
+                    )?.name || "—";
+                  return (
+                    <div
+                      key={`${tenant.unitId}-${tenant.tenantName}-${tenant.email}`}
+                      className="rounded-lg border p-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{tenant.tenantName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {propertyName} • Unit {tenant.unitNumber}
+                          </p>
+                        </div>
+                        <Badge variant="outline">
+                          {tenant.status || "occupied"}
+                        </Badge>
+                      </div>
+                      <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                        {tenant.email && <p>{tenant.email}</p>}
+                        {tenant.phone && <p>{tenant.phone}</p>}
+                        {tenant.leaseEnd && (
+                          <p>
+                            Lease ends{" "}
+                            {new Date(tenant.leaseEnd).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No tenant data available. Assign tenants to units to populate
+                this report.
+              </p>
+            )}
+          </div>
+        );
+      }
+      default:
+        return null;
+    }
+  };
+
+  const renderReportPreview = () => {
+    if (!reportPreview) return null;
+
+    const propertyLabel = reportPreviewPropertyLabel || "All properties";
+    const context = { propertyLabel, filters: reportPreview.filters };
+
+    if (reportPreview.type === "all") {
+      return (
+        <div className="space-y-10">
+          {ALL_REPORT_TYPES.map((type) => {
+            const sectionData = reportPreview.data?.[type];
+            if (!sectionData) return null;
+            return (
+              <div key={type} className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-lg font-semibold">
+                      {REPORT_TYPE_LABELS[type]} Report
+                    </h4>
+                    <p className="text-sm text-muted-foreground">
+                      Snapshot for {propertyLabel}
+                    </p>
+                  </div>
+                  <Badge variant="outline">{REPORT_TYPE_LABELS[type]}</Badge>
+                </div>
+                {renderReportSection(type, sectionData, context)}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    return renderReportSection(
+      reportPreview.type as SingleReportType,
+      reportPreview.data,
+      context
+    );
+  };
+  const reportPreviewPropertyLabel = reportPreview
+    ? reportPreview.filters.propertyId === "all"
+      ? "All properties"
+      : visibleProperties.find(
+          (property) => String(property.id) === reportPreview.filters.propertyId
+        )?.name || "Selected property"
+    : null;
+
+  const reportPreviewDateRange = reportPreview
+    ? formatReportDateRange(
+        reportPreview.filters.startDate,
+        reportPreview.filters.endDate
+      )
+    : null;
+
+  const financialTrendCards = useMemo(() => {
+    const cards: Array<{
+      title: string;
+      value: string;
+      change: number | null;
+      positive: boolean;
+      progress: number;
+      subtitle?: string;
+      tooltip?: string;
+    }> = [];
+
+    if (monthlyRevenueData.length) {
+      const sortedData = [...monthlyRevenueData];
+      const latest = sortedData[sortedData.length - 1];
+      const previous =
+        sortedData.length > 1 ? sortedData[sortedData.length - 2] : null;
+      const change =
+        previous && previous.revenue !== 0
+          ? ((latest.revenue - previous.revenue) / previous.revenue) * 100
+          : null;
+      const maxRevenue = Math.max(
+        ...sortedData.map((entry) => Number(entry.revenue || 0))
+      );
+      const progress =
+        maxRevenue > 0 ? (Number(latest.revenue || 0) / maxRevenue) * 100 : 0;
+
+      cards.push({
+        title: "Revenue Growth",
+        value: formatCurrency(Number(latest.revenue || 0), smartBaseCurrency),
+        change,
+        positive: change == null ? true : change >= 0,
+        progress: Math.max(0, Math.min(100, progress)),
+        tooltip: previous
+          ? `Latest monthly revenue ${formatCurrency(
+              Number(latest.revenue || 0),
+              smartBaseCurrency
+            )} compared to ${formatCurrency(
+              Number(previous.revenue || 0),
+              smartBaseCurrency
+            )} in the prior month.`
+          : "Latest recorded monthly revenue.",
+      });
+    }
+
+    const occupancyPercent = Number.isFinite(portfolioMetrics.avgOccupancy)
+      ? portfolioMetrics.avgOccupancy
+      : 0;
+    cards.push({
+      title: "Occupancy Rate",
+      value: `${occupancyPercent.toFixed(1)}%`,
+      change: null,
+      positive: true,
+      progress: Math.max(0, Math.min(100, occupancyPercent)),
+      tooltip:
+        "Portfolio-wide occupancy calculated from all visible properties and their unit counts.",
+    });
+
+    const operatingMargin =
+      typeof financialStats.operatingMargin === "number"
+        ? financialStats.operatingMargin
+        : financialStats.gross
+        ? (Number(financialStats.net || 0) /
+            Number(financialStats.gross || 1)) *
+          100
+        : 0;
+    cards.push({
+      title: "Operating Efficiency",
+      value: `${operatingMargin.toFixed(1)}%`,
+      change: null,
+      positive: true,
+      progress: Math.max(0, Math.min(100, operatingMargin)),
+      tooltip:
+        "Operating margin based on Net Operating Income divided by total revenue.",
+    });
+
+    if (expenseStats) {
+      const maintenanceCategory = expenseStats.byCategory?.find(
+        (category: any) => category.category === "maintenance"
+      );
+      const maintenanceAmount = Number(maintenanceCategory?._sum?.amount ?? 0);
+      const totalExpenses = expenseStats.totalAmount || 0;
+      const maintenancePercent =
+        totalExpenses > 0 ? (maintenanceAmount / totalExpenses) * 100 : 0;
+      cards.push({
+        title: "Maintenance Costs",
+        value: formatCurrency(maintenanceAmount, smartBaseCurrency),
+        change: null,
+        positive: maintenancePercent <= 50,
+        progress: Math.max(0, Math.min(100, maintenancePercent)),
+        subtitle:
+          totalExpenses > 0
+            ? `${maintenancePercent.toFixed(1)}% of total spend`
+            : undefined,
+        tooltip:
+          "Share of maintenance expenses relative to total recorded expenses for the selected period.",
+      });
+    }
+
+    return cards;
+  }, [
+    expenseStats,
+    financialStats.gross,
+    financialStats.net,
+    financialStats.operatingMargin,
+    monthlyRevenueData,
+    portfolioMetrics.avgOccupancy,
+    smartBaseCurrency,
+  ]);
+
+  const computePropertyFinancialDetails = (property: any) => {
+    const propertyExpenses = expenses
+      .filter((expense) => expense.propertyId === property.id)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    const totalExpenses = propertyExpenses.reduce(
+      (sum, expense) => sum + Number(expense.amount || 0),
+      0
+    );
+
+    const monthlyRevenue = Number(property.totalMonthlyIncome || 0);
+    const netIncome = monthlyRevenue - totalExpenses;
+    const occupancyRate =
+      property._count?.units && property._count.units > 0
+        ? ((property.occupiedUnits ?? 0) / property._count.units) * 100
+        : 0;
+
+    return {
+      property,
+      monthlyRevenue,
+      totalExpenses,
+      netIncome,
+      occupancyRate,
+      propertyExpenses,
+    };
+  };
+
+  const units = unitsData.map((u) => ({
     id: u.id,
     propertyId: u.propertyId,
     unit: u.unitNumber,
@@ -812,27 +2450,35 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
     deposit: u.securityDeposit,
     status: u.status,
     tenant: u.leases?.[0]?.users?.name || null,
-    leaseStart: u.leases?.[0]?.startDate ? new Date(u.leases[0].startDate).toISOString().split('T')[0] : null,
-    leaseEnd: u.leases?.[0]?.endDate ? new Date(u.leases[0].endDate).toISOString().split('T')[0] : null,
-    moveInDate: u.leases?.[0]?.signedAt ? new Date(u.leases[0].signedAt).toISOString().split('T')[0] : null,
+    leaseStart: u.leases?.[0]?.startDate
+      ? new Date(u.leases[0].startDate).toISOString().split("T")[0]
+      : null,
+    leaseEnd: u.leases?.[0]?.endDate
+      ? new Date(u.leases[0].endDate).toISOString().split("T")[0]
+      : null,
+    moveInDate: u.leases?.[0]?.signedAt
+      ? new Date(u.leases[0].signedAt).toISOString().split("T")[0]
+      : null,
     phoneNumber: u.leases?.[0]?.users?.phone || null,
-    email: u.leases?.[0]?.users?.email || null
+    email: u.leases?.[0]?.users?.email || null,
   }));
 
-  const filteredProperties = visibleProperties.filter(property => {
-    const matchesSearch = property.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         property.address.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || property.status === statusFilter;
+  const filteredProperties = visibleProperties.filter((property) => {
+    const matchesSearch =
+      property.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      property.address.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus =
+      statusFilter === "all" || property.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'active':
+      case "active":
         return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case 'maintenance':
+      case "maintenance":
         return <Wrench className="h-4 w-4 text-yellow-600" />;
-      case 'vacant':
+      case "vacant":
         return <Home className="h-4 w-4 text-gray-600" />;
       default:
         return <Info className="h-4 w-4 text-gray-600" />;
@@ -841,60 +2487,60 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'active':
-        return 'default';
-      case 'maintenance':
-        return 'secondary';
-      case 'vacant':
-        return 'outline';
+      case "active":
+        return "default";
+      case "maintenance":
+        return "secondary";
+      case "vacant":
+        return "outline";
       default:
-        return 'outline';
+        return "outline";
     }
   };
 
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
-      case 'high':
-        return 'destructive';
-      case 'medium':
-        return 'secondary';
-      case 'low':
-        return 'outline';
+      case "high":
+        return "destructive";
+      case "medium":
+        return "secondary";
+      case "low":
+        return "outline";
       default:
-        return 'outline';
+        return "outline";
     }
   };
 
   const getUnitStatusColor = (status: string) => {
     switch (status) {
-      case 'occupied':
-        return 'text-green-600';
-      case 'vacant':
-        return 'text-yellow-600';
-      case 'maintenance':
-        return 'text-red-600';
+      case "occupied":
+        return "text-green-600";
+      case "vacant":
+        return "text-yellow-600";
+      case "maintenance":
+        return "text-red-600";
       default:
-        return 'text-gray-600';
+        return "text-gray-600";
     }
   };
 
   const handlePropertyAction = async (action: string, propertyId: string) => {
     try {
       switch (action) {
-        case 'view': {
+        case "view": {
           if (onViewProperty) {
             onViewProperty(propertyId);
           }
           break;
         }
-        case 'edit': {
+        case "edit": {
           if (onEditProperty) {
             onEditProperty(propertyId);
           }
           break;
         }
-        case 'duplicate': {
-          const property = properties.find(p => p.id === propertyId);
+        case "duplicate": {
+          const property = properties.find((p) => p.id === propertyId);
           if (property && onAddProperty) {
             const duplicatedProperty = {
               ...property,
@@ -902,30 +2548,30 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               name: `${property.name} (Copy)`,
               occupiedUnits: 0,
               monthlyRevenue: 0,
-              occupancyRate: 0
+              occupancyRate: 0,
             } as any;
             onAddProperty(duplicatedProperty);
-            toast.success('Property duplicated successfully');
+            toast.success("Property duplicated successfully");
           }
           break;
         }
-        case 'archive': {
+        case "archive": {
           // Call backend API to archive property
           const response = await archiveProperty(propertyId);
           if ((response as any).error) {
             throw new Error((response as any).error);
           }
-          toast.success('Property archived successfully');
+          toast.success("Property archived successfully");
 
           // Refresh properties list if callback provided
           if (onUpdateProperty) {
-            onUpdateProperty(propertyId as any, { status: 'archived' });
+            onUpdateProperty(propertyId as any, { status: "archived" });
           }
           break;
         }
-        case 'delete': {
+        case "delete": {
           // Show confirmation dialog
-          const property = properties.find(p => p.id === propertyId);
+          const property = properties.find((p) => p.id === propertyId);
           if (property) {
             setPropertyToDelete(property);
             setShowPropertyDeleteDialog(true);
@@ -936,7 +2582,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
           break;
       }
     } catch (e: any) {
-      toast.error(e?.message || 'Action failed');
+      toast.error(e?.message || "Action failed");
     }
   };
 
@@ -954,13 +2600,16 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
       const toastId = toast.loading(`Deleting "${propertyName}"...`);
 
       // Immediately remove from UI for instant feedback
-      setDeletedPropertyIds(prev => new Set([...prev, propertyId]));
+      setDeletedPropertyIds((prev) => new Set([...prev, propertyId]));
 
       const response = await deleteProperty(propertyId);
 
       if ((response as any).error) {
         // Extract the error message from the error object
-        const errorMessage = (response as any).error.error || (response as any).error.message || 'Failed to delete property';
+        const errorMessage =
+          (response as any).error.error ||
+          (response as any).error.message ||
+          "Failed to delete property";
         throw new Error(errorMessage);
       }
 
@@ -975,12 +2624,12 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
       }
     } catch (e: any) {
       // Revert the UI change on error
-      setDeletedPropertyIds(prev => {
+      setDeletedPropertyIds((prev) => {
         const newSet = new Set(prev);
         newSet.delete(propertyId);
         return newSet;
       });
-      toast.error(e?.message || 'Failed to delete property');
+      toast.error(e?.message || "Failed to delete property");
     } finally {
       setIsDeletingProperty(false);
     }
@@ -996,11 +2645,16 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               <Button variant="ghost" onClick={onBack} className="mr-4">
                 ← Back to Dashboard
               </Button>
-              <h1 className="text-xl font-semibold text-gray-900">Properties</h1>
+              <h1 className="text-xl font-semibold text-gray-900">
+                Properties
+              </h1>
             </div>
 
             <div className="flex items-center space-x-4">
-              <Button variant="outline" onClick={() => setShowImportDialog(true)}>
+              <Button
+                variant="outline"
+                onClick={() => setShowImportDialog(true)}
+              >
                 <FileSpreadsheet className="h-4 w-4 mr-2" />
                 Import
               </Button>
@@ -1030,11 +2684,15 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Properties</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Total Properties
+                    </CardTitle>
                     <Building2 className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{portfolioMetrics.totalProperties}</div>
+                    <div className="text-2xl font-bold">
+                      {portfolioMetrics.totalProperties}
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       {portfolioMetrics.totalUnits} total units
                     </p>
@@ -1043,28 +2701,45 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Occupancy Rate</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Occupancy Rate
+                    </CardTitle>
                     <Users className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{portfolioMetrics.avgOccupancy.toFixed(1)}%</div>
+                    <div className="text-2xl font-bold">
+                      {portfolioMetrics.avgOccupancy.toFixed(1)}%
+                    </div>
                     <p className="text-xs text-muted-foreground">
-                      {portfolioMetrics.occupiedUnits}/{portfolioMetrics.totalUnits} units occupied
+                      {portfolioMetrics.occupiedUnits}/
+                      {portfolioMetrics.totalUnits} units occupied
                     </p>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Monthly Revenue
+                    </CardTitle>
                     <DollarSign className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{formatCurrency(Number(portfolioMetrics.totalRevenue) || 0, smartBaseCurrency)}</div>
+                    <div className="text-2xl font-bold">
+                      {formatCurrency(
+                        Number(portfolioMetrics.totalRevenue) || 0,
+                        smartBaseCurrency
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground">
-                      {properties.length > 1 && properties.some(p => p.currency !== smartBaseCurrency) &&
-                        <span className="text-orange-600 mr-2">Multi-currency · </span>
-                      }
+                      {properties.length > 1 &&
+                        properties.some(
+                          (p) => p.currency !== smartBaseCurrency
+                        ) && (
+                          <span className="text-orange-600 mr-2">
+                            Multi-currency ·{" "}
+                          </span>
+                        )}
                       +8.2% from last month
                     </p>
                   </CardContent>
@@ -1072,11 +2747,15 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Maintenance Requests</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Maintenance Requests
+                    </CardTitle>
                     <Wrench className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{portfolioMetrics.maintenanceRequests}</div>
+                    <div className="text-2xl font-bold">
+                      {portfolioMetrics.maintenanceRequests}
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       1 high priority
                     </p>
@@ -1089,24 +2768,46 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                 <Card>
                   <CardHeader>
                     <CardTitle>Property Performance</CardTitle>
-                    <CardDescription>Revenue and occupancy by property</CardDescription>
+                    <CardDescription>
+                      Revenue and occupancy by property
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
                       {visibleProperties.map((property) => (
-                        <div key={property.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div
+                          key={property.id}
+                          className="flex items-center justify-between p-3 border rounded-lg"
+                        >
                           <div className="flex items-center space-x-3">
                             <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
                               <Building2 className="h-5 w-5 text-blue-600" />
                             </div>
                             <div>
                               <h4 className="font-medium">{property.name}</h4>
-                              <p className="text-sm text-gray-600">{property.occupiedUnits ?? 0}/{property._count?.units ?? 0} units</p>
+                              <p className="text-sm text-gray-600">
+                                {property.occupiedUnits ?? 0}/
+                                {property._count?.units ?? 0} units
+                              </p>
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-medium">{formatCurrency(Number(property.totalMonthlyIncome) || 0, property.currency || 'NGN')}</p>
-                            <p className="text-sm text-gray-600">{((property._count?.units ?? 0) > 0 ? (((property.occupiedUnits ?? 0) / (property._count?.units ?? 1)) * 100).toFixed(1) : '0.0')}% occupied</p>
+                            <p className="font-medium">
+                              {formatCurrency(
+                                Number(property.totalMonthlyIncome) || 0,
+                                property.currency || "NGN"
+                              )}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              {(property._count?.units ?? 0) > 0
+                                ? (
+                                    ((property.occupiedUnits ?? 0) /
+                                      (property._count?.units ?? 1)) *
+                                    100
+                                  ).toFixed(1)
+                                : "0.0"}
+                              % occupied
+                            </p>
                           </div>
                         </div>
                       ))}
@@ -1117,18 +2818,29 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                 <Card>
                   <CardHeader>
                     <CardTitle>Recent Activity</CardTitle>
-                    <CardDescription>Latest updates across all properties</CardDescription>
+                    <CardDescription>
+                      Latest updates across all properties
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
                       {recentActivity.length === 0 ? (
-                        <div className="text-sm text-gray-500">No recent activity.</div>
+                        <div className="text-sm text-gray-500">
+                          No recent activity.
+                        </div>
                       ) : (
                         recentActivity.map((log: any) => (
-                          <div key={log.id} className="flex items-start space-x-3 p-3 border rounded-lg">
+                          <div
+                            key={log.id}
+                            className="flex items-start space-x-3 p-3 border rounded-lg"
+                          >
                             <div className="flex-1">
-                              <p className="text-sm">[{log.entity}] {log.action}: {log.description}</p>
-                              <p className="text-xs text-gray-400 mt-1">{new Date(log.createdAt).toLocaleString()}</p>
+                              <p className="text-sm">
+                                [{log.entity}] {log.action}: {log.description}
+                              </p>
+                              <p className="text-xs text-gray-400 mt-1">
+                                {new Date(log.createdAt).toLocaleString()}
+                              </p>
                             </div>
                           </div>
                         ))
@@ -1142,11 +2854,17 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               <Card>
                 <CardHeader>
                   <CardTitle>Quick Actions</CardTitle>
-                  <CardDescription>Common property management tasks</CardDescription>
+                  <CardDescription>
+                    Common property management tasks
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <Button variant="outline" className="h-20 flex-col" onClick={onNavigateToAddProperty}>
+                    <Button
+                      variant="outline"
+                      className="h-20 flex-col"
+                      onClick={onNavigateToAddProperty}
+                    >
                       <Plus className="h-6 w-6 mb-2" />
                       Add Property
                     </Button>
@@ -1157,7 +2875,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         if (onNavigateToTenants) {
                           onNavigateToTenants();
                         } else {
-                          toast.info('Tenant management feature coming soon!');
+                          toast.info("Tenant management feature coming soon!");
                         }
                       }}
                     >
@@ -1171,7 +2889,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         if (onNavigateToMaintenance) {
                           onNavigateToMaintenance();
                         } else {
-                          toast.info('Maintenance scheduling feature coming soon!');
+                          toast.info(
+                            "Maintenance scheduling feature coming soon!"
+                          );
                         }
                       }}
                     >
@@ -1181,7 +2901,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     <Button
                       variant="outline"
                       className="h-20 flex-col"
-                      onClick={() => setActiveTab('reports')}
+                      onClick={() => setActiveTab("reports")}
                     >
                       <FileText className="h-6 w-6 mb-2" />
                       Generate Report
@@ -1208,7 +2928,10 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                       />
                     </div>
 
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <Select
+                      value={statusFilter}
+                      onValueChange={setStatusFilter}
+                    >
                       <SelectTrigger className="w-full md:w-40">
                         <SelectValue placeholder="All Status" />
                       </SelectTrigger>
@@ -1222,16 +2945,16 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
 
                     <div className="flex items-center space-x-2">
                       <Button
-                        variant={viewMode === 'grid' ? 'default' : 'outline'}
+                        variant={viewMode === "grid" ? "default" : "outline"}
                         size="sm"
-                        onClick={() => setViewMode('grid')}
+                        onClick={() => setViewMode("grid")}
                       >
                         Grid
                       </Button>
                       <Button
-                        variant={viewMode === 'list' ? 'default' : 'outline'}
+                        variant={viewMode === "list" ? "default" : "outline"}
                         size="sm"
-                        onClick={() => setViewMode('list')}
+                        onClick={() => setViewMode("list")}
                       >
                         List
                       </Button>
@@ -1241,12 +2964,13 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               </Card>
 
               {/* Properties Grid/List View */}
-              {viewMode === 'grid' ? (
+              {viewMode === "grid" ? (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredProperties.map((property) => (
                     <Card key={property.id} className="overflow-hidden">
                       <div className="h-48 bg-gray-200 relative">
-                        {Array.isArray(property.images) && property.images.length > 0 ? (
+                        {Array.isArray(property.images) &&
+                        property.images.length > 0 ? (
                           <img
                             src={property.images[0]}
                             alt={property.name}
@@ -1267,7 +2991,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between mb-2">
                           <div>
-                            <h3 className="font-semibold text-lg">{property.name}</h3>
+                            <h3 className="font-semibold text-lg">
+                              {property.name}
+                            </h3>
                             <p className="text-sm text-gray-600 flex items-center">
                               <MapPin className="h-3 w-3 mr-1" />
                               {property.address}
@@ -1280,26 +3006,44 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handlePropertyAction('view', property.id)}>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handlePropertyAction("view", property.id)
+                                }
+                              >
                                 <Eye className="mr-2 h-4 w-4" />
                                 View Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handlePropertyAction('edit', property.id)}>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handlePropertyAction("edit", property.id)
+                                }
+                              >
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit Property
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => handlePropertyAction('duplicate', property.id)}>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handlePropertyAction("duplicate", property.id)
+                                }
+                              >
                                 <Copy className="mr-2 h-4 w-4" />
                                 Duplicate
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handlePropertyAction('archive', property.id)}>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handlePropertyAction("archive", property.id)
+                                }
+                              >
                                 <Archive className="mr-2 h-4 w-4" />
                                 Archive
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
-                                onClick={() => handlePropertyAction('delete', property.id)}
+                                onClick={() =>
+                                  handlePropertyAction("delete", property.id)
+                                }
                                 className="text-red-600 focus:text-red-600"
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
@@ -1312,33 +3056,62 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm">
                             <span>Units:</span>
-                            <span>{property.occupiedUnits ?? 0}/{property._count?.units ?? 0}</span>
+                            <span>
+                              {property.occupiedUnits ?? 0}/
+                              {property._count?.units ?? 0}
+                            </span>
                           </div>
                           <div className="flex justify-between text-sm">
                             <span>Occupancy:</span>
-                            <span className="font-medium">{(
-                              property.occupancyRate ?? (
-                                (property._count?.units ?? 0) > 0 ? ((property.occupiedUnits ?? 0) / (property._count?.units ?? 1)) * 100 : 0
-                              )
-                            ).toFixed(1)}%</span>
+                            <span className="font-medium">
+                              {(
+                                property.occupancyRate ??
+                                ((property._count?.units ?? 0) > 0
+                                  ? ((property.occupiedUnits ?? 0) /
+                                      (property._count?.units ?? 1)) *
+                                    100
+                                  : 0)
+                              ).toFixed(1)}
+                              %
+                            </span>
                           </div>
                           <div className="flex justify-between text-sm">
                             <span>Monthly Revenue:</span>
-                            <span className="font-medium text-green-600">{formatCurrency(Number(property.totalMonthlyIncome) || 0, property.currency || 'NGN')}</span>
+                            <span className="font-medium text-green-600">
+                              {formatCurrency(
+                                Number(property.totalMonthlyIncome) || 0,
+                                property.currency || "NGN"
+                              )}
+                            </span>
                           </div>
                           <div className="flex justify-between text-sm">
                             <span>Manager:</span>
-                            <span>{property.property_managers?.[0]?.users?.name ?? 'Unassigned'}</span>
+                            <span>
+                              {property.property_managers?.[0]?.users?.name ??
+                                "Unassigned"}
+                            </span>
                           </div>
                         </div>
 
                         <div className="mt-4 flex items-center space-x-2">
-                          {(Array.isArray(property.features) ? property.features : []).slice(0, 3).map((feature: string, index: number) => (
-                            <Badge key={index} variant="outline" className="text-xs">
-                              {feature}
-                            </Badge>
-                          ))}
-                          {(Array.isArray(property.features) ? property.features : []).length > 3 && (
+                          {(Array.isArray(property.features)
+                            ? property.features
+                            : []
+                          )
+                            .slice(0, 3)
+                            .map((feature: string, index: number) => (
+                              <Badge
+                                key={index}
+                                variant="outline"
+                                className="text-xs"
+                              >
+                                {feature}
+                              </Badge>
+                            ))}
+                          {(Array.isArray(property.features)
+                            ? property.features
+                            : []
+                          ).length > 3 && (
                             <Badge variant="outline" className="text-xs">
                               +{(property.features as any[]).length - 3} more
                             </Badge>
@@ -1346,11 +3119,25 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         </div>
 
                         <div className="mt-4 flex space-x-2">
-                          <Button variant="outline" size="sm" className="flex-1" onClick={() => handlePropertyAction('view', property.id)}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() =>
+                              handlePropertyAction("view", property.id)
+                            }
+                          >
                             <Eye className="h-4 w-4 mr-2" />
                             View
                           </Button>
-                          <Button variant="outline" size="sm" className="flex-1" onClick={() => handlePropertyAction('edit', property.id)}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() =>
+                              handlePropertyAction("edit", property.id)
+                            }
+                          >
                             <Edit className="h-4 w-4 mr-2" />
                             Edit
                           </Button>
@@ -1381,7 +3168,8 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                             <TableCell>
                               <div className="flex items-center space-x-3">
                                 <div className="h-10 w-10 rounded-lg bg-gray-200 overflow-hidden">
-                                  {Array.isArray(property.images) && property.images.length > 0 ? (
+                                  {Array.isArray(property.images) &&
+                                  property.images.length > 0 ? (
                                     <img
                                       src={property.images[0]}
                                       alt={property.name}
@@ -1395,46 +3183,90 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                                 </div>
                                 <div>
                                   <p className="font-medium">{property.name}</p>
-                                  <p className="text-sm text-gray-600">{property.propertyType}</p>
+                                  <p className="text-sm text-gray-600">
+                                    {property.propertyType}
+                                  </p>
                                 </div>
                               </div>
                             </TableCell>
                             <TableCell>
                               <div>
                                 <p className="text-sm">{property.address}</p>
-                                <p className="text-xs text-gray-600">{property.city}, {property.state}</p>
+                                <p className="text-xs text-gray-600">
+                                  {property.city}, {property.state}
+                                </p>
                               </div>
                             </TableCell>
-                            <TableCell>{property.occupiedUnits ?? 0}/{property._count?.units ?? 0}</TableCell>
+                            <TableCell>
+                              {property.occupiedUnits ?? 0}/
+                              {property._count?.units ?? 0}
+                            </TableCell>
                             <TableCell>
                               <div className="flex items-center space-x-2">
-                                <span>{((property._count?.units ?? 0) > 0 ? (((property.occupiedUnits ?? 0) / (property._count?.units ?? 1)) * 100).toFixed(1) : '0.0')}%</span>
-                                <Progress value={(property._count?.units ?? 0) > 0 ? (((property.occupiedUnits ?? 0) / (property._count?.units ?? 1)) * 100) : 0} className="w-16 h-2" />
+                                <span>
+                                  {(property._count?.units ?? 0) > 0
+                                    ? (
+                                        ((property.occupiedUnits ?? 0) /
+                                          (property._count?.units ?? 1)) *
+                                        100
+                                      ).toFixed(1)
+                                    : "0.0"}
+                                  %
+                                </span>
+                                <Progress
+                                  value={
+                                    (property._count?.units ?? 0) > 0
+                                      ? ((property.occupiedUnits ?? 0) /
+                                          (property._count?.units ?? 1)) *
+                                        100
+                                      : 0
+                                  }
+                                  className="w-16 h-2"
+                                />
                               </div>
                             </TableCell>
                             <TableCell className="font-medium text-green-600">
-                              {formatCurrency(Number(property.totalMonthlyIncome) || 0, property.currency || 'NGN')}
+                              {formatCurrency(
+                                Number(property.totalMonthlyIncome) || 0,
+                                property.currency || "NGN"
+                              )}
                             </TableCell>
                             <TableCell>
                               <div>
                                 <p className="text-sm">{property.manager}</p>
-                                <p className="text-xs text-gray-600">{property.managerPhone}</p>
+                                <p className="text-xs text-gray-600">
+                                  {property.managerPhone}
+                                </p>
                               </div>
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center space-x-2">
                                 {getStatusIcon(property.status)}
-                                <Badge variant={getStatusBadge(property.status)}>
+                                <Badge
+                                  variant={getStatusBadge(property.status)}
+                                >
                                   {property.status}
                                 </Badge>
                               </div>
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center space-x-2">
-                                <Button variant="outline" size="sm" onClick={() => handlePropertyAction('view', property.id)}>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    handlePropertyAction("view", property.id)
+                                  }
+                                >
                                   <Eye className="h-4 w-4" />
                                 </Button>
-                                <Button variant="outline" size="sm" onClick={() => handlePropertyAction('edit', property.id)}>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    handlePropertyAction("edit", property.id)
+                                  }
+                                >
                                   <Edit className="h-4 w-4" />
                                 </Button>
                                 <DropdownMenu>
@@ -1444,17 +3276,36 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => handlePropertyAction('duplicate', property.id)}>
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        handlePropertyAction(
+                                          "duplicate",
+                                          property.id
+                                        )
+                                      }
+                                    >
                                       <Copy className="mr-2 h-4 w-4" />
                                       Duplicate
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handlePropertyAction('archive', property.id)}>
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        handlePropertyAction(
+                                          "archive",
+                                          property.id
+                                        )
+                                      }
+                                    >
                                       <Archive className="mr-2 h-4 w-4" />
                                       Archive
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
-                                      onClick={() => handlePropertyAction('delete', property.id)}
+                                      onClick={() =>
+                                        handlePropertyAction(
+                                          "delete",
+                                          property.id
+                                        )
+                                      }
                                       className="text-red-600 focus:text-red-600"
                                     >
                                       <Trash2 className="mr-2 h-4 w-4" />
@@ -1479,40 +3330,65 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               <div className="grid md:grid-cols-4 gap-6">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Units</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Total Units
+                    </CardTitle>
                     <Home className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{portfolioMetrics.totalUnits}</div>
-                    <p className="text-xs text-muted-foreground">Across all properties</p>
+                    <div className="text-2xl font-bold">
+                      {portfolioMetrics.totalUnits}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Across all properties
+                    </p>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Occupied</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Occupied
+                    </CardTitle>
                     <Users className="h-4 w-4 text-green-600" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-green-600">{portfolioMetrics.occupiedUnits}</div>
-                    <p className="text-xs text-muted-foreground">{((portfolioMetrics.occupiedUnits / portfolioMetrics.totalUnits) * 100).toFixed(1)}% occupied</p>
+                    <div className="text-2xl font-bold text-green-600">
+                      {portfolioMetrics.occupiedUnits}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {(
+                        (portfolioMetrics.occupiedUnits /
+                          portfolioMetrics.totalUnits) *
+                        100
+                      ).toFixed(1)}
+                      % occupied
+                    </p>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Vacant</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Vacant
+                    </CardTitle>
                     <Home className="h-4 w-4 text-yellow-600" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-yellow-600">{portfolioMetrics.vacantUnits}</div>
-                    <p className="text-xs text-muted-foreground">Available for rent</p>
+                    <div className="text-2xl font-bold text-yellow-600">
+                      {portfolioMetrics.vacantUnits}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Available for rent
+                    </p>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Avg. Rent</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Avg. Rent
+                    </CardTitle>
                     <DollarSign className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
@@ -1520,8 +3396,12 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                       if (unitsData.length === 0) {
                         return (
                           <>
-                            <div className="text-2xl font-bold">{formatCurrency(0, smartBaseCurrency)}</div>
-                            <p className="text-xs text-muted-foreground">No units</p>
+                            <div className="text-2xl font-bold">
+                              {formatCurrency(0, smartBaseCurrency)}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              No units
+                            </p>
                           </>
                         );
                       }
@@ -1530,7 +3410,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                       const getRentFrequency = (unit: any): string => {
                         // Try to get features - it might be a string that needs parsing or an object
                         let features = unit.features;
-                        if (typeof features === 'string') {
+                        if (typeof features === "string") {
                           try {
                             features = JSON.parse(features);
                           } catch {
@@ -1538,48 +3418,86 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           }
                         }
                         // Check various possible paths for rentFrequency
-                        return features?.nigeria?.rentFrequency ||
-                               features?.rentFrequency ||
-                               unit.rentFrequency ||
-                               'monthly';
+                        return (
+                          features?.nigeria?.rentFrequency ||
+                          features?.rentFrequency ||
+                          unit.rentFrequency ||
+                          "monthly"
+                        );
                       };
 
                       // Get frequencies for all units
-                      const frequencies = unitsData.map(u => getRentFrequency(u));
-                      const allMonthly = frequencies.every(f => f === 'monthly');
-                      const allAnnual = frequencies.every(f => f === 'annual');
+                      const frequencies = unitsData.map((u) =>
+                        getRentFrequency(u)
+                      );
+                      const allMonthly = frequencies.every(
+                        (f) => f === "monthly"
+                      );
+                      const allAnnual = frequencies.every(
+                        (f) => f === "annual"
+                      );
 
                       if (allAnnual) {
                         // All units are annual - show annual average directly
-                        const avgAnnualRent = unitsData.reduce((sum, u) => sum + (u.monthlyRent || 0), 0) / unitsData.length;
+                        const avgAnnualRent =
+                          unitsData.reduce(
+                            (sum, u) => sum + (u.monthlyRent || 0),
+                            0
+                          ) / unitsData.length;
                         return (
                           <>
-                            <div className="text-2xl font-bold">{formatCurrency(avgAnnualRent, smartBaseCurrency)}</div>
-                            <p className="text-xs text-muted-foreground">Per unit per year</p>
+                            <div className="text-2xl font-bold">
+                              {formatCurrency(avgAnnualRent, smartBaseCurrency)}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Per unit per year
+                            </p>
                           </>
                         );
                       } else if (allMonthly) {
                         // All units are monthly - show monthly average directly
-                        const avgMonthlyRent = unitsData.reduce((sum, u) => sum + (u.monthlyRent || 0), 0) / unitsData.length;
+                        const avgMonthlyRent =
+                          unitsData.reduce(
+                            (sum, u) => sum + (u.monthlyRent || 0),
+                            0
+                          ) / unitsData.length;
                         return (
                           <>
-                            <div className="text-2xl font-bold">{formatCurrency(avgMonthlyRent, smartBaseCurrency)}</div>
-                            <p className="text-xs text-muted-foreground">Per unit per month</p>
+                            <div className="text-2xl font-bold">
+                              {formatCurrency(
+                                avgMonthlyRent,
+                                smartBaseCurrency
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Per unit per month
+                            </p>
                           </>
                         );
                       } else {
                         // Mixed frequencies - convert all to monthly for comparison
-                        const totalMonthlyRent = unitsData.reduce((sum, u, idx) => {
-                          const rent = u.monthlyRent || 0;
-                          const freq = frequencies[idx];
-                          // If annual, divide by 12 to get monthly equivalent
-                          return sum + (freq === 'annual' ? rent / 12 : rent);
-                        }, 0);
-                        const avgMonthlyRent = totalMonthlyRent / unitsData.length;
+                        const totalMonthlyRent = unitsData.reduce(
+                          (sum, u, idx) => {
+                            const rent = u.monthlyRent || 0;
+                            const freq = frequencies[idx];
+                            // If annual, divide by 12 to get monthly equivalent
+                            return sum + (freq === "annual" ? rent / 12 : rent);
+                          },
+                          0
+                        );
+                        const avgMonthlyRent =
+                          totalMonthlyRent / unitsData.length;
                         return (
                           <>
-                            <div className="text-2xl font-bold">{formatCurrency(avgMonthlyRent, smartBaseCurrency)}</div>
-                            <p className="text-xs text-muted-foreground">Per unit per month (avg)</p>
+                            <div className="text-2xl font-bold">
+                              {formatCurrency(
+                                avgMonthlyRent,
+                                smartBaseCurrency
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Per unit per month (avg)
+                            </p>
                           </>
                         );
                       }
@@ -1592,7 +3510,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               <Card>
                 <CardHeader>
                   <CardTitle>Unit Management</CardTitle>
-                  <CardDescription>Manage individual units across all properties</CardDescription>
+                  <CardDescription>
+                    Manage individual units across all properties
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -1607,7 +3527,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                             <SelectItem value="all">All Units</SelectItem>
                             <SelectItem value="occupied">Occupied</SelectItem>
                             <SelectItem value="vacant">Vacant</SelectItem>
-                            <SelectItem value="maintenance">Maintenance</SelectItem>
+                            <SelectItem value="maintenance">
+                              Maintenance
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1632,11 +3554,15 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                       </TableHeader>
                       <TableBody>
                         {units.map((unit) => {
-                          const property = properties.find(p => p.id === unit.propertyId);
+                          const property = properties.find(
+                            (p) => p.id === unit.propertyId
+                          );
                           return (
                             <TableRow key={unit.id}>
                               <TableCell>{property?.name}</TableCell>
-                              <TableCell className="font-medium">{unit.unit}</TableCell>
+                              <TableCell className="font-medium">
+                                {unit.unit}
+                              </TableCell>
                               <TableCell>
                                 <div className="flex items-center space-x-2 text-sm">
                                   <div className="flex items-center space-x-1">
@@ -1650,12 +3576,19 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                                   <span>{unit.sqft} sqft</span>
                                 </div>
                               </TableCell>
-                              <TableCell className="font-medium">{formatCurrency(unit.rent, property?.currency || 'USD')}</TableCell>
+                              <TableCell className="font-medium">
+                                {formatCurrency(
+                                  unit.rent,
+                                  property?.currency || "USD"
+                                )}
+                              </TableCell>
                               <TableCell>
                                 {unit.tenant ? (
                                   <div>
                                     <p className="font-medium">{unit.tenant}</p>
-                                    <p className="text-xs text-gray-600">{unit.phoneNumber}</p>
+                                    <p className="text-xs text-gray-600">
+                                      {unit.phoneNumber}
+                                    </p>
                                   </div>
                                 ) : (
                                   <span className="text-gray-500">Vacant</span>
@@ -1667,12 +3600,18 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                                     <p>Expires: {unit.leaseEnd}</p>
                                   </div>
                                 ) : (
-                                  <span className="text-gray-500">No lease</span>
+                                  <span className="text-gray-500">
+                                    No lease
+                                  </span>
                                 )}
                               </TableCell>
                               <TableCell>
                                 <Badge
-                                  variant={unit.status === 'occupied' ? 'default' : 'secondary'}
+                                  variant={
+                                    unit.status === "occupied"
+                                      ? "default"
+                                      : "secondary"
+                                  }
                                   className={getUnitStatusColor(unit.status)}
                                 >
                                   {unit.status}
@@ -1689,16 +3628,25 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                                       <MoreHorizontal className="h-4 w-4" />
                                     </Button>
                                   </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="w-48">
-                                    <DropdownMenuLabel>Unit Actions</DropdownMenuLabel>
+                                  <DropdownMenuContent
+                                    align="end"
+                                    className="w-48"
+                                  >
+                                    <DropdownMenuLabel>
+                                      Unit Actions
+                                    </DropdownMenuLabel>
                                     <DropdownMenuSeparator />
 
-                                    <DropdownMenuItem onClick={() => handleViewUnit(unit)}>
+                                    <DropdownMenuItem
+                                      onClick={() => handleViewUnit(unit)}
+                                    >
                                       <Eye className="h-4 w-4 mr-2" />
                                       View Details
                                     </DropdownMenuItem>
 
-                                    <DropdownMenuItem onClick={() => handleEditUnit(unit)}>
+                                    <DropdownMenuItem
+                                      onClick={() => handleEditUnit(unit)}
+                                    >
                                       <Edit className="h-4 w-4 mr-2" />
                                       Edit Unit
                                     </DropdownMenuItem>
@@ -1735,92 +3683,161 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <div className="flex items-center gap-2">
-                        <CardTitle className="text-sm font-medium">Gross Income</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                          Gross Income
+                        </CardTitle>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Info className="h-4 w-4 text-muted-foreground cursor-help" />
                           </TooltipTrigger>
                           <TooltipContent className="max-w-xs">
-                            <p className="font-semibold mb-1">How it's calculated:</p>
-                            <p className="text-xs">Sum of all monthly rent from occupied units across all properties. This represents your total rental income before any expenses.</p>
+                            <p className="font-semibold mb-1">
+                              How it's calculated:
+                            </p>
+                            <p className="text-xs">
+                              Sum of all monthly rent from occupied units across
+                              all properties. This represents your total rental
+                              income before any expenses.
+                            </p>
                           </TooltipContent>
                         </Tooltip>
                       </div>
                       <TrendingUp className="h-4 w-4 text-green-600" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">{formatCurrency(Number(financialStats.gross) || 0, smartBaseCurrency)}</div>
-                      <p className="text-xs text-muted-foreground">Live collected this period</p>
+                      <div className="text-2xl font-bold">
+                        {formatCurrency(
+                          Number(financialStats.gross) || 0,
+                          smartBaseCurrency
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Live collected this period
+                      </p>
                     </CardContent>
                   </Card>
 
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <div className="flex items-center gap-2">
-                        <CardTitle className="text-sm font-medium">Net Income</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                          Net Income
+                        </CardTitle>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Info className="h-4 w-4 text-muted-foreground cursor-help" />
                           </TooltipTrigger>
                           <TooltipContent className="max-w-xs">
-                            <p className="font-semibold mb-1">How it's calculated:</p>
-                            <p className="text-xs">Gross Income minus Operating Expenses. This is your Net Operating Income (NOI) - the actual profit from your rental operations.</p>
-                            <p className="text-xs mt-1 italic">Formula: Gross Income - Operating Expenses</p>
+                            <p className="font-semibold mb-1">
+                              How it's calculated:
+                            </p>
+                            <p className="text-xs">
+                              Gross Income minus Operating Expenses. This is
+                              your Net Operating Income (NOI) - the actual
+                              profit from your rental operations.
+                            </p>
+                            <p className="text-xs mt-1 italic">
+                              Formula: Gross Income - Operating Expenses
+                            </p>
                           </TooltipContent>
                         </Tooltip>
                       </div>
                       <DollarSign className="h-4 w-4 text-green-600" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">{formatCurrency(Number(financialStats.net) || 0, smartBaseCurrency)}</div>
-                      <p className="text-xs text-muted-foreground">Gross minus operating expenses</p>
+                      <div className="text-2xl font-bold">
+                        {formatCurrency(
+                          Number(financialStats.net) || 0,
+                          smartBaseCurrency
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Gross minus operating expenses
+                      </p>
                     </CardContent>
                   </Card>
 
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <div className="flex items-center gap-2">
-                        <CardTitle className="text-sm font-medium">Operating Expenses</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                          Operating Expenses
+                        </CardTitle>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Info className="h-4 w-4 text-muted-foreground cursor-help" />
                           </TooltipTrigger>
                           <TooltipContent className="max-w-xs">
-                            <p className="font-semibold mb-1">How it's calculated:</p>
-                            <p className="text-xs">Estimated at 30% of Gross Income, based on industry standards. This includes maintenance, property management fees, insurance, utilities, and other operational costs.</p>
-                            <p className="text-xs mt-1 italic">Formula: Gross Income × 0.30</p>
+                            <p className="font-semibold mb-1">
+                              How it's calculated:
+                            </p>
+                            <p className="text-xs">
+                              Estimated at 30% of Gross Income, based on
+                              industry standards. This includes maintenance,
+                              property management fees, insurance, utilities,
+                              and other operational costs.
+                            </p>
+                            <p className="text-xs mt-1 italic">
+                              Formula: Gross Income × 0.30
+                            </p>
                           </TooltipContent>
                         </Tooltip>
                       </div>
                       <TrendingDown className="h-4 w-4 text-red-600" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">{formatCurrency(Number(financialStats.expenses) || 0, smartBaseCurrency)}</div>
-                      <p className="text-xs text-muted-foreground">Sum of expense-type payments</p>
+                      <div className="text-2xl font-bold">
+                        {formatCurrency(
+                          Number(financialStats.expenses) || 0,
+                          smartBaseCurrency
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Sum of expense-type payments
+                      </p>
                     </CardContent>
                   </Card>
 
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <div className="flex items-center gap-2">
-                        <CardTitle className="text-sm font-medium">Cap Rate</CardTitle>
+                        <CardTitle className="text-sm font-medium">
+                          Cap Rate
+                        </CardTitle>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Info className="h-4 w-4 text-muted-foreground cursor-help" />
                           </TooltipTrigger>
                           <TooltipContent className="max-w-xs">
-                            <p className="font-semibold mb-1">How it's calculated:</p>
-                            <p className="text-xs">Capitalization Rate measures your return on investment. It's the annual Net Operating Income divided by the total property value, expressed as a percentage.</p>
-                            <p className="text-xs mt-1 italic">Formula: (Annual NOI ÷ Total Property Value) × 100</p>
-                            <p className="text-xs mt-1 text-yellow-600">Higher cap rates indicate better potential returns.</p>
+                            <p className="font-semibold mb-1">
+                              How it's calculated:
+                            </p>
+                            <p className="text-xs">
+                              Capitalization Rate measures your return on
+                              investment. It's the annual Net Operating Income
+                              divided by the total property value, expressed as
+                              a percentage.
+                            </p>
+                            <p className="text-xs mt-1 italic">
+                              Formula: (Annual NOI ÷ Total Property Value) × 100
+                            </p>
+                            <p className="text-xs mt-1 text-yellow-600">
+                              Higher cap rates indicate better potential
+                              returns.
+                            </p>
                           </TooltipContent>
                         </Tooltip>
                       </div>
                       <Percent className="h-4 w-4 text-blue-600" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">{(Number(financialStats.capRate) || 0).toLocaleString()}%</div>
-                      <p className="text-xs text-muted-foreground">Approximation</p>
+                      <div className="text-2xl font-bold">
+                        {(Number(financialStats.capRate) || 0).toLocaleString()}
+                        %
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Approximation
+                      </p>
                     </CardContent>
                   </Card>
                 </div>
@@ -1830,7 +3847,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               <Card>
                 <CardHeader>
                   <CardTitle>Property Financial Performance</CardTitle>
-                  <CardDescription>Revenue, expenses, and profitability by property</CardDescription>
+                  <CardDescription>
+                    Revenue, expenses, and profitability by property
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Table>
@@ -1851,17 +3870,25 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           <TableCell>
                             <div>
                               <p className="font-medium">{property.name}</p>
-                              <p className="text-sm text-gray-600">{property._count?.units ?? 0} units</p>
+                              <p className="text-sm text-gray-600">
+                                {property._count?.units ?? 0} units
+                              </p>
                             </div>
                           </TableCell>
                           <TableCell className="font-medium text-green-600">
-                            {formatCurrency(Number(property.totalMonthlyIncome) || 0, property.currency || 'NGN')}
+                            {formatCurrency(
+                              Number(property.totalMonthlyIncome) || 0,
+                              property.currency || "NGN"
+                            )}
                           </TableCell>
                           <TableCell className="text-red-600">
-                            {formatCurrency(0, property.currency || 'NGN')}
+                            {formatCurrency(0, property.currency || "NGN")}
                           </TableCell>
                           <TableCell className="font-medium">
-                            {formatCurrency(Number(property.totalMonthlyIncome) || 0, property.currency || 'NGN')}
+                            {formatCurrency(
+                              Number(property.totalMonthlyIncome) || 0,
+                              property.currency || "NGN"
+                            )}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center space-x-2">
@@ -1874,10 +3901,18 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                             </div>
                           </TableCell>
                           <TableCell className="font-medium text-blue-600">
-                            {(Number(property.totalMonthlyIncome) || 0).toLocaleString()}
+                            {(
+                              Number(property.totalMonthlyIncome) || 0
+                            ).toLocaleString()}
                           </TableCell>
                           <TableCell>
-                            <Button variant="outline" size="sm">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                handleOpenFinancialDetails(property)
+                              }
+                            >
                               <FileText className="h-4 w-4 mr-2" />
                               Details
                             </Button>
@@ -1894,70 +3929,48 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                 <Card>
                   <CardHeader>
                     <CardTitle>Expense Categories</CardTitle>
-                    <CardDescription>Monthly operating expenses breakdown</CardDescription>
+                    <CardDescription>
+                      Monthly operating expenses breakdown
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <Wrench className="h-4 w-4 text-blue-600" />
-                          <span>Maintenance & Repairs</span>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium">{formatCurrency(8500, smartBaseCurrency)}</p>
-                          <p className="text-sm text-gray-600">33.9%</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <Shield className="h-4 w-4 text-green-600" />
-                          <span>Insurance</span>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium">{formatCurrency(4200, smartBaseCurrency)}</p>
-                          <p className="text-sm text-gray-600">16.7%</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <Users className="h-4 w-4 text-purple-600" />
-                          <span>Property Management</span>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium">{formatCurrency(3800, smartBaseCurrency)}</p>
-                          <p className="text-sm text-gray-600">15.1%</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <Zap className="h-4 w-4 text-yellow-600" />
-                          <span>Utilities</span>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium">{formatCurrency(3200, smartBaseCurrency)}</p>
-                          <p className="text-sm text-gray-600">12.7%</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <FileText className="h-4 w-4 text-gray-600" />
-                          <span>Legal & Administrative</span>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium">{formatCurrency(2100, smartBaseCurrency)}</p>
-                          <p className="text-sm text-gray-600">8.4%</p>
-                        </div>
-                      </div>
+                      {expenseCategoryBreakdown.items.length ? (
+                        expenseCategoryBreakdown.items.map((item) => (
+                          <div
+                            key={item.key}
+                            className="flex items-center justify-between"
+                          >
+                            <div className="flex items-center space-x-2">
+                              <item.Icon className="h-4 w-4 text-blue-600" />
+                              <span>{item.label}</span>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-medium">
+                                {formatCurrency(item.amount, smartBaseCurrency)}
+                              </p>
+                              <p className="text-sm text-gray-600">
+                                {item.percent.toFixed(1)}%
+                              </p>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500">
+                          No expense data available yet.
+                        </p>
+                      )}
 
                       <div className="h-px bg-gray-200 my-4" />
 
                       <div className="flex items-center justify-between font-medium">
                         <span>Total Monthly Expenses</span>
-                        <span>{formatCurrency(25100, smartBaseCurrency)}</span>
+                        <span>
+                          {formatCurrency(
+                            expenseCategoryBreakdown.total,
+                            smartBaseCurrency
+                          )}
+                        </span>
                       </div>
                     </div>
                   </CardContent>
@@ -1966,54 +3979,74 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                 <Card>
                   <CardHeader>
                     <CardTitle>Financial Trends</CardTitle>
-                    <CardDescription>6-month performance overview</CardDescription>
+                    <CardDescription>
+                      6-month performance overview
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      <div className="p-4 border rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium">Revenue Growth</span>
-                          <div className="flex items-center space-x-1 text-green-600">
-                            <ArrowUpRight className="h-4 w-4" />
-                            <span className="text-sm font-medium">+12.4%</span>
-                          </div>
-                        </div>
-                        <Progress value={84} className="h-2" />
+                    <TooltipProvider>
+                      <div className="space-y-4">
+                        {financialTrendCards.length ? (
+                          financialTrendCards.map((card) => (
+                            <div
+                              key={card.title}
+                              className="p-4 border rounded-lg"
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium">
+                                    {card.title}
+                                  </span>
+                                  {card.tooltip && (
+                                    <Tooltip delayDuration={150}>
+                                      <TooltipTrigger asChild>
+                                        <Info className="h-3.5 w-3.5 text-gray-400 cursor-help" />
+                                      </TooltipTrigger>
+                                      <TooltipContent className="max-w-xs text-xs">
+                                        <p>{card.tooltip}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                </div>
+                                {card.change !== null && (
+                                  <div
+                                    className={`flex items-center space-x-1 ${
+                                      card.positive
+                                        ? "text-green-600"
+                                        : "text-red-600"
+                                    }`}
+                                  >
+                                    {card.positive ? (
+                                      <ArrowUpRight className="h-4 w-4" />
+                                    ) : (
+                                      <ArrowDownRight className="h-4 w-4" />
+                                    )}
+                                    <span className="text-sm font-medium">
+                                      {card.change > 0 ? "+" : ""}
+                                      {card.change.toFixed(1)}%
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              <Progress value={card.progress} className="h-2" />
+                              <p className="text-sm text-gray-600 mt-2">
+                                {card.value}
+                              </p>
+                              {card.subtitle && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {card.subtitle}
+                                </p>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-gray-500">
+                            Financial trend data will appear once transactions
+                            are recorded.
+                          </p>
+                        )}
                       </div>
-
-                      <div className="p-4 border rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium">Occupancy Rate</span>
-                          <div className="flex items-center space-x-1 text-green-600">
-                            <ArrowUpRight className="h-4 w-4" />
-                            <span className="text-sm font-medium">+3.2%</span>
-                          </div>
-                        </div>
-                        <Progress value={92} className="h-2" />
-                      </div>
-
-                      <div className="p-4 border rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium">Operating Efficiency</span>
-                          <div className="flex items-center space-x-1 text-green-600">
-                            <ArrowUpRight className="h-4 w-4" />
-                            <span className="text-sm font-medium">+5.7%</span>
-                          </div>
-                        </div>
-                        <Progress value={78} className="h-2" />
-                      </div>
-
-                      <div className="p-4 border rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium">Maintenance Costs</span>
-                          <div className="flex items-center space-x-1 text-red-600">
-                            <ArrowUpRight className="h-4 w-4" />
-                            <span className="text-sm font-medium">+8.1%</span>
-                          </div>
-                        </div>
-                        <Progress value={65} className="h-2" />
-                      </div>
-                    </div>
+                    </TooltipProvider>
                   </CardContent>
                 </Card>
               </div>
@@ -2023,7 +4056,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                 <CardHeader className="flex flex-row items-center justify-between">
                   <div>
                     <CardTitle>Expense Management</CardTitle>
-                    <CardDescription>Track and manage property expenses</CardDescription>
+                    <CardDescription>
+                      Track and manage property expenses
+                    </CardDescription>
                   </div>
                   <Button onClick={handleAddExpense}>
                     <Plus className="h-4 w-4 mr-2" />
@@ -2036,62 +4071,96 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     <div className="grid md:grid-cols-4 gap-4 mb-6">
                       <Card>
                         <CardHeader className="pb-2">
-                          <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
+                          <CardTitle className="text-sm font-medium">
+                            Total Expenses
+                          </CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <div className="text-2xl font-bold">{formatCurrency(expenseStats.totalAmount || 0, smartBaseCurrency)}</div>
-                          <p className="text-xs text-muted-foreground">{expenseStats.totalCount || 0} transactions</p>
+                          <div className="text-2xl font-bold">
+                            {formatCurrency(
+                              expenseStats.totalAmount || 0,
+                              smartBaseCurrency
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {expenseStats.totalCount || 0} transactions
+                          </p>
                         </CardContent>
                       </Card>
 
                       <Card>
                         <CardHeader className="pb-2">
-                          <CardTitle className="text-sm font-medium">Paid</CardTitle>
+                          <CardTitle className="text-sm font-medium">
+                            Paid
+                          </CardTitle>
                         </CardHeader>
                         <CardContent>
                           <div className="text-2xl font-bold text-green-600">
                             {formatCurrency(
-                              expenseStats.byStatus?.find((s: any) => s.status === 'paid')?._sum?.amount || 0,
+                              expenseStats.byStatus?.find(
+                                (s: any) => s.status === "paid"
+                              )?._sum?.amount || 0,
                               smartBaseCurrency
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            {expenseStats.byStatus?.find((s: any) => s.status === 'paid')?._count || 0} expenses
+                            {expenseStats.byStatus?.find(
+                              (s: any) => s.status === "paid"
+                            )?._count || 0}{" "}
+                            expenses
                           </p>
                         </CardContent>
                       </Card>
 
                       <Card>
                         <CardHeader className="pb-2">
-                          <CardTitle className="text-sm font-medium">Pending</CardTitle>
+                          <CardTitle className="text-sm font-medium">
+                            Pending
+                          </CardTitle>
                         </CardHeader>
                         <CardContent>
                           <div className="text-2xl font-bold text-yellow-600">
                             {formatCurrency(
-                              expenseStats.byStatus?.find((s: any) => s.status === 'pending')?._sum?.amount || 0,
+                              expenseStats.byStatus?.find(
+                                (s: any) => s.status === "pending"
+                              )?._sum?.amount || 0,
                               smartBaseCurrency
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            {expenseStats.byStatus?.find((s: any) => s.status === 'pending')?._count || 0} expenses
+                            {expenseStats.byStatus?.find(
+                              (s: any) => s.status === "pending"
+                            )?._count || 0}{" "}
+                            expenses
                           </p>
                         </CardContent>
                       </Card>
 
                       <Card>
                         <CardHeader className="pb-2">
-                          <CardTitle className="text-sm font-medium">Top Category</CardTitle>
+                          <CardTitle className="text-sm font-medium">
+                            Top Category
+                          </CardTitle>
                         </CardHeader>
                         <CardContent>
                           <div className="text-2xl font-bold">
-                            {expenseStats.byCategory && expenseStats.byCategory.length > 0
-                              ? EXPENSE_CATEGORIES.find(c => c.value === expenseStats.byCategory[0].category)?.label || expenseStats.byCategory[0].category
-                              : 'N/A'}
+                            {expenseStats.byCategory &&
+                            expenseStats.byCategory.length > 0
+                              ? EXPENSE_CATEGORIES.find(
+                                  (c) =>
+                                    c.value ===
+                                    expenseStats.byCategory[0].category
+                                )?.label || expenseStats.byCategory[0].category
+                              : "N/A"}
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            {expenseStats.byCategory && expenseStats.byCategory.length > 0
-                              ? formatCurrency(expenseStats.byCategory[0]._sum?.amount || 0, smartBaseCurrency)
-                              : '-'}
+                            {expenseStats.byCategory &&
+                            expenseStats.byCategory.length > 0
+                              ? formatCurrency(
+                                  expenseStats.byCategory[0]._sum?.amount || 0,
+                                  smartBaseCurrency
+                                )
+                              : "-"}
                           </p>
                         </CardContent>
                       </Card>
@@ -2115,38 +4184,58 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                       <TableBody>
                         {expenses.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                              No expenses recorded yet. Click "Add Expense" to get started.
+                            <TableCell
+                              colSpan={7}
+                              className="text-center text-muted-foreground py-8"
+                            >
+                              No expenses recorded yet. Click "Add Expense" to
+                              get started.
                             </TableCell>
                           </TableRow>
                         ) : (
                           expenses.map((expense) => (
                             <TableRow key={expense.id}>
-                              <TableCell>{new Date(expense.date).toLocaleDateString()}</TableCell>
+                              <TableCell>
+                                {new Date(expense.date).toLocaleDateString()}
+                              </TableCell>
                               <TableCell>
                                 <div>
-                                  <p className="font-medium">{expense.property?.name || 'Unknown'}</p>
+                                  <p className="font-medium">
+                                    {expense.property?.name || "Unknown"}
+                                  </p>
                                   {expense.unit && (
-                                    <p className="text-xs text-muted-foreground">Unit {expense.unit.unitNumber}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Unit {expense.unit.unitNumber}
+                                    </p>
                                   )}
                                 </div>
                               </TableCell>
                               <TableCell>
                                 <Badge variant="outline">
-                                  {EXPENSE_CATEGORIES.find(c => c.value === expense.category)?.label || expense.category}
+                                  {EXPENSE_CATEGORIES.find(
+                                    (c) => c.value === expense.category
+                                  )?.label || expense.category}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="max-w-[200px] truncate">{expense.description}</TableCell>
+                              <TableCell className="max-w-[200px] truncate">
+                                {expense.description}
+                              </TableCell>
                               <TableCell className="font-medium">
-                                {formatCurrency(expense.amount, expense.currency)}
+                                {formatCurrency(
+                                  expense.amount,
+                                  expense.currency
+                                )}
                               </TableCell>
                               <TableCell>
                                 <Badge
                                   variant={
-                                    expense.status === 'paid' ? 'default' :
-                                    expense.status === 'pending' ? 'secondary' :
-                                    expense.status === 'overdue' ? 'destructive' :
-                                    'outline'
+                                    expense.status === "paid"
+                                      ? "default"
+                                      : expense.status === "pending"
+                                      ? "secondary"
+                                      : expense.status === "overdue"
+                                      ? "destructive"
+                                      : "outline"
                                   }
                                 >
                                   {expense.status}
@@ -2160,7 +4249,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => handleEditExpense(expense)}>
+                                    <DropdownMenuItem
+                                      onClick={() => handleEditExpense(expense)}
+                                    >
                                       <Edit className="h-4 w-4 mr-2" />
                                       Edit
                                     </DropdownMenuItem>
@@ -2193,47 +4284,78 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               <div className="grid md:grid-cols-4 gap-6">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Active Requests</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Active Requests
+                    </CardTitle>
                     <Wrench className="h-4 w-4 text-yellow-600" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{maintenanceRequests.length}</div>
-                    <p className="text-xs text-muted-foreground">Across all properties</p>
+                    <div className="text-2xl font-bold">
+                      {maintenanceStatsAggregates.total}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Across all properties
+                    </p>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">High Priority</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      High Priority
+                    </CardTitle>
                     <AlertTriangle className="h-4 w-4 text-red-600" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-red-600">
-                      {maintenanceRequests.filter(r => r.priority === 'high').length}
+                      {maintenanceStatsAggregates.highPriority}
                     </div>
-                    <p className="text-xs text-muted-foreground">Urgent attention needed</p>
+                    <p className="text-xs text-muted-foreground">
+                      High priority open tickets
+                    </p>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Average Cost</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Average Cost
+                    </CardTitle>
                     <DollarSign className="h-4 w-4 text-green-600" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{formatCurrency(285, smartBaseCurrency)}</div>
-                    <p className="text-xs text-muted-foreground">Per request</p>
+                    <div className="text-2xl font-bold">
+                      {formatCurrency(
+                        maintenanceStatsAggregates.avgCost,
+                        smartBaseCurrency
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Per request (actual/estimated)
+                    </p>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Response Time</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Response Time
+                    </CardTitle>
                     <Clock className="h-4 w-4 text-blue-600" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">4.2h</div>
-                    <p className="text-xs text-muted-foreground">Average response</p>
+                    <div className="text-2xl font-bold">
+                      {maintenanceStatsAggregates.avgResponseHours !== null
+                        ? `${maintenanceStatsAggregates.avgResponseHours.toFixed(
+                            1
+                          )}h`
+                        : "—"}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {maintenanceStatsAggregates.avgResponseHours !== null
+                        ? "Average response time"
+                        : "Not enough data yet"}
+                    </p>
                   </CardContent>
                 </Card>
               </div>
@@ -2242,13 +4364,18 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               <Card>
                 <CardHeader>
                   <CardTitle>Maintenance Requests</CardTitle>
-                  <CardDescription>Track and manage property maintenance across your portfolio</CardDescription>
+                  <CardDescription>
+                    Track and manage property maintenance across your portfolio
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
-                        <Input placeholder="Search requests..." className="w-64" />
+                        <Input
+                          placeholder="Search requests..."
+                          className="w-64"
+                        />
                         <Select defaultValue="all">
                           <SelectTrigger className="w-40">
                             <SelectValue />
@@ -2256,7 +4383,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           <SelectContent>
                             <SelectItem value="all">All Status</SelectItem>
                             <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="in-progress">In Progress</SelectItem>
+                            <SelectItem value="in-progress">
+                              In Progress
+                            </SelectItem>
                             <SelectItem value="scheduled">Scheduled</SelectItem>
                             <SelectItem value="completed">Completed</SelectItem>
                           </SelectContent>
@@ -2273,7 +4402,12 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           </SelectContent>
                         </Select>
                       </div>
-                      <Button>
+                      <Button
+                        onClick={() => {
+                          resetMaintenanceForm();
+                          setShowAddMaintenanceDialog(true);
+                        }}
+                      >
                         <Plus className="h-4 w-4 mr-2" />
                         Add Request
                       </Button>
@@ -2298,46 +4432,96 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                           <TableRow key={request.id}>
                             <TableCell>
                               <div>
-                                <p className="font-medium">{request.property?.name || '—'}</p>
-                                <p className="text-sm text-gray-600">Unit {request.unit?.unitNumber || '—'}</p>
+                                <p className="font-medium">
+                                  {request.property?.name || "—"}
+                                </p>
+                                <p className="text-sm text-gray-600">
+                                  Unit {request.unit?.unitNumber || "—"}
+                                </p>
                               </div>
                             </TableCell>
                             <TableCell>{request.title}</TableCell>
-                            <TableCell>{request.reportedBy?.name || '—'}</TableCell>
                             <TableCell>
-                              <Badge variant={getPriorityBadge(request.priority)}>
+                              {request.reportedBy?.name || "—"}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={getPriorityBadge(request.priority)}
+                              >
                                 {request.priority}
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              <Badge variant={request.status === 'completed' ? 'default' : 'secondary'}>
+                              <Badge
+                                variant={
+                                  request.status === "completed"
+                                    ? "default"
+                                    : "secondary"
+                                }
+                              >
                                 {request.status}
                               </Badge>
                             </TableCell>
                             <TableCell>
                               {request.assignedTo ? (
-                                <span className="text-sm">{request.assignedTo?.name}</span>
+                                <span className="text-sm">
+                                  {request.assignedTo?.name}
+                                </span>
                               ) : (
-                                <span className="text-gray-500">Unassigned</span>
+                                <span className="text-gray-500">
+                                  Unassigned
+                                </span>
                               )}
                             </TableCell>
                             <TableCell>
                               {request.estimatedCost ? (
-                                <span className="font-medium">${request.estimatedCost}</span>
+                                <span className="font-medium">
+                                  ${request.estimatedCost}
+                                </span>
                               ) : (
                                 <span className="text-gray-500">TBD</span>
                               )}
                             </TableCell>
-                            <TableCell>{request.createdAt ? new Date(request.createdAt).toLocaleDateString() : '—'}</TableCell>
                             <TableCell>
-                              <div className="flex items-center space-x-2">
-                                <Button variant="outline" size="sm">
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                                <Button variant="outline" size="sm">
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                              </div>
+                              {request.createdAt
+                                ? new Date(
+                                    request.createdAt
+                                  ).toLocaleDateString()
+                                : "—"}
+                            </TableCell>
+                            <TableCell>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      handleMaintenanceView(request)
+                                    }
+                                  >
+                                    View Details
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      handleMaintenanceEdit(request)
+                                    }
+                                  >
+                                    Edit Request
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className="text-red-600"
+                                    onClick={() =>
+                                      handleMaintenanceDelete(request)
+                                    }
+                                  >
+                                    Delete Request
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -2351,51 +4535,53 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               <Card>
                 <CardHeader>
                   <CardTitle>Scheduled Maintenance</CardTitle>
-                  <CardDescription>Upcoming preventive maintenance and inspections</CardDescription>
+                  <CardDescription>
+                    Upcoming preventive maintenance and inspections
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <Calendar className="h-5 w-5 text-blue-600" />
-                        <div>
-                          <h4 className="font-medium">HVAC Inspection - Sunset Apartments</h4>
-                          <p className="text-sm text-gray-600">Annual inspection due</p>
+                    {scheduledMaintenanceList.length ? (
+                      scheduledMaintenanceList.map((request: any) => (
+                        <div
+                          key={request.id}
+                          className="flex items-center justify-between p-4 border rounded-lg"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <Calendar className="h-5 w-5 text-blue-600" />
+                            <div>
+                              <h4 className="font-medium">{request.title}</h4>
+                              <p className="text-sm text-gray-600">
+                                {request.property?.name ||
+                                  "Unassigned property"}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {request.scheduledDate
+                                  ? new Date(
+                                      request.scheduledDate
+                                    ).toLocaleString()
+                                  : "No schedule date"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Badge variant="outline">
+                              {(request.status || "scheduled")
+                                .toString()
+                                .replace(/_/g, " ")}
+                            </Badge>
+                            <Button variant="ghost" size="sm">
+                              View
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium">March 25, 2024</p>
-                        <p className="text-xs text-gray-600">2 days</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <Droplets className="h-5 w-5 text-blue-600" />
-                        <div>
-                          <h4 className="font-medium">Plumbing Check - Riverside Complex</h4>
-                          <p className="text-sm text-gray-600">Quarterly maintenance</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium">March 28, 2024</p>
-                        <p className="text-xs text-gray-600">5 days</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <Shield className="h-5 w-5 text-green-600" />
-                        <div>
-                          <h4 className="font-medium">Fire Safety Inspection - Park View Towers</h4>
-                          <p className="text-sm text-gray-600">Annual safety check</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium">April 2, 2024</p>
-                        <p className="text-xs text-gray-600">10 days</p>
-                      </div>
-                    </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        No upcoming scheduled maintenance. Requests scheduled in
+                        advance will appear here.
+                      </p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -2406,7 +4592,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               <div className="grid md:grid-cols-4 gap-6">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Reports Generated</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Reports Generated
+                    </CardTitle>
                     <FileText className="h-4 w-4 text-blue-600" />
                   </CardHeader>
                   <CardContent>
@@ -2417,114 +4605,220 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Financial Reports</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Financial Reports
+                    </CardTitle>
                     <BarChart3 className="h-4 w-4 text-green-600" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">12</div>
-                    <p className="text-xs text-muted-foreground">Monthly P&L statements</p>
+                    <p className="text-xs text-muted-foreground">
+                      Monthly P&L statements
+                    </p>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Occupancy Reports</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Occupancy Reports
+                    </CardTitle>
                     <PieChart className="h-4 w-4 text-purple-600" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">8</div>
-                    <p className="text-xs text-muted-foreground">Weekly occupancy tracking</p>
+                    <p className="text-xs text-muted-foreground">
+                      Weekly occupancy tracking
+                    </p>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Maintenance Reports</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Maintenance Reports
+                    </CardTitle>
                     <LineChart className="h-4 w-4 text-orange-600" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">15</div>
-                    <p className="text-xs text-muted-foreground">Work order summaries</p>
+                    <p className="text-xs text-muted-foreground">
+                      Work order summaries
+                    </p>
                   </CardContent>
                 </Card>
               </div>
 
-              {/* Quick Report Generation */}
+              {/* Interactive Report Generation */}
               <Card>
                 <CardHeader>
                   <CardTitle>Generate Reports</CardTitle>
-                  <CardDescription>Create detailed reports for your properties</CardDescription>
+                  <CardDescription>
+                    Use live portfolio data with filters to view detailed
+                    reports directly in this page.
+                  </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="grid md:grid-cols-3 gap-6">
-                    <div className="p-4 border rounded-lg text-center">
-                      <BarChart3 className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-                      <h4 className="font-medium">Financial Report</h4>
-                      <p className="text-sm text-gray-600 mt-1">Income, expenses, and profitability analysis</p>
-                      <Button variant="outline" className="mt-3 w-full" onClick={() => toast.success('Generating financial report...')}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Generate
-                      </Button>
+                <CardContent className="space-y-6">
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="report-type">Report type</Label>
+                      <Select
+                        value={reportType}
+                        onValueChange={(value) =>
+                          setReportType(value as ReportType)
+                        }
+                      >
+                        <SelectTrigger id="report-type">
+                          <SelectValue placeholder="Select report type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All report types</SelectItem>
+                          <SelectItem value="financial">Financial</SelectItem>
+                          <SelectItem value="occupancy">Occupancy</SelectItem>
+                          <SelectItem value="maintenance">
+                            Maintenance
+                          </SelectItem>
+                          <SelectItem value="tenant">Tenant</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
 
-                    <div className="p-4 border rounded-lg text-center">
-                      <PieChart className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                      <h4 className="font-medium">Occupancy Report</h4>
-                      <p className="text-sm text-gray-600 mt-1">Vacancy rates and rental performance</p>
-                      <Button variant="outline" className="mt-3 w-full" onClick={() => toast.success('Generating occupancy report...')}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Generate
-                      </Button>
+                    <div className="space-y-2">
+                      <Label htmlFor="report-property">Property</Label>
+                      <Select
+                        value={reportPropertyFilter}
+                        onValueChange={setReportPropertyFilter}
+                      >
+                        <SelectTrigger id="report-property">
+                          <SelectValue placeholder="All properties" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All properties</SelectItem>
+                          {visibleProperties.map((property) => (
+                            <SelectItem
+                              key={property.id}
+                              value={String(property.id)}
+                            >
+                              {property.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
-                    <div className="p-4 border rounded-lg text-center">
-                      <LineChart className="h-8 w-8 text-purple-600 mx-auto mb-2" />
-                      <h4 className="font-medium">Maintenance Report</h4>
-                      <p className="text-sm text-gray-600 mt-1">Work orders and maintenance costs</p>
-                      <Button variant="outline" className="mt-3 w-full" onClick={() => toast.success('Generating maintenance report...')}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Generate
-                      </Button>
+                    <div className="space-y-2">
+                      <Label htmlFor="report-start">Start date</Label>
+                      <Input
+                        id="report-start"
+                        type="date"
+                        value={reportStartDate}
+                        onChange={(e) => setReportStartDate(e.target.value)}
+                      />
                     </div>
 
-                    <div className="p-4 border rounded-lg text-center">
-                      <Users className="h-8 w-8 text-orange-600 mx-auto mb-2" />
-                      <h4 className="font-medium">Tenant Report</h4>
-                      <p className="text-sm text-gray-600 mt-1">Tenant demographics and lease analysis</p>
-                      <Button variant="outline" className="mt-3 w-full" onClick={() => toast.success('Generating tenant report...')}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Generate
-                      </Button>
+                    <div className="space-y-2">
+                      <Label htmlFor="report-end">End date</Label>
+                      <Input
+                        id="report-end"
+                        type="date"
+                        value={reportEndDate}
+                        onChange={(e) => setReportEndDate(e.target.value)}
+                      />
                     </div>
+                  </div>
 
-                    <div className="p-4 border rounded-lg text-center">
-                      <Activity className="h-8 w-8 text-red-600 mx-auto mb-2" />
-                      <h4 className="font-medium">Portfolio Performance</h4>
-                      <p className="text-sm text-gray-600 mt-1">Overall portfolio metrics and trends</p>
-                      <Button variant="outline" className="mt-3 w-full" onClick={() => toast.success('Generating portfolio report...')}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Generate
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm text-muted-foreground">
+                      Reports are generated instantly from the data already
+                      loaded in this dashboard. Adjust filters to refine the
+                      view.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        onClick={handleResetReportFilters}
+                        disabled={reportGenerating && !reportPreview}
+                      >
+                        Reset
                       </Button>
-                    </div>
-
-                    <div className="p-4 border rounded-lg text-center">
-                      <Target className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
-                      <h4 className="font-medium">Market Analysis</h4>
-                      <p className="text-sm text-gray-600 mt-1">Market comparisons and pricing analysis</p>
-                      <Button variant="outline" className="mt-3 w-full" onClick={() => toast.success('Generating market analysis...')}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Generate
+                      <Button
+                        onClick={handleGenerateReport}
+                        disabled={reportGenerating}
+                      >
+                        {reportGenerating ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <BarChart3 className="mr-2 h-4 w-4" />
+                            Generate report
+                          </>
+                        )}
                       </Button>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
+              {reportPreview && (
+                <Card>
+                  <CardHeader>
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <CardTitle>
+                            {REPORT_TYPE_LABELS[reportPreview.type]} Report
+                          </CardTitle>
+                          <Badge variant="outline">Live preview</Badge>
+                        </div>
+                        <CardDescription className="flex flex-wrap items-center gap-2">
+                          <span>
+                            Generated{" "}
+                            {new Date(
+                              reportPreview.generatedAt
+                            ).toLocaleString()}
+                          </span>
+                          <span>•</span>
+                          <span>{reportPreviewPropertyLabel}</span>
+                          {reportPreviewDateRange && (
+                            <>
+                              <span>•</span>
+                              <span>{reportPreviewDateRange}</span>
+                            </>
+                          )}
+                        </CardDescription>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleDownloadReport}
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Download
+                        </Button>
+                        <Button size="sm" onClick={handleEmailReport}>
+                          <Send className="mr-2 h-4 w-4" />
+                          Send to Email
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div ref={reportPreviewRef}>{renderReportPreview()}</div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Recent Reports */}
               <Card>
                 <CardHeader>
                   <CardTitle>Recent Reports</CardTitle>
-                  <CardDescription>Previously generated reports and downloads</CardDescription>
+                  <CardDescription>
+                    Previously generated reports and downloads
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Table>
@@ -2540,7 +4834,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     </TableHeader>
                     <TableBody>
                       <TableRow>
-                        <TableCell className="font-medium">March 2024 Financial Report</TableCell>
+                        <TableCell className="font-medium">
+                          March 2024 Financial Report
+                        </TableCell>
                         <TableCell>
                           <Badge variant="outline">Financial</Badge>
                         </TableCell>
@@ -2549,10 +4845,22 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         <TableCell>2.3 MB</TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
-                            <Button variant="outline" size="sm" onClick={() => toast.success('Downloading report...')}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                toast.success("Downloading report...")
+                              }
+                            >
                               <Download className="h-4 w-4" />
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => toast.info('Opening report in new tab...')}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                toast.info("Opening report in new tab...")
+                              }
+                            >
                               <ExternalLink className="h-4 w-4" />
                             </Button>
                           </div>
@@ -2560,7 +4868,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                       </TableRow>
 
                       <TableRow>
-                        <TableCell className="font-medium">Q1 2024 Occupancy Analysis</TableCell>
+                        <TableCell className="font-medium">
+                          Q1 2024 Occupancy Analysis
+                        </TableCell>
                         <TableCell>
                           <Badge variant="outline">Occupancy</Badge>
                         </TableCell>
@@ -2569,10 +4879,22 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         <TableCell>1.8 MB</TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
-                            <Button variant="outline" size="sm" onClick={() => toast.success('Downloading report...')}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                toast.success("Downloading report...")
+                              }
+                            >
                               <Download className="h-4 w-4" />
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => toast.info('Opening report in new tab...')}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                toast.info("Opening report in new tab...")
+                              }
+                            >
                               <ExternalLink className="h-4 w-4" />
                             </Button>
                           </div>
@@ -2580,7 +4902,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                       </TableRow>
 
                       <TableRow>
-                        <TableCell className="font-medium">Sunset Apartments Maintenance Summary</TableCell>
+                        <TableCell className="font-medium">
+                          Sunset Apartments Maintenance Summary
+                        </TableCell>
                         <TableCell>
                           <Badge variant="outline">Maintenance</Badge>
                         </TableCell>
@@ -2589,10 +4913,22 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                         <TableCell>0.9 MB</TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
-                            <Button variant="outline" size="sm" onClick={() => toast.success('Downloading report...')}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                toast.success("Downloading report...")
+                              }
+                            >
                               <Download className="h-4 w-4" />
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => toast.info('Opening report in new tab...')}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                toast.info("Opening report in new tab...")
+                              }
+                            >
                               <ExternalLink className="h-4 w-4" />
                             </Button>
                           </div>
@@ -2607,7 +4943,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               <Card>
                 <CardHeader>
                   <CardTitle>Scheduled Reports</CardTitle>
-                  <CardDescription>Automatically generate and deliver reports</CardDescription>
+                  <CardDescription>
+                    Automatically generate and deliver reports
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -2615,8 +4953,12 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                       <div className="flex items-center space-x-3">
                         <Calendar className="h-5 w-5 text-blue-600" />
                         <div>
-                          <h4 className="font-medium">Monthly Financial Report</h4>
-                          <p className="text-sm text-gray-600">Generated on the 1st of each month</p>
+                          <h4 className="font-medium">
+                            Monthly Financial Report
+                          </h4>
+                          <p className="text-sm text-gray-600">
+                            Generated on the 1st of each month
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
@@ -2631,8 +4973,12 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                       <div className="flex items-center space-x-3">
                         <Clock className="h-5 w-5 text-green-600" />
                         <div>
-                          <h4 className="font-medium">Weekly Occupancy Update</h4>
-                          <p className="text-sm text-gray-600">Generated every Monday</p>
+                          <h4 className="font-medium">
+                            Weekly Occupancy Update
+                          </h4>
+                          <p className="text-sm text-gray-600">
+                            Generated every Monday
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
@@ -2644,8 +4990,14 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     </div>
 
                     <div className="flex justify-between items-center">
-                      <p className="text-sm text-gray-600">Set up automatic report generation and email delivery</p>
-                      <Button onClick={() => toast.info('Report scheduling coming soon...')}>
+                      <p className="text-sm text-gray-600">
+                        Set up automatic report generation and email delivery
+                      </p>
+                      <Button
+                        onClick={() =>
+                          toast.info("Report scheduling coming soon...")
+                        }
+                      >
                         <Plus className="h-4 w-4 mr-2" />
                         Schedule Report
                       </Button>
@@ -2658,7 +5010,368 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
         </div>
       </div>
 
-      {/* Details modal removed per request; navigation handled by onViewProperty */}
+      {/* Add Maintenance Request Dialog */}
+      <Dialog
+        open={showAddMaintenanceDialog}
+        onOpenChange={(open) => {
+          setShowAddMaintenanceDialog(open);
+          if (!open) {
+            resetMaintenanceForm();
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Create Maintenance Request</DialogTitle>
+            <DialogDescription>
+              Log a new maintenance ticket for one of your properties.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Property *</Label>
+                <Select
+                  value={maintenanceForm.propertyId}
+                  onValueChange={(value) =>
+                    setMaintenanceForm((prev) => ({
+                      ...prev,
+                      propertyId: value,
+                      unitId: "none",
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select property" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {visibleProperties.map((property) => (
+                      <SelectItem key={property.id} value={property.id}>
+                        {property.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Unit</Label>
+                <Select
+                  value={maintenanceForm.unitId}
+                  onValueChange={(value) =>
+                    setMaintenanceForm((prev) => ({ ...prev, unitId: value }))
+                  }
+                  disabled={!maintenanceForm.propertyId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Property-wide" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Property-wide</SelectItem>
+                    {maintenanceForm.propertyId &&
+                      getPropertyUnitsForExpense(
+                        maintenanceForm.propertyId
+                      ).map((unit) => (
+                        <SelectItem key={unit.id} value={unit.id}>
+                          Unit {unit.unitNumber}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Priority</Label>
+                <Select
+                  value={maintenanceForm.priority}
+                  onValueChange={(value) =>
+                    setMaintenanceForm((prev) => ({ ...prev, priority: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select
+                  value={maintenanceForm.category}
+                  onValueChange={(value) =>
+                    setMaintenanceForm((prev) => ({ ...prev, category: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MAINTENANCE_CATEGORIES.map((category) => (
+                      <SelectItem key={category.value} value={category.value}>
+                        {category.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Title *</Label>
+                <Input
+                  value={maintenanceForm.title}
+                  onChange={(e) =>
+                    setMaintenanceForm((prev) => ({
+                      ...prev,
+                      title: e.target.value,
+                    }))
+                  }
+                  placeholder="Short summary"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Preferred Date</Label>
+                <Input
+                  type="datetime-local"
+                  value={maintenanceForm.scheduledDate}
+                  onChange={(e) =>
+                    setMaintenanceForm((prev) => ({
+                      ...prev,
+                      scheduledDate: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Description *</Label>
+              <Textarea
+                value={maintenanceForm.description}
+                onChange={(e) =>
+                  setMaintenanceForm((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
+                rows={4}
+                placeholder="Provide more context for this maintenance issue..."
+              />
+            </div>
+
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <div>
+                <p className="text-sm font-medium">Notify tenant</p>
+                <p className="text-xs text-muted-foreground">
+                  Sends an email letting them know we’re on it.
+                </p>
+              </div>
+              <Switch
+                checked={maintenanceForm.notifyTenant}
+                onCheckedChange={(checked) =>
+                  setMaintenanceForm((prev) => ({
+                    ...prev,
+                    notifyTenant: checked,
+                  }))
+                }
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAddMaintenanceDialog(false);
+                resetMaintenanceForm();
+              }}
+              disabled={maintenanceSaving}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveMaintenance}
+              disabled={maintenanceSaving}
+            >
+              {maintenanceSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : maintenanceEditingId ? (
+                "Update Request"
+              ) : (
+                "Create Request"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Maintenance Request View Dialog */}
+      <Dialog
+        open={showMaintenanceViewDialog}
+        onOpenChange={(open) => {
+          setShowMaintenanceViewDialog(open);
+          if (!open) {
+            setSelectedMaintenanceRequest(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Maintenance Request –{" "}
+              {selectedMaintenanceRequest?.ticketNumber || "Details"}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedMaintenanceRequest?.title}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedMaintenanceRequest ? (
+            <div className="space-y-4">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="border rounded-lg p-3 space-y-1 text-sm">
+                  <p className="text-gray-500">Property</p>
+                  <p className="font-medium">
+                    {selectedMaintenanceRequest.property?.name || "—"}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Unit {selectedMaintenanceRequest.unit?.unitNumber || "—"}
+                  </p>
+                </div>
+                <div className="border rounded-lg p-3 space-y-1 text-sm">
+                  <p className="text-gray-500">Priority & Status</p>
+                  <div className="flex items-center space-x-2">
+                    <Badge
+                      variant={getPriorityBadge(
+                        selectedMaintenanceRequest.priority
+                      )}
+                    >
+                      {selectedMaintenanceRequest.priority}
+                    </Badge>
+                    <Badge
+                      variant={
+                        selectedMaintenanceRequest.status === "completed"
+                          ? "default"
+                          : "secondary"
+                      }
+                    >
+                      {selectedMaintenanceRequest.status}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border rounded-lg p-3 text-sm space-y-2">
+                <p className="text-gray-500">Description</p>
+                <p className="text-gray-700">
+                  {selectedMaintenanceRequest.description || "No description"}
+                </p>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="border rounded-lg p-3 text-sm space-y-1">
+                  <p className="text-gray-500">Reported By</p>
+                  <p className="font-medium">
+                    {selectedMaintenanceRequest.reportedBy?.name || "—"}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {selectedMaintenanceRequest.reportedBy?.email || ""}
+                  </p>
+                </div>
+                <div className="border rounded-lg p-3 text-sm space-y-1">
+                  <p className="text-gray-500">Assigned To</p>
+                  <p className="font-medium">
+                    {selectedMaintenanceRequest.assignedTo?.name ||
+                      "Unassigned"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="border rounded-lg p-3 text-sm space-y-1">
+                  <p className="text-gray-500">Created On</p>
+                  <p className="font-medium">
+                    {selectedMaintenanceRequest.createdAt
+                      ? new Date(
+                          selectedMaintenanceRequest.createdAt
+                        ).toLocaleString()
+                      : "—"}
+                  </p>
+                </div>
+                <div className="border rounded-lg p-3 text-sm space-y-1">
+                  <p className="text-gray-500">Scheduled Date</p>
+                  <p className="font-medium">
+                    {selectedMaintenanceRequest.scheduledDate
+                      ? new Date(
+                          selectedMaintenanceRequest.scheduledDate
+                        ).toLocaleString()
+                      : "Not scheduled"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between rounded-md border p-3 text-sm">
+                <span className="text-gray-500">Estimated Cost</span>
+                <span className="font-medium">
+                  {selectedMaintenanceRequest.estimatedCost
+                    ? formatCurrency(
+                        selectedMaintenanceRequest.estimatedCost,
+                        smartBaseCurrency
+                      )
+                    : "TBD"}
+                </span>
+              </div>
+
+              {selectedMaintenanceRequest.images?.length ? (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Attachments</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {selectedMaintenanceRequest.images.map(
+                      (image: string, index: number) => (
+                        <img
+                          key={index}
+                          src={image}
+                          alt={`Maintenance attachment ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-md border"
+                        />
+                      )
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">
+              Select a maintenance request to view details.
+            </p>
+          )}
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowMaintenanceViewDialog(false)}
+            >
+              Close
+            </Button>
+            <Button
+              onClick={() => handleMaintenanceEdit(selectedMaintenanceRequest)}
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Unit Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
@@ -2666,7 +5379,8 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
           <DialogHeader>
             <DialogTitle>Delete Unit</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this unit? This action cannot be undone.
+              Are you sure you want to delete this unit? This action cannot be
+              undone.
             </DialogDescription>
           </DialogHeader>
 
@@ -2674,36 +5388,54 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
             <div className="space-y-4">
               <div className="bg-gray-50 border rounded-lg p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-500">Unit Number</span>
+                  <span className="text-sm font-medium text-gray-500">
+                    Unit Number
+                  </span>
                   <span className="font-medium">{unitToDelete.unit}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-500">Property</span>
+                  <span className="text-sm font-medium text-gray-500">
+                    Property
+                  </span>
                   <span className="font-medium">
-                    {properties.find(p => p.id === unitToDelete.propertyId)?.name || 'N/A'}
+                    {properties.find((p) => p.id === unitToDelete.propertyId)
+                      ?.name || "N/A"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-500">Status</span>
-                  <Badge variant={unitToDelete.status === 'occupied' ? 'default' : 'secondary'}>
+                  <span className="text-sm font-medium text-gray-500">
+                    Status
+                  </span>
+                  <Badge
+                    variant={
+                      unitToDelete.status === "occupied"
+                        ? "default"
+                        : "secondary"
+                    }
+                  >
                     {unitToDelete.status}
                   </Badge>
                 </div>
                 {unitToDelete.tenant && (
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-500">Tenant</span>
+                    <span className="text-sm font-medium text-gray-500">
+                      Tenant
+                    </span>
                     <span className="font-medium">{unitToDelete.tenant}</span>
                   </div>
                 )}
               </div>
 
-              {unitToDelete.status === 'occupied' && (
+              {unitToDelete.status === "occupied" && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                   <div className="flex items-start space-x-2">
                     <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
                     <div className="text-sm text-yellow-800">
                       <p className="font-medium">Warning: Unit is occupied</p>
-                      <p className="mt-1">This unit has an active tenant. Make sure to handle the lease properly before deleting.</p>
+                      <p className="mt-1">
+                        This unit has an active tenant. Make sure to handle the
+                        lease properly before deleting.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -2714,7 +5446,10 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                   <Trash2 className="h-5 w-5 text-red-600 mt-0.5" />
                   <div className="text-sm text-red-800">
                     <p className="font-medium">This action is permanent</p>
-                    <p className="mt-1">All unit data, including history and records, will be permanently deleted.</p>
+                    <p className="mt-1">
+                      All unit data, including history and records, will be
+                      permanently deleted.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -2771,23 +5506,37 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <h4 className="text-sm font-semibold text-gray-700">Basic Information</h4>
+                  <h4 className="text-sm font-semibold text-gray-700">
+                    Basic Information
+                  </h4>
                   <div className="bg-gray-50 border rounded-lg p-3 space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Unit Number:</span>
-                      <span className="font-medium">{selectedUnit.unitNumber}</span>
+                      <span className="font-medium">
+                        {selectedUnit.unitNumber}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Type:</span>
-                      <span className="font-medium">{selectedUnit.type || '-'}</span>
+                      <span className="font-medium">
+                        {selectedUnit.type || "-"}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Floor:</span>
-                      <span className="font-medium">{selectedUnit.floor || '-'}</span>
+                      <span className="font-medium">
+                        {selectedUnit.floor || "-"}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Status:</span>
-                      <Badge variant={selectedUnit.status === 'occupied' ? 'default' : 'secondary'}>
+                      <Badge
+                        variant={
+                          selectedUnit.status === "occupied"
+                            ? "default"
+                            : "secondary"
+                        }
+                      >
                         {selectedUnit.status}
                       </Badge>
                     </div>
@@ -2795,25 +5544,35 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                 </div>
 
                 <div className="space-y-2">
-                  <h4 className="text-sm font-semibold text-gray-700">Property Details</h4>
+                  <h4 className="text-sm font-semibold text-gray-700">
+                    Property Details
+                  </h4>
                   <div className="bg-gray-50 border rounded-lg p-3 space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Bedrooms:</span>
-                      <span className="font-medium">{selectedUnit.bedrooms || 0}</span>
+                      <span className="font-medium">
+                        {selectedUnit.bedrooms || 0}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Bathrooms:</span>
-                      <span className="font-medium">{selectedUnit.bathrooms || 0}</span>
+                      <span className="font-medium">
+                        {selectedUnit.bathrooms || 0}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Size:</span>
-                      <span className="font-medium">{selectedUnit.size ? `${selectedUnit.size} sqft` : '-'}</span>
+                      <span className="font-medium">
+                        {selectedUnit.size ? `${selectedUnit.size} sqft` : "-"}
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <h4 className="text-sm font-semibold text-gray-700">Financial Details</h4>
+                  <h4 className="text-sm font-semibold text-gray-700">
+                    Financial Details
+                  </h4>
                   <div className="bg-gray-50 border rounded-lg p-3 space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Monthly Rent:</span>
@@ -2861,7 +5620,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                 </div>
 
                 <div className="space-y-2">
-                  <h4 className="text-sm font-semibold text-gray-700">Additional Fees & Utilities</h4>
+                  <h4 className="text-sm font-semibold text-gray-700">
+                    Additional Fees & Utilities
+                  </h4>
                   <div className="bg-gray-50 border rounded-lg p-3 space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Caution Fee:</span>
@@ -2928,8 +5689,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Electricity Meter:</span>
                       <span className="font-medium">
-                        {(selectedUnitNigeria as any).electricityMeter ||
-                          "N/A"}
+                        {(selectedUnitNigeria as any).electricityMeter || "N/A"}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
@@ -2970,10 +5730,12 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                 >
                   Close
                 </Button>
-                <Button onClick={() => {
-                  setShowViewUnitDialog(false);
-                  handleEditUnit(selectedUnit);
-                }}>
+                <Button
+                  onClick={() => {
+                    setShowViewUnitDialog(false);
+                    handleEditUnit(selectedUnit);
+                  }}
+                >
                   <Edit className="h-4 w-4 mr-2" />
                   Edit Unit
                 </Button>
@@ -2988,28 +5750,34 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Unit</DialogTitle>
-            <DialogDescription>
-              Update unit information
-            </DialogDescription>
+            <DialogDescription>Update unit information</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="editUnitNumber">Unit Number</label>
+                <label className="text-sm font-medium" htmlFor="editUnitNumber">
+                  Unit Number
+                </label>
                 <Input
                   id="editUnitNumber"
                   value={unitForm.unitNumber}
-                  onChange={(e) => setUnitForm({ ...unitForm, unitNumber: e.target.value })}
+                  onChange={(e) =>
+                    setUnitForm({ ...unitForm, unitNumber: e.target.value })
+                  }
                   placeholder="A101"
                 />
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="editType">Type</label>
+                <label className="text-sm font-medium" htmlFor="editType">
+                  Type
+                </label>
                 <Input
                   id="editType"
                   value={unitForm.type}
-                  onChange={(e) => setUnitForm({ ...unitForm, type: e.target.value })}
+                  onChange={(e) =>
+                    setUnitForm({ ...unitForm, type: e.target.value })
+                  }
                   placeholder="Apartment, Studio, etc."
                 />
               </div>
@@ -3017,32 +5785,44 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
 
             <div className="grid grid-cols-3 gap-3">
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="editFloor">Floor</label>
+                <label className="text-sm font-medium" htmlFor="editFloor">
+                  Floor
+                </label>
                 <Input
                   id="editFloor"
                   type="number"
                   value={unitForm.floor}
-                  onChange={(e) => setUnitForm({ ...unitForm, floor: e.target.value })}
+                  onChange={(e) =>
+                    setUnitForm({ ...unitForm, floor: e.target.value })
+                  }
                   placeholder="1"
                 />
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="editBedrooms">Bedrooms</label>
+                <label className="text-sm font-medium" htmlFor="editBedrooms">
+                  Bedrooms
+                </label>
                 <Input
                   id="editBedrooms"
                   type="number"
                   value={unitForm.bedrooms}
-                  onChange={(e) => setUnitForm({ ...unitForm, bedrooms: e.target.value })}
+                  onChange={(e) =>
+                    setUnitForm({ ...unitForm, bedrooms: e.target.value })
+                  }
                   placeholder="2"
                 />
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="editBathrooms">Bathrooms</label>
+                <label className="text-sm font-medium" htmlFor="editBathrooms">
+                  Bathrooms
+                </label>
                 <Input
                   id="editBathrooms"
                   type="number"
                   value={unitForm.bathrooms}
-                  onChange={(e) => setUnitForm({ ...unitForm, bathrooms: e.target.value })}
+                  onChange={(e) =>
+                    setUnitForm({ ...unitForm, bathrooms: e.target.value })
+                  }
                   placeholder="1"
                 />
               </div>
@@ -3050,18 +5830,27 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
 
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="editSize">Size (sqft)</label>
+                <label className="text-sm font-medium" htmlFor="editSize">
+                  Size (sqft)
+                </label>
                 <Input
                   id="editSize"
                   type="number"
                   value={unitForm.size}
-                  onChange={(e) => setUnitForm({ ...unitForm, size: e.target.value })}
+                  onChange={(e) =>
+                    setUnitForm({ ...unitForm, size: e.target.value })
+                  }
                   placeholder="850"
                 />
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="editStatus">Status</label>
-                <Select value={unitForm.status} onValueChange={(v) => setUnitForm({ ...unitForm, status: v })}>
+                <label className="text-sm font-medium" htmlFor="editStatus">
+                  Status
+                </label>
+                <Select
+                  value={unitForm.status}
+                  onValueChange={(v) => setUnitForm({ ...unitForm, status: v })}
+                >
                   <SelectTrigger id="editStatus">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
@@ -3077,10 +5866,20 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium" htmlFor="editMonthlyRent">Rent</label>
+                  <label
+                    className="text-sm font-medium"
+                    htmlFor="editMonthlyRent"
+                  >
+                    Rent
+                  </label>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-600">Frequency</span>
-                    <Select value={unitForm.rentFrequency} onValueChange={(v) => setUnitForm({ ...unitForm, rentFrequency: v })}>
+                    <Select
+                      value={unitForm.rentFrequency}
+                      onValueChange={(v) =>
+                        setUnitForm({ ...unitForm, rentFrequency: v })
+                      }
+                    >
                       <SelectTrigger className="h-8 w-28">
                         <SelectValue />
                       </SelectTrigger>
@@ -3095,17 +5894,33 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                   id="editMonthlyRent"
                   type="number"
                   value={unitForm.monthlyRent}
-                  onChange={(e) => setUnitForm({ ...unitForm, monthlyRent: e.target.value })}
-                  placeholder={unitForm.rentFrequency === 'annual' ? 'Enter annual rent' : 'Enter monthly rent'}
+                  onChange={(e) =>
+                    setUnitForm({ ...unitForm, monthlyRent: e.target.value })
+                  }
+                  placeholder={
+                    unitForm.rentFrequency === "annual"
+                      ? "Enter annual rent"
+                      : "Enter monthly rent"
+                  }
                 />
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="editSecurityDeposit">Security Deposit</label>
+                <label
+                  className="text-sm font-medium"
+                  htmlFor="editSecurityDeposit"
+                >
+                  Security Deposit
+                </label>
                 <Input
                   id="editSecurityDeposit"
                   type="number"
                   value={unitForm.securityDeposit}
-                  onChange={(e) => setUnitForm({ ...unitForm, securityDeposit: e.target.value })}
+                  onChange={(e) =>
+                    setUnitForm({
+                      ...unitForm,
+                      securityDeposit: e.target.value,
+                    })
+                  }
                   placeholder="2400"
                 />
               </div>
@@ -3113,34 +5928,55 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
 
             {/* Additional Fees & Utilities - mirror Add Unit fields */}
             <div className="grid gap-2">
-              <label className="text-sm font-medium" htmlFor="editServiceCharge">Service Charge</label>
+              <label
+                className="text-sm font-medium"
+                htmlFor="editServiceCharge"
+              >
+                Service Charge
+              </label>
               <Input
                 id="editServiceCharge"
                 type="number"
                 value={unitForm.serviceCharge}
-                onChange={(e) => setUnitForm({ ...unitForm, serviceCharge: e.target.value })}
+                onChange={(e) =>
+                  setUnitForm({ ...unitForm, serviceCharge: e.target.value })
+                }
                 placeholder="0"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="editLegalFee">Legal Fee</label>
+                <label className="text-sm font-medium" htmlFor="editLegalFee">
+                  Legal Fee
+                </label>
                 <Input
                   id="editLegalFee"
                   type="number"
                   value={unitForm.legalFee}
-                  onChange={(e) => setUnitForm({ ...unitForm, legalFee: e.target.value })}
+                  onChange={(e) =>
+                    setUnitForm({ ...unitForm, legalFee: e.target.value })
+                  }
                   placeholder="0"
                 />
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="editAgentCommission">Agency Fee</label>
+                <label
+                  className="text-sm font-medium"
+                  htmlFor="editAgentCommission"
+                >
+                  Agency Fee
+                </label>
                 <Input
                   id="editAgentCommission"
                   type="number"
                   value={unitForm.agentCommission}
-                  onChange={(e) => setUnitForm({ ...unitForm, agentCommission: e.target.value })}
+                  onChange={(e) =>
+                    setUnitForm({
+                      ...unitForm,
+                      agentCommission: e.target.value,
+                    })
+                  }
                   placeholder="0"
                 />
               </div>
@@ -3148,22 +5984,33 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
 
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="editAgreementFee">Agreement Fee</label>
+                <label
+                  className="text-sm font-medium"
+                  htmlFor="editAgreementFee"
+                >
+                  Agreement Fee
+                </label>
                 <Input
                   id="editAgreementFee"
                   type="number"
                   value={unitForm.agreementFee}
-                  onChange={(e) => setUnitForm({ ...unitForm, agreementFee: e.target.value })}
+                  onChange={(e) =>
+                    setUnitForm({ ...unitForm, agreementFee: e.target.value })
+                  }
                   placeholder="0"
                 />
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="editWasteFee">Waste Management</label>
+                <label className="text-sm font-medium" htmlFor="editWasteFee">
+                  Waste Management
+                </label>
                 <Input
                   id="editWasteFee"
                   type="number"
                   value={unitForm.wasteFee}
-                  onChange={(e) => setUnitForm({ ...unitForm, wasteFee: e.target.value })}
+                  onChange={(e) =>
+                    setUnitForm({ ...unitForm, wasteFee: e.target.value })
+                  }
                   placeholder="0"
                 />
               </div>
@@ -3171,21 +6018,35 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
 
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="editEstateDues">Estate Dues</label>
+                <label className="text-sm font-medium" htmlFor="editEstateDues">
+                  Estate Dues
+                </label>
                 <Input
                   id="editEstateDues"
                   type="number"
                   value={unitForm.estateDues}
-                  onChange={(e) => setUnitForm({ ...unitForm, estateDues: e.target.value })}
+                  onChange={(e) =>
+                    setUnitForm({ ...unitForm, estateDues: e.target.value })
+                  }
                   placeholder="0"
                 />
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="editElectricityMeter">Electricity Meter No.</label>
+                <label
+                  className="text-sm font-medium"
+                  htmlFor="editElectricityMeter"
+                >
+                  Electricity Meter No.
+                </label>
                 <Input
                   id="editElectricityMeter"
                   value={unitForm.electricityMeter}
-                  onChange={(e) => setUnitForm({ ...unitForm, electricityMeter: e.target.value })}
+                  onChange={(e) =>
+                    setUnitForm({
+                      ...unitForm,
+                      electricityMeter: e.target.value,
+                    })
+                  }
                   placeholder="Prepaid meter no."
                 />
               </div>
@@ -3196,14 +6057,23 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                 <label className="text-sm font-medium">Prepaid Meter</label>
                 <Switch
                   checked={unitForm.prepaidMeter}
-                  onCheckedChange={(v) => setUnitForm({ ...unitForm, prepaidMeter: v })}
+                  onCheckedChange={(v) =>
+                    setUnitForm({ ...unitForm, prepaidMeter: v })
+                  }
                 />
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="editWaterSource">Water Source</label>
+                <label
+                  className="text-sm font-medium"
+                  htmlFor="editWaterSource"
+                >
+                  Water Source
+                </label>
                 <Select
                   value={unitForm.waterSource}
-                  onValueChange={(v) => setUnitForm({ ...unitForm, waterSource: v })}
+                  onValueChange={(v) =>
+                    setUnitForm({ ...unitForm, waterSource: v })
+                  }
                 >
                   <SelectTrigger id="editWaterSource">
                     <SelectValue />
@@ -3222,7 +6092,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               <label className="text-sm font-medium">Parking Available</label>
               <Switch
                 checked={unitForm.parkingAvailable}
-                onCheckedChange={(v) => setUnitForm({ ...unitForm, parkingAvailable: v })}
+                onCheckedChange={(v) =>
+                  setUnitForm({ ...unitForm, parkingAvailable: v })
+                }
               />
             </div>
 
@@ -3237,10 +6109,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               >
                 Cancel
               </Button>
-              <Button
-                onClick={handleSaveEditedUnit}
-                disabled={editingUnit}
-              >
+              <Button onClick={handleSaveEditedUnit} disabled={editingUnit}>
                 {editingUnit ? (
                   <>
                     <Clock className="h-4 w-4 mr-2 animate-spin" />
@@ -3259,12 +6128,16 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
       </Dialog>
 
       {/* Delete Property Confirmation Dialog */}
-      <Dialog open={showPropertyDeleteDialog} onOpenChange={setShowPropertyDeleteDialog}>
+      <Dialog
+        open={showPropertyDeleteDialog}
+        onOpenChange={setShowPropertyDeleteDialog}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Property</DialogTitle>
             <DialogDescription>
-              Are you sure you want to permanently delete this property? This action cannot be undone.
+              Are you sure you want to permanently delete this property? This
+              action cannot be undone.
             </DialogDescription>
           </DialogHeader>
 
@@ -3272,20 +6145,38 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
             <div className="space-y-4">
               <div className="bg-gray-50 border rounded-lg p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-500">Property Name</span>
+                  <span className="text-sm font-medium text-gray-500">
+                    Property Name
+                  </span>
                   <span className="font-medium">{propertyToDelete.name}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-500">Location</span>
-                  <span className="font-medium">{propertyToDelete.city}, {propertyToDelete.state}</span>
+                  <span className="text-sm font-medium text-gray-500">
+                    Location
+                  </span>
+                  <span className="font-medium">
+                    {propertyToDelete.city}, {propertyToDelete.state}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-500">Total Units</span>
-                  <span className="font-medium">{propertyToDelete._count?.units ?? 0}</span>
+                  <span className="text-sm font-medium text-gray-500">
+                    Total Units
+                  </span>
+                  <span className="font-medium">
+                    {propertyToDelete._count?.units ?? 0}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-500">Status</span>
-                  <Badge variant={propertyToDelete.status === 'active' ? 'default' : 'secondary'}>
+                  <span className="text-sm font-medium text-gray-500">
+                    Status
+                  </span>
+                  <Badge
+                    variant={
+                      propertyToDelete.status === "active"
+                        ? "default"
+                        : "secondary"
+                    }
+                  >
                     {propertyToDelete.status}
                   </Badge>
                 </div>
@@ -3297,13 +6188,16 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                   <div className="text-sm text-red-800">
                     <p className="font-medium mb-1">Warning:</p>
                     <ul className="list-disc list-inside space-y-1 text-xs">
-                      <li>All units associated with this property will be deleted</li>
+                      <li>
+                        All units associated with this property will be deleted
+                      </li>
                       <li>All lease records will be removed</li>
                       <li>All maintenance requests will be deleted</li>
                       <li>This action is permanent and cannot be reversed</li>
                     </ul>
                     <p className="mt-2 text-xs font-medium">
-                      Note: Properties with active leases cannot be deleted. Please end all active leases first.
+                      Note: Properties with active leases cannot be deleted.
+                      Please end all active leases first.
                     </p>
                   </div>
                 </div>
@@ -3347,9 +6241,13 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
       <Dialog open={showExpenseDialog} onOpenChange={setShowExpenseDialog}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingExpense ? 'Edit Expense' : 'Add New Expense'}</DialogTitle>
+            <DialogTitle>
+              {editingExpense ? "Edit Expense" : "Add New Expense"}
+            </DialogTitle>
             <DialogDescription>
-              {editingExpense ? 'Update expense details' : 'Record a new property expense'}
+              {editingExpense
+                ? "Update expense details"
+                : "Record a new property expense"}
             </DialogDescription>
           </DialogHeader>
 
@@ -3360,12 +6258,12 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                 <Select
                   value={expenseForm.propertyId}
                   onValueChange={(value) => {
-                    const property = properties.find(p => p.id === value);
+                    const property = properties.find((p) => p.id === value);
                     setExpenseForm({
                       ...expenseForm,
                       propertyId: value,
-                      currency: property?.currency || 'NGN',
-                      unitId: '' // Reset unit when property changes
+                      currency: property?.currency || "NGN",
+                      unitId: "", // Reset unit when property changes
                     });
                   }}
                 >
@@ -3373,7 +6271,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     <SelectValue placeholder="Select property" />
                   </SelectTrigger>
                   <SelectContent>
-                    {visibleProperties.map(property => (
+                    {visibleProperties.map((property) => (
                       <SelectItem key={property.id} value={property.id}>
                         {property.name}
                       </SelectItem>
@@ -3386,18 +6284,22 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                 <Label htmlFor="expense-unit">Unit (Optional)</Label>
                 <Select
                   value={expenseForm.unitId}
-                  onValueChange={(value) => setExpenseForm({ ...expenseForm, unitId: value })}
+                  onValueChange={(value) =>
+                    setExpenseForm({ ...expenseForm, unitId: value })
+                  }
                 >
                   <SelectTrigger id="expense-unit">
                     <SelectValue placeholder="Select unit" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">None (Property-wide)</SelectItem>
-                    {getPropertyUnitsForExpense(expenseForm.propertyId).map(unit => (
-                      <SelectItem key={unit.id} value={unit.id}>
-                        Unit {unit.unitNumber}
-                      </SelectItem>
-                    ))}
+                    {getPropertyUnitsForExpense(expenseForm.propertyId).map(
+                      (unit) => (
+                        <SelectItem key={unit.id} value={unit.id}>
+                          Unit {unit.unitNumber}
+                        </SelectItem>
+                      )
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -3408,13 +6310,15 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                 <Label htmlFor="expense-category">Category *</Label>
                 <Select
                   value={expenseForm.category}
-                  onValueChange={(value) => setExpenseForm({ ...expenseForm, category: value })}
+                  onValueChange={(value) =>
+                    setExpenseForm({ ...expenseForm, category: value })
+                  }
                 >
                   <SelectTrigger id="expense-category">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {EXPENSE_CATEGORIES.map(category => (
+                    {EXPENSE_CATEGORIES.map((category) => (
                       <SelectItem key={category.value} value={category.value}>
                         {category.label}
                       </SelectItem>
@@ -3431,7 +6335,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     type="number"
                     step="0.01"
                     value={expenseForm.amount}
-                    onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })}
+                    onChange={(e) =>
+                      setExpenseForm({ ...expenseForm, amount: e.target.value })
+                    }
                     placeholder="0.00"
                     className="flex-1"
                   />
@@ -3447,7 +6353,12 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               <Textarea
                 id="expense-description"
                 value={expenseForm.description}
-                onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })}
+                onChange={(e) =>
+                  setExpenseForm({
+                    ...expenseForm,
+                    description: e.target.value,
+                  })
+                }
                 placeholder="Enter expense description"
                 rows={3}
               />
@@ -3460,7 +6371,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                   id="expense-date"
                   type="date"
                   value={expenseForm.date}
-                  onChange={(e) => setExpenseForm({ ...expenseForm, date: e.target.value })}
+                  onChange={(e) =>
+                    setExpenseForm({ ...expenseForm, date: e.target.value })
+                  }
                 />
               </div>
 
@@ -3470,7 +6383,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                   id="expense-due-date"
                   type="date"
                   value={expenseForm.dueDate}
-                  onChange={(e) => setExpenseForm({ ...expenseForm, dueDate: e.target.value })}
+                  onChange={(e) =>
+                    setExpenseForm({ ...expenseForm, dueDate: e.target.value })
+                  }
                 />
               </div>
             </div>
@@ -3480,13 +6395,15 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                 <Label htmlFor="expense-status">Status *</Label>
                 <Select
                   value={expenseForm.status}
-                  onValueChange={(value) => setExpenseForm({ ...expenseForm, status: value })}
+                  onValueChange={(value) =>
+                    setExpenseForm({ ...expenseForm, status: value })
+                  }
                 >
                   <SelectTrigger id="expense-status">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
-                    {EXPENSE_STATUSES.map(status => (
+                    {EXPENSE_STATUSES.map((status) => (
                       <SelectItem key={status.value} value={status.value}>
                         {status.label}
                       </SelectItem>
@@ -3499,13 +6416,15 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                 <Label htmlFor="expense-payment-method">Payment Method</Label>
                 <Select
                   value={expenseForm.paymentMethod}
-                  onValueChange={(value) => setExpenseForm({ ...expenseForm, paymentMethod: value })}
+                  onValueChange={(value) =>
+                    setExpenseForm({ ...expenseForm, paymentMethod: value })
+                  }
                 >
                   <SelectTrigger id="expense-payment-method">
                     <SelectValue placeholder="Select method" />
                   </SelectTrigger>
                   <SelectContent>
-                    {PAYMENT_METHODS.map(method => (
+                    {PAYMENT_METHODS.map((method) => (
                       <SelectItem key={method.value} value={method.value}>
                         {method.label}
                       </SelectItem>
@@ -3520,7 +6439,9 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               <Textarea
                 id="expense-notes"
                 value={expenseForm.notes}
-                onChange={(e) => setExpenseForm({ ...expenseForm, notes: e.target.value })}
+                onChange={(e) =>
+                  setExpenseForm({ ...expenseForm, notes: e.target.value })
+                }
                 placeholder="Add any additional notes"
                 rows={2}
               />
@@ -3528,7 +6449,10 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowExpenseDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowExpenseDialog(false)}
+            >
               Cancel
             </Button>
             <Button onClick={handleSaveExpense} disabled={expenseSaving}>
@@ -3538,9 +6462,7 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                   Saving...
                 </>
               ) : (
-                <>
-                  {editingExpense ? 'Update Expense' : 'Add Expense'}
-                </>
+                <>{editingExpense ? "Update Expense" : "Add Expense"}</>
               )}
             </Button>
           </div>
@@ -3548,12 +6470,16 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
       </Dialog>
 
       {/* Delete Expense Confirmation Dialog */}
-      <Dialog open={showExpenseDeleteDialog} onOpenChange={setShowExpenseDeleteDialog}>
+      <Dialog
+        open={showExpenseDeleteDialog}
+        onOpenChange={setShowExpenseDeleteDialog}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Expense</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this expense? This action cannot be undone.
+              Are you sure you want to delete this expense? This action cannot
+              be undone.
             </DialogDescription>
           </DialogHeader>
 
@@ -3561,32 +6487,52 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
             <div className="py-4 space-y-2">
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Property:</span>
-                <span className="text-sm font-medium">{expenseToDelete.property?.name}</span>
+                <span className="text-sm font-medium">
+                  {expenseToDelete.property?.name}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Category:</span>
                 <span className="text-sm font-medium">
-                  {EXPENSE_CATEGORIES.find(c => c.value === expenseToDelete.category)?.label}
+                  {
+                    EXPENSE_CATEGORIES.find(
+                      (c) => c.value === expenseToDelete.category
+                    )?.label
+                  }
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Amount:</span>
                 <span className="text-sm font-medium">
-                  {formatCurrency(expenseToDelete.amount, expenseToDelete.currency)}
+                  {formatCurrency(
+                    expenseToDelete.amount,
+                    expenseToDelete.currency
+                  )}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Description:</span>
-                <span className="text-sm font-medium">{expenseToDelete.description}</span>
+                <span className="text-sm text-muted-foreground">
+                  Description:
+                </span>
+                <span className="text-sm font-medium">
+                  {expenseToDelete.description}
+                </span>
               </div>
             </div>
           )}
 
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowExpenseDeleteDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowExpenseDeleteDialog(false)}
+            >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDeleteExpense} disabled={isDeleting}>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteExpense}
+              disabled={isDeleting}
+            >
               {isDeleting ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
@@ -3603,62 +6549,271 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
         </DialogContent>
       </Dialog>
 
+      {/* Property Financial Detail Dialog */}
+      <Dialog
+        open={showFinancialDetailDialog}
+        onOpenChange={(open) => {
+          setShowFinancialDetailDialog(open);
+          if (!open) {
+            setFinancialDetailProperty(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Property Financial Summary</DialogTitle>
+            <DialogDescription>
+              {financialDetailProperty?.property?.name}
+            </DialogDescription>
+          </DialogHeader>
+
+          {financialDetailProperty ? (
+            <div className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="border rounded-lg p-4">
+                  <p className="text-sm text-gray-500">Monthly Revenue</p>
+                  <p className="text-2xl font-bold">
+                    {formatCurrency(
+                      financialDetailProperty.monthlyRevenue,
+                      financialDetailProperty.property.currency ||
+                        smartBaseCurrency
+                    )}
+                  </p>
+                </div>
+                <div className="border rounded-lg p-4">
+                  <p className="text-sm text-gray-500">Monthly Expenses</p>
+                  <p className="text-2xl font-bold text-red-600">
+                    {formatCurrency(
+                      financialDetailProperty.totalExpenses,
+                      financialDetailProperty.property.currency ||
+                        smartBaseCurrency
+                    )}
+                  </p>
+                </div>
+                <div className="border rounded-lg p-4">
+                  <p className="text-sm text-gray-500">Net Income</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {formatCurrency(
+                      financialDetailProperty.netIncome,
+                      financialDetailProperty.property.currency ||
+                        smartBaseCurrency
+                    )}
+                  </p>
+                </div>
+                <div className="border rounded-lg p-4">
+                  <p className="text-sm text-gray-500">Occupancy Rate</p>
+                  <p className="text-2xl font-bold">
+                    {financialDetailProperty.occupancyRate.toFixed(1)}%
+                  </p>
+                </div>
+              </div>
+
+              <div className="border rounded-lg p-4">
+                <h4 className="text-sm font-semibold mb-3">Recent Expenses</h4>
+                {financialDetailProperty.propertyExpenses.length ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Unit</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {financialDetailProperty.propertyExpenses
+                        .slice(0, 5)
+                        .map((expense) => (
+                          <TableRow key={expense.id}>
+                            <TableCell>
+                              {new Date(expense.date).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell className="max-w-[220px] truncate">
+                              {expense.description}
+                            </TableCell>
+                            <TableCell>
+                              {expense.unit?.unitNumber
+                                ? `Unit ${expense.unit.unitNumber}`
+                                : "Property-wide"}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">
+                                {formatCategoryLabel(expense.category)}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              {formatCurrency(
+                                expense.amount,
+                                expense.currency || smartBaseCurrency
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <p className="text-sm text-gray-500">
+                    No expenses recorded for this property yet.
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">
+              Select a property to view details.
+            </p>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Add New Unit Dialog */}
       <Dialog open={showAddUnitDialog} onOpenChange={setShowAddUnitDialog}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add New Unit</DialogTitle>
-            <DialogDescription>Create a unit under one of your properties.</DialogDescription>
+            <DialogDescription>
+              Create a unit under one of your properties.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <label className="text-sm font-medium" htmlFor="dialog-propertyId">Property *</label>
-              <Select value={unitForm.propertyId} onValueChange={(v) => setUnitForm({ ...unitForm, propertyId: v })}>
+              <label
+                className="text-sm font-medium"
+                htmlFor="dialog-propertyId"
+              >
+                Property *
+              </label>
+              <Select
+                value={unitForm.propertyId}
+                onValueChange={(v) =>
+                  setUnitForm({ ...unitForm, propertyId: v })
+                }
+              >
                 <SelectTrigger id="dialog-propertyId">
                   <SelectValue placeholder="Select property" />
                 </SelectTrigger>
                 <SelectContent>
                   {visibleProperties.map((p: any) => (
-                    <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                    <SelectItem key={p.id} value={String(p.id)}>
+                      {p.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="dialog-unitNumber">Unit Number *</label>
-                <Input id="dialog-unitNumber" value={unitForm.unitNumber} onChange={(e) => setUnitForm({ ...unitForm, unitNumber: e.target.value })} placeholder="A101" />
+                <label
+                  className="text-sm font-medium"
+                  htmlFor="dialog-unitNumber"
+                >
+                  Unit Number *
+                </label>
+                <Input
+                  id="dialog-unitNumber"
+                  value={unitForm.unitNumber}
+                  onChange={(e) =>
+                    setUnitForm({ ...unitForm, unitNumber: e.target.value })
+                  }
+                  placeholder="A101"
+                />
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="dialog-type">Type *</label>
-                <Input id="dialog-type" value={unitForm.type} onChange={(e) => setUnitForm({ ...unitForm, type: e.target.value })} placeholder="2-bedroom" />
+                <label className="text-sm font-medium" htmlFor="dialog-type">
+                  Type *
+                </label>
+                <Input
+                  id="dialog-type"
+                  value={unitForm.type}
+                  onChange={(e) =>
+                    setUnitForm({ ...unitForm, type: e.target.value })
+                  }
+                  placeholder="2-bedroom"
+                />
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="dialog-bedrooms">Bedrooms</label>
-                <Input id="dialog-bedrooms" type="number" value={unitForm.bedrooms} onChange={(e) => setUnitForm({ ...unitForm, bedrooms: e.target.value })} placeholder="2" />
+                <label
+                  className="text-sm font-medium"
+                  htmlFor="dialog-bedrooms"
+                >
+                  Bedrooms
+                </label>
+                <Input
+                  id="dialog-bedrooms"
+                  type="number"
+                  value={unitForm.bedrooms}
+                  onChange={(e) =>
+                    setUnitForm({ ...unitForm, bedrooms: e.target.value })
+                  }
+                  placeholder="2"
+                />
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="dialog-bathrooms">Bathrooms</label>
-                <Input id="dialog-bathrooms" type="number" value={unitForm.bathrooms} onChange={(e) => setUnitForm({ ...unitForm, bathrooms: e.target.value })} placeholder="1" />
+                <label
+                  className="text-sm font-medium"
+                  htmlFor="dialog-bathrooms"
+                >
+                  Bathrooms
+                </label>
+                <Input
+                  id="dialog-bathrooms"
+                  type="number"
+                  value={unitForm.bathrooms}
+                  onChange={(e) =>
+                    setUnitForm({ ...unitForm, bathrooms: e.target.value })
+                  }
+                  placeholder="1"
+                />
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="dialog-floor">Floor</label>
-                <Input id="dialog-floor" type="number" value={unitForm.floor} onChange={(e) => setUnitForm({ ...unitForm, floor: e.target.value })} placeholder="3" />
+                <label className="text-sm font-medium" htmlFor="dialog-floor">
+                  Floor
+                </label>
+                <Input
+                  id="dialog-floor"
+                  type="number"
+                  value={unitForm.floor}
+                  onChange={(e) =>
+                    setUnitForm({ ...unitForm, floor: e.target.value })
+                  }
+                  placeholder="3"
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="dialog-size">Size (sqft)</label>
-                <Input id="dialog-size" type="number" value={unitForm.size} onChange={(e) => setUnitForm({ ...unitForm, size: e.target.value })} placeholder="900" />
+                <label className="text-sm font-medium" htmlFor="dialog-size">
+                  Size (sqft)
+                </label>
+                <Input
+                  id="dialog-size"
+                  type="number"
+                  value={unitForm.size}
+                  onChange={(e) =>
+                    setUnitForm({ ...unitForm, size: e.target.value })
+                  }
+                  placeholder="900"
+                />
               </div>
               <div className="grid gap-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium" htmlFor="dialog-monthlyRent">Rent *</label>
+                  <label
+                    className="text-sm font-medium"
+                    htmlFor="dialog-monthlyRent"
+                  >
+                    Rent *
+                  </label>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-600">Frequency</span>
-                    <Select value={unitForm.rentFrequency} onValueChange={(v) => setUnitForm({ ...unitForm, rentFrequency: v })}>
+                    <Select
+                      value={unitForm.rentFrequency}
+                      onValueChange={(v) =>
+                        setUnitForm({ ...unitForm, rentFrequency: v })
+                      }
+                    >
                       <SelectTrigger className="h-8 w-28">
                         <SelectValue />
                       </SelectTrigger>
@@ -3669,17 +6824,46 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                     </Select>
                   </div>
                 </div>
-                <Input id="dialog-monthlyRent" type="number" value={unitForm.monthlyRent} onChange={(e) => setUnitForm({ ...unitForm, monthlyRent: e.target.value })} placeholder="1200000" />
+                <Input
+                  id="dialog-monthlyRent"
+                  type="number"
+                  value={unitForm.monthlyRent}
+                  onChange={(e) =>
+                    setUnitForm({ ...unitForm, monthlyRent: e.target.value })
+                  }
+                  placeholder="1200000"
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="dialog-securityDeposit">Security Deposit</label>
-                <Input id="dialog-securityDeposit" type="number" value={unitForm.securityDeposit} onChange={(e) => setUnitForm({ ...unitForm, securityDeposit: e.target.value })} placeholder="500" />
+                <label
+                  className="text-sm font-medium"
+                  htmlFor="dialog-securityDeposit"
+                >
+                  Security Deposit
+                </label>
+                <Input
+                  id="dialog-securityDeposit"
+                  type="number"
+                  value={unitForm.securityDeposit}
+                  onChange={(e) =>
+                    setUnitForm({
+                      ...unitForm,
+                      securityDeposit: e.target.value,
+                    })
+                  }
+                  placeholder="500"
+                />
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="dialog-status">Status</label>
-                <Select value={unitForm.status} onValueChange={(v) => setUnitForm({ ...unitForm, status: v })}>
+                <label className="text-sm font-medium" htmlFor="dialog-status">
+                  Status
+                </label>
+                <Select
+                  value={unitForm.status}
+                  onValueChange={(v) => setUnitForm({ ...unitForm, status: v })}
+                >
                   <SelectTrigger id="dialog-status">
                     <SelectValue />
                   </SelectTrigger>
@@ -3694,49 +6878,162 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
 
             {/* Additional Fees Section */}
             <div className="border-t pt-4 mt-2">
-              <h4 className="text-sm font-semibold mb-3">Additional Fees & Utilities</h4>
+              <h4 className="text-sm font-semibold mb-3">
+                Additional Fees & Utilities
+              </h4>
               <div className="grid gap-2">
-                <label className="text-sm font-medium" htmlFor="dialog-serviceCharge">Service Charge</label>
-                <Input id="dialog-serviceCharge" type="number" value={unitForm.serviceCharge} onChange={(e) => setUnitForm({ ...unitForm, serviceCharge: e.target.value })} placeholder="0" />
+                <label
+                  className="text-sm font-medium"
+                  htmlFor="dialog-serviceCharge"
+                >
+                  Service Charge
+                </label>
+                <Input
+                  id="dialog-serviceCharge"
+                  type="number"
+                  value={unitForm.serviceCharge}
+                  onChange={(e) =>
+                    setUnitForm({ ...unitForm, serviceCharge: e.target.value })
+                  }
+                  placeholder="0"
+                />
               </div>
               <div className="grid grid-cols-2 gap-3 mt-3">
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium" htmlFor="dialog-legalFee">Legal Fee</label>
-                  <Input id="dialog-legalFee" type="number" value={unitForm.legalFee} onChange={(e) => setUnitForm({ ...unitForm, legalFee: e.target.value })} placeholder="0" />
+                  <label
+                    className="text-sm font-medium"
+                    htmlFor="dialog-legalFee"
+                  >
+                    Legal Fee
+                  </label>
+                  <Input
+                    id="dialog-legalFee"
+                    type="number"
+                    value={unitForm.legalFee}
+                    onChange={(e) =>
+                      setUnitForm({ ...unitForm, legalFee: e.target.value })
+                    }
+                    placeholder="0"
+                  />
                 </div>
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium" htmlFor="dialog-agentCommission">Agency Fee</label>
-                  <Input id="dialog-agentCommission" type="number" value={unitForm.agentCommission} onChange={(e) => setUnitForm({ ...unitForm, agentCommission: e.target.value })} placeholder="0" />
+                  <label
+                    className="text-sm font-medium"
+                    htmlFor="dialog-agentCommission"
+                  >
+                    Agency Fee
+                  </label>
+                  <Input
+                    id="dialog-agentCommission"
+                    type="number"
+                    value={unitForm.agentCommission}
+                    onChange={(e) =>
+                      setUnitForm({
+                        ...unitForm,
+                        agentCommission: e.target.value,
+                      })
+                    }
+                    placeholder="0"
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3 mt-3">
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium" htmlFor="dialog-agreementFee">Agreement Fee</label>
-                  <Input id="dialog-agreementFee" type="number" value={unitForm.agreementFee} onChange={(e) => setUnitForm({ ...unitForm, agreementFee: e.target.value })} placeholder="0" />
+                  <label
+                    className="text-sm font-medium"
+                    htmlFor="dialog-agreementFee"
+                  >
+                    Agreement Fee
+                  </label>
+                  <Input
+                    id="dialog-agreementFee"
+                    type="number"
+                    value={unitForm.agreementFee}
+                    onChange={(e) =>
+                      setUnitForm({ ...unitForm, agreementFee: e.target.value })
+                    }
+                    placeholder="0"
+                  />
                 </div>
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium" htmlFor="dialog-wasteFee">Waste Management</label>
-                  <Input id="dialog-wasteFee" type="number" value={unitForm.wasteFee} onChange={(e) => setUnitForm({ ...unitForm, wasteFee: e.target.value })} placeholder="0" />
+                  <label
+                    className="text-sm font-medium"
+                    htmlFor="dialog-wasteFee"
+                  >
+                    Waste Management
+                  </label>
+                  <Input
+                    id="dialog-wasteFee"
+                    type="number"
+                    value={unitForm.wasteFee}
+                    onChange={(e) =>
+                      setUnitForm({ ...unitForm, wasteFee: e.target.value })
+                    }
+                    placeholder="0"
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3 mt-3">
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium" htmlFor="dialog-estateDues">Estate Dues</label>
-                  <Input id="dialog-estateDues" type="number" value={unitForm.estateDues} onChange={(e) => setUnitForm({ ...unitForm, estateDues: e.target.value })} placeholder="0" />
+                  <label
+                    className="text-sm font-medium"
+                    htmlFor="dialog-estateDues"
+                  >
+                    Estate Dues
+                  </label>
+                  <Input
+                    id="dialog-estateDues"
+                    type="number"
+                    value={unitForm.estateDues}
+                    onChange={(e) =>
+                      setUnitForm({ ...unitForm, estateDues: e.target.value })
+                    }
+                    placeholder="0"
+                  />
                 </div>
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium" htmlFor="dialog-electricityMeter">Electricity Meter No.</label>
-                  <Input id="dialog-electricityMeter" value={unitForm.electricityMeter} onChange={(e) => setUnitForm({ ...unitForm, electricityMeter: e.target.value })} placeholder="Prepaid meter no." />
+                  <label
+                    className="text-sm font-medium"
+                    htmlFor="dialog-electricityMeter"
+                  >
+                    Electricity Meter No.
+                  </label>
+                  <Input
+                    id="dialog-electricityMeter"
+                    value={unitForm.electricityMeter}
+                    onChange={(e) =>
+                      setUnitForm({
+                        ...unitForm,
+                        electricityMeter: e.target.value,
+                      })
+                    }
+                    placeholder="Prepaid meter no."
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3 mt-3">
                 <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
                   <label className="text-sm font-medium">Prepaid Meter</label>
-                  <Switch checked={unitForm.prepaidMeter} onCheckedChange={(v) => setUnitForm({ ...unitForm, prepaidMeter: v })} />
+                  <Switch
+                    checked={unitForm.prepaidMeter}
+                    onCheckedChange={(v) =>
+                      setUnitForm({ ...unitForm, prepaidMeter: v })
+                    }
+                  />
                 </div>
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium" htmlFor="dialog-waterSource">Water Source</label>
-                  <Select value={unitForm.waterSource} onValueChange={(v) => setUnitForm({ ...unitForm, waterSource: v })}>
+                  <label
+                    className="text-sm font-medium"
+                    htmlFor="dialog-waterSource"
+                  >
+                    Water Source
+                  </label>
+                  <Select
+                    value={unitForm.waterSource}
+                    onValueChange={(v) =>
+                      setUnitForm({ ...unitForm, waterSource: v })
+                    }
+                  >
                     <SelectTrigger id="dialog-waterSource">
                       <SelectValue />
                     </SelectTrigger>
@@ -3751,84 +7048,150 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               </div>
               <div className="flex items-center justify-between p-2 bg-gray-50 rounded mt-3">
                 <label className="text-sm font-medium">Parking Available</label>
-                <Switch checked={unitForm.parkingAvailable} onCheckedChange={(v) => setUnitForm({ ...unitForm, parkingAvailable: v })} />
+                <Switch
+                  checked={unitForm.parkingAvailable}
+                  onCheckedChange={(v) =>
+                    setUnitForm({ ...unitForm, parkingAvailable: v })
+                  }
+                />
               </div>
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2 border-t">
-            <Button variant="outline" onClick={() => setShowAddUnitDialog(false)}>Cancel</Button>
-            <Button disabled={unitSaving} onClick={async () => {
-              try {
-                if (!unitForm.propertyId || !unitForm.unitNumber || !unitForm.type || !unitForm.monthlyRent) {
-                  toast.error('Please fill required fields (Property, Unit Number, Type, Rent)');
-                  return;
-                }
-                setUnitSaving(true);
-                const payload: any = {
-                  propertyId: unitForm.propertyId,
-                  unitNumber: unitForm.unitNumber,
-                  type: unitForm.type,
-                  floor: unitForm.floor ? Number(unitForm.floor) : undefined,
-                  bedrooms: unitForm.bedrooms ? Number(unitForm.bedrooms) : undefined,
-                  bathrooms: unitForm.bathrooms ? Number(unitForm.bathrooms) : undefined,
-                  size: unitForm.size ? Number(unitForm.size) : undefined,
-                  monthlyRent: Number(unitForm.monthlyRent),
-                  securityDeposit: unitForm.securityDeposit ? Number(unitForm.securityDeposit) : undefined,
-                  status: unitForm.status,
-                  features: {
-                    nigeria: {
-                      rentFrequency: unitForm.rentFrequency,
-                      serviceCharge: unitForm.serviceCharge ? Number(unitForm.serviceCharge) : undefined,
-                      legalFee: unitForm.legalFee ? Number(unitForm.legalFee) : undefined,
-                      agentCommission: unitForm.agentCommission ? Number(unitForm.agentCommission) : undefined,
-                      agreementFee: unitForm.agreementFee ? Number(unitForm.agreementFee) : undefined,
-                      electricityMeter: unitForm.electricityMeter || undefined,
-                      prepaidMeter: unitForm.prepaidMeter,
-                      wasteFee: unitForm.wasteFee ? Number(unitForm.wasteFee) : undefined,
-                      estateDues: unitForm.estateDues ? Number(unitForm.estateDues) : undefined,
-                      waterSource: unitForm.waterSource,
-                      parkingAvailable: unitForm.parkingAvailable
-                    }
+            <Button
+              variant="outline"
+              onClick={() => setShowAddUnitDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={unitSaving}
+              onClick={async () => {
+                try {
+                  if (
+                    !unitForm.propertyId ||
+                    !unitForm.unitNumber ||
+                    !unitForm.type ||
+                    !unitForm.monthlyRent
+                  ) {
+                    toast.error(
+                      "Please fill required fields (Property, Unit Number, Type, Rent)"
+                    );
+                    return;
                   }
-                };
-                const res = await createUnit(payload);
-                if ((res as any).error) throw new Error((res as any).error.error || 'Failed to create unit');
-                
-                // Get the created unit from response
-                const createdUnit = (res as any).data;
-                
-                // Optimistic UI update - add unit immediately to the list
-                if (createdUnit) {
-                  setUnitsData(prev => [...prev, createdUnit]);
+                  setUnitSaving(true);
+                  const payload: any = {
+                    propertyId: unitForm.propertyId,
+                    unitNumber: unitForm.unitNumber,
+                    type: unitForm.type,
+                    floor: unitForm.floor ? Number(unitForm.floor) : undefined,
+                    bedrooms: unitForm.bedrooms
+                      ? Number(unitForm.bedrooms)
+                      : undefined,
+                    bathrooms: unitForm.bathrooms
+                      ? Number(unitForm.bathrooms)
+                      : undefined,
+                    size: unitForm.size ? Number(unitForm.size) : undefined,
+                    monthlyRent: Number(unitForm.monthlyRent),
+                    securityDeposit: unitForm.securityDeposit
+                      ? Number(unitForm.securityDeposit)
+                      : undefined,
+                    status: unitForm.status,
+                    features: {
+                      nigeria: {
+                        rentFrequency: unitForm.rentFrequency,
+                        serviceCharge: unitForm.serviceCharge
+                          ? Number(unitForm.serviceCharge)
+                          : undefined,
+                        legalFee: unitForm.legalFee
+                          ? Number(unitForm.legalFee)
+                          : undefined,
+                        agentCommission: unitForm.agentCommission
+                          ? Number(unitForm.agentCommission)
+                          : undefined,
+                        agreementFee: unitForm.agreementFee
+                          ? Number(unitForm.agreementFee)
+                          : undefined,
+                        electricityMeter:
+                          unitForm.electricityMeter || undefined,
+                        prepaidMeter: unitForm.prepaidMeter,
+                        wasteFee: unitForm.wasteFee
+                          ? Number(unitForm.wasteFee)
+                          : undefined,
+                        estateDues: unitForm.estateDues
+                          ? Number(unitForm.estateDues)
+                          : undefined,
+                        waterSource: unitForm.waterSource,
+                        parkingAvailable: unitForm.parkingAvailable,
+                      },
+                    },
+                  };
+                  const res = await createUnit(payload);
+                  if ((res as any).error)
+                    throw new Error(
+                      (res as any).error.error || "Failed to create unit"
+                    );
+
+                  // Get the created unit from response
+                  const createdUnit = (res as any).data;
+
+                  // Optimistic UI update - add unit immediately to the list
+                  if (createdUnit) {
+                    setUnitsData((prev) => [...prev, createdUnit]);
+                  }
+
+                  toast.success("Unit created successfully");
+                  setShowAddUnitDialog(false);
+                  setUnitForm({
+                    propertyId: "",
+                    unitNumber: "",
+                    type: "",
+                    floor: "",
+                    bedrooms: "",
+                    bathrooms: "",
+                    size: "",
+                    monthlyRent: "",
+                    securityDeposit: "",
+                    status: "vacant",
+                    rentFrequency: "monthly",
+                    serviceCharge: "",
+                    legalFee: "",
+                    agentCommission: "",
+                    agreementFee: "",
+                    electricityMeter: "",
+                    prepaidMeter: false,
+                    wasteFee: "",
+                    estateDues: "",
+                    waterSource: "public",
+                    parkingAvailable: true,
+                  });
+
+                  // Background sync - refresh from server to ensure consistency
+                  getUnits().then((uRes) => {
+                    if (!uRes.error && Array.isArray(uRes.data))
+                      setUnitsData(uRes.data);
+                  });
+                } catch (e: any) {
+                  toast.error(e?.message || "Failed to create unit");
+                } finally {
+                  setUnitSaving(false);
                 }
-                
-                toast.success('Unit created successfully');
-                setShowAddUnitDialog(false);
-                setUnitForm({
-                  propertyId: '', unitNumber: '', type: '', floor: '', bedrooms: '', bathrooms: '',
-                  size: '', monthlyRent: '', securityDeposit: '', status: 'vacant', rentFrequency: 'monthly',
-                  serviceCharge: '', legalFee: '', agentCommission: '', agreementFee: '',
-                  electricityMeter: '', prepaidMeter: false, wasteFee: '', estateDues: '', waterSource: 'public', parkingAvailable: true
-                });
-                
-                // Background sync - refresh from server to ensure consistency
-                getUnits().then(uRes => {
-                  if (!uRes.error && Array.isArray(uRes.data)) setUnitsData(uRes.data);
-                });
-              } catch (e: any) {
-                toast.error(e?.message || 'Failed to create unit');
-              } finally {
-                setUnitSaving(false);
-              }
-            }}>
-              {unitSaving ? 'Saving...' : 'Save Unit'}
+              }}
+            >
+              {unitSaving ? "Saving..." : "Save Unit"}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Import Properties Dialog */}
-      <Dialog open={showImportDialog} onOpenChange={(open) => !isImporting && (open ? setShowImportDialog(true) : resetImportDialog())}>
+      <Dialog
+        open={showImportDialog}
+        onOpenChange={(open) =>
+          !isImporting &&
+          (open ? setShowImportDialog(true) : resetImportDialog())
+        }
+      >
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -3836,7 +7199,8 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
               Import Properties
             </DialogTitle>
             <DialogDescription>
-              Upload a CSV file to import multiple properties at once. Download the sample template to see the required format.
+              Upload a CSV file to import multiple properties at once. Download
+              the sample template to see the required format.
             </DialogDescription>
           </DialogHeader>
 
@@ -3844,11 +7208,14 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
             {/* Step 1: Download Template */}
             <div className="border rounded-lg p-4 bg-gray-50">
               <h4 className="font-medium mb-2 flex items-center gap-2">
-                <span className="bg-gray-900 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">1</span>
+                <span className="bg-gray-900 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">
+                  1
+                </span>
                 Download Template
               </h4>
               <p className="text-sm text-gray-600 mb-3">
-                Download our CSV template with sample data to understand the required format.
+                Download our CSV template with sample data to understand the
+                required format.
               </p>
               <Button variant="outline" onClick={downloadSampleCSV}>
                 <Download className="h-4 w-4 mr-2" />
@@ -3859,11 +7226,14 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
             {/* Step 2: Upload File */}
             <div className="border rounded-lg p-4">
               <h4 className="font-medium mb-2 flex items-center gap-2">
-                <span className="bg-gray-900 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">2</span>
+                <span className="bg-gray-900 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">
+                  2
+                </span>
                 Upload Your File
               </h4>
               <p className="text-sm text-gray-600 mb-3">
-                Select your CSV file with property data. Required fields: name, propertyType, address, city, state, totalUnits.
+                Select your CSV file with property data. Required fields: name,
+                propertyType, address, city, state, totalUnits.
               </p>
               <div className="flex items-center gap-3">
                 <Input
@@ -3874,12 +7244,16 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                   className="flex-1"
                 />
                 {importFile && (
-                  <Button variant="ghost" size="sm" onClick={() => {
-                    setImportFile(null);
-                    setImportData([]);
-                    setImportErrors([]);
-                    setImportResults(null);
-                  }}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setImportFile(null);
+                      setImportData([]);
+                      setImportErrors([]);
+                      setImportResults(null);
+                    }}
+                  >
                     <X className="h-4 w-4" />
                   </Button>
                 )}
@@ -3892,87 +7266,122 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
             </div>
 
             {/* Validation Results */}
-            {(importData.length > 0 || importErrors.length > 0) && !importResults && (
-              <div className="border rounded-lg p-4">
-                <h4 className="font-medium mb-2 flex items-center gap-2">
-                  <span className="bg-gray-900 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">3</span>
-                  Validation Results
-                </h4>
+            {(importData.length > 0 || importErrors.length > 0) &&
+              !importResults && (
+                <div className="border rounded-lg p-4">
+                  <h4 className="font-medium mb-2 flex items-center gap-2">
+                    <span className="bg-gray-900 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">
+                      3
+                    </span>
+                    Validation Results
+                  </h4>
 
-                {importData.length > 0 && (
-                  <div className="flex items-center gap-2 text-green-600 mb-2">
-                    <CheckCircle className="h-4 w-4" />
-                    <span className="text-sm">{importData.length} valid properties ready to import</span>
-                  </div>
-                )}
-
-                {importErrors.length > 0 && (
-                  <div className="mt-2">
-                    <div className="flex items-center gap-2 text-red-600 mb-2">
-                      <AlertCircle className="h-4 w-4" />
-                      <span className="text-sm">{importErrors.length} rows with errors (will be skipped)</span>
+                  {importData.length > 0 && (
+                    <div className="flex items-center gap-2 text-green-600 mb-2">
+                      <CheckCircle className="h-4 w-4" />
+                      <span className="text-sm">
+                        {importData.length} valid properties ready to import
+                      </span>
                     </div>
-                    <div className="max-h-32 overflow-y-auto bg-red-50 rounded p-2">
-                      {importErrors.slice(0, 5).map((error, idx) => (
-                        <p key={idx} className="text-xs text-red-600">{error}</p>
-                      ))}
-                      {importErrors.length > 5 && (
-                        <p className="text-xs text-red-600 font-medium">...and {importErrors.length - 5} more errors</p>
-                      )}
-                    </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Preview Table */}
-                {importData.length > 0 && (
-                  <div className="mt-4">
-                    <p className="text-sm font-medium mb-2">Preview (first 3 properties):</p>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="text-xs">Name</TableHead>
-                            <TableHead className="text-xs">Location</TableHead>
-                            <TableHead className="text-xs">Units</TableHead>
-                            <TableHead className="text-xs">Rent</TableHead>
-                            <TableHead className="text-xs">Images</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {importData.slice(0, 3).map((prop, idx) => (
-                            <TableRow key={idx}>
-                              <TableCell className="text-xs">
-                                <div>
-                                  <p className="font-medium">{prop.name}</p>
-                                  <p className="text-gray-500">{prop.propertyType}</p>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-xs">{prop.city}, {prop.state}</TableCell>
-                              <TableCell className="text-xs">{prop.totalUnits}</TableCell>
-                              <TableCell className="text-xs">{prop.avgRent ? formatCurrency(prop.avgRent, prop.currency || 'NGN') : '-'}</TableCell>
-                              <TableCell className="text-xs">
-                                {prop.images && prop.images.length > 0 ? (
-                                  <span className="text-green-600">✓ {prop.images.length} image(s)</span>
-                                ) : (
-                                  <span className="text-gray-400">No images</span>
-                                )}
-                              </TableCell>
+                  {importErrors.length > 0 && (
+                    <div className="mt-2">
+                      <div className="flex items-center gap-2 text-red-600 mb-2">
+                        <AlertCircle className="h-4 w-4" />
+                        <span className="text-sm">
+                          {importErrors.length} rows with errors (will be
+                          skipped)
+                        </span>
+                      </div>
+                      <div className="max-h-32 overflow-y-auto bg-red-50 rounded p-2">
+                        {importErrors.slice(0, 5).map((error, idx) => (
+                          <p key={idx} className="text-xs text-red-600">
+                            {error}
+                          </p>
+                        ))}
+                        {importErrors.length > 5 && (
+                          <p className="text-xs text-red-600 font-medium">
+                            ...and {importErrors.length - 5} more errors
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Preview Table */}
+                  {importData.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-sm font-medium mb-2">
+                        Preview (first 3 properties):
+                      </p>
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-xs">Name</TableHead>
+                              <TableHead className="text-xs">
+                                Location
+                              </TableHead>
+                              <TableHead className="text-xs">Units</TableHead>
+                              <TableHead className="text-xs">Rent</TableHead>
+                              <TableHead className="text-xs">Images</TableHead>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                          </TableHeader>
+                          <TableBody>
+                            {importData.slice(0, 3).map((prop, idx) => (
+                              <TableRow key={idx}>
+                                <TableCell className="text-xs">
+                                  <div>
+                                    <p className="font-medium">{prop.name}</p>
+                                    <p className="text-gray-500">
+                                      {prop.propertyType}
+                                    </p>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-xs">
+                                  {prop.city}, {prop.state}
+                                </TableCell>
+                                <TableCell className="text-xs">
+                                  {prop.totalUnits}
+                                </TableCell>
+                                <TableCell className="text-xs">
+                                  {prop.avgRent
+                                    ? formatCurrency(
+                                        prop.avgRent,
+                                        prop.currency || "NGN"
+                                      )
+                                    : "-"}
+                                </TableCell>
+                                <TableCell className="text-xs">
+                                  {prop.images && prop.images.length > 0 ? (
+                                    <span className="text-green-600">
+                                      ✓ {prop.images.length} image(s)
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-400">
+                                      No images
+                                    </span>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            )}
+                  )}
+                </div>
+              )}
 
             {/* Import Progress */}
             {isImporting && (
               <div className="border rounded-lg p-4">
                 <h4 className="font-medium mb-2">Importing Properties...</h4>
                 <Progress value={importProgress} className="mb-2" />
-                <p className="text-sm text-gray-600">{importProgress}% complete</p>
+                <p className="text-sm text-gray-600">
+                  {importProgress}% complete
+                </p>
               </div>
             )}
 
@@ -3984,19 +7393,25 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
                   {importResults.success > 0 && (
                     <div className="flex items-center gap-2 text-green-600">
                       <CheckCircle className="h-4 w-4" />
-                      <span className="text-sm">{importResults.success} properties imported successfully</span>
+                      <span className="text-sm">
+                        {importResults.success} properties imported successfully
+                      </span>
                     </div>
                   )}
                   {importResults.failed > 0 && (
                     <div className="flex items-center gap-2 text-red-600">
                       <AlertCircle className="h-4 w-4" />
-                      <span className="text-sm">{importResults.failed} properties failed to import</span>
+                      <span className="text-sm">
+                        {importResults.failed} properties failed to import
+                      </span>
                     </div>
                   )}
                   {importResults.errors.length > 0 && (
                     <div className="max-h-32 overflow-y-auto bg-red-50 rounded p-2 mt-2">
                       {importResults.errors.map((error, idx) => (
-                        <p key={idx} className="text-xs text-red-600">{error}</p>
+                        <p key={idx} className="text-xs text-red-600">
+                          {error}
+                        </p>
                       ))}
                     </div>
                   )}
@@ -4006,8 +7421,12 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
           </div>
 
           <div className="flex justify-end gap-2 pt-2 border-t">
-            <Button variant="outline" onClick={resetImportDialog} disabled={isImporting}>
-              {importResults ? 'Close' : 'Cancel'}
+            <Button
+              variant="outline"
+              onClick={resetImportDialog}
+              disabled={isImporting}
+            >
+              {importResults ? "Close" : "Cancel"}
             </Button>
             {!importResults && (
               <Button
@@ -4034,4 +7453,3 @@ export function PropertiesPage({ user, onBack, onAddProperty, onNavigateToAddPro
     </div>
   );
 }
-

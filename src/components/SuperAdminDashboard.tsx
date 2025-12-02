@@ -1418,13 +1418,13 @@ export function SuperAdminDashboard({
                   >
                     <Avatar className="w-8 h-8">
                       <AvatarFallback className="bg-red-600 text-white text-sm font-medium">
-                        {user.name.split(' ').map((n: string) => n[0]).join('')}
+                    {user.name.split(' ').map((n: string) => n[0]).join('')}
                       </AvatarFallback>
                     </Avatar>
                     <div className="hidden sm:block text-left">
-                      <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                      <div className="text-xs text-gray-500">{user.role}</div>
-                    </div>
+                  <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                  <div className="text-xs text-gray-500">{user.role}</div>
+                </div>
                     <ChevronDown className="w-4 h-4 text-gray-500" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -1435,7 +1435,7 @@ export function SuperAdminDashboard({
                       <p className="text-xs text-gray-500 font-normal">
                         {user.email}
                       </p>
-                    </div>
+              </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem

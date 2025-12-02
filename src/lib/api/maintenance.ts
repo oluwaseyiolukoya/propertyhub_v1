@@ -2,8 +2,8 @@
  * Maintenance API
  */
 
-import { apiClient } from '../api-client';
-import { API_ENDPOINTS } from '../api-config';
+import { apiClient } from "../api-client";
+import { API_ENDPOINTS } from "../api-config";
 
 export interface MaintenanceRequest {
   id: string;
@@ -38,7 +38,10 @@ export interface MaintenanceFilters {
  * Get all maintenance requests
  */
 export const getMaintenanceRequests = async (filters?: MaintenanceFilters) => {
-  return apiClient.get<MaintenanceRequest[]>(API_ENDPOINTS.MAINTENANCE.LIST, filters);
+  return apiClient.get<MaintenanceRequest[]>(
+    API_ENDPOINTS.MAINTENANCE.LIST,
+    filters
+  );
 };
 
 /**
@@ -51,8 +54,13 @@ export const getMaintenanceRequest = async (id: string) => {
 /**
  * Create maintenance request
  */
-export const createMaintenanceRequest = async (data: Partial<MaintenanceRequest>) => {
-  return apiClient.post<MaintenanceRequest>(API_ENDPOINTS.MAINTENANCE.CREATE, data);
+export const createMaintenanceRequest = async (
+  data: Partial<MaintenanceRequest>
+) => {
+  return apiClient.post<MaintenanceRequest>(
+    API_ENDPOINTS.MAINTENANCE.CREATE,
+    data
+  );
 };
 
 /**
@@ -62,7 +70,10 @@ export const updateMaintenanceRequest = async (
   id: string,
   data: Partial<MaintenanceRequest>
 ) => {
-  return apiClient.put<MaintenanceRequest>(API_ENDPOINTS.MAINTENANCE.UPDATE(id), data);
+  return apiClient.put<MaintenanceRequest>(
+    API_ENDPOINTS.MAINTENANCE.UPDATE(id),
+    data
+  );
 };
 
 /**
@@ -82,7 +93,10 @@ export const assignMaintenanceRequest = async (
   id: string,
   data: { assignedToId: string; notes?: string }
 ) => {
-  return apiClient.post<MaintenanceRequest>(API_ENDPOINTS.MAINTENANCE.ASSIGN(id), data);
+  return apiClient.post<MaintenanceRequest>(
+    API_ENDPOINTS.MAINTENANCE.ASSIGN(id),
+    data
+  );
 };
 
 /**
@@ -92,7 +106,19 @@ export const completeMaintenanceRequest = async (
   id: string,
   data: { actualCost?: number; completionNotes?: string }
 ) => {
-  return apiClient.post<MaintenanceRequest>(API_ENDPOINTS.MAINTENANCE.COMPLETE(id), data);
+  return apiClient.post<MaintenanceRequest>(
+    API_ENDPOINTS.MAINTENANCE.COMPLETE(id),
+    data
+  );
+};
+
+/**
+ * Delete maintenance request
+ */
+export const deleteMaintenanceRequest = async (id: string) => {
+  return apiClient.delete<MaintenanceRequest>(
+    API_ENDPOINTS.MAINTENANCE.UPDATE(id)
+  );
 };
 
 /**
@@ -110,24 +136,28 @@ export const getMaintenanceStats = async (propertyId?: string) => {
  */
 export const uploadMaintenanceFiles = async (files: File[]) => {
   const formData = new FormData();
-  files.forEach(file => {
-    formData.append('files', file);
+  files.forEach((file) => {
+    formData.append("files", file);
   });
 
-  const token = localStorage.getItem('auth_token');
-  const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/maintenance/upload`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`
-    },
-    body: formData
-  });
+  const token = localStorage.getItem("auth_token");
+  const response = await fetch(
+    `${
+      import.meta.env.VITE_API_URL || "http://localhost:5000"
+    }/api/maintenance/upload`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    }
+  );
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.error || 'Failed to upload files');
+    throw new Error(error.error || "Failed to upload files");
   }
 
   return response.json();
 };
-

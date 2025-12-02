@@ -1,28 +1,34 @@
-import express, { Response } from 'express';
-import { authMiddleware, AuthRequest } from '../middleware/auth';
-import prisma from '../lib/db';
+import express, { Response } from "express";
+import { authMiddleware, AuthRequest } from "../middleware/auth";
+import prisma from "../lib/db";
 
 const router = express.Router();
 
 router.use(authMiddleware);
 
 // Get financial overview
-router.get('/overview', async (req: AuthRequest, res: Response) => {
+router.get("/overview", async (req: AuthRequest, res: Response) => {
   try {
-    console.log('📊 Financial overview requested by:', req.user?.role, req.user?.email);
+    console.log(
+      "📊 Financial overview requested by:",
+      req.user?.role,
+      req.user?.email
+    );
     const userId = req.user?.id;
-    const roleRaw = req.user?.role || '';
-    const normalizedRole = roleRaw.toLowerCase().replace(/[\s_-]/g, '');
-    const isOwner = normalizedRole === 'owner' || normalizedRole === 'propertyowner';
-    const isManager = normalizedRole === 'manager' || normalizedRole === 'propertymanager';
+    const roleRaw = req.user?.role || "";
+    const normalizedRole = roleRaw.toLowerCase().replace(/[\s_-]/g, "");
+    const isOwner =
+      normalizedRole === "owner" || normalizedRole === "propertyowner";
+    const isManager =
+      normalizedRole === "manager" || normalizedRole === "propertymanager";
     const { startDate, endDate } = req.query;
 
     if (!isOwner && !isManager) {
-      console.log('❌ Access denied for role:', roleRaw);
-      return res.status(403).json({ error: 'Access denied' });
+      console.log("❌ Access denied for role:", roleRaw);
+      return res.status(403).json({ error: "Access denied" });
     }
-    
-    console.log('✅ Access granted, fetching properties for user:', userId);
+
+    console.log("✅ Access granted, fetching properties for user:", userId);
 
     // Get properties for the user
     // NOTE: Use include with relation filters; do not mix include and select in the same query
@@ -33,34 +39,34 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
             property_managers: {
               some: {
                 managerId: userId,
-                isActive: true
-              }
-            }
+                isActive: true,
+              },
+            },
           },
       include: {
         units: {
           select: {
             monthlyRent: true,
-            status: true
-          }
+            status: true,
+          },
         },
         leases: {
           where: {
-            status: 'active'
+            status: "active",
           },
           select: {
             monthlyRent: true,
-            securityDeposit: true
-          }
-        }
-      }
+            securityDeposit: true,
+          },
+        },
+      },
     });
 
     console.log(`📦 Found ${properties.length} properties for user`);
-    
+
     // If no properties, return empty data
     if (properties.length === 0) {
-      console.log('⚠️  No properties found, returning empty data');
+      console.log("⚠️  No properties found, returning empty data");
       return res.json({
         totalRevenue: 0,
         netOperatingIncome: 0,
@@ -74,7 +80,7 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
         estimatedExpenses: 0,
         annualRevenue: 0,
         annualNOI: 0,
-        totalPropertyValue: 0
+        totalPropertyValue: 0,
       });
     }
 
@@ -84,12 +90,12 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
     let totalUnits = 0;
     let totalPropertyValue = 0;
 
-    properties.forEach(property => {
+    properties.forEach((property) => {
       // Handle properties without units
       if (property.units && property.units.length > 0) {
-        property.units.forEach(unit => {
+        property.units.forEach((unit) => {
           totalUnits++;
-          if (unit.status === 'occupied') {
+          if (unit.status === "occupied") {
             totalRevenue += unit.monthlyRent || 0;
             totalOccupiedUnits++;
           }
@@ -104,53 +110,58 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
       } else if (property.units && property.units.length > 0) {
         // Fallback: estimate at 15x annual rent for this property
         const propertyRevenue = property.units
-          .filter(u => u.status === 'occupied')
+          .filter((u) => u.status === "occupied")
           .reduce((sum, u) => sum + (u.monthlyRent || 0), 0);
         totalPropertyValue += propertyRevenue * 12 * 15;
       }
     });
 
     // Calculate actual expenses from database
-    const propertyIds = properties.map(p => p.id);
+    const propertyIds = properties.map((p) => p.id);
     const actualExpenses = await prisma.expenses.aggregate({
       where: {
         propertyId: { in: propertyIds },
-        status: { in: ['paid', 'pending'] }, // Include paid and pending expenses
-        ...(startDate && endDate ? {
-          date: {
-            gte: new Date(startDate as string),
-            lte: new Date(endDate as string)
-          }
-        } : {})
+        status: { in: ["paid", "pending"] }, // Include paid and pending expenses
+        ...(startDate && endDate
+          ? {
+              date: {
+                gte: new Date(startDate as string),
+                lte: new Date(endDate as string),
+              },
+            }
+          : {}),
       },
       _sum: {
-        amount: true
-      }
+        amount: true,
+      },
     });
 
-    // Use actual expenses if available, otherwise estimate at 30% of revenue
-    const estimatedExpenses = actualExpenses._sum.amount || (totalRevenue * 0.3);
-    
+    // Use actual expenses only; do not estimate when none are recorded
+    const estimatedExpenses = actualExpenses._sum.amount || 0;
+
     // Net Operating Income (NOI) = Revenue - Operating Expenses
     const netOperatingIncome = totalRevenue - estimatedExpenses;
 
     // Operating Margin = (NOI / Revenue) * 100
-    const operatingMargin = totalRevenue > 0 ? (netOperatingIncome / totalRevenue) * 100 : 0;
+    const operatingMargin =
+      totalRevenue > 0 ? (netOperatingIncome / totalRevenue) * 100 : 0;
 
     // Portfolio Cap Rate (based on annual NOI / actual property value)
     const annualNOI = netOperatingIncome * 12;
-    const portfolioCapRate = totalPropertyValue > 0 ? (annualNOI / totalPropertyValue) * 100 : 0;
+    const portfolioCapRate =
+      totalPropertyValue > 0 ? (annualNOI / totalPropertyValue) * 100 : 0;
 
     // Occupancy rate
-    const occupancyRate = totalUnits > 0 ? (totalOccupiedUnits / totalUnits) * 100 : 0;
+    const occupancyRate =
+      totalUnits > 0 ? (totalOccupiedUnits / totalUnits) * 100 : 0;
 
-    console.log('💰 Financial Overview Calculated:', {
+    console.log("💰 Financial Overview Calculated:", {
       totalRevenue,
       netOperatingIncome,
       estimatedExpenses,
       portfolioCapRate,
       totalUnits,
-      occupiedUnits: totalOccupiedUnits
+      occupiedUnits: totalOccupiedUnits,
     });
 
     return res.json({
@@ -166,132 +177,209 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
       estimatedExpenses,
       annualRevenue: totalRevenue * 12,
       annualNOI,
-      totalPropertyValue
+      totalPropertyValue,
     });
-
   } catch (error: any) {
-    console.error('❌ Get financial overview error:', error);
-    console.error('❌ Error details:', error.message, error.stack);
-    return res.status(500).json({ 
-      error: 'Failed to fetch financial overview',
-      details: error.message 
+    console.error("❌ Get financial overview error:", error);
+    console.error("❌ Error details:", error.message, error.stack);
+    return res.status(500).json({
+      error: "Failed to fetch financial overview",
+      details: error.message,
     });
   }
 });
 
-// Get monthly revenue data
-router.get('/monthly-revenue', async (req: AuthRequest, res: Response) => {
+// Get monthly revenue data (aggregated from payments & expenses)
+router.get("/monthly-revenue", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     const role = req.user?.role;
     const { months = 12 } = req.query;
 
-    if (role !== 'owner' && role !== 'manager') {
-      return res.status(403).json({ error: 'Access denied' });
+    if (role !== "owner" && role !== "manager") {
+      return res.status(403).json({ error: "Access denied" });
     }
 
-    // For now, return current month data multiplied
-    // In production, you'd query actual payment history
+    const monthsInt = Math.max(1, Math.min(Number(months) || 12, 24));
+
+    // Find properties scoped to owner or manager
     const properties = await prisma.properties.findMany({
-      where: role === 'owner' 
-        ? { ownerId: userId }
-        : {
-            property_managers: {
-              some: {
-                managerId: userId,
-                isActive: true
-              }
-            }
-          },
-      include: {
-        units: {
-          where: { status: 'occupied' },
-          select: { monthlyRent: true }
-        }
-      }
+      where:
+        role === "owner"
+          ? { ownerId: userId }
+          : {
+              property_managers: {
+                some: {
+                  managerId: userId,
+                  isActive: true,
+                },
+              },
+            },
+      select: { id: true },
     });
 
-    // If no properties, return empty array
     if (properties.length === 0) {
       return res.json([]);
     }
 
-    const currentRevenue = properties.reduce((sum, prop) => 
-      sum + (prop.units || []).reduce((unitSum, unit) => unitSum + (unit.monthlyRent || 0), 0), 0
-    );
+    const propertyIds = properties.map((p) => p.id);
 
-    const monthlyData = [];
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    
-    for (let i = Number(months) - 1; i >= 0; i--) {
-      const date = new Date();
-      date.setMonth(date.getMonth() - i);
-      const monthIndex = date.getMonth();
-      
-      // Add slight variation for demo purposes
-      const variation = 1 + (Math.random() * 0.1 - 0.05);
-      const revenue = currentRevenue * variation;
-      const expenses = revenue * 0.3;
-      
+    // Compute date range: from N-1 months ago (start of month) to now
+    const now = new Date();
+    const from = new Date(now);
+    from.setMonth(from.getMonth() - (monthsInt - 1));
+    from.setDate(1);
+    from.setHours(0, 0, 0, 0);
+
+    // Load payments (revenue) and expenses within the range
+    const [payments, expenses] = await Promise.all([
+      prisma.payments.findMany({
+        where: {
+          propertyId: { in: propertyIds },
+          status: "success",
+          // Include all successful property payments except subscriptions
+          NOT: { type: "subscription" },
+          paidAt: {
+            gte: from,
+            lte: now,
+          },
+        },
+        select: {
+          amount: true,
+          paidAt: true,
+        },
+      }),
+      prisma.expenses.findMany({
+        where: {
+          propertyId: { in: propertyIds },
+          status: { in: ["paid", "pending"] },
+          date: {
+            gte: from,
+            lte: now,
+          },
+        },
+        select: {
+          amount: true,
+          date: true,
+        },
+      }),
+    ]);
+
+    // Helper to get year-month key
+    const getKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}`;
+
+    const revenueByMonth = new Map<string, number>();
+    const expensesByMonth = new Map<string, number>();
+
+    payments.forEach((p) => {
+      if (!p.paidAt) return;
+      const d = new Date(p.paidAt);
+      const key = getKey(d);
+      revenueByMonth.set(
+        key,
+        (revenueByMonth.get(key) || 0) + Number(p.amount || 0)
+      );
+    });
+
+    expenses.forEach((e) => {
+      if (!e.date) return;
+      const d = new Date(e.date);
+      const key = getKey(d);
+      expensesByMonth.set(
+        key,
+        (expensesByMonth.get(key) || 0) + Number(e.amount || 0)
+      );
+    });
+
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+
+    const monthlyData: Array<{
+      month: string;
+      revenue: number;
+      expenses: number;
+      netIncome: number;
+    }> = [];
+
+    // Build series for each month in the window, even if zero
+    for (let i = monthsInt - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - i);
+      const key = getKey(d);
+      const revenue = revenueByMonth.get(key) || 0;
+      const exp = expensesByMonth.get(key) || 0;
+
       monthlyData.push({
-        month: monthNames[monthIndex],
+        month: monthNames[d.getMonth()],
         revenue: Math.round(revenue),
-        expenses: Math.round(expenses),
-        netIncome: Math.round(revenue - expenses)
+        expenses: Math.round(exp),
+        netIncome: Math.round(revenue - exp),
       });
     }
 
     return res.json(monthlyData);
-
   } catch (error: any) {
-    console.error('Get monthly revenue error:', error);
-    return res.status(500).json({ 
-      error: 'Failed to fetch monthly revenue',
-      details: error.message 
+    console.error("Get monthly revenue error:", error);
+    return res.status(500).json({
+      error: "Failed to fetch monthly revenue",
+      details: error.message,
     });
   }
 });
 
 // Get property performance data
-router.get('/property-performance', async (req: AuthRequest, res: Response) => {
+router.get("/property-performance", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     const role = req.user?.role;
 
-    if (role !== 'owner' && role !== 'manager') {
-      return res.status(403).json({ error: 'Access denied' });
+    if (role !== "owner" && role !== "manager") {
+      return res.status(403).json({ error: "Access denied" });
     }
 
     // Get properties with detailed financial data
     const properties = await prisma.properties.findMany({
-      where: role === 'owner' 
-        ? { ownerId: userId }
-        : {
-            property_managers: {
-              some: {
-                managerId: userId,
-                isActive: true
-              }
-            }
-          },
+      where:
+        role === "owner"
+          ? { ownerId: userId }
+          : {
+              property_managers: {
+                some: {
+                  managerId: userId,
+                  isActive: true,
+                },
+              },
+            },
       include: {
         units: {
           select: {
             id: true,
             monthlyRent: true,
-            status: true
-          }
+            status: true,
+          },
         },
         leases: {
           where: {
-            status: 'active'
+            status: "active",
           },
           select: {
             id: true,
-            monthlyRent: true
-          }
-        }
-      }
+            monthlyRent: true,
+          },
+        },
+      },
     });
 
     // If no properties, return empty array
@@ -300,10 +388,10 @@ router.get('/property-performance', async (req: AuthRequest, res: Response) => {
     }
 
     // Calculate performance metrics for each property
-    const performanceData = properties.map(property => {
+    const performanceData = properties.map((property) => {
       // Calculate revenue (sum of occupied unit rents)
       const monthlyRevenue = (property.units || [])
-        .filter(u => u.status === 'occupied')
+        .filter((u) => u.status === "occupied")
         .reduce((sum, u) => sum + (u.monthlyRent || 0), 0);
 
       const annualRevenue = monthlyRevenue * 12;
@@ -318,13 +406,16 @@ router.get('/property-performance', async (req: AuthRequest, res: Response) => {
 
       // Calculate occupancy rate
       const totalUnits = (property.units || []).length;
-      const occupiedUnits = (property.units || []).filter(u => u.status === 'occupied').length;
-      const occupancyRate = totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0;
+      const occupiedUnits = (property.units || []).filter(
+        (u) => u.status === "occupied"
+      ).length;
+      const occupancyRate =
+        totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0;
 
       // Calculate Cap Rate
       let capRate = 0;
       let propertyValue = 0;
-      
+
       if (property.currentValue) {
         propertyValue = property.currentValue;
       } else if (property.purchasePrice) {
@@ -372,21 +463,19 @@ router.get('/property-performance', async (req: AuthRequest, res: Response) => {
         cashFlow,
         avgRent: property.avgRent || 0,
         insurancePremium: property.insurancePremium || 0,
-        propertyTaxes: property.propertyTaxes || 0
+        propertyTaxes: property.propertyTaxes || 0,
       };
     });
 
     return res.json(performanceData);
-
   } catch (error: any) {
-    console.error('Get property performance error:', error);
-    console.error('Error details:', error.message, error.stack);
-    return res.status(500).json({ 
-      error: 'Failed to fetch property performance',
-      details: error.message 
+    console.error("Get property performance error:", error);
+    console.error("Error details:", error.message, error.stack);
+    return res.status(500).json({
+      error: "Failed to fetch property performance",
+      details: error.message,
     });
   }
 });
 
 export default router;
-
