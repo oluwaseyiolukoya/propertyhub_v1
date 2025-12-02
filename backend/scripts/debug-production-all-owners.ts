@@ -4,7 +4,20 @@ const prisma = new PrismaClient();
 
 // Helper functions to replace date-fns
 function getMonthName(monthIndex: number): string {
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
   return months[monthIndex];
 }
 
@@ -21,7 +34,11 @@ async function main() {
     console.log("\n🔍 PRODUCTION DEBUG REPORT - ALL OWNERS\n");
     console.log("=".repeat(80));
     console.log(`\n📍 Environment: PRODUCTION`);
-    console.log(`🔗 Database: ${process.env.DATABASE_URL?.split("@")[1]?.split("/")[0] || "Unknown"}`);
+    console.log(
+      `🔗 Database: ${
+        process.env.DATABASE_URL?.split("@")[1]?.split("/")[0] || "Unknown"
+      }`
+    );
     console.log(`⏰ Current Time: ${new Date().toISOString()}`);
 
     // Get all owners
@@ -48,7 +65,9 @@ async function main() {
       console.log("=".repeat(80));
       console.log(`\n👤 OWNER: ${owner.email} (${owner.name})`);
       console.log(`   ID: ${owner.id}`);
-      console.log(`   Created: ${new Date(owner.createdAt).toLocaleDateString()}\n`);
+      console.log(
+        `   Created: ${new Date(owner.createdAt).toLocaleDateString()}\n`
+      );
 
       // Check properties
       const properties = await prisma.properties.findMany({
@@ -73,7 +92,11 @@ async function main() {
       }
 
       properties.forEach((prop, i) => {
-        console.log(`      ${i + 1}. ${prop.name} (${prop._count.units} units, ${prop._count.leases} leases)`);
+        console.log(
+          `      ${i + 1}. ${prop.name} (${prop._count.units} units, ${
+            prop._count.leases
+          } leases)`
+        );
       });
 
       const propertyIds = properties.map((p) => p.id);
@@ -107,7 +130,9 @@ async function main() {
         console.log(`      Recent chart-eligible payments:`);
         chartPayments.forEach((payment, i) => {
           console.log(
-            `         ${i + 1}. ${payment.type} - ${Number(payment.amount).toFixed(2)} (${new Date(payment.paidAt!).toLocaleDateString()})`
+            `         ${i + 1}. ${payment.type} - ${Number(
+              payment.amount
+            ).toFixed(2)} (${new Date(payment.paidAt!).toLocaleDateString()})`
           );
         });
       }
@@ -139,7 +164,9 @@ async function main() {
         console.log(`      Recent chart-eligible expenses:`);
         chartExpenses.forEach((expense, i) => {
           console.log(
-            `         ${i + 1}. ${expense.category} - ${Number(expense.amount).toFixed(2)} (${new Date(expense.date).toLocaleDateString()})`
+            `         ${i + 1}. ${expense.category} - ${Number(
+              expense.amount
+            ).toFixed(2)} (${new Date(expense.date).toLocaleDateString()})`
           );
         });
       }
@@ -181,7 +208,9 @@ async function main() {
       });
 
       // Group by month
-      const monthlyData: { [key: string]: { revenue: number; expenses: number } } = {};
+      const monthlyData: {
+        [key: string]: { revenue: number; expenses: number };
+      } = {};
 
       for (let month = 0; month < 12; month++) {
         const monthKey = getMonthName(month);
@@ -202,7 +231,9 @@ async function main() {
 
       console.log(`\n   📊 Chart Data (${currentYear}):`);
       const hasRevenue = Object.values(monthlyData).some((d) => d.revenue > 0);
-      const hasExpenses = Object.values(monthlyData).some((d) => d.expenses > 0);
+      const hasExpenses = Object.values(monthlyData).some(
+        (d) => d.expenses > 0
+      );
 
       if (!hasRevenue && !hasExpenses) {
         console.log(`      ❌ No data for ${currentYear}`);
@@ -211,7 +242,11 @@ async function main() {
           if (data.revenue > 0 || data.expenses > 0) {
             const netIncome = data.revenue - data.expenses;
             console.log(
-              `      ${month}: Revenue=${data.revenue.toFixed(0)}, Expenses=${data.expenses.toFixed(0)}, Net=${netIncome.toFixed(0)}`
+              `      ${month}: Revenue=${data.revenue.toFixed(
+                0
+              )}, Expenses=${data.expenses.toFixed(0)}, Net=${netIncome.toFixed(
+                0
+              )}`
             );
           }
         });
@@ -220,14 +255,20 @@ async function main() {
       // Diagnosis
       console.log(`\n   🔬 DIAGNOSIS:`);
       if (chartPayments.length === 0 && chartExpenses.length === 0) {
-        console.log(`      ❌ NO DATA - No chart-eligible payments or expenses`);
+        console.log(
+          `      ❌ NO DATA - No chart-eligible payments or expenses`
+        );
       } else if (chartPayments.length === 0 && chartExpenses.length > 0) {
-        console.log(`      ❌ EXPENSES ONLY - No revenue, chart shows only green bars`);
+        console.log(
+          `      ❌ EXPENSES ONLY - No revenue, chart shows only green bars`
+        );
         console.log(`      ✅ ACTION: Record successful rent/deposit payments`);
       } else if (chartPayments.length > 0 && chartExpenses.length === 0) {
         console.log(`      ✅ REVENUE ONLY - Chart should show blue bars`);
       } else {
-        console.log(`      ✅ REVENUE + EXPENSES - Chart should show both bars`);
+        console.log(
+          `      ✅ REVENUE + EXPENSES - Chart should show both bars`
+        );
       }
 
       console.log("");
@@ -244,4 +285,3 @@ async function main() {
 }
 
 main();
-

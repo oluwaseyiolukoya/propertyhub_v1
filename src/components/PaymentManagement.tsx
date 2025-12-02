@@ -10,6 +10,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Badge } from "./ui/badge";
+import { formatCurrency } from "../lib/currency";
 import {
   Dialog,
   DialogContent,
@@ -1130,9 +1131,7 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({
                         <TableCell>{payment.property}</TableCell>
                         <TableCell>{payment.unit}</TableCell>
                         <TableCell>
-                          {payment.currency === "NGN" ? "₦" : ""}
-                          {payment.amount.toLocaleString()}{" "}
-                          {payment.currency !== "NGN" ? payment.currency : ""}
+                          {formatCurrency(payment.amount, payment.currency)}
                         </TableCell>
                         <TableCell>
                           {payment.paidDate || payment.dueDate}
