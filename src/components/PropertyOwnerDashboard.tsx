@@ -17,12 +17,10 @@ import { Footer } from './Footer';
 import PropertyOwnerDocuments from './PropertyOwnerDocuments';
 import { PaymentOverview } from './PaymentOverview';
 import { TenantVerificationManagement } from './owner/TenantVerificationManagement';
-import { getOwnerDashboardOverview, getProperties, getOwnerActivities } from '../lib/api';
+import { getOwnerActivities } from '../lib/api';
 import { getProperty, updateProperty } from '../lib/api/properties';
 import { createProperty } from '../lib/api/properties';
-import { getUnits } from '../lib/api/units';
 import { useCurrency } from '../lib/CurrencyContext';
-import { getAccountInfo } from '../lib/api/auth';
 import { usePersistentState } from '../lib/usePersistentState';
 import { formatCurrency as formatCurrencyUtil, getSmartBaseCurrency } from '../lib/currency';
 import { TrialStatusBanner } from './TrialStatusBanner';
@@ -32,6 +30,7 @@ import { verifyUpgrade } from '../lib/api/subscriptions';
 import { apiClient } from '../lib/api-client';
 import { PlatformLogo } from './PlatformLogo';
 import { TRIAL_PLAN_LIMITS } from '../lib/constants/subscriptions';
+import { useProperties, useUnits, useOwnerDashboard, useAccountInfo } from '../hooks';
 
 interface PropertyOwnerDashboardProps {
   user: any;
@@ -187,12 +186,7 @@ export function PropertyOwnerDashboard({
   const { formatCurrency } = useCurrency();
   const [showWelcome, setShowWelcome] = useState(false);
   const [currentView, setCurrentView] = usePersistentState('owner-dashboard-view', 'dashboard');
-  const [properties, setProperties] = useState<any[]>([]);
-  const [units, setUnits] = useState<any[]>([]);
   const [selectedProperty, setSelectedProperty] = useState<any | null>(null);
-  const [dashboardData, setDashboardData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [accountInfo, setAccountInfo] = useState<any>(null);
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [subscription, setSubscription] = useState<any>(null);
@@ -200,6 +194,15 @@ export function PropertyOwnerDashboard({
   const [loadingBills, setLoadingBills] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<string | undefined>(undefined);
   const [hasCustomLogo, setHasCustomLogo] = useState(false);
+
+  // React Query hooks - replaces manual useState + fetch
+  const { data: properties = [], isLoading: propertiesLoading, refetch: refetchProperties } = useProperties();
+  const { data: units = [], isLoading: unitsLoading, refetch: refetchUnits } = useUnits();
+  const { data: dashboardData, isLoading: dashboardLoading, refetch: refetchDashboard } = useOwnerDashboard();
+  const { data: accountInfo, isLoading: accountLoading, refetch: refetchAccount } = useAccountInfo();
+  
+  // Combined loading state
+  const loading = propertiesLoading || unitsLoading || dashboardLoading || accountLoading;
 
   // Reset to dashboard view on component mount (every login)
   useEffect(() => {
@@ -222,70 +225,34 @@ export function PropertyOwnerDashboard({
     accountInfo?.customer?.plan?.unitLimit ??
     (!accountInfo?.customer?.planId ? TRIAL_PLAN_LIMITS.units : undefined);
 
-  // Fetch dashboard data, properties, and account info
+  // Refetch all data - React Query makes this instant with cache
   const fetchData = async (silent = false) => {
     try {
-      if (!silent) setLoading(true);
-
-      const [dashResponse, propertiesResponse, unitsResponse, accountResponse, subStatus] = await Promise.all([
-        getOwnerDashboardOverview(),
-        getProperties(),
-        getUnits(),
-        getAccountInfo(),
-        getSubscriptionStatus().catch(() => null)
+      // Refetch all queries in parallel - React Query handles caching
+      await Promise.all([
+        refetchProperties(),
+        refetchUnits(),
+        refetchDashboard(),
+        refetchAccount(),
       ]);
 
-      if (dashResponse.error) {
-        if (!silent) toast.error(dashResponse.error.error || 'Failed to load dashboard');
-      } else if (dashResponse.data) {
-        setDashboardData(dashResponse.data);
-      }
-
-      if (propertiesResponse.error) {
-        if (!silent) toast.error(propertiesResponse.error.error || 'Failed to load properties');
-      } else if (propertiesResponse.data) {
-        setProperties(propertiesResponse.data);
-      }
-
-      if (unitsResponse.error) {
-        console.error('Failed to load units:', unitsResponse.error);
-      } else if (unitsResponse.data && Array.isArray(unitsResponse.data)) {
-        setUnits(unitsResponse.data);
-      }
-
-      // Update account info (plan, limits, etc.)
-      if (accountResponse.error) {
-        console.error('Failed to fetch account info:', accountResponse.error);
-      } else if (accountResponse.data) {
-        setAccountInfo(accountResponse.data);
-
-        // Show notification if plan/limits were updated (only on silent refresh)
-        if (silent && accountInfo && accountResponse.data.customer) {
-          const oldCustomer = accountInfo.customer;
-          const newCustomer = accountResponse.data.customer;
-
-          if (oldCustomer && newCustomer) {
-            if (oldCustomer.plan?.name !== newCustomer.plan?.name) {
-              toast.success(`Your plan has been updated to ${newCustomer.plan?.name}!`);
-            }
-            if (oldCustomer.propertyLimit !== newCustomer.propertyLimit) {
-              toast.info(`Property limit updated to ${newCustomer.propertyLimit}`);
-            }
-            if (oldCustomer.userLimit !== newCustomer.userLimit) {
-              toast.info(`User limit updated to ${newCustomer.userLimit}`);
-            }
-          }
+      // Fetch subscription status (not cached via React Query yet)
+      try {
+        const subStatus = await getSubscriptionStatus();
+        if (subStatus) {
+          setSubscription(subStatus);
         }
+      } catch (error) {
+        console.error('Failed to fetch subscription:', error);
       }
 
-      // Subscription status
-      if (subStatus) {
-        setSubscription(subStatus);
+      if (!silent) {
+        toast.success('Data refreshed');
       }
     } catch (error) {
-      if (!silent) toast.error('Failed to load data');
-    } finally {
-      if (!silent) setLoading(false);
+      if (!silent) {
+        toast.error('Failed to refresh data');
+      }
     }
   };
 
@@ -370,10 +337,8 @@ export function PropertyOwnerDashboard({
     }
   }, []);
 
-  // Initial data fetch
-  useEffect(() => {
-    fetchData();
-  }, []);
+  // Initial data fetch - React Query handles this automatically
+  // Data loads on mount with caching and automatic refetching
 
   // Load recent billing history (subscriptions only)
   useEffect(() => {
@@ -815,11 +780,12 @@ export function PropertyOwnerDashboard({
               }}
               onNavigateToTenants={() => setCurrentView('tenants')}
               onNavigateToMaintenance={() => setCurrentView('maintenance')}
-              onPropertyDeleted={(propertyId) => {
-                // Remove the deleted property from local state
-                setProperties(prev => prev.filter(p => p.id !== propertyId));
+              onPropertyDeleted={async (propertyId) => {
+                // Refetch properties to get fresh data from server
+                await refetchProperties();
+                toast.success('Property deleted successfully');
               }}
-              onRefreshProperties={() => fetchData(true)}
+              onRefreshProperties={() => refetchProperties()}
             />
           ) : currentView === 'property-details' ? (
             <div className="p-4 lg:p-8">
