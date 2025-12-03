@@ -326,6 +326,11 @@ model leases {
   users             users      @relation(fields: [tenantId], references: [id])
   units             units?     @relation(fields: [unitId], references: [id])
   payments          payments[]
+
+  @@index([propertyId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([propertyId, status])
 }
 
 model payment_methods {
@@ -410,6 +415,8 @@ model payments {
   @@index([propertyId])
   @@index([provider])
   @@index([status])
+  @@index([paidAt])
+  @@index([propertyId, status])
 }
 
 model plans {
@@ -487,6 +494,10 @@ model properties {
   property_managers     property_managers[]
   units                 units[]
   maintenance_requests  maintenance_requests[]
+
+  @@index([ownerId])
+  @@index([customerId])
+  @@index([status])
 }
 
 model property_key_transactions {
@@ -646,6 +657,8 @@ model units {
   maintenance_requests maintenance_requests[]
 
   @@unique([propertyId, unitNumber])
+  @@index([propertyId])
+  @@index([status])
 }
 
 model landing_page_submissions {

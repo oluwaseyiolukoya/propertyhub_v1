@@ -3,12 +3,16 @@ import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 import { CurrencyProvider } from './lib/CurrencyContext.tsx'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { queryClient } from './lib/query-client.ts'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <CurrencyProvider>
-      <App />
-    </CurrencyProvider>
+    <QueryClientProvider client={queryClient}>
+      <CurrencyProvider>
+        <App />
+      </CurrencyProvider>
+    </QueryClientProvider>
   </React.StrictMode>,
 )
 
