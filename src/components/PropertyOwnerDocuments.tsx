@@ -40,6 +40,8 @@ import {
   AlertDialogTitle,
 } from './ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Calendar as CalendarComponent } from './ui/calendar';
 import {
   FileText,
   Download,
@@ -60,6 +62,7 @@ import {
   ClipboardList,
   Loader2,
   MoreHorizontal,
+  Calendar as CalendarIcon,
 } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
 import { toast } from 'sonner';
@@ -77,6 +80,8 @@ import {
   DocumentStats,
 } from '../lib/api';
 import { getProperties } from '../lib/api';
+import { format } from 'date-fns';
+import { cn } from '../lib/utils';
 
 const PropertyOwnerDocuments: React.FC = () => {
   const [activeTab, setActiveTab] = useState('manager-contracts');
@@ -98,14 +103,14 @@ const PropertyOwnerDocuments: React.FC = () => {
   const [dialogType, setDialogType] = useState('manager-contract');
   const [showTemplateManager, setShowTemplateManager] = useState(false);
   const [editableContent, setEditableContent] = useState('');
-  
+
   // Data state
   const [documents, setDocuments] = useState<Document[]>([]);
   const [stats, setStats] = useState<DocumentStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [properties, setProperties] = useState<any[]>([]);
-  
+
   // Form states
   const [uploadForm, setUploadForm] = useState({
     file: null as File | null,
@@ -119,7 +124,7 @@ const PropertyOwnerDocuments: React.FC = () => {
     managerId: '',
     isShared: false,
   });
-  
+
   // Form states for generating contracts
   const [contractForm, setContractForm] = useState({
     managerId: '',
@@ -147,7 +152,7 @@ const PropertyOwnerDocuments: React.FC = () => {
   const loadManagers = async () => {
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      
+
       // Load all managers with their property assignments
       const managersResponse = await fetch(`${API_URL}/api/property-managers`, {
         headers: {
@@ -173,7 +178,7 @@ const PropertyOwnerDocuments: React.FC = () => {
 
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      
+
       // Load units for the property
       const unitsResponse = await fetch(`${API_URL}/api/units?propertyId=${propertyId}`, {
         headers: {
@@ -194,8 +199,8 @@ const PropertyOwnerDocuments: React.FC = () => {
       if (managersResponse.ok) {
         const managersData = await managersResponse.json();
         // Filter managers assigned to this specific property
-        const assignedManagers = Array.isArray(managersData) 
-          ? managersData.filter((m: any) => 
+        const assignedManagers = Array.isArray(managersData)
+          ? managersData.filter((m: any) =>
               m.property_managers?.some((pm: any) => pm.propertyId === propertyId && pm.isActive)
             )
           : [];
@@ -208,9 +213,9 @@ const PropertyOwnerDocuments: React.FC = () => {
     }
   };
 
-  const getTenantForUnit = (unitId: string) => {
+  const getTenantForUnit = (unitId: string, formType: 'contract' | 'upload' = 'contract') => {
     if (!unitId || !Array.isArray(propertyUnits)) return null;
-    
+
     const unit = propertyUnits.find(u => u.id === unitId);
     if (!unit) return null;
 
@@ -229,27 +234,39 @@ const PropertyOwnerDocuments: React.FC = () => {
         const leases = result.data || [];
         const lease = leases.find((l: any) => l.unitId === unitId && l.status === 'active');
         if (lease && lease.users) {
-          // Auto-populate tenant ID and monthly rent
-          setContractForm(prev => ({ 
-            ...prev, 
-            tenantId: lease.users.id,
-            compensation: monthlyRent
-          }));
+          // Auto-populate tenant ID
+          if (formType === 'contract') {
+            setContractForm(prev => ({
+              ...prev,
+              tenantId: lease.users.id,
+              compensation: monthlyRent
+            }));
+          } else {
+            // For upload form
+            setUploadForm(prev => ({
+              ...prev,
+              tenantId: lease.users.id
+            }));
+          }
         } else {
-          // If no active lease, just populate monthly rent
-          setContractForm(prev => ({ 
-            ...prev, 
-            compensation: monthlyRent
-          }));
+          // If no active lease, just populate monthly rent for contract form
+          if (formType === 'contract') {
+            setContractForm(prev => ({
+              ...prev,
+              compensation: monthlyRent
+            }));
+          }
         }
       })
       .catch(err => {
         console.error('Failed to get tenant for unit:', err);
-        // Still populate monthly rent even if tenant fetch fails
-        setContractForm(prev => ({ 
-          ...prev, 
-          compensation: monthlyRent
-        }));
+        // Still populate monthly rent for contract form even if tenant fetch fails
+        if (formType === 'contract') {
+          setContractForm(prev => ({
+            ...prev,
+            compensation: monthlyRent
+          }));
+        }
       });
 
     return unit;
@@ -293,6 +310,8 @@ const PropertyOwnerDocuments: React.FC = () => {
         console.error('Failed to load documents:', error);
         toast.error('Failed to load documents');
       } else if (data) {
+        console.log('Documents loaded:', data.length);
+        console.log('Sample document:', data[0]);
         setDocuments(data);
       }
     } catch (error) {
@@ -333,7 +352,7 @@ const PropertyOwnerDocuments: React.FC = () => {
   // Get managers assigned to a specific property
   const getManagersForProperty = (propertyId: string) => {
     if (!propertyId || !Array.isArray(managers)) return [];
-    
+
     // Filter managers who have an active assignment to this property
     // Each manager has a property_managers array with their property assignments
     return managers.filter((manager: any) => {
@@ -360,44 +379,56 @@ const PropertyOwnerDocuments: React.FC = () => {
   const getFilteredDocuments = () => {
     let filtered = documents;
 
+    console.log('Total documents:', documents.length);
+    console.log('Active tab:', activeTab);
+
     // Filter by tab
     if (activeTab !== 'all') {
       if (activeTab === 'manager-contracts') {
-        filtered = filtered.filter(doc => 
-          (doc.type === 'contract' || 
-          doc.type === 'manager-contract' || 
-          doc.type === 'tenant-contract' || 
+        filtered = filtered.filter(doc =>
+          (doc.type === 'contract' ||
+          doc.type === 'manager-contract' ||
+          doc.type === 'tenant-contract' ||
           doc.category === 'Contracts') &&
           doc.type !== 'receipt' &&
           doc.category !== 'Receipts' &&
           doc.category !== 'Financial Records'
         );
       } else if (activeTab === 'leases-inspections') {
-        filtered = filtered.filter(doc => 
-          doc.type === 'lease' || 
-          doc.type === 'inspection' || 
+        const beforeFilter = filtered.length;
+        filtered = filtered.filter(doc =>
+          // Primary lease / inspection docs
+          doc.type === 'lease' ||
+          doc.type === 'inspection' ||
+          // Tenant contracts should also show under Leases & Inspections
+          doc.type === 'tenant-contract' ||
+          // Category-based grouping
           doc.category === 'Leases & Inspections' ||
           doc.category === 'Leases' ||
           doc.category === 'Inspections' ||
-          doc.category === 'Property Documents'
+          doc.category === 'Property Documents' ||
+          // Some tenant contracts may use this category instead
+          doc.category === 'Tenant Documents'
         );
+        console.log(`Leases & Inspections filter: ${beforeFilter} -> ${filtered.length} documents`);
+        console.log('Sample filtered doc:', filtered[0]);
       } else if (activeTab === 'receipts') {
-        filtered = filtered.filter(doc => 
-          doc.type === 'receipt' || 
+        filtered = filtered.filter(doc =>
+          doc.type === 'receipt' ||
           doc.category === 'Receipts' ||
           doc.category === 'Financial Records'
         );
       } else if (activeTab === 'policies-notices') {
-        filtered = filtered.filter(doc => 
-          doc.type === 'policy' || 
-          doc.type === 'notice' || 
+        filtered = filtered.filter(doc =>
+          doc.type === 'policy' ||
+          doc.type === 'notice' ||
           doc.category === 'Policies & Notices' ||
           doc.category === 'Policies' ||
           doc.category === 'Notices'
         );
       } else if (activeTab === 'insurance') {
-        filtered = filtered.filter(doc => 
-          doc.type === 'insurance' || 
+        filtered = filtered.filter(doc =>
+          doc.type === 'insurance' ||
           doc.category === 'Insurance'
         );
       }
@@ -560,7 +591,7 @@ const PropertyOwnerDocuments: React.FC = () => {
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const token = localStorage.getItem('auth_token');
-      
+
       const response = await fetch(
         `${API_URL}/api/documents/${selectedDocument.id}/download/${format}`,
         {
@@ -869,12 +900,12 @@ const PropertyOwnerDocuments: React.FC = () => {
     try {
       setUploading(true);
       const contractType = dialogType === 'manager-contract' ? 'Manager' : 'Tenant';
-      
+
       // Get manager or tenant details
       let recipientName = '';
       let recipientId = '';
       let propertyName = '';
-      
+
       if (dialogType === 'manager-contract') {
         const manager = managers.find(m => m.id === contractForm.managerId);
         recipientName = manager?.name || 'Manager';
@@ -884,13 +915,13 @@ const PropertyOwnerDocuments: React.FC = () => {
         recipientName = tenant?.name || 'Tenant';
         recipientId = contractForm.tenantId;
       }
-      
+
       const property = properties.find(p => p.id === contractForm.propertyId);
       propertyName = property?.name || 'Property';
-      
+
       // Generate contract document content
       const contractContent = generateContractContent();
-      
+
       // Create document data
       const documentData = {
         name: `${contractType} Contract - ${recipientName} - ${propertyName}`,
@@ -918,7 +949,7 @@ const PropertyOwnerDocuments: React.FC = () => {
 
       // Save document to database
       const { data, error } = await createDocument(documentData as any);
-      
+
       if (error) {
         console.error('Failed to save contract:', error);
         toast.error('Failed to generate contract');
@@ -928,7 +959,7 @@ const PropertyOwnerDocuments: React.FC = () => {
       console.log(`Generated ${contractType} contract:`, data);
     setShowGenerateDialog(false);
       toast.success(`${contractType} contract generated successfully! You can now preview, edit, and send it when ready.`);
-      
+
       // Reset form
     setContractForm({
       managerId: '',
@@ -943,10 +974,10 @@ const PropertyOwnerDocuments: React.FC = () => {
       propertyIds: [],
         unitId: '',
       });
-      
+
       // Reload documents to show the new contract
       await loadDocuments();
-      
+
     } catch (error) {
       console.error('Generate contract error:', error);
       toast.error('Failed to generate contract');
@@ -959,7 +990,7 @@ const PropertyOwnerDocuments: React.FC = () => {
     const contractType = dialogType === 'manager-contract' ? 'Property Management' : 'Lease';
     const property = properties.find(p => p.id === contractForm.propertyId);
     const currencySymbol = getPropertyCurrency(contractForm.propertyId);
-    
+
     let recipient = '';
     if (dialogType === 'manager-contract') {
       const manager = managers.find(m => m.id === contractForm.managerId);
@@ -968,8 +999,8 @@ const PropertyOwnerDocuments: React.FC = () => {
       const tenant = tenants.find(t => t.id === contractForm.tenantId);
       recipient = tenant?.name || 'Tenant';
     }
-    
-    const compensationText = dialogType === 'manager-contract' 
+
+    const compensationText = dialogType === 'manager-contract'
       ? contractForm.compensationType === 'fixed'
         ? `${currencySymbol}${contractForm.compensation} per month`
         : `${contractForm.compensation}% of monthly property revenue`
@@ -1010,8 +1041,8 @@ const PropertyOwnerDocuments: React.FC = () => {
 
 <h2>${dialogType === 'manager-contract' ? 'MANAGEMENT' : 'RENT'} COMPENSATION</h2>
 <p><strong>Amount:</strong> ${compensationText}</p>
-${dialogType === 'manager-contract' && contractForm.compensationType === 'percentage' 
-  ? '<p><em>Calculated as a percentage of the gross rental income collected from the property.</em></p>' 
+${dialogType === 'manager-contract' && contractForm.compensationType === 'percentage'
+  ? '<p><em>Calculated as a percentage of the gross rental income collected from the property.</em></p>'
   : ''}
 
 <h2>${dialogType === 'manager-contract' ? 'KEY RESPONSIBILITIES' : 'TENANT OBLIGATIONS'}</h2>
@@ -1062,29 +1093,29 @@ ${dialogType === 'manager-contract' ? `
 
   const handleSaveEditedContract = async () => {
     if (!selectedDocument) return;
-    
+
     try {
       setUploading(true);
-      
+
       const updatedMetadata = {
         ...selectedDocument.metadata,
         content: editableContent,
         lastEdited: new Date().toISOString(),
       };
-      
+
       const { error } = await updateDocument(selectedDocument.id, {
         metadata: updatedMetadata,
       });
-      
+
       if (error) {
         toast.error('Failed to save changes');
         return;
       }
-      
+
       toast.success('Contract updated successfully!');
       setShowEditDialog(false);
       await loadDocuments();
-      
+
     } catch (error) {
       console.error('Save contract error:', error);
       toast.error('Failed to save contract');
@@ -1096,7 +1127,7 @@ ${dialogType === 'manager-contract' ? `
   const handleSendContract = async (doc: Document) => {
     try {
       setUploading(true);
-      
+
       // Update document status to 'pending' (sent for signature)
       const { error } = await updateDocument(doc.id, {
         status: 'pending',
@@ -1106,17 +1137,17 @@ ${dialogType === 'manager-contract' ? `
           sentBy: localStorage.getItem('user_name') || 'Owner',
         },
       });
-      
+
       if (error) {
         toast.error('Failed to send contract');
         return;
       }
-      
+
       const recipientType = doc.metadata?.contractType === 'manager-contract' ? 'manager' : 'tenant';
       toast.success(`Contract sent to ${recipientType} for e-signature!`);
-      
+
       await loadDocuments();
-      
+
     } catch (error) {
       console.error('Send contract error:', error);
       toast.error('Failed to send contract');
@@ -1132,20 +1163,20 @@ ${dialogType === 'manager-contract' ? `
 
   const confirmDelete = async () => {
     if (!selectedDocument) return;
-    
+
     try {
       setUploading(true);
       const { error } = await deleteDocument(selectedDocument.id);
-      
+
       if (error) {
         toast.error('Failed to delete document');
         return;
       }
-      
+
     toast.success('Document deleted successfully!');
       setShowDeleteDialog(false);
       setSelectedDocument(null);
-      
+
       // Reload documents to update the list
       await loadDocuments();
     } catch (error) {
@@ -1214,60 +1245,94 @@ ${dialogType === 'manager-contract' ? `
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] rounded-xl p-6 shadow-lg">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Documents</h1>
-          <p className="text-muted-foreground">Manage contracts, leases, receipts, policies, and insurance documents</p>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                <FileText className="h-7 w-7 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold text-white">Documents</h1>
+            </div>
+            <p className="text-purple-100 text-lg">Manage contracts, leases, receipts, policies, and insurance documents</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowTemplateManager(true)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowTemplateManager(true)}
+              className="bg-white/10 text-white hover:bg-white/20 border-white/20 shadow-md hover:shadow-lg transition-all duration-200"
+            >
             <FileText className="h-4 w-4 mr-2" />
             Manage Templates
           </Button>
-          <Button variant="outline" onClick={() => setShowUploadDialog(true)}>
+            <Button
+              onClick={() => setShowUploadDialog(true)}
+              className="bg-white text-[#7C3AED] hover:bg-purple-50 shadow-md hover:shadow-lg transition-all duration-200"
+            >
             <Upload className="h-4 w-4 mr-2" />
             Upload Document
           </Button>
+          </div>
         </div>
       </div>
 
       {/* Stats Cards */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-          <p className="ml-3 text-sm text-gray-500">Loading documents...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+          <p className="ml-3 text-sm text-gray-600">Loading documents...</p>
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+            {/* Total Documents Card */}
+            <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <div className="absolute inset-0 bg-gradient-to-br from-gray-500 to-gray-600 opacity-10"></div>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 bg-gray-500/20 rounded-xl flex items-center justify-center">
+                    <FileText className="h-5 w-5 text-gray-600" />
+                  </div>
+                  <CardTitle className="text-sm font-semibold text-gray-700">Total</CardTitle>
+                </div>
           </CardHeader>
-          <CardContent>
-                <div className="text-2xl font-bold">{stats?.total || 0}</div>
+              <CardContent className="relative z-10">
+                <div className="text-3xl font-bold text-gray-600">{stats?.total || 0}</div>
+                <p className="text-xs text-gray-500 mt-1">All documents</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Recent</CardTitle>
-            <FileCheck className="h-4 w-4 text-muted-foreground" />
+            {/* Recent Documents Card */}
+            <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-blue-600 opacity-10"></div>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                    <FileCheck className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <CardTitle className="text-sm font-semibold text-gray-700">Recent</CardTitle>
+                </div>
           </CardHeader>
-          <CardContent>
-                <div className="text-2xl font-bold">{stats?.recent || 0}</div>
-                <p className="text-xs text-muted-foreground">Last 30 days</p>
+              <CardContent className="relative z-10">
+                <div className="text-3xl font-bold text-blue-600">{stats?.recent || 0}</div>
+                <p className="text-xs text-gray-500 mt-1">Last 30 days</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Contracts</CardTitle>
-                <FileSignature className="h-4 w-4 text-muted-foreground" />
+            {/* Contracts Card */}
+            <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500 to-purple-600 opacity-10"></div>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center">
+                    <FileSignature className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <CardTitle className="text-sm font-semibold text-gray-700">Contracts</CardTitle>
+                </div>
           </CardHeader>
-          <CardContent>
-                <div className="text-2xl font-bold">
+              <CardContent className="relative z-10">
+                <div className="text-3xl font-bold text-purple-600">
                   {(() => {
                     const contractTypes = ['contract', 'manager-contract', 'tenant-contract'];
                     return stats?.byType?.reduce((sum: number, t: any) => {
@@ -1275,30 +1340,45 @@ ${dialogType === 'manager-contract' ? `
                     }, 0) || 0;
                   })()}
                 </div>
+                <p className="text-xs text-gray-500 mt-1">Active contracts</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Leases</CardTitle>
-                <ClipboardList className="h-4 w-4 text-muted-foreground" />
+            {/* Leases Card */}
+            <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <div className="absolute inset-0 bg-gradient-to-br from-green-500 to-green-600 opacity-10"></div>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center">
+                    <ClipboardList className="h-5 w-5 text-green-600" />
+                  </div>
+                  <CardTitle className="text-sm font-semibold text-gray-700">Leases</CardTitle>
+                </div>
           </CardHeader>
-          <CardContent>
-                <div className="text-2xl font-bold">
+              <CardContent className="relative z-10">
+                <div className="text-3xl font-bold text-green-600">
                   {stats?.byType?.find((t: any) => t.type === 'lease')?._count || 0}
                 </div>
+                <p className="text-xs text-gray-500 mt-1">Lease agreements</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Receipts</CardTitle>
-            <Receipt className="h-4 w-4 text-muted-foreground" />
+            {/* Receipts Card */}
+            <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-500 to-amber-600 opacity-10"></div>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 bg-amber-500/20 rounded-xl flex items-center justify-center">
+                    <Receipt className="h-5 w-5 text-amber-600" />
+                  </div>
+                  <CardTitle className="text-sm font-semibold text-gray-700">Receipts</CardTitle>
+                </div>
           </CardHeader>
-          <CardContent>
-                <div className="text-2xl font-bold">
+              <CardContent className="relative z-10">
+                <div className="text-3xl font-bold text-amber-600">
                   {stats?.byType?.find((t: any) => t.type === 'receipt')?._count || 0}
                 </div>
+                <p className="text-xs text-gray-500 mt-1">Payment receipts</p>
           </CardContent>
         </Card>
       </div>
@@ -1307,24 +1387,39 @@ ${dialogType === 'manager-contract' ? `
 
       {/* Document Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="manager-contracts">
+        <TabsList className="bg-white border border-gray-200 rounded-lg shadow-sm grid w-full grid-cols-5">
+          <TabsTrigger
+            value="manager-contracts"
+            className="data-[state=active]:bg-[#7C3AED] data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=active]:font-semibold transition-all duration-200 text-gray-700 hover:text-[#7C3AED] hover:bg-purple-50"
+          >
             <FileSignature className="h-4 w-4 mr-2" />
             Contracts
           </TabsTrigger>
-          <TabsTrigger value="leases-inspections">
+          <TabsTrigger
+            value="leases-inspections"
+            className="data-[state=active]:bg-[#7C3AED] data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=active]:font-semibold transition-all duration-200 text-gray-700 hover:text-[#7C3AED] hover:bg-purple-50"
+          >
             <ClipboardList className="h-4 w-4 mr-2" />
             Lease & Inspections
           </TabsTrigger>
-          <TabsTrigger value="receipts">
+          <TabsTrigger
+            value="receipts"
+            className="data-[state=active]:bg-[#7C3AED] data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=active]:font-semibold transition-all duration-200 text-gray-700 hover:text-[#7C3AED] hover:bg-purple-50"
+          >
             <Receipt className="h-4 w-4 mr-2" />
             Receipts
           </TabsTrigger>
-          <TabsTrigger value="policies-notices">
+          <TabsTrigger
+            value="policies-notices"
+            className="data-[state=active]:bg-[#7C3AED] data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=active]:font-semibold transition-all duration-200 text-gray-700 hover:text-[#7C3AED] hover:bg-purple-50"
+          >
             <AlertTriangle className="h-4 w-4 mr-2" />
             Policies & Notices
           </TabsTrigger>
-          <TabsTrigger value="insurance">
+          <TabsTrigger
+            value="insurance"
+            className="data-[state=active]:bg-[#7C3AED] data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=active]:font-semibold transition-all duration-200 text-gray-700 hover:text-[#7C3AED] hover:bg-purple-50"
+          >
             <Shield className="h-4 w-4 mr-2" />
             Insurance
           </TabsTrigger>
@@ -1332,41 +1427,53 @@ ${dialogType === 'manager-contract' ? `
 
         {/* Contracts Tab */}
         <TabsContent value="manager-contracts" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
+          <Card className="border-gray-200 shadow-md">
+            <CardHeader className="border-b bg-gray-50">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <FileSignature className="h-5 w-5 text-gray-700" />
+                  </div>
                 <div>
-                  <CardTitle>Contracts</CardTitle>
-                  <CardDescription>Generate and manage property manager and tenant agreements</CardDescription>
+                    <CardTitle className="text-gray-900">Contracts</CardTitle>
+                    <CardDescription className="text-gray-600">Generate and manage property manager and tenant agreements</CardDescription>
+                  </div>
                 </div>
                 <div className="flex gap-2">
-                <Button onClick={() => openGenerateDialog('manager-contract')}>
+                  <Button
+                    onClick={() => openGenerateDialog('manager-contract')}
+                    className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md"
+                  >
                   <Plus className="h-4 w-4 mr-2" />
                     Manager Contract
                   </Button>
-                  <Button onClick={() => openGenerateDialog('tenant-contract')} variant="outline">
+                  <Button
+                    onClick={() => openGenerateDialog('tenant-contract')}
+                    variant="outline"
+                    className="border-gray-300 text-gray-700 hover:bg-purple-50 hover:text-[#7C3AED] hover:border-[#7C3AED]"
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Tenant Contract
                 </Button>
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="mb-4 space-y-4">
+            <CardContent className="pt-6">
+              <div className="mb-6 space-y-4">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#7C3AED]" />
                   <Input
                     placeholder="Search contracts..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                 </div>
-                
+
                 {/* Filters */}
-                <div className="flex gap-4">
+                <div className="flex flex-col md:flex-row gap-4">
                   <Select value={filterPropertyId} onValueChange={setFilterPropertyId}>
-                    <SelectTrigger className="w-[250px]">
+                    <SelectTrigger className="w-full md:w-[250px] border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                       <SelectValue placeholder="Filter by Property" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1380,7 +1487,7 @@ ${dialogType === 'manager-contract' ? `
                   </Select>
 
                   <Select value={filterTenantId} onValueChange={setFilterTenantId}>
-                    <SelectTrigger className="w-[250px]">
+                    <SelectTrigger className="w-full md:w-[250px] border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                       <SelectValue placeholder="Filter by Tenant" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1394,36 +1501,45 @@ ${dialogType === 'manager-contract' ? `
                   </Select>
 
                   {(filterPropertyId !== 'all' || filterTenantId !== 'all') && (
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       size="sm"
                       onClick={() => {
                         setFilterPropertyId('all');
                         setFilterTenantId('all');
                       }}
+                      className="text-[#7C3AED] hover:bg-purple-50"
                     >
                       Clear Filters
                     </Button>
                   )}
                 </div>
               </div>
+              <div className="overflow-auto rounded-xl border-0 shadow-md">
               <Table>
-                <TableHeader>
+                  <TableHeader className="bg-[#111827]">
                   <TableRow>
-                    <TableHead>Document Name</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Upload Date</TableHead>
-                    <TableHead>Expiry Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                      <TableHead className="text-white font-semibold">Document Name</TableHead>
+                      <TableHead className="text-white font-semibold">Status</TableHead>
+                      <TableHead className="text-white font-semibold">Upload Date</TableHead>
+                      <TableHead className="text-white font-semibold">Expiry Date</TableHead>
+                      <TableHead className="text-right text-white font-semibold">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredDocuments.map((doc) => (
-                    <TableRow key={doc.id}>
+                    {filteredDocuments.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                          No contracts found. {(filterPropertyId !== 'all' || filterTenantId !== 'all') ? 'Try adjusting your filters.' : 'Create your first contract to get started.'}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredDocuments.map((doc, index) => (
+                        <TableRow key={doc.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50 hover:bg-[#7C3AED]/5'}>
                       <TableCell>
                         <div className="flex items-center space-x-2">
                           {getStatusIcon(doc.status)}
-                          <span className="font-medium">{doc.name}</span>
+                              <span className="font-medium text-gray-900">{doc.name}</span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -1431,33 +1547,33 @@ ${dialogType === 'manager-contract' ? `
                           {doc.status.replace('_', ' ')}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{formatDate(doc.createdAt)}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
+                          <TableCell className="text-sm text-gray-600">{formatDate(doc.createdAt)}</TableCell>
+                          <TableCell className="text-sm text-gray-600">
                         {doc.expiresAt ? formatDate(doc.expiresAt) : 'N/A'}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" title="Actions">
+                                  <Button variant="ghost" size="sm" title="Actions" className="hover:bg-purple-50">
                                 <MoreHorizontal className="h-4 w-4" />
                           </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                                <DropdownMenuContent align="end" className="rounded-lg shadow-lg">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem onClick={() => handleViewDocument(doc)}>
+                                  <DropdownMenuItem onClick={() => handleViewDocument(doc)} className="hover:bg-purple-50">
                                 <Eye className="h-4 w-4 mr-2" /> View Details
                               </DropdownMenuItem>
                               {doc.status === 'draft' && doc.type === 'contract' ? (
-                                <DropdownMenuItem onClick={() => handleEditContract(doc)}>
+                                    <DropdownMenuItem onClick={() => handleEditContract(doc)} className="hover:bg-purple-50">
                                   <FileSignature className="h-4 w-4 mr-2" /> Edit Contract
                                 </DropdownMenuItem>
                               ) : null}
-                              <DropdownMenuItem onClick={() => handleDownload(doc)}>
+                                  <DropdownMenuItem onClick={() => handleDownload(doc)} className="hover:bg-purple-50">
                                 <Download className="h-4 w-4 mr-2" /> Download
                               </DropdownMenuItem>
                               {doc.status !== 'draft' && (
-                                <DropdownMenuItem onClick={() => handleShare(doc)}>
+                                    <DropdownMenuItem onClick={() => handleShare(doc)} className="hover:bg-purple-50">
                                   <Share2 className="h-4 w-4 mr-2" /> Share
                                 </DropdownMenuItem>
                               )}
@@ -1471,12 +1587,12 @@ ${dialogType === 'manager-contract' ? `
                                   toast.success(`Document marked as ${newStatus}`);
                                   await loadDocuments();
                                 }
-                              }}>
+                                  }} className="hover:bg-purple-50">
                                 <Shield className="h-4 w-4 mr-2" />
                                 {doc.status === 'active' ? 'Make Inactive' : 'Make Active'}
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteDocument(doc)}>
+                                  <DropdownMenuItem className="text-red-600 hover:bg-red-50" onClick={() => handleDeleteDocument(doc)}>
                                 <Trash2 className="h-4 w-4 mr-2" /> Delete
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -1484,44 +1600,54 @@ ${dialogType === 'manager-contract' ? `
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                      ))
+                    )}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* Lease & Inspections Tab */}
         <TabsContent value="leases-inspections" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
+          <Card className="border-gray-200 shadow-md">
+            <CardHeader className="border-b bg-gray-50">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <ClipboardList className="h-5 w-5 text-gray-700" />
+                  </div>
                 <div>
-                  <CardTitle>Lease Agreements & Inspections</CardTitle>
-                  <CardDescription>Master leases and property inspection reports</CardDescription>
+                    <CardTitle className="text-gray-900">Lease Agreements & Inspections</CardTitle>
+                    <CardDescription className="text-gray-600">Master leases and property inspection reports</CardDescription>
                 </div>
-                <Button onClick={() => openUploadDialog('lease', 'Leases & Inspections')}>
+                </div>
+                <Button
+                  onClick={() => openUploadDialog('lease', 'Leases & Inspections')}
+                  className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md"
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Document
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="mb-4 space-y-4">
+            <CardContent className="pt-6">
+              <div className="mb-6 space-y-4">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#7C3AED]" />
                   <Input
                     placeholder="Search leases and inspections..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                 </div>
-                
+
                 {/* Filters */}
-                <div className="flex gap-4">
+                <div className="flex flex-col md:flex-row gap-4">
                   <Select value={filterPropertyId} onValueChange={setFilterPropertyId}>
-                    <SelectTrigger className="w-[250px]">
+                    <SelectTrigger className="w-full md:w-[250px] border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                       <SelectValue placeholder="Filter by Property" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1535,7 +1661,7 @@ ${dialogType === 'manager-contract' ? `
                   </Select>
 
                   <Select value={filterTenantId} onValueChange={setFilterTenantId}>
-                    <SelectTrigger className="w-[250px]">
+                    <SelectTrigger className="w-full md:w-[250px] border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                       <SelectValue placeholder="Filter by Tenant" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1549,104 +1675,123 @@ ${dialogType === 'manager-contract' ? `
                   </Select>
 
                   {(filterPropertyId !== 'all' || filterTenantId !== 'all') && (
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       size="sm"
                       onClick={() => {
                         setFilterPropertyId('all');
                         setFilterTenantId('all');
                       }}
+                      className="text-[#7C3AED] hover:bg-purple-50"
                     >
                       Clear Filters
                     </Button>
                   )}
                 </div>
               </div>
+              <div className="overflow-auto rounded-xl border-0 shadow-md">
               <Table>
-                <TableHeader>
+                  <TableHeader className="bg-[#111827]">
                   <TableRow>
-                    <TableHead>Document Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Property</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Upload Date</TableHead>
-                    <TableHead>Expiry Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                      <TableHead className="text-white font-semibold">Document Name</TableHead>
+                      <TableHead className="text-white font-semibold">Type</TableHead>
+                      <TableHead className="text-white font-semibold">Property</TableHead>
+                      <TableHead className="text-white font-semibold">Status</TableHead>
+                      <TableHead className="text-white font-semibold">Upload Date</TableHead>
+                      <TableHead className="text-white font-semibold">Expiry Date</TableHead>
+                      <TableHead className="text-right text-white font-semibold">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredDocuments.map((doc) => (
-                    <TableRow key={doc.id}>
+                    {filteredDocuments.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                          No documents found. Upload your first lease or inspection report to get started.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredDocuments.map((doc, index) => (
+                        <TableRow key={doc.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50 hover:bg-[#7C3AED]/5'}>
                       <TableCell>
                         <div className="flex items-center space-x-2">
                           {getStatusIcon(doc.status)}
-                          <span className="font-medium">{doc.name}</span>
+                              <span className="font-medium text-gray-900">{doc.name}</span>
                         </div>
                       </TableCell>
-                      <TableCell>{doc.type}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{doc.properties?.name || 'N/A'}</TableCell>
+                          <TableCell className="text-gray-700">{doc.type}</TableCell>
+                          <TableCell className="text-sm text-gray-600">{doc.properties?.name || 'N/A'}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={getStatusColor(doc.status)}>
                           {doc.status.replace('_', ' ')}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{formatDate(doc.createdAt)}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{doc.expiresAt ? formatDate(doc.expiresAt) : 'N/A'}</TableCell>
+                          <TableCell className="text-sm text-gray-600">{formatDate(doc.createdAt)}</TableCell>
+                          <TableCell className="text-sm text-gray-600">{doc.expiresAt ? formatDate(doc.expiresAt) : 'N/A'}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => handleViewDocument(doc)}>
+                              <Button variant="ghost" size="sm" onClick={() => handleViewDocument(doc)} className="hover:bg-purple-50" title="View">
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDownload(doc)}>
+                              <Button variant="ghost" size="sm" onClick={() => handleDownload(doc)} className="hover:bg-purple-50" title="Download">
                             <Download className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleShare(doc)}>
+                              <Button variant="ghost" size="sm" onClick={() => handleShare(doc)} className="hover:bg-purple-50" title="Share">
                             <Share2 className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDeleteDocument(doc)}>
+                              <Button variant="ghost" size="sm" onClick={() => handleDeleteDocument(doc)} className="hover:bg-red-50 text-red-600" title="Delete">
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                      ))
+                    )}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* Receipts Tab */}
         <TabsContent value="receipts" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
+          <Card className="border-gray-200 shadow-md">
+            <CardHeader className="border-b bg-gray-50">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <Receipt className="h-5 w-5 text-gray-700" />
+                  </div>
                 <div>
-                  <CardTitle>Receipts</CardTitle>
-                  <CardDescription>Tax receipts, payment confirmations, and financial records</CardDescription>
+                    <CardTitle className="text-gray-900">Receipts</CardTitle>
+                    <CardDescription className="text-gray-600">Tax receipts, payment confirmations, and financial records</CardDescription>
                 </div>
-                <Button onClick={() => openUploadDialog('receipt', 'Receipts')}>
+                </div>
+                <Button
+                  onClick={() => openUploadDialog('receipt', 'Receipts')}
+                  className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md"
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Receipt
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="mb-4 space-y-4">
+            <CardContent className="pt-6">
+              <div className="mb-6 space-y-4">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#7C3AED]" />
                   <Input
                     placeholder="Search receipts..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                 </div>
-                
+
                 {/* Filters */}
-                <div className="flex gap-4">
+                <div className="flex flex-col md:flex-row gap-4">
                   <Select value={filterPropertyId} onValueChange={setFilterPropertyId}>
-                    <SelectTrigger className="w-[250px]">
+                    <SelectTrigger className="w-full md:w-[250px] border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                       <SelectValue placeholder="Filter by Property" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1660,7 +1805,7 @@ ${dialogType === 'manager-contract' ? `
                   </Select>
 
                   <Select value={filterTenantId} onValueChange={setFilterTenantId}>
-                    <SelectTrigger className="w-[250px]">
+                    <SelectTrigger className="w-full md:w-[250px] border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                       <SelectValue placeholder="Filter by Tenant" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1674,98 +1819,117 @@ ${dialogType === 'manager-contract' ? `
                   </Select>
 
                   {(filterPropertyId !== 'all' || filterTenantId !== 'all') && (
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       size="sm"
                       onClick={() => {
                         setFilterPropertyId('all');
                         setFilterTenantId('all');
                       }}
+                      className="text-[#7C3AED] hover:bg-purple-50"
                     >
                       Clear Filters
                     </Button>
                   )}
                 </div>
               </div>
+              <div className="overflow-auto rounded-xl border-0 shadow-md">
               <Table>
-                <TableHeader>
+                  <TableHeader className="bg-[#111827]">
                   <TableRow>
-                    <TableHead>Document Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Property</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Upload Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                      <TableHead className="text-white font-semibold">Document Name</TableHead>
+                      <TableHead className="text-white font-semibold">Type</TableHead>
+                      <TableHead className="text-white font-semibold">Property</TableHead>
+                      <TableHead className="text-white font-semibold">Amount</TableHead>
+                      <TableHead className="text-white font-semibold">Upload Date</TableHead>
+                      <TableHead className="text-right text-white font-semibold">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredDocuments.map((doc: any) => (
-                    <TableRow key={doc.id}>
+                    {filteredDocuments.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                          No receipts found. Upload your first receipt to get started.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredDocuments.map((doc: any, index: number) => (
+                        <TableRow key={doc.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50 hover:bg-[#7C3AED]/5'}>
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                          <Receipt className="h-4 w-4" />
-                          <span className="font-medium">{doc.name}</span>
+                              <Receipt className="h-4 w-4 text-amber-600" />
+                              <span className="font-medium text-gray-900">{doc.name}</span>
                         </div>
                       </TableCell>
-                      <TableCell>{doc.type}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{doc.property}</TableCell>
-                      <TableCell className="font-medium">{doc.amount}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{formatDate(doc.createdAt)}</TableCell>
+                          <TableCell className="text-gray-700">{doc.type}</TableCell>
+                          <TableCell className="text-sm text-gray-600">{doc.property}</TableCell>
+                          <TableCell className="font-medium text-green-600">{doc.amount}</TableCell>
+                          <TableCell className="text-sm text-gray-600">{formatDate(doc.createdAt)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => handleViewDocument(doc)}>
+                              <Button variant="ghost" size="sm" onClick={() => handleViewDocument(doc)} className="hover:bg-purple-50" title="View">
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDownload(doc)}>
+                              <Button variant="ghost" size="sm" onClick={() => handleDownload(doc)} className="hover:bg-purple-50" title="Download">
                             <Download className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleShare(doc)}>
+                              <Button variant="ghost" size="sm" onClick={() => handleShare(doc)} className="hover:bg-purple-50" title="Share">
                             <Share2 className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDeleteDocument(doc)}>
+                              <Button variant="ghost" size="sm" onClick={() => handleDeleteDocument(doc)} className="hover:bg-red-50 text-red-600" title="Delete">
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                      ))
+                    )}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* Policies & Notices Tab */}
         <TabsContent value="policies-notices" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
+          <Card className="border-gray-200 shadow-md">
+            <CardHeader className="border-b bg-gray-50">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <AlertTriangle className="h-5 w-5 text-gray-700" />
+                  </div>
                 <div>
-                  <CardTitle>Policies & Notices</CardTitle>
-                  <CardDescription>Company policies, notice templates, and compliance documents</CardDescription>
+                    <CardTitle className="text-gray-900">Policies & Notices</CardTitle>
+                    <CardDescription className="text-gray-600">Company policies, notice templates, and compliance documents</CardDescription>
                 </div>
-                <Button onClick={() => openUploadDialog('policy', 'Policies & Notices')}>
+                </div>
+                <Button
+                  onClick={() => openUploadDialog('policy', 'Policies & Notices')}
+                  className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md"
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Policy/Notice
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="mb-4 space-y-4">
+            <CardContent className="pt-6">
+              <div className="mb-6 space-y-4">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#7C3AED]" />
                   <Input
                     placeholder="Search policies and notices..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                 </div>
-                
+
                 {/* Filters */}
-                <div className="flex gap-4">
+                <div className="flex flex-col md:flex-row gap-4">
                   <Select value={filterPropertyId} onValueChange={setFilterPropertyId}>
-                    <SelectTrigger className="w-[250px]">
+                    <SelectTrigger className="w-full md:w-[250px] border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                       <SelectValue placeholder="Filter by Property" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1779,7 +1943,7 @@ ${dialogType === 'manager-contract' ? `
                   </Select>
 
                   <Select value={filterTenantId} onValueChange={setFilterTenantId}>
-                    <SelectTrigger className="w-[250px]">
+                    <SelectTrigger className="w-full md:w-[250px] border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                       <SelectValue placeholder="Filter by Tenant" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1793,102 +1957,121 @@ ${dialogType === 'manager-contract' ? `
                   </Select>
 
                   {(filterPropertyId !== 'all' || filterTenantId !== 'all') && (
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       size="sm"
                       onClick={() => {
                         setFilterPropertyId('all');
                         setFilterTenantId('all');
                       }}
+                      className="text-[#7C3AED] hover:bg-purple-50"
                     >
                       Clear Filters
                     </Button>
                   )}
                 </div>
               </div>
+              <div className="overflow-auto rounded-xl border-0 shadow-md">
               <Table>
-                <TableHeader>
+                  <TableHeader className="bg-[#111827]">
                   <TableRow>
-                    <TableHead>Document Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Property</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                      <TableHead className="text-white font-semibold">Document Name</TableHead>
+                      <TableHead className="text-white font-semibold">Type</TableHead>
+                      <TableHead className="text-white font-semibold">Property</TableHead>
+                      <TableHead className="text-white font-semibold">Status</TableHead>
+                      <TableHead className="text-white font-semibold">Date</TableHead>
+                      <TableHead className="text-right text-white font-semibold">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredDocuments.map((doc) => (
-                    <TableRow key={doc.id}>
+                    {filteredDocuments.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                          No policies or notices found. Upload your first document to get started.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredDocuments.map((doc, index) => (
+                        <TableRow key={doc.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50 hover:bg-[#7C3AED]/5'}>
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                          <AlertTriangle className="h-4 w-4" />
-                          <span className="font-medium">{doc.name}</span>
+                              <AlertTriangle className="h-4 w-4 text-amber-600" />
+                              <span className="font-medium text-gray-900">{doc.name}</span>
                         </div>
                       </TableCell>
-                      <TableCell>{doc.type}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{doc.properties?.name || 'N/A'}</TableCell>
+                          <TableCell className="text-gray-700">{doc.type}</TableCell>
+                          <TableCell className="text-sm text-gray-600">{doc.properties?.name || 'N/A'}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={getStatusColor(doc.status)}>
                           {doc.status.replace('_', ' ')}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{formatDate(doc.createdAt)}</TableCell>
+                          <TableCell className="text-sm text-gray-600">{formatDate(doc.createdAt)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => handleViewDocument(doc)}>
+                              <Button variant="ghost" size="sm" onClick={() => handleViewDocument(doc)} className="hover:bg-purple-50" title="View">
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDownload(doc)}>
+                              <Button variant="ghost" size="sm" onClick={() => handleDownload(doc)} className="hover:bg-purple-50" title="Download">
                             <Download className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleShare(doc)}>
+                              <Button variant="ghost" size="sm" onClick={() => handleShare(doc)} className="hover:bg-purple-50" title="Share">
                             <Share2 className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDeleteDocument(doc)}>
+                              <Button variant="ghost" size="sm" onClick={() => handleDeleteDocument(doc)} className="hover:bg-red-50 text-red-600" title="Delete">
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                      ))
+                    )}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* Insurance Tab */}
         <TabsContent value="insurance" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
+          <Card className="border-gray-200 shadow-md">
+            <CardHeader className="border-b bg-gray-50">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <Shield className="h-5 w-5 text-gray-700" />
+                  </div>
                 <div>
-                  <CardTitle>Insurance Documents</CardTitle>
-                  <CardDescription>Property insurance, liability coverage, and policy documents</CardDescription>
+                    <CardTitle className="text-gray-900">Insurance Documents</CardTitle>
+                    <CardDescription className="text-gray-600">Property insurance, liability coverage, and policy documents</CardDescription>
                 </div>
-                <Button onClick={() => openUploadDialog('insurance', 'Insurance')}>
+                </div>
+                <Button
+                  onClick={() => openUploadDialog('insurance', 'Insurance')}
+                  className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md"
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Insurance Doc
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="mb-4 space-y-4">
+            <CardContent className="pt-6">
+              <div className="mb-6 space-y-4">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#7C3AED]" />
                   <Input
                     placeholder="Search insurance documents..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                 </div>
-                
+
                 {/* Filters */}
-                <div className="flex gap-4">
+                <div className="flex flex-col md:flex-row gap-4">
                   <Select value={filterPropertyId} onValueChange={setFilterPropertyId}>
-                    <SelectTrigger className="w-[250px]">
+                    <SelectTrigger className="w-full md:w-[250px] border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                       <SelectValue placeholder="Filter by Property" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1902,7 +2085,7 @@ ${dialogType === 'manager-contract' ? `
                   </Select>
 
                   <Select value={filterTenantId} onValueChange={setFilterTenantId}>
-                    <SelectTrigger className="w-[250px]">
+                    <SelectTrigger className="w-full md:w-[250px] border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                       <SelectValue placeholder="Filter by Tenant" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1916,67 +2099,78 @@ ${dialogType === 'manager-contract' ? `
                   </Select>
 
                   {(filterPropertyId !== 'all' || filterTenantId !== 'all') && (
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       size="sm"
                       onClick={() => {
                         setFilterPropertyId('all');
                         setFilterTenantId('all');
                       }}
+                      className="text-[#7C3AED] hover:bg-purple-50"
                     >
                       Clear Filters
                     </Button>
                   )}
                 </div>
               </div>
+              <div className="overflow-auto rounded-xl border-0 shadow-md">
               <Table>
-                <TableHeader>
+                  <TableHeader className="bg-[#111827]">
                   <TableRow>
-                    <TableHead>Document Name</TableHead>
-                    <TableHead>Policy Number</TableHead>
-                    <TableHead>Property</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Expiry Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                      <TableHead className="text-white font-semibold">Document Name</TableHead>
+                      <TableHead className="text-white font-semibold">Policy Number</TableHead>
+                      <TableHead className="text-white font-semibold">Property</TableHead>
+                      <TableHead className="text-white font-semibold">Status</TableHead>
+                      <TableHead className="text-white font-semibold">Expiry Date</TableHead>
+                      <TableHead className="text-right text-white font-semibold">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredDocuments.map((doc: any) => (
-                    <TableRow key={doc.id}>
+                    {filteredDocuments.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                          No insurance documents found. Upload your first policy document to get started.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredDocuments.map((doc: any, index: number) => (
+                        <TableRow key={doc.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50 hover:bg-[#7C3AED]/5'}>
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                          <Shield className="h-4 w-4" />
-                          <span className="font-medium">{doc.name}</span>
+                              <Shield className="h-4 w-4 text-blue-600" />
+                              <span className="font-medium text-gray-900">{doc.name}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="font-mono text-sm">{doc.policyNumber}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{doc.property}</TableCell>
+                          <TableCell className="font-mono text-sm text-gray-700">{doc.policyNumber}</TableCell>
+                          <TableCell className="text-sm text-gray-600">{doc.property}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={getStatusColor(doc.status)}>
                           {doc.status.replace('_', ' ')}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{doc.expiryDate}</TableCell>
+                          <TableCell className="text-sm text-gray-600">{doc.expiryDate}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => handleViewDocument(doc)}>
+                              <Button variant="ghost" size="sm" onClick={() => handleViewDocument(doc)} className="hover:bg-purple-50" title="View">
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDownload(doc)}>
+                              <Button variant="ghost" size="sm" onClick={() => handleDownload(doc)} className="hover:bg-purple-50" title="Download">
                             <Download className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleShare(doc)}>
+                              <Button variant="ghost" size="sm" onClick={() => handleShare(doc)} className="hover:bg-purple-50" title="Share">
                             <Share2 className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDeleteDocument(doc)}>
+                              <Button variant="ghost" size="sm" onClick={() => handleDeleteDocument(doc)} className="hover:bg-red-50 text-red-600" title="Delete">
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                      ))
+                    )}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -1984,21 +2178,21 @@ ${dialogType === 'manager-contract' ? `
 
       {/* Generate Manager Contract Dialog */}
       <Dialog open={showGenerateDialog && dialogType === 'manager-contract'} onOpenChange={setShowGenerateDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Generate Manager Contract</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 border-0 shadow-2xl">
+          <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-xl">
+            <DialogTitle className="text-white text-2xl font-bold">Generate Manager Contract</DialogTitle>
+            <DialogDescription className="text-purple-100">
               Create a new property manager agreement
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-6 p-6">
             <div className="space-y-2">
-              <Label htmlFor="contract-property">Select Property</Label>
+              <Label htmlFor="contract-property" className="text-sm font-semibold text-gray-700">Select Property *</Label>
               <Select
                 value={contractForm.propertyId}
                 onValueChange={(value) => setContractForm({ ...contractForm, propertyId: value, managerId: '' })}
               >
-                <SelectTrigger id="contract-property">
+                <SelectTrigger id="contract-property" className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                   <SelectValue placeholder="Choose a property first" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2015,13 +2209,13 @@ ${dialogType === 'manager-contract' ? `
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="manager">Select Manager</Label>
+              <Label htmlFor="manager" className="text-sm font-semibold text-gray-700">Select Manager *</Label>
               <Select
                 value={contractForm.managerId}
                 onValueChange={(value) => setContractForm({ ...contractForm, managerId: value })}
                 disabled={!contractForm.propertyId}
               >
-                <SelectTrigger id="manager">
+                <SelectTrigger id="manager" className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                   <SelectValue placeholder={contractForm.propertyId ? "Choose a manager" : "Select a property first"} />
                 </SelectTrigger>
                 <SelectContent>
@@ -2034,7 +2228,7 @@ ${dialogType === 'manager-contract' ? `
                     </SelectItem>
                   ))}
                   {contractForm.propertyId && getManagersForProperty(contractForm.propertyId).length === 0 && (
-                    <div className="px-2 py-1 text-sm text-muted-foreground">
+                    <div className="px-2 py-1 text-sm text-amber-600">
                       No managers assigned to this property
                     </div>
                   )}
@@ -2043,12 +2237,12 @@ ${dialogType === 'manager-contract' ? `
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="template">Contract Template</Label>
+              <Label htmlFor="template" className="text-sm font-semibold text-gray-700">Contract Template *</Label>
               <Select
                 value={contractForm.templateType}
                 onValueChange={(value) => setContractForm({ ...contractForm, templateType: value })}
               >
-                <SelectTrigger id="template">
+                <SelectTrigger id="template" className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -2066,32 +2260,98 @@ ${dialogType === 'manager-contract' ? `
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="startDate">Start Date</Label>
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={contractForm.startDate}
-                  onChange={(e) => setContractForm({ ...contractForm, startDate: e.target.value })}
-                />
+                <Label htmlFor="startDate" className="text-sm font-semibold text-gray-700">Start Date *</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal border-gray-300 hover:border-[#7C3AED] focus:border-[#7C3AED] focus:ring-[#7C3AED]",
+                        !contractForm.startDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4 text-[#7C3AED]" />
+                      {contractForm.startDate ? format(new Date(contractForm.startDate), "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 rounded-xl shadow-xl" align="start">
+                    <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] px-4 py-3 rounded-t-xl">
+                      <p className="text-white font-semibold text-sm">Select Start Date</p>
+                    </div>
+                    <div className="p-3 bg-white">
+                      <CalendarComponent
+                        mode="single"
+                        selected={contractForm.startDate ? new Date(contractForm.startDate) : undefined}
+                        onSelect={(date) =>
+                          setContractForm({
+                            ...contractForm,
+                            startDate: date ? format(date, "yyyy-MM-dd") : "",
+                          })
+                        }
+                        initialFocus
+                        classNames={{
+                          caption_label: "text-gray-900 font-semibold",
+                          nav_button: "border-gray-300 hover:bg-purple-50 hover:border-[#7C3AED] hover:text-[#7C3AED]",
+                          day_selected: "bg-[#7C3AED] text-white font-bold shadow-md hover:bg-[#6D28D9]",
+                          day_today: "bg-purple-100 text-[#7C3AED] font-bold border-2 border-[#7C3AED]",
+                          day: "hover:bg-[#7C3AED]/10 hover:text-[#7C3AED]",
+                        }}
+                      />
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="endDate">End Date</Label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={contractForm.endDate}
-                  onChange={(e) => setContractForm({ ...contractForm, endDate: e.target.value })}
-                />
+                <Label htmlFor="endDate" className="text-sm font-semibold text-gray-700">End Date *</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal border-gray-300 hover:border-[#7C3AED] focus:border-[#7C3AED] focus:ring-[#7C3AED]",
+                        !contractForm.endDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4 text-[#7C3AED]" />
+                      {contractForm.endDate ? format(new Date(contractForm.endDate), "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 rounded-xl shadow-xl" align="start">
+                    <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] px-4 py-3 rounded-t-xl">
+                      <p className="text-white font-semibold text-sm">Select End Date</p>
+                    </div>
+                    <div className="p-3 bg-white">
+                      <CalendarComponent
+                        mode="single"
+                        selected={contractForm.endDate ? new Date(contractForm.endDate) : undefined}
+                        onSelect={(date) =>
+                          setContractForm({
+                            ...contractForm,
+                            endDate: date ? format(date, "yyyy-MM-dd") : "",
+                          })
+                        }
+                        initialFocus
+                        classNames={{
+                          caption_label: "text-gray-900 font-semibold",
+                          nav_button: "border-gray-300 hover:bg-purple-50 hover:border-[#7C3AED] hover:text-[#7C3AED]",
+                          day_selected: "bg-[#7C3AED] text-white font-bold shadow-md hover:bg-[#6D28D9]",
+                          day_today: "bg-purple-100 text-[#7C3AED] font-bold border-2 border-[#7C3AED]",
+                          day: "hover:bg-[#7C3AED]/10 hover:text-[#7C3AED]",
+                        }}
+                      />
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="compensationType">Compensation Type</Label>
+              <Label htmlFor="compensationType" className="text-sm font-semibold text-gray-700">Compensation Type *</Label>
               <Select
                 value={contractForm.compensationType}
                 onValueChange={(value) => setContractForm({ ...contractForm, compensationType: value, compensation: '' })}
               >
-                <SelectTrigger id="compensationType">
+                <SelectTrigger id="compensationType" className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -2112,10 +2372,10 @@ ${dialogType === 'manager-contract' ? `
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="compensation">
-                {contractForm.compensationType === 'fixed' 
-                  ? `Monthly Compensation ${contractForm.propertyId ? `(${getPropertyCurrency(contractForm.propertyId)})` : ''}`
-                  : 'Compensation Percentage (%)'}
+              <Label htmlFor="compensation" className="text-sm font-semibold text-gray-700">
+                {contractForm.compensationType === 'fixed'
+                  ? `Monthly Compensation ${contractForm.propertyId ? `(${getPropertyCurrency(contractForm.propertyId)})` : ''} *`
+                  : 'Compensation Percentage (%) *'}
               </Label>
               <div className="relative">
               <Input
@@ -2127,15 +2387,16 @@ ${dialogType === 'manager-contract' ? `
                   min={contractForm.compensationType === 'percentage' ? '0' : undefined}
                   max={contractForm.compensationType === 'percentage' ? '100' : undefined}
                   step={contractForm.compensationType === 'percentage' ? '0.1' : '1'}
+                  className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
               />
                 {contractForm.compensationType === 'percentage' && contractForm.compensation && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7C3AED] font-semibold">
                     %
             </div>
                 )}
                   </div>
               {contractForm.compensationType === 'percentage' && (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-gray-600">
                   Manager will receive {contractForm.compensation || '0'}% of the property's monthly revenue
                 </p>
               )}
@@ -2143,7 +2404,7 @@ ${dialogType === 'manager-contract' ? `
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-              <Label htmlFor="responsibilities">Key Responsibilities</Label>
+                <Label htmlFor="responsibilities" className="text-sm font-semibold text-gray-700">Key Responsibilities *</Label>
                 <Select
                   value=""
                   onValueChange={(value) => {
@@ -2153,7 +2414,7 @@ ${dialogType === 'manager-contract' ? `
                     }
                   }}
                 >
-                  <SelectTrigger className="w-[200px] h-8">
+                  <SelectTrigger className="w-[200px] h-8 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                     <SelectValue placeholder="Quick Fill" />
                   </SelectTrigger>
                   <SelectContent>
@@ -2171,25 +2432,29 @@ ${dialogType === 'manager-contract' ? `
                 value={contractForm.responsibilities}
                 onChange={(e) => setContractForm({ ...contractForm, responsibilities: e.target.value })}
                 rows={8}
-                className="font-mono text-sm"
+                className="font-mono text-sm resize-none border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-gray-600">
                 Use Quick Fill to populate common responsibilities, then customize as needed
               </p>
             </div>
 
-            <Alert>
-              <FileCheck className="h-4 w-4" />
+            <Alert className="bg-blue-50 border-blue-200 text-blue-800 rounded-xl shadow-sm">
+              <FileCheck className="h-4 w-4 text-blue-600" />
               <AlertDescription>
-                The contract will be saved as a draft. You can preview, edit, and send it when ready.
+                <strong>Draft Mode:</strong> The contract will be saved as a draft. You can preview, edit, and send it when ready.
               </AlertDescription>
             </Alert>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowGenerateDialog(false)}>
+          <DialogFooter className="px-6 pb-6 border-t pt-6">
+            <Button variant="outline" onClick={() => setShowGenerateDialog(false)} className="border-gray-300">
               Cancel
             </Button>
-            <Button onClick={handleGenerateContract} disabled={uploading}>
+            <Button
+              onClick={handleGenerateContract}
+              disabled={uploading}
+              className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md"
+            >
               {uploading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -2205,16 +2470,16 @@ ${dialogType === 'manager-contract' ? `
 
       {/* Generate Tenant Contract Dialog */}
       <Dialog open={showGenerateDialog && dialogType === 'tenant-contract'} onOpenChange={setShowGenerateDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Generate Tenant Contract</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 border-0 shadow-2xl">
+          <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-xl">
+            <DialogTitle className="text-white text-2xl font-bold">Generate Tenant Contract</DialogTitle>
+            <DialogDescription className="text-purple-100">
               Create a new tenant lease agreement
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-6 p-6">
             <div className="space-y-2">
-              <Label htmlFor="tenantProperty">Property</Label>
+              <Label htmlFor="tenantProperty" className="text-sm font-semibold text-gray-700">Property *</Label>
               <Select
                 value={contractForm.propertyIds[0] || ''}
                 onValueChange={(value) => {
@@ -2222,7 +2487,7 @@ ${dialogType === 'manager-contract' ? `
                   loadUnitsForProperty(value);
                 }}
               >
-                <SelectTrigger id="tenantProperty">
+                <SelectTrigger id="tenantProperty" className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                   <SelectValue placeholder="Choose a property first" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2239,7 +2504,7 @@ ${dialogType === 'manager-contract' ? `
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="tenantUnit">Unit/Apartment</Label>
+              <Label htmlFor="tenantUnit" className="text-sm font-semibold text-gray-700">Unit/Apartment *</Label>
               <Select
                 value={contractForm.unitId}
                 onValueChange={(value) => {
@@ -2248,7 +2513,7 @@ ${dialogType === 'manager-contract' ? `
                 }}
                 disabled={!contractForm.propertyIds[0]}
               >
-                <SelectTrigger id="tenantUnit">
+                <SelectTrigger id="tenantUnit" className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                   <SelectValue placeholder={!contractForm.propertyIds[0] ? "Select property first" : "Select unit"} />
                 </SelectTrigger>
                 <SelectContent>
@@ -2265,26 +2530,26 @@ ${dialogType === 'manager-contract' ? `
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="tenantName">Tenant Name</Label>
+              <Label htmlFor="tenantName" className="text-sm font-semibold text-gray-700">Tenant Name</Label>
               <Input
                 id="tenantName"
                 value={tenants.find(t => t.id === contractForm.tenantId)?.name || ''}
                 placeholder="Will auto-populate when unit is selected"
                 disabled
-                className="bg-muted"
+                className="bg-gray-50 border-gray-300 cursor-not-allowed"
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-gray-600">
                 Tenant information will automatically populate based on the selected unit
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="tenantTemplate">Contract Template</Label>
+              <Label htmlFor="tenantTemplate" className="text-sm font-semibold text-gray-700">Contract Template *</Label>
               <Select
                 value={contractForm.templateType}
                 onValueChange={(value) => setContractForm({ ...contractForm, templateType: value })}
               >
-                <SelectTrigger id="tenantTemplate">
+                <SelectTrigger id="tenantTemplate" className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -2302,42 +2567,108 @@ ${dialogType === 'manager-contract' ? `
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="tenantStartDate">Start Date</Label>
-                <Input
-                  id="tenantStartDate"
-                  type="date"
-                  value={contractForm.startDate}
-                  onChange={(e) => setContractForm({ ...contractForm, startDate: e.target.value })}
-                />
+                <Label htmlFor="tenantStartDate" className="text-sm font-semibold text-gray-700">Start Date *</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal border-gray-300 hover:border-[#7C3AED] focus:border-[#7C3AED] focus:ring-[#7C3AED]",
+                        !contractForm.startDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4 text-[#7C3AED]" />
+                      {contractForm.startDate ? format(new Date(contractForm.startDate), "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 rounded-xl shadow-xl" align="start">
+                    <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] px-4 py-3 rounded-t-xl">
+                      <p className="text-white font-semibold text-sm">Select Lease Start Date</p>
+                    </div>
+                    <div className="p-3 bg-white">
+                      <CalendarComponent
+                        mode="single"
+                        selected={contractForm.startDate ? new Date(contractForm.startDate) : undefined}
+                        onSelect={(date) =>
+                          setContractForm({
+                            ...contractForm,
+                            startDate: date ? format(date, "yyyy-MM-dd") : "",
+                          })
+                        }
+                        initialFocus
+                        classNames={{
+                          caption_label: "text-gray-900 font-semibold",
+                          nav_button: "border-gray-300 hover:bg-purple-50 hover:border-[#7C3AED] hover:text-[#7C3AED]",
+                          day_selected: "bg-[#7C3AED] text-white font-bold shadow-md hover:bg-[#6D28D9]",
+                          day_today: "bg-purple-100 text-[#7C3AED] font-bold border-2 border-[#7C3AED]",
+                          day: "hover:bg-[#7C3AED]/10 hover:text-[#7C3AED]",
+                        }}
+                      />
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="tenantEndDate">End Date</Label>
-                <Input
-                  id="tenantEndDate"
-                  type="date"
-                  value={contractForm.endDate}
-                  onChange={(e) => setContractForm({ ...contractForm, endDate: e.target.value })}
-                />
+                <Label htmlFor="tenantEndDate" className="text-sm font-semibold text-gray-700">End Date *</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal border-gray-300 hover:border-[#7C3AED] focus:border-[#7C3AED] focus:ring-[#7C3AED]",
+                        !contractForm.endDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4 text-[#7C3AED]" />
+                      {contractForm.endDate ? format(new Date(contractForm.endDate), "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 rounded-xl shadow-xl" align="start">
+                    <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] px-4 py-3 rounded-t-xl">
+                      <p className="text-white font-semibold text-sm">Select Lease End Date</p>
+                    </div>
+                    <div className="p-3 bg-white">
+                      <CalendarComponent
+                        mode="single"
+                        selected={contractForm.endDate ? new Date(contractForm.endDate) : undefined}
+                        onSelect={(date) =>
+                          setContractForm({
+                            ...contractForm,
+                            endDate: date ? format(date, "yyyy-MM-dd") : "",
+                          })
+                        }
+                        initialFocus
+                        classNames={{
+                          caption_label: "text-gray-900 font-semibold",
+                          nav_button: "border-gray-300 hover:bg-purple-50 hover:border-[#7C3AED] hover:text-[#7C3AED]",
+                          day_selected: "bg-[#7C3AED] text-white font-bold shadow-md hover:bg-[#6D28D9]",
+                          day_today: "bg-purple-100 text-[#7C3AED] font-bold border-2 border-[#7C3AED]",
+                          day: "hover:bg-[#7C3AED]/10 hover:text-[#7C3AED]",
+                        }}
+                      />
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="rentAmount">Monthly Rent *</Label>
+              <Label htmlFor="rentAmount" className="text-sm font-semibold text-gray-700">Monthly Rent *</Label>
               <Input
                 id="rentAmount"
                 type="number"
                 placeholder="Auto-filled from selected unit"
                 value={contractForm.compensation}
                 disabled
-                className="bg-muted cursor-not-allowed"
+                className="bg-gray-50 border-gray-300 cursor-not-allowed"
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-gray-600">
                 Monthly rent is automatically populated from the selected unit
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="tenantTermsTemplate">Special Terms & Conditions Template</Label>
+              <Label htmlFor="tenantTermsTemplate" className="text-sm font-semibold text-gray-700">Special Terms & Conditions Template</Label>
               <Select
                 onValueChange={(value) => {
                   const template = termsTemplates.find(t => t.id === value);
@@ -2346,7 +2677,7 @@ ${dialogType === 'manager-contract' ? `
                   }
                 }}
               >
-                <SelectTrigger>
+                <SelectTrigger className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                   <SelectValue placeholder="Quick Fill - Select a template (optional)" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2360,25 +2691,36 @@ ${dialogType === 'manager-contract' ? `
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="tenantNotes">Special Terms & Conditions</Label>
+              <Label htmlFor="tenantNotes" className="text-sm font-semibold text-gray-700">Special Terms & Conditions</Label>
               <Textarea
                 id="tenantNotes"
                 placeholder="Enter any special terms or conditions for this lease..."
                 rows={8}
-                className="font-mono text-sm"
+                className="font-mono text-sm resize-none border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                 value={contractForm.responsibilities}
                 onChange={(e) => setContractForm({ ...contractForm, responsibilities: e.target.value })}
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-gray-600">
                 You can use the template above to quick-fill, then customize as needed
               </p>
             </div>
+
+            <Alert className="bg-blue-50 border-blue-200 text-blue-800 rounded-xl shadow-sm">
+              <FileCheck className="h-4 w-4 text-blue-600" />
+              <AlertDescription>
+                <strong>Draft Mode:</strong> The lease agreement will be saved as a draft. You can preview, edit, and send it when ready.
+              </AlertDescription>
+            </Alert>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowGenerateDialog(false)}>
+          <DialogFooter className="px-6 pb-6 border-t pt-6">
+            <Button variant="outline" onClick={() => setShowGenerateDialog(false)} className="border-gray-300">
               Cancel
             </Button>
-            <Button onClick={handleGenerateContract} disabled={uploading}>
+            <Button
+              onClick={handleGenerateContract}
+              disabled={uploading}
+              className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md"
+            >
               {uploading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -2394,52 +2736,54 @@ ${dialogType === 'manager-contract' ? `
 
       {/* Upload Document Dialog */}
       <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Upload Document</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 border-0 shadow-2xl">
+          <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-xl">
+            <DialogTitle className="text-white text-2xl font-bold">Upload Document</DialogTitle>
+            <DialogDescription className="text-purple-100">
               Upload a pre-existing document (contract, lease, receipt, etc.)
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-6 p-6">
             <div className="space-y-2">
-              <Label htmlFor="uploadFile">Select File *</Label>
-              <Input 
-                id="uploadFile" 
-                type="file" 
+              <Label htmlFor="uploadFile" className="text-sm font-semibold text-gray-700">Select File *</Label>
+              <Input
+                id="uploadFile"
+                type="file"
                 accept=".pdf,.doc,.docx"
                 onChange={(e) => {
                   const file = e.target.files?.[0] || null;
-                  setUploadForm({ 
-                    ...uploadForm, 
+                  setUploadForm({
+                    ...uploadForm,
                     file,
                     name: file?.name.replace(/\.[^/.]+$/, '') || ''
                   });
                 }}
+                className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED] cursor-pointer"
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-gray-600">
                 Supported formats: PDF, DOC, DOCX (Max 10MB)
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="uploadDocName">Document Name *</Label>
-              <Input 
-                id="uploadDocName" 
+              <Label htmlFor="uploadDocName" className="text-sm font-semibold text-gray-700">Document Name *</Label>
+              <Input
+                id="uploadDocName"
                 placeholder="Enter document name"
                 value={uploadForm.name}
                 onChange={(e) => setUploadForm({ ...uploadForm, name: e.target.value })}
+                className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="uploadType">Document Type *</Label>
-                <Select 
+                <Label htmlFor="uploadType" className="text-sm font-semibold text-gray-700">Document Type *</Label>
+                <Select
                   value={uploadForm.type}
                   onValueChange={(value) => setUploadForm({ ...uploadForm, type: value })}
                 >
-                  <SelectTrigger id="uploadType">
+                  <SelectTrigger id="uploadType" className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -2456,12 +2800,12 @@ ${dialogType === 'manager-contract' ? `
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="uploadCategory">Category</Label>
+                <Label htmlFor="uploadCategory" className="text-sm font-semibold text-gray-700">Category</Label>
                 <Select
                   value={uploadForm.category}
                   onValueChange={(value) => setUploadForm({ ...uploadForm, category: value })}
                 >
-                  <SelectTrigger id="uploadCategory">
+                  <SelectTrigger id="uploadCategory" className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2476,7 +2820,7 @@ ${dialogType === 'manager-contract' ? `
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="uploadProperty">Property</Label>
+              <Label htmlFor="uploadProperty" className="text-sm font-semibold text-gray-700">Property</Label>
               <Select
                 value={uploadForm.propertyId}
                 onValueChange={(value) => {
@@ -2484,7 +2828,7 @@ ${dialogType === 'manager-contract' ? `
                   if (value) loadUnitsForProperty(value);
                 }}
               >
-                <SelectTrigger id="uploadProperty">
+                <SelectTrigger id="uploadProperty" className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                   <SelectValue placeholder="Select property (optional)" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2501,16 +2845,16 @@ ${dialogType === 'manager-contract' ? `
               <>
                 {uploadForm.type === 'tenant-contract' && (
                   <div className="space-y-2">
-                    <Label htmlFor="uploadUnit">Unit/Apartment</Label>
+                    <Label htmlFor="uploadUnit" className="text-sm font-semibold text-gray-700">Unit/Apartment</Label>
                     <Select
                       value={uploadForm.unitId}
                       onValueChange={(value) => {
                         setUploadForm({ ...uploadForm, unitId: value });
-                        getTenantForUnit(value);
+                        getTenantForUnit(value, 'upload');
                       }}
                       disabled={!uploadForm.propertyId}
                     >
-                      <SelectTrigger id="uploadUnit">
+                      <SelectTrigger id="uploadUnit" className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                         <SelectValue placeholder="Select unit (optional)" />
                       </SelectTrigger>
                       <SelectContent>
@@ -2525,7 +2869,9 @@ ${dialogType === 'manager-contract' ? `
                 )}
 
                 <div className="space-y-2">
-                  <Label htmlFor="uploadPerson">{uploadForm.type === 'manager-contract' ? 'Manager' : 'Tenant'}</Label>
+                  <Label htmlFor="uploadPerson" className="text-sm font-semibold text-gray-700">
+                    {uploadForm.type === 'manager-contract' ? 'Manager' : 'Tenant'}
+                  </Label>
                   <Select
                     value={uploadForm.type === 'manager-contract' ? uploadForm.managerId : uploadForm.tenantId}
                     onValueChange={(value) => {
@@ -2536,11 +2882,11 @@ ${dialogType === 'manager-contract' ? `
                       }
                     }}
                   >
-                    <SelectTrigger id="uploadPerson">
+                    <SelectTrigger id="uploadPerson" className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                       <SelectValue placeholder={`Select ${uploadForm.type === 'manager-contract' ? 'manager' : 'tenant'} (optional)`} />
                     </SelectTrigger>
                     <SelectContent>
-                      {uploadForm.type === 'manager-contract' 
+                      {uploadForm.type === 'manager-contract'
                         ? Array.isArray(propertyManagerAssignments) && propertyManagerAssignments.map((manager) => (
                             <SelectItem key={manager.id} value={manager.id}>
                               {manager.name}
@@ -2559,19 +2905,27 @@ ${dialogType === 'manager-contract' ? `
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="uploadDescription">Description/Notes</Label>
+              <Label htmlFor="uploadDescription" className="text-sm font-semibold text-gray-700">Description/Notes</Label>
               <Textarea
                 id="uploadDescription"
                 placeholder="Add any notes or description about this document..."
                 rows={3}
                 value={uploadForm.description}
                 onChange={(e) => setUploadForm({ ...uploadForm, description: e.target.value })}
+                className="resize-none border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
               />
             </div>
+
+            <Alert className="bg-blue-50 border-blue-200 text-blue-800 rounded-xl shadow-sm">
+              <Upload className="h-4 w-4 text-blue-600" />
+              <AlertDescription>
+                <strong>File Upload:</strong> The document will be securely stored and associated with the selected property and tenant/manager if applicable.
+              </AlertDescription>
+            </Alert>
           </div>
-          <DialogFooter>
-            <Button 
-              variant="outline" 
+          <DialogFooter className="px-6 pb-6 border-t pt-6">
+            <Button
+              variant="outline"
               onClick={() => {
                 setShowUploadDialog(false);
                 setUploadForm({
@@ -2588,10 +2942,15 @@ ${dialogType === 'manager-contract' ? `
                 });
               }}
               disabled={uploading}
+              className="border-gray-300"
             >
               Cancel
             </Button>
-            <Button onClick={handleUpload} disabled={!uploadForm.file || !uploadForm.name || uploading}>
+            <Button
+              onClick={handleUpload}
+              disabled={!uploadForm.file || !uploadForm.name || uploading}
+              className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md"
+            >
               {uploading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -2648,7 +3007,7 @@ ${dialogType === 'manager-contract' ? `
                   <p className="font-medium">{selectedDocument.signedBy}</p>
                 </div>
               </div>
-              
+
               {/* Show contract content preview for contracts */}
               {selectedDocument.type === 'contract' && selectedDocument.metadata?.content && (
                 <div className="mt-4">
@@ -2699,10 +3058,10 @@ ${dialogType === 'manager-contract' ? `
                   <Badge variant="outline" className="bg-white">Draft</Badge>
                 </div>
               )}
-              
+
               <div className="space-y-2">
                 <Label htmlFor="contract-content">Contract Content</Label>
-                
+
                 {/* Rich Text Editor with Real-time Formatting */}
                 <RichTextEditor
                   content={editableContent}
@@ -2861,7 +3220,7 @@ ${dialogType === 'manager-contract' ? `
                     const manager = managers.find(m => m.id === userId);
                     const tenant = tenants.find(t => t.id === userId);
                     const user = manager || tenant;
-                    
+
                     return user ? (
                       <Badge key={userId} variant="secondary" className="flex items-center gap-2">
                         {user.name}
@@ -2895,8 +3254,8 @@ ${dialogType === 'manager-contract' ? `
             </div>
           </div>
           <DialogFooter>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 setShowShareDialog(false);
                 setShareForm({ sharedWith: [], message: '' });
@@ -2904,7 +3263,7 @@ ${dialogType === 'manager-contract' ? `
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleShareDocument}
               disabled={shareForm.sharedWith.length === 0}
             >

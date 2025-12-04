@@ -1051,17 +1051,17 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b sticky top-0 z-50">
+      <header className="bg-gradient-to-r from-[#111827] to-[#1F2937] border-b border-white/10 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             {/* Left: Back button + Title */}
             <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="icon" onClick={onBack}>
+              <Button variant="ghost" size="icon" onClick={onBack} className="text-white hover:bg-white/10">
                 <ArrowLeft className="h-5 w-5" />
               </Button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-                <p className="text-sm text-gray-500">
+                <h1 className="text-2xl font-bold text-white">Settings</h1>
+                <p className="text-sm text-white/70">
                   Manage your account, company, and preferences
                 </p>
               </div>
@@ -1070,11 +1070,11 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
             {/* Right: Save/Cancel */}
             {isEditing && (
               <div className="flex items-center space-x-2">
-                <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving}>
+                <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving} className="border-white/20 text-white hover:bg-white/10">
                   <X className="h-4 w-4 mr-2" />
                   Cancel
                 </Button>
-                <Button onClick={handleSaveProfile} disabled={isSaving}>
+                <Button onClick={handleSaveProfile} disabled={isSaving} className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md">
                   {isSaving ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1106,15 +1106,15 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
           <div className="grid lg:grid-cols-4 gap-6">
           {/* Sidebar Navigation */}
           <aside className="lg:col-span-1">
-            <Card>
+            <Card className="border-gray-200 shadow-md">
               <CardContent className="p-4">
                 <nav className="space-y-1">
                   <button
                     onClick={() => setActiveTab('profile')}
-                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors font-medium ${
                       activeTab === 'profile'
-                        ? 'bg-gray-900 text-white'
-                        : 'hover:bg-gray-100 text-gray-700'
+                        ? 'bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-md'
+                        : 'hover:bg-purple-50 hover:text-[#7C3AED] text-gray-700'
                     }`}
                   >
                     <User className="h-5 w-5" />
@@ -1123,10 +1123,10 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
 
                   <button
                     onClick={() => setActiveTab('company')}
-                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors font-medium ${
                       activeTab === 'company'
-                        ? 'bg-gray-900 text-white'
-                        : 'hover:bg-gray-100 text-gray-700'
+                        ? 'bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-md'
+                        : 'hover:bg-purple-50 hover:text-[#7C3AED] text-gray-700'
                     }`}
                   >
                     <Building2 className="h-5 w-5" />
@@ -1135,10 +1135,10 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
 
                   <button
                     onClick={() => setActiveTab('subscription')}
-                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors font-medium ${
                       activeTab === 'subscription'
-                        ? 'bg-gray-900 text-white'
-                        : 'hover:bg-gray-100 text-gray-700'
+                        ? 'bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-md'
+                        : 'hover:bg-purple-50 hover:text-[#7C3AED] text-gray-700'
                     }`}
                   >
                     <Crown className="h-5 w-5" />
@@ -1147,10 +1147,10 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
 
                   <button
                     onClick={() => setActiveTab('billing')}
-                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors font-medium ${
                       activeTab === 'billing'
-                        ? 'bg-gray-900 text-white'
-                        : 'hover:bg-gray-100 text-gray-700'
+                        ? 'bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-md'
+                        : 'hover:bg-purple-50 hover:text-[#7C3AED] text-gray-700'
                     }`}
                   >
                     <CreditCard className="h-5 w-5" />
@@ -1159,10 +1159,10 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
 
                   <button
                     onClick={() => setActiveTab('payment-gateway')}
-                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors font-medium ${
                       activeTab === 'payment-gateway'
-                        ? 'bg-gray-900 text-white'
-                        : 'hover:bg-gray-100 text-gray-700'
+                        ? 'bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-md'
+                        : 'hover:bg-purple-50 hover:text-[#7C3AED] text-gray-700'
                     }`}
                   >
                     <DollarSign className="h-5 w-5" />
@@ -1171,10 +1171,10 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
 
                   <button
                     onClick={() => setActiveTab('security')}
-                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors font-medium ${
                       activeTab === 'security'
-                        ? 'bg-gray-900 text-white'
-                        : 'hover:bg-gray-100 text-gray-700'
+                        ? 'bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-md'
+                        : 'hover:bg-purple-50 hover:text-[#7C3AED] text-gray-700'
                     }`}
                   >
                     <Lock className="h-5 w-5" />
@@ -1183,10 +1183,10 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
 
                   <button
                     onClick={() => setActiveTab('notifications')}
-                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors font-medium ${
                       activeTab === 'notifications'
-                        ? 'bg-gray-900 text-white'
-                        : 'hover:bg-gray-100 text-gray-700'
+                        ? 'bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-md'
+                        : 'hover:bg-purple-50 hover:text-[#7C3AED] text-gray-700'
                     }`}
                   >
                     <Bell className="h-5 w-5" />
@@ -1195,10 +1195,10 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
 
                   <button
                     onClick={() => setActiveTab('display')}
-                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors font-medium ${
                       activeTab === 'display'
-                        ? 'bg-gray-900 text-white'
-                        : 'hover:bg-gray-100 text-gray-700'
+                        ? 'bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-md'
+                        : 'hover:bg-purple-50 hover:text-[#7C3AED] text-gray-700'
                     }`}
                   >
                     <Monitor className="h-5 w-5" />
@@ -1207,10 +1207,10 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
 
                   <button
                     onClick={() => setActiveTab('sessions')}
-                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors font-medium ${
                       activeTab === 'sessions'
-                        ? 'bg-gray-900 text-white'
-                        : 'hover:bg-gray-100 text-gray-700'
+                        ? 'bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-md'
+                        : 'hover:bg-purple-50 hover:text-[#7C3AED] text-gray-700'
                     }`}
                   >
                     <Smartphone className="h-5 w-5" />
@@ -1219,10 +1219,10 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
 
                   <button
                     onClick={() => setActiveTab('activity')}
-                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors font-medium ${
                       activeTab === 'activity'
-                        ? 'bg-gray-900 text-white'
-                        : 'hover:bg-gray-100 text-gray-700'
+                        ? 'bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-md'
+                        : 'hover:bg-purple-50 hover:text-[#7C3AED] text-gray-700'
                     }`}
                   >
                     <Activity className="h-5 w-5" />
@@ -1233,10 +1233,10 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
 
                   <button
                     onClick={() => setActiveTab('help')}
-                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors font-medium ${
                       activeTab === 'help'
-                        ? 'bg-gray-900 text-white'
-                        : 'hover:bg-gray-100 text-gray-700'
+                        ? 'bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-md'
+                        : 'hover:bg-purple-50 hover:text-[#7C3AED] text-gray-700'
                     }`}
                   >
                     <HelpCircle className="h-5 w-5" />
@@ -1433,17 +1433,17 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
 
       {/* Password Change Dialog */}
       <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Change Password</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="border-0 shadow-2xl">
+          <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] -m-6 mb-0 p-6 rounded-t-lg">
+            <DialogTitle className="text-white text-2xl">Change Password</DialogTitle>
+            <DialogDescription className="text-purple-100">
               Enter your current password and choose a new one
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 px-6">
             <div className="space-y-2">
-              <Label htmlFor="current-password">Current Password</Label>
+              <Label htmlFor="current-password" className="text-sm font-semibold text-gray-700">Current Password</Label>
               <div className="relative">
                 <Input
                   id="current-password"
@@ -1452,13 +1452,14 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
                   onChange={(e) =>
                     setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))
                   }
+                  className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                 />
                 <button
                   type="button"
                   onClick={() =>
                     setShowPasswords(prev => ({ ...prev, current: !prev.current }))
                   }
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#7C3AED] hover:text-[#6D28D9]"
                 >
                   {showPasswords.current ? (
                     <EyeOff className="h-4 w-4" />
@@ -1470,7 +1471,7 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="new-password">New Password</Label>
+              <Label htmlFor="new-password" className="text-sm font-semibold text-gray-700">New Password</Label>
               <div className="relative">
                 <Input
                   id="new-password"
@@ -1479,13 +1480,14 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
                   onChange={(e) =>
                     setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))
                   }
+                  className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                 />
                 <button
                   type="button"
                   onClick={() =>
                     setShowPasswords(prev => ({ ...prev, new: !prev.new }))
                   }
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#7C3AED] hover:text-[#6D28D9]"
                 >
                   {showPasswords.new ? (
                     <EyeOff className="h-4 w-4" />
@@ -1500,7 +1502,7 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirm-password">Confirm New Password</Label>
+              <Label htmlFor="confirm-password" className="text-sm font-semibold text-gray-700">Confirm New Password</Label>
               <div className="relative">
                 <Input
                   id="confirm-password"
@@ -1509,13 +1511,14 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
                   onChange={(e) =>
                     setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))
                   }
+                  className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                 />
                 <button
                   type="button"
                   onClick={() =>
                     setShowPasswords(prev => ({ ...prev, confirm: !prev.confirm }))
                   }
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#7C3AED] hover:text-[#6D28D9]"
                 >
                   {showPasswords.confirm ? (
                     <EyeOff className="h-4 w-4" />
@@ -1527,11 +1530,11 @@ export function PropertyOwnerSettings({ user, onBack, onSave, onLogout, initialT
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPasswordDialog(false)}>
+          <DialogFooter className="px-6 pb-6">
+            <Button variant="outline" onClick={() => setShowPasswordDialog(false)} className="border-gray-300">
               Cancel
             </Button>
-            <Button onClick={handlePasswordChange}>
+            <Button onClick={handlePasswordChange} className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md">
               Change Password
             </Button>
           </DialogFooter>
@@ -1671,28 +1674,33 @@ function ProfileSection({ profileData, setProfileData, isEditing, setIsEditing, 
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
+      <Card className="border-gray-200 shadow-md">
+        <CardHeader className="border-b bg-gray-50">
           <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Profile Information</CardTitle>
-              <CardDescription>
-                Update your personal information and profile picture
-              </CardDescription>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                <User className="h-5 w-5 text-gray-700" />
+              </div>
+              <div>
+                <CardTitle className="text-gray-900">Profile Information</CardTitle>
+                <CardDescription className="text-gray-600">
+                  Update your personal information and profile picture
+                </CardDescription>
+              </div>
             </div>
             {!isEditing && (
-              <Button onClick={() => setIsEditing(true)}>
+              <Button onClick={() => setIsEditing(true)} className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md">
                 Edit Profile
               </Button>
             )}
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 pt-6">
           {/* Avatar Section */}
           <div className="flex items-start space-x-6">
-            <Avatar className="h-24 w-24">
+            <Avatar className="h-24 w-24 border-2 border-purple-200">
               <AvatarImage src={profileData.avatar} />
-              <AvatarFallback className="bg-blue-100 text-blue-700 text-2xl">
+              <AvatarFallback className="bg-gradient-to-br from-purple-100 to-purple-200 text-[#7C3AED] text-2xl font-bold">
                 {profileData.name.split(' ').map((n: string) => n[0]).join('')}
               </AvatarFallback>
             </Avatar>
@@ -1703,11 +1711,11 @@ function ProfileSection({ profileData, setProfileData, isEditing, setIsEditing, 
               </p>
               {isEditing && (
                 <div className="flex items-center space-x-2">
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" className="border-gray-300 hover:border-[#7C3AED] hover:text-[#7C3AED]">
                     <Upload className="h-4 w-4 mr-2" />
                     Upload Photo
                   </Button>
-                  <Button variant="ghost" size="sm" className="text-red-600">
+                  <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50">
                     Remove
                   </Button>
                 </div>
@@ -1720,67 +1728,68 @@ function ProfileSection({ profileData, setProfileData, isEditing, setIsEditing, 
           {/* Profile Fields */}
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="name" className="text-sm font-semibold text-gray-700">Full Name</Label>
               <Input
                 id="name"
                 value={profileData.name}
                 onChange={(e) => updateFormData('name', e.target.value)}
                 disabled={!isEditing}
+                className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
+              <Label htmlFor="email" className="text-sm font-semibold text-gray-700">Email Address</Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#7C3AED]" />
                 <Input
                   id="email"
                   type="email"
                   value={profileData.email}
                   onChange={() => { /* Email is read-only for owners */ }}
                   disabled={true}
-                  className="pl-10"
+                  className="pl-10 border-gray-300"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
+              <Label htmlFor="phone" className="text-sm font-semibold text-gray-700">Phone Number</Label>
               <div className="relative">
-                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#7C3AED]" />
                 <Input
                   id="phone"
                   type="tel"
                   value={profileData.phone}
                   onChange={(e) => updateFormData('phone', e.target.value)}
                   disabled={!isEditing}
-                  className="pl-10"
+                  className="pl-10 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
+              <Label htmlFor="address" className="text-sm font-semibold text-gray-700">Address</Label>
               <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#7C3AED]" />
                 <Input
                   id="address"
                   value={profileData.address}
                   onChange={(e) => updateFormData('address', e.target.value)}
                   disabled={!isEditing}
-                  className="pl-10"
+                  className="pl-10 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="timezone">Timezone</Label>
+              <Label htmlFor="timezone" className="text-sm font-semibold text-gray-700">Timezone</Label>
               <Select
                 value={profileData.timezone}
                 onValueChange={(value) => updateFormData('timezone', value)}
                 disabled={!isEditing}
               >
-                <SelectTrigger>
+                <SelectTrigger className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1793,13 +1802,13 @@ function ProfileSection({ profileData, setProfileData, isEditing, setIsEditing, 
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="language">Language</Label>
+              <Label htmlFor="language" className="text-sm font-semibold text-gray-700">Language</Label>
               <Select
                 value={profileData.language}
                 onValueChange={(value) => updateFormData('language', value)}
                 disabled={!isEditing}
               >
-                <SelectTrigger>
+                <SelectTrigger className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1816,19 +1825,23 @@ function ProfileSection({ profileData, setProfileData, isEditing, setIsEditing, 
           <div>
             <h3 className="font-semibold text-gray-900 mb-4">Account Information</h3>
             <div className="grid md:grid-cols-2 gap-4">
-              <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                <Building2 className="h-5 w-5 text-gray-400" />
+              <div className="flex items-center space-x-3 p-4 bg-gradient-to-br from-purple-50 to-purple-100/50 border border-purple-200 rounded-xl">
+                <div className="w-10 h-10 bg-[#7C3AED] rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Building2 className="h-5 w-5 text-white" />
+                </div>
                 <div>
-                  <p className="text-xs text-gray-500">Role</p>
-                  <p className="text-sm font-medium text-gray-900">Property Owner</p>
+                  <p className="text-xs text-gray-600 font-medium">Role</p>
+                  <p className="text-sm font-bold text-gray-900">Property Owner</p>
                 </div>
               </div>
 
-              <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                <Calendar className="h-5 w-5 text-gray-400" />
+              <div className="flex items-center space-x-3 p-4 bg-gradient-to-br from-purple-50 to-purple-100/50 border border-purple-200 rounded-xl">
+                <div className="w-10 h-10 bg-[#7C3AED] rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Calendar className="h-5 w-5 text-white" />
+                </div>
                 <div>
-                  <p className="text-xs text-gray-500">Member Since</p>
-                  <p className="text-sm font-medium text-gray-900">January 2024</p>
+                  <p className="text-xs text-gray-600 font-medium">Member Since</p>
+                  <p className="text-sm font-bold text-gray-900">January 2024</p>
                 </div>
               </div>
             </div>
@@ -1836,12 +1849,14 @@ function ProfileSection({ profileData, setProfileData, isEditing, setIsEditing, 
         </CardContent>
       </Card>
       {/* Inline actions for this section */}
-      <div className="flex justify-end">
-        <Button onClick={onSaveClick} disabled={!isEditing}>
-          <Save className="h-4 w-4 mr-2" />
-          Save Changes
-        </Button>
-      </div>
+      {isEditing && (
+        <div className="flex justify-end">
+          <Button onClick={onSaveClick} className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md">
+            <Save className="h-4 w-4 mr-2" />
+            Save Changes
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -1855,43 +1870,49 @@ function CompanySection({ companyData, setCompanyData, isEditing, setIsEditing, 
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
+      <Card className="border-gray-200 shadow-md">
+        <CardHeader className="border-b bg-gray-50">
           <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Company Information</CardTitle>
-              <CardDescription>
-                Manage your business details and documentation
-              </CardDescription>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                <Building2 className="h-5 w-5 text-gray-700" />
+              </div>
+              <div>
+                <CardTitle className="text-gray-900">Company Information</CardTitle>
+                <CardDescription className="text-gray-600">
+                  Manage your business details and documentation
+                </CardDescription>
+              </div>
             </div>
             {!isEditing && (
-              <Button onClick={() => setIsEditing(true)}>
+              <Button onClick={() => setIsEditing(true)} className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md">
                 Edit Company
               </Button>
             )}
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 pt-6">
           {/* Basic Company Info */}
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="companyName">Company Name</Label>
+              <Label htmlFor="companyName" className="text-sm font-semibold text-gray-700">Company Name</Label>
               <Input
                 id="companyName"
                 value={companyData.companyName}
                 onChange={(e) => updateFormData('companyName', e.target.value)}
                 disabled={!isEditing}
+                className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="businessType">Business Type</Label>
+              <Label htmlFor="businessType" className="text-sm font-semibold text-gray-700">Business Type</Label>
               <Select
                 value={companyData.businessType}
                 onValueChange={(value) => updateFormData('businessType', value)}
                 disabled={!isEditing}
               >
-                <SelectTrigger>
+                <SelectTrigger className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1904,48 +1925,50 @@ function CompanySection({ companyData, setCompanyData, isEditing, setIsEditing, 
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="taxId">Tax ID (EIN)</Label>
+              <Label htmlFor="taxId" className="text-sm font-semibold text-gray-700">Tax ID (EIN)</Label>
               <Input
                 id="taxId"
                 value={companyData.taxId}
                 disabled={true}
-                className="bg-gray-50 cursor-not-allowed"
+                className="bg-gray-50 cursor-not-allowed border-gray-300"
                 readOnly
               />
               <p className="text-xs text-gray-500">Tax ID can only be updated by an administrator</p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="yearEstablished">Year Established</Label>
+              <Label htmlFor="yearEstablished" className="text-sm font-semibold text-gray-700">Year Established</Label>
               <Input
                 id="yearEstablished"
                 value={companyData.yearEstablished}
                 onChange={(e) => updateFormData('yearEstablished', e.target.value)}
                 disabled={!isEditing}
+                className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="website">Website</Label>
+              <Label htmlFor="website" className="text-sm font-semibold text-gray-700">Website</Label>
               <div className="relative">
-                <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#7C3AED]" />
                 <Input
                   id="website"
                   value={companyData.website}
                   onChange={(e) => updateFormData('website', e.target.value)}
                   disabled={!isEditing}
-                  className="pl-10"
+                  className="pl-10 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="licenseNumber">License Number</Label>
+              <Label htmlFor="licenseNumber" className="text-sm font-semibold text-gray-700">License Number</Label>
               <Input
                 id="licenseNumber"
                 value={companyData.licenseNumber}
                 onChange={(e) => updateFormData('licenseNumber', e.target.value)}
                 disabled={!isEditing}
+                className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
               />
             </div>
           </div>
@@ -1957,43 +1980,43 @@ function CompanySection({ companyData, setCompanyData, isEditing, setIsEditing, 
             <h3 className="font-semibold text-gray-900 mb-4">Business Contact</h3>
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="businessPhone">Business Phone</Label>
+                <Label htmlFor="businessPhone" className="text-sm font-semibold text-gray-700">Business Phone</Label>
                 <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#7C3AED]" />
                   <Input
                     id="businessPhone"
                     value={companyData.businessPhone}
                     onChange={(e) => updateFormData('businessPhone', e.target.value)}
                     disabled={!isEditing}
-                    className="pl-10"
+                    className="pl-10 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="businessEmail">Business Email</Label>
+                <Label htmlFor="businessEmail" className="text-sm font-semibold text-gray-700">Business Email</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#7C3AED]" />
                 <Input
                     id="businessEmail"
                     value={companyData.businessEmail}
                     onChange={() => { /* Business email is read-only for owners */ }}
                     disabled={true}
-                    className="pl-10"
+                    className="pl-10 border-gray-300"
                   />
                 </div>
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="businessAddress">Business Address</Label>
+                <Label htmlFor="businessAddress" className="text-sm font-semibold text-gray-700">Business Address</Label>
                 <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#7C3AED]" />
                   <Input
                     id="businessAddress"
                     value={companyData.businessAddress}
                     onChange={(e) => updateFormData('businessAddress', e.target.value)}
                     disabled={!isEditing}
-                    className="pl-10"
+                    className="pl-10 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                 </div>
               </div>
@@ -2007,33 +2030,36 @@ function CompanySection({ companyData, setCompanyData, isEditing, setIsEditing, 
             <h3 className="font-semibold text-gray-900 mb-4">Insurance Information</h3>
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="insuranceProvider">Insurance Provider</Label>
+                <Label htmlFor="insuranceProvider" className="text-sm font-semibold text-gray-700">Insurance Provider</Label>
                 <Input
                   id="insuranceProvider"
                   value={companyData.insuranceProvider}
                   onChange={(e) => updateFormData('insuranceProvider', e.target.value)}
                   disabled={!isEditing}
+                  className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="insurancePolicy">Policy Number</Label>
+                <Label htmlFor="insurancePolicy" className="text-sm font-semibold text-gray-700">Policy Number</Label>
                 <Input
                   id="insurancePolicy"
                   value={companyData.insurancePolicy}
                   onChange={(e) => updateFormData('insurancePolicy', e.target.value)}
                   disabled={!isEditing}
+                  className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="insuranceExpiration">Expiration Date</Label>
+                <Label htmlFor="insuranceExpiration" className="text-sm font-semibold text-gray-700">Expiration Date</Label>
                 <Input
                   id="insuranceExpiration"
                   type="date"
                   value={companyData.insuranceExpiration}
                   onChange={(e) => updateFormData('insuranceExpiration', e.target.value)}
                   disabled={!isEditing}
+                  className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                 />
               </div>
             </div>
@@ -2041,12 +2067,14 @@ function CompanySection({ companyData, setCompanyData, isEditing, setIsEditing, 
         </CardContent>
       </Card>
       {/* Inline actions for this section */}
-      <div className="flex justify-end">
-        <Button onClick={onSaveClick} disabled={!isEditing}>
-          <Save className="h-4 w-4 mr-2" />
-          Save Changes
-        </Button>
-      </div>
+      {isEditing && (
+        <div className="flex justify-end">
+          <Button onClick={onSaveClick} className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md">
+            <Save className="h-4 w-4 mr-2" />
+            Save Changes
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -2382,16 +2410,21 @@ function BillingSection({ billingHistory, paymentMethods, loadingPaymentMethods,
   return (
     <div className="space-y-6">
       {/* Payment Methods */}
-      <Card>
-        <CardHeader>
+      <Card className="border-gray-200 shadow-md">
+        <CardHeader className="border-b bg-gray-50">
           <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Payment Methods</CardTitle>
-              <CardDescription>
-                Manage your payment methods
-              </CardDescription>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                <CreditCard className="h-5 w-5 text-gray-700" />
+              </div>
+              <div>
+                <CardTitle className="text-gray-900">Payment Methods</CardTitle>
+                <CardDescription className="text-gray-600">
+                  Manage your payment methods
+                </CardDescription>
+              </div>
             </div>
-            <Button onClick={handleAddPaymentMethod} disabled={isAddingMethod}>
+            <Button onClick={handleAddPaymentMethod} disabled={isAddingMethod} className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md">
               {isAddingMethod ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -2406,34 +2439,36 @@ function BillingSection({ billingHistory, paymentMethods, loadingPaymentMethods,
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           {isVerifyingCallback ? (
             <div className="text-center py-8">
-              <Loader2 className="h-12 w-12 text-blue-500 mx-auto mb-3 animate-spin" />
-              <p className="text-sm text-gray-600">Verifying payment method...</p>
-              <p className="text-xs text-gray-400 mt-1">Please wait while we confirm your card</p>
+              <Loader2 className="h-12 w-12 text-[#7C3AED] mx-auto mb-3 animate-spin" />
+              <p className="text-sm text-gray-700 font-semibold">Verifying payment method...</p>
+              <p className="text-xs text-gray-500 mt-1">Please wait while we confirm your card</p>
             </div>
           ) : loadingPaymentMethods ? (
             <div className="text-center py-8">
-              <Loader2 className="h-8 w-8 text-gray-400 mx-auto mb-3 animate-spin" />
-              <p className="text-sm text-gray-500">Loading payment methods...</p>
+              <Loader2 className="h-8 w-8 text-[#7C3AED] mx-auto mb-3 animate-spin" />
+              <p className="text-sm text-gray-600 font-medium">Loading payment methods...</p>
             </div>
           ) : paymentMethods.length === 0 ? (
             <div className="text-center py-8">
-              <CreditCard className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-sm text-gray-500">No payment methods added yet</p>
-              <p className="text-xs text-gray-400 mt-1">Add a payment method to enable automatic billing</p>
+              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <CreditCard className="h-8 w-8 text-[#7C3AED]" />
+              </div>
+              <p className="text-sm text-gray-700 font-semibold">No payment methods added yet</p>
+              <p className="text-xs text-gray-500 mt-1">Add a payment method to enable automatic billing</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {paymentMethods.map((method: any) => (
-                <div key={method.id} className="flex items-center justify-between p-4 border rounded-lg">
+                <div key={method.id} className="flex items-center justify-between p-4 border-2 border-gray-200 rounded-xl hover:border-purple-300 hover:bg-purple-50/30 transition-all">
                   <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 bg-gray-100 rounded flex items-center justify-center">
-                      <CreditCard className="h-5 w-5 text-gray-600" />
+                    <div className="h-12 w-12 bg-gradient-to-br from-purple-100 to-purple-200 rounded-lg flex items-center justify-center">
+                      <CreditCard className="h-6 w-6 text-[#7C3AED]" />
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">
+                      <p className="font-bold text-gray-900">
                         {method.cardBrand || method.brand || 'Card'} •••• {method.cardLast4 || method.last4}
                       </p>
                       <p className="text-sm text-gray-600">
@@ -2441,7 +2476,7 @@ function BillingSection({ billingHistory, paymentMethods, loadingPaymentMethods,
                       </p>
                     </div>
                     {method.isDefault && (
-                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Default</Badge>
+                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 font-semibold">Default</Badge>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
@@ -2451,6 +2486,7 @@ function BillingSection({ billingHistory, paymentMethods, loadingPaymentMethods,
                         size="sm"
                         onClick={() => handleSetDefault(method.id)}
                         disabled={isSettingDefault === method.id}
+                        className="hover:bg-purple-50 hover:text-[#7C3AED]"
                       >
                         {isSettingDefault === method.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -2481,55 +2517,62 @@ function BillingSection({ billingHistory, paymentMethods, loadingPaymentMethods,
       </Card>
 
       {/* Billing History */}
-      <Card>
-        <CardHeader>
+      <Card className="border-gray-200 shadow-md">
+        <CardHeader className="border-b bg-gray-50">
           <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Billing History</CardTitle>
-              <CardDescription>
-                View and download your invoices
-              </CardDescription>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                <Receipt className="h-5 w-5 text-gray-700" />
+              </div>
+              <div>
+                <CardTitle className="text-gray-900">Billing History</CardTitle>
+                <CardDescription className="text-gray-600">
+                  View and download your invoices
+                </CardDescription>
+              </div>
             </div>
-            <Button variant="outline">
+            <Button variant="outline" className="border-gray-300 hover:border-[#7C3AED] hover:text-[#7C3AED]">
               <Download className="h-4 w-4 mr-2" />
               Export All
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Invoice</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {billingHistory.map((invoice: any) => (
-                <TableRow key={invoice.id}>
-                  <TableCell className="font-medium">{invoice.id}</TableCell>
-                  <TableCell>{invoice.date}</TableCell>
-                  <TableCell>{invoice.description}</TableCell>
-                  <TableCell>${invoice.amount}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-green-600 border-green-600">
-                      {invoice.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="sm">
-                      <Download className="h-4 w-4 mr-2" />
-                      Download
-                    </Button>
-                  </TableCell>
+        <CardContent className="pt-6">
+          <div className="overflow-x-auto rounded-xl border-0 shadow-md">
+            <Table>
+              <TableHeader className="bg-[#111827]">
+                <TableRow>
+                  <TableHead className="text-white font-semibold">Invoice</TableHead>
+                  <TableHead className="text-white font-semibold">Date</TableHead>
+                  <TableHead className="text-white font-semibold">Description</TableHead>
+                  <TableHead className="text-white font-semibold">Amount</TableHead>
+                  <TableHead className="text-white font-semibold">Status</TableHead>
+                  <TableHead className="text-white font-semibold">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {billingHistory.map((invoice: any, index: number) => (
+                  <TableRow key={invoice.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50 hover:bg-[#7C3AED]/5'}>
+                    <TableCell className="font-bold text-gray-900">{invoice.id}</TableCell>
+                    <TableCell className="text-gray-700">{invoice.date}</TableCell>
+                    <TableCell className="text-gray-700">{invoice.description}</TableCell>
+                    <TableCell className="font-semibold text-gray-900">${invoice.amount}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 font-semibold">
+                        {invoice.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="sm" className="hover:bg-purple-50 hover:text-[#7C3AED]">
+                        <Download className="h-4 w-4 mr-2" />
+                        Download
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -2687,25 +2730,32 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
   return (
     <>
       <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Security Settings</CardTitle>
-            <CardDescription>
-              Manage your password and security preferences
-            </CardDescription>
+        <Card className="border-gray-200 shadow-md">
+          <CardHeader className="border-b bg-gray-50">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                <Shield className="h-5 w-5 text-gray-700" />
+              </div>
+              <div>
+                <CardTitle className="text-gray-900">Security Settings</CardTitle>
+                <CardDescription className="text-gray-600">
+                  Manage your password and security preferences
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-6 pt-6">
             {/* Password */}
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="font-semibold text-gray-900">Password</h4>
+                <h4 className="font-bold text-gray-900">Password</h4>
                 <p className="text-sm text-gray-600">
                   {securitySettings.passwordLastChanged
                     ? `Last changed on ${formatDate(securitySettings.passwordLastChanged)}`
                     : 'Never changed'}
                 </p>
               </div>
-              <Button variant="outline" onClick={() => setShowPasswordDialog(true)}>
+              <Button variant="outline" onClick={() => setShowPasswordDialog(true)} className="border-gray-300 hover:border-[#7C3AED] hover:text-[#7C3AED]">
                 <Key className="h-4 w-4 mr-2" />
                 Change Password
               </Button>
@@ -2716,12 +2766,17 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
             {/* Two-Factor Authentication */}
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <h4 className="font-semibold text-gray-900 mb-1">Two-Factor Authentication</h4>
+                <h4 className="font-bold text-gray-900 mb-1">Two-Factor Authentication</h4>
                 <p className="text-sm text-gray-600">
                   Add an extra layer of security to your account
                 </p>
                 {securitySettings.twoFactorEnabled && (
-                  <p className="text-xs text-green-600 mt-1">✓ Enabled</p>
+                  <div className="flex items-center gap-1 mt-2">
+                    <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center">
+                      <CheckCircle className="h-3 w-3 text-green-600" />
+                    </div>
+                    <p className="text-xs text-green-600 font-semibold">Enabled</p>
+                  </div>
                 )}
               </div>
               <Switch
@@ -2734,6 +2789,7 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
                   }
                 }}
                 disabled={initializingTwoFactor || twoFactorDialogLoading || disableTwoFactorLoading}
+                className="data-[state=checked]:bg-[#7C3AED]"
               />
             </div>
 
@@ -2742,7 +2798,7 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
             {/* Login Alerts */}
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <h4 className="font-semibold text-gray-900 mb-1">Login Alerts</h4>
+                <h4 className="font-bold text-gray-900 mb-1">Login Alerts</h4>
                 <p className="text-sm text-gray-600">
                   Get notified about new login attempts
                 </p>
@@ -2751,6 +2807,7 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
                 checked={securitySettings.loginAlerts}
                 onCheckedChange={(checked) => handleSecuritySettingChange('loginAlerts', checked)}
                 disabled={updatingSecuritySetting}
+                className="data-[state=checked]:bg-[#7C3AED]"
               />
             </div>
 
@@ -2758,13 +2815,13 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
 
             {/* Session Timeout */}
             <div>
-              <Label>Session Timeout</Label>
+              <Label className="text-sm font-semibold text-gray-700">Session Timeout</Label>
               <Select
                 value={securitySettings.sessionTimeout}
                 onValueChange={(value) => handleSecuritySettingChange('sessionTimeout', value)}
                 disabled={updatingSecuritySetting}
               >
-                <SelectTrigger className="mt-2">
+                <SelectTrigger className="mt-2 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -2783,18 +2840,25 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
         </Card>
 
         {/* Manager Permissions */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Manager Permissions</CardTitle>
-            <CardDescription>
-              Control default permissions for property managers
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Units Permissions */}
-            <div className="border rounded-lg p-4 space-y-4">
+        <Card className="border-gray-200 shadow-md">
+          <CardHeader className="border-b bg-gray-50">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                <Users className="h-5 w-5 text-gray-700" />
+              </div>
               <div>
-                <h4 className="font-semibold text-gray-900 mb-1">Units Management</h4>
+                <CardTitle className="text-gray-900">Manager Permissions</CardTitle>
+                <CardDescription className="text-gray-600">
+                  Control default permissions for property managers
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6 pt-6">
+            {/* Units Permissions */}
+            <div className="border-2 border-gray-200 rounded-xl p-5 space-y-4 bg-gradient-to-br from-gray-50 to-white">
+              <div>
+                <h4 className="font-bold text-gray-900 mb-1">Units Management</h4>
                 <p className="text-sm text-gray-600">Control what managers can do with units</p>
               </div>
 
@@ -2854,9 +2918,9 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
             </div>
 
             {/* Properties Permissions */}
-            <div className="border rounded-lg p-4 space-y-4">
+            <div className="border-2 border-gray-200 rounded-xl p-5 space-y-4 bg-gradient-to-br from-gray-50 to-white">
               <div>
-                <h4 className="font-semibold text-gray-900 mb-1">Properties Management</h4>
+                <h4 className="font-bold text-gray-900 mb-1">Properties Management</h4>
                 <p className="text-sm text-gray-600">Control what managers can do with properties</p>
               </div>
 
@@ -2890,9 +2954,9 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
             </div>
 
             {/* Tenants Permissions */}
-            <div className="border rounded-lg p-4 space-y-4">
+            <div className="border-2 border-gray-200 rounded-xl p-5 space-y-4 bg-gradient-to-br from-gray-50 to-white">
               <div>
-                <h4 className="font-semibold text-gray-900 mb-1">Tenants Management</h4>
+                <h4 className="font-bold text-gray-900 mb-1">Tenants Management</h4>
                 <p className="text-sm text-gray-600">Control what managers can do with tenants</p>
               </div>
 
@@ -2952,9 +3016,9 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
             </div>
 
             {/* Financial Permissions */}
-            <div className="border rounded-lg p-4 space-y-4">
+            <div className="border-2 border-gray-200 rounded-xl p-5 space-y-4 bg-gradient-to-br from-gray-50 to-white">
               <div>
-                <h4 className="font-semibold text-gray-900 mb-1">Financial Access</h4>
+                <h4 className="font-bold text-gray-900 mb-1">Financial Access</h4>
                 <p className="text-sm text-gray-600">Control financial data visibility</p>
               </div>
 
@@ -2977,16 +3041,22 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
             <Separator />
 
             {/* Save Button */}
-            <div className="flex items-center justify-between">
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex-1 mr-4">
-                <p className="text-sm text-blue-900">
-                  <strong>Note:</strong> These are default permissions. You can override them for individual managers
-                  in the Property Manager Management page.
-                </p>
+            <div className="flex items-center justify-between gap-4">
+              <div className="p-4 bg-gradient-to-br from-purple-50 to-purple-100/50 border-2 border-purple-200 rounded-xl flex-1 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 bg-[#7C3AED] rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <AlertCircle className="h-4 w-4 text-white" />
+                  </div>
+                  <p className="text-sm text-gray-900">
+                    <strong>Note:</strong> These are default permissions. You can override them for individual managers
+                    in the Property Manager Management page.
+                  </p>
+                </div>
               </div>
               <Button
                 onClick={onSavePermissions}
                 disabled={savingPermissions || loadingPermissions}
+                className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md"
               >
                 <Save className="h-4 w-4 mr-2" />
                 {savingPermissions ? 'Saving...' : 'Save Permissions'}
@@ -2996,36 +3066,47 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
         </Card>
 
         {/* Data & Privacy */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Data & Privacy</CardTitle>
-            <CardDescription>
-              Manage your data and privacy settings
-            </CardDescription>
+        <Card className="border-gray-200 shadow-md">
+          <CardHeader className="border-b bg-gray-50">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                <Lock className="h-5 w-5 text-gray-700" />
+              </div>
+              <div>
+                <CardTitle className="text-gray-900">Data & Privacy</CardTitle>
+                <CardDescription className="text-gray-600">
+                  Manage your data and privacy settings
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between p-4 border rounded-lg">
+          <CardContent className="space-y-4 pt-6">
+            <div className="flex items-center justify-between p-4 border-2 border-gray-200 rounded-xl hover:border-purple-300 transition-colors">
               <div className="flex items-center gap-3">
-                <Download className="h-5 w-5 text-gray-600" />
+                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <Download className="h-5 w-5 text-[#7C3AED]" />
+                </div>
                 <div>
-                  <h4 className="font-semibold text-gray-900">Export Your Data</h4>
+                  <h4 className="font-bold text-gray-900">Export Your Data</h4>
                   <p className="text-sm text-gray-600">Download a copy of your data</p>
                 </div>
               </div>
-              <Button variant="outline" onClick={handleExportData}>
+              <Button variant="outline" onClick={handleExportData} className="border-gray-300 hover:border-[#7C3AED] hover:text-[#7C3AED]">
                 Export
               </Button>
             </div>
 
-            <div className="flex items-center justify-between p-4 border border-red-200 rounded-lg bg-red-50">
+            <div className="flex items-center justify-between p-4 border-2 border-red-300 rounded-xl bg-gradient-to-br from-red-50 to-red-100/50 shadow-sm">
               <div className="flex items-center gap-3">
-                <Trash2 className="h-5 w-5 text-red-600" />
+                <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center">
+                  <Trash2 className="h-5 w-5 text-white" />
+                </div>
                 <div>
-                  <h4 className="font-semibold text-red-900">Delete Account</h4>
+                  <h4 className="font-bold text-red-900">Delete Account</h4>
                   <p className="text-sm text-red-700">Permanently delete your account and data</p>
                 </div>
               </div>
-              <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}>
+              <Button variant="destructive" onClick={() => setShowDeleteDialog(true)} className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 shadow-md">
                 Delete
               </Button>
             </div>
@@ -3043,32 +3124,34 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
           }
         }}
       >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Enable Two-Factor Authentication</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-md border-0 shadow-2xl p-0">
+          <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-lg">
+            <DialogTitle className="text-white text-xl">Enable Two-Factor Authentication</DialogTitle>
+            <DialogDescription className="text-purple-100">
               Scan the QR code below with Google Authenticator, Authy, or any compatible app.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-4 p-6">
             {twoFactorSetup.qrCode && (
               <div className="flex flex-col items-center space-y-2">
-                <img src={twoFactorSetup.qrCode} alt="Two-factor QR code" className="w-48 h-48" />
-                <p className="text-sm text-gray-500 text-center">
+                <div className="p-4 bg-white border-2 border-purple-200 rounded-xl shadow-sm">
+                  <img src={twoFactorSetup.qrCode} alt="Two-factor QR code" className="w-48 h-48" />
+                </div>
+                <p className="text-sm text-gray-600 text-center font-medium">
                   After scanning, enter the 6-digit code generated by your authenticator app.
                 </p>
               </div>
             )}
 
             {twoFactorSetup.secret && (
-              <div className="bg-gray-50 border rounded-lg p-3 text-sm">
-                <p className="text-gray-600">Can't scan the QR code? Enter this key manually:</p>
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 border-2 border-purple-200 rounded-xl p-4 text-sm">
+                <p className="text-gray-700 font-semibold mb-2">Can't scan the QR code? Enter this key manually:</p>
                 <div className="flex items-center justify-between mt-2 gap-2">
-                  <code className="font-mono text-base text-blue-700 break-all">
+                  <code className="font-mono text-base text-[#7C3AED] break-all font-bold">
                     {twoFactorSetup.secret}
                   </code>
-                  <Button variant="ghost" size="icon" onClick={copyTwoFactorSecret}>
+                  <Button variant="ghost" size="icon" onClick={copyTwoFactorSecret} className="hover:bg-purple-100 hover:text-[#7C3AED]">
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
@@ -3076,7 +3159,7 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
             )}
 
             <div>
-              <Label htmlFor="twoFactorCodeInput">Authenticator Code</Label>
+              <Label htmlFor="twoFactorCodeInput" className="text-sm font-semibold text-gray-700">Authenticator Code</Label>
               <Input
                 id="twoFactorCodeInput"
                 placeholder="123456"
@@ -3084,12 +3167,12 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
                 inputMode="numeric"
                 value={twoFactorCodeInput}
                 onChange={(e) => setTwoFactorCodeInput(e.target.value)}
-                className="mt-2"
+                className="mt-2 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED] text-center text-lg tracking-widest font-mono"
               />
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="p-6 border-t">
             <Button
               variant="outline"
               onClick={() => {
@@ -3097,10 +3180,11 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
                 setTwoFactorCodeInput('');
               }}
               disabled={twoFactorDialogLoading}
+              className="border-gray-300"
             >
               Cancel
             </Button>
-            <Button onClick={confirmTwoFactorSetup} disabled={twoFactorDialogLoading}>
+            <Button onClick={confirmTwoFactorSetup} disabled={twoFactorDialogLoading} className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md">
               {twoFactorDialogLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -3124,33 +3208,40 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
           }
         }}
       >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-red-600">Disable Two-Factor Authentication</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-md border-0 shadow-2xl p-0">
+          <DialogHeader className="bg-gradient-to-r from-red-600 to-red-700 p-6 rounded-t-lg">
+            <DialogTitle className="text-white text-xl">Disable Two-Factor Authentication</DialogTitle>
+            <DialogDescription className="text-red-100">
               Enter your password to disable two-factor authentication. You can re-enable it at any time.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-              Disabling two-factor authentication will make your account less secure.
+          <div className="space-y-4 p-6">
+            <div className="p-4 bg-gradient-to-br from-red-50 to-red-100/50 border-2 border-red-300 rounded-xl text-sm text-red-800 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 bg-red-600 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <AlertCircle className="h-4 w-4 text-white" />
+                </div>
+                <p className="font-semibold">
+                  Disabling two-factor authentication will make your account less secure.
+                </p>
+              </div>
             </div>
 
             <div>
-              <Label htmlFor="disableTwoFactorPassword">Password</Label>
+              <Label htmlFor="disableTwoFactorPassword" className="text-sm font-semibold text-gray-700">Password</Label>
               <Input
                 id="disableTwoFactorPassword"
                 type="password"
                 placeholder="Enter your password"
                 value={twoFactorDisablePassword}
                 onChange={(e) => setTwoFactorDisablePassword(e.target.value)}
-                className="mt-2"
+                className="mt-2 border-gray-300 focus:border-red-500 focus:ring-red-500"
               />
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="p-6 border-t">
             <Button
               variant="outline"
               onClick={() => {
@@ -3158,6 +3249,7 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
                 setTwoFactorDisablePassword('');
               }}
               disabled={disableTwoFactorLoading}
+              className="border-gray-300"
             >
               Cancel
             </Button>
@@ -3165,6 +3257,7 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
               variant="destructive"
               onClick={confirmDisableTwoFactor}
               disabled={disableTwoFactorLoading}
+              className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 shadow-md"
             >
               {disableTwoFactorLoading ? (
                 <>
@@ -3197,28 +3290,31 @@ function NotificationsSection({ notificationPreferences, setNotificationPreferen
   return (
     <div className="space-y-6">
       {/* Email Notifications */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Mail className="h-5 w-5" />
+      <Card className="border-gray-200 shadow-md">
+        <CardHeader className="border-b bg-gray-50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+              <Mail className="h-5 w-5 text-gray-700" />
+            </div>
             <div>
-              <CardTitle>Email Notifications</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-gray-900">Email Notifications</CardTitle>
+              <CardDescription className="text-gray-600">
                 Choose what email updates you want to receive
               </CardDescription>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-6">
           {Object.entries(notificationPreferences.email).map(([key, value]: [string, any]) => (
             <div key={key} className="flex items-center justify-between">
-              <Label htmlFor={`email-${key}`} className="cursor-pointer">
+              <Label htmlFor={`email-${key}`} className="cursor-pointer font-semibold text-gray-900">
                 {key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())}
               </Label>
               <Switch
                 id={`email-${key}`}
                 checked={value}
                 onCheckedChange={(checked) => updatePreference('email', key, checked)}
+                className="data-[state=checked]:bg-[#7C3AED]"
               />
             </div>
           ))}
@@ -3226,28 +3322,31 @@ function NotificationsSection({ notificationPreferences, setNotificationPreferen
       </Card>
 
       {/* SMS Notifications */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Phone className="h-5 w-5" />
+      <Card className="border-gray-200 shadow-md">
+        <CardHeader className="border-b bg-gray-50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+              <Phone className="h-5 w-5 text-gray-700" />
+            </div>
             <div>
-              <CardTitle>SMS Notifications</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-gray-900">SMS Notifications</CardTitle>
+              <CardDescription className="text-gray-600">
                 Receive important alerts via text message
               </CardDescription>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-6">
           {Object.entries(notificationPreferences.sms).map(([key, value]: [string, any]) => (
             <div key={key} className="flex items-center justify-between">
-              <Label htmlFor={`sms-${key}`} className="cursor-pointer">
+              <Label htmlFor={`sms-${key}`} className="cursor-pointer font-semibold text-gray-900">
                 {key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())}
               </Label>
               <Switch
                 id={`sms-${key}`}
                 checked={value}
                 onCheckedChange={(checked) => updatePreference('sms', key, checked)}
+                className="data-[state=checked]:bg-[#7C3AED]"
               />
             </div>
           ))}
@@ -3255,28 +3354,31 @@ function NotificationsSection({ notificationPreferences, setNotificationPreferen
       </Card>
 
       {/* Push Notifications */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Bell className="h-5 w-5" />
+      <Card className="border-gray-200 shadow-md">
+        <CardHeader className="border-b bg-gray-50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+              <Bell className="h-5 w-5 text-gray-700" />
+            </div>
             <div>
-              <CardTitle>Push Notifications</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-gray-900">Push Notifications</CardTitle>
+              <CardDescription className="text-gray-600">
                 Real-time notifications in your browser
               </CardDescription>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-6">
           {Object.entries(notificationPreferences.push).map(([key, value]: [string, any]) => (
             <div key={key} className="flex items-center justify-between">
-              <Label htmlFor={`push-${key}`} className="cursor-pointer">
+              <Label htmlFor={`push-${key}`} className="cursor-pointer font-semibold text-gray-900">
                 {key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())}
               </Label>
               <Switch
                 id={`push-${key}`}
                 checked={value}
                 onCheckedChange={(checked) => updatePreference('push', key, checked)}
+                className="data-[state=checked]:bg-[#7C3AED]"
               />
             </div>
           ))}
@@ -3290,23 +3392,30 @@ function NotificationsSection({ notificationPreferences, setNotificationPreferen
 function DisplaySection({ displayPreferences, setDisplayPreferences }: any) {
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Display Preferences</CardTitle>
-          <CardDescription>
-            Customize how you view and interact with the platform
-          </CardDescription>
+      <Card className="border-gray-200 shadow-md">
+        <CardHeader className="border-b bg-gray-50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+              <Monitor className="h-5 w-5 text-gray-700" />
+            </div>
+            <div>
+              <CardTitle className="text-gray-900">Display Preferences</CardTitle>
+              <CardDescription className="text-gray-600">
+                Customize how you view and interact with the platform
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 pt-6">
           <div className="space-y-2">
-            <Label>Theme</Label>
+            <Label className="text-sm font-semibold text-gray-700">Theme</Label>
             <Select
               value={displayPreferences.theme}
               onValueChange={(value) =>
                 setDisplayPreferences({ ...displayPreferences, theme: value })
               }
             >
-              <SelectTrigger>
+              <SelectTrigger className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -3318,14 +3427,14 @@ function DisplaySection({ displayPreferences, setDisplayPreferences }: any) {
           </div>
 
           <div className="space-y-2">
-            <Label>Default Property View</Label>
+            <Label className="text-sm font-semibold text-gray-700">Default Property View</Label>
             <Select
               value={displayPreferences.defaultView}
               onValueChange={(value) =>
                 setDisplayPreferences({ ...displayPreferences, defaultView: value })
               }
             >
-              <SelectTrigger>
+              <SelectTrigger className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -3337,14 +3446,14 @@ function DisplaySection({ displayPreferences, setDisplayPreferences }: any) {
           </div>
 
           <div className="space-y-2">
-            <Label>Items Per Page</Label>
+            <Label className="text-sm font-semibold text-gray-700">Items Per Page</Label>
             <Select
               value={displayPreferences.itemsPerPage.toString()}
               onValueChange={(value) =>
                 setDisplayPreferences({ ...displayPreferences, itemsPerPage: parseInt(value) })
               }
             >
-              <SelectTrigger>
+              <SelectTrigger className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -3360,7 +3469,7 @@ function DisplaySection({ displayPreferences, setDisplayPreferences }: any) {
 
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <h4 className="font-semibold text-gray-900 mb-1">Compact Mode</h4>
+              <h4 className="font-bold text-gray-900 mb-1">Compact Mode</h4>
               <p className="text-sm text-gray-600">
                 Show more content in less space
               </p>
@@ -3370,12 +3479,13 @@ function DisplaySection({ displayPreferences, setDisplayPreferences }: any) {
               onCheckedChange={(checked) =>
                 setDisplayPreferences({ ...displayPreferences, compactMode: checked })
               }
+              className="data-[state=checked]:bg-[#7C3AED]"
             />
           </div>
 
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <h4 className="font-semibold text-gray-900 mb-1">Show Property Images</h4>
+              <h4 className="font-bold text-gray-900 mb-1">Show Property Images</h4>
               <p className="text-sm text-gray-600">
                 Display property images in listings
               </p>
@@ -3385,6 +3495,7 @@ function DisplaySection({ displayPreferences, setDisplayPreferences }: any) {
               onCheckedChange={(checked) =>
                 setDisplayPreferences({ ...displayPreferences, showPropertyImages: checked })
               }
+              className="data-[state=checked]:bg-[#7C3AED]"
             />
           </div>
         </CardContent>
@@ -3448,51 +3559,60 @@ function SessionsSection({ sessions, getDeviceIcon, formatTime, loadingSessions,
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Active Sessions</CardTitle>
-          <CardDescription>
-            Manage your active sessions and devices
-          </CardDescription>
+      <Card className="border-gray-200 shadow-md">
+        <CardHeader className="border-b bg-gray-50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+              <Monitor className="h-5 w-5 text-gray-700" />
+            </div>
+            <div>
+              <CardTitle className="text-gray-900">Active Sessions</CardTitle>
+              <CardDescription className="text-gray-600">
+                Manage your active sessions and devices
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           {loadingSessions ? (
             <div className="text-center py-8">
-              <Loader2 className="h-8 w-8 text-gray-400 mx-auto mb-3 animate-spin" />
-              <p className="text-sm text-gray-500">Loading sessions...</p>
+              <Loader2 className="h-8 w-8 text-[#7C3AED] mx-auto mb-3 animate-spin" />
+              <p className="text-sm text-gray-600 font-medium">Loading sessions...</p>
             </div>
           ) : sessions.length === 0 ? (
             <div className="text-center py-8">
-              <Monitor className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-sm text-gray-500">No active sessions found</p>
+              <div className="w-16 h-16 bg-purple-100 rounded-xl mx-auto mb-3 flex items-center justify-center">
+                <Monitor className="h-8 w-8 text-[#7C3AED]" />
+              </div>
+              <p className="text-sm text-gray-600 font-medium">No active sessions found</p>
             </div>
           ) : (
             <>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {sessions.map((session: any) => {
                   const DeviceIcon = getDeviceIcon(session.device);
                   return (
-                    <div key={session.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div key={session.id} className="flex items-center justify-between p-4 border-2 border-gray-200 rounded-xl hover:border-purple-300 transition-colors">
                       <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                          <DeviceIcon className="h-5 w-5 text-gray-600" />
+                        <div className="h-12 w-12 bg-gradient-to-br from-purple-50 to-purple-100/50 rounded-lg flex items-center justify-center">
+                          <DeviceIcon className="h-6 w-6 text-[#7C3AED]" />
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <p className="font-medium text-gray-900">{session.device}</p>
+                            <p className="font-bold text-gray-900">{session.device}</p>
                             {session.isCurrent && (
-                              <Badge variant="outline" className="text-green-600 border-green-600">
+                              <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50 font-semibold">
                                 Current
                               </Badge>
                             )}
                           </div>
-                          <p className="text-sm text-gray-600">
+                          <p className="text-sm text-gray-700 font-medium">
                             {session.browser} • {session.os}
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-600">
                             {session.location} • {session.ipAddress}
                           </p>
-                          <p className="text-xs text-gray-400">
+                          <p className="text-xs text-gray-500">
                             Last active: {formatTime(session.lastActive)}
                           </p>
                         </div>
@@ -3501,7 +3621,7 @@ function SessionsSection({ sessions, getDeviceIcon, formatTime, loadingSessions,
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 font-semibold"
                           onClick={() => handleRevokeSession(session.id)}
                           disabled={revokingSession === session.id}
                         >
@@ -3519,7 +3639,7 @@ function SessionsSection({ sessions, getDeviceIcon, formatTime, loadingSessions,
               {sessions.filter((s: any) => !s.isCurrent).length > 0 && (
                 <Button
                   variant="outline"
-                  className="w-full mt-4"
+                  className="w-full mt-4 border-gray-300 hover:border-red-500 hover:text-red-600 hover:bg-red-50 font-semibold"
                   onClick={handleRevokeAllSessions}
                   disabled={revokingAll}
                 >
@@ -3545,22 +3665,29 @@ function SessionsSection({ sessions, getDeviceIcon, formatTime, loadingSessions,
 function ActivitySection({ activityLog, formatTime }: any) {
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Activity Log</CardTitle>
-          <CardDescription>
-            Recent activity on your account
-          </CardDescription>
+      <Card className="border-gray-200 shadow-md">
+        <CardHeader className="border-b bg-gray-50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+              <Activity className="h-5 w-5 text-gray-700" />
+            </div>
+            <div>
+              <CardTitle className="text-gray-900">Activity Log</CardTitle>
+              <CardDescription className="text-gray-600">
+                Recent activity on your account
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+        <CardContent className="pt-6">
+          <div className="space-y-3">
             {activityLog.map((activity: any) => (
-              <div key={activity.id} className="flex items-start gap-4 p-4 border rounded-lg">
-                <div className="h-10 w-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <div key={activity.id} className="flex items-start gap-4 p-4 border-2 border-gray-200 rounded-xl hover:border-purple-300 transition-colors">
+                <div className="h-10 w-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
                   <CheckCircle className="h-5 w-5 text-green-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-gray-900">{activity.action}</p>
+                  <p className="font-bold text-gray-900">{activity.action}</p>
                   <p className="text-sm text-gray-600">{activity.description}</p>
                   <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                     <span>{formatTime(activity.timestamp)}</span>
@@ -3740,25 +3867,29 @@ function PaymentGatewaySection() {
   return (
     <div className="space-y-6">
       {/* Overview */}
-      <Card className="bg-gradient-to-br from-blue-50 to-purple-50 border-blue-200">
+      <Card className="bg-gradient-to-br from-purple-50 to-purple-100/50 border-purple-200 shadow-md">
         <CardContent className="p-6">
           <div className="flex items-start gap-4">
-            <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-              <DollarSign className="h-6 w-6 text-blue-600" />
+            <div className="h-14 w-14 bg-gradient-to-br from-[#7C3AED] to-[#5B21B6] rounded-xl flex items-center justify-center flex-shrink-0 shadow-md">
+              <DollarSign className="h-7 w-7 text-white" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900 mb-2">Payment Gateway Configuration</h3>
-              <p className="text-sm text-gray-600 mb-4">
+              <h3 className="font-bold text-gray-900 mb-2 text-lg">Payment Gateway Configuration</h3>
+              <p className="text-sm text-gray-700 mb-4 font-medium">
                 Configure payment gateways to accept rent payments from tenants. These settings apply to all properties you own and will be used by property managers to process payments.
               </p>
               <div className="flex items-center gap-6 text-sm">
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <span className="text-gray-700">{paymentGateways.filter(g => g.connected).length} Connected</span>
+                  <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                  </div>
+                  <span className="text-gray-900 font-semibold">{paymentGateways.filter(g => g.connected).length} Connected</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-blue-600" />
-                  <span className="text-gray-700">{paymentGateways.filter(g => g.enabled).length} Active</span>
+                  <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
+                    <Zap className="h-4 w-4 text-[#7C3AED]" />
+                  </div>
+                  <span className="text-gray-900 font-semibold">{paymentGateways.filter(g => g.enabled).length} Active</span>
                 </div>
               </div>
             </div>
@@ -3767,32 +3898,39 @@ function PaymentGatewaySection() {
       </Card>
 
       {/* Payment Gateways List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Available Payment Gateways</CardTitle>
-          <CardDescription>
-            Connect and configure payment processors for your properties
-          </CardDescription>
+      <Card className="border-gray-200 shadow-md">
+        <CardHeader className="border-b bg-gray-50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+              <CreditCard className="h-5 w-5 text-gray-700" />
+            </div>
+            <div>
+              <CardTitle className="text-gray-900">Available Payment Gateways</CardTitle>
+              <CardDescription className="text-gray-600">
+                Connect and configure payment processors for your properties
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3 pt-6">
           {paymentGateways.map((gateway) => (
             <div
               key={gateway.id}
-              className={`p-4 border rounded-lg ${
-                gateway.connected ? 'border-green-200 bg-green-50' : 'border-gray-200'
+              className={`p-5 border-2 rounded-xl transition-all ${
+                gateway.connected ? 'border-green-300 bg-gradient-to-br from-green-50 to-green-100/50 shadow-sm' : 'border-gray-200 hover:border-purple-300'
               }`}
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-4 flex-1">
-                  <div className="text-3xl">{gateway.logo}</div>
+                  <div className="text-4xl">{gateway.logo}</div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <h4 className="font-semibold text-gray-900">{gateway.name}</h4>
+                      <h4 className="font-bold text-gray-900">{gateway.name}</h4>
                       {gateway.connected && (
-                        <Badge className="bg-green-100 text-green-700">Connected</Badge>
+                        <Badge className="bg-green-100 text-green-700 border-green-200 font-semibold">Connected</Badge>
                       )}
                       {gateway.testMode && gateway.connected && (
-                        <Badge variant="outline" className="text-orange-600 border-orange-600">
+                        <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50 font-semibold">
                           Test Mode
                         </Badge>
                       )}
@@ -3800,13 +3938,13 @@ function PaymentGatewaySection() {
                     <p className="text-sm text-gray-600 mb-3">{gateway.description}</p>
 
                     {gateway.connected && (
-                      <div className="space-y-2 text-xs text-gray-600">
+                      <div className="space-y-2 text-xs text-gray-700">
                         <div className="flex items-center gap-2">
-                          <Key className="h-3 w-3" />
+                          <Key className="h-3 w-3 text-[#7C3AED]" />
                           <span className="font-mono">API Key: {gateway.apiKey || gateway.publicKey || '••••••••'}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Globe className="h-3 w-3" />
+                          <Globe className="h-3 w-3 text-[#7C3AED]" />
                           <span>Webhook: {gateway.webhookUrl}</span>
                         </div>
                       </div>
@@ -3818,13 +3956,14 @@ function PaymentGatewaySection() {
                   {gateway.connected ? (
                     <>
                       <div className="flex items-center gap-2">
-                        <Label htmlFor={`${gateway.id}-toggle`} className="text-sm">
+                        <Label htmlFor={`${gateway.id}-toggle`} className="text-sm font-semibold">
                           {gateway.enabled ? 'Enabled' : 'Disabled'}
                         </Label>
                         <Switch
                           id={`${gateway.id}-toggle`}
                           checked={gateway.enabled}
                           onCheckedChange={(checked) => handleToggleGateway(gateway.id, checked)}
+                          className="data-[state=checked]:bg-[#7C3AED]"
                         />
                       </div>
                       <div className="flex gap-2">
@@ -3832,6 +3971,7 @@ function PaymentGatewaySection() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleConnectGateway(gateway.id)}
+                          className="border-gray-300 hover:border-[#7C3AED] hover:text-[#7C3AED]"
                         >
                           <Settings className="h-4 w-4 mr-2" />
                           Configure
@@ -3839,7 +3979,7 @@ function PaymentGatewaySection() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-red-600"
+                          className="text-red-600 hover:bg-red-50 hover:text-red-700"
                           onClick={() => handleDisconnectGateway(gateway.id)}
                         >
                           Disconnect
@@ -3847,7 +3987,7 @@ function PaymentGatewaySection() {
                       </div>
                     </>
                   ) : (
-                    <Button onClick={() => handleConnectGateway(gateway.id)}>
+                    <Button onClick={() => handleConnectGateway(gateway.id)} className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md">
                       <Zap className="h-4 w-4 mr-2" />
                       Connect
                     </Button>
@@ -3860,42 +4000,49 @@ function PaymentGatewaySection() {
       </Card>
 
       {/* Payment Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Payment Settings</CardTitle>
-          <CardDescription>
-            Configure general payment preferences
-          </CardDescription>
+      <Card className="border-gray-200 shadow-md">
+        <CardHeader className="border-b bg-gray-50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+              <Settings className="h-5 w-5 text-gray-700" />
+            </div>
+            <div>
+              <CardTitle className="text-gray-900">Payment Settings</CardTitle>
+              <CardDescription className="text-gray-600">
+                Configure general payment preferences
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 pt-6">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <h4 className="font-semibold text-gray-900 mb-1">Auto-capture Payments</h4>
+              <h4 className="font-bold text-gray-900 mb-1">Auto-capture Payments</h4>
               <p className="text-sm text-gray-600">
                 Automatically capture authorized payments
               </p>
             </div>
-            <Switch defaultChecked />
+            <Switch defaultChecked className="data-[state=checked]:bg-[#7C3AED]" />
           </div>
 
           <Separator />
 
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <h4 className="font-semibold text-gray-900 mb-1">Send Payment Receipts</h4>
+              <h4 className="font-bold text-gray-900 mb-1">Send Payment Receipts</h4>
               <p className="text-sm text-gray-600">
                 Automatically email receipts to tenants
               </p>
             </div>
-            <Switch defaultChecked />
+            <Switch defaultChecked className="data-[state=checked]:bg-[#7C3AED]" />
           </div>
 
           <Separator />
 
           <div className="space-y-2">
-            <Label>Default Currency</Label>
+            <Label className="text-sm font-semibold text-gray-700">Default Currency</Label>
             <Select defaultValue="NGN">
-              <SelectTrigger>
+              <SelectTrigger className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -3910,11 +4057,11 @@ function PaymentGatewaySection() {
           <Separator />
 
           <div className="space-y-2">
-            <Label>Late Payment Fee</Label>
+            <Label className="text-sm font-semibold text-gray-700">Late Payment Fee</Label>
             <div className="flex gap-2">
-              <Input type="number" defaultValue="5" className="w-24" />
+              <Input type="number" defaultValue="5" className="w-24 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]" />
               <Select defaultValue="percentage">
-                <SelectTrigger className="w-32">
+                <SelectTrigger className="w-32 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -3932,19 +4079,19 @@ function PaymentGatewaySection() {
 
       {/* Configuration Dialog */}
       <Dialog open={showConfigDialog} onOpenChange={setShowConfigDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Configure {gatewayConfig.name}</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-2xl border-0 shadow-2xl max-h-[90vh] overflow-y-auto p-0">
+          <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-lg">
+            <DialogTitle className="text-white text-2xl">Configure {gatewayConfig.name}</DialogTitle>
+            <DialogDescription className="text-purple-100">
               Enter your API credentials to connect {gatewayConfig.name}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 p-6">
             {selectedGateway === 'stripe' && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="publishableKey">Publishable Key</Label>
+                  <Label htmlFor="publishableKey" className="text-sm font-semibold text-gray-700">Publishable Key</Label>
                   <Input
                     id="publishableKey"
                     value={gatewayConfig.publishableKey || ''}
@@ -3952,10 +4099,11 @@ function PaymentGatewaySection() {
                       setGatewayConfig({ ...gatewayConfig, publishableKey: e.target.value })
                     }
                     placeholder="pk_test_..."
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="secretKey">Secret Key</Label>
+                  <Label htmlFor="secretKey" className="text-sm font-semibold text-gray-700">Secret Key</Label>
                   <Input
                     id="secretKey"
                     type="password"
@@ -3964,6 +4112,7 @@ function PaymentGatewaySection() {
                       setGatewayConfig({ ...gatewayConfig, apiKey: e.target.value })
                     }
                     placeholder="sk_test_..."
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                 </div>
               </>
@@ -3972,17 +4121,18 @@ function PaymentGatewaySection() {
             {selectedGateway === 'paypal' && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="clientId">Client ID</Label>
+                  <Label htmlFor="clientId" className="text-sm font-semibold text-gray-700">Client ID</Label>
                   <Input
                     id="clientId"
                     value={gatewayConfig.clientId || ''}
                     onChange={(e) =>
                       setGatewayConfig({ ...gatewayConfig, clientId: e.target.value })
                     }
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="clientSecret">Client Secret</Label>
+                  <Label htmlFor="clientSecret" className="text-sm font-semibold text-gray-700">Client Secret</Label>
                   <Input
                     id="clientSecret"
                     type="password"
@@ -3990,6 +4140,7 @@ function PaymentGatewaySection() {
                     onChange={(e) =>
                       setGatewayConfig({ ...gatewayConfig, clientSecret: e.target.value })
                     }
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                 </div>
               </>
@@ -3998,17 +4149,18 @@ function PaymentGatewaySection() {
             {selectedGateway === 'square' && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="applicationId">Application ID</Label>
+                  <Label htmlFor="applicationId" className="text-sm font-semibold text-gray-700">Application ID</Label>
                   <Input
                     id="applicationId"
                     value={gatewayConfig.applicationId || ''}
                     onChange={(e) =>
                       setGatewayConfig({ ...gatewayConfig, applicationId: e.target.value })
                     }
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="accessToken">Access Token</Label>
+                  <Label htmlFor="accessToken" className="text-sm font-semibold text-gray-700">Access Token</Label>
                   <Input
                     id="accessToken"
                     type="password"
@@ -4016,6 +4168,7 @@ function PaymentGatewaySection() {
                     onChange={(e) =>
                       setGatewayConfig({ ...gatewayConfig, accessToken: e.target.value })
                     }
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                 </div>
               </>
@@ -4024,7 +4177,7 @@ function PaymentGatewaySection() {
             {selectedGateway === 'paystack' && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="publicKey">Public Key</Label>
+                  <Label htmlFor="publicKey" className="text-sm font-semibold text-gray-700">Public Key</Label>
                   <Input
                     id="publicKey"
                     value={gatewayConfig.publicKey || ''}
@@ -4032,10 +4185,11 @@ function PaymentGatewaySection() {
                       setGatewayConfig({ ...gatewayConfig, publicKey: e.target.value })
                     }
                     placeholder="pk_test_..."
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="secretKey">Secret Key</Label>
+                  <Label htmlFor="secretKey" className="text-sm font-semibold text-gray-700">Secret Key</Label>
                   <Input
                     id="secretKey"
                     type="password"
@@ -4044,6 +4198,7 @@ function PaymentGatewaySection() {
                       setGatewayConfig({ ...gatewayConfig, secretKey: e.target.value })
                     }
                     placeholder="sk_test_..."
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                   {gatewayConfig.secretConfigured && !gatewayConfig.secretKey && (
                     <p className="text-xs text-gray-500">A secret key is already configured. Leave blank to keep existing.</p>
@@ -4053,7 +4208,7 @@ function PaymentGatewaySection() {
                 <Separator />
 
                 <div className="space-y-2">
-                  <Label htmlFor="bankTransferTemplate">Bank Transfer Instructions (Optional)</Label>
+                  <Label htmlFor="bankTransferTemplate" className="text-sm font-semibold text-gray-700">Bank Transfer Instructions (Optional)</Label>
                   <Textarea
                     id="bankTransferTemplate"
                     value={gatewayConfig.bankTransferTemplate || ''}
@@ -4062,6 +4217,7 @@ function PaymentGatewaySection() {
                     }
                     placeholder="Enter custom instructions for tenants making bank transfers&#10;&#10;Example:&#10;Bank Name: First Bank of Nigeria&#10;Account Name: Metro Properties Ltd&#10;Account Number: 1234567890&#10;&#10;Please use your unit number as reference."
                     rows={6}
+                    className="resize-none border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                   <p className="text-xs text-gray-500">
                     This message will be shown to tenants when they select "Bank Transfer" as payment method. Include your bank details and any special instructions.
@@ -4073,13 +4229,13 @@ function PaymentGatewaySection() {
             <Separator />
 
             <div className="space-y-2">
-              <Label htmlFor="webhookUrl">Webhook URL</Label>
+              <Label htmlFor="webhookUrl" className="text-sm font-semibold text-gray-700">Webhook URL</Label>
               <div className="flex gap-2">
                 <Input
                   id="webhookUrl"
                   value={gatewayConfig.webhookUrl || ''}
                   readOnly
-                  className="flex-1"
+                  className="flex-1 border-gray-300 bg-gray-50"
                 />
                 <Button
                   variant="outline"
@@ -4088,6 +4244,7 @@ function PaymentGatewaySection() {
                     navigator.clipboard.writeText(gatewayConfig.webhookUrl);
                     toast.success('Webhook URL copied to clipboard');
                   }}
+                  className="border-gray-300 hover:border-[#7C3AED] hover:text-[#7C3AED]"
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
@@ -4097,11 +4254,13 @@ function PaymentGatewaySection() {
               </p>
             </div>
 
-            <div className="flex items-center justify-between p-3 bg-orange-50 border border-orange-200 rounded-lg">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-orange-600" />
+            <div className="flex items-center justify-between p-4 bg-gradient-to-br from-orange-50 to-orange-100/50 border-2 border-orange-300 rounded-xl shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="h-5 w-5 text-white" />
+                </div>
                 <div>
-                  <p className="text-sm font-medium text-orange-900">Test Mode</p>
+                  <p className="text-sm font-bold text-orange-900">Test Mode</p>
                   <p className="text-xs text-orange-700">Use test API keys for testing</p>
                 </div>
               </div>
@@ -4110,15 +4269,16 @@ function PaymentGatewaySection() {
                 onCheckedChange={(checked) =>
                   setGatewayConfig({ ...gatewayConfig, testMode: checked })
                 }
+                className="data-[state=checked]:bg-orange-600"
               />
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowConfigDialog(false)}>
+          <DialogFooter className="p-6 border-t">
+            <Button variant="outline" onClick={() => setShowConfigDialog(false)} className="border-gray-300">
               Cancel
             </Button>
-            <Button onClick={handleSaveGatewayConfig}>
+            <Button onClick={handleSaveGatewayConfig} className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md">
               <CheckCircle className="h-4 w-4 mr-2" />
               Save Configuration
             </Button>
@@ -4133,55 +4293,70 @@ function PaymentGatewaySection() {
 function HelpSection() {
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Help & Support</CardTitle>
-          <CardDescription>
-            Get help and learn more about Contrezz
-          </CardDescription>
+      <Card className="border-gray-200 shadow-md">
+        <CardHeader className="border-b bg-gray-50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+              <HelpCircle className="h-5 w-5 text-gray-700" />
+            </div>
+            <div>
+              <CardTitle className="text-gray-900">Help & Support</CardTitle>
+              <CardDescription className="text-gray-600">
+                Get help and learn more about Contrezz
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-6">
           <div className="grid md:grid-cols-2 gap-4">
-            <Button variant="outline" className="h-auto p-4 flex-col items-start">
-              <FileText className="h-6 w-6 mb-2" />
-              <h4 className="font-semibold mb-1">Documentation</h4>
+            <Button variant="outline" className="h-auto p-5 flex-col items-start border-2 border-gray-200 hover:border-[#7C3AED] hover:bg-purple-50 transition-all rounded-xl group">
+              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-3 group-hover:bg-[#7C3AED] transition-colors">
+                <FileText className="h-6 w-6 text-[#7C3AED] group-hover:text-white transition-colors" />
+              </div>
+              <h4 className="font-bold mb-1 text-gray-900">Documentation</h4>
               <p className="text-xs text-gray-600">Browse our guides and tutorials</p>
             </Button>
 
-            <Button variant="outline" className="h-auto p-4 flex-col items-start">
-              <MessageSquare className="h-6 w-6 mb-2" />
-              <h4 className="font-semibold mb-1">Contact Support</h4>
+            <Button variant="outline" className="h-auto p-5 flex-col items-start border-2 border-gray-200 hover:border-[#7C3AED] hover:bg-purple-50 transition-all rounded-xl group">
+              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-3 group-hover:bg-[#7C3AED] transition-colors">
+                <MessageSquare className="h-6 w-6 text-[#7C3AED] group-hover:text-white transition-colors" />
+              </div>
+              <h4 className="font-bold mb-1 text-gray-900">Contact Support</h4>
               <p className="text-xs text-gray-600">Get help from our team</p>
             </Button>
 
-            <Button variant="outline" className="h-auto p-4 flex-col items-start">
-              <HelpCircle className="h-6 w-6 mb-2" />
-              <h4 className="font-semibold mb-1">FAQ</h4>
+            <Button variant="outline" className="h-auto p-5 flex-col items-start border-2 border-gray-200 hover:border-[#7C3AED] hover:bg-purple-50 transition-all rounded-xl group">
+              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-3 group-hover:bg-[#7C3AED] transition-colors">
+                <HelpCircle className="h-6 w-6 text-[#7C3AED] group-hover:text-white transition-colors" />
+              </div>
+              <h4 className="font-bold mb-1 text-gray-900">FAQ</h4>
               <p className="text-xs text-gray-600">Find answers to common questions</p>
             </Button>
 
-            <Button variant="outline" className="h-auto p-4 flex-col items-start">
-              <ExternalLink className="h-6 w-6 mb-2" />
-              <h4 className="font-semibold mb-1">Community Forum</h4>
+            <Button variant="outline" className="h-auto p-5 flex-col items-start border-2 border-gray-200 hover:border-[#7C3AED] hover:bg-purple-50 transition-all rounded-xl group">
+              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-3 group-hover:bg-[#7C3AED] transition-colors">
+                <ExternalLink className="h-6 w-6 text-[#7C3AED] group-hover:text-white transition-colors" />
+              </div>
+              <h4 className="font-bold mb-1 text-gray-900">Community Forum</h4>
               <p className="text-xs text-gray-600">Connect with other users</p>
             </Button>
           </div>
 
           <Separator />
 
-          <div className="space-y-2">
-            <h4 className="font-semibold text-gray-900">Quick Links</h4>
-            <div className="space-y-2">
-              <Button variant="link" className="h-auto p-0 justify-start">
+          <div className="space-y-3">
+            <h4 className="font-bold text-gray-900">Quick Links</h4>
+            <div className="space-y-1">
+              <Button variant="link" className="h-auto p-0 justify-start text-[#7C3AED] hover:text-[#5B21B6] font-semibold">
                 Getting Started Guide →
               </Button>
-              <Button variant="link" className="h-auto p-0 justify-start">
+              <Button variant="link" className="h-auto p-0 justify-start text-[#7C3AED] hover:text-[#5B21B6] font-semibold">
                 Video Tutorials →
               </Button>
-              <Button variant="link" className="h-auto p-0 justify-start">
+              <Button variant="link" className="h-auto p-0 justify-start text-[#7C3AED] hover:text-[#5B21B6] font-semibold">
                 API Documentation →
               </Button>
-              <Button variant="link" className="h-auto p-0 justify-start">
+              <Button variant="link" className="h-auto p-0 justify-start text-[#7C3AED] hover:text-[#5B21B6] font-semibold">
                 Release Notes →
               </Button>
             </div>
