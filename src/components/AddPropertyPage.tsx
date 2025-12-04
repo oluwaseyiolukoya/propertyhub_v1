@@ -50,7 +50,8 @@ import {
   Info,
   AlertCircle,
   CheckCircle,
-  UserPlus
+  UserPlus,
+  LayoutGrid
 } from 'lucide-react';
 
 interface AddPropertyPageProps {
@@ -488,202 +489,361 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
     switch (currentStep) {
       case 1:
         return (
-          <div className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Property Name *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => handleInputChange('name', e.target.value)}
-                    placeholder="Enter property name"
-                    className={errors.name ? 'border-red-500' : ''}
-                  />
-                  {errors.name && <p className="text-sm text-red-600">{errors.name}</p>}
+          <div className="space-y-8">
+            {/* Property Identity Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#7C3AED] flex items-center justify-center">
+                  <Home className="h-5 w-5 text-white" />
                 </div>
-
                 <div>
-                  <Label htmlFor="propertyType">Property Type *</Label>
-                  <Select value={formData.propertyType} onValueChange={(value) => handleInputChange('propertyType', value)}>
-                    <SelectTrigger className={errors.propertyType ? 'border-red-500' : ''}>
-                      <SelectValue placeholder="Select property type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {propertyTypes.map((type) => (
-                        <SelectItem key={type} value={type}>{type}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {errors.propertyType && <p className="text-sm text-red-600">{errors.propertyType}</p>}
-                </div>
-
-                <div>
-                  <Label htmlFor="address">Street Address *</Label>
-                  <Input
-                    id="address"
-                    value={formData.address}
-                    onChange={(e) => handleInputChange('address', e.target.value)}
-                    placeholder="Enter street address"
-                    className={errors.address ? 'border-red-500' : ''}
-                  />
-                  {errors.address && <p className="text-sm text-red-600">{errors.address}</p>}
+                  <h3 className="text-lg font-bold text-gray-900">Property Identity</h3>
+                  <p className="text-sm text-gray-600">Basic information about your property</p>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="city">City *</Label>
-                  <Select value={formData.city} onValueChange={(value) => handleInputChange('city', value)}>
-                    <SelectTrigger className={errors.city ? 'border-red-500' : ''}>
-                      <SelectValue placeholder="Select city" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {NIGERIAN_CITIES.map((city) => (
-                        <SelectItem key={city} value={city}>{city}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {errors.city && <p className="text-sm text-red-600">{errors.city}</p>}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-4">
                   <div>
-                    <Label htmlFor="state">State *</Label>
-                    <Select value={formData.state} onValueChange={(value) => handleInputChange('state', value)}>
-                      <SelectTrigger className={errors.state ? 'border-red-500' : ''}>
-                        <SelectValue placeholder="Select state" />
+                    <Label htmlFor="name" className="text-sm font-semibold text-gray-700">
+                      Property Name *
+                    </Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => handleInputChange('name', e.target.value)}
+                      placeholder="Enter property name"
+                      className={`border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED] ${errors.name ? 'border-red-500' : ''}`}
+                    />
+                    {errors.name && (
+                      <p className="text-sm text-red-600 flex items-center gap-1 mt-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {errors.name}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="propertyType" className="text-sm font-semibold text-gray-700">
+                      Property Type *
+                    </Label>
+                    <Select value={formData.propertyType} onValueChange={(value) => handleInputChange('propertyType', value)}>
+                      <SelectTrigger className={`border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED] ${errors.propertyType ? 'border-red-500' : ''}`}>
+                        <SelectValue placeholder="Select property type" />
                       </SelectTrigger>
                       <SelectContent>
-                        {NIGERIAN_STATES.map((state) => (
-                          <SelectItem key={state} value={state}>{state}</SelectItem>
+                        {propertyTypes.map((type) => (
+                          <SelectItem key={type} value={type}>{type}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    {errors.state && <p className="text-sm text-red-600">{errors.state}</p>}
+                    {errors.propertyType && (
+                      <p className="text-sm text-red-600 flex items-center gap-1 mt-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {errors.propertyType}
+                      </p>
+                    )}
                   </div>
 
                   <div>
-                    <Label htmlFor="postalCode">Postal Code *</Label>
+                    <Label htmlFor="address" className="text-sm font-semibold text-gray-700">
+                      Street Address *
+                    </Label>
                     <Input
-                      id="postalCode"
-                      value={formData.postalCode}
-                      onChange={(e) => handleInputChange('postalCode', e.target.value)}
-                      placeholder="Postal code"
-                      className={errors.postalCode ? 'border-red-500' : ''}
+                      id="address"
+                      value={formData.address}
+                      onChange={(e) => handleInputChange('address', e.target.value)}
+                      placeholder="Enter street address"
+                      className={`border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED] ${errors.address ? 'border-red-500' : ''}`}
                     />
-                    {errors.postalCode && <p className="text-sm text-red-600">{errors.postalCode}</p>}
+                    {errors.address && (
+                      <p className="text-sm text-red-600 flex items-center gap-1 mt-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {errors.address}
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="country">Country *</Label>
-                  <Select value={formData.country} onValueChange={(value) => handleInputChange('country', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select country" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {COUNTRIES.map((country) => (
-                        <SelectItem key={country} value={country}>{country}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="city" className="text-sm font-semibold text-gray-700">
+                      City *
+                    </Label>
+                    <Select value={formData.city} onValueChange={(value) => handleInputChange('city', value)}>
+                      <SelectTrigger className={`border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED] ${errors.city ? 'border-red-500' : ''}`}>
+                        <SelectValue placeholder="Select city" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {NIGERIAN_CITIES.map((city) => (
+                          <SelectItem key={city} value={city}>{city}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.city && (
+                      <p className="text-sm text-red-600 flex items-center gap-1 mt-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {errors.city}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="state" className="text-sm font-semibold text-gray-700">
+                        State *
+                      </Label>
+                      <Select value={formData.state} onValueChange={(value) => handleInputChange('state', value)}>
+                        <SelectTrigger className={`border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED] ${errors.state ? 'border-red-500' : ''}`}>
+                          <SelectValue placeholder="Select state" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {NIGERIAN_STATES.map((state) => (
+                            <SelectItem key={state} value={state}>{state}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {errors.state && (
+                        <p className="text-sm text-red-600 flex items-center gap-1 mt-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {errors.state}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="postalCode" className="text-sm font-semibold text-gray-700">
+                        Postal Code *
+                      </Label>
+                      <Input
+                        id="postalCode"
+                        value={formData.postalCode}
+                        onChange={(e) => handleInputChange('postalCode', e.target.value)}
+                        placeholder="Postal code"
+                        className={`border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED] ${errors.postalCode ? 'border-red-500' : ''}`}
+                      />
+                      {errors.postalCode && (
+                        <p className="text-sm text-red-600 flex items-center gap-1 mt-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {errors.postalCode}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="country" className="text-sm font-semibold text-gray-700">
+                      Country *
+                    </Label>
+                    <Select value={formData.country} onValueChange={(value) => handleInputChange('country', value)}>
+                      <SelectTrigger className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
+                        <SelectValue placeholder="Select country" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {COUNTRIES.map((country) => (
+                          <SelectItem key={country} value={country}>{country}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
             </div>
 
+            {/* Location Summary Card */}
+            {(formData.address || formData.city || formData.state) && (
+              <div className="rounded-xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-purple-100/50 p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-[#7C3AED] flex items-center justify-center">
+                    <MapPin className="h-5 w-5 text-white" />
+                  </div>
+                  <h4 className="text-base font-bold text-gray-900">Location Summary</h4>
+                </div>
+                <div className="bg-white rounded-lg p-4 border border-purple-200">
+                  <div className="space-y-2">
+                    {formData.name && (
+                      <p className="text-lg font-bold text-[#7C3AED]">{formData.name}</p>
+                    )}
+                    {formData.propertyType && (
+                      <p className="text-sm text-gray-600">
+                        <span className="font-semibold">Type:</span> {formData.propertyType}
+                      </p>
+                    )}
+                    {formData.address && (
+                      <p className="text-sm text-gray-900">{formData.address}</p>
+                    )}
+                    <p className="text-sm text-gray-600">
+                      {[formData.city, formData.state, formData.postalCode].filter(Boolean).join(', ')}
+                    </p>
+                    {formData.country && (
+                      <p className="text-sm text-gray-600 font-medium">{formData.country}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Cover Image Section */}
-            <Separator />
-            <ImageUpload
-              value={formData.coverImage}
-              onChange={(value) => handleInputChange('coverImage', value)}
-              label="Cover Image"
-              description="This will be the main image displayed for your property. You can upload a file or use an image URL."
-              maxWidth={300}
-              maxHeight={200}
-            />
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#7C3AED] flex items-center justify-center">
+                  <Camera className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Property Image</h3>
+                  <p className="text-sm text-gray-600">Upload a cover image for your property</p>
+                </div>
+              </div>
+              <ImageUpload
+                value={formData.coverImage}
+                onChange={(value) => handleInputChange('coverImage', value)}
+                label="Cover Image"
+                description="This will be the main image displayed for your property. You can upload a file or use an image URL."
+                maxWidth={300}
+                maxHeight={200}
+              />
+            </div>
           </div>
         );
 
       case 2:
         return (
-          <div className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="totalUnits">Total Units/Apartments *</Label>
-                  <Input
-                    id="totalUnits"
-                    type="number"
-                    value={formData.totalUnits}
-                    onChange={(e) => handleInputChange('totalUnits', e.target.value)}
-                    placeholder="Number of units or apartments"
-                    className={errors.totalUnits ? 'border-red-500' : ''}
-                  />
-                  {errors.totalUnits && <p className="text-sm text-red-600">{errors.totalUnits}</p>}
-                  <p className="text-xs text-gray-500 mt-1">Total number of rentable units in the property</p>
+          <div className="space-y-8">
+            {/* Property Specifications Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#7C3AED] flex items-center justify-center">
+                  <Building2 className="h-5 w-5 text-white" />
                 </div>
-
                 <div>
-                  <Label htmlFor="floors">Number of Floors/Storeys</Label>
-                  <Input
-                    id="floors"
-                    type="number"
-                    value={formData.floors}
-                    onChange={(e) => handleInputChange('floors', e.target.value)}
-                    placeholder="Number of floors"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">G+1, G+2, etc. (Ground + additional floors)</p>
-                </div>
-
-                <div>
-                  <Label htmlFor="yearBuilt">Year Built/Completed</Label>
-                  <Input
-                    id="yearBuilt"
-                    type="number"
-                    value={formData.yearBuilt}
-                    onChange={(e) => handleInputChange('yearBuilt', e.target.value)}
-                    placeholder="e.g., 2020"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Year the property was completed</p>
+                  <h3 className="text-lg font-bold text-gray-900">Property Specifications</h3>
+                  <p className="text-sm text-gray-600">Enter the physical details of your property</p>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="totalArea">Total Built Area (sq m or sq ft)</Label>
-                  <Input
-                    id="totalArea"
-                    type="number"
-                    value={formData.totalArea}
-                    onChange={(e) => handleInputChange('totalArea', e.target.value)}
-                    placeholder="Total built-up area"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Total floor area in square meters or square feet</p>
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="totalUnits" className="text-sm font-semibold text-gray-700">
+                      Total Units/Apartments *
+                    </Label>
+                    <Input
+                      id="totalUnits"
+                      type="number"
+                      value={formData.totalUnits}
+                      onChange={(e) => handleInputChange('totalUnits', e.target.value)}
+                      placeholder="Number of units or apartments"
+                      className={`border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED] ${errors.totalUnits ? 'border-red-500' : ''}`}
+                    />
+                    {errors.totalUnits && (
+                      <p className="text-sm text-red-600 flex items-center gap-1 mt-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {errors.totalUnits}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1">Total number of rentable units in the property</p>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="floors" className="text-sm font-semibold text-gray-700">
+                      Number of Floors/Storeys
+                    </Label>
+                    <Input
+                      id="floors"
+                      type="number"
+                      value={formData.floors}
+                      onChange={(e) => handleInputChange('floors', e.target.value)}
+                      placeholder="Number of floors"
+                      className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">G+1, G+2, etc. (Ground + additional floors)</p>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="yearBuilt" className="text-sm font-semibold text-gray-700">
+                      Year Built/Completed
+                    </Label>
+                    <Input
+                      id="yearBuilt"
+                      type="number"
+                      value={formData.yearBuilt}
+                      onChange={(e) => handleInputChange('yearBuilt', e.target.value)}
+                      placeholder="e.g., 2020"
+                      className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Year the property was completed</p>
+                  </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="lotSize">Plot/Land Size (sq m or sq ft)</Label>
-                  <Input
-                    id="lotSize"
-                    type="number"
-                    value={formData.lotSize}
-                    onChange={(e) => handleInputChange('lotSize', e.target.value)}
-                    placeholder="Plot size"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Total land area (e.g., 600sqm, 1200sqm)</p>
-                </div>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="totalArea" className="text-sm font-semibold text-gray-700">
+                      Total Built Area (sq m or sq ft)
+                    </Label>
+                    <Input
+                      id="totalArea"
+                      type="number"
+                      value={formData.totalArea}
+                      onChange={(e) => handleInputChange('totalArea', e.target.value)}
+                      placeholder="Total built-up area"
+                      className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Total floor area in square meters or square feet</p>
+                  </div>
 
-                <div>
-                  <Label htmlFor="parking">Parking Spaces</Label>
-                  <Input
-                    id="parking"
-                    type="number"
-                    value={formData.parking}
-                    onChange={(e) => handleInputChange('parking', e.target.value)}
-                    placeholder="Number of parking spaces"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Available parking slots for tenants</p>
+                  <div>
+                    <Label htmlFor="lotSize" className="text-sm font-semibold text-gray-700">
+                      Plot/Land Size (sq m or sq ft)
+                    </Label>
+                    <Input
+                      id="lotSize"
+                      type="number"
+                      value={formData.lotSize}
+                      onChange={(e) => handleInputChange('lotSize', e.target.value)}
+                      placeholder="Plot size"
+                      className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Total land area (e.g., 600sqm, 1200sqm)</p>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="parking" className="text-sm font-semibold text-gray-700">
+                      Parking Spaces
+                    </Label>
+                    <Input
+                      id="parking"
+                      type="number"
+                      value={formData.parking}
+                      onChange={(e) => handleInputChange('parking', e.target.value)}
+                      placeholder="Number of parking spaces"
+                      className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Available parking slots for tenants</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Property Summary Card */}
+            <div className="rounded-xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-purple-100/50 p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-[#7C3AED] flex items-center justify-center">
+                  <LayoutGrid className="h-5 w-5 text-white" />
+                </div>
+                <h4 className="text-base font-bold text-gray-900">Property Summary</h4>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="bg-white rounded-lg p-3 border border-purple-200">
+                  <p className="text-xs text-gray-600 mb-1">Total Units</p>
+                  <p className="text-lg font-bold text-[#7C3AED]">{formData.totalUnits || '0'}</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-purple-200">
+                  <p className="text-xs text-gray-600 mb-1">Floors</p>
+                  <p className="text-lg font-bold text-[#7C3AED]">{formData.floors || '0'}</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-purple-200">
+                  <p className="text-xs text-gray-600 mb-1">Parking Spaces</p>
+                  <p className="text-lg font-bold text-[#7C3AED]">{formData.parking || '0'}</p>
                 </div>
               </div>
             </div>
@@ -692,113 +852,248 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
 
       case 3:
         return (
-          <div className="space-y-6">
-            {/* Currency Selection */}
-            <div>
-              <Label htmlFor="currency">Currency *</Label>
-              <Select value={formData.currency} onValueChange={(value) => handleInputChange('currency', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select currency" />
-                </SelectTrigger>
-                <SelectContent>
-                  {currencies.map((currency) => (
-                    <SelectItem key={currency.code} value={currency.code}>
-                      {currency.symbol} {currency.name} ({currency.code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-gray-500 mt-1">All financial values will be in this currency</p>
+          <div className="space-y-8">
+            {/* Currency Selection Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#7C3AED] flex items-center justify-center">
+                  <DollarSign className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Financial Information</h3>
+                  <p className="text-sm text-gray-600">Set rental rates and additional charges</p>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="currency" className="text-sm font-semibold text-gray-700">
+                  Currency *
+                </Label>
+                <Select value={formData.currency} onValueChange={(value) => handleInputChange('currency', value)}>
+                  <SelectTrigger className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
+                    <SelectValue placeholder="Select currency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currencies.map((currency) => (
+                      <SelectItem key={currency.code} value={currency.code}>
+                        {currency.symbol} {currency.name} ({currency.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500 mt-1">All financial values will be in this currency</p>
+              </div>
             </div>
 
+            {/* Rental & Fees Section */}
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="avgRent">Annual Rent per Unit *</Label>
+                  <Label htmlFor="avgRent" className="text-sm font-semibold text-gray-700">
+                    Annual Rent per Unit *
+                  </Label>
                   <Input
                     id="avgRent"
                     type="number"
                     value={formData.avgRent}
                     onChange={(e) => handleInputChange('avgRent', e.target.value)}
                     placeholder="Annual rent amount"
-                    className={errors.avgRent ? 'border-red-500' : ''}
+                    className={`border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED] ${errors.avgRent ? 'border-red-500' : ''}`}
                   />
-                  {errors.avgRent && <p className="text-sm text-red-600">{errors.avgRent}</p>}
+                  {errors.avgRent && (
+                    <p className="text-sm text-red-600 flex items-center gap-1 mt-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {errors.avgRent}
+                    </p>
+                  )}
                   <p className="text-xs text-gray-500 mt-1">Typical Nigerian rental period is annual</p>
                 </div>
 
                 <div>
-                  <Label htmlFor="serviceCharge">Annual Service Charge</Label>
+                  <Label htmlFor="serviceCharge" className="text-sm font-semibold text-gray-700">
+                    Annual Service Charge
+                  </Label>
                   <Input
                     id="serviceCharge"
                     type="number"
                     value={formData.serviceCharge}
                     onChange={(e) => handleInputChange('serviceCharge', e.target.value)}
                     placeholder="Service charge amount"
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                   <p className="text-xs text-gray-500 mt-1">Covers maintenance, security, waste management</p>
                 </div>
 
                 <div>
-                  <Label htmlFor="legalFee">Legal/Documentation Fee</Label>
+                  <Label htmlFor="legalFee" className="text-sm font-semibold text-gray-700">
+                    Legal/Documentation Fee
+                  </Label>
                   <Input
                     id="legalFee"
                     type="number"
                     value={formData.legalFee}
                     onChange={(e) => handleInputChange('legalFee', e.target.value)}
                     placeholder="Legal documentation fee"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="agreementFee">Agreement Fee</Label>
-                  <Input
-                    id="agreementFee"
-                    type="number"
-                    value={formData.agreementFee}
-                    onChange={(e) => handleInputChange('agreementFee', e.target.value)}
-                    placeholder="Tenancy agreement fee"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">One-time tenancy agreement processing</p>
-                </div>
-
-                <div>
-                  <Label htmlFor="agentCommission">Agent Commission</Label>
-                  <Input
-                    id="agentCommission"
-                    type="number"
-                    value={formData.agentCommission}
-                    onChange={(e) => handleInputChange('agentCommission', e.target.value)}
-                    placeholder="Agent commission amount"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Typically 10% of annual rent</p>
-                </div>
-
-                <div>
-                  <Label htmlFor="securityDeposit">Security Deposit</Label>
-                  <Input
-                    id="securityDeposit"
-                    type="number"
-                    value={formData.securityDeposit}
-                    onChange={(e) => handleInputChange('securityDeposit', e.target.value)}
-                    placeholder="Additional security deposit"
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="applicationFee">Application/Inspection Fee</Label>
+                  <Label htmlFor="applicationFee" className="text-sm font-semibold text-gray-700">
+                    Application/Inspection Fee
+                  </Label>
                   <Input
                     id="applicationFee"
                     type="number"
                     value={formData.applicationFee}
                     onChange={(e) => handleInputChange('applicationFee', e.target.value)}
                     placeholder="Application fee"
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="agreementFee" className="text-sm font-semibold text-gray-700">
+                    Agreement Fee
+                  </Label>
+                  <Input
+                    id="agreementFee"
+                    type="number"
+                    value={formData.agreementFee}
+                    onChange={(e) => handleInputChange('agreementFee', e.target.value)}
+                    placeholder="Tenancy agreement fee"
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">One-time tenancy agreement processing</p>
+                </div>
+
+                <div>
+                  <Label htmlFor="agentCommission" className="text-sm font-semibold text-gray-700">
+                    Agent Commission
+                  </Label>
+                  <Input
+                    id="agentCommission"
+                    type="number"
+                    value={formData.agentCommission}
+                    onChange={(e) => handleInputChange('agentCommission', e.target.value)}
+                    placeholder="Agent commission amount"
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Typically 10% of annual rent</p>
+                </div>
+
+                <div>
+                  <Label htmlFor="securityDeposit" className="text-sm font-semibold text-gray-700">
+                    Security Deposit
+                  </Label>
+                  <Input
+                    id="securityDeposit"
+                    type="number"
+                    value={formData.securityDeposit}
+                    onChange={(e) => handleInputChange('securityDeposit', e.target.value)}
+                    placeholder="Additional security deposit"
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                 </div>
               </div>
             </div>
+
+            {/* Financial Summary Card */}
+            {(formData.avgRent || formData.serviceCharge || formData.securityDeposit) && (
+              <div className="rounded-xl border-2 border-green-200 bg-gradient-to-br from-green-50 to-green-100/50 p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-green-500 flex items-center justify-center">
+                    <DollarSign className="h-5 w-5 text-white" />
+                  </div>
+                  <h4 className="text-base font-bold text-gray-900">Financial Summary</h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {formData.avgRent && (
+                    <div className="bg-white rounded-lg p-4 border border-green-200">
+                      <p className="text-xs text-gray-600 mb-1">Annual Rent</p>
+                      <p className="text-xl font-bold text-green-600">
+                        {formData.currency === 'NGN' ? '₦' : formData.currency === 'USD' ? '$' : formData.currency === 'GBP' ? '£' : formData.currency === 'EUR' ? '€' : ''}
+                        {Number(formData.avgRent).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
+                  {formData.serviceCharge && (
+                    <div className="bg-white rounded-lg p-4 border border-green-200">
+                      <p className="text-xs text-gray-600 mb-1">Service Charge</p>
+                      <p className="text-xl font-bold text-green-600">
+                        {formData.currency === 'NGN' ? '₦' : formData.currency === 'USD' ? '$' : formData.currency === 'GBP' ? '£' : formData.currency === 'EUR' ? '€' : ''}
+                        {Number(formData.serviceCharge).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
+                  {(formData.avgRent && formData.serviceCharge) && (
+                    <div className="bg-white rounded-lg p-4 border border-green-200">
+                      <p className="text-xs text-gray-600 mb-1">Total Annual</p>
+                      <p className="text-xl font-bold text-green-600">
+                        {formData.currency === 'NGN' ? '₦' : formData.currency === 'USD' ? '$' : formData.currency === 'GBP' ? '£' : formData.currency === 'EUR' ? '€' : ''}
+                        {(Number(formData.avgRent || 0) + Number(formData.serviceCharge || 0)).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Additional Fees Summary */}
+                {(formData.legalFee || formData.agreementFee || formData.agentCommission || formData.applicationFee || formData.securityDeposit) && (
+                  <div className="mt-4 bg-white rounded-lg p-4 border border-green-200">
+                    <p className="text-xs font-semibold text-gray-700 mb-2">One-Time Fees</p>
+                    <div className="space-y-1 text-sm">
+                      {formData.securityDeposit && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Security Deposit:</span>
+                          <span className="font-semibold text-gray-900">
+                            {formData.currency === 'NGN' ? '₦' : formData.currency === 'USD' ? '$' : formData.currency === 'GBP' ? '£' : formData.currency === 'EUR' ? '€' : ''}
+                            {Number(formData.securityDeposit).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                      {formData.legalFee && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Legal Fee:</span>
+                          <span className="font-semibold text-gray-900">
+                            {formData.currency === 'NGN' ? '₦' : formData.currency === 'USD' ? '$' : formData.currency === 'GBP' ? '£' : formData.currency === 'EUR' ? '€' : ''}
+                            {Number(formData.legalFee).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                      {formData.agreementFee && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Agreement Fee:</span>
+                          <span className="font-semibold text-gray-900">
+                            {formData.currency === 'NGN' ? '₦' : formData.currency === 'USD' ? '$' : formData.currency === 'GBP' ? '£' : formData.currency === 'EUR' ? '€' : ''}
+                            {Number(formData.agreementFee).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                      {formData.agentCommission && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Agent Commission:</span>
+                          <span className="font-semibold text-gray-900">
+                            {formData.currency === 'NGN' ? '₦' : formData.currency === 'USD' ? '$' : formData.currency === 'GBP' ? '£' : formData.currency === 'EUR' ? '€' : ''}
+                            {Number(formData.agentCommission).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                      {formData.applicationFee && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Application Fee:</span>
+                          <span className="font-semibold text-gray-900">
+                            {formData.currency === 'NGN' ? '₦' : formData.currency === 'USD' ? '$' : formData.currency === 'GBP' ? '£' : formData.currency === 'EUR' ? '€' : ''}
+                            {Number(formData.applicationFee).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         );
 
@@ -807,9 +1102,11 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
           <div className="space-y-6">
             <div className="space-y-4">
               <div>
-                <Label htmlFor="managerId">Select Property Manager *</Label>
+                <Label htmlFor="managerId" className="text-sm font-semibold text-gray-700 mb-2 block">
+                  Select Property Manager *
+                </Label>
                 <Select value={(formData as any).managerId || ''} onValueChange={(value) => handleInputChange('managerId', value)}>
-                  <SelectTrigger className={errors.managerId ? 'border-red-500' : ''}>
+                  <SelectTrigger className={`border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED] ${errors.managerId ? 'border-red-500' : ''}`}>
                     <SelectValue placeholder={localManagers.length ? 'Choose a manager' : 'No managers available'} />
                   </SelectTrigger>
                   <SelectContent>
@@ -820,7 +1117,7 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
                     <Button
                       type="button"
                       variant="ghost"
-                      className="w-full justify-start text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      className="w-full justify-start text-[#7C3AED] hover:text-[#6D28D9] hover:bg-purple-50 font-semibold"
                       onClick={(e) => {
                         e.preventDefault();
                         setShowCreateManagerDialog(true);
@@ -831,140 +1128,272 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
                     </Button>
                   </SelectContent>
                 </Select>
-                {errors.managerId && <p className="text-sm text-red-600">{errors.managerId}</p>}
+                {errors.managerId && <p className="text-sm text-red-600 mt-1 flex items-center"><AlertCircle className="h-4 w-4 mr-1" />{errors.managerId}</p>}
               </div>
+
+              {selectedManager && (
+                <div className="mt-4 p-5 bg-gradient-to-br from-purple-50 to-purple-100/50 border border-purple-200 rounded-xl">
+                  <div className="flex items-start space-x-4">
+                    <div className="p-3 bg-[#7C3AED] rounded-xl">
+                      <Users className="h-6 w-6 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-base font-bold text-gray-900 mb-2">Selected Manager</h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center text-sm">
+                          <span className="font-semibold text-gray-700 w-20">Name:</span>
+                          <span className="text-gray-900">{selectedManager.name}</span>
+                        </div>
+                        <div className="flex items-center text-sm">
+                          <span className="font-semibold text-gray-700 w-20">Email:</span>
+                          <span className="text-gray-600">{selectedManager.email}</span>
+                        </div>
+                        {selectedManager.phone && (
+                          <div className="flex items-center text-sm">
+                            <span className="font-semibold text-gray-700 w-20">Phone:</span>
+                            <span className="text-gray-600">{selectedManager.phone}</span>
+                          </div>
+                        )}
+                        {selectedManager.department && (
+                          <div className="flex items-center text-sm">
+                            <span className="font-semibold text-gray-700 w-20">Dept:</span>
+                            <span className="text-gray-600">{selectedManager.department}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         );
 
       case 5:
         return (
-          <div className="space-y-6">
+          <div className="space-y-8">
             <div>
-              <h4 className="font-medium mb-4">Property Features & Amenities</h4>
-              <div className="grid md:grid-cols-3 gap-4">
+              <div className="flex items-center mb-5">
+                <div className="p-2 bg-[#7C3AED] rounded-lg mr-3">
+                  <Home className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="text-lg font-bold text-gray-900">Property Features & Amenities</h4>
+                  <p className="text-sm text-gray-600">Select all features available at the property level</p>
+                </div>
+              </div>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {availableFeatures.map((feature) => {
                   const IconComponent = feature.icon;
                   const isSelected = formData.features.includes(feature.id);
                   return (
                     <div
                       key={feature.id}
-                      className={`flex items-center space-x-3 p-3 border rounded cursor-pointer transition-colors ${
-                        isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                      className={`flex items-center space-x-3 p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
+                        isSelected
+                          ? 'border-[#7C3AED] bg-gradient-to-br from-purple-50 to-purple-100/50 shadow-md'
+                          : 'border-gray-200 hover:border-[#7C3AED]/50 hover:bg-gray-50'
                       }`}
                       onClick={() => handleFeatureToggle(feature.id)}
                     >
-                      <div className={`flex items-center justify-center w-8 h-8 rounded ${
-                        isSelected ? 'bg-blue-500 text-white' : 'bg-gray-100'
+                      <div className={`flex items-center justify-center w-10 h-10 rounded-xl transition-colors ${
+                        isSelected ? 'bg-[#7C3AED] text-white' : 'bg-gray-100 text-gray-600'
                       }`}>
-                        <IconComponent className="h-4 w-4" />
+                        <IconComponent className="h-5 w-5" />
                       </div>
-                      <span className="font-medium">{feature.label}</span>
-                      {isSelected && <Check className="h-4 w-4 text-blue-500 ml-auto" />}
+                      <span className={`font-semibold flex-1 ${isSelected ? 'text-gray-900' : 'text-gray-700'}`}>
+                        {feature.label}
+                      </span>
+                      {isSelected && (
+                        <div className="flex-shrink-0">
+                          <Check className="h-5 w-5 text-[#7C3AED]" />
+                        </div>
+                      )}
                     </div>
                   );
                 })}
               </div>
+              {formData.features.length > 0 && (
+                <div className="mt-4 p-4 bg-purple-50 border border-purple-200 rounded-xl">
+                  <p className="text-sm font-semibold text-[#7C3AED]">
+                    {formData.features.length} {formData.features.length === 1 ? 'feature' : 'features'} selected
+                  </p>
+                </div>
+              )}
             </div>
 
-            <Separator />
+            <Separator className="bg-gray-200" />
 
             <div>
-              <h4 className="font-medium mb-4">Unit Features</h4>
-              <div className="grid md:grid-cols-3 gap-4">
+              <div className="flex items-center mb-5">
+                <div className="p-2 bg-green-500 rounded-lg mr-3">
+                  <Bed className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="text-lg font-bold text-gray-900">Unit Features</h4>
+                  <p className="text-sm text-gray-600">Select features available in individual units</p>
+                </div>
+              </div>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {unitFeatures.map((feature) => {
                   const IconComponent = feature.icon;
                   const isSelected = formData.unitFeatures.includes(feature.id);
                   return (
                     <div
                       key={feature.id}
-                      className={`flex items-center space-x-3 p-3 border rounded cursor-pointer transition-colors ${
-                        isSelected ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'
+                      className={`flex items-center space-x-3 p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
+                        isSelected
+                          ? 'border-green-500 bg-gradient-to-br from-green-50 to-green-100/50 shadow-md'
+                          : 'border-gray-200 hover:border-green-500/50 hover:bg-gray-50'
                       }`}
                       onClick={() => handleFeatureToggle(feature.id, true)}
                     >
-                      <div className={`flex items-center justify-center w-8 h-8 rounded ${
-                        isSelected ? 'bg-green-500 text-white' : 'bg-gray-100'
+                      <div className={`flex items-center justify-center w-10 h-10 rounded-xl transition-colors ${
+                        isSelected ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600'
                       }`}>
-                        <IconComponent className="h-4 w-4" />
+                        <IconComponent className="h-5 w-5" />
                       </div>
-                      <span className="font-medium">{feature.label}</span>
-                      {isSelected && <Check className="h-4 w-4 text-green-500 ml-auto" />}
+                      <span className={`font-semibold flex-1 ${isSelected ? 'text-gray-900' : 'text-gray-700'}`}>
+                        {feature.label}
+                      </span>
+                      {isSelected && (
+                        <div className="flex-shrink-0">
+                          <Check className="h-5 w-5 text-green-500" />
+                        </div>
+                      )}
                     </div>
                   );
                 })}
               </div>
+              {formData.unitFeatures.length > 0 && (
+                <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-xl">
+                  <p className="text-sm font-semibold text-green-700">
+                    {formData.unitFeatures.length} {formData.unitFeatures.length === 1 ? 'feature' : 'features'} selected
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         );
 
       case 6:
         return (
-          <div className="space-y-6">
-            <div>
-              <h4 className="font-medium mb-4">Insurance Information</h4>
+          <div className="space-y-8">
+            {/* Insurance Information Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center">
+                  <Shield className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Insurance Information</h3>
+                  <p className="text-sm text-gray-600">Property insurance and coverage details</p>
+                </div>
+              </div>
+
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="insuranceProvider">Insurance Provider</Label>
+                    <Label htmlFor="insuranceProvider" className="text-sm font-semibold text-gray-700">
+                      Insurance Provider
+                    </Label>
                     <Input
                       id="insuranceProvider"
                       value={formData.insuranceProvider}
                       onChange={(e) => handleInputChange('insuranceProvider', e.target.value)}
                       placeholder="Insurance company name"
+                      className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="insurancePolicyNumber">Policy Number</Label>
+                    <Label htmlFor="insurancePolicyNumber" className="text-sm font-semibold text-gray-700">
+                      Policy Number
+                    </Label>
                     <Input
                       id="insurancePolicyNumber"
                       value={formData.insurancePolicyNumber}
                       onChange={(e) => handleInputChange('insurancePolicyNumber', e.target.value)}
                       placeholder="Policy number"
+                      className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="insurancePremium">Annual Premium</Label>
+                    <Label htmlFor="insurancePremium" className="text-sm font-semibold text-gray-700">
+                      Annual Premium
+                    </Label>
                     <Input
                       id="insurancePremium"
                       type="number"
                       value={formData.insurancePremium}
                       onChange={(e) => handleInputChange('insurancePremium', e.target.value)}
                       placeholder="Annual premium amount"
+                      className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="insuranceExpiration">Policy Expiration</Label>
+                    <Label htmlFor="insuranceExpiration" className="text-sm font-semibold text-gray-700">
+                      Policy Expiration
+                    </Label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
-                          className="w-full justify-start text-left font-normal"
+                          className="w-full justify-start text-left font-normal border-gray-300 hover:border-[#7C3AED] focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                         >
-                          <Calendar className="mr-2 h-4 w-4" />
+                          <Calendar className="mr-2 h-4 w-4 text-[#7C3AED]" />
                           {formData.insuranceExpiration ? (
                             format(new Date(formData.insuranceExpiration), "PPP")
                           ) : (
-                            <span>Pick a date</span>
+                            <span className="text-gray-500">Pick a date</span>
                           )}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0 bg-white border-gray-300" align="start">
-                        <CalendarComponent
-                          mode="single"
-                          selected={formData.insuranceExpiration ? new Date(formData.insuranceExpiration) : undefined}
-                          onSelect={(date) => {
-                            if (date) {
-                              handleInputChange('insuranceExpiration', format(date, 'yyyy-MM-dd'));
-                            }
-                          }}
-                          initialFocus
-                        />
+                      <PopoverContent className="w-auto p-0 bg-white border-gray-300 rounded-xl shadow-xl" align="start">
+                        {/* Calendar Header */}
+                        <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] px-4 py-3 rounded-t-xl">
+                          <p className="text-white font-semibold text-sm">Select Policy Expiration Date</p>
+                        </div>
+                        {/* Calendar Body */}
+                        <div className="p-3 bg-white">
+                          <CalendarComponent
+                            mode="single"
+                            selected={formData.insuranceExpiration ? new Date(formData.insuranceExpiration) : undefined}
+                            onSelect={(date) => {
+                              if (date) {
+                                handleInputChange('insuranceExpiration', format(date, 'yyyy-MM-dd'));
+                              }
+                            }}
+                            initialFocus
+                            className="rounded-lg border-0"
+                            classNames={{
+                              months: "flex flex-col space-y-4",
+                              month: "space-y-4",
+                              caption: "flex justify-center pt-1 relative items-center mb-2",
+                              caption_label: "text-sm font-semibold text-gray-900",
+                              nav: "space-x-1 flex items-center",
+                              nav_button: "h-8 w-8 bg-transparent p-0 opacity-70 hover:opacity-100 border border-gray-300 rounded-lg hover:bg-purple-50 hover:border-[#7C3AED] hover:text-[#7C3AED] transition-colors",
+                              nav_button_previous: "absolute left-1",
+                              nav_button_next: "absolute right-1",
+                              table: "w-full border-collapse space-y-1",
+                              head_row: "flex",
+                              head_cell: "text-gray-600 rounded-md w-9 font-normal text-[0.8rem]",
+                              row: "flex w-full mt-2",
+                              cell: "text-center text-sm p-0 relative [&:has([aria-selected])]:bg-transparent first:[&:has([aria-selected])]:rounded-l-lg last:[&:has([aria-selected])]:rounded-r-lg focus-within:relative focus-within:z-20",
+                              day: "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-[#7C3AED]/10 hover:text-[#7C3AED] rounded-lg transition-colors",
+                              day_selected: "bg-[#7C3AED] text-white hover:bg-[#6D28D9] focus:bg-[#6D28D9] font-bold shadow-md",
+                              day_today: "bg-purple-100 text-[#7C3AED] font-bold border-2 border-[#7C3AED]",
+                              day_outside: "text-gray-400 opacity-50",
+                              day_disabled: "text-gray-400 opacity-50",
+                              day_range_middle: "aria-selected:bg-purple-100 aria-selected:text-[#7C3AED]",
+                              day_hidden: "invisible",
+                            }}
+                          />
+                        </div>
                       </PopoverContent>
                     </Popover>
                   </div>
@@ -972,203 +1401,284 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
               </div>
             </div>
 
-            <Separator />
+            {/* Legal & Tax Information Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#7C3AED] flex items-center justify-center">
+                  <FileText className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Legal & Tax Information</h3>
+                  <p className="text-sm text-gray-600">Property tax and legal compliance details</p>
+                </div>
+              </div>
 
-            <div>
-              <h4 className="font-medium mb-4">Legal & Tax Information</h4>
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                  <Label htmlFor="propertyTaxes">Annual Property Taxes</Label>
+                  <Label htmlFor="propertyTaxes" className="text-sm font-semibold text-gray-700">
+                    Annual Property Taxes
+                  </Label>
                   <Input
                     id="propertyTaxes"
                     type="number"
                     value={formData.propertyTaxes}
                     onChange={(e) => handleInputChange('propertyTaxes', e.target.value)}
                     placeholder="Annual tax amount"
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                 </div>
               </div>
             </div>
 
-            <Separator />
+            {/* Additional Information Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gray-600 flex items-center justify-center">
+                  <Info className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Additional Information</h3>
+                  <p className="text-sm text-gray-600">Property description and internal notes</p>
+                </div>
+              </div>
 
-            <div>
-              <h4 className="font-medium mb-4">Additional Information</h4>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="description">Property Description</Label>
+                  <Label htmlFor="description" className="text-sm font-semibold text-gray-700">
+                    Property Description
+                  </Label>
                   <Textarea
                     id="description"
                     value={formData.description}
                     onChange={(e) => handleInputChange('description', e.target.value)}
                     placeholder="Describe the property, its unique features, and selling points..."
                     rows={4}
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED] resize-none"
                   />
+                  <p className="text-xs text-gray-500 mt-1">This description will be visible to tenants</p>
                 </div>
 
                 <div>
-                  <Label htmlFor="notes">Internal Notes</Label>
+                  <Label htmlFor="notes" className="text-sm font-semibold text-gray-700">
+                    Internal Notes
+                  </Label>
                   <Textarea
                     id="notes"
                     value={formData.notes}
                     onChange={(e) => handleInputChange('notes', e.target.value)}
                     placeholder="Internal notes, reminders, or special considerations..."
                     rows={3}
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED] resize-none"
                   />
+                  <p className="text-xs text-gray-500 mt-1">Private notes for internal use only</p>
                 </div>
               </div>
             </div>
+
+            {/* Summary Card */}
+            {(formData.insuranceProvider || formData.propertyTaxes || formData.description) && (
+              <div className="rounded-xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-purple-100/50 p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-[#7C3AED] flex items-center justify-center">
+                    <CheckCircle className="h-5 w-5 text-white" />
+                  </div>
+                  <h4 className="text-base font-bold text-gray-900">Information Summary</h4>
+                </div>
+                <div className="space-y-2 text-sm">
+                  {formData.insuranceProvider && (
+                    <div className="bg-white rounded-lg p-3 border border-purple-200">
+                      <span className="text-gray-600">Insurance Provider:</span>
+                      <span className="ml-2 font-semibold text-gray-900">{formData.insuranceProvider}</span>
+                    </div>
+                  )}
+                  {formData.insuranceExpiration && (
+                    <div className="bg-white rounded-lg p-3 border border-purple-200">
+                      <span className="text-gray-600">Policy Expires:</span>
+                      <span className="ml-2 font-semibold text-gray-900">
+                        {format(new Date(formData.insuranceExpiration), "PPP")}
+                      </span>
+                    </div>
+                  )}
+                  {formData.propertyTaxes && (
+                    <div className="bg-white rounded-lg p-3 border border-purple-200">
+                      <span className="text-gray-600">Annual Property Taxes:</span>
+                      <span className="ml-2 font-semibold text-gray-900">
+                        {formData.currency === 'NGN' ? '₦' : formData.currency === 'USD' ? '$' : formData.currency === 'GBP' ? '£' : formData.currency === 'EUR' ? '€' : ''}
+                        {Number(formData.propertyTaxes).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         );
 
       case 7:
         return (
           <div className="space-y-6">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-center space-x-2">
-                <Info className="h-5 w-5 text-blue-600" />
-                <h4 className="font-medium text-blue-900">Review Your Property Information</h4>
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 border-2 border-purple-200 rounded-xl p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-[#7C3AED] flex items-center justify-center">
+                  <CheckCircle className="h-5 w-5 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900">Review Your Property Information</h3>
               </div>
-              <p className="text-sm text-blue-700 mt-2">
+              <p className="text-sm text-gray-700">
                 Please review all the information below before submitting. You can go back to make changes if needed.
               </p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Basic Information</CardTitle>
+              <Card className="border-2 border-purple-200 shadow-md hover:shadow-lg transition-shadow">
+                <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white rounded-t-lg">
+                  <div className="flex items-center gap-2">
+                    <Home className="h-5 w-5" />
+                    <CardTitle className="text-lg">Basic Information</CardTitle>
+                  </div>
                 </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Name:</span>
-                    <span className="font-medium">{formData.name}</span>
+                <CardContent className="space-y-3 pt-6">
+                  <div className="flex justify-between items-start">
+                    <span className="text-sm text-gray-600 font-medium">Name:</span>
+                    <span className="font-semibold text-gray-900 text-right">{formData.name}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Type:</span>
-                    <span className="font-medium">{formData.propertyType}</span>
+                  <div className="flex justify-between items-start">
+                    <span className="text-sm text-gray-600 font-medium">Type:</span>
+                    <span className="font-semibold text-gray-900 text-right">{formData.propertyType}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Address:</span>
-                    <span className="font-medium">{formData.address}</span>
+                  <div className="flex justify-between items-start">
+                    <span className="text-sm text-gray-600 font-medium">Address:</span>
+                    <span className="font-semibold text-gray-900 text-right max-w-[60%]">{formData.address}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">City, State:</span>
-                    <span className="font-medium">{formData.city}, {formData.state} {formData.postalCode}</span>
+                  <div className="flex justify-between items-start">
+                    <span className="text-sm text-gray-600 font-medium">City, State:</span>
+                    <span className="font-semibold text-gray-900 text-right">{formData.city}, {formData.state} {formData.postalCode}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Country:</span>
-                    <span className="font-medium">{formData.country}</span>
+                  <div className="flex justify-between items-start">
+                    <span className="text-sm text-gray-600 font-medium">Country:</span>
+                    <span className="font-semibold text-gray-900 text-right">{formData.country}</span>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Property Details</CardTitle>
+              <Card className="border-2 border-purple-200 shadow-md hover:shadow-lg transition-shadow">
+                <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white rounded-t-lg">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5" />
+                    <CardTitle className="text-lg">Property Details</CardTitle>
+                  </div>
                 </CardHeader>
-                <CardContent className="space-y-2">
+                <CardContent className="space-y-3 pt-6">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Total Units:</span>
-                    <span className="font-medium">{formData.totalUnits}</span>
+                    <span className="text-sm text-gray-600 font-medium">Total Units:</span>
+                    <span className="font-semibold text-[#7C3AED]">{formData.totalUnits}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Floors:</span>
-                    <span className="font-medium">{formData.floors || 'N/A'}</span>
+                    <span className="text-sm text-gray-600 font-medium">Floors:</span>
+                    <span className="font-semibold text-gray-900">{formData.floors || 'N/A'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Year Built:</span>
-                    <span className="font-medium">{formData.yearBuilt || 'N/A'}</span>
+                    <span className="text-sm text-gray-600 font-medium">Year Built:</span>
+                    <span className="font-semibold text-gray-900">{formData.yearBuilt || 'N/A'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Total Area:</span>
-                    <span className="font-medium">{formData.totalArea ? `${formData.totalArea} sq ft` : 'N/A'}</span>
+                    <span className="text-sm text-gray-600 font-medium">Total Area:</span>
+                    <span className="font-semibold text-gray-900">{formData.totalArea ? `${formData.totalArea} sq ft` : 'N/A'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Lot Size:</span>
-                    <span className="font-medium">{formData.lotSize ? `${formData.lotSize} sq ft` : 'N/A'}</span>
+                    <span className="text-sm text-gray-600 font-medium">Lot Size:</span>
+                    <span className="font-semibold text-gray-900">{formData.lotSize ? `${formData.lotSize} sq ft` : 'N/A'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Parking Spaces:</span>
-                    <span className="font-medium">{formData.parking || 'N/A'}</span>
+                    <span className="text-sm text-gray-600 font-medium">Parking Spaces:</span>
+                    <span className="font-semibold text-gray-900">{formData.parking || 'N/A'}</span>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Financial Information</CardTitle>
+              <Card className="border-2 border-green-200 shadow-md hover:shadow-lg transition-shadow">
+                <CardHeader className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-t-lg">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-5 w-5" />
+                    <CardTitle className="text-lg">Financial Information</CardTitle>
+                  </div>
                 </CardHeader>
-                <CardContent className="space-y-2">
+                <CardContent className="space-y-3 pt-6">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Currency:</span>
-                    <span className="font-medium">
-                      {currencies.find(c => c.code === formData.currency)?.symbol} {currencies.find(c => c.code === formData.currency)?.name} ({formData.currency})
+                    <span className="text-sm text-gray-600 font-medium">Currency:</span>
+                    <span className="font-semibold text-gray-900">
+                      {currencies.find(c => c.code === formData.currency)?.symbol} {currencies.find(c => c.code === formData.currency)?.name}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Annual Rent:</span>
-                    <span className="font-medium">{currencies.find(c => c.code === formData.currency)?.symbol}{formData.avgRent}</span>
+                    <span className="text-sm text-gray-600 font-medium">Annual Rent:</span>
+                    <span className="font-semibold text-green-600">{currencies.find(c => c.code === formData.currency)?.symbol}{Number(formData.avgRent).toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Security Deposit:</span>
-                    <span className="font-medium">{currencies.find(c => c.code === formData.currency)?.symbol}{formData.securityDeposit || 'N/A'}</span>
+                    <span className="text-sm text-gray-600 font-medium">Security Deposit:</span>
+                    <span className="font-semibold text-gray-900">{formData.securityDeposit ? `${currencies.find(c => c.code === formData.currency)?.symbol}${Number(formData.securityDeposit).toLocaleString()}` : 'N/A'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Service Charge:</span>
-                    <span className="font-medium">{currencies.find(c => c.code === formData.currency)?.symbol}{formData.serviceCharge || 'N/A'}</span>
+                    <span className="text-sm text-gray-600 font-medium">Service Charge:</span>
+                    <span className="font-semibold text-gray-900">{formData.serviceCharge ? `${currencies.find(c => c.code === formData.currency)?.symbol}${Number(formData.serviceCharge).toLocaleString()}` : 'N/A'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Application Fee:</span>
-                    <span className="font-medium">{currencies.find(c => c.code === formData.currency)?.symbol}{formData.applicationFee || 'N/A'}</span>
+                    <span className="text-sm text-gray-600 font-medium">Application Fee:</span>
+                    <span className="font-semibold text-gray-900">{formData.applicationFee ? `${currencies.find(c => c.code === formData.currency)?.symbol}${Number(formData.applicationFee).toLocaleString()}` : 'N/A'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Legal Fee:</span>
-                    <span className="font-medium">{currencies.find(c => c.code === formData.currency)?.symbol}{formData.legalFee || 'N/A'}</span>
+                    <span className="text-sm text-gray-600 font-medium">Legal Fee:</span>
+                    <span className="font-semibold text-gray-900">{formData.legalFee ? `${currencies.find(c => c.code === formData.currency)?.symbol}${Number(formData.legalFee).toLocaleString()}` : 'N/A'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Agreement Fee:</span>
-                    <span className="font-medium">{currencies.find(c => c.code === formData.currency)?.symbol}{formData.agreementFee || 'N/A'}</span>
+                    <span className="text-sm text-gray-600 font-medium">Agreement Fee:</span>
+                    <span className="font-semibold text-gray-900">{formData.agreementFee ? `${currencies.find(c => c.code === formData.currency)?.symbol}${Number(formData.agreementFee).toLocaleString()}` : 'N/A'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Agent Commission:</span>
-                    <span className="font-medium">{currencies.find(c => c.code === formData.currency)?.symbol}{formData.agentCommission || 'N/A'}</span>
+                    <span className="text-sm text-gray-600 font-medium">Agent Commission:</span>
+                    <span className="font-semibold text-gray-900">{formData.agentCommission ? `${currencies.find(c => c.code === formData.currency)?.symbol}${Number(formData.agentCommission).toLocaleString()}` : 'N/A'}</span>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Management</CardTitle>
+              <Card className="border-2 border-purple-200 shadow-md hover:shadow-lg transition-shadow">
+                <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white rounded-t-lg">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    <CardTitle className="text-lg">Management</CardTitle>
+                  </div>
                 </CardHeader>
-                <CardContent className="space-y-2">
+                <CardContent className="space-y-3 pt-6">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Manager:</span>
-                    <span className="font-medium">{selectedManager?.name || 'Unassigned'}</span>
+                    <span className="text-sm text-gray-600 font-medium">Manager:</span>
+                    <span className="font-semibold text-gray-900">{selectedManager?.name || 'Unassigned'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Email:</span>
-                    <span className="font-medium">{selectedManager?.email || '—'}</span>
+                    <span className="text-sm text-gray-600 font-medium">Email:</span>
+                    <span className="font-semibold text-gray-900 text-sm">{selectedManager?.email || '—'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Phone:</span>
-                    <span className="font-medium">{selectedManager?.phone || '—'}</span>
+                    <span className="text-sm text-gray-600 font-medium">Phone:</span>
+                    <span className="font-semibold text-gray-900">{selectedManager?.phone || '—'}</span>
                   </div>
                 </CardContent>
               </Card>
             </div>
 
             {formData.features.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Property Features</CardTitle>
+              <Card className="border-2 border-purple-200 shadow-md">
+                <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white rounded-t-lg">
+                  <div className="flex items-center gap-2">
+                    <Home className="h-5 w-5" />
+                    <CardTitle className="text-lg">Property Features</CardTitle>
+                  </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-6">
                   <div className="flex flex-wrap gap-2">
                     {formData.features.map((featureId) => {
                       const feature = availableFeatures.find(f => f.id === featureId);
                       return feature ? (
-                        <Badge key={featureId} variant="secondary">
+                        <Badge key={featureId} className="bg-purple-100 text-[#7C3AED] border border-purple-300 hover:bg-purple-200 px-3 py-1">
                           {feature.label}
                         </Badge>
                       ) : null;
@@ -1179,16 +1689,19 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
             )}
 
             {formData.unitFeatures.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Unit Features</CardTitle>
+              <Card className="border-2 border-green-200 shadow-md">
+                <CardHeader className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-t-lg">
+                  <div className="flex items-center gap-2">
+                    <Bed className="h-5 w-5" />
+                    <CardTitle className="text-lg">Unit Features</CardTitle>
+                  </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-6">
                   <div className="flex flex-wrap gap-2">
                     {formData.unitFeatures.map((featureId) => {
                       const feature = unitFeatures.find(f => f.id === featureId);
                       return feature ? (
-                        <Badge key={featureId} variant="outline">
+                        <Badge key={featureId} className="bg-green-100 text-green-700 border border-green-300 hover:bg-green-200 px-3 py-1">
                           {feature.label}
                         </Badge>
                       ) : null;
@@ -1201,53 +1714,59 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
             {/* Insurance & Legal Information */}
             {(formData.insuranceProvider || formData.insurancePolicyNumber || formData.insurancePremium || formData.insuranceExpiration || formData.propertyTaxes) && (
               <div className="grid md:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Insurance Information</CardTitle>
+                <Card className="border-2 border-blue-200 shadow-md hover:shadow-lg transition-shadow">
+                  <CardHeader className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-t-lg">
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-5 w-5" />
+                      <CardTitle className="text-lg">Insurance Information</CardTitle>
+                    </div>
                   </CardHeader>
-                  <CardContent className="space-y-2">
+                  <CardContent className="space-y-3 pt-6">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Provider:</span>
-                      <span className="font-medium">{formData.insuranceProvider || 'N/A'}</span>
+                      <span className="text-sm text-gray-600 font-medium">Provider:</span>
+                      <span className="font-semibold text-gray-900">{formData.insuranceProvider || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Policy Number:</span>
-                      <span className="font-medium">{formData.insurancePolicyNumber || 'N/A'}</span>
+                      <span className="text-sm text-gray-600 font-medium">Policy Number:</span>
+                      <span className="font-semibold text-gray-900">{formData.insurancePolicyNumber || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Annual Premium:</span>
-                      <span className="font-medium">
-                        {formData.insurancePremium ? `${currencies.find(c => c.code === formData.currency)?.symbol}${formData.insurancePremium}` : 'N/A'}
+                      <span className="text-sm text-gray-600 font-medium">Annual Premium:</span>
+                      <span className="font-semibold text-gray-900">
+                        {formData.insurancePremium ? `${currencies.find(c => c.code === formData.currency)?.symbol}${Number(formData.insurancePremium).toLocaleString()}` : 'N/A'}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Expiration:</span>
-                      <span className="font-medium">{formData.insuranceExpiration || 'N/A'}</span>
+                      <span className="text-sm text-gray-600 font-medium">Expiration:</span>
+                      <span className="font-semibold text-gray-900">{formData.insuranceExpiration ? format(new Date(formData.insuranceExpiration), "PPP") : 'N/A'}</span>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Legal & Tax</CardTitle>
+                <Card className="border-2 border-purple-200 shadow-md hover:shadow-lg transition-shadow">
+                  <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white rounded-t-lg">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      <CardTitle className="text-lg">Legal & Tax</CardTitle>
+                    </div>
                   </CardHeader>
-                  <CardContent className="space-y-2">
+                  <CardContent className="space-y-3 pt-6">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Annual Property Taxes:</span>
-                      <span className="font-medium">
-                        {formData.propertyTaxes ? `${currencies.find(c => c.code === formData.currency)?.symbol}${formData.propertyTaxes}` : 'N/A'}
+                      <span className="text-sm text-gray-600 font-medium">Annual Property Taxes:</span>
+                      <span className="font-semibold text-gray-900">
+                        {formData.propertyTaxes ? `${currencies.find(c => c.code === formData.currency)?.symbol}${Number(formData.propertyTaxes).toLocaleString()}` : 'N/A'}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Legal/Documentation Fee:</span>
-                      <span className="font-medium">
-                        {formData.legalFee ? `${currencies.find(c => c.code === formData.currency)?.symbol}${formData.legalFee}` : 'N/A'}
+                      <span className="text-sm text-gray-600 font-medium">Legal/Documentation Fee:</span>
+                      <span className="font-semibold text-gray-900">
+                        {formData.legalFee ? `${currencies.find(c => c.code === formData.currency)?.symbol}${Number(formData.legalFee).toLocaleString()}` : 'N/A'}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Agreement Fee:</span>
-                      <span className="font-medium">
-                        {formData.agreementFee ? `${currencies.find(c => c.code === formData.currency)?.symbol}${formData.agreementFee}` : 'N/A'}
+                      <span className="text-sm text-gray-600 font-medium">Agreement Fee:</span>
+                      <span className="font-semibold text-gray-900">
+                        {formData.agreementFee ? `${currencies.find(c => c.code === formData.currency)?.symbol}${Number(formData.agreementFee).toLocaleString()}` : 'N/A'}
                       </span>
                     </div>
                   </CardContent>
@@ -1257,21 +1776,24 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
 
             {/* Additional Information */}
             {(formData.description || formData.notes) && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Additional Information</CardTitle>
+              <Card className="border-2 border-gray-200 shadow-md">
+                <CardHeader className="bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-t-lg">
+                  <div className="flex items-center gap-2">
+                    <Info className="h-5 w-5" />
+                    <CardTitle className="text-lg">Additional Information</CardTitle>
+                  </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4 pt-6">
                   {formData.description && (
-                    <div>
-                      <h5 className="text-sm font-medium text-gray-600 mb-1">Description:</h5>
-                      <p className="text-sm text-gray-900 whitespace-pre-wrap">{formData.description}</p>
+                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                      <h5 className="text-sm font-semibold text-gray-700 mb-2">Description:</h5>
+                      <p className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">{formData.description}</p>
                     </div>
                   )}
                   {formData.notes && (
-                    <div>
-                      <h5 className="text-sm font-medium text-gray-600 mb-1">Internal Notes:</h5>
-                      <p className="text-sm text-gray-900 whitespace-pre-wrap">{formData.notes}</p>
+                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                      <h5 className="text-sm font-semibold text-gray-700 mb-2">Internal Notes:</h5>
+                      <p className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">{formData.notes}</p>
                     </div>
                   )}
                 </CardContent>
@@ -1280,14 +1802,17 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
 
             {/* Cover Image Preview */}
             {formData.coverImage && (
-              <Card className="md:col-span-2">
-                <CardHeader>
-                  <CardTitle className="text-lg">Cover Image</CardTitle>
+              <Card className="border-2 border-purple-200 shadow-md">
+                <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white rounded-t-lg">
+                  <div className="flex items-center gap-2">
+                    <Camera className="h-5 w-5" />
+                    <CardTitle className="text-lg">Cover Image</CardTitle>
+                  </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-6">
                   <div className="flex items-start space-x-4">
                     <div className="flex-shrink-0">
-                      <div className="w-32 h-24 border rounded-lg overflow-hidden bg-gray-50">
+                      <div className="w-40 h-32 border-2 border-purple-200 rounded-xl overflow-hidden bg-gray-50 shadow-md">
                         <img
                           src={formData.coverImage}
                           alt="Property cover"
@@ -1306,7 +1831,7 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
                       </div>
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm text-gray-600 break-all">
+                      <p className="text-sm text-gray-600 break-all bg-gray-50 rounded-lg p-3 border border-gray-200">
                         {formData.coverImage.startsWith('data:')
                           ? 'Uploaded image (base64)'
                           : formData.coverImage.length > 80
@@ -1328,22 +1853,22 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b sticky top-0 z-40">
+      {/* Header - Brand Styled */}
+      <header className="bg-gradient-to-r from-[#111827] to-[#1F2937] shadow-lg border-b border-white/10 sticky top-0 z-40">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <Button variant="ghost" onClick={onBack} className="mr-4">
+              <Button variant="ghost" onClick={onBack} className="mr-4 text-white hover:bg-white/10">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Properties
               </Button>
-              <h1 className="text-xl font-semibold text-gray-900">{mode === 'edit' ? 'Edit Property' : 'Add New Property'}</h1>
+              <h1 className="text-xl font-bold text-white">{mode === 'edit' ? 'Edit Property' : 'Add New Property'}</h1>
             </div>
 
             <div className="flex items-center space-x-4">
-              <div className="hidden md:flex items-center space-x-2">
-                <span className="text-sm text-gray-600">Step {currentStep} of {steps.length}</span>
-                <Progress value={(currentStep / steps.length) * 100} className="w-24 h-2" />
+              <div className="hidden md:flex items-center space-x-3">
+                <span className="text-sm font-medium text-white/80">Step {currentStep} of {steps.length}</span>
+                <Progress value={(currentStep / steps.length) * 100} className="w-32 h-2 bg-white/20" />
               </div>
             </div>
           </div>
@@ -1387,11 +1912,11 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
       <div className="p-4 lg:p-8">
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-4 gap-6">
-            {/* Left Sidebar Menu */}
+            {/* Left Sidebar Menu - Brand Styled */}
             <aside className="lg:col-span-1">
-              <Card>
+              <Card className="border-0 shadow-lg">
                 <CardContent className="p-4">
-                  <nav className="space-y-1">
+                  <nav className="space-y-2">
                     {steps.map((step) => (
                       <button
                         key={step.number}
@@ -1400,32 +1925,32 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
                             setCurrentStep(step.number);
                           }
                         }}
-                        className={`w-full flex items-start space-x-3 px-3 py-3 rounded-lg transition-colors text-left ${
+                        className={`w-full flex items-start space-x-3 px-4 py-3 rounded-xl transition-all text-left ${
                           currentStep === step.number
-                            ? 'bg-gray-900 text-white'
+                            ? 'bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-lg shadow-purple-500/25'
                             : currentStep > step.number
-                            ? 'bg-green-50 text-green-900 hover:bg-green-100'
-                            : 'hover:bg-gray-100 text-gray-700'
+                            ? 'bg-green-50 text-green-900 hover:bg-green-100 border border-green-200'
+                            : 'hover:bg-gray-100 text-gray-700 border border-transparent'
                         }`}
                       >
-                        <div className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium flex-shrink-0 mt-0.5 ${
+                        <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold flex-shrink-0 ${
                           currentStep === step.number
-                            ? 'bg-white text-gray-900'
+                            ? 'bg-white text-[#7C3AED]'
                             : currentStep > step.number
                             ? 'bg-green-500 text-white'
                             : 'bg-gray-200 text-gray-600'
                         }`}>
                           {currentStep > step.number ? (
-                            <Check className="h-3 w-3" />
+                            <Check className="h-4 w-4" />
                           ) : (
                             step.number
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{step.title}</p>
+                          <p className="text-sm font-semibold truncate">{step.title}</p>
                           <p className={`text-xs mt-0.5 ${
                             currentStep === step.number
-                              ? 'text-gray-300'
+                              ? 'text-purple-100'
                               : currentStep > step.number
                               ? 'text-green-700'
                               : 'text-gray-500'
@@ -1452,23 +1977,24 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
                 </CardContent>
               </Card>
 
-              {/* Navigation Buttons */}
-              <div className="flex justify-between mt-6">
+              {/* Navigation Buttons - Brand Styled */}
+              <div className="flex justify-between mt-6 pt-6 border-t border-gray-200">
                 <Button
                   variant="outline"
                   onClick={handlePrevious}
                   disabled={currentStep === 1}
+                  className="border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50"
                 >
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Previous
                 </Button>
 
-                <div className="flex space-x-4">
+                <div className="flex space-x-3">
                   {currentStep === steps.length ? (
                     <Button
                       onClick={handleSubmit}
                       disabled={isSubmitting}
-                      className="bg-gradient-to-r from-gray-900 to-black hover:from-black hover:to-gray-900 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isSubmitting ? (
                         <>
@@ -1483,8 +2009,11 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
                       )}
                     </Button>
                   ) : (
-                    <Button onClick={handleNext}>
-                      Next
+                    <Button
+                      onClick={handleNext}
+                      className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md"
+                    >
+                      Continue
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </Button>
                   )}
@@ -1591,6 +2120,7 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
                 setManagerFormErrors({});
               }}
               disabled={isCreatingManager}
+              className="border-gray-300 text-gray-700 hover:bg-gray-100"
             >
               Cancel
             </Button>
@@ -1598,7 +2128,7 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
               type="button"
               onClick={handleCreateManager}
               disabled={isCreatingManager}
-              className="bg-gradient-to-r from-gray-900 to-black hover:from-black hover:to-gray-900 text-white"
+              className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25"
             >
               {isCreatingManager ? (
                 <>
@@ -1618,4 +2148,5 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
     </div>
   );
 }
+
 

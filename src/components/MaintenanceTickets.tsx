@@ -9,8 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Textarea } from "./ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Wrench, Clock, CheckCircle, AlertTriangle, Plus, Search, Filter, File as FileIcon, Upload, X, Loader2, User, Building2, Home } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { Calendar as CalendarComponent } from "./ui/calendar";
+import { Wrench, Clock, CheckCircle, AlertTriangle, Plus, Search, Filter, File as FileIcon, Upload, X, Loader2, User, Building2, Home, Calendar as CalendarIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { cn } from '../lib/utils';
 import {
   getMaintenanceRequests,
   getMaintenanceRequest,
@@ -520,16 +524,26 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900">Maintenance Tickets</h2>
-          <p className="text-gray-600 mt-1">Manage maintenance requests and work orders</p>
+      {/* Header */}
+      <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] rounded-xl p-6 shadow-lg">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                <Wrench className="h-7 w-7 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold text-white">Maintenance Tickets</h1>
+            </div>
+            <p className="text-purple-100 text-lg">Manage maintenance requests and work orders</p>
+          </div>
+          <Button
+            onClick={() => setShowAddTicket(true)}
+            className="bg-white text-[#7C3AED] hover:bg-purple-50 shadow-md hover:shadow-lg transition-all duration-200"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Create Ticket
+          </Button>
         </div>
-
-        <Button onClick={() => setShowAddTicket(true)} className="bg-gray-900 hover:bg-gray-800">
-          <Plus className="h-4 w-4 mr-2" />
-          Create Ticket
-        </Button>
       </div>
 
       {/* Create Ticket Dialog */}
@@ -537,29 +551,31 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
         setShowAddTicket(open);
         if (!open) resetForm();
       }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Create Maintenance Ticket</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto border-0 shadow-2xl">
+          <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] -m-6 mb-0 p-6 rounded-t-lg">
+            <DialogTitle className="text-2xl text-white">Create Maintenance Ticket</DialogTitle>
+            <DialogDescription className="text-purple-100">
               Create a new maintenance request for a property or tenant
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-6 py-4">
+          <div className="grid gap-6 py-4 px-6">
             {/* Property & Unit Selection */}
             <div className="space-y-4">
-              <h3 className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                Location
+              <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                <div className="w-8 h-8 bg-[#7C3AED]/10 rounded-lg flex items-center justify-center">
+                  <Building2 className="h-4 w-4 text-[#7C3AED]" />
+                </div>
+                Location Details
               </h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="property">Property *</Label>
+                  <Label htmlFor="property" className="text-sm font-semibold text-gray-700">Property *</Label>
                   <Select
                     value={newTicket.propertyId}
                     onValueChange={(value) => setNewTicket(prev => ({ ...prev, propertyId: value }))}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                       <SelectValue placeholder="Select property" />
                     </SelectTrigger>
                     <SelectContent>
@@ -572,13 +588,13 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
                   </Select>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="unit">Unit (Optional)</Label>
+                  <Label htmlFor="unit" className="text-sm font-semibold text-gray-700">Unit (Optional)</Label>
                   <Select
                     value={newTicket.unitId || 'none'}
                     onValueChange={(value) => setNewTicket(prev => ({ ...prev, unitId: value === 'none' ? '' : value }))}
                     disabled={!newTicket.propertyId}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                       <SelectValue placeholder="Select unit" />
                     </SelectTrigger>
                     <SelectContent>
@@ -596,18 +612,20 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
 
             {/* Tenant Selection (Optional) */}
             <div className="space-y-4">
-              <h3 className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                <User className="h-4 w-4" />
+              <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                <div className="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                  <User className="h-4 w-4 text-blue-600" />
+                </div>
                 Tenant (Optional)
               </h3>
               <div className="grid gap-2">
-                <Label htmlFor="tenant">Select Tenant</Label>
+                <Label htmlFor="tenant" className="text-sm font-semibold text-gray-700">Select Tenant</Label>
                 <Select
                   value={newTicket.tenantId || 'none'}
                   onValueChange={(value) => setNewTicket(prev => ({ ...prev, tenantId: value === 'none' ? '' : value }))}
                   disabled={!newTicket.propertyId}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                     <SelectValue placeholder="Select tenant (optional)" />
                   </SelectTrigger>
                   <SelectContent>
@@ -627,29 +645,33 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
 
             {/* Issue Details */}
             <div className="space-y-4">
-              <h3 className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                <Wrench className="h-4 w-4" />
+              <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                <div className="w-8 h-8 bg-amber-500/10 rounded-lg flex items-center justify-center">
+                  <Wrench className="h-4 w-4 text-amber-600" />
+                </div>
                 Issue Details
               </h3>
               <div className="grid gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="title">Issue Title *</Label>
+                  <Label htmlFor="title" className="text-sm font-semibold text-gray-700">Issue Title *</Label>
                   <Input
                     id="title"
                     placeholder="Brief description of the issue"
                     value={newTicket.title}
                     onChange={(e) => setNewTicket(prev => ({ ...prev, title: e.target.value }))}
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="description">Description *</Label>
+                  <Label htmlFor="description" className="text-sm font-semibold text-gray-700">Description *</Label>
                   <Textarea
                     id="description"
                     placeholder="Detailed description of the maintenance issue..."
                     rows={4}
                     value={newTicket.description}
                     onChange={(e) => setNewTicket(prev => ({ ...prev, description: e.target.value }))}
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED] resize-none"
                   />
                 </div>
 
@@ -716,13 +738,72 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="preferredTime">Preferred Schedule (Optional)</Label>
-                  <Input
-                    id="preferredTime"
-                    type="datetime-local"
-                    value={newTicket.preferredTime}
-                    onChange={(e) => setNewTicket(prev => ({ ...prev, preferredTime: e.target.value }))}
-                  />
+                  <Label htmlFor="preferredTime" className="text-sm font-semibold text-gray-700">Preferred Schedule (Optional)</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal border-gray-300 hover:border-[#7C3AED] focus:border-[#7C3AED] focus:ring-[#7C3AED]",
+                          !newTicket.preferredTime && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4 text-[#7C3AED]" />
+                        {newTicket.preferredTime
+                          ? format(new Date(newTicket.preferredTime), "PPP 'at' p")
+                          : <span>Pick a date and time</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 rounded-xl shadow-xl" align="start">
+                      {/* Calendar Header */}
+                      <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] px-4 py-3 rounded-t-xl">
+                        <p className="text-white font-semibold text-sm">Select Preferred Date & Time</p>
+                      </div>
+                      {/* Calendar Body */}
+                      <div className="p-3 bg-white">
+                        <CalendarComponent
+                          mode="single"
+                          selected={newTicket.preferredTime ? new Date(newTicket.preferredTime) : undefined}
+                          onSelect={(date) => {
+                            if (date) {
+                              // Preserve existing time or set to 9:00 AM if no time exists
+                              const existingTime = newTicket.preferredTime
+                                ? new Date(newTicket.preferredTime).toTimeString().slice(0, 5)
+                                : '09:00';
+                              const dateStr = format(date, 'yyyy-MM-dd');
+                              setNewTicket(prev => ({ ...prev, preferredTime: `${dateStr}T${existingTime}` }));
+                            } else {
+                              setNewTicket(prev => ({ ...prev, preferredTime: '' }));
+                            }
+                          }}
+                          initialFocus
+                          classNames={{
+                            caption_label: "text-gray-900 font-semibold",
+                            nav_button: "border-gray-300 hover:bg-purple-50 hover:border-[#7C3AED] hover:text-[#7C3AED]",
+                            day_selected: "bg-[#7C3AED] text-white font-bold shadow-md hover:bg-[#6D28D9]",
+                            day_today: "bg-purple-100 text-[#7C3AED] font-bold border-2 border-[#7C3AED]",
+                            day: "hover:bg-[#7C3AED]/10 hover:text-[#7C3AED]",
+                          }}
+                        />
+                        {/* Time Picker */}
+                        <div className="border-t border-gray-200 pt-3 mt-3">
+                          <Label htmlFor="time" className="text-xs font-semibold text-gray-700 mb-2 block">Time</Label>
+                          <Input
+                            id="time"
+                            type="time"
+                            value={newTicket.preferredTime ? new Date(newTicket.preferredTime).toTimeString().slice(0, 5) : '09:00'}
+                            onChange={(e) => {
+                              const dateStr = newTicket.preferredTime
+                                ? format(new Date(newTicket.preferredTime), 'yyyy-MM-dd')
+                                : format(new Date(), 'yyyy-MM-dd');
+                              setNewTicket(prev => ({ ...prev, preferredTime: `${dateStr}T${e.target.value}` }));
+                            }}
+                            className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                          />
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
             </div>
@@ -784,7 +865,7 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="border-t pt-6 mt-6 px-6">
             <Button
               variant="outline"
               onClick={() => {
@@ -792,13 +873,14 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
                 resetForm();
               }}
               disabled={isSubmitting}
+              className="border-gray-300"
             >
               Cancel
             </Button>
             <Button
               onClick={handleCreateTicket}
               disabled={isSubmitting || uploadingFiles}
-              className="bg-gray-900 hover:bg-gray-800"
+              className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md"
             >
               {isSubmitting || uploadingFiles ? (
                 <>
@@ -817,77 +899,101 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
       </Dialog>
 
       {/* Tickets Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Open Tickets</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-500" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Open Tickets Card */}
+        <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-red-500 to-red-600 opacity-10"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 bg-red-500/20 rounded-xl flex items-center justify-center">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+              </div>
+              <CardTitle className="text-sm font-semibold text-gray-700">Open Tickets</CardTitle>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{tickets.filter(t => t.status === 'Open').length}</div>
-            <p className="text-xs text-muted-foreground">
-              Awaiting assignment
-            </p>
+          <CardContent className="relative z-10">
+            <div className="text-3xl font-bold text-red-600">{tickets.filter(t => t.status === 'Open').length}</div>
+            <p className="text-xs text-gray-500 mt-1">Awaiting assignment</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-500" />
+        {/* In Progress Card */}
+        <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-500 to-amber-600 opacity-10"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 bg-amber-500/20 rounded-xl flex items-center justify-center">
+                <Clock className="h-5 w-5 text-amber-600" />
+              </div>
+              <CardTitle className="text-sm font-semibold text-gray-700">In Progress</CardTitle>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{tickets.filter(t => t.status === 'In Progress').length}</div>
-            <p className="text-xs text-muted-foreground">
-              Being worked on
-            </p>
+          <CardContent className="relative z-10">
+            <div className="text-3xl font-bold text-amber-600">{tickets.filter(t => t.status === 'In Progress').length}</div>
+            <p className="text-xs text-gray-500 mt-1">Being worked on</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">High Priority</CardTitle>
-            <Wrench className="h-4 w-4 text-red-500" />
+        {/* High Priority Card */}
+        <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#7C3AED] to-[#5B21B6] opacity-10"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center">
+                <Wrench className="h-5 w-5 text-[#7C3AED]" />
+              </div>
+              <CardTitle className="text-sm font-semibold text-gray-700">High Priority</CardTitle>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{tickets.filter(t => t.priority === 'High').length}</div>
-            <p className="text-xs text-muted-foreground">
-              Urgent issues
-            </p>
+          <CardContent className="relative z-10">
+            <div className="text-3xl font-bold text-[#7C3AED]">{tickets.filter(t => t.priority === 'High').length}</div>
+            <p className="text-xs text-gray-500 mt-1">Urgent issues</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-500" />
+        {/* Completed Card */}
+        <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-green-500 to-green-600 opacity-10"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              </div>
+              <CardTitle className="text-sm font-semibold text-gray-700">Completed</CardTitle>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold">{tickets.filter(t => t.status === 'Completed').length}</div>
-            <p className="text-xs text-muted-foreground">
-              This month
-            </p>
+          <CardContent className="relative z-10">
+            <div className="text-3xl font-bold text-green-600">{tickets.filter(t => t.status === 'Completed').length}</div>
+            <p className="text-xs text-gray-500 mt-1">This month</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Search and Filter Bar */}
-      <Card>
+      <Card className="border-gray-200 shadow-md">
+        <CardHeader className="border-b bg-gray-50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+              <Filter className="h-5 w-5 text-gray-700" />
+            </div>
+            <CardTitle className="text-lg text-gray-900">Search & Filters</CardTitle>
+          </div>
+        </CardHeader>
         <CardContent className="pt-6">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#7C3AED]" />
                 <Input
                   placeholder="Search by ticket ID, title, tenant, or unit..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                 />
               </div>
 
               <Select value={propertyFilter} onValueChange={setPropertyFilter}>
-                <SelectTrigger className="w-full md:w-48">
+                <SelectTrigger className="w-full md:w-48 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                   <SelectValue placeholder="All Properties" />
                 </SelectTrigger>
                 <SelectContent>
@@ -901,7 +1007,7 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
               </Select>
 
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full md:w-40">
+                <SelectTrigger className="w-full md:w-40 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -916,7 +1022,7 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
 
             <div className="flex flex-col md:flex-row gap-4">
               <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger className="w-full md:w-40">
+                <SelectTrigger className="w-full md:w-40 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                   <SelectValue placeholder="All Priorities" />
                 </SelectTrigger>
                 <SelectContent>
@@ -928,7 +1034,7 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
               </Select>
 
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-full md:w-48">
+                <SelectTrigger className="w-full md:w-48 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
                 <SelectContent>
@@ -951,7 +1057,7 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
                     setPropertyFilter('all');
                     setCategoryFilter('all');
                   }}
-                  className="w-full md:w-auto"
+                  className="w-full md:w-auto border-gray-300 hover:bg-purple-50 hover:text-[#7C3AED] hover:border-[#7C3AED]"
                 >
                   Clear Filters
                 </Button>
@@ -962,38 +1068,63 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
       </Card>
 
       <Tabs defaultValue="active" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="active">Active Tickets</TabsTrigger>
-          <TabsTrigger value="completed">Completed</TabsTrigger>
-          <TabsTrigger value="all">All Tickets</TabsTrigger>
+        <TabsList className="bg-white border border-gray-200">
+          <TabsTrigger
+            value="active"
+            className="data-[state=active]:bg-[#7C3AED] data-[state=active]:text-white"
+          >
+            Active Tickets
+          </TabsTrigger>
+          <TabsTrigger
+            value="completed"
+            className="data-[state=active]:bg-[#7C3AED] data-[state=active]:text-white"
+          >
+            Completed
+          </TabsTrigger>
+          <TabsTrigger
+            value="all"
+            className="data-[state=active]:bg-[#7C3AED] data-[state=active]:text-white"
+          >
+            All Tickets
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="active" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Active Maintenance Tickets ({activeTickets.length})</CardTitle>
-              <CardDescription>
-                Tickets that need attention or are currently being worked on
-              </CardDescription>
+          <Card className="border-gray-200 shadow-md">
+            <CardHeader className="border-b bg-gray-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <AlertTriangle className="h-5 w-5 text-gray-700" />
+                </div>
+                <div>
+                  <CardTitle className="text-gray-900">Active Maintenance Tickets ({activeTickets.length})</CardTitle>
+                  <CardDescription className="text-gray-600">
+                    Tickets that need attention or are currently being worked on
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-auto">
+              <div className="overflow-auto rounded-xl border-0">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Ticket ID</TableHead>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Tenant/Unit</TableHead>
-                      <TableHead>Priority</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead>Actions</TableHead>
+                    <TableRow className="bg-[#111827] hover:bg-[#111827]">
+                      <TableHead className="text-white font-semibold">Ticket ID</TableHead>
+                      <TableHead className="text-white font-semibold">Title</TableHead>
+                      <TableHead className="text-white font-semibold">Tenant/Unit</TableHead>
+                      <TableHead className="text-white font-semibold">Priority</TableHead>
+                      <TableHead className="text-white font-semibold">Category</TableHead>
+                      <TableHead className="text-white font-semibold">Status</TableHead>
+                      <TableHead className="text-white font-semibold">Created</TableHead>
+                      <TableHead className="text-white font-semibold">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {activeTickets.map((ticket) => (
-                      <TableRow key={ticket.id} className="cursor-pointer hover:bg-gray-50">
+                    {activeTickets.map((ticket, index) => (
+                      <TableRow
+                        key={ticket.id}
+                        className={`cursor-pointer hover:bg-[#7C3AED]/5 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}
+                      >
                         <TableCell className="font-mono text-sm">{ticket.ticketNumber || ticket.id}</TableCell>
                         <TableCell>
                           <div>
@@ -1048,30 +1179,40 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
         </TabsContent>
 
         <TabsContent value="completed" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Completed Tickets ({completedTickets.length})</CardTitle>
-              <CardDescription>
-                Recently completed maintenance work
-              </CardDescription>
+          <Card className="border-gray-200 shadow-md">
+            <CardHeader className="border-b bg-gray-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <CheckCircle className="h-5 w-5 text-gray-700" />
+                </div>
+                <div>
+                  <CardTitle className="text-gray-900">Completed Tickets ({completedTickets.length})</CardTitle>
+                  <CardDescription className="text-gray-600">
+                    Recently completed maintenance work
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-auto">
+              <div className="overflow-auto rounded-xl border-0">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Ticket ID</TableHead>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Tenant/Unit</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Assigned To</TableHead>
-                      <TableHead>Completed</TableHead>
-                      <TableHead>Actions</TableHead>
+                    <TableRow className="bg-[#111827] hover:bg-[#111827]">
+                      <TableHead className="text-white font-semibold">Ticket ID</TableHead>
+                      <TableHead className="text-white font-semibold">Title</TableHead>
+                      <TableHead className="text-white font-semibold">Tenant/Unit</TableHead>
+                      <TableHead className="text-white font-semibold">Category</TableHead>
+                      <TableHead className="text-white font-semibold">Assigned To</TableHead>
+                      <TableHead className="text-white font-semibold">Completed</TableHead>
+                      <TableHead className="text-white font-semibold">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {completedTickets.map((ticket) => (
-                      <TableRow key={ticket.id}>
+                    {completedTickets.map((ticket, index) => (
+                      <TableRow
+                        key={ticket.id}
+                        className={`hover:bg-[#7C3AED]/5 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}
+                      >
                         <TableCell className="font-mono text-sm">{ticket.ticketNumber || ticket.id}</TableCell>
                         <TableCell className="font-medium">{ticket.title}</TableCell>
                         <TableCell>
@@ -1113,30 +1254,40 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
         </TabsContent>
 
         <TabsContent value="all" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>All Maintenance Tickets ({filteredTickets.length})</CardTitle>
-              <CardDescription>
-                Complete history of all maintenance requests
-              </CardDescription>
+          <Card className="border-gray-200 shadow-md">
+            <CardHeader className="border-b bg-gray-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <Wrench className="h-5 w-5 text-gray-700" />
+                </div>
+                <div>
+                  <CardTitle className="text-gray-900">All Maintenance Tickets ({filteredTickets.length})</CardTitle>
+                  <CardDescription className="text-gray-600">
+                    Complete history of all maintenance requests
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-auto">
+              <div className="overflow-auto rounded-xl border-0">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Ticket ID</TableHead>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Tenant/Unit</TableHead>
-                      <TableHead>Priority</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead>Actions</TableHead>
+                    <TableRow className="bg-[#111827] hover:bg-[#111827]">
+                      <TableHead className="text-white font-semibold">Ticket ID</TableHead>
+                      <TableHead className="text-white font-semibold">Title</TableHead>
+                      <TableHead className="text-white font-semibold">Tenant/Unit</TableHead>
+                      <TableHead className="text-white font-semibold">Priority</TableHead>
+                      <TableHead className="text-white font-semibold">Status</TableHead>
+                      <TableHead className="text-white font-semibold">Created</TableHead>
+                      <TableHead className="text-white font-semibold">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredTickets.map((ticket) => (
-                      <TableRow key={ticket.id}>
+                    {filteredTickets.map((ticket, index) => (
+                      <TableRow
+                        key={ticket.id}
+                        className={`hover:bg-[#7C3AED]/5 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}
+                      >
                         <TableCell className="font-mono text-sm">{ticket.ticketNumber || ticket.id}</TableCell>
                         <TableCell className="font-medium">{ticket.title}</TableCell>
                         <TableCell>

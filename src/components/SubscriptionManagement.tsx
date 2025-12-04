@@ -80,39 +80,46 @@ export function SubscriptionManagement({
     <>
       <div className="space-y-6">
         {/* Current Plan */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Current Plan</CardTitle>
-            <CardDescription>
-              Manage your subscription and billing
-            </CardDescription>
+        <Card className="border-gray-200 shadow-md">
+          <CardHeader className="border-b bg-gray-50">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                <Calendar className="h-5 w-5 text-gray-700" />
+              </div>
+              <div>
+                <CardTitle className="text-gray-900">Current Plan</CardTitle>
+                <CardDescription className="text-gray-600">
+                  Manage your subscription and billing
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-start justify-between p-6 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+          <CardContent className="pt-6">
+            <div className="flex items-start justify-between p-6 bg-gradient-to-br from-purple-50 to-purple-100/50 rounded-xl border border-purple-200 shadow-sm">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
-                  <h3 className="text-xl font-semibold text-gray-900">{subscriptionData.plan} Plan</h3>
-                  <Badge className={subscriptionData.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}>
+                  <h3 className="text-xl font-bold text-gray-900">{subscriptionData.plan} Plan</h3>
+                  <Badge className={subscriptionData.status === 'cancelled' ? 'bg-red-100 text-red-700 border-red-200' : 'bg-green-100 text-green-700 border-green-200'}>
                     {subscriptionData.status === 'cancelled' ? 'Cancelled' : 'Active'}
                   </Badge>
                 </div>
-                <p className="text-gray-600 text-sm mb-4">
+                <p className="text-gray-700 text-sm mb-4 font-medium">
                   {formatMoney(subscriptionData.amount)} • Billed {subscriptionData.billingCycle}
                 </p>
                 <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Calendar className="h-4 w-4" />
-                  Next billing date: {subscriptionData.nextBillingDate}
+                  <Calendar className="h-4 w-4 text-[#7C3AED]" />
+                  <span className="font-medium">Next billing date:</span> {subscriptionData.nextBillingDate}
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                <Button onClick={() => setShowChangePlanDialog(true)} disabled={subscriptionData.status === 'cancelled'}>
+                <Button onClick={() => setShowChangePlanDialog(true)} disabled={subscriptionData.status === 'cancelled'} className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md">
                   Change Plan
                 </Button>
-                <Button variant="outline" onClick={() => setShowChangeBillingDialog(true)} disabled={subscriptionData.status === 'cancelled'}>
+                <Button variant="outline" onClick={() => setShowChangeBillingDialog(true)} disabled={subscriptionData.status === 'cancelled'} className="border-gray-300 hover:border-[#7C3AED] hover:text-[#7C3AED]">
                   Change Billing
                 </Button>
                 {subscriptionData.status !== 'cancelled' && (
-                  <Button variant="destructive" onClick={() => setShowCancelDialog(true)}>
+                  <Button variant="destructive" onClick={() => setShowCancelDialog(true)} className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800">
                     Cancel Subscription
                   </Button>
                 )}
@@ -178,14 +185,21 @@ export function SubscriptionManagement({
         </Card>
 
         {/* Available Plans */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Available Plans</CardTitle>
-            <CardDescription>
-              Compare plans and features
-            </CardDescription>
+        <Card className="border-gray-200 shadow-md">
+          <CardHeader className="border-b bg-gray-50">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                <CheckCircle className="h-5 w-5 text-gray-700" />
+              </div>
+              <div>
+                <CardTitle className="text-gray-900">Available Plans</CardTitle>
+                <CardDescription className="text-gray-600">
+                  Compare plans and features
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             {loadingPlans ? (
               <div className="text-center py-8 text-gray-500">Loading plans...</div>
             ) : (
@@ -195,18 +209,18 @@ export function SubscriptionManagement({
                   return (
                     <div
                       key={plan.id}
-                      className={`p-4 border rounded-lg relative ${
-                        isCurrent ? 'border-2 border-blue-500 bg-blue-50' : ''
+                      className={`p-6 border-2 rounded-xl relative transition-all hover:shadow-lg ${
+                        isCurrent ? 'border-purple-500 bg-gradient-to-br from-purple-50 to-purple-100/50 shadow-md' : 'border-gray-200 hover:border-purple-300'
                       }`}
                     >
                       {isCurrent && (
-                        <Badge className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-blue-600">
+                        <Badge className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-md">
                           Current
                         </Badge>
                       )}
-                      <h4 className="font-semibold mb-2">{plan.name}</h4>
+                      <h4 className="font-bold text-lg mb-2 text-gray-900">{plan.name}</h4>
                       <p className="text-gray-600 text-sm mb-4">{plan.description}</p>
-                      <p className="text-gray-900 text-2xl font-bold mb-4">
+                      <p className="text-gray-900 text-3xl font-bold mb-4">
                         {new Intl.NumberFormat('en-US', {
                           style: 'currency',
                           currency: plan.currency || currencyCode,
@@ -214,28 +228,28 @@ export function SubscriptionManagement({
                         }).format(plan.monthlyPrice)}
                         <span className="text-sm font-normal text-gray-600">/mo</span>
                       </p>
-                      <ul className="space-y-2 text-sm text-gray-600 mb-4">
+                      <ul className="space-y-3 text-sm text-gray-700 mb-6">
                         <li className="flex items-center gap-2">
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                          Up to {plan.propertyLimit} properties
+                          <CheckCircle className="h-4 w-4 text-[#7C3AED] flex-shrink-0" />
+                          <span className="font-medium">Up to {plan.propertyLimit} properties</span>
                         </li>
                         {plan.unitLimit && (
                           <li className="flex items-center gap-2">
-                            <CheckCircle className="h-4 w-4 text-green-600" />
-                            {plan.unitLimit} units
+                            <CheckCircle className="h-4 w-4 text-[#7C3AED] flex-shrink-0" />
+                            <span className="font-medium">{plan.unitLimit} units</span>
                           </li>
                         )}
                         <li className="flex items-center gap-2">
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                          {plan.userLimit} users
+                          <CheckCircle className="h-4 w-4 text-[#7C3AED] flex-shrink-0" />
+                          <span className="font-medium">{plan.userLimit} users</span>
                         </li>
                         <li className="flex items-center gap-2">
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                          {plan.storageLimit} MB storage
+                          <CheckCircle className="h-4 w-4 text-[#7C3AED] flex-shrink-0" />
+                          <span className="font-medium">{plan.storageLimit} MB storage</span>
                         </li>
                       </ul>
                       <Button
-                        className="w-full"
+                        className={`w-full ${isCurrent ? 'bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white' : 'bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md'}`}
                         disabled={isCurrent || subscriptionData.status === 'cancelled'}
                         onClick={() => {
                           setSelectedPlan(plan);
@@ -255,15 +269,15 @@ export function SubscriptionManagement({
 
       {/* Change Plan Dialog */}
       <Dialog open={showChangePlanDialog} onOpenChange={setShowChangePlanDialog}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Upgrade Subscription Plan</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto p-0 border-0 shadow-2xl rounded-xl">
+          <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-xl">
+            <DialogTitle className="text-white text-2xl">Upgrade Subscription Plan</DialogTitle>
+            <DialogDescription className="text-purple-100">
               Select a higher plan to upgrade your account
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 p-6">
             {loadingPlans ? (
               <p className="text-center py-4">Loading plans...</p>
             ) : (() => {
@@ -294,18 +308,18 @@ export function SubscriptionManagement({
                 <div className="space-y-3">
                   {/* Show current plan (highlighted as active) */}
                   {currentPlan && (
-                    <div className="p-4 border-2 border-green-500 rounded-lg bg-green-50">
+                    <div className="p-4 border-2 border-green-500 rounded-xl bg-gradient-to-br from-green-50 to-green-100/50 shadow-sm">
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="flex items-center gap-2">
-                            <h4 className="font-semibold text-gray-900">
+                            <h4 className="font-bold text-gray-900">
                               {currentPlan.name}
                             </h4>
-                            <Badge className="bg-green-600 text-white text-xs">
+                            <Badge className="bg-gradient-to-r from-green-600 to-green-700 text-white text-xs shadow-sm">
                               Active Plan
                             </Badge>
                           </div>
-                          <p className="text-sm text-gray-700 mt-1">
+                          <p className="text-sm text-gray-700 mt-1 font-medium">
                             {currentPlan.projectLimit || currentPlan.propertyLimit}{' '}
                             {currentPlan.projectLimit ? 'projects' : 'properties'} •{' '}
                             {currentPlan.userLimit} users •{' '}
@@ -313,10 +327,10 @@ export function SubscriptionManagement({
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="text-lg font-semibold text-gray-900">
+                          <p className="text-lg font-bold text-gray-900">
                             {formatMoney(currentPlan.monthlyPrice)}
                           </p>
-                          <p className="text-sm text-gray-600">/month</p>
+                          <p className="text-sm text-gray-600 font-medium">/month</p>
                         </div>
                       </div>
                     </div>
@@ -325,17 +339,17 @@ export function SubscriptionManagement({
                   {/* Show upgrade plans */}
                   {upgradePlans.length === 0 ? (
                     <div className="text-center py-8">
-                      <p className="text-gray-600 font-medium">
+                      <p className="text-gray-700 font-semibold text-lg">
                         You're on the highest plan! 🎉
                       </p>
-                      <p className="text-sm text-gray-500 mt-2">
+                      <p className="text-sm text-gray-600 mt-2">
                         There are no higher plans available to upgrade to.
                       </p>
                     </div>
                   ) : (
                     <>
                       <div className="pt-2">
-                        <p className="text-sm font-medium text-gray-700 mb-3">
+                        <p className="text-sm font-bold text-gray-900 mb-3">
                           Available Upgrades
                         </p>
                       </div>
@@ -345,10 +359,10 @@ export function SubscriptionManagement({
                           return (
                             <div
                               key={plan.id}
-                              className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                              className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
                                 isSelected
-                                  ? 'border-blue-500 bg-blue-50'
-                                  : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                                  ? 'border-[#7C3AED] bg-gradient-to-br from-purple-50 to-purple-100/50 shadow-md'
+                                  : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50/30'
                               }`}
                               onClick={() => setSelectedPlan(plan)}
                             >
@@ -393,11 +407,11 @@ export function SubscriptionManagement({
             })()}
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowChangePlanDialog(false)}>
+          <DialogFooter className="p-6 border-t">
+            <Button variant="outline" onClick={() => setShowChangePlanDialog(false)} className="border-gray-300">
               Cancel
             </Button>
-            <Button onClick={onChangePlan} disabled={!selectedPlan || isProcessing}>
+            <Button onClick={onChangePlan} disabled={!selectedPlan || isProcessing} className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md">
               {isProcessing ? 'Processing...' : 'Upgrade Plan'}
             </Button>
           </DialogFooter>
@@ -406,41 +420,41 @@ export function SubscriptionManagement({
 
       {/* Change Billing Cycle Dialog */}
       <Dialog open={showChangeBillingDialog} onOpenChange={setShowChangeBillingDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Change Billing Cycle</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="border-0 shadow-2xl">
+          <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] -m-6 mb-0 p-6 rounded-t-lg">
+            <DialogTitle className="text-white text-2xl">Change Billing Cycle</DialogTitle>
+            <DialogDescription className="text-purple-100">
               Switch between monthly and annual billing
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 p-6">
             <div
-              className={`p-4 border rounded-lg cursor-pointer ${
-                newBillingCycle === 'monthly' ? 'border-blue-500 bg-blue-50' : ''
+              className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
+                newBillingCycle === 'monthly' ? 'border-[#7C3AED] bg-gradient-to-br from-purple-50 to-purple-100/50 shadow-md' : 'border-gray-200 hover:border-purple-300'
               }`}
               onClick={() => setNewBillingCycle('monthly')}
             >
-              <h4 className="font-semibold">Monthly Billing</h4>
+              <h4 className="font-bold text-gray-900">Monthly Billing</h4>
               <p className="text-sm text-gray-600">Pay month-to-month</p>
             </div>
 
             <div
-              className={`p-4 border rounded-lg cursor-pointer ${
-                newBillingCycle === 'annual' ? 'border-blue-500 bg-blue-50' : ''
+              className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
+                newBillingCycle === 'annual' ? 'border-[#7C3AED] bg-gradient-to-br from-purple-50 to-purple-100/50 shadow-md' : 'border-gray-200 hover:border-purple-300'
               }`}
               onClick={() => setNewBillingCycle('annual')}
             >
-              <h4 className="font-semibold">Annual Billing</h4>
+              <h4 className="font-bold text-gray-900">Annual Billing</h4>
               <p className="text-sm text-gray-600">Save 20% with annual billing</p>
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowChangeBillingDialog(false)}>
+          <DialogFooter className="p-6 border-t">
+            <Button variant="outline" onClick={() => setShowChangeBillingDialog(false)} className="border-gray-300">
               Cancel
             </Button>
-            <Button onClick={onChangeBillingCycle} disabled={isProcessing}>
+            <Button onClick={onChangeBillingCycle} disabled={isProcessing} className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md">
               {isProcessing ? 'Processing...' : 'Change Billing Cycle'}
             </Button>
           </DialogFooter>
@@ -449,24 +463,26 @@ export function SubscriptionManagement({
 
       {/* Cancel Subscription Dialog */}
       <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="text-red-600">Cancel Subscription</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="border-0 shadow-2xl">
+          <DialogHeader className="bg-gradient-to-r from-red-600 to-red-700 -m-6 mb-0 p-6 rounded-t-lg">
+            <DialogTitle className="text-white text-2xl">Cancel Subscription</DialogTitle>
+            <DialogDescription className="text-red-100">
               This action cannot be undone
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 p-6">
             {/* Warning Box */}
-            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="p-4 bg-gradient-to-br from-red-50 to-red-100/50 border-2 border-red-300 rounded-xl shadow-sm">
               <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
+                <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="h-5 w-5 text-white" />
+                </div>
                 <div className="flex-1">
-                  <h4 className="font-semibold text-red-900 mb-2">
+                  <h4 className="font-bold text-red-900 mb-2">
                     Warning: Data Loss and Account Deactivation
                   </h4>
-                  <ul className="text-sm text-red-800 space-y-1">
+                  <ul className="text-sm text-red-800 space-y-1 font-medium">
                     <li>• Your account will be immediately deactivated</li>
                     <li>• All managers and tenants will lose access</li>
                     <li>• Your data may be permanently deleted after 30 days</li>
@@ -478,38 +494,41 @@ export function SubscriptionManagement({
 
             {/* Reason */}
             <div>
-              <Label htmlFor="cancel-reason">Reason for cancellation (optional)</Label>
+              <Label htmlFor="cancel-reason" className="text-sm font-semibold text-gray-700">Reason for cancellation (optional)</Label>
               <Textarea
                 id="cancel-reason"
                 placeholder="Help us improve by telling us why you're cancelling..."
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
                 rows={3}
+                className="resize-none border-gray-300 focus:border-red-500 focus:ring-red-500 mt-2"
               />
             </div>
 
             {/* Confirmation */}
             <div>
-              <Label htmlFor="cancel-confirmation">
-                Type <strong>CANCEL_SUBSCRIPTION</strong> to confirm
+              <Label htmlFor="cancel-confirmation" className="text-sm font-semibold text-gray-700">
+                Type <strong className="text-red-600">CANCEL_SUBSCRIPTION</strong> to confirm
               </Label>
               <Input
                 id="cancel-confirmation"
                 placeholder="CANCEL_SUBSCRIPTION"
                 value={cancelConfirmation}
                 onChange={(e) => setCancelConfirmation(e.target.value)}
+                className="border-gray-300 focus:border-red-500 focus:ring-red-500 mt-2"
               />
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCancelDialog(false)}>
+          <DialogFooter className="p-6 border-t">
+            <Button variant="outline" onClick={() => setShowCancelDialog(false)} className="border-gray-300">
               Keep Subscription
             </Button>
             <Button
               variant="destructive"
               onClick={onCancelSubscription}
               disabled={cancelConfirmation !== 'CANCEL_SUBSCRIPTION' || isProcessing}
+              className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-md"
             >
               {isProcessing ? 'Cancelling...' : 'Cancel Subscription'}
             </Button>

@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Calendar as CalendarComponent } from "./ui/calendar";
-import { Plus, Edit, Mail, Phone, Calendar as CalendarIcon, Copy, Search, Filter, KeyRound, UserMinus, Trash2, AlertTriangle, Check, MoreHorizontal, Eye, Home, Building2, User, DollarSign } from 'lucide-react';
+import { Plus, Edit, Mail, Phone, Calendar as CalendarIcon, Copy, Search, Filter, KeyRound, UserMinus, Trash2, AlertTriangle, Check, MoreHorizontal, Eye, Home, Building2, User, Users, DollarSign } from 'lucide-react';
 import { toast } from "sonner";
 import { createLease, getLeases, terminateLease } from '../lib/api/leases';
 import { getUnitsByProperty } from '../lib/api/units';
@@ -633,39 +633,59 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900">Tenant Management</h2>
-          <p className="text-gray-600 mt-1">Manage tenants, leases, and assignments</p>
-        </div>
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] rounded-xl p-6 shadow-lg">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+              <User className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-3xl font-bold text-white">Tenant Management</h2>
+              <p className="text-purple-100 mt-1">Manage tenants, leases, and assignments</p>
+            </div>
+          </div>
 
-        <Dialog open={showAddTenant} onOpenChange={setShowAddTenant}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Tenant
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Add New Tenant</DialogTitle>
-              <DialogDescription>
+          <Dialog open={showAddTenant} onOpenChange={setShowAddTenant}>
+            <DialogTrigger asChild>
+              <Button className="bg-white text-[#7C3AED] hover:bg-purple-50 shadow-md font-semibold">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Tenant
+              </Button>
+            </DialogTrigger>
+          </Dialog>
+        </div>
+      </div>
+
+      {/* Add Tenant Dialog */}
+      <Dialog open={showAddTenant} onOpenChange={setShowAddTenant}>
+        <DialogTrigger asChild>
+          <div style={{ display: 'none' }} />
+        </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto border-0 shadow-2xl">
+            <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] -m-6 mb-0 p-6 rounded-t-lg">
+              <DialogTitle className="text-2xl text-white">Add New Tenant</DialogTitle>
+              <DialogDescription className="text-purple-100">
                 Create a new tenant profile and assign them to a unit
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-6 py-4">
+            <div className="grid gap-6 py-6 px-1">
               {/* Section 1: Property & Unit Assignment */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 pb-2 border-b">
-                  <Building2 className="h-4 w-4 text-gray-600" />
-                  <h3 className="text-sm font-semibold text-gray-900">Property & Unit Assignment</h3>
-                  <span className="text-xs text-red-500">*Required</span>
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 pb-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#7C3AED] flex items-center justify-center">
+                    <Building2 className="h-4 w-4 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900">Property & Unit Assignment</h3>
+                    <p className="text-xs text-gray-600">Select property and available unit</p>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="property">Property *</Label>
+                    <Label htmlFor="property" className="text-sm font-semibold text-gray-700">Property *</Label>
                     <Select value={newTenant.propertyId} onValueChange={(value) => setNewTenant({...newTenant, propertyId: value})}>
-                      <SelectTrigger>
+                      <SelectTrigger className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                         <SelectValue placeholder="Select property" />
                       </SelectTrigger>
                       <SelectContent>
@@ -676,7 +696,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                     </Select>
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="unitId">Unit/Apartment *</Label>
+                    <Label htmlFor="unitId" className="text-sm font-semibold text-gray-700">Unit/Apartment *</Label>
                     <Select
                       value={newTenant.unitId}
                       onValueChange={(v) => {
@@ -692,7 +712,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                       }}
                       disabled={!newTenant.propertyId || propertyUnits.length === 0}
                     >
-                      <SelectTrigger id="unitId">
+                      <SelectTrigger id="unitId" className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                         <SelectValue placeholder={
                           !newTenant.propertyId
                             ? "Select property first"
@@ -716,7 +736,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                       </SelectContent>
                     </Select>
                     {newTenant.propertyId && propertyUnits.length === 0 && (
-                      <p className="text-xs text-amber-600 flex items-center gap-1">
+                      <p className="text-xs text-amber-700 flex items-center gap-1 bg-amber-50 p-2 rounded border border-amber-200">
                         <AlertTriangle className="h-3 w-3" />
                         All units in this property are occupied
                       </p>
@@ -726,52 +746,64 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
               </div>
 
               {/* Section 2: Personal Information */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 pb-2 border-b">
-                  <User className="h-4 w-4 text-gray-600" />
-                  <h3 className="text-sm font-semibold text-gray-900">Personal Information</h3>
-                  <span className="text-xs text-red-500">*Required</span>
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 pb-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
+                    <User className="h-4 w-4 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900">Personal Information</h3>
+                    <p className="text-xs text-gray-600">Tenant contact details</p>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="name">Full Name *</Label>
+                    <Label htmlFor="name" className="text-sm font-semibold text-gray-700">Full Name *</Label>
                     <Input
                       id="name"
                       value={newTenant.name}
                       onChange={(e) => setNewTenant({...newTenant, name: e.target.value})}
                       placeholder="Sarah Johnson"
+                      className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="phone">Phone Number *</Label>
+                    <Label htmlFor="phone" className="text-sm font-semibold text-gray-700">Phone Number *</Label>
                     <Input
                       id="phone"
                       value={newTenant.phone}
                       onChange={(e) => setNewTenant({...newTenant, phone: e.target.value})}
                       placeholder="+234 (XXX) XXX-XXXX"
+                      className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                     />
                   </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="email">Email Address *</Label>
+                  <Label htmlFor="email" className="text-sm font-semibold text-gray-700">Email Address *</Label>
                   <Input
                     id="email"
                     type="email"
                     value={newTenant.email}
                     onChange={(e) => setNewTenant({...newTenant, email: e.target.value})}
                     placeholder="sarah@email.com"
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                 </div>
               </div>
 
               {/* Section 3: Financial Details */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 pb-2 border-b">
-                  <DollarSign className="h-4 w-4 text-gray-600" />
-                  <h3 className="text-sm font-semibold text-gray-900">Financial Details</h3>
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 pb-3">
+                  <div className="w-8 h-8 rounded-lg bg-green-500 flex items-center justify-center">
+                    <DollarSign className="h-4 w-4 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900">Financial Details</h3>
+                    <p className="text-xs text-gray-600">Rent and payment information</p>
+                  </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="rent">{selectedUnitRentFrequency === 'annual' ? 'Annual Rent' : 'Monthly Rent'}</Label>
+                  <Label htmlFor="rent" className="text-sm font-semibold text-gray-700">{selectedUnitRentFrequency === 'annual' ? 'Annual Rent' : 'Monthly Rent'}</Label>
                   <Input
                     id="rent"
                     type="number"
@@ -779,10 +811,10 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                     onChange={(e) => setNewTenant({...newTenant, rent: e.target.value})}
                     placeholder="Auto-populated from unit"
                     disabled={!!newTenant.rent}
-                    className={newTenant.rent ? "bg-gray-50 cursor-not-allowed" : ""}
+                    className={`border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED] ${newTenant.rent ? "bg-gray-50 cursor-not-allowed" : ""}`}
                   />
                   {newTenant.rent && (
-                    <p className="text-xs text-blue-600 flex items-center gap-1">
+                    <p className="text-xs text-green-700 flex items-center gap-1 bg-green-50 p-2 rounded border border-green-200">
                       <Check className="h-3 w-3" />
                       Auto-filled from unit's monthly rent
                     </p>
@@ -791,95 +823,89 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
               </div>
 
               {/* Section 4: Lease Information */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 pb-2 border-b">
-                  <CalendarIcon className="h-4 w-4 text-gray-600" />
-                  <h3 className="text-sm font-semibold text-gray-900">Lease Information</h3>
-                </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="occupancy">Occupancy Date</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !newTenant.occupancyDate && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {newTenant.occupancyDate ? format(new Date(newTenant.occupancyDate), "PPP") : <span>Pick a date</span>}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarComponent
-                          mode="single"
-                          selected={newTenant.occupancyDate ? new Date(newTenant.occupancyDate) : undefined}
-                          onSelect={(date) => setNewTenant({...newTenant, occupancyDate: date ? format(date, 'yyyy-MM-dd') : ''})}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 pb-3">
+                  <div className="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center">
+                    <CalendarIcon className="h-4 w-4 text-white" />
                   </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="leaseStart">Lease Start</Label>
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900">Lease Information</h3>
+                    <p className="text-xs text-gray-600">Lease period and dates</p>
+                  </div>
+                </div>
+                <div className="grid md:grid-cols-3 gap-4">
+                  {/* Lease Start - First */}
+                  <div className="space-y-2">
+                    <Label htmlFor="leaseStart" className="text-sm font-semibold text-gray-700">Lease Start *</Label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
                           className={cn(
-                            "w-full justify-start text-left font-normal",
+                            "w-full justify-start text-left font-normal border-gray-300 hover:border-[#7C3AED] focus:border-[#7C3AED] focus:ring-[#7C3AED]",
                             !newTenant.leaseStart && "text-muted-foreground"
                           )}
                         >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          <CalendarIcon className="mr-2 h-4 w-4 text-[#7C3AED]" />
                           {newTenant.leaseStart ? format(new Date(newTenant.leaseStart), "PPP") : <span>Pick a date</span>}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarComponent
-                          mode="single"
-                          selected={newTenant.leaseStart ? new Date(newTenant.leaseStart) : undefined}
-                          onSelect={(date) => {
-                            const newStartDate = date ? format(date, 'yyyy-MM-dd') : '';
-                            // If new start date is on or after current end date, clear the end date
-                            if (date && newTenant.leaseEnd) {
-                              const endDate = new Date(newTenant.leaseEnd);
-                              if (date >= endDate) {
-                                setNewTenant({...newTenant, leaseStart: newStartDate, leaseEnd: ''});
-                                toast.info('Lease End date has been cleared as it was before the new Start date');
-                                return;
+                      <PopoverContent className="w-auto p-0 bg-white border-gray-300 rounded-xl shadow-xl" align="start">
+                        {/* Calendar Header */}
+                        <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] px-4 py-3 rounded-t-xl">
+                          <p className="text-white font-semibold text-sm">Select Lease Start Date</p>
+                        </div>
+                        {/* Calendar Body */}
+                        <div className="p-3 bg-white">
+                          <CalendarComponent
+                            mode="single"
+                            selected={newTenant.leaseStart ? new Date(newTenant.leaseStart) : undefined}
+                            onSelect={(date) => {
+                              const newStartDate = date ? format(date, 'yyyy-MM-dd') : '';
+                              // If new start date is on or after current end date, clear the end date
+                              if (date && newTenant.leaseEnd) {
+                                const endDate = new Date(newTenant.leaseEnd);
+                                if (date >= endDate) {
+                                  setNewTenant({...newTenant, leaseStart: newStartDate, leaseEnd: ''});
+                                  toast.info('Lease End date has been cleared as it was before the new Start date');
+                                  return;
+                                }
                               }
-                            }
-                            setNewTenant({...newTenant, leaseStart: newStartDate});
-                          }}
-                          initialFocus
-                        />
+                              setNewTenant({...newTenant, leaseStart: newStartDate});
+                            }}
+                            initialFocus
+                            className="rounded-lg border-0"
+                            classNames={{
+                              months: "flex flex-col space-y-4",
+                              month: "space-y-4",
+                              caption: "flex justify-center pt-1 relative items-center mb-2",
+                              caption_label: "text-sm font-semibold text-gray-900",
+                              nav: "space-x-1 flex items-center",
+                              nav_button: "h-8 w-8 bg-transparent p-0 opacity-70 hover:opacity-100 border border-gray-300 rounded-lg hover:bg-purple-50 hover:border-[#7C3AED] hover:text-[#7C3AED] transition-colors",
+                              nav_button_previous: "absolute left-1",
+                              nav_button_next: "absolute right-1",
+                              table: "w-full border-collapse space-y-1",
+                              head_row: "flex",
+                              head_cell: "text-gray-600 rounded-md w-9 font-normal text-[0.8rem]",
+                              row: "flex w-full mt-2",
+                              cell: "text-center text-sm p-0 relative [&:has([aria-selected])]:bg-transparent first:[&:has([aria-selected])]:rounded-l-lg last:[&:has([aria-selected])]:rounded-r-lg focus-within:relative focus-within:z-20",
+                              day: "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-[#7C3AED]/10 hover:text-[#7C3AED] rounded-lg transition-colors",
+                              day_selected: "bg-[#7C3AED] text-white hover:bg-[#6D28D9] focus:bg-[#6D28D9] font-bold shadow-md",
+                              day_today: "bg-purple-100 text-[#7C3AED] font-bold border-2 border-[#7C3AED]",
+                              day_outside: "text-gray-400 opacity-50",
+                              day_disabled: "text-gray-400 opacity-50",
+                              day_range_middle: "aria-selected:bg-purple-100 aria-selected:text-[#7C3AED]",
+                              day_hidden: "invisible",
+                            }}
+                          />
+                        </div>
                       </PopoverContent>
                     </Popover>
                   </div>
-                  <div className="grid gap-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="leaseEnd">Lease End</Label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id="indefiniteLease"
-                          checked={isIndefiniteLease}
-                          onChange={(e) => {
-                            setIsIndefiniteLease(e.target.checked);
-                            if (e.target.checked) {
-                              setNewTenant({...newTenant, leaseEnd: ''});
-                            }
-                          }}
-                          className="h-4 w-4 rounded border-gray-300"
-                        />
-                        <Label htmlFor="indefiniteLease" className="text-sm font-normal text-gray-600 cursor-pointer">
-                          Indefinite Lease
-                        </Label>
-                      </div>
-                    </div>
+
+                  {/* Lease End - Second */}
+                  <div className="space-y-2">
+                    <Label htmlFor="leaseEnd" className="text-sm font-semibold text-gray-700">Lease End *</Label>
                     {isIndefiniteLease ? (
                       <div className="p-3 bg-gray-50 border rounded-md text-sm text-gray-600">
                         <p>This lease has no fixed end date. The tenant will remain until either party terminates the agreement.</p>
@@ -891,38 +917,68 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                             <Button
                               variant="outline"
                               className={cn(
-                                "w-full justify-start text-left font-normal",
+                                "w-full justify-start text-left font-normal border-gray-300 hover:border-[#7C3AED] focus:border-[#7C3AED] focus:ring-[#7C3AED]",
                                 !newTenant.leaseEnd && "text-muted-foreground"
                               )}
                             >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              <CalendarIcon className="mr-2 h-4 w-4 text-[#7C3AED]" />
                               {newTenant.leaseEnd ? format(new Date(newTenant.leaseEnd), "PPP") : <span>Pick a date</span>}
                             </Button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <CalendarComponent
-                              mode="single"
-                              selected={newTenant.leaseEnd ? new Date(newTenant.leaseEnd) : undefined}
-                              onSelect={(date) => {
-                                if (date && newTenant.leaseStart) {
-                                  const startDate = new Date(newTenant.leaseStart);
-                                  if (date <= startDate) {
-                                    toast.error('Lease End date must be after Lease Start date');
-                                    return;
+                          <PopoverContent className="w-auto p-0 bg-white border-gray-300 rounded-xl shadow-xl" align="start">
+                            {/* Calendar Header */}
+                            <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] px-4 py-3 rounded-t-xl">
+                              <p className="text-white font-semibold text-sm">Select Lease End Date</p>
+                            </div>
+                            {/* Calendar Body */}
+                            <div className="p-3 bg-white">
+                              <CalendarComponent
+                                mode="single"
+                                selected={newTenant.leaseEnd ? new Date(newTenant.leaseEnd) : undefined}
+                                onSelect={(date) => {
+                                  if (date && newTenant.leaseStart) {
+                                    const startDate = new Date(newTenant.leaseStart);
+                                    if (date <= startDate) {
+                                      toast.error('Lease End date must be after Lease Start date');
+                                      return;
+                                    }
                                   }
-                                }
-                                setNewTenant({...newTenant, leaseEnd: date ? format(date, 'yyyy-MM-dd') : ''});
-                              }}
-                              disabled={(date) => {
-                                // Disable dates on or before lease start date
-                                if (newTenant.leaseStart) {
-                                  const startDate = new Date(newTenant.leaseStart);
-                                  return date <= startDate;
-                                }
-                                return false;
-                              }}
-                              initialFocus
-                            />
+                                  setNewTenant({...newTenant, leaseEnd: date ? format(date, 'yyyy-MM-dd') : ''});
+                                }}
+                                disabled={(date) => {
+                                  // Disable dates on or before lease start date
+                                  if (newTenant.leaseStart) {
+                                    const startDate = new Date(newTenant.leaseStart);
+                                    return date <= startDate;
+                                  }
+                                  return false;
+                                }}
+                                initialFocus
+                                className="rounded-lg border-0"
+                                classNames={{
+                                  months: "flex flex-col space-y-4",
+                                  month: "space-y-4",
+                                  caption: "flex justify-center pt-1 relative items-center mb-2",
+                                  caption_label: "text-sm font-semibold text-gray-900",
+                                  nav: "space-x-1 flex items-center",
+                                  nav_button: "h-8 w-8 bg-transparent p-0 opacity-70 hover:opacity-100 border border-gray-300 rounded-lg hover:bg-purple-50 hover:border-[#7C3AED] hover:text-[#7C3AED] transition-colors",
+                                  nav_button_previous: "absolute left-1",
+                                  nav_button_next: "absolute right-1",
+                                  table: "w-full border-collapse space-y-1",
+                                  head_row: "flex",
+                                  head_cell: "text-gray-600 rounded-md w-9 font-normal text-[0.8rem]",
+                                  row: "flex w-full mt-2",
+                                  cell: "text-center text-sm p-0 relative [&:has([aria-selected])]:bg-transparent first:[&:has([aria-selected])]:rounded-l-lg last:[&:has([aria-selected])]:rounded-r-lg focus-within:relative focus-within:z-20",
+                                  day: "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-[#7C3AED]/10 hover:text-[#7C3AED] rounded-lg transition-colors",
+                                  day_selected: "bg-[#7C3AED] text-white hover:bg-[#6D28D9] focus:bg-[#6D28D9] font-bold shadow-md",
+                                  day_today: "bg-purple-100 text-[#7C3AED] font-bold border-2 border-[#7C3AED]",
+                                  day_outside: "text-gray-400 opacity-50",
+                                  day_disabled: "text-gray-400 opacity-50",
+                                  day_range_middle: "aria-selected:bg-purple-100 aria-selected:text-[#7C3AED]",
+                                  day_hidden: "invisible",
+                                }}
+                              />
+                            </div>
                           </PopoverContent>
                         </Popover>
                         {!newTenant.leaseStart && (
@@ -930,18 +986,98 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                         )}
                       </>
                     )}
+                    {/* Indefinite Lease Checkbox Below */}
+                    <div className="flex items-center gap-2 pt-1">
+                      <input
+                        type="checkbox"
+                        id="indefiniteLease"
+                        checked={isIndefiniteLease}
+                        onChange={(e) => {
+                          setIsIndefiniteLease(e.target.checked);
+                          if (e.target.checked) {
+                            setNewTenant({...newTenant, leaseEnd: ''});
+                          }
+                        }}
+                        className="h-4 w-4 rounded border-gray-300 text-[#7C3AED] focus:ring-[#7C3AED]"
+                      />
+                      <Label htmlFor="indefiniteLease" className="text-xs font-normal text-gray-600 cursor-pointer">
+                        Indefinite Lease
+                      </Label>
+                    </div>
+                  </div>
+
+                  {/* Occupancy Date - Third */}
+                  <div className="space-y-2">
+                    <Label htmlFor="occupancy" className="text-sm font-semibold text-gray-700">Occupancy Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal border-gray-300 hover:border-[#7C3AED] focus:border-[#7C3AED] focus:ring-[#7C3AED]",
+                            !newTenant.occupancyDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4 text-[#7C3AED]" />
+                          {newTenant.occupancyDate ? format(new Date(newTenant.occupancyDate), "PPP") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 bg-white border-gray-300 rounded-xl shadow-xl" align="start">
+                        {/* Calendar Header */}
+                        <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] px-4 py-3 rounded-t-xl">
+                          <p className="text-white font-semibold text-sm">Select Occupancy Date</p>
+                        </div>
+                        {/* Calendar Body */}
+                        <div className="p-3 bg-white">
+                          <CalendarComponent
+                            mode="single"
+                            selected={newTenant.occupancyDate ? new Date(newTenant.occupancyDate) : undefined}
+                            onSelect={(date) => setNewTenant({...newTenant, occupancyDate: date ? format(date, 'yyyy-MM-dd') : ''})}
+                            initialFocus
+                            className="rounded-lg border-0"
+                            classNames={{
+                              months: "flex flex-col space-y-4",
+                              month: "space-y-4",
+                              caption: "flex justify-center pt-1 relative items-center mb-2",
+                              caption_label: "text-sm font-semibold text-gray-900",
+                              nav: "space-x-1 flex items-center",
+                              nav_button: "h-8 w-8 bg-transparent p-0 opacity-70 hover:opacity-100 border border-gray-300 rounded-lg hover:bg-purple-50 hover:border-[#7C3AED] hover:text-[#7C3AED] transition-colors",
+                              nav_button_previous: "absolute left-1",
+                              nav_button_next: "absolute right-1",
+                              table: "w-full border-collapse space-y-1",
+                              head_row: "flex",
+                              head_cell: "text-gray-600 rounded-md w-9 font-normal text-[0.8rem]",
+                              row: "flex w-full mt-2",
+                              cell: "text-center text-sm p-0 relative [&:has([aria-selected])]:bg-transparent first:[&:has([aria-selected])]:rounded-l-lg last:[&:has([aria-selected])]:rounded-r-lg focus-within:relative focus-within:z-20",
+                              day: "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-[#7C3AED]/10 hover:text-[#7C3AED] rounded-lg transition-colors",
+                              day_selected: "bg-[#7C3AED] text-white hover:bg-[#6D28D9] focus:bg-[#6D28D9] font-bold shadow-md",
+                              day_today: "bg-purple-100 text-[#7C3AED] font-bold border-2 border-[#7C3AED]",
+                              day_outside: "text-gray-400 opacity-50",
+                              day_disabled: "text-gray-400 opacity-50",
+                              day_range_middle: "aria-selected:bg-purple-100 aria-selected:text-[#7C3AED]",
+                              day_hidden: "invisible",
+                            }}
+                          />
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
               </div>
 
               {/* Section 5: Account Setup */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 pb-2 border-b">
-                  <KeyRound className="h-4 w-4 text-gray-600" />
-                  <h3 className="text-sm font-semibold text-gray-900">Account Setup</h3>
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 pb-3">
+                  <div className="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center">
+                    <KeyRound className="h-4 w-4 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900">Account Setup</h3>
+                    <p className="text-xs text-gray-600">Create tenant login credentials</p>
+                  </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="password">Temporary Password *</Label>
+                  <Label htmlFor="password" className="text-sm font-semibold text-gray-700">Temporary Password *</Label>
                   <div className="flex gap-2">
                     <Input
                       id="password"
@@ -949,56 +1085,74 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                       value={newTenant.password}
                       onChange={(e) => setNewTenant({...newTenant, password: e.target.value})}
                       placeholder="Generate or type a password"
+                      className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                     />
-                    <Button type="button" variant="outline" onClick={() => {
-                      const pwd = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-2).toUpperCase();
-                      setNewTenant({...newTenant, password: pwd});
-                      toast.success('Password generated');
-                    }}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        const pwd = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-2).toUpperCase();
+                        setNewTenant({...newTenant, password: pwd});
+                        toast.success('Password generated');
+                      }}
+                      className="border-gray-300 hover:border-[#7C3AED] hover:text-[#7C3AED] hover:bg-purple-50"
+                    >
                       <KeyRound className="h-4 w-4" />
                     </Button>
-                    <Button type="button" variant="outline" onClick={() => {
-                      if (!newTenant.password) { toast.error('No password to copy'); return; }
-                      navigator.clipboard.writeText(newTenant.password);
-                      toast.success('Password copied');
-                    }}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        if (!newTenant.password) { toast.error('No password to copy'); return; }
+                        navigator.clipboard.writeText(newTenant.password);
+                        toast.success('Password copied');
+                      }}
+                      className="border-gray-300 hover:border-[#7C3AED] hover:text-[#7C3AED] hover:bg-purple-50"
+                    >
                       <Copy className="h-4 w-4" />
                     </Button>
                   </div>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs bg-blue-50 text-blue-800 p-2 rounded border border-blue-200">
                     This password will be sent to the tenant via email for their first login
                   </p>
                 </div>
               </div>
             </div>
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setShowAddTenant(false)}>
+            <div className="flex justify-end space-x-2 border-t pt-4 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setShowAddTenant(false)}
+                className="border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+              >
                 Cancel
               </Button>
-              <Button onClick={handleAddTenant}>
+              <Button
+                onClick={handleAddTenant}
+                className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md"
+              >
+                <Plus className="h-4 w-4 mr-2" />
                 Add Tenant & Generate Credentials
               </Button>
             </div>
           </DialogContent>
         </Dialog>
-      </div>
 
       {/* Search and Filter Bar */}
-      <Card>
+      <Card className="border-gray-200 shadow-md">
         <CardContent className="pt-6">
           <div className="space-y-4">
             {recentPasswordInfo && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="text-sm text-amber-800">
-                    <span className="font-semibold">Temporary password generated</span> for {recentPasswordInfo.email}. Copy and share securely.
+              <div className="bg-gradient-to-r from-amber-50 to-amber-100/50 border-2 border-amber-300 rounded-xl p-4 flex items-start justify-between gap-4 shadow-sm">
+                <div className="space-y-2">
+                  <div className="text-sm text-amber-900">
+                    <span className="font-bold">Temporary password generated</span> for {recentPasswordInfo.email}. Copy and share securely.
                   </div>
                   <div className="flex items-center gap-2">
-                    <Label htmlFor="recent-temp-password" className="text-xs text-amber-700">Password</Label>
-                    <Input id="recent-temp-password" readOnly value={recentPasswordInfo.password} className="font-mono max-w-xs bg-white" />
+                    <Label htmlFor="recent-temp-password" className="text-xs font-semibold text-amber-800">Password</Label>
+                    <Input id="recent-temp-password" readOnly value={recentPasswordInfo.password} className="font-mono max-w-xs bg-white border-amber-300" />
                     <Button
                       type="button"
-                      variant="outline"
+                      className="bg-amber-600 hover:bg-amber-700 text-white"
                       onClick={() => {
                         navigator.clipboard.writeText(recentPasswordInfo.password);
                         toast.success('Password copied to clipboard!');
@@ -1009,23 +1163,23 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                   </div>
                 </div>
                 <div>
-                  <Button variant="ghost" onClick={() => setRecentPasswordInfo(null)}>Dismiss</Button>
+                  <Button variant="ghost" className="hover:bg-amber-200" onClick={() => setRecentPasswordInfo(null)}>Dismiss</Button>
                 </div>
               </div>
             )}
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#7C3AED]" />
                 <Input
                   placeholder="Search by name, email, unit, or tenant ID..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                 />
               </div>
 
               <Select value={propertyFilter} onValueChange={setPropertyFilter}>
-                <SelectTrigger className="w-full md:w-48">
+                <SelectTrigger className="w-full md:w-48 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                   <SelectValue placeholder="All Properties" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1039,7 +1193,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
               </Select>
 
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full md:w-48">
+                <SelectTrigger className="w-full md:w-48 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1060,7 +1214,7 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                     setPropertyFilter('all');
                     setStatusFilter('all');
                   }}
-                  className="whitespace-nowrap"
+                  className="whitespace-nowrap border-gray-300 hover:border-[#7C3AED] hover:text-[#7C3AED] hover:bg-purple-50"
                 >
                   Clear Filters
                 </Button>
@@ -1069,10 +1223,10 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
 
             {/* Filter Summary */}
             {(searchTerm || propertyFilter !== 'all' || statusFilter !== 'all') && (
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Filter className="h-4 w-4" />
-                <span>
-                  Showing {filteredTenants.length} of {tenants.length} tenants
+              <div className="flex items-center gap-2 text-sm bg-purple-50 rounded-lg p-3 border border-purple-200">
+                <Filter className="h-4 w-4 text-[#7C3AED]" />
+                <span className="text-gray-700">
+                  Showing <span className="font-bold text-[#7C3AED]">{filteredTenants.length}</span> of {tenants.length} tenants
                   {searchTerm && ` matching "${searchTerm}"`}
                   {propertyFilter !== 'all' && ` in ${propertyFilter}`}
                   {statusFilter !== 'all' && ` with status ${statusFilter}`}
@@ -1084,26 +1238,33 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
       </Card>
 
       {/* Tenants Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>All Tenants ({filteredTenants.length})</CardTitle>
-          <CardDescription>
-            View and manage all tenant information and credentials
-          </CardDescription>
+      <Card className="border-gray-200 shadow-md">
+        <CardHeader className="border-b bg-gray-50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+              <Users className="h-5 w-5 text-gray-700" />
+            </div>
+            <div>
+              <CardTitle className="text-xl text-gray-900">All Tenants ({filteredTenants.length})</CardTitle>
+              <CardDescription className="text-gray-600">
+                View and manage all tenant information and credentials
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-auto">
+        <CardContent className="pt-6">
+          <div className="overflow-auto rounded-xl border-0 shadow-md">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Tenant</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Unit</TableHead>
-                  <TableHead>Lease Period</TableHead>
-                  <TableHead>Rent</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Credentials</TableHead>
-                  <TableHead>Actions</TableHead>
+                <TableRow className="bg-[#111827] hover:bg-[#111827]">
+                  <TableHead className="text-white font-semibold">Tenant</TableHead>
+                  <TableHead className="text-white font-semibold">Contact</TableHead>
+                  <TableHead className="text-white font-semibold">Unit</TableHead>
+                  <TableHead className="text-white font-semibold">Lease Period</TableHead>
+                  <TableHead className="text-white font-semibold">Rent</TableHead>
+                  <TableHead className="text-white font-semibold">Status</TableHead>
+                  <TableHead className="text-white font-semibold">Credentials</TableHead>
+                  <TableHead className="text-white font-semibold">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1119,8 +1280,11 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
                       No tenants found. Click "Add Tenant" to create your first tenant.
                     </TableCell>
                   </TableRow>
-                ) : filteredTenants.map((tenant) => (
-                  <TableRow key={tenant.id}>
+                ) : filteredTenants.map((tenant, index) => (
+                  <TableRow
+                    key={tenant.id}
+                    className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} hover:bg-[#7C3AED]/5 transition-colors`}
+                  >
                     <TableCell>
                       <div>
                         <p className="font-medium">{tenant.name}</p>

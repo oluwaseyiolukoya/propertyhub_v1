@@ -635,7 +635,9 @@ export const FinancialReports = ({
         // Single font family for consistency (helvetica is Arial equivalent in jsPDF)
         const fontFamily = "helvetica";
 
-        // Colors
+        // Brand Colors
+        const primaryPurple: [number, number, number] = [124, 58, 237]; // #7C3AED
+        const darkPurple: [number, number, number] = [91, 33, 182]; // #5B21B6
         const primaryColor: [number, number, number] = [17, 24, 39]; // gray-900
         const secondaryColor: [number, number, number] = [107, 114, 128]; // gray-500
         const successColor: [number, number, number] = [34, 197, 94]; // green-500
@@ -654,13 +656,69 @@ export const FinancialReports = ({
           });
         };
 
-        let y = margin;
+        let yPos = 130; // Start after header
+
+        // Helper: Add header to each page
+        const addHeader = (pageNumber: number) => {
+          // Purple gradient header background
+          doc.setFillColor(...primaryPurple);
+          doc.rect(0, 0, pageWidth, 110, "F");
+
+          // Dark purple accent bar
+          doc.setFillColor(...darkPurple);
+          doc.rect(0, 105, pageWidth, 5, "F");
+
+          // Logo/Title area
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(255, 255, 255);
+          doc.setFontSize(22);
+          doc.text("CONTREZZ", margin, 35);
+
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(9);
+          doc.text("Property Management System", margin, 50);
+
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(16);
+          doc.text("Financial Report", margin, 72);
+
+          doc.setFontSize(10);
+          doc.setFont("helvetica", "normal");
+          const propertyName =
+            selectedProperty === "all"
+              ? "All Properties"
+              : filteredProperties[0]?.name || selectedProperty;
+          doc.text(propertyName, margin, 85);
+
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8);
+          const reportDate = new Date(generatedAt).toLocaleDateString("en-US", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric"
+          });
+          doc.text(`Report Date: ${reportDate}`, margin, 95);
+          doc.text(`Generated At: ${new Date(generatedAt).toLocaleTimeString("en-US")}`, margin, 102);
+
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.text(
+            `Period: ${selectedPeriod === "all" ? "All Time" : selectedPeriod}`,
+            pageWidth - margin,
+            88,
+            { align: "right" }
+          );
+
+          doc.text(`Currency: ${displayCurrency}`, pageWidth - margin, 95, { align: "right" });
+        };
 
         // Helper: Check page break
         const checkPageBreak = (neededHeight: number) => {
-          if (y + neededHeight > pageHeight - margin) {
+          if (yPos + neededHeight > pageHeight - 50) { // 50 for footer space
             doc.addPage();
-            y = margin;
+            addHeader(doc.internal.getNumberOfPages());
+            yPos = 130;
             return true;
           }
           return false;
@@ -676,16 +734,17 @@ export const FinancialReports = ({
           doc.line(margin, yPos, pageWidth - margin, yPos);
         };
 
-        // Helper: Draw section header
+        // Helper: Draw section header with purple gradient effect
         const drawSectionHeader = (title: string) => {
           checkPageBreak(15);
-          doc.setFillColor(...primaryColor);
-          doc.rect(margin, y, contentWidth, 8, "F");
+          // Purple rounded header
+          doc.setFillColor(...primaryPurple);
+          doc.roundedRect(margin, yPos, contentWidth, 10, 3, 3, "F");
           doc.setTextColor(255, 255, 255);
-          doc.setFontSize(11);
+          doc.setFontSize(12);
           doc.setFont(fontFamily, "bold");
-          doc.text(title, margin + 4, y + 5.5);
-          y += 12;
+          doc.text(title, margin + 5, yPos + 7);
+          yPos += 14;
           doc.setTextColor(...primaryColor);
         };
 
@@ -748,10 +807,10 @@ export const FinancialReports = ({
           const colAlignments =
             alignments || headers.map((_, i) => (i === 0 ? "left" : "right"));
 
-          // Header row
-          doc.setFillColor(...lightBg);
+          // Header row with dark background
+          doc.setFillColor(17, 24, 39); // #111827
           doc.rect(margin, currentY, contentWidth, headerHeight, "F");
-          doc.setTextColor(...primaryColor);
+          doc.setTextColor(255, 255, 255); // White text
           doc.setFontSize(9);
           doc.setFont(fontFamily, "bold");
 
@@ -781,9 +840,12 @@ export const FinancialReports = ({
           rows.forEach((row, rowIndex) => {
             checkPageBreak(rowHeight);
 
-            // Alternating row background
-            if (rowIndex % 2 === 1) {
-              doc.setFillColor(253, 253, 253);
+            // Alternating row background - white and light gray
+            if (rowIndex % 2 === 0) {
+              doc.setFillColor(255, 255, 255); // White
+              doc.rect(margin, currentY, contentWidth, rowHeight, "F");
+            } else {
+              doc.setFillColor(249, 250, 251); // Light gray
               doc.rect(margin, currentY, contentWidth, rowHeight, "F");
             }
 
@@ -812,55 +874,83 @@ export const FinancialReports = ({
         };
 
         // ==================== HEADER ====================
-        doc.setFillColor(...primaryColor);
-        doc.rect(0, 0, pageWidth, 35, "F");
+        // Purple gradient header background
+        doc.setFillColor(...primaryPurple);
+        doc.rect(0, 0, pageWidth, 110, "F");
 
+        // Dark purple accent bar
+        doc.setFillColor(...darkPurple);
+        doc.rect(0, 105, pageWidth, 5, "F");
+
+        // Logo/Title area - Left side
+        doc.setFont("helvetica", "bold");
         doc.setTextColor(255, 255, 255);
-        doc.setFontSize(24);
-        doc.setFont(fontFamily, "bold");
-        doc.text("Financial Report", margin, 18);
+        doc.setFontSize(22);
+        doc.text("CONTREZZ", margin, 35);
 
+        // Subtitle
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(255, 255, 255);
+        doc.text("Property Management System", margin, 50);
+
+        // Report title
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+        doc.setTextColor(255, 255, 255);
+        doc.text("Financial Report", margin, 72);
+
+        // Property name
         doc.setFontSize(10);
         doc.setFont(fontFamily, "normal");
         const propertyName =
           selectedProperty === "all"
             ? "All Properties"
             : filteredProperties[0]?.name || selectedProperty;
-        doc.text(propertyName, margin, 26);
+        doc.text(propertyName, margin, 85);
 
-        // Report metadata on right side
+        // Report metadata - Left side
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(255, 255, 255);
+        const reportDate = new Date(generatedAt).toLocaleDateString("en-US", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric"
+        });
+        doc.text(`Report Date: ${reportDate}`, margin, 95);
+        doc.text(`Generated At: ${new Date(generatedAt).toLocaleTimeString("en-US")}`, margin, 102);
+
+        // Right side metadata
+        doc.setFont("helvetica", "bold");
         doc.setFontSize(9);
-        doc.text(
-          `Generated: ${new Date(generatedAt).toLocaleString()}`,
-          pageWidth - margin,
-          18,
-          { align: "right" }
-        );
         doc.text(
           `Period: ${selectedPeriod === "all" ? "All Time" : selectedPeriod}`,
           pageWidth - margin,
-          24,
+          88,
           { align: "right" }
         );
-        doc.text(`Currency: ${displayCurrency}`, pageWidth - margin, 30, {
-          align: "right",
-        });
 
-        y = 45;
+        // Currency display (right aligned, no background)
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(9);
+        doc.text(`Currency: ${displayCurrency}`, pageWidth - margin, 95, { align: "right" });
 
         // ==================== KEY METRICS ====================
         doc.setTextColor(...primaryColor);
         doc.setFontSize(14);
         doc.setFont(fontFamily, "bold");
-        doc.text("Key Performance Indicators", margin, y);
-        y += 8;
+        doc.text("Key Performance Indicators", margin, yPos);
+        yPos += 8;
 
         const cardWidth = (contentWidth - 8) / 3;
 
         // Row 1: Revenue, Expenses, NOI
         drawMetricCard(
           margin,
-          y,
+          yPos,
           cardWidth,
           "Total Revenue",
           formatCurrencyForPDF(filteredTotalRevenue, displayCurrency),
@@ -868,7 +958,7 @@ export const FinancialReports = ({
         );
         drawMetricCard(
           margin + cardWidth + 4,
-          y,
+          yPos,
           cardWidth,
           "Total Expenses",
           formatCurrencyForPDF(filteredTotalExpenses, displayCurrency),
@@ -876,36 +966,36 @@ export const FinancialReports = ({
         );
         drawMetricCard(
           margin + (cardWidth + 4) * 2,
-          y,
+          yPos,
           cardWidth,
           "Net Operating Income",
           formatCurrencyForPDF(filteredTotalNetIncome, displayCurrency)
         );
-        y += 28;
+        yPos += 28;
 
         // Row 2: Cap Rate, Operating Margin, Occupancy
         drawMetricCard(
           margin,
-          y,
+          yPos,
           cardWidth,
           "Portfolio Cap Rate",
           `${filteredCapRate.toFixed(1)}%`
         );
         drawMetricCard(
           margin + cardWidth + 4,
-          y,
+          yPos,
           cardWidth,
           "Operating Margin",
           `${filteredOperatingMargin.toFixed(1)}%`
         );
         drawMetricCard(
           margin + (cardWidth + 4) * 2,
-          y,
+          yPos,
           cardWidth,
           "Average Occupancy",
           `${averageOccupancy.toFixed(1)}%`
         );
-        y += 28;
+        yPos += 28;
 
         // Row 3: Properties, Units
         const halfWidth = (contentWidth - 4) / 2;
@@ -919,19 +1009,19 @@ export const FinancialReports = ({
 
         drawMetricCard(
           margin,
-          y,
+          yPos,
           halfWidth,
           "Total Properties",
           String(totalPropertiesCount)
         );
         drawMetricCard(
           margin + halfWidth + 4,
-          y,
+          yPos,
           halfWidth,
           "Total Units",
           String(totalUnitsCount)
         );
-        y += 32;
+        yPos += 32;
 
         // ==================== MONTHLY TREND ====================
         drawSectionHeader("Revenue vs Expenses Trend");
@@ -943,9 +1033,9 @@ export const FinancialReports = ({
           doc.text(
             "No monthly data available for the selected period.",
             margin,
-            y
+            yPos
           );
-          y += 10;
+          yPos += 10;
         } else {
           const trendHeaders = ["Month", "Revenue", "Expenses", "Net Income"];
           const trendColWidths = [40, 45, 45, 45];
@@ -955,7 +1045,7 @@ export const FinancialReports = ({
             formatCurrencyForPDF(m.expenses || 0, displayCurrency),
             formatCurrencyForPDF(m.netIncome || 0, displayCurrency),
           ]);
-          y = drawTable(trendHeaders, trendRows, trendColWidths, y, [
+          yPos = drawTable(trendHeaders, trendRows, trendColWidths, yPos, [
             "left",
             "right",
             "right",
@@ -963,7 +1053,7 @@ export const FinancialReports = ({
           ]);
         }
 
-        y += 6;
+        yPos += 6;
 
         // ==================== EXPENSE BREAKDOWN ====================
         checkPageBreak(40);
@@ -976,9 +1066,9 @@ export const FinancialReports = ({
           doc.text(
             "No expense data recorded. Add operating expenses to see category breakdown.",
             margin,
-            y
+            yPos
           );
-          y += 10;
+          yPos += 10;
         } else {
           const expenseHeaders = ["Category", "Amount", "Percentage"];
           const expenseColWidths = [70, 55, 50];
@@ -999,14 +1089,14 @@ export const FinancialReports = ({
             "100%",
           ]);
 
-          y = drawTable(expenseHeaders, expenseRows, expenseColWidths, y, [
+          yPos = drawTable(expenseHeaders, expenseRows, expenseColWidths, yPos, [
             "left",
             "right",
             "right",
           ]);
         }
 
-        y += 6;
+        yPos += 6;
 
         // ==================== PROPERTY PERFORMANCE ====================
         if (propertyPerformance.length > 0) {
@@ -1031,7 +1121,7 @@ export const FinancialReports = ({
               `${(p.occupancy || 0).toFixed(0)}%`,
             ]);
 
-          y = drawTable(perfHeaders, perfRows, perfColWidths, y, [
+          yPos = drawTable(perfHeaders, perfRows, perfColWidths, yPos, [
             "left",
             "right",
             "right",
@@ -1046,9 +1136,9 @@ export const FinancialReports = ({
             doc.text(
               `Showing top 10 of ${propertyPerformance.length} properties`,
               margin,
-              y
+              yPos
             );
-            y += 6;
+            yPos += 6;
           }
         }
 
@@ -1056,27 +1146,27 @@ export const FinancialReports = ({
         const totalPages = doc.internal.pages.length - 1;
         for (let i = 1; i <= totalPages; i++) {
           doc.setPage(i);
-          doc.setDrawColor(...borderColor);
-          doc.setLineWidth(0.3);
-          doc.line(
-            margin,
-            pageHeight - 15,
-            pageWidth - margin,
-            pageHeight - 15
-          );
 
-          doc.setTextColor(...secondaryColor);
-          doc.setFontSize(8);
-          doc.setFont(fontFamily, "normal");
-          doc.text("Contrezz Property Management", margin, pageHeight - 10);
-          doc.text(
-            `Page ${i} of ${totalPages}`,
-            pageWidth - margin,
-            pageHeight - 10,
-            {
-              align: "right",
-            }
-          );
+          // Purple footer background
+          doc.setFillColor(...primaryPurple);
+          doc.rect(0, pageHeight - 40, pageWidth, 40, "F");
+
+          // Dark purple accent line
+          doc.setFillColor(...darkPurple);
+          doc.rect(0, pageHeight - 40, pageWidth, 3, "F");
+
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(255, 255, 255); // White text
+          doc.setFontSize(9);
+
+          // Company name
+          doc.text("Generated by CONTREZZ Property Management System", margin, pageHeight - 40 + 15);
+          // Copyright
+          doc.text("© 2024 Contrezz. All rights reserved.", margin, pageHeight - 40 + 28);
+
+          // Page number
+          doc.setFont("helvetica", "bold");
+          doc.text(`Page ${i} of ${totalPages}`, pageWidth - margin, pageHeight - 40 + 22, { align: "right" });
         }
 
         doc.save(`financial-report-${datePart}.pdf`);
@@ -1107,55 +1197,69 @@ export const FinancialReports = ({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900">
-            Financial Reports
-          </h2>
-          <p className="text-gray-600 mt-1">
-            Comprehensive financial analytics for your property portfolio
-          </p>
-        </div>
+      <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] rounded-xl p-6 shadow-lg">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                <FileText className="h-6 w-6 text-white" />
+              </div>
+              <h2 className="text-3xl font-bold text-white">
+                Financial Reports
+              </h2>
+            </div>
+            <p className="text-purple-100 text-lg">
+              Comprehensive financial analytics for your property portfolio
+            </p>
+          </div>
 
-        <div className="flex items-center space-x-3">
-          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-            <SelectTrigger className="w-40">
-              <Calendar className="h-4 w-4 mr-2" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="3months">Last 3 Months</SelectItem>
-              <SelectItem value="6months">Last 6 Months</SelectItem>
-              <SelectItem value="12months">Last 12 Months</SelectItem>
-              <SelectItem value="ytd">Year to Date</SelectItem>
-              <SelectItem value="custom">Custom Range</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap items-center gap-3">
+            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+              <SelectTrigger className="w-40 bg-white border-gray-300 hover:border-[#7C3AED] focus:border-[#7C3AED] focus:ring-[#7C3AED]">
+                <Calendar className="h-4 w-4 mr-2 text-[#7C3AED]" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="3months">Last 3 Months</SelectItem>
+                <SelectItem value="6months">Last 6 Months</SelectItem>
+                <SelectItem value="12months">Last 12 Months</SelectItem>
+                <SelectItem value="ytd">Year to Date</SelectItem>
+                <SelectItem value="custom">Custom Range</SelectItem>
+              </SelectContent>
+            </Select>
 
-          <Select value={selectedProperty} onValueChange={setSelectedProperty}>
-            <SelectTrigger className="w-48">
-              <Building className="h-4 w-4 mr-2" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Properties</SelectItem>
-              {properties.map((property) => (
-                <SelectItem key={property.id} value={property.id.toString()}>
-                  {property.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <Select value={selectedProperty} onValueChange={setSelectedProperty}>
+              <SelectTrigger className="w-48 bg-white border-gray-300 hover:border-[#7C3AED] focus:border-[#7C3AED] focus:ring-[#7C3AED]">
+                <Building className="h-4 w-4 mr-2 text-[#7C3AED]" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Properties</SelectItem>
+                {properties.map((property) => (
+                  <SelectItem key={property.id} value={property.id.toString()}>
+                    {property.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => exportReport("csv")}>
-              <Download className="h-4 w-4 mr-2" />
-              Export CSV
-            </Button>
-            <Button onClick={() => exportReport("pdf")}>
-              <Download className="h-4 w-4 mr-2" />
-              Export PDF
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => exportReport("csv")}
+                className="bg-white hover:bg-purple-50 border-white/50 text-[#7C3AED] font-semibold"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+              <Button
+                onClick={() => exportReport("pdf")}
+                className="bg-white hover:bg-purple-50 text-[#7C3AED] font-semibold shadow-md"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export PDF
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -1163,74 +1267,80 @@ export const FinancialReports = ({
       {/* Key Financial Metrics */}
       <TooltipProvider>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-sm font-medium">
-                  Total Revenue
-                </CardTitle>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
-                    <p className="font-semibold mb-1">How it's calculated:</p>
-                    <p className="text-xs">
-                      Sum of all monthly rental income from occupied units
-                      across your entire property portfolio. This represents
-                      your gross rental revenue before any deductions.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+          <Card className="border-0 shadow-lg overflow-hidden">
+            <div className="bg-gradient-to-br from-green-500 to-green-600 p-4">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-0">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-sm font-semibold text-white">
+                    Total Revenue
+                  </CardTitle>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-white/80 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-semibold mb-1">How it's calculated:</p>
+                      <p className="text-xs">
+                        Sum of all monthly rental income from occupied units
+                        across your entire property portfolio. This represents
+                        your gross rental revenue before any deductions.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                  <DollarSign className="h-5 w-5 text-white" />
+                </div>
+              </CardHeader>
+            </div>
+            <CardContent className="p-4 bg-white">
+              <div className="text-3xl font-bold text-gray-900">
                 {formatCurrency(filteredTotalRevenue, displayCurrency)}
               </div>
-              <div className="flex items-center text-xs text-green-600 mt-1">
-                <ArrowUpRight className="h-3 w-3 mr-1" />+{revenueGrowth}% vs
-                last year
+              <div className="flex items-center text-sm font-semibold text-green-600 mt-2">
+                <ArrowUpRight className="h-4 w-4 mr-1" />+{revenueGrowth.toFixed(1)}% vs last year
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-sm font-medium">
-                  Net Operating Income
-                </CardTitle>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
-                    <p className="font-semibold mb-1">How it's calculated:</p>
-                    <p className="text-xs">
-                      Total Revenue minus Operating Expenses. This is your NOI -
-                      the actual profit from property operations before
-                      financing costs and taxes.
-                    </p>
-                    <p className="text-xs mt-1 italic">
-                      Formula: Total Revenue - Operating Expenses
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+          <Card className="border-0 shadow-lg overflow-hidden">
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-4">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-0">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-sm font-semibold text-white">
+                    Net Operating Income
+                  </CardTitle>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-white/80 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-semibold mb-1">How it's calculated:</p>
+                      <p className="text-xs">
+                        Total Revenue minus Operating Expenses. This is your NOI -
+                        the actual profit from property operations before
+                        financing costs and taxes.
+                      </p>
+                      <p className="text-xs mt-1 italic">
+                        Formula: Total Revenue - Operating Expenses
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                  <TrendingUp className="h-5 w-5 text-white" />
+                </div>
+              </CardHeader>
+            </div>
+            <CardContent className="p-4 bg-white">
+              <div className="text-3xl font-bold text-gray-900">
                 {formatCurrency(filteredTotalNetIncome, displayCurrency)}
               </div>
-              <div className="flex items-center text-xs text-green-600 mt-1">
-                <ArrowUpRight className="h-3 w-3 mr-1" />+{yearOverYearGrowth}%
-                vs last year
+              <div className="flex items-center text-sm font-semibold text-blue-600 mt-2">
+                <ArrowUpRight className="h-4 w-4 mr-1" />+{yearOverYearGrowth.toFixed(1)}% vs last year
               </div>
               {filteredTotalExpenses === 0 && filteredTotalRevenue > 0 && (
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-gray-500 mt-2">
                   No expenses recorded yet. Net Operating Income currently
                   equals total revenue.
                 </p>
@@ -1238,42 +1348,46 @@ export const FinancialReports = ({
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-sm font-medium">
-                  {selectedProperty === "all"
-                    ? "Portfolio Cap Rate"
-                    : "Property Cap Rate"}
-                </CardTitle>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
-                    <p className="font-semibold mb-1">How it's calculated:</p>
-                    <p className="text-xs">
-                      {selectedProperty === "all"
-                        ? "Your portfolio-wide Capitalization Rate. Measures the annual return on investment across all properties combined."
-                        : "This property's Capitalization Rate. Measures the annual return on investment for this specific property."}
-                    </p>
-                    <p className="text-xs mt-1 italic">
-                      Formula: (Annual NOI ÷ Property Value) × 100
-                    </p>
-                    <p className="text-xs mt-1 text-blue-600">
-                      Industry benchmark: 4-10% depending on market and property
-                      type.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-              <Percent className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+          <Card className="border-0 shadow-lg overflow-hidden">
+            <div className="bg-gradient-to-br from-[#7C3AED] to-[#5B21B6] p-4">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-0">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-sm font-semibold text-white">
+                    {selectedProperty === "all"
+                      ? "Portfolio Cap Rate"
+                      : "Property Cap Rate"}
+                  </CardTitle>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-white/80 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-semibold mb-1">How it's calculated:</p>
+                      <p className="text-xs">
+                        {selectedProperty === "all"
+                          ? "Your portfolio-wide Capitalization Rate. Measures the annual return on investment across all properties combined."
+                          : "This property's Capitalization Rate. Measures the annual return on investment for this specific property."}
+                      </p>
+                      <p className="text-xs mt-1 italic">
+                        Formula: (Annual NOI ÷ Property Value) × 100
+                      </p>
+                      <p className="text-xs mt-1 text-purple-200">
+                        Industry benchmark: 4-10% depending on market and property
+                        type.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                  <Percent className="h-5 w-5 text-white" />
+                </div>
+              </CardHeader>
+            </div>
+            <CardContent className="p-4 bg-white">
+              <div className="text-3xl font-bold text-gray-900">
                 {filteredCapRate.toFixed(1)}%
               </div>
-              <div className="flex items-center text-xs text-gray-600 mt-1">
+              <div className="flex items-center text-sm font-semibold text-[#7C3AED] mt-2">
                 {filteredCapRate > 6
                   ? "Above market average"
                   : filteredCapRate > 4
@@ -1283,40 +1397,44 @@ export const FinancialReports = ({
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-sm font-medium">
-                  Operating Margin
-                </CardTitle>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
-                    <p className="font-semibold mb-1">How it's calculated:</p>
-                    <p className="text-xs">
-                      The percentage of revenue remaining after operating
-                      expenses. Indicates operational efficiency and
-                      profitability.
-                    </p>
-                    <p className="text-xs mt-1 italic">
-                      Formula: (NOI ÷ Total Revenue) × 100
-                    </p>
-                    <p className="text-xs mt-1 text-green-600">
-                      Higher margins indicate better operational efficiency.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-              <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+          <Card className="border-0 shadow-lg overflow-hidden">
+            <div className="bg-gradient-to-br from-amber-500 to-amber-600 p-4">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-0">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-sm font-semibold text-white">
+                    Operating Margin
+                  </CardTitle>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-white/80 cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-semibold mb-1">How it's calculated:</p>
+                      <p className="text-xs">
+                        The percentage of revenue remaining after operating
+                        expenses. Indicates operational efficiency and
+                        profitability.
+                      </p>
+                      <p className="text-xs mt-1 italic">
+                        Formula: (NOI ÷ Total Revenue) × 100
+                      </p>
+                      <p className="text-xs mt-1 text-amber-200">
+                        Higher margins indicate better operational efficiency.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                  <BarChart3 className="h-5 w-5 text-white" />
+                </div>
+              </CardHeader>
+            </div>
+            <CardContent className="p-4 bg-white">
+              <div className="text-3xl font-bold text-gray-900">
                 {filteredOperatingMargin.toFixed(1)}%
               </div>
-              <div className="flex items-center text-xs text-green-600 mt-1">
-                <ArrowUpRight className="h-3 w-3 mr-1" />
+              <div className="flex items-center text-sm font-semibold text-amber-600 mt-2">
+                <ArrowUpRight className="h-4 w-4 mr-1" />
                 {filteredOperatingMargin > 60
                   ? "Healthy margin"
                   : filteredOperatingMargin > 40
@@ -1334,41 +1452,73 @@ export const FinancialReports = ({
         onValueChange={setReportView}
         className="space-y-4"
       >
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="revenue">Revenue</TabsTrigger>
-          <TabsTrigger value="expenses">Expenses</TabsTrigger>
-          <TabsTrigger value="properties">Properties</TabsTrigger>
-          <TabsTrigger value="analysis">Analysis</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-5 bg-gray-100 p-1 rounded-xl h-auto">
+          <TabsTrigger
+            value="overview"
+            className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#7C3AED] data-[state=active]:to-[#5B21B6] data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg font-semibold py-2.5"
+          >
+            Overview
+          </TabsTrigger>
+          <TabsTrigger
+            value="revenue"
+            className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#7C3AED] data-[state=active]:to-[#5B21B6] data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg font-semibold py-2.5"
+          >
+            Revenue
+          </TabsTrigger>
+          <TabsTrigger
+            value="expenses"
+            className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#7C3AED] data-[state=active]:to-[#5B21B6] data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg font-semibold py-2.5"
+          >
+            Expenses
+          </TabsTrigger>
+          <TabsTrigger
+            value="properties"
+            className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#7C3AED] data-[state=active]:to-[#5B21B6] data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg font-semibold py-2.5"
+          >
+            Properties
+          </TabsTrigger>
+          <TabsTrigger
+            value="analysis"
+            className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#7C3AED] data-[state=active]:to-[#5B21B6] data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg font-semibold py-2.5"
+          >
+            Analysis
+          </TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Revenue vs Expenses Chart */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  Revenue vs Expenses Trend
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="max-w-xs">
-                          Visual comparison of monthly revenue (blue bars),
-                          operating expenses (green bars), and net income
-                          (orange line) over the past 12 months. Helps identify
-                          trends and seasonality.
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </CardTitle>
-                <CardDescription>
-                  Monthly financial performance over the last 12 months
-                </CardDescription>
+            <Card className="border-gray-200 shadow-md">
+              <CardHeader className="border-b bg-gray-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <LineChart className="h-5 w-5 text-gray-700" />
+                  </div>
+                  <div className="flex-1">
+                    <CardTitle className="flex items-center gap-2 text-gray-900">
+                      Revenue vs Expenses Trend
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 text-gray-500 cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="max-w-xs">
+                              Visual comparison of monthly revenue (blue bars),
+                              operating expenses (green bars), and net income
+                              (orange line) over the past 12 months. Helps identify
+                              trends and seasonality.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </CardTitle>
+                    <CardDescription className="text-gray-600">
+                      Monthly financial performance over the last 12 months
+                    </CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 {monthlyRevenueData.length === 0 ? (
@@ -1404,28 +1554,35 @@ export const FinancialReports = ({
             </Card>
 
             {/* Expense Breakdown */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  Expense Breakdown
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="max-w-xs">
-                          Pie chart showing the percentage distribution of your
-                          operating expenses across categories like maintenance,
-                          utilities, insurance, taxes, and management fees.
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </CardTitle>
-                <CardDescription>
-                  Distribution of operating expenses
-                </CardDescription>
+            <Card className="border-gray-200 shadow-md">
+              <CardHeader className="border-b bg-gray-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <PieChart className="h-5 w-5 text-gray-700" />
+                  </div>
+                  <div className="flex-1">
+                    <CardTitle className="flex items-center gap-2 text-gray-900">
+                      Expense Breakdown
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 text-gray-500 cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="max-w-xs">
+                              Pie chart showing the percentage distribution of your
+                              operating expenses across categories like maintenance,
+                              utilities, insurance, taxes, and management fees.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </CardTitle>
+                    <CardDescription className="text-gray-600">
+                      Distribution of operating expenses
+                    </CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 {expenseBreakdown.length === 0 ? (
@@ -1463,18 +1620,18 @@ export const FinancialReports = ({
 
           {/* Quick Stats - Using Real Database Data */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card>
-              <CardContent className="p-6">
+            <Card className="border-blue-200 shadow-md hover:shadow-lg transition-shadow">
+              <CardContent className="p-6 bg-gradient-to-br from-blue-50 to-white">
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="flex-1">
                     <div className="flex items-center gap-1">
-                      <p className="text-sm font-medium text-gray-600">
+                      <p className="text-sm font-semibold text-gray-700">
                         Average Occupancy
                       </p>
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                            <Info className="h-3 w-3 text-gray-500 cursor-help" />
                           </TooltipTrigger>
                           <TooltipContent>
                             <p className="max-w-xs">
@@ -1486,33 +1643,33 @@ export const FinancialReports = ({
                         </Tooltip>
                       </TooltipProvider>
                     </div>
-                    <p className="text-2xl font-bold">
+                    <p className="text-3xl font-bold text-blue-600 mt-2">
                       {averageOccupancy.toFixed(1)}%
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-600 mt-1 font-medium">
                       {financialData?.occupiedUnits || 0} of{" "}
                       {financialData?.totalUnits || 0} units occupied
                     </p>
                   </div>
-                  <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
-                    <Building className="h-6 w-6 text-blue-600" />
+                  <div className="h-14 w-14 bg-blue-500 rounded-xl flex items-center justify-center shadow-md">
+                    <Building className="h-7 w-7 text-white" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="p-6">
+            <Card className="border-green-200 shadow-md hover:shadow-lg transition-shadow">
+              <CardContent className="p-6 bg-gradient-to-br from-green-50 to-white">
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="flex-1">
                     <div className="flex items-center gap-1">
-                      <p className="text-sm font-medium text-gray-600">
+                      <p className="text-sm font-semibold text-gray-700">
                         Total Properties
                       </p>
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                            <Info className="h-3 w-3 text-gray-500 cursor-help" />
                           </TooltipTrigger>
                           <TooltipContent>
                             <p className="max-w-xs">
@@ -1524,34 +1681,34 @@ export const FinancialReports = ({
                         </Tooltip>
                       </TooltipProvider>
                     </div>
-                    <p className="text-2xl font-bold">
+                    <p className="text-3xl font-bold text-green-600 mt-2">
                       {financialData?.totalProperties ||
                         propertyPerformanceData.length ||
                         properties.length}
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-600 mt-1 font-medium">
                       Active properties in portfolio
                     </p>
                   </div>
-                  <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
-                    <Eye className="h-6 w-6 text-green-600" />
+                  <div className="h-14 w-14 bg-green-500 rounded-xl flex items-center justify-center shadow-md">
+                    <Eye className="h-7 w-7 text-white" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="p-6">
+            <Card className="border-[#7C3AED] shadow-md hover:shadow-lg transition-shadow">
+              <CardContent className="p-6 bg-gradient-to-br from-purple-50 to-white">
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="flex-1">
                     <div className="flex items-center gap-1">
-                      <p className="text-sm font-medium text-gray-600">
+                      <p className="text-sm font-semibold text-gray-700">
                         Total Units
                       </p>
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                            <Info className="h-3 w-3 text-gray-500 cursor-help" />
                           </TooltipTrigger>
                           <TooltipContent>
                             <p className="max-w-xs">
@@ -1563,19 +1720,19 @@ export const FinancialReports = ({
                         </Tooltip>
                       </TooltipProvider>
                     </div>
-                    <p className="text-2xl font-bold">
+                    <p className="text-3xl font-bold text-[#7C3AED] mt-2">
                       {financialData?.totalUnits ||
                         propertyPerformance.reduce(
                           (sum, p) => sum + (p.units || 0),
                           0
                         )}
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-600 mt-1 font-medium">
                       {financialData?.vacantUnits || 0} vacant units
                     </p>
                   </div>
-                  <div className="h-12 w-12 bg-purple-100 rounded-full flex items-center justify-center">
-                    <BarChart3 className="h-6 w-6 text-purple-600" />
+                  <div className="h-14 w-14 bg-[#7C3AED] rounded-xl flex items-center justify-center shadow-md">
+                    <BarChart3 className="h-7 w-7 text-white" />
                   </div>
                 </div>
               </CardContent>
@@ -1585,28 +1742,35 @@ export const FinancialReports = ({
 
         {/* Revenue Tab */}
         <TabsContent value="revenue" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                Revenue Analysis
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-xs">
-                        Area chart showing monthly rental revenue trends over
-                        time. Use this to identify seasonal patterns, growth
-                        trends, and forecast future income.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </CardTitle>
-              <CardDescription>
-                Detailed revenue trends and projections
-              </CardDescription>
+          <Card className="border-gray-200 shadow-md">
+            <CardHeader className="border-b bg-gray-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <TrendingUp className="h-5 w-5 text-gray-700" />
+                </div>
+                <div className="flex-1">
+                  <CardTitle className="flex items-center gap-2 text-gray-900">
+                    Revenue Analysis
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-500 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="max-w-xs">
+                            Area chart showing monthly rental revenue trends over
+                            time. Use this to identify seasonal patterns, growth
+                            trends, and forecast future income.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </CardTitle>
+                  <CardDescription className="text-gray-600">
+                    Detailed revenue trends and projections
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={400}>
@@ -1630,25 +1794,30 @@ export const FinancialReports = ({
           </Card>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  Revenue by Property
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="max-w-xs">
-                          Comparative view of monthly revenue generated by each
-                          property. Progress bars show relative performance to
-                          help identify your top-performing assets.
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </CardTitle>
+            <Card className="border-gray-200 shadow-md">
+              <CardHeader className="border-b bg-gray-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <Building className="h-5 w-5 text-gray-700" />
+                  </div>
+                  <CardTitle className="flex items-center gap-2 text-gray-900">
+                    Revenue by Property
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-500 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="max-w-xs">
+                            Comparative view of monthly revenue generated by each
+                            property. Progress bars show relative performance to
+                            help identify your top-performing assets.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </CardTitle>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -1695,25 +1864,30 @@ export const FinancialReports = ({
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  Revenue Metrics
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="max-w-xs">
-                          Key revenue performance indicators including total
-                          annual revenue, average monthly income, per-unit
-                          earnings, and year-over-year growth rate.
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </CardTitle>
+            <Card className="border-gray-200 shadow-md">
+              <CardHeader className="border-b bg-gray-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <DollarSign className="h-5 w-5 text-gray-700" />
+                  </div>
+                  <CardTitle className="flex items-center gap-2 text-gray-900">
+                    Revenue Metrics
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-500 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="max-w-xs">
+                            Key revenue performance indicators including total
+                            annual revenue, average monthly income, per-unit
+                            earnings, and year-over-year growth rate.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </CardTitle>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -1773,25 +1947,30 @@ export const FinancialReports = ({
         {/* Expenses Tab */}
         <TabsContent value="expenses" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  Monthly Expense Trend
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="max-w-xs">
-                          Line chart tracking monthly operating expenses over
-                          time. Monitor spending patterns and identify
-                          opportunities to reduce costs.
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </CardTitle>
+            <Card className="border-gray-200 shadow-md">
+              <CardHeader className="border-b bg-gray-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <TrendingDown className="h-5 w-5 text-gray-700" />
+                  </div>
+                  <CardTitle className="flex items-center gap-2 text-gray-900">
+                    Monthly Expense Trend
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-500 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="max-w-xs">
+                            Line chart tracking monthly operating expenses over
+                            time. Monitor spending patterns and identify
+                            opportunities to reduce costs.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </CardTitle>
+                </div>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
@@ -1816,26 +1995,31 @@ export const FinancialReports = ({
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  Expense Categories
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="max-w-xs">
-                          Detailed breakdown of expenses by category with both
-                          dollar amounts and percentages. Shows where your money
-                          is going: maintenance, utilities, insurance, taxes,
-                          and fees.
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </CardTitle>
+            <Card className="border-gray-200 shadow-md">
+              <CardHeader className="border-b bg-gray-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <PieChart className="h-5 w-5 text-gray-700" />
+                  </div>
+                  <CardTitle className="flex items-center gap-2 text-gray-900">
+                    Expense Categories
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-500 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="max-w-xs">
+                            Detailed breakdown of expenses by category with both
+                            dollar amounts and percentages. Shows where your money
+                            is going: maintenance, utilities, insurance, taxes,
+                            and fees.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </CardTitle>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -1866,26 +2050,31 @@ export const FinancialReports = ({
             </Card>
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                Expense Analysis
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-xs">
-                        Summary of key expense metrics: total annual expenses,
-                        cost per unit, and expense ratio (expenses as a
-                        percentage of revenue). Lower expense ratios indicate
-                        better profitability.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </CardTitle>
+          <Card className="border-gray-200 shadow-md">
+            <CardHeader className="border-b bg-gray-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <BarChart3 className="h-5 w-5 text-gray-700" />
+                </div>
+                <CardTitle className="flex items-center gap-2 text-gray-900">
+                  Expense Analysis
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-gray-500 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs">
+                          Summary of key expense metrics: total annual expenses,
+                          cost per unit, and expense ratio (expenses as a
+                          percentage of revenue). Lower expense ratios indicate
+                          better profitability.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </CardTitle>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -2000,40 +2189,50 @@ export const FinancialReports = ({
 
         {/* Properties Tab */}
         <TabsContent value="properties" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Property Financial Performance</CardTitle>
-              <CardDescription>
-                Individual property analysis and comparison
-              </CardDescription>
+          <Card className="border-gray-200 shadow-md">
+            <CardHeader className="border-b bg-gray-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <Building className="h-5 w-5 text-gray-700" />
+                </div>
+                <div className="flex-1">
+                  <CardTitle className="text-gray-900">Property Financial Performance</CardTitle>
+                  <CardDescription className="text-gray-600">
+                    Individual property analysis and comparison
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent>
-              <div className="overflow-auto">
+            <CardContent className="p-0">
+              <div className="overflow-auto rounded-b-xl">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Property</TableHead>
-                      <TableHead>Monthly Revenue</TableHead>
-                      <TableHead>Occupancy</TableHead>
-                      <TableHead>Cap Rate</TableHead>
-                      <TableHead>Cash Flow</TableHead>
-                      <TableHead>ROI</TableHead>
-                      <TableHead>Status</TableHead>
+                    <TableRow className="bg-[#111827] hover:bg-[#111827]">
+                      <TableHead className="text-white font-semibold">Property</TableHead>
+                      <TableHead className="text-white font-semibold">Monthly Revenue</TableHead>
+                      <TableHead className="text-white font-semibold">Occupancy</TableHead>
+                      <TableHead className="text-white font-semibold">Cap Rate</TableHead>
+                      <TableHead className="text-white font-semibold">Cash Flow</TableHead>
+                      <TableHead className="text-white font-semibold">ROI</TableHead>
+                      <TableHead className="text-white font-semibold">Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredProperties.map((property) => (
-                      <TableRow key={property.id}>
+                    {filteredProperties.map((property, index) => (
+                      <TableRow
+                        key={property.id}
+                        className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} hover:bg-[#7C3AED]/5 transition-colors`}
+                      >
                         <TableCell>
                           <div>
-                            <p className="font-medium">{property.name}</p>
-                            <p className="text-sm text-gray-500">
+                            <p className="font-semibold text-gray-900">{property.name}</p>
+                            <p className="text-sm text-gray-600 font-medium">
                               {property.units} units
                             </p>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <p className="font-medium">
+                          <p className="font-bold text-gray-900">
                             {formatCurrency(
                               property.monthlyRevenue || property.revenue || 0,
                               property.currency || displayCurrency
@@ -2042,28 +2241,30 @@ export const FinancialReports = ({
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
-                            <div className="w-16 bg-gray-200 rounded-full h-2">
+                            <div className="w-16 bg-gray-200 rounded-full h-2.5">
                               <div
-                                className="bg-green-600 h-2 rounded-full"
+                                className="bg-green-600 h-2.5 rounded-full transition-all"
                                 style={{ width: `${property.occupancyRate}%` }}
                               />
                             </div>
-                            <span className="text-sm">
+                            <span className="text-sm font-semibold text-gray-900">
                               {property.occupancyRate || 0}%
                             </span>
                           </div>
                         </TableCell>
                         <TableCell>
                           <Badge
-                            variant={
-                              property.capRate > 7 ? "default" : "secondary"
-                            }
+                            className={`${
+                              property.capRate > 7
+                                ? "bg-[#7C3AED] hover:bg-[#6D28D9] text-white"
+                                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                            } font-semibold`}
                           >
                             {(property.capRate || 0).toFixed(1)}%
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <p className="font-medium">
+                          <p className="font-bold text-gray-900">
                             {formatCurrency(
                               property.cashFlow || 0,
                               property.currency || displayCurrency
@@ -2071,30 +2272,31 @@ export const FinancialReports = ({
                           </p>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center">
+                          <div className="flex items-center gap-1">
                             {property.roi > 8 ? (
-                              <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
+                              <div className="flex items-center gap-1 px-2 py-1 bg-green-100 rounded-md">
+                                <TrendingUp className="h-4 w-4 text-green-600" />
+                                <span className="text-green-700 font-bold">
+                                  {property.roi.toFixed(1)}%
+                                </span>
+                              </div>
                             ) : (
-                              <TrendingDown className="h-4 w-4 text-red-600 mr-1" />
+                              <div className="flex items-center gap-1 px-2 py-1 bg-red-100 rounded-md">
+                                <TrendingDown className="h-4 w-4 text-red-600" />
+                                <span className="text-red-700 font-bold">
+                                  {property.roi.toFixed(1)}%
+                                </span>
+                              </div>
                             )}
-                            <span
-                              className={
-                                property.roi > 8
-                                  ? "text-green-600"
-                                  : "text-red-600"
-                              }
-                            >
-                              {property.roi.toFixed(1)}%
-                            </span>
                           </div>
                         </TableCell>
                         <TableCell>
                           <Badge
-                            variant={
+                            className={`${
                               property.status === "active"
-                                ? "default"
-                                : "secondary"
-                            }
+                                ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            } font-semibold capitalize`}
                           >
                             {property.status}
                           </Badge>
@@ -2111,46 +2313,57 @@ export const FinancialReports = ({
         {/* Analysis Tab */}
         <TabsContent value="analysis" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Performance Insights</CardTitle>
+            <Card className="border-gray-200 shadow-md">
+              <CardHeader className="border-b bg-gray-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <BarChart3 className="h-5 w-5 text-gray-700" />
+                  </div>
+                  <CardTitle className="text-gray-900">Performance Insights</CardTitle>
+                </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-6">
                 <div className="space-y-4">
-                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                    <div className="flex items-center">
-                      <TrendingUp className="h-5 w-5 text-green-600 mr-2" />
-                      <span className="font-medium text-green-900">
+                  <div className="p-4 bg-gradient-to-br from-green-50 to-green-100/50 rounded-xl border-2 border-green-200 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+                        <TrendingUp className="h-4 w-4 text-white" />
+                      </div>
+                      <span className="font-bold text-green-900">
                         Strong Performance
                       </span>
                     </div>
-                    <p className="text-sm text-green-700 mt-1">
+                    <p className="text-sm text-green-800 font-medium">
                       Your portfolio is generating 12.5% YoY growth with healthy
                       margins above 70%.
                     </p>
                   </div>
 
-                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="flex items-center">
-                      <Building className="h-5 w-5 text-blue-600 mr-2" />
-                      <span className="font-medium text-blue-900">
+                  <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl border-2 border-blue-200 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                        <Building className="h-4 w-4 text-white" />
+                      </div>
+                      <span className="font-bold text-blue-900">
                         Occupancy Optimization
                       </span>
                     </div>
-                    <p className="text-sm text-blue-700 mt-1">
+                    <p className="text-sm text-blue-800 font-medium">
                       Average occupancy of {averageOccupancy.toFixed(1)}% is
                       above market. Consider strategic rent increases.
                     </p>
                   </div>
 
-                  <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                    <div className="flex items-center">
-                      <DollarSign className="h-5 w-5 text-yellow-600 mr-2" />
-                      <span className="font-medium text-yellow-900">
+                  <div className="p-4 bg-gradient-to-br from-amber-50 to-amber-100/50 rounded-xl border-2 border-amber-200 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center">
+                        <DollarSign className="h-4 w-4 text-white" />
+                      </div>
+                      <span className="font-bold text-amber-900">
                         Expense Management
                       </span>
                     </div>
-                    <p className="text-sm text-yellow-700 mt-1">
+                    <p className="text-sm text-amber-800 font-medium">
                       Maintenance costs are trending up. Consider preventive
                       maintenance programs.
                     </p>
@@ -2159,54 +2372,67 @@ export const FinancialReports = ({
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Recommendations</CardTitle>
+            <Card className="border-gray-200 shadow-md">
+              <CardHeader className="border-b bg-gray-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <FileText className="h-5 w-5 text-gray-700" />
+                  </div>
+                  <CardTitle className="text-gray-900">Recommendations</CardTitle>
+                </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-6">
                 <div className="space-y-4">
-                  <div className="flex items-start space-x-3">
-                    <div className="w-2 h-2 bg-blue-600 rounded-full mt-2"></div>
+                  <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
+                    <div className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <div className="w-2 h-2 bg-white rounded-full"></div>
+                    </div>
                     <div>
-                      <p className="font-medium">
+                      <p className="font-bold text-gray-900">
                         Increase rent for underperforming units
                       </p>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-gray-700 font-medium mt-1">
                         Units below market rate could generate additional $15K
                         annually
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-start space-x-3">
-                    <div className="w-2 h-2 bg-green-600 rounded-full mt-2"></div>
+                  <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">
+                    <div className="w-6 h-6 bg-green-600 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <div className="w-2 h-2 bg-white rounded-full"></div>
+                    </div>
                     <div>
-                      <p className="font-medium">
+                      <p className="font-bold text-gray-900">
                         Implement energy efficiency upgrades
                       </p>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-gray-700 font-medium mt-1">
                         Could reduce utility expenses by 15-20%
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-start space-x-3">
-                    <div className="w-2 h-2 bg-purple-600 rounded-full mt-2"></div>
+                  <div className="flex items-start gap-3 p-3 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">
+                    <div className="w-6 h-6 bg-[#7C3AED] rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <div className="w-2 h-2 bg-white rounded-full"></div>
+                    </div>
                     <div>
-                      <p className="font-medium">
+                      <p className="font-bold text-gray-900">
                         Consider property acquisition
                       </p>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-gray-700 font-medium mt-1">
                         Strong cash flow supports expansion opportunities
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-start space-x-3">
-                    <div className="w-2 h-2 bg-orange-600 rounded-full mt-2"></div>
+                  <div className="flex items-start gap-3 p-3 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors">
+                    <div className="w-6 h-6 bg-orange-600 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <div className="w-2 h-2 bg-white rounded-full"></div>
+                    </div>
                     <div>
-                      <p className="font-medium">Review insurance policies</p>
-                      <p className="text-sm text-gray-600">
+                      <p className="font-bold text-gray-900">Review insurance policies</p>
+                      <p className="text-sm text-gray-700 font-medium mt-1">
                         Annual review could reduce premiums by 5-10%
                       </p>
                     </div>
@@ -2216,43 +2442,59 @@ export const FinancialReports = ({
             </Card>
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Financial Projections</CardTitle>
-              <CardDescription>
-                12-month outlook based on current trends
-              </CardDescription>
+          <Card className="border-gray-200 shadow-md">
+            <CardHeader className="border-b bg-gray-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <TrendingUp className="h-5 w-5 text-gray-700" />
+                </div>
+                <div className="flex-1">
+                  <CardTitle className="text-gray-900">Financial Projections</CardTitle>
+                  <CardDescription className="text-gray-600">
+                    12-month outlook based on current trends
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <p className="text-lg font-bold text-green-600">
+                <div className="text-center p-6 bg-gradient-to-br from-green-50 to-green-100/50 rounded-xl border-2 border-green-200 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center mx-auto mb-3">
+                    <DollarSign className="h-6 w-6 text-white" />
+                  </div>
+                  <p className="text-2xl font-bold text-green-600 mb-2">
                     {formatCurrency(
                       filteredTotalRevenue * 1.08,
                       displayCurrency
                     )}
                   </p>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-700 font-semibold mb-1">
                     Projected Annual Revenue
                   </p>
-                  <p className="text-xs text-green-600">+8% growth</p>
+                  <p className="text-xs text-green-600 font-bold">+8% growth</p>
                 </div>
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <p className="text-lg font-bold text-blue-600">
+                <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl border-2 border-blue-200 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center mx-auto mb-3">
+                    <TrendingUp className="h-6 w-6 text-white" />
+                  </div>
+                  <p className="text-2xl font-bold text-blue-600 mb-2">
                     {formatCurrency(
                       filteredTotalNetIncome * 1.12,
                       displayCurrency
                     )}
                   </p>
-                  <p className="text-sm text-gray-600">Projected Net Income</p>
-                  <p className="text-xs text-blue-600">+12% growth</p>
+                  <p className="text-sm text-gray-700 font-semibold mb-1">Projected Net Income</p>
+                  <p className="text-xs text-blue-600 font-bold">+12% growth</p>
                 </div>
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <p className="text-lg font-bold text-purple-600">
+                <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100/50 rounded-xl border-2 border-purple-200 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="w-12 h-12 bg-[#7C3AED] rounded-xl flex items-center justify-center mx-auto mb-3">
+                    <Percent className="h-6 w-6 text-white" />
+                  </div>
+                  <p className="text-2xl font-bold text-[#7C3AED] mb-2">
                     {(portfolioCapRate + 0.3).toFixed(1)}%
                   </p>
-                  <p className="text-sm text-gray-600">Target Cap Rate</p>
-                  <p className="text-xs text-purple-600">Optimization goal</p>
+                  <p className="text-sm text-gray-700 font-semibold mb-1">Target Cap Rate</p>
+                  <p className="text-xs text-[#7C3AED] font-bold">Optimization goal</p>
                 </div>
               </div>
             </CardContent>

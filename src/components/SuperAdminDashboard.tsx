@@ -21,6 +21,7 @@ import { AddCustomerPage } from './AddCustomerPage';
 import { OnboardingManager } from './admin/OnboardingManager';
 import { LandingPageManagement } from './admin/LandingPageManagement';
 import { VerificationManagement } from './admin/VerificationManagement';
+import { Documentation } from './admin/Documentation';
 import { Footer } from './Footer';
 import { PlatformLogo } from './PlatformLogo';
 import { toast } from "sonner";
@@ -89,7 +90,8 @@ import {
   Shield,
   ChevronDown,
   HelpCircle,
-  AlertCircle
+  AlertCircle,
+  BookOpen
 } from 'lucide-react';
 import { Textarea } from './ui/textarea';
 import { useCurrency } from '../lib/CurrencyContext';
@@ -968,6 +970,7 @@ export function SuperAdminDashboard({
     { id: 'analytics', name: 'Analytics', permission: [PERMISSIONS.ANALYTICS, PERMISSIONS.ANALYTICS_VIEW, PERMISSIONS.ANALYTICS_MRR, PERMISSIONS.ANALYTICS_CHURN, PERMISSIONS.ANALYTICS_EXPORT] },
     { id: 'system', name: 'System Health', permission: [PERMISSIONS.SYSTEM, PERMISSIONS.SYSTEM_HEALTH, PERMISSIONS.SYSTEM_LOGS, PERMISSIONS.PLATFORM_SETTINGS, PERMISSIONS.CACHE_CLEAR] },
     { id: 'support', name: 'Support Tickets', permission: [PERMISSIONS.SUPPORT, PERMISSIONS.SUPPORT_VIEW, PERMISSIONS.SUPPORT_CREATE, PERMISSIONS.SUPPORT_RESPOND, PERMISSIONS.SUPPORT_CLOSE, PERMISSIONS.SUPPORT_ASSIGN] },
+    { id: 'documentation', name: 'Documentation', permission: null }, // Available to all admins
     { id: 'settings', name: 'Platform Settings', permission: [PERMISSIONS.SETTINGS, PERMISSIONS.PLATFORM_SETTINGS] },
   ];
 
@@ -2039,6 +2042,7 @@ export function SuperAdminDashboard({
             {activeTab === 'system' && <SystemHealth />}
             {activeTab === 'verifications' && <VerificationManagement />}
             {activeTab === 'support' && <SupportTickets />}
+            {activeTab === 'documentation' && <Documentation />}
             {activeTab === 'settings' && <PlatformSettings />}
 
             {/* Profile Tab */}

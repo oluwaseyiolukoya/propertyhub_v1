@@ -569,26 +569,37 @@ export const AccessControl = () => {
   if (showIssueKeyPage) {
   return (
     <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={() => setShowIssueKeyPage(false)}>
-            ← Back to Key Inventory
-          </Button>
+        {/* Header with Back Button */}
+        <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] rounded-xl p-6 shadow-lg flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" onClick={() => setShowIssueKeyPage(false)} className="text-white hover:bg-white/10">
+              ← Back to Key Inventory
+            </Button>
+            <h1 className="text-2xl font-bold text-white">Issue Key</h1>
+          </div>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Issue Key</CardTitle>
-            <CardDescription>Capture handover details for custody tracking</CardDescription>
+        <Card className="border-gray-200 shadow-md">
+          <CardHeader className="border-b bg-gray-50">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                <LogOut className="h-5 w-5 text-gray-700" />
+              </div>
+              <div>
+                <CardTitle className="text-gray-900">Key Handover Details</CardTitle>
+                <CardDescription className="text-gray-600">Capture information for custody tracking and compliance</CardDescription>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-6 max-w-2xl">
+          <CardContent className="pt-6">
+            <div className="space-y-6 max-w-3xl">
               <div className="space-y-2">
-                <Label>Select Key *</Label>
+                <Label className="font-semibold text-gray-700">Select Key *</Label>
                 <Select
                   value={issueKeyForm.keyId}
                   onValueChange={(value) => setIssueKeyForm((prev) => ({ ...prev, keyId: value }))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                     <SelectValue placeholder="Choose a key" />
                   </SelectTrigger>
                   <SelectContent>
@@ -603,37 +614,38 @@ export const AccessControl = () => {
                 </Select>
                 {/* Assigned tenant preview */}
                 {issueKeyForm.keyId && (
-                  <div className="mt-3 p-3 border rounded-md bg-muted/30">
-                    <p className="text-xs text-muted-foreground mb-1">Assigned Tenant</p>
+                  <div className="mt-3 p-3 border border-gray-200 rounded-md bg-gray-50">
+                    <p className="text-xs font-semibold text-gray-700 mb-1">Assigned Tenant</p>
                     {issueKeyTenant ? (
                       <div className="text-sm">
-                        <p className="font-medium">{issueKeyTenant.name}</p>
-                        <p className="text-xs text-muted-foreground">{issueKeyTenant.email || issueKeyTenant.phone || '—'}</p>
+                        <p className="font-medium text-gray-900">{issueKeyTenant.name}</p>
+                        <p className="text-xs text-gray-600">{issueKeyTenant.email || issueKeyTenant.phone || '—'}</p>
                     </div>
                     ) : (
-                      <p className="text-xs text-muted-foreground">No active tenant found for this unit</p>
+                      <p className="text-xs text-gray-600">No active tenant found for this unit</p>
                     )}
                   </div>
                 )}
-                    </div>
+              </div>
 
               <div className="space-y-2">
-                <Label>Issued To (Full Name) *</Label>
+                <Label className="font-semibold text-gray-700">Issued To (Full Name) *</Label>
                 <Input
                   value={issueKeyForm.issuedTo}
                   onChange={(e) => setIssueKeyForm((prev) => ({ ...prev, issuedTo: e.target.value }))}
                   placeholder="Enter full name as on ID"
-                    />
-                  </div>
+                  className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                />
+              </div>
 
               <div className="grid md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                  <Label>Person Type *</Label>
+                <div className="space-y-2">
+                  <Label className="font-semibold text-gray-700">Person Type *</Label>
                   <Select
                     value={issueKeyForm.issuedToType}
                     onValueChange={(value) => setIssueKeyForm((prev) => ({ ...prev, issuedToType: value }))}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -644,34 +656,46 @@ export const AccessControl = () => {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Expected Return</Label>
+                  <Label className="font-semibold text-gray-700">Expected Return</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         className={cn(
-                          "w-full justify-start text-left font-normal",
+                          "w-full justify-start text-left font-normal border-gray-300 hover:border-[#7C3AED] focus:border-[#7C3AED] focus:ring-[#7C3AED]",
                           !issueKeyForm.expectedReturnDate && "text-muted-foreground"
                         )}
                       >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        <CalendarIcon className="mr-2 h-4 w-4 text-[#7C3AED]" />
                         {issueKeyForm.expectedReturnDate
                           ? format(new Date(issueKeyForm.expectedReturnDate), "PPP")
                           : <span>Pick a date</span>}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <CalendarComponent
-                        mode="single"
-                        selected={issueKeyForm.expectedReturnDate ? new Date(issueKeyForm.expectedReturnDate) : undefined}
-                        onSelect={(date) =>
-                          setIssueKeyForm((prev) => ({
-                            ...prev,
-                            expectedReturnDate: date ? format(date, "yyyy-MM-dd") : "",
-                          }))
-                        }
-                        initialFocus
-                      />
+                    <PopoverContent className="w-auto p-0 rounded-xl shadow-xl" align="start">
+                      <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] px-4 py-3 rounded-t-xl">
+                        <p className="text-white font-semibold text-sm">Select Expected Return Date</p>
+                      </div>
+                      <div className="p-3 bg-white">
+                        <CalendarComponent
+                          mode="single"
+                          selected={issueKeyForm.expectedReturnDate ? new Date(issueKeyForm.expectedReturnDate) : undefined}
+                          onSelect={(date) =>
+                            setIssueKeyForm((prev) => ({
+                              ...prev,
+                              expectedReturnDate: date ? format(date, "yyyy-MM-dd") : "",
+                            }))
+                          }
+                          initialFocus
+                          classNames={{
+                            caption_label: "text-gray-900 font-semibold",
+                            nav_button: "border-gray-300 hover:bg-purple-50 hover:border-[#7C3AED] hover:text-[#7C3AED]",
+                            day_selected: "bg-[#7C3AED] text-white font-bold shadow-md hover:bg-[#6D28D9]",
+                            day_today: "bg-purple-100 text-[#7C3AED] font-bold border-2 border-[#7C3AED]",
+                            day: "hover:bg-[#7C3AED]/10 hover:text-[#7C3AED]",
+                          }}
+                        />
+                      </div>
                     </PopoverContent>
                   </Popover>
                 </div>
@@ -679,28 +703,33 @@ export const AccessControl = () => {
 
               {/* Deposit removed by request */}
 
-                      <div className="space-y-2">
-                <Label>Notes</Label>
+              <div className="space-y-2">
+                <Label className="font-semibold text-gray-700">Notes</Label>
                 <Textarea
                   value={issueKeyForm.notes}
                   onChange={(e) => setIssueKeyForm((prev) => ({ ...prev, notes: e.target.value }))}
                   rows={3}
                   placeholder="Any special conditions or remarks..."
+                  className="resize-none border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                 />
               </div>
 
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-xs">
-                  Ensure government-issued ID is verified before key issuance. Witness signature is mandatory for audit compliance.
+              <Alert className="bg-blue-50 border-blue-200 text-blue-800 rounded-xl shadow-sm">
+                <AlertCircle className="h-4 w-4 text-blue-600" />
+                <AlertDescription>
+                  <strong>Compliance:</strong> Ensure government-issued ID is verified before key issuance. Witness signature is mandatory for audit compliance.
                 </AlertDescription>
               </Alert>
 
-              <div className="flex justify-end gap-3 pt-2">
-                <Button variant="outline" onClick={() => setShowIssueKeyPage(false)}>
+              <div className="flex justify-end gap-3 pt-4 border-t mt-6">
+                <Button variant="outline" onClick={() => setShowIssueKeyPage(false)} className="border-gray-300">
                   Cancel
                 </Button>
-                <Button onClick={handleIssueKey} disabled={processingIssue}>
+                <Button
+                  onClick={handleIssueKey}
+                  disabled={processingIssue}
+                  className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md"
+                >
                   {processingIssue ? 'Issuing...' : 'Issue Key'}
                 </Button>
               </div>
@@ -715,47 +744,54 @@ export const AccessControl = () => {
   if (showAddKeyPage) {
   return (
     <div className="space-y-6">
+        {/* Header with Back Button */}
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={() => setShowAddKeyPage(false)}>
+          <Button
+            variant="ghost"
+            onClick={() => setShowAddKeyPage(false)}
+            className="hover:bg-purple-50 hover:text-[#7C3AED]"
+          >
             ← Back to Key Inventory
-              </Button>
-                  </div>
+          </Button>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Register New Key</CardTitle>
-            <CardDescription>Add a new physical key to the inventory management system</CardDescription>
+        <Card className="border-gray-200 shadow-md">
+          <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white rounded-t-xl">
+            <CardTitle className="text-2xl">Register New Key</CardTitle>
+            <CardDescription className="text-purple-100">Add a new physical key to the inventory management system</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="space-y-6 max-w-3xl">
               <div className="grid md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                  <Label>Key Number *</Label>
+                  <Label className="text-sm font-semibold text-gray-700">Key Number *</Label>
                         <Input
                     value={newKeyForm.keyNumber}
                     onChange={(e) => setNewKeyForm((prev) => ({ ...prev, keyNumber: e.target.value }))}
                     placeholder="e.g. SUN-A101-01"
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
-                  <p className="text-xs text-muted-foreground">Format: PROPERTY-UNIT-NUMBER</p>
+                  <p className="text-xs text-gray-500">Format: PROPERTY-UNIT-NUMBER</p>
                       </div>
                       <div className="space-y-2">
-                  <Label>Key Label (Optional)</Label>
+                  <Label className="text-sm font-semibold text-gray-700">Key Label (Optional)</Label>
                         <Input
                     value={newKeyForm.keyLabel}
                     onChange={(e) => setNewKeyForm((prev) => ({ ...prev, keyLabel: e.target.value }))}
                     placeholder="e.g. Front Door, Back Entrance"
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                     </div>
                 </div>
 
               <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                  <Label>Key Type *</Label>
+                  <Label className="text-sm font-semibold text-gray-700">Key Type *</Label>
                       <Select
                     value={newKeyForm.keyType}
                     onValueChange={(value) => setNewKeyForm((prev) => ({ ...prev, keyType: value }))}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -766,14 +802,14 @@ export const AccessControl = () => {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                  <Label>Property *</Label>
+                  <Label className="text-sm font-semibold text-gray-700">Property *</Label>
                   <Select
                     value={newKeyForm.propertyId}
                     onValueChange={(value) => {
                       setNewKeyForm((prev) => ({ ...prev, propertyId: value, unitId: '' }));
                     }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                       <SelectValue placeholder="Select property" />
                     </SelectTrigger>
                     <SelectContent>
@@ -787,13 +823,13 @@ export const AccessControl = () => {
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Unit (Optional)</Label>
+                  <Label className="text-sm font-semibold text-gray-700">Unit (Optional)</Label>
                   <Select
                     value={newKeyForm.unitId}
                     onValueChange={(value) => setNewKeyForm((prev) => ({ ...prev, unitId: value }))}
                     disabled={!newKeyForm.propertyId || units.length === 0}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                       <SelectValue placeholder={units.length === 0 ? 'No units available' : 'Select unit'} />
                     </SelectTrigger>
                     <SelectContent>
@@ -805,7 +841,7 @@ export const AccessControl = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-gray-500">
                     {!newKeyForm.propertyId
                       ? 'Select a property first'
                       : units.length === 0
@@ -815,64 +851,85 @@ export const AccessControl = () => {
 
                   {/* Active tenant preview */}
                   {newKeyForm.unitId && newKeyForm.unitId !== 'none' && (
-                    <div className="mt-3 p-3 border rounded-md bg-muted/30">
-                      <p className="text-xs text-muted-foreground mb-1">Active Tenant</p>
+                    <div className="mt-3 p-3 border border-purple-200 rounded-lg bg-purple-50">
+                      <p className="text-xs text-gray-700 font-semibold mb-1">Active Tenant</p>
                       {selectedUnitActiveTenant ? (
                         <div className="text-sm">
-                          <p className="font-medium">{selectedUnitActiveTenant.name}</p>
-                          <p className="text-xs text-muted-foreground">{selectedUnitActiveTenant.email || selectedUnitActiveTenant.phone || '—'}</p>
+                          <p className="font-medium text-gray-900">{selectedUnitActiveTenant.name}</p>
+                          <p className="text-xs text-gray-600">{selectedUnitActiveTenant.email || selectedUnitActiveTenant.phone || '—'}</p>
                         </div>
                       ) : (
-                        <p className="text-xs text-muted-foreground">No active tenant found for this unit</p>
+                        <p className="text-xs text-gray-600">No active tenant found for this unit</p>
                       )}
                     </div>
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label>Number of Copies</Label>
+                  <Label className="text-sm font-semibold text-gray-700">Number of Copies</Label>
                       <Input
                     type="number"
                     min={1}
                     max={10}
                     value={newKeyForm.numberOfCopies}
                     onChange={(e) => setNewKeyForm((prev) => ({ ...prev, numberOfCopies: e.target.value }))}
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
-                  <p className="text-xs text-muted-foreground">Maximum 2 copies for unit keys</p>
+                  <p className="text-xs text-gray-500">Maximum 2 copies for unit keys</p>
                     </div>
                   </div>
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Storage Location *</Label>
+                  <Label className="text-sm font-semibold text-gray-700">Storage Location *</Label>
                   <Input
                     value={newKeyForm.location}
                     onChange={(e) => setNewKeyForm((prev) => ({ ...prev, location: e.target.value }))}
                     placeholder="e.g. Key Cabinet - Office"
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Notes</Label>
+                  <Label className="text-sm font-semibold text-gray-700">Notes</Label>
                   <Input
                     value={newKeyForm.notes}
                     onChange={(e) => setNewKeyForm((prev) => ({ ...prev, notes: e.target.value }))}
                     placeholder="Additional information"
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
               </div>
               </div>
 
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
+              <Alert className="bg-amber-50 border-amber-200">
+                <AlertCircle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-900">
                   <strong>Best Practice:</strong> Assign unique key numbers for tracking. Include property code, unit number, and copy number (e.g., SUN-A101-01 for Sunset Apartments, Unit A101, Copy 1).
                 </AlertDescription>
               </Alert>
 
-              <div className="flex justify-end gap-3 pt-4">
-                <Button variant="outline" onClick={() => setShowAddKeyPage(false)}>
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAddKeyPage(false)}
+                  className="border-gray-300"
+                >
                   Cancel
                 </Button>
-                <Button onClick={handleAddKey} disabled={savingKey}>
-                  {savingKey ? 'Registering...' : 'Add to Inventory'}
+                <Button
+                  onClick={handleAddKey}
+                  disabled={savingKey}
+                  className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md"
+                >
+                  {savingKey ? (
+                    <>
+                      <Key className="h-4 w-4 mr-2 animate-spin" />
+                      Registering...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add to Inventory
+                    </>
+                  )}
                 </Button>
         </div>
       </div>
@@ -884,181 +941,237 @@ export const AccessControl = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-start">
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900">Key Management</h2>
-          <p className="text-gray-600 mt-1">Track physical keys, custody chain, and compliance documentation</p>
+      {/* Header */}
+      <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] rounded-xl p-6 shadow-lg">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                <Key className="h-7 w-7 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold text-white">Key Management</h1>
+            </div>
+            <p className="text-purple-100 text-lg">Track physical keys, custody chain, and compliance documentation</p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => toast.info('Custody log exported')}
+              className="bg-white/10 border-white/30 hover:bg-white/20 text-white"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export Log
+            </Button>
+            <Button
+              onClick={() => {
+                if (!newKeyForm.propertyId && propertyOptions.length > 0) {
+                  setNewKeyForm((prev) => ({ ...prev, propertyId: propertyOptions[0].id }));
+                }
+                setShowAddKeyPage(true);
+              }}
+              className="bg-white text-[#7C3AED] hover:bg-purple-50 shadow-md hover:shadow-lg transition-all duration-200"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add New Key
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => toast.info('Custody log exported')}>
-            <Download className="h-4 w-4 mr-2" />
-            Export Log
-              </Button>
-          <Button
-            onClick={() => {
-              if (!newKeyForm.propertyId && propertyOptions.length > 0) {
-                setNewKeyForm((prev) => ({ ...prev, propertyId: propertyOptions[0].id }));
-              }
-              setShowAddKeyPage(true);
-            }}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add New Key
-          </Button>
-                    </div>
-                  </div>
+      </div>
 
-      <Alert>
-        <Shield className="h-4 w-4" />
-        <AlertDescription>
+      <Alert className="bg-blue-50 border-blue-200">
+        <Shield className="h-4 w-4 text-blue-600" />
+        <AlertDescription className="text-blue-900">
           <strong>Compliance:</strong> Every issuance, return, and lost-report is logged with witnesses for audit trails. Maintain a physical register as a secondary backup in line with regulatory requirements.
         </AlertDescription>
       </Alert>
 
       <TooltipProvider>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+          {/* Total Keys Card */}
+          <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-gray-500 to-gray-600 opacity-10"></div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
               <div className="flex items-center gap-2">
-                <CardTitle className="text-sm font-medium">Total Keys</CardTitle>
+                <div className="w-10 h-10 bg-gray-500/20 rounded-xl flex items-center justify-center">
+                  <Key className="h-5 w-5 text-gray-600" />
+                </div>
+                <CardTitle className="text-sm font-semibold text-gray-700">Total Keys</CardTitle>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                    <Info className="h-3.5 w-3.5 text-gray-500 cursor-help" />
                   </TooltipTrigger>
                   <TooltipContent>
                     <p className="max-w-xs">Total number of physical keys registered in the inventory system across all properties and units.</p>
                   </TooltipContent>
                 </Tooltip>
               </div>
-              <Key className="h-4 w-4 text-gray-500" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-semibold">{loadingStats ? '—' : totalKeys}</div>
-              <p className="text-xs text-muted-foreground">In inventory</p>
+            <CardContent className="relative z-10">
+              <div className="text-3xl font-bold text-gray-600">{loadingStats ? '—' : totalKeys}</div>
+              <p className="text-xs text-gray-500 mt-1">In inventory</p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          {/* Keys Issued Card */}
+          <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-blue-600 opacity-10"></div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
               <div className="flex items-center gap-2">
-                <CardTitle className="text-sm font-medium">Keys Issued</CardTitle>
+                <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                  <LogOut className="h-5 w-5 text-blue-600" />
+                </div>
+                <CardTitle className="text-sm font-semibold text-gray-700">Keys Issued</CardTitle>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                    <Info className="h-3.5 w-3.5 text-gray-500 cursor-help" />
                   </TooltipTrigger>
                   <TooltipContent>
                     <p className="max-w-xs">Number of keys currently issued to tenants, managers, contractors, or other authorized personnel. These keys are actively in use.</p>
                   </TooltipContent>
                 </Tooltip>
               </div>
-              <LogOut className="h-4 w-4 text-blue-500" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-semibold text-blue-600">{loadingStats ? '—' : issuedKeys}</div>
-              <p className="text-xs text-muted-foreground">Currently out</p>
+            <CardContent className="relative z-10">
+              <div className="text-3xl font-bold text-blue-600">{loadingStats ? '—' : issuedKeys}</div>
+              <p className="text-xs text-gray-500 mt-1">Currently out</p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          {/* Available Keys Card */}
+          <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-green-500 to-green-600 opacity-10"></div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
               <div className="flex items-center gap-2">
-                <CardTitle className="text-sm font-medium">Available</CardTitle>
+                <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                </div>
+                <CardTitle className="text-sm font-semibold text-gray-700">Available</CardTitle>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                    <Info className="h-3.5 w-3.5 text-gray-500 cursor-help" />
                   </TooltipTrigger>
                   <TooltipContent>
                     <p className="max-w-xs">Keys stored in the key cabinet or office that are ready to be issued. These keys are not currently assigned to anyone.</p>
                   </TooltipContent>
                 </Tooltip>
               </div>
-              <CheckCircle className="h-4 w-4 text-green-500" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-semibold text-green-600">{loadingStats ? '—' : availableKeys}</div>
-              <p className="text-xs text-muted-foreground">Ready for issuance</p>
+            <CardContent className="relative z-10">
+              <div className="text-3xl font-bold text-green-600">{loadingStats ? '—' : availableKeys}</div>
+              <p className="text-xs text-gray-500 mt-1">Ready for issuance</p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          {/* Lost/Damaged Card */}
+          <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-red-500 to-red-600 opacity-10"></div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
               <div className="flex items-center gap-2">
-                <CardTitle className="text-sm font-medium">Lost / Damaged</CardTitle>
+                <div className="w-10 h-10 bg-red-500/20 rounded-xl flex items-center justify-center">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                </div>
+                <CardTitle className="text-sm font-semibold text-gray-700">Lost / Damaged</CardTitle>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                    <Info className="h-3.5 w-3.5 text-gray-500 cursor-help" />
                   </TooltipTrigger>
                   <TooltipContent>
                     <p className="max-w-xs">Keys reported as lost or damaged. These require immediate follow-up including lock replacement, police reports, and deposit forfeiture.</p>
                   </TooltipContent>
                 </Tooltip>
               </div>
-              <AlertTriangle className="h-4 w-4 text-red-500" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-semibold text-red-600">{loadingStats ? '—' : lostKeys}</div>
-              <p className="text-xs text-muted-foreground">Require follow-up</p>
+            <CardContent className="relative z-10">
+              <div className="text-3xl font-bold text-red-600">{loadingStats ? '—' : lostKeys}</div>
+              <p className="text-xs text-gray-500 mt-1">Require follow-up</p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          {/* Deposits Held Card */}
+          <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#7C3AED] to-[#5B21B6] opacity-10"></div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
               <div className="flex items-center gap-2">
-                <CardTitle className="text-sm font-medium">Deposits Held</CardTitle>
+                <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center">
+                  <Lock className="h-5 w-5 text-[#7C3AED]" />
+                </div>
+                <CardTitle className="text-sm font-semibold text-gray-700">Deposits Held</CardTitle>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                    <Info className="h-3.5 w-3.5 text-gray-500 cursor-help" />
                   </TooltipTrigger>
                   <TooltipContent>
                     <p className="max-w-xs">Total security deposits collected for issued keys that have not been refunded. Deposits are refundable upon key return in good condition.</p>
                   </TooltipContent>
                 </Tooltip>
               </div>
-              <Lock className="h-4 w-4 text-purple-500" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-semibold text-purple-600">
+            <CardContent className="relative z-10">
+              <div className="text-3xl font-bold text-[#7C3AED]">
                 {statsReady ? formatCurrency(depositHeld, 'NGN') : '—'}
               </div>
-              <p className="text-xs text-muted-foreground">Refundable security</p>
+              <p className="text-xs text-gray-500 mt-1">Refundable security</p>
             </CardContent>
           </Card>
         </div>
       </TooltipProvider>
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="keys">Key Inventory</TabsTrigger>
-          <TabsTrigger value="custody">Custody Chain</TabsTrigger>
-          <TabsTrigger value="compliance">Compliance</TabsTrigger>
+        <TabsList className="bg-white border border-gray-200">
+          <TabsTrigger
+            value="keys"
+            className="data-[state=active]:bg-[#7C3AED] data-[state=active]:text-white"
+          >
+            Key Inventory
+          </TabsTrigger>
+          <TabsTrigger
+            value="custody"
+            className="data-[state=active]:bg-[#7C3AED] data-[state=active]:text-white"
+          >
+            Custody Chain
+          </TabsTrigger>
+          <TabsTrigger
+            value="compliance"
+            className="data-[state=active]:bg-[#7C3AED] data-[state=active]:text-white"
+          >
+            Compliance
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="keys" className="space-y-4">
-          <Card>
-            <CardHeader>
+          <Card className="border-gray-200 shadow-md">
+            <CardHeader className="border-b bg-gray-50">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                  <div>
-                  <CardTitle>Key Inventory Register</CardTitle>
-                  <CardDescription>Real-time view of all physical keys and their status</CardDescription>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <Key className="h-5 w-5 text-gray-700" />
                   </div>
-                <Button onClick={() => openIssueDialog()}>
+                  <div>
+                    <CardTitle className="text-gray-900">Key Inventory Register</CardTitle>
+                    <CardDescription className="text-gray-600">Real-time view of all physical keys and their status</CardDescription>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => openIssueDialog()}
+                  className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md"
+                >
                   <LogOut className="h-4 w-4 mr-2" />
                   Issue Key
-                  </Button>
-                </div>
+                </Button>
+              </div>
 
               <div className="flex flex-col md:flex-row gap-3 mt-4">
                     <div className="flex-1 relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#7C3AED]" />
                       <Input
                     placeholder="Search keys, properties, or person names..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                     </div>
                           <Select value={propertyFilter} onValueChange={setPropertyFilter}>
-                  <SelectTrigger className="w-full md:w-48">
+                  <SelectTrigger className="w-full md:w-48 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                     <SelectValue placeholder="All properties" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1091,20 +1204,20 @@ export const AccessControl = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto rounded-xl border-0">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Key Number</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Property / Unit</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Holder</TableHead>
-                      <TableHead>Issued</TableHead>
-                      <TableHead>Expected Return</TableHead>
-                      <TableHead>Deposit</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                    <TableRow className="bg-[#111827] hover:bg-[#111827]">
+                      <TableHead className="text-white font-semibold">Key Number</TableHead>
+                      <TableHead className="text-white font-semibold">Type</TableHead>
+                      <TableHead className="text-white font-semibold">Property / Unit</TableHead>
+                      <TableHead className="text-white font-semibold">Status</TableHead>
+                      <TableHead className="text-white font-semibold">Holder</TableHead>
+                      <TableHead className="text-white font-semibold">Issued</TableHead>
+                      <TableHead className="text-white font-semibold">Expected Return</TableHead>
+                      <TableHead className="text-white font-semibold">Deposit</TableHead>
+                      <TableHead className="text-white font-semibold">Location</TableHead>
+                      <TableHead className="text-right text-white font-semibold">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1121,8 +1234,11 @@ export const AccessControl = () => {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      displayedKeys.map((key) => (
-                        <TableRow key={key.id}>
+                      displayedKeys.map((key, index) => (
+                        <TableRow
+                          key={key.id}
+                          className={`hover:bg-[#7C3AED]/5 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}
+                        >
                         <TableCell>
                             <div className="flex flex-col">
                               <code className="text-sm bg-gray-100 px-2 py-1 rounded font-mono">{key.keyNumber}</code>

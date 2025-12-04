@@ -320,99 +320,109 @@ export const TenantVerificationManagement: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tenant Verification</h1>
-          <p className="text-gray-600 mt-1">Review and approve tenant KYC submissions</p>
+      <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] rounded-xl p-6 shadow-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
+              <ShieldCheck className="h-8 w-8 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-white">Tenant Verification</h1>
+              <p className="text-purple-100 mt-1">Review and approve tenant KYC submissions</p>
+            </div>
+          </div>
+          <Button
+            onClick={() => { loadTenants(); loadAnalytics(); }}
+            className="bg-white text-[#7C3AED] hover:bg-purple-50 shadow-md"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
         </div>
-        <Button onClick={() => { loadTenants(); loadAnalytics(); }} variant="outline">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
       </div>
 
       {/* Analytics Cards */}
       {analytics && (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Users className="h-5 w-5 text-blue-600" />
+          <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+            <CardContent className="pt-6">
+              <div className="flex flex-col items-center text-center gap-2">
+                <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-3 rounded-xl shadow-md">
+                  <Users className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{analytics.summary.total}</p>
-                  <p className="text-xs text-gray-500">Total Tenants</p>
+                  <p className="text-3xl font-bold text-gray-900">{analytics.summary.total}</p>
+                  <p className="text-sm text-gray-600 font-medium mt-1">Total Tenants</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-yellow-100 rounded-lg">
-                  <Clock className="h-5 w-5 text-yellow-600" />
+          <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+            <CardContent className="pt-6">
+              <div className="flex flex-col items-center text-center gap-2">
+                <div className="bg-gradient-to-br from-amber-500 to-amber-600 p-3 rounded-xl shadow-md">
+                  <Clock className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{analytics.summary.pendingReview}</p>
-                  <p className="text-xs text-gray-500">Pending Review</p>
+                  <p className="text-3xl font-bold text-gray-900">{analytics.summary.pendingReview}</p>
+                  <p className="text-sm text-gray-600 font-medium mt-1">Pending Review</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <ShieldCheck className="h-5 w-5 text-green-600" />
+          <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+            <CardContent className="pt-6">
+              <div className="flex flex-col items-center text-center gap-2">
+                <div className="bg-gradient-to-br from-green-500 to-green-600 p-3 rounded-xl shadow-md">
+                  <ShieldCheck className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{analytics.summary.ownerApproved}</p>
-                  <p className="text-xs text-gray-500">Approved</p>
+                  <p className="text-3xl font-bold text-gray-900">{analytics.summary.ownerApproved}</p>
+                  <p className="text-sm text-gray-600 font-medium mt-1">Approved</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <ShieldAlert className="h-5 w-5 text-red-600" />
+          <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+            <CardContent className="pt-6">
+              <div className="flex flex-col items-center text-center gap-2">
+                <div className="bg-gradient-to-br from-red-500 to-red-600 p-3 rounded-xl shadow-md">
+                  <ShieldAlert className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{analytics.summary.ownerRejected}</p>
-                  <p className="text-xs text-gray-500">Rejected</p>
+                  <p className="text-3xl font-bold text-gray-900">{analytics.summary.ownerRejected}</p>
+                  <p className="text-sm text-gray-600 font-medium mt-1">Rejected</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-purple-600" />
+          <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+            <CardContent className="pt-6">
+              <div className="flex flex-col items-center text-center gap-2">
+                <div className="bg-gradient-to-br from-[#7C3AED] to-[#5B21B6] p-3 rounded-xl shadow-md">
+                  <CheckCircle className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{analytics.summary.verified}</p>
-                  <p className="text-xs text-gray-500">Verified</p>
+                  <p className="text-3xl font-bold text-gray-900">{analytics.summary.verified}</p>
+                  <p className="text-sm text-gray-600 font-medium mt-1">Verified</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-indigo-100 rounded-lg">
-                  <AlertCircle className="h-5 w-5 text-indigo-600" />
+          <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+            <CardContent className="pt-6">
+              <div className="flex flex-col items-center text-center gap-2">
+                <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-3 rounded-xl shadow-md">
+                  <AlertCircle className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{analytics.summary.approvalRate}%</p>
-                  <p className="text-xs text-gray-500">Approval Rate</p>
+                  <p className="text-3xl font-bold text-gray-900">{analytics.summary.approvalRate}%</p>
+                  <p className="text-sm text-gray-600 font-medium mt-1">Approval Rate</p>
                 </div>
               </div>
             </CardContent>
@@ -421,16 +431,16 @@ export const TenantVerificationManagement: React.FC = () => {
       )}
 
       {/* Filters */}
-      <Card>
-        <CardContent className="pt-4">
+      <Card className="border-[#7C3AED] shadow-md">
+        <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-[#7C3AED]" />
               <Input
                 placeholder="Search by name or email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-10 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
               />
             </div>
             <div className="flex gap-2 flex-wrap">
@@ -440,7 +450,10 @@ export const TenantVerificationManagement: React.FC = () => {
                   variant={filter === option.value ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => { setFilter(option.value); setPage(1); }}
-                  className={filter === option.value ? 'bg-gray-900 text-white' : ''}
+                  className={filter === option.value
+                    ? 'bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-md hover:shadow-lg border-0'
+                    : 'border-gray-300 hover:border-[#7C3AED] hover:text-[#7C3AED]'
+                  }
                 >
                   {option.label}
                 </Button>
@@ -451,17 +464,19 @@ export const TenantVerificationManagement: React.FC = () => {
       </Card>
 
       {/* Tenant List */}
-      <Card>
+      <Card className="border-0 shadow-md overflow-hidden">
         <CardContent className="p-0">
           {loading ? (
             <div className="flex items-center justify-center p-12">
-              <Loader2 className="h-8 w-8 animate-spin text-gray-600" />
+              <Loader2 className="h-8 w-8 animate-spin text-[#7C3AED]" />
             </div>
           ) : tenants.length === 0 ? (
             <div className="text-center p-12">
-              <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No tenants found</p>
-              <p className="text-gray-400 text-sm mt-1">
+              <div className="bg-purple-100 p-4 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+                <Users className="h-10 w-10 text-[#7C3AED]" />
+              </div>
+              <p className="text-gray-900 font-semibold text-lg">No tenants found</p>
+              <p className="text-gray-500 text-sm mt-2">
                 {filter !== 'all' ? 'Try changing the filter' : 'Add tenants to see their verification status'}
               </p>
             </div>
@@ -469,28 +484,31 @@ export const TenantVerificationManagement: React.FC = () => {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-gray-50">
-                    <TableHead className="w-[250px]">Tenant</TableHead>
-                    <TableHead>Property / Unit</TableHead>
-                    <TableHead>Contact</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                  <TableRow className="bg-[#111827] hover:bg-[#111827]">
+                    <TableHead className="w-[250px] text-white font-semibold">Tenant</TableHead>
+                    <TableHead className="text-white font-semibold">Property / Unit</TableHead>
+                    <TableHead className="text-white font-semibold">Contact</TableHead>
+                    <TableHead className="text-white font-semibold">Status</TableHead>
+                    <TableHead className="text-white font-semibold">Date</TableHead>
+                    <TableHead className="text-right text-white font-semibold">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tenants.map((tenant) => (
-                    <TableRow key={tenant.id} className="hover:bg-gray-50">
+                  {tenants.map((tenant, index) => (
+                    <TableRow
+                      key={tenant.id}
+                      className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} hover:bg-[#7C3AED]/5 transition-colors`}
+                    >
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <Avatar className="h-9 w-9">
+                          <Avatar className="h-10 w-10 border-2 border-purple-100">
                             <AvatarImage src={tenant.avatar || undefined} />
-                            <AvatarFallback className="bg-gray-200 text-gray-600 text-sm">
+                            <AvatarFallback className="bg-gradient-to-br from-[#7C3AED] to-[#5B21B6] text-white font-semibold">
                               {getInitials(tenant.name)}
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="font-medium text-gray-900">{tenant.name}</p>
+                            <p className="font-semibold text-gray-900">{tenant.name}</p>
                             <p className="text-xs text-gray-500">{tenant.email}</p>
                           </div>
                         </div>
@@ -498,7 +516,7 @@ export const TenantVerificationManagement: React.FC = () => {
                       <TableCell>
                         {tenant.property ? (
                           <div className="text-sm">
-                            <p className="font-medium text-gray-900">{tenant.property.name}</p>
+                            <p className="font-semibold text-gray-900">{tenant.property.name}</p>
                             {tenant.unit && (
                               <p className="text-xs text-gray-500">Unit {tenant.unit.unitNumber}</p>
                             )}
@@ -509,7 +527,7 @@ export const TenantVerificationManagement: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         {tenant.phone ? (
-                          <span className="text-sm text-gray-600">{tenant.phone}</span>
+                          <span className="text-sm text-gray-700">{tenant.phone}</span>
                         ) : (
                           <span className="text-gray-400 text-sm">-</span>
                         )}
@@ -521,19 +539,22 @@ export const TenantVerificationManagement: React.FC = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <span className="text-sm text-gray-500">
+                        <span className="text-sm text-gray-600 font-medium">
                           {new Date(tenant.createdAt).toLocaleDateString()}
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <MoreVertical className="h-4 w-4" />
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-purple-100">
+                              <MoreVertical className="h-4 w-4 text-gray-600" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleViewDetails(tenant.id)}>
+                          <DropdownMenuContent align="end" className="rounded-xl shadow-lg">
+                            <DropdownMenuItem
+                              onClick={() => handleViewDetails(tenant.id)}
+                              className="cursor-pointer"
+                            >
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
@@ -544,7 +565,7 @@ export const TenantVerificationManagement: React.FC = () => {
                                     handleViewDetails(tenant.id);
                                     setTimeout(() => setShowApproveModal(true), 300);
                                   }}
-                                  className="text-green-600"
+                                  className="text-green-600 cursor-pointer"
                                 >
                                   <CheckCircle className="h-4 w-4 mr-2" />
                                   Approve
@@ -554,7 +575,7 @@ export const TenantVerificationManagement: React.FC = () => {
                                     handleViewDetails(tenant.id);
                                     setTimeout(() => setShowRejectModal(true), 300);
                                   }}
-                                  className="text-red-600"
+                                  className="text-red-600 cursor-pointer"
                                 >
                                   <XCircle className="h-4 w-4 mr-2" />
                                   Reject
@@ -567,6 +588,7 @@ export const TenantVerificationManagement: React.FC = () => {
                                   handleViewDetails(tenant.id);
                                   setTimeout(() => setShowResubmitModal(true), 300);
                                 }}
+                                className="cursor-pointer"
                               >
                                 <RefreshCw className="h-4 w-4 mr-2" />
                                 Request Resubmit
@@ -577,7 +599,7 @@ export const TenantVerificationManagement: React.FC = () => {
                                 setTenantToDelete(tenant);
                                 setShowDeleteModal(true);
                               }}
-                              className="text-red-600"
+                              className="text-red-600 cursor-pointer"
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
                               Delete Verification
@@ -594,21 +616,23 @@ export const TenantVerificationManagement: React.FC = () => {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-white">
               <Button
                 variant="outline"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
+                className="border-gray-300 hover:border-[#7C3AED] hover:text-[#7C3AED]"
               >
                 Previous
               </Button>
-              <span className="text-sm text-gray-700">
+              <span className="text-sm font-semibold text-gray-700">
                 Page {page} of {totalPages}
               </span>
               <Button
                 variant="outline"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
+                className="border-gray-300 hover:border-[#7C3AED] hover:text-[#7C3AED]"
               >
                 Next
               </Button>
@@ -619,29 +643,29 @@ export const TenantVerificationManagement: React.FC = () => {
 
       {/* Detail Modal */}
       <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Tenant Verification Details</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-2xl border-0 shadow-2xl">
+          <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] -mx-6 -mt-6 px-6 py-4 rounded-t-xl">
+            <DialogTitle className="text-white text-xl">Tenant Verification Details</DialogTitle>
+            <DialogDescription className="text-purple-100">
               Review tenant KYC information and take action
             </DialogDescription>
           </DialogHeader>
 
           {selectedTenant && (
-            <div className="space-y-6">
+            <div className="space-y-6 mt-4">
               {/* Tenant Info */}
-              <div className="flex items-center gap-4">
-                <Avatar className="h-16 w-16">
+              <div className="flex items-center gap-4 bg-gradient-to-br from-purple-50 to-purple-100/50 p-4 rounded-xl border-2 border-purple-200">
+                <Avatar className="h-16 w-16 border-2 border-purple-300">
                   <AvatarImage src={selectedTenant.avatar || undefined} />
-                  <AvatarFallback className="bg-gray-200 text-gray-600 text-xl">
+                  <AvatarFallback className="bg-gradient-to-br from-[#7C3AED] to-[#5B21B6] text-white text-xl font-bold">
                     {getInitials(selectedTenant.name)}
                   </AvatarFallback>
                 </Avatar>
-                <div>
-                  <h3 className="text-xl font-semibold">{selectedTenant.name}</h3>
-                  <p className="text-gray-500">{selectedTenant.email}</p>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-gray-900">{selectedTenant.name}</h3>
+                  <p className="text-gray-600 font-medium">{selectedTenant.email}</p>
                   {selectedTenant.phone && (
-                    <p className="text-gray-500">{selectedTenant.phone}</p>
+                    <p className="text-gray-600">{selectedTenant.phone}</p>
                   )}
                 </div>
                 <div className="ml-auto">
@@ -651,51 +675,61 @@ export const TenantVerificationManagement: React.FC = () => {
 
               {/* Property Info */}
               {selectedTenant.property && (
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-900 mb-2">Property Information</h4>
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 p-4 rounded-xl border-2 border-blue-200">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-2 rounded-lg">
+                      <Building2 className="h-4 w-4 text-white" />
+                    </div>
+                    <h4 className="font-bold text-gray-900">Property Information</h4>
+                  </div>
                   <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-gray-500">Property</p>
-                      <p className="font-medium">{selectedTenant.property.name}</p>
+                    <div className="bg-white p-3 rounded-lg border border-blue-200">
+                      <p className="text-gray-500 text-xs font-semibold mb-1">Property</p>
+                      <p className="font-bold text-gray-900">{selectedTenant.property.name}</p>
                     </div>
                     {selectedTenant.unit && (
-                      <div>
-                        <p className="text-gray-500">Unit</p>
-                        <p className="font-medium">{selectedTenant.unit.unitNumber}</p>
+                      <div className="bg-white p-3 rounded-lg border border-blue-200">
+                        <p className="text-gray-500 text-xs font-semibold mb-1">Unit</p>
+                        <p className="font-bold text-gray-900">{selectedTenant.unit.unitNumber}</p>
                       </div>
                     )}
-                    <div>
-                      <p className="text-gray-500">Address</p>
-                      <p className="font-medium">{selectedTenant.property.address}</p>
+                    <div className="bg-white p-3 rounded-lg border border-blue-200 col-span-2">
+                      <p className="text-gray-500 text-xs font-semibold mb-1">Address</p>
+                      <p className="font-bold text-gray-900">{selectedTenant.property.address}</p>
                     </div>
                   </div>
                 </div>
               )}
 
               {/* KYC Status */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-medium text-gray-900 mb-2">KYC Status</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-500">KYC Status</p>
-                    <p className="font-medium capitalize">{selectedTenant.kycStatus?.replace('_', ' ') || 'Pending'}</p>
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 p-4 rounded-xl border-2 border-purple-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="bg-gradient-to-br from-[#7C3AED] to-[#5B21B6] p-2 rounded-lg">
+                    <ShieldCheck className="h-4 w-4 text-white" />
                   </div>
-                  <div>
-                    <p className="text-gray-500">Owner Approval</p>
-                    <p className="font-medium capitalize">{selectedTenant.ownerApprovalStatus}</p>
+                  <h4 className="font-bold text-gray-900">KYC Status</h4>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="bg-white p-3 rounded-lg border border-purple-200">
+                    <p className="text-gray-500 text-xs font-semibold mb-1">KYC Status</p>
+                    <p className="font-bold text-gray-900 capitalize">{selectedTenant.kycStatus?.replace('_', ' ') || 'Pending'}</p>
+                  </div>
+                  <div className="bg-white p-3 rounded-lg border border-purple-200">
+                    <p className="text-gray-500 text-xs font-semibold mb-1">Owner Approval</p>
+                    <p className="font-bold text-gray-900 capitalize">{selectedTenant.ownerApprovalStatus}</p>
                   </div>
                   {selectedTenant.kycLastAttemptAt && (
-                    <div>
-                      <p className="text-gray-500">Last Submission</p>
-                      <p className="font-medium">
+                    <div className="bg-white p-3 rounded-lg border border-purple-200">
+                      <p className="text-gray-500 text-xs font-semibold mb-1">Last Submission</p>
+                      <p className="font-bold text-gray-900">
                         {new Date(selectedTenant.kycLastAttemptAt).toLocaleString()}
                       </p>
                     </div>
                   )}
                   {selectedTenant.ownerReviewedAt && (
-                    <div>
-                      <p className="text-gray-500">Reviewed At</p>
-                      <p className="font-medium">
+                    <div className="bg-white p-3 rounded-lg border border-purple-200">
+                      <p className="text-gray-500 text-xs font-semibold mb-1">Reviewed At</p>
+                      <p className="font-bold text-gray-900">
                         {new Date(selectedTenant.ownerReviewedAt).toLocaleString()}
                       </p>
                     </div>
@@ -703,17 +737,17 @@ export const TenantVerificationManagement: React.FC = () => {
                 </div>
 
                 {selectedTenant.kycFailureReason && (
-                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded">
-                    <p className="text-sm text-red-800">
-                      <strong>Rejection Reason:</strong> {selectedTenant.kycFailureReason}
+                  <div className="mt-4 p-3 bg-gradient-to-br from-red-50 to-red-100/50 border-2 border-red-200 rounded-xl">
+                    <p className="text-sm text-red-800 font-medium">
+                      <strong className="font-bold">Rejection Reason:</strong> {selectedTenant.kycFailureReason}
                     </p>
                   </div>
                 )}
 
                 {selectedTenant.ownerNotes && (
-                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
-                    <p className="text-sm text-blue-800">
-                      <strong>Owner Notes:</strong> {selectedTenant.ownerNotes}
+                  <div className="mt-4 p-3 bg-gradient-to-br from-blue-50 to-blue-100/50 border-2 border-blue-200 rounded-xl">
+                    <p className="text-sm text-blue-800 font-medium">
+                      <strong className="font-bold">Owner Notes:</strong> {selectedTenant.ownerNotes}
                     </p>
                   </div>
                 )}
@@ -721,26 +755,30 @@ export const TenantVerificationManagement: React.FC = () => {
 
               {/* Uploaded Documents */}
               {selectedTenant.documents && selectedTenant.documents.length > 0 && (
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    Uploaded Documents ({selectedTenant.documents.length})
-                  </h4>
+                <div className="bg-gradient-to-br from-green-50 to-green-100/50 p-4 rounded-xl border-2 border-green-200">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="bg-gradient-to-br from-green-500 to-green-600 p-2 rounded-lg">
+                      <FileText className="h-4 w-4 text-white" />
+                    </div>
+                    <h4 className="font-bold text-gray-900">
+                      Uploaded Documents ({selectedTenant.documents.length})
+                    </h4>
+                  </div>
                   <div className="space-y-2">
                     {selectedTenant.documents.map((doc) => (
                       <div
                         key={doc.id}
-                        className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                        className="flex items-center justify-between p-3 bg-white border-2 border-green-200 rounded-xl hover:border-green-400 hover:shadow-md transition-all"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="p-2 bg-gray-100 rounded">
-                            <FileText className="h-5 w-5 text-gray-600" />
+                          <div className="p-2 bg-gradient-to-br from-green-100 to-green-200 rounded-lg">
+                            <FileText className="h-5 w-5 text-green-600" />
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900 text-sm">
+                            <p className="font-bold text-gray-900 text-sm">
                               {getDocumentTypeLabel(doc.documentType)}
                             </p>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-gray-500 font-medium">
                               {doc.fileName} • {formatFileSize(doc.fileSize)}
                             </p>
                           </div>
@@ -749,10 +787,10 @@ export const TenantVerificationManagement: React.FC = () => {
                           <Badge
                             className={
                               doc.status === 'verified'
-                                ? 'bg-green-100 text-green-800'
+                                ? 'bg-green-100 text-green-800 border-green-200'
                                 : doc.status === 'rejected'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-yellow-100 text-yellow-800'
+                                ? 'bg-red-100 text-red-800 border-red-200'
+                                : 'bg-yellow-100 text-yellow-800 border-yellow-200'
                             }
                           >
                             {doc.status}
@@ -762,12 +800,12 @@ export const TenantVerificationManagement: React.FC = () => {
                             size="sm"
                             onClick={() => handleViewDocument(doc)}
                             disabled={downloadingDocId === doc.id}
-                            className="h-8 w-8 p-0"
+                            className="h-8 w-8 p-0 hover:bg-green-100"
                           >
                             {downloadingDocId === doc.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <Loader2 className="h-4 w-4 animate-spin text-green-600" />
                             ) : (
-                              <ExternalLink className="h-4 w-4" />
+                              <ExternalLink className="h-4 w-4 text-green-600" />
                             )}
                           </Button>
                         </div>
@@ -779,31 +817,35 @@ export const TenantVerificationManagement: React.FC = () => {
 
               {/* No Documents Message */}
               {(!selectedTenant.documents || selectedTenant.documents.length === 0) && selectedTenant.kycStatus === 'in_progress' && (
-                <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
-                  <div className="flex items-center gap-2 text-yellow-800">
-                    <AlertCircle className="h-5 w-5" />
-                    <p className="text-sm font-medium">Documents not yet available</p>
+                <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 border-2 border-amber-200 p-4 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-amber-500 p-2 rounded-lg">
+                      <AlertCircle className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-amber-900">Documents not yet available</p>
+                      <p className="text-sm text-amber-700 mt-1">
+                        The tenant is in the process of uploading their verification documents.
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-sm text-yellow-700 mt-1">
-                    The tenant is in the process of uploading their verification documents.
-                  </p>
                 </div>
               )}
 
               {/* Actions */}
               {selectedTenant.ownerApprovalStatus === 'pending' && selectedTenant.kycStatus === 'in_progress' && (
-                <div className="flex gap-3 justify-end">
+                <div className="flex gap-3 justify-end pt-4 border-t">
                   <Button
                     variant="outline"
                     onClick={() => setShowRejectModal(true)}
-                    className="text-red-600 border-red-300 hover:bg-red-50"
+                    className="border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400"
                   >
                     <XCircle className="h-4 w-4 mr-2" />
                     Reject
                   </Button>
                   <Button
                     onClick={() => setShowApproveModal(true)}
-                    className="bg-green-600 hover:bg-green-700"
+                    className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-md"
                   >
                     <CheckCircle className="h-4 w-4 mr-2" />
                     Approve
@@ -812,10 +854,11 @@ export const TenantVerificationManagement: React.FC = () => {
               )}
 
               {(selectedTenant.ownerApprovalStatus === 'rejected' || selectedTenant.kycStatus === 'rejected') && (
-                <div className="flex gap-3 justify-end">
+                <div className="flex gap-3 justify-end pt-4 border-t">
                   <Button
                     variant="outline"
                     onClick={() => setShowResubmitModal(true)}
+                    className="border-purple-300 text-[#7C3AED] hover:bg-purple-50 hover:border-[#7C3AED]"
                   >
                     <RefreshCw className="h-4 w-4 mr-2" />
                     Request Resubmission
@@ -829,29 +872,39 @@ export const TenantVerificationManagement: React.FC = () => {
 
       {/* Approve Modal */}
       <Dialog open={showApproveModal} onOpenChange={setShowApproveModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Approve Tenant KYC</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="border-0 shadow-2xl">
+          <DialogHeader className="bg-gradient-to-r from-green-600 to-green-700 -mx-6 -mt-6 px-6 py-4 rounded-t-xl">
+            <DialogTitle className="text-white text-xl">Approve Tenant KYC</DialogTitle>
+            <DialogDescription className="text-green-100">
               Confirm approval of {selectedTenant?.name}'s identity verification
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <Textarea
-              placeholder="Add any notes (optional)..."
-              value={approvalNotes}
-              onChange={(e) => setApprovalNotes(e.target.value)}
-              rows={3}
-            />
+          <div className="space-y-4 mt-4">
+            <div>
+              <label className="text-sm font-semibold text-gray-700 mb-2 block">
+                Notes (Optional)
+              </label>
+              <Textarea
+                placeholder="Add any notes..."
+                value={approvalNotes}
+                onChange={(e) => setApprovalNotes(e.target.value)}
+                rows={3}
+                className="border-gray-300 focus:border-green-500 focus:ring-green-500 resize-none"
+              />
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowApproveModal(false)}>
+          <DialogFooter className="border-t pt-4 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowApproveModal(false)}
+              className="border-gray-300 hover:border-gray-400"
+            >
               Cancel
             </Button>
             <Button
               onClick={handleApprove}
               disabled={actionLoading}
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-md"
             >
               {actionLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -866,30 +919,40 @@ export const TenantVerificationManagement: React.FC = () => {
 
       {/* Reject Modal */}
       <Dialog open={showRejectModal} onOpenChange={setShowRejectModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reject Tenant KYC</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="border-0 shadow-2xl">
+          <DialogHeader className="bg-gradient-to-r from-red-600 to-red-700 -mx-6 -mt-6 px-6 py-4 rounded-t-xl">
+            <DialogTitle className="text-white text-xl">Reject Tenant KYC</DialogTitle>
+            <DialogDescription className="text-red-100">
               Please provide a reason for rejecting {selectedTenant?.name}'s verification
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <Textarea
-              placeholder="Enter rejection reason..."
-              value={rejectionReason}
-              onChange={(e) => setRejectionReason(e.target.value)}
-              rows={4}
-              required
-            />
+          <div className="space-y-4 mt-4">
+            <div>
+              <label className="text-sm font-semibold text-gray-700 mb-2 block">
+                Rejection Reason <span className="text-red-500">*</span>
+              </label>
+              <Textarea
+                placeholder="Enter rejection reason..."
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                rows={4}
+                required
+                className="border-gray-300 focus:border-red-500 focus:ring-red-500 resize-none"
+              />
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRejectModal(false)}>
+          <DialogFooter className="border-t pt-4 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowRejectModal(false)}
+              className="border-gray-300 hover:border-gray-400"
+            >
               Cancel
             </Button>
             <Button
               onClick={handleReject}
               disabled={!rejectionReason.trim() || actionLoading}
-              variant="destructive"
+              className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-md"
             >
               {actionLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -904,26 +967,40 @@ export const TenantVerificationManagement: React.FC = () => {
 
       {/* Resubmit Modal */}
       <Dialog open={showResubmitModal} onOpenChange={setShowResubmitModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Request KYC Resubmission</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="border-0 shadow-2xl">
+          <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] -mx-6 -mt-6 px-6 py-4 rounded-t-xl">
+            <DialogTitle className="text-white text-xl">Request KYC Resubmission</DialogTitle>
+            <DialogDescription className="text-purple-100">
               Ask {selectedTenant?.name} to resubmit their KYC documents
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <Textarea
-              placeholder="Explain what needs to be corrected (optional)..."
-              value={resubmitReason}
-              onChange={(e) => setResubmitReason(e.target.value)}
-              rows={4}
-            />
+          <div className="space-y-4 mt-4">
+            <div>
+              <label className="text-sm font-semibold text-gray-700 mb-2 block">
+                Instructions (Optional)
+              </label>
+              <Textarea
+                placeholder="Explain what needs to be corrected..."
+                value={resubmitReason}
+                onChange={(e) => setResubmitReason(e.target.value)}
+                rows={4}
+                className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED] resize-none"
+              />
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowResubmitModal(false)}>
+          <DialogFooter className="border-t pt-4 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowResubmitModal(false)}
+              className="border-gray-300 hover:border-gray-400"
+            >
               Cancel
             </Button>
-            <Button onClick={handleRequestResubmit} disabled={actionLoading}>
+            <Button
+              onClick={handleRequestResubmit}
+              disabled={actionLoading}
+              className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md"
+            >
               {actionLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (
@@ -937,34 +1014,42 @@ export const TenantVerificationManagement: React.FC = () => {
 
       {/* Delete Verification Modal */}
       <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Verification Request</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="border-0 shadow-2xl">
+          <DialogHeader className="bg-gradient-to-r from-red-600 to-red-700 -mx-6 -mt-6 px-6 py-4 rounded-t-xl">
+            <DialogTitle className="text-white text-xl">Delete Verification Request</DialogTitle>
+            <DialogDescription className="text-red-100">
               This will delete {tenantToDelete?.name}'s verification request and reset their KYC status.
               The tenant will need to submit a new verification request.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="space-y-4 mt-4">
+            <div className="p-4 bg-gradient-to-br from-amber-50 to-amber-100/50 border-2 border-amber-200 rounded-xl">
               <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
+                <div className="bg-amber-500 p-2 rounded-lg mt-0.5">
+                  <AlertCircle className="h-5 w-5 text-white" />
+                </div>
                 <div>
-                  <p className="font-medium text-yellow-800">Warning</p>
-                  <p className="text-sm text-yellow-700">
+                  <p className="font-bold text-amber-900">Warning</p>
+                  <p className="text-sm text-amber-700 mt-1">
                     This action will permanently delete all uploaded documents and verification history for this tenant.
                   </p>
                 </div>
               </div>
             </div>
-            <Textarea
-              placeholder="Reason for deletion (optional)..."
-              value={deleteReason}
-              onChange={(e) => setDeleteReason(e.target.value)}
-              rows={3}
-            />
+            <div>
+              <label className="text-sm font-semibold text-gray-700 mb-2 block">
+                Reason (Optional)
+              </label>
+              <Textarea
+                placeholder="Reason for deletion..."
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                rows={3}
+                className="border-gray-300 focus:border-red-500 focus:ring-red-500 resize-none"
+              />
+            </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="border-t pt-4 mt-4">
             <Button
               variant="outline"
               onClick={() => {
@@ -972,13 +1057,14 @@ export const TenantVerificationManagement: React.FC = () => {
                 setTenantToDelete(null);
                 setDeleteReason('');
               }}
+              className="border-gray-300 hover:border-gray-400"
             >
               Cancel
             </Button>
             <Button
               onClick={handleDeleteVerification}
               disabled={actionLoading}
-              variant="destructive"
+              className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-md"
             >
               {actionLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />

@@ -124,8 +124,8 @@ export const PropertyManagerManagement = ({
   };
 
   const handleAssignProperties = async (
-    managerId: string, 
-    selectedPropertyIds: string[], 
+    managerId: string,
+    selectedPropertyIds: string[],
     propertyPermissions?: Record<string, any>
   ) => {
     // Get current assignments for this manager from this owner
@@ -160,17 +160,17 @@ export const PropertyManagerManagement = ({
     try {
       // Call the backend reset-password endpoint
       const response = await resetManagerPassword(manager.id);
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
-      
+
       // Set the password from backend response
       const pwd = response.data?.tempPassword || '';
       setNewPassword(pwd);
       setSelectedManager(manager);
       setShowPasswordDialog(true);
-      
+
       console.log('✅ Password generated for manager:', manager.email);
     } catch (error: any) {
       toast.error(error?.message || 'Failed to generate password');
@@ -179,11 +179,11 @@ export const PropertyManagerManagement = ({
 
   const handleSaveNewPassword = async () => {
     if (!selectedManager || !newPassword) return;
-    
+
     try {
       // Copy ONLY the password to clipboard
       navigator.clipboard.writeText(newPassword);
-      
+
       toast.success('Password copied to clipboard! Manager can now log in.');
       setShowPasswordDialog(false);
       setNewPassword('');
@@ -197,11 +197,11 @@ export const PropertyManagerManagement = ({
     try {
       setIsTogglingStatus(manager.id);
       const newStatus = !manager.isActive;
-      
+
       await onUpdateManager(manager.id, {
         isActive: newStatus
       });
-      
+
       toast.success(`Manager ${newStatus ? 'activated' : 'deactivated'} successfully`);
     } catch (error: any) {
       toast.error(error?.message || 'Failed to update manager status');
@@ -215,7 +215,7 @@ export const PropertyManagerManagement = ({
       setUnassigningPropertyId(propertyId);
       await onRemoveManager(managerId, propertyId);
       toast.success(`Unassigned ${propertyName} from manager`);
-      
+
       // Reload stats after unassignment
       const response = await getManagerStats();
       if (!response.error && response.data) {
@@ -234,38 +234,38 @@ export const PropertyManagerManagement = ({
     const managerAssignment = manager.property_managers?.find(
       (pm: any) => pm.propertyId === property.id && pm.isActive
     );
-    
+
     const currentPermissions = managerAssignment?.permissions || { canEdit: false, canDelete: false };
-    
+
     setSelectedManager(manager);
     setSelectedPropertyForPermissions(property);
     setEditingPermissions(currentPermissions);
-    
+
     // Close the unassign dialog if it's open
     setShowUnassignProperties(false);
-    
+
     // Open the edit permissions dialog
     setShowEditPermissions(true);
   };
 
   const handleSavePermissions = async () => {
     if (!selectedManager || !selectedPropertyForPermissions) return;
-    
+
     try {
       // Call API to update permissions
       await onAssignManager(selectedManager.id, selectedPropertyForPermissions.id, editingPermissions);
-      
+
       // Reload managers data to reflect changes
       if (onRefreshManagers) {
         await onRefreshManagers();
       }
-      
+
       // Reload manager stats to reflect changes
       const response = await getManagerStats();
       if (!response.error && response.data) {
         setManagerStats(response.data);
       }
-      
+
       toast.success('Permissions updated successfully');
       setShowEditPermissions(false);
       setSelectedManager(null);
@@ -277,65 +277,85 @@ export const PropertyManagerManagement = ({
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900">Property Manager Management</h2>
-          <p className="text-gray-600 mt-1">Create and manage property managers for your portfolio</p>
+      {/* Header */}
+      <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] rounded-xl p-6 shadow-lg">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                <Users className="h-7 w-7 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold text-white">Property Manager Management</h1>
+            </div>
+            <p className="text-purple-100 text-lg">Create and manage property managers for your portfolio</p>
+          </div>
+          <Button
+            onClick={() => setShowAddManager(true)}
+            className="bg-white text-[#7C3AED] hover:bg-purple-50 shadow-md hover:shadow-lg transition-all duration-200"
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Add Manager
+          </Button>
         </div>
+      </div>
 
-        <Dialog open={showAddManager} onOpenChange={setShowAddManager}>
-          <DialogTrigger asChild>
-            <Button>
-              <UserPlus className="h-4 w-4 mr-2" />
-              Add Manager
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Property Manager</DialogTitle>
-              <DialogDescription>
+      {/* Add Manager Dialog */}
+      <Dialog open={showAddManager} onOpenChange={setShowAddManager}>
+          <DialogContent className="max-w-2xl border-0 shadow-2xl">
+            <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] -m-6 mb-0 p-6 rounded-t-lg">
+              <DialogTitle className="text-2xl text-white">Add New Property Manager</DialogTitle>
+              <DialogDescription className="text-purple-100">
                 Create a new manager account and assign them to your properties
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
+            <div className="grid gap-4 py-4 px-6">
               <div className="grid gap-2">
-                <Label htmlFor="name">Full Name *</Label>
+                <Label htmlFor="name" className="text-sm font-semibold text-gray-700">Full Name *</Label>
                 <Input
                   id="name"
                   value={newManager.name}
                   onChange={(e) => setNewManager({...newManager, name: e.target.value})}
                   placeholder="Sarah Johnson"
+                  className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="email">Email Address *</Label>
+                <Label htmlFor="email" className="text-sm font-semibold text-gray-700">Email Address *</Label>
                 <Input
                   id="email"
                   type="email"
                   value={newManager.email}
                   onChange={(e) => setNewManager({...newManager, email: e.target.value})}
                   placeholder="sarah@example.com"
+                  className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="phone">Phone Number</Label>
+                <Label htmlFor="phone" className="text-sm font-semibold text-gray-700">Phone Number</Label>
                 <Input
                   id="phone"
                   value={newManager.phone}
                   onChange={(e) => setNewManager({...newManager, phone: e.target.value})}
                   placeholder="(555) 123-4567"
+                  className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                 />
               </div>
 
               <div className="grid gap-2">
-                <Label>Generate Password</Label>
+                <Label className="text-sm font-semibold text-gray-700">Generate Password</Label>
                 <div className="flex gap-2">
                   <Input
                     readOnly
                     value={generatedPassword}
                     placeholder="Click Generate to create a strong password"
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
-                  <Button type="button" variant="secondary" onClick={generateStrongPassword}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={generateStrongPassword}
+                    className="bg-purple-100 hover:bg-purple-200 text-[#7C3AED]"
+                  >
                     <KeyRound className="h-4 w-4 mr-1" /> Generate
                   </Button>
                   <Button
@@ -347,74 +367,100 @@ export const PropertyManagerManagement = ({
                       toast.success('Password copied to clipboard');
                     }}
                     disabled={!generatedPassword}
+                    className="border-gray-300 hover:bg-purple-50 hover:text-[#7C3AED] hover:border-[#7C3AED]"
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
                 <p className="text-xs text-gray-500">Password will be included in the new manager's credentials.</p>
               </div>
-              
-              <Alert>
-                <AlertDescription>
+
+              <Alert className="bg-blue-50 border-blue-200">
+                <AlertDescription className="text-blue-900">
                   Login credentials will be automatically generated and can be shared with the manager.
                 </AlertDescription>
               </Alert>
             </div>
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setShowAddManager(false)}>
+            <div className="flex justify-end gap-2 border-t pt-6 mt-6 px-6">
+              <Button
+                variant="outline"
+                onClick={() => setShowAddManager(false)}
+                className="border-gray-300"
+              >
                 Cancel
               </Button>
-              <Button onClick={handleAddManager}>
+              <Button
+                onClick={handleAddManager}
+                className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md"
+              >
+                <Plus className="h-4 w-4 mr-2" />
                 Create Manager
               </Button>
             </div>
           </DialogContent>
         </Dialog>
-      </div>
 
       {/* Manager Overview Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Managers</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Total Managers Card */}
+        <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#7C3AED] to-[#5B21B6] opacity-10"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center">
+                <Users className="h-5 w-5 text-[#7C3AED]" />
+              </div>
+              <CardTitle className="text-sm font-semibold text-gray-700">Total Managers</CardTitle>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent className="relative z-10">
+            <div className="text-3xl font-bold text-[#7C3AED]">
               {loadingStats ? '...' : managerStats?.totalManagers || ownersManagers.length}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-gray-500 mt-1">
               {managerStats?.activeManagers || 0} active, {managerStats?.pendingManagers || 0} pending
               {managerStats && managerStats.inactiveManagers > 0 && `, ${managerStats.inactiveManagers} inactive`}
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Properties Managed</CardTitle>
-            <Building className="h-4 w-4 text-muted-foreground" />
+        {/* Properties Managed Card */}
+        <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-blue-600 opacity-10"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                <Building className="h-5 w-5 text-blue-600" />
+              </div>
+              <CardTitle className="text-sm font-semibold text-gray-700">Properties Managed</CardTitle>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent className="relative z-10">
+            <div className="text-3xl font-bold text-blue-600">
               {loadingStats ? '...' : managerStats?.propertiesManaged || propertyAssignments.filter(a => a.ownerId === user.id && a.isActive).length}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-gray-500 mt-1">
               {managerStats?.unmanagedProperties || 0} properties without managers
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Coverage Rate</CardTitle>
-            <Eye className="h-4 w-4 text-muted-foreground" />
+        {/* Coverage Rate Card */}
+        <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <div className="absolute inset-0 bg-gradient-to-br from-green-500 to-green-600 opacity-10"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center">
+                <Eye className="h-5 w-5 text-green-600" />
+              </div>
+              <CardTitle className="text-sm font-semibold text-gray-700">Coverage Rate</CardTitle>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent className="relative z-10">
+            <div className="text-3xl font-bold text-green-600">
               {loadingStats ? '...' : `${managerStats?.coverageRate.toFixed(1) || Math.round((propertyAssignments.filter(a => a.ownerId === user.id && a.isActive).length / properties.length) * 100)}%`}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-gray-500 mt-1">
               {managerStats?.propertiesManaged || 0} of {managerStats?.totalProperties || properties.length} properties
             </p>
           </CardContent>
@@ -422,30 +468,40 @@ export const PropertyManagerManagement = ({
       </div>
 
       {/* Managers Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Property Managers</CardTitle>
-          <CardDescription>
-            Manage your property managers and their assignments
-          </CardDescription>
+      <Card className="border-gray-200 shadow-md">
+        <CardHeader className="border-b bg-gray-50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+              <Users className="h-5 w-5 text-gray-700" />
+            </div>
+            <div>
+              <CardTitle className="text-gray-900">Property Managers</CardTitle>
+              <CardDescription className="text-gray-600">
+                Manage your property managers and their assignments
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-auto">
+          <div className="overflow-auto rounded-xl border-0">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Manager</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Assigned Properties</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                <TableRow className="bg-[#111827] hover:bg-[#111827]">
+                  <TableHead className="text-white font-semibold">Manager</TableHead>
+                  <TableHead className="text-white font-semibold">Contact</TableHead>
+                  <TableHead className="text-white font-semibold">Assigned Properties</TableHead>
+                  <TableHead className="text-white font-semibold">Status</TableHead>
+                  <TableHead className="text-right text-white font-semibold">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {ownersManagers.map((manager) => {
+                {ownersManagers.map((manager, index) => {
                   const assignedProperties = getManagerAssignedProperties(manager);
                   return (
-                    <TableRow key={manager.id}>
+                    <TableRow
+                      key={manager.id}
+                      className={`hover:bg-[#7C3AED]/5 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}
+                    >
                       <TableCell>
                         <div>
                           <p className="font-medium">{manager.name}</p>
@@ -496,7 +552,7 @@ export const PropertyManagerManagement = ({
                           <DropdownMenuContent align="end" className="w-48">
                             <DropdownMenuLabel>Manager Actions</DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            
+
                             <DropdownMenuItem
                               onClick={() => {
                                 setSelectedManager(manager);
@@ -506,7 +562,7 @@ export const PropertyManagerManagement = ({
                               <Building className="h-4 w-4 mr-2" />
                               Assign Properties
                             </DropdownMenuItem>
-                            
+
                             {assignedProperties.length > 0 && (
                               <DropdownMenuItem
                                 onClick={() => {
@@ -518,18 +574,18 @@ export const PropertyManagerManagement = ({
                                 Manage Assigned
                               </DropdownMenuItem>
                             )}
-                            
+
                             <DropdownMenuSeparator />
-                            
+
                             <DropdownMenuItem
                               onClick={() => handleGeneratePassword(manager)}
                             >
                               <KeyRound className="h-4 w-4 mr-2" />
                               Reset Password
                             </DropdownMenuItem>
-                            
+
                             <DropdownMenuSeparator />
-                            
+
                             <DropdownMenuItem
                               onClick={() => handleToggleManagerStatus(manager)}
                               disabled={isTogglingStatus === manager.id}
@@ -546,9 +602,9 @@ export const PropertyManagerManagement = ({
                                 </>
                               )}
                             </DropdownMenuItem>
-                            
+
                             <DropdownMenuSeparator />
-                            
+
                             <DropdownMenuItem
                               onClick={() => {
                                 // TODO: Implement delete manager
@@ -591,7 +647,7 @@ export const PropertyManagerManagement = ({
               Select which properties this manager should have access to
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedManager && (
             <PropertyAssignmentForm
               manager={selectedManager}
@@ -617,7 +673,7 @@ export const PropertyManagerManagement = ({
               Remove property assignments from this manager
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedManager && (
             <div className="space-y-4">
               <div className="max-h-96 overflow-auto border rounded-lg">
@@ -628,7 +684,7 @@ export const PropertyManagerManagement = ({
                       (pm: any) => pm.propertyId === property.id && pm.isActive
                     );
                     const permissions = managerAssignment?.permissions || { canEdit: false, canDelete: false };
-                    
+
                     return (
                       <div key={property.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded border">
                         <div className="flex-1">
@@ -654,7 +710,7 @@ export const PropertyManagerManagement = ({
                             )}
                           </div>
                         </div>
-                        
+
                         {/* Three-dot menu */}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -731,7 +787,7 @@ export const PropertyManagerManagement = ({
               A new password has been generated. Copy it and share with the manager securely.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Manager Email</label>
@@ -825,7 +881,7 @@ export const PropertyManagerManagement = ({
               Update permissions for {selectedPropertyForPermissions?.name}
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedPropertyForPermissions && selectedManager && (
             <div className="space-y-4">
               <div className="p-4 bg-gray-50 rounded-lg border">
@@ -843,12 +899,12 @@ export const PropertyManagerManagement = ({
 
               <div className="space-y-3">
                 <p className="text-sm font-medium text-gray-700">Manager Permissions:</p>
-                
+
                 <div className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50">
                   <Checkbox
                     id="edit-permission"
                     checked={editingPermissions.canEdit}
-                    onCheckedChange={(checked) => 
+                    onCheckedChange={(checked) =>
                       setEditingPermissions(prev => ({ ...prev, canEdit: checked as boolean }))
                     }
                   />
@@ -866,7 +922,7 @@ export const PropertyManagerManagement = ({
                   <Checkbox
                     id="delete-permission"
                     checked={editingPermissions.canDelete}
-                    onCheckedChange={(checked) => 
+                    onCheckedChange={(checked) =>
                       setEditingPermissions(prev => ({ ...prev, canDelete: checked as boolean }))
                     }
                   />
@@ -933,15 +989,15 @@ const PropertyAssignmentForm = ({
 
   // Get IDs of properties already assigned to this manager
   const currentAssignmentIds = currentAssignments.map(p => p.id.toString());
-  
+
   // Get IDs of properties assigned to ANY manager (excluding this manager)
   const assignedToOtherManagersIds = allPropertyAssignments
     .filter(a => a.isActive && a.managerId !== manager.id)
     .map(a => a.propertyId.toString());
-  
+
   // Filter out properties that are already assigned to this manager OR to other managers
   const availableProperties = properties.filter(
-    property => !currentAssignmentIds.includes(property.id.toString()) && 
+    property => !currentAssignmentIds.includes(property.id.toString()) &&
                 !assignedToOtherManagersIds.includes(property.id.toString())
   );
 
@@ -990,7 +1046,7 @@ const PropertyAssignmentForm = ({
               {availableProperties.map((property) => {
                 const isSelected = selectedProperties.includes(property.id.toString());
                 const permissions = propertyPermissions[property.id.toString()] || { canEdit: false, canDelete: false };
-                
+
                 return (
                   <div key={property.id} className={`border rounded-lg p-3 ${isSelected ? 'bg-blue-50 border-blue-200' : 'bg-white'}`}>
                     <div className="flex items-start space-x-3">
@@ -1015,7 +1071,7 @@ const PropertyAssignmentForm = ({
                             <div className="font-medium">{property.units || property.totalUnits || 0} units</div>
                           </div>
                         </div>
-                        
+
                         {/* Permissions - Only show if property is selected */}
                         {isSelected && (
                           <div className="mt-3 pt-3 border-t border-blue-200">
