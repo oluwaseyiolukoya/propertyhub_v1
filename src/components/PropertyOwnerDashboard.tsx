@@ -110,6 +110,7 @@ import {
   formatCurrency as formatCurrencyUtil,
   getSmartBaseCurrency,
 } from "../lib/currency";
+import { TrialStatusBanner } from "./TrialStatusBanner";
 import { UpgradeModal } from "./UpgradeModal";
 import { getSubscriptionStatus } from "../lib/api/subscription";
 import { verifyUpgrade } from "../lib/api/subscriptions";
@@ -1792,6 +1793,15 @@ export function PropertyOwnerDashboard({
                     Here's an overview of your property portfolio
                   </p>
                 </div>
+
+                {/* Trial Status Banner - Only shows for trial/suspended/grace period */}
+                <TrialStatusBanner
+                  onUpgradeClick={() => setShowUpgradeModal(true)}
+                  onAddPaymentMethod={() => {
+                    setSettingsInitialTab("billing");
+                    setCurrentView("settings");
+                  }}
+                />
 
                 {/* Key Metrics - Brand Styled Cards */}
                 <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
