@@ -43,6 +43,13 @@ backend/uploads/*
 !backend/uploads/favicons/.gitkeep
 !backend/uploads/avatars/
 !backend/uploads/documents/
+!backend/uploads/documents/.gitkeep
+backend/uploads/documents/*.pdf
+backend/uploads/documents/*.doc
+backend/uploads/documents/*.docx
+backend/uploads/documents/*.jpg
+backend/uploads/documents/*.jpeg
+backend/uploads/documents/*.png
 !backend/uploads/maintenance/
 
 # Build artifacts

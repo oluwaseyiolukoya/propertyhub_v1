@@ -288,10 +288,14 @@ export const PaymentOverview: React.FC = () => {
         weekday: "long",
         year: "numeric",
         month: "long",
-        day: "numeric"
+        day: "numeric",
       });
       pdf.text(`Report Date: ${reportDate}`, margin, 88);
-      pdf.text(`Generated At: ${new Date().toLocaleTimeString("en-US")}`, margin, 98);
+      pdf.text(
+        `Generated At: ${new Date().toLocaleTimeString("en-US")}`,
+        margin,
+        98
+      );
 
       // Right side metadata
       pdf.setFont("helvetica", "bold");
@@ -390,7 +394,11 @@ export const PaymentOverview: React.FC = () => {
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(16);
       pdf.setTextColor(59, 130, 246);
-      pdf.text(`${total > 0 ? Math.round((successCount / total) * 100) : 0}%`, cardX + 10, cardY + 45);
+      pdf.text(
+        `${total > 0 ? Math.round((successCount / total) * 100) : 0}%`,
+        cardX + 10,
+        cardY + 45
+      );
 
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(8);
@@ -514,7 +522,12 @@ export const PaymentOverview: React.FC = () => {
         // Row border
         pdf.setDrawColor(229, 231, 235); // Light gray border
         pdf.setLineWidth(0.5);
-        pdf.line(margin, yPos + rowHeight, pageWidth - margin, yPos + rowHeight);
+        pdf.line(
+          margin,
+          yPos + rowHeight,
+          pageWidth - margin,
+          yPos + rowHeight
+        );
 
         pdf.setFont("helvetica", "normal");
         pdf.setTextColor(...textDark);
@@ -523,27 +536,25 @@ export const PaymentOverview: React.FC = () => {
         colX = margin + 15;
 
         // Tenant (truncate if too long)
-        const tenantText = payment.tenant.length > 18
-          ? payment.tenant.substring(0, 15) + "..."
-          : payment.tenant;
+        const tenantText =
+          payment.tenant.length > 18
+            ? payment.tenant.substring(0, 15) + "..."
+            : payment.tenant;
         pdf.text(tenantText, colX, yPos + 22);
 
         colX += colWidths.tenant;
         // Property (truncate if too long)
-        const propertyText = payment.property.length > 16
-          ? payment.property.substring(0, 13) + "..."
-          : payment.property;
+        const propertyText =
+          payment.property.length > 16
+            ? payment.property.substring(0, 13) + "..."
+            : payment.property;
         pdf.text(propertyText, colX, yPos + 22);
 
         colX += colWidths.property;
         // Amount
         pdf.setFont("helvetica", "bold");
         pdf.setTextColor(...textDark);
-        pdf.text(
-          payment.amount.toLocaleString(),
-          colX,
-          yPos + 22
-        );
+        pdf.text(payment.amount.toLocaleString(), colX, yPos + 22);
 
         colX += colWidths.amount;
         pdf.setFont("helvetica", "normal");
@@ -551,9 +562,10 @@ export const PaymentOverview: React.FC = () => {
         pdf.text(payment.date, colX, yPos + 22);
 
         colX += colWidths.date;
-        const methodText = payment.method.length > 12
-          ? payment.method.substring(0, 9) + "..."
-          : payment.method;
+        const methodText =
+          payment.method.length > 12
+            ? payment.method.substring(0, 9) + "..."
+            : payment.method;
         pdf.text(methodText, colX, yPos + 22);
 
         colX += colWidths.method;
@@ -628,7 +640,9 @@ export const PaymentOverview: React.FC = () => {
       }
 
       // Save the PDF
-      const fileName = `Payment_Report_${new Date().toISOString().split("T")[0]}.pdf`;
+      const fileName = `Payment_Report_${
+        new Date().toISOString().split("T")[0]
+      }.pdf`;
       pdf.save(fileName);
 
       toast.success("Payment report exported successfully!");
@@ -774,7 +788,9 @@ export const PaymentOverview: React.FC = () => {
               <DollarSign className="h-8 w-8 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-white">Payment Overview</h1>
+              <h1 className="text-3xl font-bold text-white">
+                Payment Overview
+              </h1>
               <p className="text-purple-100 mt-1">
                 Track all payment transactions across your properties
               </p>
@@ -808,7 +824,9 @@ export const PaymentOverview: React.FC = () => {
                 <DollarSign className="h-6 w-6 text-white" />
               </div>
               <div>
-                <p className="text-sm text-gray-600 font-medium mb-1">Total Collected</p>
+                <p className="text-sm text-gray-600 font-medium mb-1">
+                  Total Collected
+                </p>
                 <div className="text-3xl font-bold text-gray-900">
                   ₦{totalCollected.toLocaleString()}
                 </div>
@@ -828,7 +846,9 @@ export const PaymentOverview: React.FC = () => {
                 <Clock className="h-6 w-6 text-white" />
               </div>
               <div>
-                <p className="text-sm text-gray-600 font-medium mb-1">Pending Amount</p>
+                <p className="text-sm text-gray-600 font-medium mb-1">
+                  Pending Amount
+                </p>
                 <div className="text-3xl font-bold text-gray-900">
                   ₦{pendingAmount.toLocaleString()}
                 </div>
@@ -847,7 +867,9 @@ export const PaymentOverview: React.FC = () => {
                 <CheckCircle className="h-6 w-6 text-white" />
               </div>
               <div>
-                <p className="text-sm text-gray-600 font-medium mb-1">Success Rate</p>
+                <p className="text-sm text-gray-600 font-medium mb-1">
+                  Success Rate
+                </p>
                 <div className="text-3xl font-bold text-gray-900">
                   {total > 0 ? Math.round((successCount / total) * 100) : 0}%
                 </div>
@@ -866,8 +888,12 @@ export const PaymentOverview: React.FC = () => {
                 <XCircle className="h-6 w-6 text-white" />
               </div>
               <div>
-                <p className="text-sm text-gray-600 font-medium mb-1">Failed Payments</p>
-                <div className="text-3xl font-bold text-gray-900">{failedCount}</div>
+                <p className="text-sm text-gray-600 font-medium mb-1">
+                  Failed Payments
+                </p>
+                <div className="text-3xl font-bold text-gray-900">
+                  {failedCount}
+                </div>
                 <p className="text-xs text-gray-500 mt-2">Requires attention</p>
               </div>
             </div>
@@ -884,7 +910,9 @@ export const PaymentOverview: React.FC = () => {
                 <CreditCard className="h-5 w-5 text-gray-700" />
               </div>
               <div>
-                <CardTitle className="text-gray-900">Payment by Method</CardTitle>
+                <CardTitle className="text-gray-900">
+                  Payment by Method
+                </CardTitle>
                 <CardDescription className="text-gray-600">
                   Distribution of payment methods used
                 </CardDescription>
@@ -895,7 +923,10 @@ export const PaymentOverview: React.FC = () => {
             {stats?.byMethod && stats.byMethod.length > 0 ? (
               <div className="space-y-3">
                 {stats.byMethod.map((item: any, idx: number) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-gradient-to-br from-purple-50 to-purple-100/50 rounded-xl border border-purple-200 hover:border-purple-300 transition-colors">
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-3 bg-gradient-to-br from-purple-50 to-purple-100/50 rounded-xl border border-purple-200 hover:border-purple-300 transition-colors"
+                  >
                     <div className="flex items-center gap-3">
                       <div className="bg-gradient-to-br from-[#7C3AED] to-[#5B21B6] p-2 rounded-lg">
                         <CreditCard className="h-4 w-4 text-white" />
@@ -920,7 +951,9 @@ export const PaymentOverview: React.FC = () => {
                 <div className="bg-purple-100 p-4 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
                   <CreditCard className="h-8 w-8 text-[#7C3AED]" />
                 </div>
-                <p className="text-sm font-semibold text-gray-700">No payment methods data available</p>
+                <p className="text-sm font-semibold text-gray-700">
+                  No payment methods data available
+                </p>
               </div>
             )}
           </CardContent>
@@ -934,7 +967,9 @@ export const PaymentOverview: React.FC = () => {
               </div>
               <div>
                 <CardTitle className="text-gray-900">Payment by Type</CardTitle>
-                <CardDescription className="text-gray-600">Breakdown of payment categories</CardDescription>
+                <CardDescription className="text-gray-600">
+                  Breakdown of payment categories
+                </CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -942,7 +977,10 @@ export const PaymentOverview: React.FC = () => {
             {stats?.byType && stats.byType.length > 0 ? (
               <div className="space-y-3">
                 {stats.byType.map((item: any, idx: number) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-gradient-to-br from-green-50 to-green-100/50 rounded-xl border border-green-200 hover:border-green-300 transition-colors">
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-3 bg-gradient-to-br from-green-50 to-green-100/50 rounded-xl border border-green-200 hover:border-green-300 transition-colors"
+                  >
                     <div className="flex items-center gap-3">
                       <div className="bg-gradient-to-br from-green-600 to-green-700 p-2 rounded-lg">
                         <Building className="h-4 w-4 text-white" />
@@ -967,7 +1005,9 @@ export const PaymentOverview: React.FC = () => {
                 <div className="bg-green-100 p-4 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
                   <Building className="h-8 w-8 text-green-600" />
                 </div>
-                <p className="text-sm font-semibold text-gray-700">No payment types data available</p>
+                <p className="text-sm font-semibold text-gray-700">
+                  No payment types data available
+                </p>
               </div>
             )}
           </CardContent>
@@ -982,7 +1022,9 @@ export const PaymentOverview: React.FC = () => {
               <DollarSign className="h-5 w-5 text-gray-700" />
             </div>
             <div>
-              <CardTitle className="text-gray-900">All Payment Transactions</CardTitle>
+              <CardTitle className="text-gray-900">
+                All Payment Transactions
+              </CardTitle>
               <CardDescription className="text-gray-600 mt-1">
                 Complete history of all payments received
               </CardDescription>
@@ -1029,40 +1071,73 @@ export const PaymentOverview: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow className="bg-[#111827] hover:bg-[#111827]">
-                  <TableHead className="text-white font-semibold">Reference</TableHead>
-                  <TableHead className="text-white font-semibold">Tenant</TableHead>
-                  <TableHead className="text-white font-semibold">Property</TableHead>
-                  <TableHead className="text-white font-semibold">Unit</TableHead>
-                  <TableHead className="text-white font-semibold">Type</TableHead>
-                  <TableHead className="text-white font-semibold">Amount</TableHead>
-                  <TableHead className="text-white font-semibold">Date</TableHead>
-                  <TableHead className="text-white font-semibold">Time</TableHead>
-                  <TableHead className="text-white font-semibold">Method</TableHead>
-                  <TableHead className="text-white font-semibold">Status</TableHead>
-                  <TableHead className="text-right text-white font-semibold">Actions</TableHead>
+                  <TableHead className="text-white font-semibold">
+                    Reference
+                  </TableHead>
+                  <TableHead className="text-white font-semibold">
+                    Tenant
+                  </TableHead>
+                  <TableHead className="text-white font-semibold">
+                    Property
+                  </TableHead>
+                  <TableHead className="text-white font-semibold">
+                    Unit
+                  </TableHead>
+                  <TableHead className="text-white font-semibold">
+                    Type
+                  </TableHead>
+                  <TableHead className="text-white font-semibold">
+                    Amount
+                  </TableHead>
+                  <TableHead className="text-white font-semibold">
+                    Date
+                  </TableHead>
+                  <TableHead className="text-white font-semibold">
+                    Time
+                  </TableHead>
+                  <TableHead className="text-white font-semibold">
+                    Method
+                  </TableHead>
+                  <TableHead className="text-white font-semibold">
+                    Status
+                  </TableHead>
+                  <TableHead className="text-right text-white font-semibold">
+                    Actions
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {payments.map((payment, index) => (
                   <TableRow
                     key={payment.id}
-                    className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} hover:bg-[#7C3AED]/5 transition-colors`}
+                    className={`${
+                      index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
+                    } hover:bg-[#7C3AED]/5 transition-colors`}
                   >
                     <TableCell className="font-mono text-xs font-medium text-gray-700">
                       {payment.reference}
                     </TableCell>
                     <TableCell>
                       <div>
-                        <p className="font-semibold text-gray-900">{payment.tenant}</p>
+                        <p className="font-semibold text-gray-900">
+                          {payment.tenant}
+                        </p>
                         <p className="text-xs text-gray-500">
                           {payment.tenantEmail}
                         </p>
                       </div>
                     </TableCell>
-                    <TableCell className="font-medium text-gray-900">{payment.property}</TableCell>
-                    <TableCell className="font-medium text-gray-700">{payment.unit}</TableCell>
+                    <TableCell className="font-medium text-gray-900">
+                      {payment.property}
+                    </TableCell>
+                    <TableCell className="font-medium text-gray-700">
+                      {payment.unit}
+                    </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="capitalize border-purple-200 text-[#7C3AED] bg-purple-50">
+                      <Badge
+                        variant="outline"
+                        className="capitalize border-purple-200 text-[#7C3AED] bg-purple-50"
+                      >
                         {payment.type}
                       </Badge>
                     </TableCell>
@@ -1071,11 +1146,15 @@ export const PaymentOverview: React.FC = () => {
                       {payment.amount.toLocaleString()}{" "}
                       {payment.currency !== "NGN" ? payment.currency : ""}
                     </TableCell>
-                    <TableCell className="font-medium text-gray-700">{payment.date}</TableCell>
+                    <TableCell className="font-medium text-gray-700">
+                      {payment.date}
+                    </TableCell>
                     <TableCell className="text-sm text-gray-600">
                       {payment.time}
                     </TableCell>
-                    <TableCell className="font-medium text-gray-700">{payment.method}</TableCell>
+                    <TableCell className="font-medium text-gray-700">
+                      {payment.method}
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         {getStatusIcon(payment.status)}
@@ -1090,13 +1169,22 @@ export const PaymentOverview: React.FC = () => {
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="hover:bg-purple-100">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="hover:bg-purple-100"
+                          >
                             <MoreVertical className="h-4 w-4 text-gray-600" />
                             <span className="sr-only">Open actions</span>
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="rounded-xl shadow-lg">
-                          <DropdownMenuLabel className="font-bold">Actions</DropdownMenuLabel>
+                        <DropdownMenuContent
+                          align="end"
+                          className="rounded-xl shadow-lg"
+                        >
+                          <DropdownMenuLabel className="font-bold">
+                            Actions
+                          </DropdownMenuLabel>
                           <DropdownMenuItem
                             onClick={() => {
                               setSelectedPayment(payment);
@@ -1173,15 +1261,14 @@ export const PaymentOverview: React.FC = () => {
                 ))}
                 {payments.length === 0 && (
                   <TableRow>
-                    <TableCell
-                      colSpan={11}
-                      className="text-center py-12"
-                    >
+                    <TableCell colSpan={11} className="text-center py-12">
                       <div className="flex flex-col items-center space-y-3">
                         <div className="bg-purple-100 p-4 rounded-full">
                           <Search className="h-10 w-10 text-[#7C3AED]" />
                         </div>
-                        <p className="font-bold text-gray-900 text-lg">No payments found</p>
+                        <p className="font-bold text-gray-900 text-lg">
+                          No payments found
+                        </p>
                         <p className="text-sm text-gray-500">
                           Try adjusting your search or filters
                         </p>
@@ -1226,7 +1313,9 @@ export const PaymentOverview: React.FC = () => {
       <Dialog open={showPaymentDetails} onOpenChange={setShowPaymentDetails}>
         <DialogContent className="max-w-lg border-0 shadow-2xl">
           <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] -mx-6 -mt-6 px-6 py-4 rounded-t-xl">
-            <DialogTitle className="text-white text-xl">Payment Details</DialogTitle>
+            <DialogTitle className="text-white text-xl">
+              Payment Details
+            </DialogTitle>
             <DialogDescription className="text-purple-100">
               Full breakdown of the selected payment transaction.
             </DialogDescription>
@@ -1234,9 +1323,7 @@ export const PaymentOverview: React.FC = () => {
           {selectedPayment && (
             <div className="space-y-4 mt-4">
               <div className="rounded-xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-purple-100/50 p-4 space-y-2">
-                <p className="text-xs font-bold text-gray-700">
-                  Reference
-                </p>
+                <p className="text-xs font-bold text-gray-700">Reference</p>
                 <p className="font-mono text-sm break-all font-semibold text-gray-900">
                   {selectedPayment.reference}
                 </p>
@@ -1244,9 +1331,7 @@ export const PaymentOverview: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-white p-3 rounded-xl border-2 border-blue-200">
-                  <p className="text-xs font-bold text-gray-700 mb-2">
-                    Tenant
-                  </p>
+                  <p className="text-xs font-bold text-gray-700 mb-2">Tenant</p>
                   <p className="text-sm font-bold text-gray-900">
                     {selectedPayment.tenant}
                   </p>
@@ -1269,9 +1354,7 @@ export const PaymentOverview: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-white p-3 rounded-xl border-2 border-green-200">
-                  <p className="text-xs font-bold text-gray-700 mb-2">
-                    Amount
-                  </p>
+                  <p className="text-xs font-bold text-gray-700 mb-2">Amount</p>
                   <p className="text-lg font-bold text-green-600">
                     {selectedPayment.currency === "NGN" ? "₦" : ""}
                     {Number(selectedPayment.amount ?? 0).toLocaleString()}{" "}
@@ -1281,26 +1364,25 @@ export const PaymentOverview: React.FC = () => {
                   </p>
                 </div>
                 <div className="bg-white p-3 rounded-xl border-2 border-purple-200">
-                  <p className="text-xs font-bold text-gray-700 mb-2">
-                    Method
+                  <p className="text-xs font-bold text-gray-700 mb-2">Method</p>
+                  <p className="text-sm capitalize font-bold text-gray-900">
+                    {selectedPayment.method}
                   </p>
-                  <p className="text-sm capitalize font-bold text-gray-900">{selectedPayment.method}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-white p-3 rounded-xl border-2 border-purple-200">
-                  <p className="text-xs font-bold text-gray-700 mb-2">
-                    Type
-                  </p>
-                  <Badge variant="outline" className="capitalize border-purple-200 text-[#7C3AED] bg-purple-50">
+                  <p className="text-xs font-bold text-gray-700 mb-2">Type</p>
+                  <Badge
+                    variant="outline"
+                    className="capitalize border-purple-200 text-[#7C3AED] bg-purple-50"
+                  >
                     {selectedPayment.type}
                   </Badge>
                 </div>
                 <div className="bg-white p-3 rounded-xl border-2 border-gray-200">
-                  <p className="text-xs font-bold text-gray-700 mb-2">
-                    Status
-                  </p>
+                  <p className="text-xs font-bold text-gray-700 mb-2">Status</p>
                   <div className="inline-flex items-center gap-2">
                     {getStatusIcon(selectedPayment.status)}
                     <Badge
@@ -1315,9 +1397,7 @@ export const PaymentOverview: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-white p-3 rounded-xl border-2 border-gray-200">
-                  <p className="text-xs font-bold text-gray-700 mb-2">
-                    Date
-                  </p>
+                  <p className="text-xs font-bold text-gray-700 mb-2">Date</p>
                   <p className="text-sm font-bold text-gray-900">
                     {selectedPayment.date} at {selectedPayment.time}
                   </p>
@@ -1342,14 +1422,21 @@ export const PaymentOverview: React.FC = () => {
       <Dialog open={showEditPayment} onOpenChange={setShowEditPayment}>
         <DialogContent className="max-w-md border-0 shadow-2xl">
           <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] -mx-6 -mt-6 px-6 py-4 rounded-t-xl">
-            <DialogTitle className="text-white text-xl">Edit Payment</DialogTitle>
+            <DialogTitle className="text-white text-xl">
+              Edit Payment
+            </DialogTitle>
             <DialogDescription className="text-purple-100">
               Adjust amount, method, date, or notes for this manual payment.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-amount" className="text-sm font-semibold text-gray-700">Amount</Label>
+              <Label
+                htmlFor="edit-amount"
+                className="text-sm font-semibold text-gray-700"
+              >
+                Amount
+              </Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 font-semibold">
                   ₦
@@ -1373,14 +1460,22 @@ export const PaymentOverview: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-method" className="text-sm font-semibold text-gray-700">Payment Method</Label>
+              <Label
+                htmlFor="edit-method"
+                className="text-sm font-semibold text-gray-700"
+              >
+                Payment Method
+              </Label>
               <Select
                 value={editForm.paymentMethod}
                 onValueChange={(value) =>
                   setEditForm((prev) => ({ ...prev, paymentMethod: value }))
                 }
               >
-                <SelectTrigger id="edit-method" className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
+                <SelectTrigger
+                  id="edit-method"
+                  className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                >
                   <SelectValue placeholder="Select method" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1394,7 +1489,12 @@ export const PaymentOverview: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-date" className="text-sm font-semibold text-gray-700">Payment Date</Label>
+              <Label
+                htmlFor="edit-date"
+                className="text-sm font-semibold text-gray-700"
+              >
+                Payment Date
+              </Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -1409,9 +1509,14 @@ export const PaymentOverview: React.FC = () => {
                     )}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 rounded-xl shadow-xl" align="start">
+                <PopoverContent
+                  className="w-auto p-0 rounded-xl shadow-xl"
+                  align="start"
+                >
                   <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] px-4 py-3 rounded-t-xl">
-                    <p className="text-sm font-semibold text-white">Select Payment Date</p>
+                    <p className="text-sm font-semibold text-white">
+                      Select Payment Date
+                    </p>
                   </div>
                   <CalendarComponent
                     mode="single"
@@ -1433,20 +1538,25 @@ export const PaymentOverview: React.FC = () => {
                       caption: "flex justify-center pt-1 relative items-center",
                       caption_label: "text-sm font-semibold text-gray-900",
                       nav: "space-x-1 flex items-center",
-                      nav_button: "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 border border-gray-300 hover:bg-purple-50 hover:border-[#7C3AED] hover:text-[#7C3AED] rounded-md transition-colors",
+                      nav_button:
+                        "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 border border-gray-300 hover:bg-purple-50 hover:border-[#7C3AED] hover:text-[#7C3AED] rounded-md transition-colors",
                       nav_button_previous: "absolute left-1",
                       nav_button_next: "absolute right-1",
                       table: "w-full border-collapse space-y-1",
                       head_row: "flex",
-                      head_cell: "text-gray-500 rounded-md w-9 font-normal text-[0.8rem]",
+                      head_cell:
+                        "text-gray-500 rounded-md w-9 font-normal text-[0.8rem]",
                       row: "flex w-full mt-2",
                       cell: "text-center text-sm p-0 relative [&:has([aria-selected])]:bg-purple-100 first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
                       day: "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-[#7C3AED]/10 hover:text-[#7C3AED] rounded-md transition-colors",
-                      day_selected: "bg-[#7C3AED] text-white hover:bg-[#6D28D9] hover:text-white focus:bg-[#6D28D9] focus:text-white font-bold shadow-md",
-                      day_today: "bg-purple-100 text-[#7C3AED] font-bold border-2 border-[#7C3AED]",
+                      day_selected:
+                        "bg-[#7C3AED] text-white hover:bg-[#6D28D9] hover:text-white focus:bg-[#6D28D9] focus:text-white font-bold shadow-md",
+                      day_today:
+                        "bg-purple-100 text-[#7C3AED] font-bold border-2 border-[#7C3AED]",
                       day_outside: "text-gray-400 opacity-50",
                       day_disabled: "text-gray-400 opacity-50",
-                      day_range_middle: "aria-selected:bg-purple-100 aria-selected:text-[#7C3AED]",
+                      day_range_middle:
+                        "aria-selected:bg-purple-100 aria-selected:text-[#7C3AED]",
                       day_hidden: "invisible",
                     }}
                   />
@@ -1455,14 +1565,22 @@ export const PaymentOverview: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-type" className="text-sm font-semibold text-gray-700">Payment Type</Label>
+              <Label
+                htmlFor="edit-type"
+                className="text-sm font-semibold text-gray-700"
+              >
+                Payment Type
+              </Label>
               <Select
                 value={editForm.type}
                 onValueChange={(value) =>
                   setEditForm((prev) => ({ ...prev, type: value }))
                 }
               >
-                <SelectTrigger id="edit-type" className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
+                <SelectTrigger
+                  id="edit-type"
+                  className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                >
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1475,7 +1593,12 @@ export const PaymentOverview: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-notes" className="text-sm font-semibold text-gray-700">Notes</Label>
+              <Label
+                htmlFor="edit-notes"
+                className="text-sm font-semibold text-gray-700"
+              >
+                Notes
+              </Label>
               <Textarea
                 id="edit-notes"
                 rows={3}
@@ -1511,7 +1634,9 @@ export const PaymentOverview: React.FC = () => {
       <Dialog open={showRecordDialog} onOpenChange={setShowRecordDialog}>
         <DialogContent className="max-w-4xl border-0 shadow-2xl">
           <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] -mx-6 -mt-6 px-6 py-4 rounded-t-xl space-y-2">
-            <DialogTitle className="text-white text-xl">Record Manual Payment</DialogTitle>
+            <DialogTitle className="text-white text-xl">
+              Record Manual Payment
+            </DialogTitle>
             <DialogDescription className="text-purple-100">
               Capture one-off payments collected via cash, transfers or other
               offline channels. We'll update the ledger and optionally send a
@@ -1526,19 +1651,29 @@ export const PaymentOverview: React.FC = () => {
                   <div className="bg-amber-500 p-1.5 rounded-lg">
                     <AlertCircle className="h-4 w-4 text-white" />
                   </div>
-                  <div className="font-semibold text-amber-900">Complete the required fields to enable recording.</div>
+                  <div className="font-semibold text-amber-900">
+                    Complete the required fields to enable recording.
+                  </div>
                 </div>
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="lease" className="text-sm font-semibold text-gray-700">Tenant Lease <span className="text-red-500">*</span></Label>
+                <Label
+                  htmlFor="lease"
+                  className="text-sm font-semibold text-gray-700"
+                >
+                  Tenant Lease <span className="text-red-500">*</span>
+                </Label>
                 <Select
                   value={recordForm.leaseId}
                   onValueChange={(value) =>
                     setRecordForm({ ...recordForm, leaseId: value })
                   }
                 >
-                  <SelectTrigger id="lease" className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
+                  <SelectTrigger
+                    id="lease"
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                  >
                     <SelectValue placeholder="Select a lease" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1559,7 +1694,12 @@ export const PaymentOverview: React.FC = () => {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="amount" className="text-sm font-semibold text-gray-700">Amount <span className="text-red-500">*</span></Label>
+                  <Label
+                    htmlFor="amount"
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    Amount <span className="text-red-500">*</span>
+                  </Label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 font-semibold">
                       ₦
@@ -1582,14 +1722,22 @@ export const PaymentOverview: React.FC = () => {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="method" className="text-sm font-semibold text-gray-700">Payment Method <span className="text-red-500">*</span></Label>
+                  <Label
+                    htmlFor="method"
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    Payment Method <span className="text-red-500">*</span>
+                  </Label>
                   <Select
                     value={recordForm.paymentMethod}
                     onValueChange={(value) =>
                       setRecordForm({ ...recordForm, paymentMethod: value })
                     }
                   >
-                    <SelectTrigger id="method" className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
+                    <SelectTrigger
+                      id="method"
+                      className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                    >
                       <SelectValue placeholder="Select method" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1607,7 +1755,12 @@ export const PaymentOverview: React.FC = () => {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="date" className="text-sm font-semibold text-gray-700">Payment Date</Label>
+                  <Label
+                    htmlFor="date"
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    Payment Date
+                  </Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -1618,15 +1771,18 @@ export const PaymentOverview: React.FC = () => {
                         {recordForm.paymentDate ? (
                           format(new Date(recordForm.paymentDate), "PPP")
                         ) : (
-                          <span className="text-gray-500">
-                            Pick a date
-                          </span>
+                          <span className="text-gray-500">Pick a date</span>
                         )}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 rounded-xl shadow-xl" align="start">
+                    <PopoverContent
+                      className="w-auto p-0 rounded-xl shadow-xl"
+                      align="start"
+                    >
                       <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] px-4 py-3 rounded-t-xl">
-                        <p className="text-sm font-semibold text-white">Select Payment Date</p>
+                        <p className="text-sm font-semibold text-white">
+                          Select Payment Date
+                        </p>
                       </div>
                       <CalendarComponent
                         mode="single"
@@ -1645,23 +1801,29 @@ export const PaymentOverview: React.FC = () => {
                         classNames={{
                           months: "flex flex-col space-y-4 p-3 bg-white",
                           month: "space-y-4",
-                          caption: "flex justify-center pt-1 relative items-center",
+                          caption:
+                            "flex justify-center pt-1 relative items-center",
                           caption_label: "text-sm font-semibold text-gray-900",
                           nav: "space-x-1 flex items-center",
-                          nav_button: "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 border border-gray-300 hover:bg-purple-50 hover:border-[#7C3AED] hover:text-[#7C3AED] rounded-md transition-colors",
+                          nav_button:
+                            "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 border border-gray-300 hover:bg-purple-50 hover:border-[#7C3AED] hover:text-[#7C3AED] rounded-md transition-colors",
                           nav_button_previous: "absolute left-1",
                           nav_button_next: "absolute right-1",
                           table: "w-full border-collapse space-y-1",
                           head_row: "flex",
-                          head_cell: "text-gray-500 rounded-md w-9 font-normal text-[0.8rem]",
+                          head_cell:
+                            "text-gray-500 rounded-md w-9 font-normal text-[0.8rem]",
                           row: "flex w-full mt-2",
                           cell: "text-center text-sm p-0 relative [&:has([aria-selected])]:bg-purple-100 first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
                           day: "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-[#7C3AED]/10 hover:text-[#7C3AED] rounded-md transition-colors",
-                          day_selected: "bg-[#7C3AED] text-white hover:bg-[#6D28D9] hover:text-white focus:bg-[#6D28D9] focus:text-white font-bold shadow-md",
-                          day_today: "bg-purple-100 text-[#7C3AED] font-bold border-2 border-[#7C3AED]",
+                          day_selected:
+                            "bg-[#7C3AED] text-white hover:bg-[#6D28D9] hover:text-white focus:bg-[#6D28D9] focus:text-white font-bold shadow-md",
+                          day_today:
+                            "bg-purple-100 text-[#7C3AED] font-bold border-2 border-[#7C3AED]",
                           day_outside: "text-gray-400 opacity-50",
                           day_disabled: "text-gray-400 opacity-50",
-                          day_range_middle: "aria-selected:bg-purple-100 aria-selected:text-[#7C3AED]",
+                          day_range_middle:
+                            "aria-selected:bg-purple-100 aria-selected:text-[#7C3AED]",
                           day_hidden: "invisible",
                         }}
                       />
@@ -1669,14 +1831,22 @@ export const PaymentOverview: React.FC = () => {
                   </Popover>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="type" className="text-sm font-semibold text-gray-700">Payment Type</Label>
+                  <Label
+                    htmlFor="type"
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    Payment Type
+                  </Label>
                   <Select
                     value={recordForm.type}
                     onValueChange={(value) =>
                       setRecordForm({ ...recordForm, type: value })
                     }
                   >
-                    <SelectTrigger id="type" className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
+                    <SelectTrigger
+                      id="type"
+                      className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                    >
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1689,7 +1859,12 @@ export const PaymentOverview: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="notes" className="text-sm font-semibold text-gray-700">Internal Notes</Label>
+                <Label
+                  htmlFor="notes"
+                  className="text-sm font-semibold text-gray-700"
+                >
+                  Internal Notes
+                </Label>
                 <Textarea
                   id="notes"
                   value={recordForm.notes}
@@ -1717,7 +1892,10 @@ export const PaymentOverview: React.FC = () => {
                       ₦{Number(recordForm.amount || 0).toLocaleString()}
                     </p>
                   </div>
-                  <Badge variant="secondary" className="text-xs uppercase border-green-300 bg-white text-green-700 font-bold">
+                  <Badge
+                    variant="secondary"
+                    className="text-xs uppercase border-green-300 bg-white text-green-700 font-bold"
+                  >
                     {recordForm.paymentMethod
                       ? recordForm.paymentMethod.replace(/_/g, " ")
                       : "method TBD"}
@@ -1726,16 +1904,26 @@ export const PaymentOverview: React.FC = () => {
                 {selectedLease ? (
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center justify-between bg-white p-2 rounded-lg border border-green-200">
-                      <span className="text-gray-600 font-semibold">Tenant</span>
-                      <span className="font-bold text-gray-900">{selectedLease.users?.name}</span>
+                      <span className="text-gray-600 font-semibold">
+                        Tenant
+                      </span>
+                      <span className="font-bold text-gray-900">
+                        {selectedLease.users?.name}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between bg-white p-2 rounded-lg border border-green-200">
                       <span className="text-gray-600 font-semibold">Unit</span>
-                      <span className="font-bold text-gray-900">{selectedLease.units?.unitNumber ?? "—"}</span>
+                      <span className="font-bold text-gray-900">
+                        {selectedLease.units?.unitNumber ?? "—"}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between bg-white p-2 rounded-lg border border-green-200">
-                      <span className="text-gray-600 font-semibold">Property</span>
-                      <span className="font-bold text-gray-900">{selectedLease.properties?.name}</span>
+                      <span className="text-gray-600 font-semibold">
+                        Property
+                      </span>
+                      <span className="font-bold text-gray-900">
+                        {selectedLease.properties?.name}
+                      </span>
                     </div>
                   </div>
                 ) : (
@@ -1748,7 +1936,9 @@ export const PaymentOverview: React.FC = () => {
               <div className="rounded-xl border-2 border-purple-200 divide-y divide-purple-100">
                 <div className="flex items-start justify-between gap-3 p-4 hover:bg-purple-50/50 transition-colors rounded-t-xl">
                   <div>
-                    <p className="font-bold text-gray-900">Send digital receipt</p>
+                    <p className="font-bold text-gray-900">
+                      Send digital receipt
+                    </p>
                     <p className="text-sm text-gray-600 mt-1">
                       Email a branded receipt once this payment is recorded.
                     </p>
@@ -1767,7 +1957,9 @@ export const PaymentOverview: React.FC = () => {
 
                 <div className="flex items-start justify-between gap-3 p-4 hover:bg-purple-50/50 transition-colors">
                   <div>
-                    <p className="font-bold text-gray-900">Mark invoice as settled</p>
+                    <p className="font-bold text-gray-900">
+                      Mark invoice as settled
+                    </p>
                     <p className="text-sm text-gray-600 mt-1">
                       Close any open balance tied to this lease automatically.
                     </p>
@@ -1786,7 +1978,9 @@ export const PaymentOverview: React.FC = () => {
 
                 <div className="flex items-start justify-between gap-3 p-4 hover:bg-purple-50/50 transition-colors rounded-b-xl">
                   <div>
-                    <p className="font-bold text-gray-900">Notify finance team</p>
+                    <p className="font-bold text-gray-900">
+                      Notify finance team
+                    </p>
                     <p className="text-sm text-gray-600 mt-1">
                       Post an update to the finance Slack/email channel.
                     </p>
