@@ -110,7 +110,6 @@ import {
   formatCurrency as formatCurrencyUtil,
   getSmartBaseCurrency,
 } from "../lib/currency";
-import { TrialStatusBanner } from "./TrialStatusBanner";
 import { UpgradeModal } from "./UpgradeModal";
 import { getSubscriptionStatus } from "../lib/api/subscription";
 import { verifyUpgrade } from "../lib/api/subscriptions";
@@ -453,8 +452,10 @@ export function PropertyOwnerDashboard({
             "Plan upgraded successfully! Refreshing your dashboard..."
           );
 
-          // Refresh dashboard and subscription status silently
-          await fetchData(true);
+          // Reload the page to refresh all data and remove trial banner
+          setTimeout(() => {
+            window.location.reload();
+          }, 1500); // Give time for success message to show
         } catch (error: any) {
           console.error(
             "[PropertyOwnerDashboard] Subscription upgrade verification error:",
@@ -1791,15 +1792,6 @@ export function PropertyOwnerDashboard({
                     Here's an overview of your property portfolio
                   </p>
                 </div>
-
-                {/* Trial Status Banner */}
-                <TrialStatusBanner
-                  onUpgradeClick={() => setShowUpgradeModal(true)}
-                  onAddPaymentMethod={() => {
-                    setSettingsInitialTab("billing");
-                    setCurrentView("settings");
-                  }}
-                />
 
                 {/* Key Metrics - Brand Styled Cards */}
                 <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
