@@ -68,39 +68,12 @@ services:
       # - DATABASE_URL
       # - JWT_SECRET
       # - FRONTEND_URL
+      # - REDIS_URL (for verification queue)
+      # - UPSTASH_REDIS_URL (for verification queue - alternative)
+      # - DOJAH_API_KEY (for verification provider)
+      # - DOJAH_APP_ID (for verification provider)
+      # - DOJAH_WEBHOOK_SECRET (for verification webhooks)
       # - etc.
-
-  - name: verification-service
-    # CRITICAL: Force Dockerfile-based build
-    dockerfile_path: verification-service/Dockerfile
-    source_dir: /
-    github:
-      repo: oluwaseyiolukoya/propertyhub_v1
-      branch: main
-      deploy_on_push: true
-    
-    # Instance configuration
-    instance_count: 1
-    instance_size_slug: basic-xs
-    
-    # HTTP configuration
-    http_port: 8080
-    
-    # Health check
-    health_check:
-      http_path: /health
-      initial_delay_seconds: 30
-      period_seconds: 10
-      timeout_seconds: 5
-      success_threshold: 1
-      failure_threshold: 3
-    
-    # Environment variables
-    envs:
-      - key: NODE_ENV
-        value: production
-      - key: PORT
-        value: "8080"
 
 # Database
 databases:

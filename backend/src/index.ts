@@ -157,6 +157,8 @@ import approvalRoutes from "./routes/approvals";
 import verificationRoutes from "./routes/verification";
 import adminVerificationRoutes from "./routes/admin-verification";
 import ownerVerificationRoutes from "./routes/owner-verification";
+import verificationWebhookRoutes from "./routes/verification-webhook";
+import verificationHealthRoutes from "./routes/verification-health";
 // Forgot Password routes
 import forgotPasswordRoutes from "./routes/forgot-password";
 // Storage routes
@@ -418,6 +420,8 @@ app.use("/api/approvals", approvalRoutes);
 app.use("/api/verification", verificationRoutes);
 app.use("/api/admin/verification", adminVerificationRoutes);
 app.use("/api/owner", ownerVerificationRoutes);
+app.use("/webhook/dojah", verificationWebhookRoutes);
+app.use("/health/verification", verificationHealthRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

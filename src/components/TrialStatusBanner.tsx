@@ -47,33 +47,41 @@ export function TrialStatusBanner({ onUpgradeClick, onAddPaymentMethod }: TrialS
   // Suspended account banner
   if (status.status === 'suspended') {
     return (
-      <Card className="mb-6 border-red-200 bg-red-50">
+      <Card className="mb-6 border-red-200 bg-gradient-to-r from-red-50 to-pink-50 shadow-lg">
         <div className="p-6">
           <div className="flex items-start gap-4">
             <div className="flex-shrink-0">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-                <XCircle className="h-6 w-6 text-red-600" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-red-500 to-pink-600 shadow-md">
+                <XCircle className="h-6 w-6 text-white" />
               </div>
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
-                <h3 className="text-lg font-semibold text-red-900">Account Suspended</h3>
-                <Badge variant="destructive">Action Required</Badge>
+                <h3 className="text-lg font-bold text-red-900">Account Suspended</h3>
+                <Badge variant="destructive" className="font-semibold">Action Required</Badge>
               </div>
-              <p className="text-red-700 mb-4">
+              <p className="text-red-700 mb-4 font-medium">
                 {status.suspensionReason || 'Your account has been suspended due to no payment method on file.'}
               </p>
               <p className="text-sm text-red-600 mb-4">
                 Your data is safe for 30 days. Add a payment method to reactivate your account.
               </p>
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 {status.hasPaymentMethod ? (
-                  <Button onClick={onUpgradeClick} className="bg-red-600 hover:bg-red-700">
+                  <Button 
+                    onClick={onUpgradeClick} 
+                    className="bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 shadow-lg hover:shadow-xl transition-all duration-200 font-semibold"
+                    size="lg"
+                  >
                     <CreditCard className="mr-2 h-4 w-4" />
                     Reactivate Account
                   </Button>
                 ) : (
-                  <Button onClick={onAddPaymentMethod} className="bg-red-600 hover:bg-red-700">
+                  <Button 
+                    onClick={onAddPaymentMethod} 
+                    className="bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 shadow-lg hover:shadow-xl transition-all duration-200 font-semibold"
+                    size="lg"
+                  >
                     <CreditCard className="mr-2 h-4 w-4" />
                     Add Payment Method
                   </Button>
@@ -90,32 +98,40 @@ export function TrialStatusBanner({ onUpgradeClick, onAddPaymentMethod }: TrialS
   if (status.inGracePeriod) {
     const graceDays = status.graceDaysRemaining;
     return (
-      <Card className="mb-6 border-orange-200 bg-orange-50">
+      <Card className="mb-6 border-orange-200 bg-gradient-to-r from-orange-50 to-amber-50 shadow-lg">
         <div className="p-6">
           <div className="flex items-start gap-4">
             <div className="flex-shrink-0">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-100">
-                <AlertCircle className="h-6 w-6 text-orange-600" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-amber-600 shadow-md">
+                <AlertCircle className="h-6 w-6 text-white" />
               </div>
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
-                <h3 className="text-lg font-semibold text-orange-900">Trial Expired - Grace Period</h3>
-                <Badge variant="secondary" className="bg-orange-200 text-orange-800">
+                <h3 className="text-lg font-bold text-orange-900">Trial Expired - Grace Period</h3>
+                <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200 font-semibold">
                   {graceDays} {graceDays === 1 ? 'day' : 'days'} remaining
                 </Badge>
               </div>
-              <p className="text-orange-700 mb-4">
+              <p className="text-orange-700 mb-4 font-medium">
                 Your trial has ended. You have {graceDays} {graceDays === 1 ? 'day' : 'days'} to add a payment method before your account is suspended.
               </p>
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 {status.hasPaymentMethod ? (
-                  <Button onClick={onUpgradeClick} className="bg-orange-600 hover:bg-orange-700">
+                  <Button 
+                    onClick={onUpgradeClick} 
+                    className="bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 shadow-lg hover:shadow-xl transition-all duration-200 font-semibold"
+                    size="lg"
+                  >
                     <Zap className="mr-2 h-4 w-4" />
                     Activate Subscription
                   </Button>
                 ) : (
-                  <Button onClick={onAddPaymentMethod} className="bg-orange-600 hover:bg-orange-700">
+                  <Button 
+                    onClick={onAddPaymentMethod} 
+                    className="bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 shadow-lg hover:shadow-xl transition-all duration-200 font-semibold"
+                    size="lg"
+                  >
                     <CreditCard className="mr-2 h-4 w-4" />
                     Add Payment Method
                   </Button>
@@ -178,15 +194,15 @@ export function TrialStatusBanner({ onUpgradeClick, onAddPaymentMethod }: TrialS
       buttonClasses = 'bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-700 hover:to-yellow-700 text-white';
       progressColor = 'bg-amber-500';
     } else {
-      // Normal - Black primary color (matches brand)
-      cardClasses = 'mb-6 border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100';
-      iconBg = 'bg-gradient-to-br from-gray-800 to-black';
+      // Normal - Purple gradient (matches brand)
+      cardClasses = 'mb-6 border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50 shadow-md';
+      iconBg = 'bg-gradient-to-br from-purple-500 to-indigo-600';
       iconColor = 'text-white';
       titleText = 'text-gray-900';
       subtitleText = 'text-gray-700';
-      badgeClasses = 'bg-gray-800 text-white border-gray-800';
-      buttonClasses = 'bg-gradient-to-r from-gray-900 to-black hover:from-black hover:to-gray-900 text-white';
-      progressColor = 'bg-gradient-to-r from-gray-800 to-black';
+      badgeClasses = 'bg-purple-100 text-purple-800 border-purple-200';
+      buttonClasses = 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-200';
+      progressColor = 'bg-gradient-to-r from-purple-600 to-indigo-600';
     }
 
     return (
@@ -217,27 +233,40 @@ export function TrialStatusBanner({ onUpgradeClick, onAddPaymentMethod }: TrialS
                   : "You're currently on a free trial. Upgrade anytime to unlock full features."}
               </p>
 
-              {/* Progress bar */}
-              <div className="mb-4">
-                <div className="flex justify-between text-sm mb-2">
-                  <span className={subtitleText}>Trial Progress</span>
-                  <span className={subtitleText}>{Math.round(progressPercent)}%</span>
+              {/* Progress bar - Brand Styled */}
+              <div className="mb-6">
+                <div className="flex justify-between items-center mb-3">
+                  <span className={`text-sm font-medium ${subtitleText}`}>Trial Progress</span>
+                  <span className={`text-sm font-semibold ${titleText}`}>{Math.round(progressPercent)}%</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                <div className="relative w-full bg-gray-200 rounded-full h-3 overflow-hidden shadow-inner">
                   <div
-                    className={`h-full ${progressColor} transition-all duration-500 ease-out`}
+                    className={`h-full ${progressColor} transition-all duration-500 ease-out rounded-full shadow-sm`}
                     style={{ width: `${progressPercent}%` }}
                   />
                 </div>
+                <div className="flex justify-between items-center mt-2 text-xs text-gray-500">
+                  <span>Day {totalDays - daysLeft} of {totalDays}</span>
+                  <span>{daysLeft} days remaining</span>
+                </div>
               </div>
 
-              <div className="flex gap-3">
-                <Button onClick={onUpgradeClick} className={buttonClasses}>
+              <div className="flex flex-wrap gap-3">
+                <Button 
+                  onClick={onUpgradeClick} 
+                  className={`${buttonClasses} font-semibold`}
+                  size="lg"
+                >
                   <Zap className="mr-2 h-4 w-4" />
                   Upgrade Now
                 </Button>
                 {!status.hasPaymentMethod && (
-                  <Button onClick={onAddPaymentMethod} variant="outline" className="border-gray-300 hover:bg-gray-50">
+                  <Button 
+                    onClick={onAddPaymentMethod} 
+                    variant="outline" 
+                    className="border-purple-300 hover:bg-purple-50 hover:border-purple-400 text-purple-700 font-medium"
+                    size="lg"
+                  >
                     <CreditCard className="mr-2 h-4 w-4" />
                     Add Payment Method
                   </Button>

@@ -177,6 +177,7 @@ model customers {
   users                       users[]
   mrr_snapshots               mrr_snapshots[]
   onboarding_application      onboarding_applications?
+  verification_requests       verification_requests[]
   subscription_events         subscription_events[]
   trial_notifications         trial_notifications[]
   developer_projects          developer_projects[]
@@ -816,6 +817,8 @@ model users {
   reviewed_applications                                                         onboarding_applications[]    @relation("reviewed_by")
   approved_applications                                                         onboarding_applications[]    @relation("approved_by")
   activated_applications                                                        onboarding_applications[]    @relation("activated_by")
+  // Verification system relations
+  verification_requests_reviewed                                                verification_requests[]      @relation("verification_reviewer")
 }
 
 model maintenance_requests {
@@ -1650,4 +1653,96 @@ model sessions {
   @@index([userId])
   @@index([token])
   @@index([isActive])
+}
+
+// ============================================
+// VERIFICATION SYSTEM TABLES
+// (Consolidated from verification-service microservice)
+// ============================================
+
+model verification_requests {
+  id              String   @id @default(uuid())
+  customerId      String
+  customerEmail   String?
+  customerType    String   // 'property_owner', 'developer', 'property_manager', 'tenant'
+  status          String   @default("pending") // pending, in_progress, approved, rejected, failed
+  submittedAt     DateTime @default(now())
+  completedAt     DateTime?
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  rejectionReason String?  @db.Text
+  ipAddress       String?
+  userAgent       String?  @db.Text
+
+  // Relations
+  customer        customers  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  reviewer        users?     @relation("verification_reviewer", fields: [reviewedBy], references: [id])
+  documents       verification_documents[]
+  history         verification_history[]
+
+  @@index([customerId])
+  @@index([customerEmail])
+  @@index([status])
+  @@index([submittedAt])
+}
+
+model verification_documents {
+  id                String   @id @default(uuid())
+  requestId         String
+  documentType      String   // 'nin', 'passport', 'drivers_license', 'voters_card', 'utility_bill', 'proof_of_address'
+  documentNumber    String?  @db.Text // Encrypted with AES-256-GCM
+  fileUrl           String   @db.Text // S3 URL
+  fileName          String
+  fileSize          Int
+  mimeType          String
+  status            String   @default("pending")
+  provider          String?  // 'dojah', 'youverify', etc.
+  providerReference String?
+  verificationData  Json?
+  confidence        Float?
+  verifiedAt        DateTime?
+  failureReason     String?  @db.Text
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  request           verification_requests @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@index([status])
+  @@index([documentType])
+  @@index([createdAt])
+}
+
+model verification_history {
+  id          String   @id @default(uuid())
+  requestId   String
+  action      String
+  performedBy String?
+  details     Json?
+  createdAt   DateTime @default(now())
+
+  request     verification_requests @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model provider_logs {
+  id              String   @id @default(uuid())
+  provider        String
+  documentId      String?
+  endpoint        String
+  requestPayload  Json?
+  responsePayload Json?
+  statusCode      Int?
+  duration        Int?
+  success         Boolean
+  errorMessage    String?  @db.Text
+  createdAt       DateTime @default(now())
+
+  @@index([provider])
+  @@index([success])
+  @@index([createdAt])
+  @@index([documentId])
 }
