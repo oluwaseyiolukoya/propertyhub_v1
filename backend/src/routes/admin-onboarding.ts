@@ -9,11 +9,13 @@ import {
 } from '../validators/onboarding.validator';
 import { z } from 'zod';
 import prisma from '../lib/db';
+import { authMiddleware, adminOnly, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 
-// Note: These routes should be protected by admin authentication middleware
-// Add your auth middleware here: router.use(authMiddleware, adminOnlyMiddleware);
+// Protect all admin onboarding routes with authentication and admin-only access
+router.use(authMiddleware);
+router.use(adminOnly);
 
 /**
  * GET /api/admin/onboarding/applications
