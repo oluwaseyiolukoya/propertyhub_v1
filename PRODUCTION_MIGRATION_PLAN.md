@@ -10,11 +10,13 @@
 ## 📋 Overview
 
 We need to migrate 27 pending migrations to production, most importantly:
+
 1. **Verification Service Consolidation** - Moving verification tables to main database
 2. **Schema Updates** - Various improvements and fixes
 3. **New Features** - KYC fields, sessions, performance indexes
 
 **Key Point**: All migrations are **ADDITIVE** (no data loss), they only:
+
 - ✅ Add new tables
 - ✅ Add new columns
 - ✅ Add indexes
@@ -122,9 +124,9 @@ npx prisma migrate status
 
 # 2. Verify new tables exist
 npx prisma db execute --stdin <<'SQL'
-SELECT table_name 
-FROM information_schema.tables 
-WHERE table_schema = 'public' 
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
 AND table_name IN (
   'verification_requests',
   'verification_documents',
@@ -205,20 +207,20 @@ pm2 start backend
 
 ### New Tables Created
 
-| Table | Purpose | Records |
-|-------|---------|---------|
-| `verification_requests` | KYC verification requests | Starts empty |
-| `verification_documents` | Uploaded verification documents | Starts empty |
-| `verification_history` | Audit trail for verifications | Starts empty |
-| `provider_logs` | API logs for verification providers | Starts empty |
+| Table                    | Purpose                             | Records      |
+| ------------------------ | ----------------------------------- | ------------ |
+| `verification_requests`  | KYC verification requests           | Starts empty |
+| `verification_documents` | Uploaded verification documents     | Starts empty |
+| `verification_history`   | Audit trail for verifications       | Starts empty |
+| `provider_logs`          | API logs for verification providers | Starts empty |
 
 ### Schema Changes
 
-| Model | Change | Impact |
-|-------|--------|--------|
-| `customers` | Add `verificationRequests` relation | Safe - no data change |
-| `users` | Add `reviewedVerificationRequests` relation | Safe - no data change |
-| All tables | Performance indexes added | Safe - improves queries |
+| Model       | Change                                      | Impact                  |
+| ----------- | ------------------------------------------- | ----------------------- |
+| `customers` | Add `verificationRequests` relation         | Safe - no data change   |
+| `users`     | Add `reviewedVerificationRequests` relation | Safe - no data change   |
+| All tables  | Performance indexes added                   | Safe - improves queries |
 
 ---
 
@@ -227,10 +229,12 @@ pm2 start backend
 ### Issue 1: Duplicate Migration Entries
 
 **Problem**: Two migrations with similar names:
+
 - `20251204_consolidate_verification_service`
 - `20251204175644_consolidate_verification_service`
 
 **Solution**:
+
 ```bash
 # Mark the duplicate as applied (if it has no migration.sql)
 npx prisma migrate resolve --applied 20251204175644_consolidate_verification_service
@@ -241,6 +245,7 @@ npx prisma migrate resolve --applied 20251204175644_consolidate_verification_ser
 **Problem**: Tables already exist in production
 
 **Solution**:
+
 ```bash
 # Mark migration as applied without running it
 npx prisma migrate resolve --applied 20251204_consolidate_verification_service
@@ -270,7 +275,7 @@ After migration, verify these features work:
 ```bash
 # 1. Check verification tables have correct structure
 npx prisma db execute --stdin <<'SQL'
-SELECT 
+SELECT
   table_name,
   column_name,
   data_type
@@ -309,13 +314,13 @@ pm2 logs backend --lines 50
 
 ## 📝 Migration Timeline
 
-| Step | Duration | Status |
-|------|----------|--------|
-| Backup database | 5-10 min | ⏳ Pending |
-| Apply migrations | 2-5 min | ⏳ Pending |
-| Restart application | 1-2 min | ⏳ Pending |
-| Verify deployment | 5-10 min | ⏳ Pending |
-| **Total** | **15-30 min** | ⏳ Pending |
+| Step                | Duration      | Status     |
+| ------------------- | ------------- | ---------- |
+| Backup database     | 5-10 min      | ⏳ Pending |
+| Apply migrations    | 2-5 min       | ⏳ Pending |
+| Restart application | 1-2 min       | ⏳ Pending |
+| Verify deployment   | 5-10 min      | ⏳ Pending |
+| **Total**           | **15-30 min** | ⏳ Pending |
 
 ---
 
@@ -333,4 +338,3 @@ pm2 logs backend --lines 50
 **Status**: Ready for production deployment  
 **Reviewed By**: AI Assistant  
 **Approved By**: _(Awaiting user approval)_
-

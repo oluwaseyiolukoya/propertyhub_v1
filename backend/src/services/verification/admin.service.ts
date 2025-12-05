@@ -13,11 +13,12 @@ export class AdminService {
 
   constructor() {
     this.spacesBucket = process.env.SPACES_BUCKET || '';
+    const spacesRegion = process.env.SPACES_REGION || 'nyc3';
 
     // Configure S3 client for DigitalOcean Spaces
     this.s3Client = new S3Client({
-      region: process.env.SPACES_REGION || 'fra1',
-      endpoint: process.env.SPACES_ENDPOINT || 'https://fra1.digitaloceanspaces.com',
+      region: spacesRegion,
+      endpoint: process.env.SPACES_ENDPOINT || `https://${spacesRegion}.digitaloceanspaces.com`,
       credentials: {
         accessKeyId: process.env.SPACES_ACCESS_KEY_ID || '',
         secretAccessKey: process.env.SPACES_SECRET_ACCESS_KEY || '',

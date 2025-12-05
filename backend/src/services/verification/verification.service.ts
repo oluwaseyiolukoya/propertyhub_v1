@@ -15,12 +15,26 @@ export class VerificationService {
 
   constructor() {
     this.spacesBucket = process.env.SPACES_BUCKET || '';
-    this.spacesRegion = process.env.SPACES_REGION || 'fra1';
+    this.spacesRegion = process.env.SPACES_REGION || 'nyc3';
+
+    // Log Spaces configuration for debugging
+    console.log('[VerificationService] Spaces config:', {
+      bucket: this.spacesBucket ? '✓ set' : '✗ MISSING',
+      region: this.spacesRegion,
+      endpoint: process.env.SPACES_ENDPOINT || 'NOT SET - using default',
+      hasAccessKey: process.env.SPACES_ACCESS_KEY_ID ? '✓ set' : '✗ MISSING',
+      hasSecretKey: process.env.SPACES_SECRET_ACCESS_KEY ? '✓ set' : '✗ MISSING',
+    });
+
+    // Warn if critical env vars are missing
+    if (!process.env.SPACES_BUCKET || !process.env.SPACES_ACCESS_KEY_ID || !process.env.SPACES_SECRET_ACCESS_KEY) {
+      console.error('[VerificationService] ⚠️ WARNING: Missing SPACES environment variables! Document uploads will fail.');
+    }
 
     // Configure S3 client for DigitalOcean Spaces
     this.s3Client = new S3Client({
       region: this.spacesRegion,
-      endpoint: process.env.SPACES_ENDPOINT || 'https://fra1.digitaloceanspaces.com',
+      endpoint: process.env.SPACES_ENDPOINT || `https://${this.spacesRegion}.digitaloceanspaces.com`,
       credentials: {
         accessKeyId: process.env.SPACES_ACCESS_KEY_ID || '',
         secretAccessKey: process.env.SPACES_SECRET_ACCESS_KEY || '',

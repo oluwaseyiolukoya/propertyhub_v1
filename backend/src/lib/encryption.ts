@@ -1,11 +1,33 @@
 import crypto from 'crypto';
 
 const ALGORITHM = 'aes-256-gcm';
+
 // Encryption key must be 32 bytes (256 bits) for AES-256
-const ENCRYPTION_KEY = Buffer.from(
-  process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex').slice(0, 32),
-  'utf8'
-);
+// The key should be a 64-character hex string (32 bytes)
+const getEncryptionKey = (): Buffer => {
+  const keyString = process.env.ENCRYPTION_KEY;
+  
+  if (!keyString) {
+    console.warn('[Encryption] ⚠️ ENCRYPTION_KEY not set - using random key (data will not persist!)');
+    return crypto.randomBytes(32);
+  }
+  
+  // If key is 64 hex chars, decode from hex
+  if (keyString.length === 64 && /^[0-9a-fA-F]+$/.test(keyString)) {
+    return Buffer.from(keyString, 'hex');
+  }
+  
+  // If key is exactly 32 chars, use as UTF8
+  if (keyString.length === 32) {
+    return Buffer.from(keyString, 'utf8');
+  }
+  
+  // Otherwise, hash the key to get 32 bytes
+  console.warn('[Encryption] ⚠️ ENCRYPTION_KEY is not 64 hex chars or 32 chars - hashing it');
+  return crypto.createHash('sha256').update(keyString).digest();
+};
+
+const ENCRYPTION_KEY = getEncryptionKey();
 
 /**
  * Encrypt sensitive data (NIN, passport numbers, etc.)
