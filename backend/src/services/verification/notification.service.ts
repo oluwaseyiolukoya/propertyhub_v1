@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { config } from '../../lib/env';
 import prisma from '../../lib/db';
 
 /**
@@ -8,9 +7,12 @@ import prisma from '../../lib/db';
  */
 export class NotificationService {
   private mainDashboardUrl: string;
+  private apiKeyMainDashboard: string;
 
   constructor() {
-    this.mainDashboardUrl = config.mainDashboard.url;
+    // When consolidated into main backend, this URL can be 'http://localhost:5000' or use internal routing
+    this.mainDashboardUrl = process.env.MAIN_DASHBOARD_URL || process.env.FRONTEND_URL || 'http://localhost:5000';
+    this.apiKeyMainDashboard = process.env.API_KEY_MAIN_DASHBOARD || '';
   }
 
   /**
@@ -39,7 +41,7 @@ export class NotificationService {
         },
         {
           headers: {
-            'X-API-Key': config.security.apiKeyMainDashboard,
+            'X-API-Key': this.apiKeyMainDashboard,
             'Content-Type': 'application/json',
           },
           timeout: 5000,
@@ -82,7 +84,7 @@ export class NotificationService {
         },
         {
           headers: {
-            'X-API-Key': config.security.apiKeyMainDashboard,
+            'X-API-Key': this.apiKeyMainDashboard,
             'Content-Type': 'application/json',
           },
           timeout: 5000,
@@ -118,7 +120,7 @@ export class NotificationService {
         },
         {
           headers: {
-            'X-API-Key': config.security.apiKeyMainDashboard,
+            'X-API-Key': this.apiKeyMainDashboard,
             'Content-Type': 'application/json',
           },
           timeout: 5000,

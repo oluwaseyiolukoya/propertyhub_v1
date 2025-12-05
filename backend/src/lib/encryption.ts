@@ -1,8 +1,11 @@
 import crypto from 'crypto';
-import { config } from '../config/env';
 
 const ALGORITHM = 'aes-256-gcm';
-const ENCRYPTION_KEY = config.security.encryptionKey;
+// Encryption key must be 32 bytes (256 bits) for AES-256
+const ENCRYPTION_KEY = Buffer.from(
+  process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex').slice(0, 32),
+  'utf8'
+);
 
 /**
  * Encrypt sensitive data (NIN, passport numbers, etc.)

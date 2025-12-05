@@ -10,11 +10,16 @@ import crypto from 'crypto';
  */
 export class VerificationService {
   private s3Client: S3Client;
+  private spacesBucket: string;
+  private spacesRegion: string;
 
   constructor() {
+    this.spacesBucket = process.env.SPACES_BUCKET || '';
+    this.spacesRegion = process.env.SPACES_REGION || 'fra1';
+
     // Configure S3 client for DigitalOcean Spaces
     this.s3Client = new S3Client({
-      region: process.env.SPACES_REGION || 'fra1',
+      region: this.spacesRegion,
       endpoint: process.env.SPACES_ENDPOINT || 'https://fra1.digitaloceanspaces.com',
       credentials: {
         accessKeyId: process.env.SPACES_ACCESS_KEY_ID || '',
@@ -152,7 +157,7 @@ export class VerificationService {
       await this.s3Client.send(uploadCommand);
 
       // DigitalOcean Spaces URL format: https://bucket-name.region.digitaloceanspaces.com/file-key
-      const fileUrl = `https://${config.spaces.bucket}.${config.spaces.region}.digitaloceanspaces.com/${fileKey}`;
+      const fileUrl = `https://${this.spacesBucket}.${this.spacesRegion}.digitaloceanspaces.com/${fileKey}`;
 
       console.log(`[VerificationService] File uploaded to S3: ${fileKey}`);
 

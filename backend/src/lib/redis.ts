@@ -1,6 +1,8 @@
 import { Queue, Worker, Job } from "bullmq";
 import Redis from "ioredis";
-import { config } from "./env";
+
+// Redis URL from environment (supports both Upstash and local Redis)
+const REDIS_URL = process.env.UPSTASH_REDIS_URL || process.env.REDIS_URL || 'redis://localhost:6379';
 
 // Upstash Redis connection configuration
 // Reference: https://upstash.com/docs/redis/features/restapi
@@ -12,7 +14,7 @@ const redisOptions = {
   enableReadyCheck: true,
 
   // TLS configuration for rediss:// protocol
-  tls: config.redis.url.startsWith("rediss://")
+  tls: REDIS_URL.startsWith("rediss://")
     ? {
         rejectUnauthorized: false, // Upstash uses self-signed certs
       }
@@ -47,7 +49,7 @@ const redisOptions = {
 };
 
 // Create Redis connection
-const connection = new Redis(config.redis.url, redisOptions);
+const connection = new Redis(REDIS_URL, redisOptions);
 
 // Track connection state
 let isConnected = false;

@@ -2,9 +2,12 @@ import express, { Response } from 'express';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import prisma from '../lib/db';
 import { sendTenantKycApprovedEmail, sendTenantKycRejectedEmail } from '../lib/email';
-import { verificationClient } from '../services/verification-client.service';
+import { AdminService } from '../services/verification/admin.service';
 
 const router = express.Router();
+
+// Use direct service instead of HTTP client
+const adminService = new AdminService();
 
 /**
  * Middleware to check if user is a property owner or manager
@@ -339,7 +342,7 @@ router.get('/tenants/verifications/:tenantId', authMiddleware, ownerOrManagerOnl
     let documents: any[] = [];
     if (tenant.kycVerificationId) {
       try {
-        const verificationDetails = await verificationClient.getRequestDetails(tenant.kycVerificationId);
+        const verificationDetails = await adminService.getRequestDetails(tenant.kycVerificationId);
         if (verificationDetails && verificationDetails.documents) {
           documents = verificationDetails.documents.map((doc: any) => ({
             id: doc.id,
@@ -407,7 +410,7 @@ router.get('/tenants/verifications/:tenantId/documents/:documentId', authMiddlew
 
     // Get document URL from verification service
     try {
-      const documentUrl = await verificationClient.getDocumentDownloadUrl(documentId);
+      const documentUrl = await adminService.getDocumentDownloadUrl(documentId);
       res.json({ url: documentUrl });
     } catch (docError: any) {
       console.error('[OwnerVerification] Document download error:', docError);
@@ -455,7 +458,7 @@ router.post('/tenants/verifications/:tenantId/approve', authMiddleware, ownerOrM
     let totalDocumentSize = 0;
     if (tenant.kycVerificationId) {
       try {
-        const verificationDetails = await verificationClient.getRequestDetails(tenant.kycVerificationId);
+        const verificationDetails = await adminService.getRequestDetails(tenant.kycVerificationId);
         if (verificationDetails?.documents) {
           totalDocumentSize = verificationDetails.documents.reduce(
             (sum: number, doc: any) => sum + (doc.fileSize || 0),
@@ -483,7 +486,7 @@ router.post('/tenants/verifications/:tenantId/approve', authMiddleware, ownerOrM
     // Update verification request and documents status in verification service
     if (tenant.kycVerificationId) {
       try {
-        await verificationClient.approveRequest(tenant.kycVerificationId, ownerId);
+        await adminService.approveRequest(tenant.kycVerificationId, ownerId);
         console.log(`[OwnerVerification] ✅ Verification request ${tenant.kycVerificationId} documents marked as verified`);
       } catch (verifyError: any) {
         console.warn('[OwnerVerification] Could not update verification service:', verifyError.message);
@@ -604,7 +607,7 @@ router.post('/tenants/verifications/:tenantId/reject', authMiddleware, ownerOrMa
     // Update verification request and documents status in verification service
     if (tenant.kycVerificationId) {
       try {
-        await verificationClient.rejectRequest(tenant.kycVerificationId, ownerId, reason);
+        await adminService.rejectRequest(tenant.kycVerificationId, ownerId, reason);
         console.log(`[OwnerVerification] ✅ Verification request ${tenant.kycVerificationId} documents marked as rejected`);
       } catch (verifyError: any) {
         console.warn('[OwnerVerification] Could not update verification service:', verifyError.message);
@@ -760,7 +763,7 @@ router.delete('/tenants/verifications/:tenantId', authMiddleware, ownerOrManager
     // If tenant has a verification request in the verification service, try to delete it
     if (tenant.kycVerificationId) {
       try {
-        await verificationClient.deleteRequest(tenant.kycVerificationId);
+        await adminService.deleteRequest(tenant.kycVerificationId);
         console.log(`[OwnerVerification] 🗑️ Deleted verification request ${tenant.kycVerificationId} from verification service`);
       } catch (verifyError: any) {
         console.warn(`[OwnerVerification] ⚠️ Could not delete verification from service:`, verifyError.message);

@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
-import prisma from '../../lib/db';
-import { connection as redisConnection } from '../../lib/redis';
+import prisma from '../lib/db';
+import { connection as redisConnection } from '../lib/redis';
 
 const router = express.Router();
 

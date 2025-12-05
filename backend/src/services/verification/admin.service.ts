@@ -2,7 +2,6 @@ import prisma from '../../lib/db';
 import { notificationService } from './notification.service';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { config } from '../../lib/env';
 
 /**
  * Admin Service
@@ -10,15 +9,18 @@ import { config } from '../../lib/env';
  */
 export class AdminService {
   private s3Client: S3Client;
+  private spacesBucket: string;
 
   constructor() {
+    this.spacesBucket = process.env.SPACES_BUCKET || '';
+
     // Configure S3 client for DigitalOcean Spaces
     this.s3Client = new S3Client({
-      region: config.spaces.region,
-      endpoint: config.spaces.endpoint,
+      region: process.env.SPACES_REGION || 'fra1',
+      endpoint: process.env.SPACES_ENDPOINT || 'https://fra1.digitaloceanspaces.com',
       credentials: {
-        accessKeyId: config.spaces.accessKeyId,
-        secretAccessKey: config.spaces.secretAccessKey,
+        accessKeyId: process.env.SPACES_ACCESS_KEY_ID || '',
+        secretAccessKey: process.env.SPACES_SECRET_ACCESS_KEY || '',
       },
       forcePathStyle: false,
     });
@@ -293,7 +295,7 @@ export class AdminService {
 
       // Generate pre-signed URL
       const command = new GetObjectCommand({
-        Bucket: config.spaces.bucket,
+        Bucket: this.spacesBucket,
         Key: fileKey,
       });
 

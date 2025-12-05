@@ -1,11 +1,14 @@
 import express, { Response } from 'express';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
-import { verificationClient } from '../services/verification-client.service';
+import { AdminService } from '../services/verification/admin.service';
 import prisma from '../lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { sendManualVerificationEmail, sendKYCRejectionEmail } from '../lib/email';
 
 const router = express.Router();
+
+// Use direct service instead of HTTP client
+const adminService = new AdminService();
 
 /**
  * Middleware to check if user is admin
@@ -26,7 +29,8 @@ router.get('/requests', authMiddleware, adminOnly, async (req: AuthRequest, res:
   try {
     const { status, page = '1', limit = '20', email } = req.query;
 
-    const result = await verificationClient.listRequests(
+    // Use direct service instead of HTTP client
+    const result = await adminService.listRequests(
       status as string,
       parseInt(page as string, 10),
       parseInt(limit as string, 10),
@@ -47,7 +51,7 @@ router.get('/requests', authMiddleware, adminOnly, async (req: AuthRequest, res:
 router.get('/requests/:requestId', authMiddleware, adminOnly, async (req: AuthRequest, res: Response) => {
   try {
     const { requestId } = req.params;
-    const request = await verificationClient.getRequestDetails(requestId);
+    const request = await adminService.getRequestDetails(requestId);
     res.json(request);
   } catch (error: any) {
     console.error('[AdminVerificationRoutes] Details error:', error);
@@ -74,10 +78,10 @@ router.post('/requests/:requestId/approve', authMiddleware, adminOnly, async (re
     console.log('[Admin KYC] Approving verification request:', requestId, 'by admin:', adminUserId);
 
     // Call verification microservice to approve
-    const result = await verificationClient.approveRequest(requestId, adminUserId, notes);
+    const result = await adminService.approveRequest(requestId, adminUserId, notes);
 
     // Get details from verification request
-    const verificationDetails = await verificationClient.getRequestDetails(requestId);
+    const verificationDetails = await adminService.getRequestDetails(requestId);
     const referenceId = verificationDetails.customerId; // This could be customerId or userId (for tenants)
     const customerType = verificationDetails.customerType;
     const isTenant = customerType === 'tenant';
@@ -220,10 +224,10 @@ router.post('/requests/:requestId/reject', authMiddleware, adminOnly, async (req
     console.log('[Admin KYC] Rejecting verification request:', requestId, 'by admin:', adminUserId);
 
     // Call verification microservice to reject
-    const result = await verificationClient.rejectRequest(requestId, adminUserId, reason);
+    const result = await adminService.rejectRequest(requestId, adminUserId, reason);
 
     // Get details from verification request
-    const verificationDetails = await verificationClient.getRequestDetails(requestId);
+    const verificationDetails = await adminService.getRequestDetails(requestId);
     const referenceId = verificationDetails.customerId; // This could be customerId or userId (for tenants)
     const customerType = verificationDetails.customerType;
     const isTenant = customerType === 'tenant';
@@ -346,7 +350,7 @@ router.post('/requests/:requestId/reject', authMiddleware, adminOnly, async (req
  */
 router.get('/analytics', authMiddleware, adminOnly, async (req: AuthRequest, res: Response) => {
   try {
-    const analytics = await verificationClient.getAnalytics();
+    const analytics = await adminService.getAnalytics();
     res.json(analytics);
   } catch (error: any) {
     console.error('[AdminVerificationRoutes] Analytics error:', error);
@@ -362,7 +366,7 @@ router.get('/provider-logs', authMiddleware, adminOnly, async (req: AuthRequest,
   try {
     const { provider, limit = '50' } = req.query;
 
-    const logs = await verificationClient.getProviderLogs(
+    const logs = await adminService.getProviderLogs(
       provider as string,
       parseInt(limit as string, 10)
     );
@@ -383,7 +387,7 @@ router.get('/documents/:documentId/download', authMiddleware, adminOnly, async (
     const { documentId } = req.params;
     const { expiresIn = '3600' } = req.query;
 
-    const result = await verificationClient.getDocumentDownloadUrl(
+    const result = await adminService.getDocumentDownloadUrl(
       documentId,
       parseInt(expiresIn as string, 10)
     );
@@ -416,13 +420,13 @@ router.delete('/requests/:requestId', authMiddleware, adminOnly, async (req: Aut
     // Get details before deletion for logging and to reset KYC status
     let verificationDetails: any;
     try {
-      verificationDetails = await verificationClient.getRequestDetails(requestId);
+      verificationDetails = await adminService.getRequestDetails(requestId);
     } catch (error) {
       console.warn('[Admin KYC] Could not get verification details before deletion:', error);
     }
 
     // Call verification microservice to delete
-    const result = await verificationClient.deleteRequest(requestId);
+    const result = await adminService.deleteRequest(requestId);
 
     // Reset KYC status so the user can submit a new verification
     if (verificationDetails?.customerId) {
@@ -536,7 +540,7 @@ router.post('/customers/:customerId/reset', authMiddleware, adminOnly, async (re
       // Best-effort delete from verification service
       if (user.kycVerificationId) {
         try {
-          await verificationClient.deleteRequest(user.kycVerificationId);
+          await adminService.deleteRequest(user.kycVerificationId);
           console.log('[Admin KYC] 🗑️ Deleted tenant verification request from verification service:', user.kycVerificationId);
         } catch (e: any) {
           console.warn('[Admin KYC] ⚠️ Could not delete tenant verification from service:', e?.message);
@@ -593,7 +597,7 @@ router.post('/customers/:customerId/reset', authMiddleware, adminOnly, async (re
     // Best-effort delete from verification service
     if (customer.kycVerificationId) {
       try {
-        await verificationClient.deleteRequest(customer.kycVerificationId);
+        await adminService.deleteRequest(customer.kycVerificationId);
         console.log('[Admin KYC] 🗑️ Deleted customer verification request from verification service:', customer.kycVerificationId);
       } catch (e: any) {
         console.warn('[Admin KYC] ⚠️ Could not delete customer verification from service:', e?.message);

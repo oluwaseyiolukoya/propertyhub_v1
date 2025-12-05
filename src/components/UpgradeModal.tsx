@@ -288,22 +288,22 @@ export function UpgradeModal({ open, onClose, onSuccess }: UpgradeModalProps) {
 
   const renderPlanSelection = () => (
     <div className="space-y-6">
-      {/* Billing Cycle Toggle */}
-      <div className="flex items-center justify-center gap-4 p-4 bg-gray-50 rounded-lg">
-        <Label className="text-sm font-medium">Billing Cycle:</Label>
+      {/* Billing Cycle Toggle - Brand Styled */}
+      <div className="flex items-center justify-center gap-4 p-5 bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-xl shadow-sm">
+        <Label className="text-sm font-semibold text-gray-900">Billing Cycle:</Label>
         <RadioGroup
           value={billingCycle}
           onValueChange={(value: 'monthly' | 'annual') => setBillingCycle(value)}
-          className="flex gap-4"
+          className="flex gap-6"
         >
           <div className="flex items-center space-x-2">
-            <RadioGroupItem value="monthly" id="monthly" />
-            <Label htmlFor="monthly" className="cursor-pointer">Monthly</Label>
+            <RadioGroupItem value="monthly" id="monthly" className="border-purple-600 text-purple-600" />
+            <Label htmlFor="monthly" className="cursor-pointer font-medium text-gray-900 hover:text-purple-700">Monthly</Label>
           </div>
           <div className="flex items-center space-x-2">
-            <RadioGroupItem value="annual" id="annual" />
-            <Label htmlFor="annual" className="cursor-pointer">
-              Annual {annualSavings > 0 && <span className="text-green-600">(Save {selectedPlanData?.currency} {annualSavings.toFixed(2)})</span>}
+            <RadioGroupItem value="annual" id="annual" className="border-purple-600 text-purple-600" />
+            <Label htmlFor="annual" className="cursor-pointer font-medium text-gray-900 hover:text-purple-700">
+              Annual {annualSavings > 0 && <span className="ml-1 text-green-600 font-semibold">(Save {selectedPlanData?.currency} {annualSavings.toFixed(2)})</span>}
             </Label>
           </div>
         </RadioGroup>
@@ -319,78 +319,90 @@ export function UpgradeModal({ open, onClose, onSuccess }: UpgradeModalProps) {
             return (
               <Card
                 key={plan.id}
-                className={`p-6 cursor-pointer transition-all ${
+                className={`p-6 cursor-pointer transition-all duration-300 ${
                   isSelected
-                    ? 'border-2 border-gray-900 shadow-lg bg-gradient-to-br from-gray-50 to-gray-100'
-                    : 'border border-gray-200 hover:border-gray-400 hover:shadow-md'
-                } ${plan.isPopular ? 'ring-2 ring-gray-800' : ''}`}
+                    ? 'border-2 border-purple-600 shadow-xl bg-gradient-to-br from-purple-50 to-indigo-50 scale-105'
+                    : 'border-2 border-gray-200 hover:border-purple-300 hover:shadow-lg hover:scale-102'
+                } ${plan.isPopular ? 'ring-2 ring-purple-500 ring-offset-2' : ''}`}
                 onClick={() => setSelectedPlan(plan.id)}
               >
                 {plan.isPopular && (
-                  <Badge className="mb-2 bg-gradient-to-r from-gray-900 to-black text-white">
+                  <Badge className="mb-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold px-3 py-1 shadow-md">
                     Most Popular
                   </Badge>
                 )}
 
                 <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>
+                  <div className="flex-1">
+                    <h3 className="text-xl font-bold text-gray-900 mb-1">{plan.name}</h3>
                     {plan.description && (
-                      <p className="text-sm text-gray-600 mt-1">{plan.description}</p>
+                      <p className="text-sm text-gray-600 leading-relaxed">{plan.description}</p>
                     )}
                   </div>
-                  <RadioGroupItem value={plan.id} id={plan.id} />
+                  <RadioGroupItem value={plan.id} id={plan.id} className="border-purple-600 text-purple-600 mt-1" />
                 </div>
 
-                <div className="mb-4">
+                <div className="mb-5 pb-4 border-b border-gray-200">
                   <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-extrabold text-gray-900">
+                    <span className="text-4xl font-extrabold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
                       {plan.currency} {planPrice.toFixed(2)}
                     </span>
-                    <span className="text-gray-600">/{billingCycle === 'annual' ? 'year' : 'month'}</span>
+                    <span className="text-gray-600 font-medium">/{billingCycle === 'annual' ? 'year' : 'month'}</span>
                   </div>
                 </div>
 
-                <ul className="space-y-2 mb-4">
+                <ul className="space-y-3 mb-4">
                   {Array.isArray(plan.features) ? (
                     plan.features.map((feature: string, index: number) => (
-                      <li key={index} className="flex items-start gap-2 text-sm">
-                        <Check className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
-                        <span>{feature}</span>
+                      <li key={index} className="flex items-start gap-3 text-sm">
+                        <div className="flex-shrink-0 mt-0.5">
+                          <Check className="h-5 w-5 text-purple-600" />
+                        </div>
+                        <span className="text-gray-700 leading-relaxed">{feature}</span>
                       </li>
                     ))
                   ) : plan.features && typeof plan.features === 'object' ? (
                     Object.entries(plan.features).map(([key, value], index) => (
-                      <li key={index} className="flex items-start gap-2 text-sm">
-                        <Check className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
-                        <span>{String(value)}</span>
+                      <li key={index} className="flex items-start gap-3 text-sm">
+                        <div className="flex-shrink-0 mt-0.5">
+                          <Check className="h-5 w-5 text-purple-600" />
+                        </div>
+                        <span className="text-gray-700 leading-relaxed">{String(value)}</span>
                       </li>
                     ))
                   ) : null}
 
                   {/* Show limits based on plan category */}
                   {plan.category === 'property_management' && plan.propertyLimit && (
-                    <li className="flex items-start gap-2 text-sm">
-                      <Check className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
-                      <span>Up to {plan.propertyLimit} properties</span>
+                    <li className="flex items-start gap-3 text-sm">
+                      <div className="flex-shrink-0 mt-0.5">
+                        <Check className="h-5 w-5 text-purple-600" />
+                      </div>
+                      <span className="text-gray-700 leading-relaxed">Up to {plan.propertyLimit} properties</span>
                     </li>
                   )}
                   {plan.category === 'development' && plan.projectLimit && (
-                    <li className="flex items-start gap-2 text-sm">
-                      <Check className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
-                      <span>Up to {plan.projectLimit} projects</span>
+                    <li className="flex items-start gap-3 text-sm">
+                      <div className="flex-shrink-0 mt-0.5">
+                        <Check className="h-5 w-5 text-purple-600" />
+                      </div>
+                      <span className="text-gray-700 leading-relaxed">Up to {plan.projectLimit} projects</span>
                     </li>
                   )}
                   {plan.userLimit && (
-                    <li className="flex items-start gap-2 text-sm">
-                      <Check className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
-                      <span>Up to {plan.userLimit} users</span>
+                    <li className="flex items-start gap-3 text-sm">
+                      <div className="flex-shrink-0 mt-0.5">
+                        <Check className="h-5 w-5 text-purple-600" />
+                      </div>
+                      <span className="text-gray-700 leading-relaxed">Up to {plan.userLimit} users</span>
                     </li>
                   )}
                   {plan.storageLimit && (
-                    <li className="flex items-start gap-2 text-sm">
-                      <Check className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
-                      <span>{plan.storageLimit} MB storage</span>
+                    <li className="flex items-start gap-3 text-sm">
+                      <div className="flex-shrink-0 mt-0.5">
+                        <Check className="h-5 w-5 text-purple-600" />
+                      </div>
+                      <span className="text-gray-700 leading-relaxed">{plan.storageLimit} MB storage</span>
                     </li>
                   )}
                 </ul>
@@ -402,24 +414,34 @@ export function UpgradeModal({ open, onClose, onSuccess }: UpgradeModalProps) {
 
       {plans.length === 0 && (
         <div className="text-center py-12">
-          <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600">No plans available at the moment.</p>
-          <p className="text-sm text-gray-500 mt-2">Please contact support for assistance.</p>
+          <div className="flex justify-center mb-4">
+            <div className="rounded-full bg-gradient-to-br from-purple-100 to-indigo-100 p-4">
+              <AlertCircle className="h-12 w-12 text-purple-600" />
+            </div>
+          </div>
+          <p className="text-lg font-semibold text-gray-900 mb-2">No plans available at the moment.</p>
+          <p className="text-sm text-gray-600">Please contact support for assistance.</p>
         </div>
       )}
 
-      {/* Action Buttons */}
-      <div className="flex justify-between items-center pt-4 border-t">
-        <Button variant="outline" onClick={onClose}>
+      {/* Action Buttons - Brand Styled */}
+      <div className="flex justify-between items-center pt-6 border-t border-gray-200">
+        <Button 
+          variant="outline" 
+          onClick={onClose}
+          size="lg"
+          className="border-2 border-gray-300 hover:border-purple-600 hover:text-purple-700 font-semibold"
+        >
           Cancel
         </Button>
         <Button
           onClick={handleProceedToPayment}
           disabled={!selectedPlan}
-          className="bg-gradient-to-r from-gray-900 to-black hover:from-black hover:to-gray-900 text-white"
+          size="lg"
+          className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Proceed to Payment
-          <Zap className="ml-2 h-4 w-4" />
+          <Zap className="ml-2 h-5 w-5" />
         </Button>
       </div>
     </div>
@@ -477,59 +499,78 @@ export function UpgradeModal({ open, onClose, onSuccess }: UpgradeModalProps) {
 
   const renderSaveCard = () => (
     <div className="space-y-6">
+      {/* Success Header - Brand Styled */}
       <div className="text-center py-8">
-        <div className="flex justify-center mb-4">
-          <div className="rounded-full bg-green-100 p-3">
-            <CheckCircle2 className="h-12 w-12 text-green-600" />
+        <div className="flex justify-center mb-6">
+          <div className="relative">
+            {/* Animated pulse ring */}
+            <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-20"></div>
+            {/* Icon container with gradient */}
+            <div className="relative rounded-full bg-gradient-to-br from-green-500 to-emerald-600 p-4 shadow-lg">
+              <CheckCircle2 className="h-16 w-16 text-white" />
+            </div>
           </div>
         </div>
-        <h3 className="text-2xl font-bold text-gray-900 mb-2">Payment Successful!</h3>
-        <p className="text-gray-600">Your payment has been processed successfully.</p>
+        <h3 className="text-3xl font-bold text-gray-900 mb-3">Payment Successful!</h3>
+        <p className="text-lg text-gray-600">Your payment has been processed successfully.</p>
       </div>
 
-      <Card className="p-6 border-2 border-green-200 bg-green-50">
-        <div className="flex items-start gap-3">
+      {/* Save Card Option - Brand Styled */}
+      <Card className="p-6 border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-indigo-50 shadow-md hover:shadow-lg transition-shadow duration-200">
+        <div className="flex items-start gap-4">
           <Checkbox
             id="save-card"
             checked={saveCard}
             onCheckedChange={(checked) => setSaveCard(checked as boolean)}
-            className="mt-1"
+            className="mt-1 data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-600"
           />
           <div className="flex-1">
-            <Label htmlFor="save-card" className="text-base font-medium text-gray-900 cursor-pointer">
+            <Label htmlFor="save-card" className="text-base font-semibold text-gray-900 cursor-pointer">
               Save payment method for future billing
             </Label>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-gray-700 mt-2 leading-relaxed">
               Store your payment details securely for automatic renewals. You can manage or remove this payment method anytime from your settings.
             </p>
           </div>
         </div>
       </Card>
 
-      <div className="bg-gray-50 border border-gray-300 rounded-lg p-4">
-        <p className="text-sm text-gray-900">
-          <strong>Next Steps:</strong> Your subscription will be activated immediately.
-          {saveCard
-            ? ' Your card will be charged automatically on your next billing date.'
-            : ' You will need to make a manual payment for your next billing cycle.'}
-        </p>
-      </div>
+      {/* Next Steps Info - Brand Styled */}
+      <Card className="p-5 border-l-4 border-purple-600 bg-gradient-to-r from-gray-50 to-purple-50 shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0 mt-0.5">
+            <div className="w-2 h-2 rounded-full bg-purple-600"></div>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900 mb-1">
+              <strong className="text-purple-900">Next Steps:</strong> Your subscription will be activated immediately.
+            </p>
+            <p className="text-sm text-gray-700">
+              {saveCard
+                ? '✓ Your card will be charged automatically on your next billing date.'
+                : '⚠️ You will need to make a manual payment for your next billing cycle.'}
+            </p>
+          </div>
+        </div>
+      </Card>
 
-      <div className="flex justify-end items-center pt-4 border-t">
+      {/* Action Button - Brand Styled */}
+      <div className="flex justify-end items-center pt-6 border-t border-gray-200">
         <Button
           onClick={() => handleCompleteUpgrade(saveCard)}
           disabled={loading}
-          className="bg-gradient-to-r from-gray-900 to-black hover:from-black hover:to-gray-900 text-white"
+          size="lg"
+          className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
         >
           {loading ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               Activating...
             </>
           ) : (
             <>
-              <Zap className="mr-2 h-4 w-4" />
-              Activate Subscription
+              <CheckCircle2 className="mr-2 h-5 w-5" />
+              Complete Activation
             </>
           )}
         </Button>
@@ -540,24 +581,25 @@ export function UpgradeModal({ open, onClose, onSuccess }: UpgradeModalProps) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent
-        className="max-w-5xl max-h-[90vh] overflow-y-auto"
+        className="max-w-5xl max-h-[90vh] overflow-y-auto border-2 border-purple-200 shadow-2xl"
       >
-        <DialogHeader>
-          <DialogTitle className="text-2xl">
+        <DialogHeader className="pb-6 border-b border-gray-200">
+          <DialogTitle className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
             {step === 'select-plan' && 'Choose Your Plan'}
             {step === 'payment' && 'Complete Payment'}
             {step === 'save-card' && 'Save Payment Method'}
           </DialogTitle>
-          <DialogDescription>
-            {step === 'select-plan' && 'Select a plan that best fits your needs'}
-            {step === 'payment' && 'Review your order and proceed to payment'}
+          <DialogDescription className="text-base text-gray-600 mt-2">
+            {step === 'select-plan' && 'Select a plan that best fits your needs and start growing your business'}
+            {step === 'payment' && 'Review your order and proceed to secure payment'}
             {step === 'save-card' && 'Would you like to save your payment method for future billing?'}
           </DialogDescription>
         </DialogHeader>
 
         {loadingData ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          <div className="flex flex-col items-center justify-center py-16">
+            <Loader2 className="h-12 w-12 animate-spin text-purple-600 mb-4" />
+            <p className="text-gray-600 font-medium">Loading plans...</p>
           </div>
         ) : (
           <div className="mt-4">

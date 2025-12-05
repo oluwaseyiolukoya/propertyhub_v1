@@ -1,6 +1,6 @@
 import { Response, NextFunction } from 'express';
-import { AuthRequest } from '../../types/verification';
-import prisma from '../../lib/db';
+import { AuthRequest } from '../types/verification';
+import prisma from '../lib/db';
 
 /**
  * Authenticate API key from request headers

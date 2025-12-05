@@ -1,6 +1,5 @@
 import crypto from 'crypto';
 import prisma from '../../lib/db';
-import { config } from '../../lib/env';
 import { notificationService } from './notification.service';
 
 /**
@@ -15,7 +14,7 @@ export class WebhookService {
    */
   verifyDojahSignature(payload: any, signature: string): boolean {
     try {
-      const secret = config.dojah.webhookSecret;
+      const secret = process.env.DOJAH_WEBHOOK_SECRET || '';
 
       if (!secret) {
         console.warn('[WebhookService] Dojah webhook secret not configured');

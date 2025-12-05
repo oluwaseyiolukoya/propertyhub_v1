@@ -963,9 +963,10 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
     // 7. Delete verification requests if tenant has a kycVerificationId
     if (tenant.kycVerificationId) {
       try {
-        // Try to delete from verification service
-        const { verificationClient } = await import('../services/verification-client.service');
-        await verificationClient.deleteRequest(tenant.kycVerificationId);
+        // Try to delete from verification service (consolidated)
+        const { AdminService } = await import('../services/verification/admin.service');
+        const adminService = new AdminService();
+        await adminService.deleteRequest(tenant.kycVerificationId);
         console.log('✅ Deleted verification request from verification service');
       } catch (verificationError) {
         console.warn('⚠️ Could not delete verification request:', verificationError);

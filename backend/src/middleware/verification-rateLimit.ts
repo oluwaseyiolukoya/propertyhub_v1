@@ -1,6 +1,9 @@
 import rateLimit from 'express-rate-limit';
-import { AuthRequest } from '../../types/verification';
-import { config } from '../../lib/env';
+import { AuthRequest } from '../types/verification';
+
+// Rate limit configuration
+const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10); // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10);
 
 /**
  * Rate limiter for API endpoints
@@ -8,8 +11,8 @@ import { config } from '../../lib/env';
  */
 export const createRateLimiter = () => {
   return rateLimit({
-    windowMs: config.rateLimit.windowMs,
-    max: config.rateLimit.maxRequests,
+    windowMs: RATE_LIMIT_WINDOW_MS,
+    max: RATE_LIMIT_MAX_REQUESTS,
     standardHeaders: true,
     legacyHeaders: false,
 
@@ -22,8 +25,8 @@ export const createRateLimiter = () => {
       res.status(429).json({
         success: false,
         error: 'Too many requests',
-        message: `Rate limit exceeded. Maximum ${config.rateLimit.maxRequests} requests per ${config.rateLimit.windowMs / 1000} seconds.`,
-        retryAfter: Math.ceil(config.rateLimit.windowMs / 1000),
+        message: `Rate limit exceeded. Maximum ${RATE_LIMIT_MAX_REQUESTS} requests per ${RATE_LIMIT_WINDOW_MS / 1000} seconds.`,
+        retryAfter: Math.ceil(RATE_LIMIT_WINDOW_MS / 1000),
       });
     },
 
@@ -33,4 +36,3 @@ export const createRateLimiter = () => {
     },
   });
 };
-

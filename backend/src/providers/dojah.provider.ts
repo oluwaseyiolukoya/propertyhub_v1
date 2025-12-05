@@ -1,8 +1,7 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import { BaseVerificationProvider } from './base.provider';
-import { VerificationResult } from '../../types/verification';
-import { config } from '../../lib/env';
-import prisma from '../../lib/db';
+import { VerificationResult } from '../types/verification';
+import prisma from '../lib/db';
 import { sanitizePayload } from '../lib/encryption';
 
 /**
@@ -17,12 +16,12 @@ export class DojahProvider extends BaseVerificationProvider {
 
   constructor() {
     super();
-    this.apiKey = config.dojah.apiKey;
-    this.appId = config.dojah.appId;
+    this.apiKey = process.env.DOJAH_API_KEY || '';
+    this.appId = process.env.DOJAH_APP_ID || '';
 
     // Create axios instance with default config
     this.client = axios.create({
-      baseURL: config.dojah.baseUrl,
+      baseURL: process.env.DOJAH_BASE_URL || 'https://api.dojah.io',
       timeout: 30000, // 30 seconds
       headers: {
         'Authorization': this.apiKey,

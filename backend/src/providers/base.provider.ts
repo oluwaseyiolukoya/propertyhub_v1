@@ -1,4 +1,4 @@
-import { VerificationResult } from '../../types/verification';
+import { VerificationResult } from '../types/verification';
 
 /**
  * Abstract interface for identity verification providers
