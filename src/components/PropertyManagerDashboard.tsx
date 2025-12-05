@@ -3,14 +3,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Bell, Home, Users, CreditCard, Wrench, Shield, Settings, Menu, LogOut, FileText, Receipt } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Home, Users, CreditCard, Wrench, Shield, Settings, Menu, LogOut, FileText, Receipt, X, Building } from 'lucide-react';
 import { toast } from 'sonner';
 import { PropertyManagement } from './PropertyManagement';
 import { TenantManagement } from './TenantManagement';
 import { PaymentOverview } from './PaymentOverview';
 import { MaintenanceTickets } from './MaintenanceTickets';
 import { AccessControl } from './AccessControl';
-import { NotificationCenter } from './NotificationCenter';
 import { PropertyManagerSettings } from './PropertyManagerSettings';
 import PropertyManagerDocuments from './PropertyManagerDocuments';
 import { ManagerDashboardOverview } from './ManagerDashboardOverview';
@@ -24,7 +24,51 @@ import { initializeSocket, subscribeToPermissionsUpdated, unsubscribeFromPermiss
 import { usePersistentState } from '../lib/usePersistentState';
 import { TrialStatusBanner } from './TrialStatusBanner';
 import { UpgradeModal } from './UpgradeModal';
-import { PlatformLogo } from './PlatformLogo';
+
+// Exact Contrezz logo from Figma Brand Guidelines (matching Owner Dashboard)
+function ContrezztLogo({ className = "w-8 h-8" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 40 40"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <rect
+        x="4"
+        y="16"
+        width="12"
+        height="20"
+        rx="2"
+        fill="currentColor"
+        fillOpacity="0.9"
+      />
+      <rect
+        x="20"
+        y="8"
+        width="12"
+        height="28"
+        rx="2"
+        fill="currentColor"
+        fillOpacity="1"
+      />
+      <rect
+        x="12"
+        y="4"
+        width="8"
+        height="14"
+        rx="1.5"
+        fill="currentColor"
+        fillOpacity="0.7"
+      />
+      <circle cx="10" cy="22" r="1.5" fill="white" fillOpacity="0.6" />
+      <circle cx="10" cy="28" r="1.5" fill="white" fillOpacity="0.6" />
+      <circle cx="26" cy="14" r="1.5" fill="white" fillOpacity="0.6" />
+      <circle cx="26" cy="20" r="1.5" fill="white" fillOpacity="0.6" />
+      <circle cx="26" cy="26" r="1.5" fill="white" fillOpacity="0.6" />
+    </svg>
+  );
+}
 
 interface PropertyManagerDashboardProps {
   user: any;
@@ -45,7 +89,6 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
   const [accountInfo, setAccountInfo] = useState<any>(null);
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [hasCustomLogo, setHasCustomLogo] = useState(false);
 
   // Reset to overview tab on component mount (every login)
   useEffect(() => {
@@ -183,9 +226,6 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
     };
   }, [accountInfo]);
 
-  // Get notification count from dashboard data
-  const notificationCount = dashboardData?.notifications?.unread || 0;
-
   // Get assigned property IDs from dashboard data or fallback
   const assignedPropertyIds = dashboardData?.properties?.properties?.map((p: any) => p.id)
     || currentUser.assignedProperties
@@ -202,127 +242,138 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
 
   const navigation = [
     { id: 'overview', name: 'Overview', icon: Home },
-    { id: 'properties', name: 'Properties', icon: Home },
+    { id: 'properties', name: 'Properties', icon: Building },
     { id: 'tenants', name: 'Tenants', icon: Users },
     { id: 'payments', name: 'Payments', icon: CreditCard },
     { id: 'expenses', name: 'Expenses', icon: Receipt },
     { id: 'maintenance', name: 'Maintenance', icon: Wrench },
     { id: 'access', name: 'Key Management', icon: Shield },
-    { id: 'notifications', name: 'Notifications', icon: Bell, count: notificationCount },
     { id: 'documents', name: 'Documents', icon: FileText },
     { id: 'settings', name: 'Settings', icon: Settings },
-    { id: 'logout', name: 'Logout', icon: LogOut },
   ];
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col overflow-x-hidden">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b sticky top-0 z-40">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="lg:hidden mr-2"
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-              >
-                <Menu className="h-5 w-5" />
-              </Button>
-              <PlatformLogo
-                showText={false}
-                iconClassName={hasCustomLogo ? "h-8 w-auto max-w-[200px] object-contain" : "h-6 w-6 text-blue-600 mr-2"}
-                onLogoLoad={(hasLogo) => setHasCustomLogo(hasLogo)}
-              />
-              {!hasCustomLogo && (
-                <span className="text-lg sm:text-xl font-semibold text-gray-900">Contrezz Manager</span>
-              )}
-            </div>
-
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <div className="relative">
-                <Button variant="ghost" size="sm" onClick={() => setActiveTab('notifications')}>
-                  <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
-                  {notificationCount > 0 && (
-                    <Badge className="absolute -top-1 -right-1 h-4 w-4 sm:h-5 sm:w-5 rounded-full p-0 text-xs flex items-center justify-center">
-                      {notificationCount}
-                    </Badge>
-                  )}
-                </Button>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <div className="h-8 w-8 rounded-full bg-green-600 flex items-center justify-center">
-                  <span className="text-white text-xs sm:text-sm font-medium">
-                    {currentUser.name.split(' ').map((n: string) => n[0]).join('')}
-                  </span>
-                </div>
-                <div className="hidden sm:block">
-                  <div className="text-sm font-medium text-gray-900">{currentUser.name}</div>
-                  <div className="text-xs text-gray-500">{currentUser.role}</div>
-                </div>
-              </div>
-            </div>
+      {/* Mobile Header - Dark Brand Design */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-[#111827] border-b border-white/10 z-50 flex items-center justify-between px-4">
+        <div className="flex items-center space-x-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="text-white hover:bg-white/10 transition-colors"
+          >
+            {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </Button>
+          <div className="bg-gradient-to-br from-[#A855F7] to-[#7C3AED] p-1.5 rounded-lg shadow-lg shadow-purple-500/25">
+            <ContrezztLogo className="w-5 h-5 text-white" />
           </div>
+          <h2 className="font-bold text-white">Contrezz</h2>
         </div>
-      </header>
+      </div>
 
-      {/* Mobile Overlay */}
+      {/* Mobile Menu Overlay */}
       {sidebarOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-20"
+          className="lg:hidden fixed inset-0 bg-black/50 z-40 mt-16"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       <div className="flex">
-        {/* Sidebar */}
-        <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-30 w-64 bg-white shadow-lg lg:shadow-none border-r transition-transform duration-200 ease-in-out`}>
-          <nav className="mt-5 px-4">
-            <ul className="space-y-1">
-              {navigation.map((item) => {
-                const Icon = item.icon;
-                const isLogout = item.id === 'logout';
-                return (
-                  <li key={item.id}>
-                    <Button
-                      variant={activeTab === item.id ? "secondary" : "ghost"}
-                      className="w-full justify-start text-sm md:text-base"
-                      onClick={() => {
-                        if (isLogout) {
-                          onLogout();
-                        } else {
+        {/* Sidebar - Dark Brand Design (Matching Owner Dashboard) */}
+        <div className={`
+          fixed top-0 left-0 h-full w-64 bg-[#111827] shadow-xl z-40 transform transition-transform duration-300 ease-in-out border-r border-white/10
+          lg:translate-x-0
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          pt-16 lg:pt-0
+        `}>
+          <div className="flex flex-col h-full">
+            {/* Logo - Desktop only */}
+            <div className="hidden lg:flex items-center gap-3 p-6 border-b border-white/10">
+              <div className="bg-gradient-to-br from-[#A855F7] to-[#7C3AED] p-2 rounded-xl shadow-lg shadow-purple-500/25">
+                <ContrezztLogo className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-white">Contrezz</h1>
+                <p className="text-xs text-white/60 font-medium">Manager Portal</p>
+              </div>
+            </div>
+
+            {/* Manager Info */}
+            <div className="p-6 border-b border-white/10">
+              <div className="flex items-center space-x-3">
+                <Avatar className="h-10 w-10 border-2 border-white/20 shadow-lg">
+                  <AvatarImage src={currentUser.avatar} />
+                  <AvatarFallback className="bg-gradient-to-br from-green-500 to-emerald-600 text-white font-bold">
+                    {currentUser.name.split(' ').map((n: string) => n[0]).join('')}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white truncate">{currentUser.name}</p>
+                  <p className="text-xs text-white/60 capitalize">{currentUser.role}</p>
+                </div>
+              </div>
+              {/* Properties Count Badge */}
+              <div className="mt-4 p-3 bg-gradient-to-r from-[#A855F7] to-[#7C3AED] rounded-xl">
+                <p className="text-xs text-white/80 font-medium">Managing</p>
+                <p className="text-white font-bold">
+                  {properties.length} {properties.length === 1 ? 'Property' : 'Properties'}
+                </p>
+              </div>
+            </div>
+
+            {/* Navigation */}
+            <nav className="flex-1 p-4 overflow-y-auto">
+              <ul className="space-y-1">
+                {navigation.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  return (
+                    <li key={item.id}>
+                      <button
+                        className={`
+                          w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200
+                          ${isActive
+                            ? 'bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-lg shadow-purple-500/25'
+                            : 'text-white/70 hover:bg-white/10 hover:text-white'
+                          }
+                        `}
+                        onClick={() => {
                           setActiveTab(item.id);
                           setSidebarOpen(false);
-                        }
-                      }}
-                    >
-                      <Icon className="mr-3 h-4 w-4 md:h-5 md:w-5" />
-                      {item.name}
-                      {item.count && (
-                        <Badge className="ml-auto text-xs" variant="destructive">
-                          {item.count}
-                        </Badge>
-                      )}
-                    </Button>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
+                        }}
+                      >
+                        <Icon className="h-5 w-5" />
+                        {item.name}
+                        {item.count && item.count > 0 && (
+                          <Badge className={`ml-auto text-xs ${isActive ? 'bg-white/20 text-white border-0' : 'bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white border-0'}`}>
+                            {item.count}
+                          </Badge>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
+
+            {/* Logout Button */}
+            <div className="p-4 border-t border-white/10">
+              <button
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 transition-all duration-200"
+                onClick={onLogout}
+              >
+                <LogOut className="h-5 w-5" />
+                Logout
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Overlay for mobile */}
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 z-20 bg-black bg-opacity-50 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-
         {/* Main Content */}
-        <main className="flex-1 lg:ml-0 p-4 lg:p-8 w-full min-w-0">
-          <div className="max-w-7xl mx-auto w-full min-w-0">
+        <main className="flex-1 lg:ml-64 pt-16 lg:pt-0 min-h-screen">
+          <div className="p-4 lg:p-8 max-w-7xl mx-auto w-full min-w-0">
             {/* Trial Status Banner */}
             <TrialStatusBanner
               onUpgradeClick={() => setShowUpgradeModal(true)}
@@ -332,8 +383,8 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
             {loading ? (
               <div className="flex items-center justify-center min-h-[400px]">
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="mt-4 text-gray-600">Loading...</p>
+                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-200 border-t-purple-600 mx-auto"></div>
+                  <p className="mt-4 text-gray-600 font-medium">Loading...</p>
                 </div>
               </div>
             ) : (
@@ -365,7 +416,6 @@ export function PropertyManagerDashboard({ user, onLogout, propertyAssignments, 
                 )}
                 {activeTab === 'maintenance' && <MaintenanceTickets properties={properties} />}
                 {activeTab === 'access' && <AccessControl />}
-                {activeTab === 'notifications' && <NotificationCenter />}
                 {activeTab === 'documents' && <PropertyManagerDocuments />}
                 {activeTab === 'settings' && (
                   <PropertyManagerSettings

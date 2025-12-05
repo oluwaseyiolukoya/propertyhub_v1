@@ -4,12 +4,12 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from './ui/select';
 import { Separator } from './ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
@@ -61,10 +61,19 @@ import {
   Key,
   Download,
   FileText,
-  MessageSquare
+  MessageSquare,
+  Loader2,
+  Copy
 } from 'lucide-react';
+import QRCode from 'qrcode';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import {
+  initializeTwoFactor,
+  verifyTwoFactorSetup,
+  disableTwoFactor,
+} from '../lib/api/auth';
+import apiClient from '../lib/api-client';
 
 interface PropertyManagerSettingsProps {
   user: {
@@ -109,6 +118,7 @@ export function PropertyManagerSettings({ user, onBack, onSave, onLogout }: Prop
     passwordLastChanged: '2024-02-15',
     securityQuestions: true
   });
+  const [updatingSecuritySetting, setUpdatingSecuritySetting] = useState(false);
 
   // Notification preferences
   const [notificationPreferences, setNotificationPreferences] = useState({
@@ -151,11 +161,22 @@ export function PropertyManagerSettings({ user, onBack, onSave, onLogout }: Prop
     newPassword: '',
     confirmPassword: ''
   });
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [showPasswords, setShowPasswords] = useState({
     current: false,
     new: false,
     confirm: false
   });
+
+  // Two-Factor Authentication state
+  const [twoFactorDialogOpen, setTwoFactorDialogOpen] = useState(false);
+  const [twoFactorDisableDialogOpen, setTwoFactorDisableDialogOpen] = useState(false);
+  const [twoFactorSetup, setTwoFactorSetup] = useState<{ qrCode?: string; secret?: string; otpauthUrl?: string }>({});
+  const [twoFactorCodeInput, setTwoFactorCodeInput] = useState('');
+  const [twoFactorDisablePassword, setTwoFactorDisablePassword] = useState('');
+  const [initializingTwoFactor, setInitializingTwoFactor] = useState(false);
+  const [twoFactorDialogLoading, setTwoFactorDialogLoading] = useState(false);
+  const [disableTwoFactorLoading, setDisableTwoFactorLoading] = useState(false);
 
   // Mock sessions data
   const [sessions] = useState([
@@ -233,18 +254,176 @@ export function PropertyManagerSettings({ user, onBack, onSave, onLogout }: Prop
     toast.info('Changes discarded');
   };
 
-  const handlePasswordChange = () => {
+  const resetPasswordForm = () => {
+    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    setShowPasswords({ current: false, new: false, confirm: false });
+  };
+
+  const handlePasswordChange = async () => {
+    // Basic validation
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      toast.error('All fields are required');
+      return;
+    }
+
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       toast.error('Passwords do not match');
       return;
     }
-    if (passwordForm.newPassword.length < 8) {
-      toast.error('Password must be at least 8 characters');
+
+    if (passwordForm.newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
       return;
     }
-    setShowPasswordDialog(false);
-    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    toast.success('Password changed successfully');
+
+    if (passwordForm.currentPassword === passwordForm.newPassword) {
+      toast.error('New password must be different from current password');
+      return;
+    }
+
+    try {
+      setIsChangingPassword(true);
+      const { changePassword } = await import('../lib/api/auth');
+      const response = await changePassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+
+      if (response.error) {
+        toast.error(response.error.error || response.error.message || 'Failed to change password');
+        return;
+      }
+
+      toast.success('Password changed successfully');
+      setSecuritySettings((prev: any) => ({
+        ...prev,
+        passwordLastChanged: new Date().toISOString(),
+      }));
+      resetPasswordForm();
+      setShowPasswordDialog(false);
+    } catch (error: any) {
+      console.error('Password change error:', error);
+      toast.error(error?.message || 'Failed to change password');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  // 2FA helpers
+  const startTwoFactorSetup = async () => {
+    try {
+      setInitializingTwoFactor(true);
+      const response = await initializeTwoFactor();
+      if ((response as any).error) {
+        toast.error((response as any).error?.error || 'Failed to start 2FA setup');
+        return;
+      }
+
+      const secret = (response as any).data?.secret;
+      const otpauthUrl = (response as any).data?.otpauthUrl;
+      if (!secret || !otpauthUrl) {
+        toast.error('Invalid response from server');
+        return;
+      }
+
+      const qrCode = await QRCode.toDataURL(otpauthUrl);
+      setTwoFactorSetup({ secret, otpauthUrl, qrCode });
+      setTwoFactorCodeInput('');
+      setTwoFactorDialogOpen(true);
+    } catch (error: any) {
+      console.error('2FA init error', error);
+      toast.error(error?.message || 'Failed to start 2FA setup');
+    } finally {
+      setInitializingTwoFactor(false);
+    }
+  };
+
+  const confirmTwoFactorSetup = async () => {
+    if (!twoFactorCodeInput) {
+      toast.error('Enter the 6-digit code from your authenticator app');
+      return;
+    }
+    try {
+      setTwoFactorDialogLoading(true);
+      const response = await verifyTwoFactorSetup(twoFactorCodeInput);
+      if ((response as any).error) {
+        toast.error((response as any).error?.error || 'Invalid code, try again');
+        return;
+      }
+      toast.success('Two-factor authentication enabled');
+      setSecuritySettings((prev: any) => ({ ...prev, twoFactorEnabled: true }));
+      setTwoFactorDialogOpen(false);
+      setTwoFactorCodeInput('');
+      setTwoFactorSetup({});
+    } catch (error: any) {
+      console.error('2FA verify error', error);
+      toast.error(error?.message || 'Failed to enable 2FA');
+    } finally {
+      setTwoFactorDialogLoading(false);
+    }
+  };
+
+  const copyTwoFactorSecret = async () => {
+    if (!twoFactorSetup.secret) return;
+    try {
+      await navigator.clipboard.writeText(twoFactorSetup.secret);
+      toast.success('Secret copied to clipboard');
+    } catch {
+      toast.error('Could not copy secret');
+    }
+  };
+
+  const confirmDisableTwoFactor = async () => {
+    if (!twoFactorDisablePassword) {
+      toast.error('Enter your password to disable 2FA');
+      return;
+    }
+    try {
+      setDisableTwoFactorLoading(true);
+      const response = await disableTwoFactor(twoFactorDisablePassword);
+      if ((response as any).error) {
+        toast.error((response as any).error?.error || 'Failed to disable 2FA');
+        return;
+      }
+      toast.success('Two-factor authentication disabled');
+      setSecuritySettings((prev: any) => ({ ...prev, twoFactorEnabled: false }));
+      setTwoFactorDisableDialogOpen(false);
+      setTwoFactorDisablePassword('');
+    } catch (error: any) {
+      console.error('2FA disable error', error);
+      toast.error(error?.message || 'Failed to disable 2FA');
+    } finally {
+      setDisableTwoFactorLoading(false);
+    }
+  };
+
+  // Security settings updates (login alerts / session timeout)
+  const handleSecuritySettingChange = async (setting: 'sessionTimeout', value: any) => {
+    try {
+      setUpdatingSecuritySetting(true);
+      const payload: any = {};
+
+      if (setting === 'sessionTimeout') {
+        payload.sessionTimeout = value === '1440' ? 1440 : parseInt(value, 10);
+      }
+
+      const response = await apiClient.put('/api/auth/security-settings', payload);
+      if ((response as any).error) {
+        throw new Error((response as any).error?.error || 'Failed to update security setting');
+      }
+
+      setSecuritySettings((prev: any) => ({
+        ...prev,
+        sessionTimeout: setting === 'sessionTimeout' ? value : prev.sessionTimeout,
+      }));
+
+      toast.success('Security setting updated');
+    } catch (error: any) {
+      console.error('Security setting update error:', error);
+      toast.error(error?.message || 'Failed to update security setting');
+    } finally {
+      setUpdatingSecuritySetting(false);
+    }
   };
 
   const handleExportData = () => {
@@ -340,7 +519,7 @@ export function PropertyManagerSettings({ user, onBack, onSave, onLogout }: Prop
                     <User className="h-5 w-5" />
                     <span className="font-medium">Profile</span>
                   </button>
-                  
+
                   <button
                     onClick={() => setActiveTab('security')}
                     className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
@@ -441,7 +620,7 @@ export function PropertyManagerSettings({ user, onBack, onSave, onLogout }: Prop
           {/* Main Content Area */}
           <div className="lg:col-span-3">
             {activeTab === 'profile' && (
-              <ProfileSection 
+              <ProfileSection
                 profileData={profileData}
                 updateFormData={updateFormData}
                 isEditing={isEditing}
@@ -457,6 +636,13 @@ export function PropertyManagerSettings({ user, onBack, onSave, onLogout }: Prop
                 setShowPasswordDialog={setShowPasswordDialog}
                 handleExportData={handleExportData}
                 setShowDeleteDialog={setShowDeleteDialog}
+                initializingTwoFactor={initializingTwoFactor}
+                twoFactorDialogLoading={twoFactorDialogLoading}
+                disableTwoFactorLoading={disableTwoFactorLoading}
+                startTwoFactorSetup={startTwoFactorSetup}
+                setTwoFactorDisableDialogOpen={setTwoFactorDisableDialogOpen}
+                updatingSecuritySetting={updatingSecuritySetting}
+                handleSecuritySettingChange={handleSecuritySettingChange}
               />
             )}
 
@@ -585,11 +771,182 @@ export function PropertyManagerSettings({ user, onBack, onSave, onLogout }: Prop
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPasswordDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowPasswordDialog(false);
+                resetPasswordForm();
+              }}
+              disabled={isChangingPassword}
+            >
               Cancel
             </Button>
-            <Button onClick={handlePasswordChange}>
-              Change Password
+            <Button
+              onClick={handlePasswordChange}
+              disabled={
+                isChangingPassword ||
+                !passwordForm.currentPassword ||
+                !passwordForm.newPassword ||
+                !passwordForm.confirmPassword ||
+                passwordForm.newPassword !== passwordForm.confirmPassword
+              }
+            >
+              {isChangingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isChangingPassword ? 'Changing...' : 'Change Password'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Two-Factor Setup Dialog */}
+      <Dialog
+        open={twoFactorDialogOpen}
+        onOpenChange={(open) => {
+          setTwoFactorDialogOpen(open);
+          if (!open) {
+            setTwoFactorCodeInput('');
+            setTwoFactorSetup({});
+          }
+        }}
+      >
+        <DialogContent className="max-w-md border-0 shadow-2xl p-0">
+          <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-lg">
+            <DialogTitle className="text-white text-xl">Enable Two-Factor Authentication</DialogTitle>
+            <DialogDescription className="text-purple-100">
+              Scan the QR code below with Google Authenticator, Authy, or any compatible app.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 p-6">
+            {twoFactorSetup.qrCode && (
+              <div className="flex flex-col items-center space-y-2">
+                <div className="p-4 bg-white border-2 border-purple-200 rounded-xl shadow-sm">
+                  <img src={twoFactorSetup.qrCode} alt="Two-factor QR code" className="w-48 h-48" />
+                </div>
+                <p className="text-sm text-gray-600 text-center font-medium">
+                  After scanning, enter the 6-digit code generated by your authenticator app.
+                </p>
+              </div>
+            )}
+
+            {twoFactorSetup.secret && (
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 border-2 border-purple-200 rounded-xl p-4 text-sm">
+                <p className="text-gray-700 font-semibold mb-2">Can't scan the QR code? Enter this key manually:</p>
+                <div className="flex items-center justify-between mt-2 gap-2">
+                  <code className="font-mono text-base text-[#7C3AED] break-all font-bold">
+                    {twoFactorSetup.secret}
+                  </code>
+                  <Button variant="ghost" size="icon" onClick={copyTwoFactorSecret} className="hover:bg-purple-100 hover:text-[#7C3AED]">
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <Label htmlFor="twoFactorCodeInput" className="text-sm font-semibold text-gray-700">Authenticator Code</Label>
+              <Input
+                id="twoFactorCodeInput"
+                placeholder="123456"
+                maxLength={6}
+                inputMode="numeric"
+                value={twoFactorCodeInput}
+                onChange={(e) => setTwoFactorCodeInput(e.target.value)}
+                className="mt-2 border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED] text-center text-lg tracking-widest font-mono"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="p-6 border-t">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setTwoFactorDialogOpen(false);
+                setTwoFactorCodeInput('');
+                setTwoFactorSetup({});
+              }}
+              disabled={twoFactorDialogLoading}
+              className="border-gray-300"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmTwoFactorSetup}
+              disabled={twoFactorDialogLoading}
+              className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md"
+            >
+              {twoFactorDialogLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                'Enable 2FA'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Disable Two-Factor Dialog */}
+      <Dialog
+        open={twoFactorDisableDialogOpen}
+        onOpenChange={(open) => {
+          setTwoFactorDisableDialogOpen(open);
+          if (!open) {
+            setTwoFactorDisablePassword('');
+          }
+        }}
+      >
+        <DialogContent className="max-w-md border-0 shadow-2xl p-0">
+          <DialogHeader className="bg-gradient-to-r from-red-600 to-red-700 p-6 rounded-t-lg">
+            <DialogTitle className="text-white text-xl">Disable Two-Factor Authentication</DialogTitle>
+            <DialogDescription className="text-red-100">
+              Enter your password to disable two-factor authentication. You can re-enable it at any time.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 p-6">
+            <div className="space-y-2">
+              <Label htmlFor="disableTwoFactorPassword" className="text-sm font-semibold text-gray-700">
+                Password
+              </Label>
+              <Input
+                id="disableTwoFactorPassword"
+                type="password"
+                value={twoFactorDisablePassword}
+                onChange={(e) => setTwoFactorDisablePassword(e.target.value)}
+                placeholder="Enter your password"
+                className="border-gray-300 focus:border-red-500 focus:ring-red-500"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="p-6 border-t">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setTwoFactorDisableDialogOpen(false);
+                setTwoFactorDisablePassword('');
+              }}
+              disabled={disableTwoFactorLoading}
+              className="border-gray-300"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmDisableTwoFactor}
+              disabled={disableTwoFactorLoading || !twoFactorDisablePassword}
+              className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-md"
+            >
+              {disableTwoFactorLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Disabling...
+                </>
+              ) : (
+                'Disable 2FA'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -826,7 +1183,20 @@ function ProfileSection({ profileData, updateFormData, isEditing, setIsEditing, 
 }
 
 // Security Section Component
-function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswordDialog, handleExportData, setShowDeleteDialog }: any) {
+function SecuritySection({
+  securitySettings,
+  setSecuritySettings,
+  setShowPasswordDialog,
+  handleExportData,
+  setShowDeleteDialog,
+  initializingTwoFactor,
+  twoFactorDialogLoading,
+  disableTwoFactorLoading,
+  startTwoFactorSetup,
+  setTwoFactorDisableDialogOpen,
+  updatingSecuritySetting,
+  handleSecuritySettingChange,
+}: any) {
   return (
     <div className="space-y-6">
       <Card>
@@ -867,22 +1237,24 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
               </div>
             </div>
             <Switch
-              checked={securitySettings.twoFactorEnabled}
-              onCheckedChange={(checked) => {
-                setSecuritySettings((prev: any) => ({ ...prev, twoFactorEnabled: checked }));
-                toast.success(checked ? '2FA enabled' : '2FA disabled');
-              }}
+                  checked={securitySettings.twoFactorEnabled}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      startTwoFactorSetup();
+                    } else {
+                      setTwoFactorDisableDialogOpen(true);
+                    }
+                  }}
+                  disabled={initializingTwoFactor || twoFactorDialogLoading || disableTwoFactorLoading}
             />
           </div>
 
           <div className="space-y-3">
             <Label>Session Timeout</Label>
             <Select
-              value={securitySettings.sessionTimeout}
-              onValueChange={(value) => {
-                setSecuritySettings((prev: any) => ({ ...prev, sessionTimeout: value }));
-                toast.success('Session timeout updated');
-              }}
+                  value={securitySettings.sessionTimeout}
+                  onValueChange={(value) => handleSecuritySettingChange('sessionTimeout', value)}
+                  disabled={updatingSecuritySetting}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -914,9 +1286,9 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
             <Download className="h-4 w-4 mr-2" />
             Export My Data
           </Button>
-          
+
           <Separator />
-          
+
           <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
             <div className="flex items-start space-x-3">
               <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
@@ -942,7 +1314,7 @@ function SecuritySection({ securitySettings, setSecuritySettings, setShowPasswor
   );
 }
 
-// Notifications Section Component  
+// Notifications Section Component
 function NotificationsSection({ notificationPreferences, setNotificationPreferences, getNotificationDescription }: any) {
   return (
     <div className="space-y-6">
@@ -1333,8 +1705,8 @@ function HelpSection() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="w-full justify-start h-auto py-4 hover:bg-blue-50 transition-colors"
             onClick={handleDocumentation}
           >
@@ -1351,8 +1723,8 @@ function HelpSection() {
             </div>
           </Button>
 
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="w-full justify-start h-auto py-4 hover:bg-green-50 transition-colors"
             onClick={handleContactSupport}
           >
@@ -1369,8 +1741,8 @@ function HelpSection() {
             </div>
           </Button>
 
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="w-full justify-start h-auto py-4 hover:bg-purple-50 transition-colors"
             onClick={handleFAQs}
           >

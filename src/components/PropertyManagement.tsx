@@ -28,7 +28,8 @@ import {
   Download, Upload, Settings, Key, Star, Copy,
   Archive, Trash2, ExternalLink, ChevronRight,
   TrendingDown, Activity, Target, FileText,
-  BarChart3, PieChart, Zap, Droplets, Wifi, Thermometer
+  BarChart3, PieChart, Zap, Droplets, Wifi, Thermometer,
+  Sparkles, Building
 } from 'lucide-react';
 
 interface PropertyManagementProps {
@@ -618,73 +619,115 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900">Property Management</h2>
-          <p className="text-gray-600 mt-1">
-            {isManagerView
-              ? `Managing ${properties.length} assigned properties`
-              : "Manage your properties, units, and tenants"
-            }
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {!isManagerView && (
-            <Button onClick={() => setShowAddProperty(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Property
-            </Button>
-          )}
+    <div className="space-y-5 md:space-y-6">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#7C3AED] via-[#6D28D9] to-[#5B21B6] p-6 md:p-8 shadow-xl">
+        <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.6))]"></div>
+        <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-purple-900/20 rounded-full blur-3xl"></div>
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl shadow-lg hidden md:flex">
+              <Building className="h-8 w-8 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-white">
+                Property Management
+              </h1>
+              <p className="text-white/80 font-medium mt-1">
+                {isManagerView
+                  ? `Managing ${properties.length} assigned properties`
+                  : "Manage your properties, units, and tenants"
+                }
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {!isManagerView && (
+              <Button
+                onClick={() => setShowAddProperty(true)}
+                className="bg-white text-[#7C3AED] hover:bg-white/90 font-semibold shadow-lg"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Property
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Tabs Navigation */}
+      {/* Tabs Navigation - Glass Like */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="properties">Properties</TabsTrigger>
-          <TabsTrigger value="units">Units</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-        </TabsList>
+        <div className="bg-white/80 backdrop-blur-sm p-1.5 rounded-xl shadow-lg border border-gray-200/50">
+          <TabsList className="grid w-full grid-cols-4 bg-transparent gap-1">
+            <TabsTrigger
+              value="overview"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#7C3AED] data-[state=active]:to-[#5B21B6] data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25 rounded-lg font-semibold transition-all"
+            >
+              <Home className="h-4 w-4 mr-2" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger
+              value="properties"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#7C3AED] data-[state=active]:to-[#5B21B6] data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25 rounded-lg font-semibold transition-all"
+            >
+              <Building2 className="h-4 w-4 mr-2" />
+              Properties
+            </TabsTrigger>
+            <TabsTrigger
+              value="units"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#7C3AED] data-[state=active]:to-[#5B21B6] data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25 rounded-lg font-semibold transition-all"
+            >
+              <Key className="h-4 w-4 mr-2" />
+              Units
+            </TabsTrigger>
+            <TabsTrigger
+              value="analytics"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#7C3AED] data-[state=active]:to-[#5B21B6] data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25 rounded-lg font-semibold transition-all"
+            >
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Analytics
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
-          {/* Key Metrics */}
+          {/* Key Metrics - Animated Cards */}
           <TooltipProvider>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+              <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-indigo-500/5 group-hover:from-purple-500/10 group-hover:to-indigo-500/10 transition-all duration-300"></div>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <CardTitle className="text-sm font-medium flex items-center gap-1 cursor-help">
+                      <CardTitle className="text-xs md:text-sm font-semibold text-gray-700 flex items-center gap-1 cursor-help">
                         Total Properties
-                        <AlertCircle className="h-3 w-3 text-muted-foreground" />
                       </CardTitle>
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>Total number of properties you manage</p>
                     </TooltipContent>
                   </Tooltip>
-                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                  <div className="rounded-xl bg-gradient-to-br from-purple-500 to-indigo-500 p-2 md:p-2.5 shadow-lg shadow-purple-500/25 group-hover:scale-110 transition-transform duration-300">
+                    <Building2 className="h-4 w-4 text-white" />
+                  </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-semibold">{portfolioMetrics.totalProperties}</div>
-                  <p className="text-xs text-muted-foreground">
+                <CardContent className="relative">
+                  <div className="text-xl md:text-3xl font-bold text-gray-900">{portfolioMetrics.totalProperties}</div>
+                  <p className="text-xs text-gray-500 font-medium mt-1">
                     {portfolioMetrics.totalUnits} total units
                   </p>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-cyan-500/5 group-hover:from-blue-500/10 group-hover:to-cyan-500/10 transition-all duration-300"></div>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <CardTitle className="text-sm font-medium flex items-center gap-1 cursor-help">
+                      <CardTitle className="text-xs md:text-sm font-semibold text-gray-700 flex items-center gap-1 cursor-help">
                         Occupancy Rate
-                        <AlertCircle className="h-3 w-3 text-muted-foreground" />
                       </CardTitle>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -694,21 +737,28 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                       </p>
                     </TooltipContent>
                   </Tooltip>
-                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <div className="rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 p-2 md:p-2.5 shadow-lg shadow-blue-500/25 group-hover:scale-110 transition-transform duration-300">
+                    <Users className="h-4 w-4 text-white" />
+                  </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-semibold">{portfolioMetrics.avgOccupancy.toFixed(1)}%</div>
-                  <Progress value={portfolioMetrics.avgOccupancy} className="mt-2" />
+                <CardContent className="relative">
+                  <div className="text-xl md:text-3xl font-bold text-gray-900">{portfolioMetrics.avgOccupancy.toFixed(1)}%</div>
+                  <div className="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full transition-all duration-500"
+                      style={{ width: `${portfolioMetrics.avgOccupancy}%` }}
+                    />
+                  </div>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-emerald-500/5 group-hover:from-green-500/10 group-hover:to-emerald-500/10 transition-all duration-300"></div>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <CardTitle className="text-sm font-medium flex items-center gap-1 cursor-help">
+                      <CardTitle className="text-xs md:text-sm font-semibold text-gray-700 flex items-center gap-1 cursor-help">
                         Monthly Revenue
-                        <AlertCircle className="h-3 w-3 text-muted-foreground" />
                       </CardTitle>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -718,11 +768,13 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                       </p>
                     </TooltipContent>
                   </Tooltip>
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <div className="rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 p-2 md:p-2.5 shadow-lg shadow-green-500/25 group-hover:scale-110 transition-transform duration-300">
+                    <DollarSign className="h-4 w-4 text-white" />
+                  </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-semibold">{formatCurrency(portfolioMetrics.totalRevenue, smartBaseCurrency)}</div>
-                  <p className="text-xs text-muted-foreground flex items-center">
+                <CardContent className="relative">
+                  <div className="text-xl md:text-3xl font-bold text-gray-900">{formatCurrency(portfolioMetrics.totalRevenue, smartBaseCurrency)}</div>
+                  <p className="text-xs text-gray-500 font-medium flex items-center mt-1">
                     <TrendingUp className="h-3 w-3 mr-1 text-green-600" />
                     {properties.length > 1 && properties.some(p => p.currency !== smartBaseCurrency) &&
                       <span className="text-orange-600 mr-2">Multi-currency</span>
@@ -732,13 +784,13 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-amber-500/5 group-hover:from-orange-500/10 group-hover:to-amber-500/10 transition-all duration-300"></div>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <CardTitle className="text-sm font-medium flex items-center gap-1 cursor-help">
+                      <CardTitle className="text-xs md:text-sm font-semibold text-gray-700 flex items-center gap-1 cursor-help">
                         Maintenance
-                        <AlertCircle className="h-3 w-3 text-muted-foreground" />
                       </CardTitle>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -748,11 +800,13 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                       </p>
                     </TooltipContent>
                   </Tooltip>
-                  <Wrench className="h-4 w-4 text-muted-foreground" />
+                  <div className="rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 p-2 md:p-2.5 shadow-lg shadow-orange-500/25 group-hover:scale-110 transition-transform duration-300">
+                    <Wrench className="h-4 w-4 text-white" />
+                  </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-semibold">{portfolioMetrics.maintenanceRequests}</div>
-                  <p className="text-xs text-muted-foreground">
+                <CardContent className="relative">
+                  <div className="text-xl md:text-3xl font-bold text-gray-900">{portfolioMetrics.maintenanceRequests}</div>
+                  <p className="text-xs text-gray-500 font-medium mt-1">
                     Active requests
                   </p>
                 </CardContent>
@@ -761,79 +815,117 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
           </TooltipProvider>
 
           {/* Property Performance */}
-          <div className="grid lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Property Performance</CardTitle>
-                <CardDescription>Revenue and occupancy by property</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {properties.map((property) => (
-                    <div key={property.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
-                      <div className="flex items-center space-x-3">
-                        <div className="h-12 w-12 rounded-lg overflow-hidden bg-gray-100">
-                          <ImageWithFallback
-                            src={property.image}
-                            alt={property.name}
-                            className="h-full w-full object-cover"
-                          />
-                        </div>
-                        <div>
-                          <h4 className="font-medium">{property.name}</h4>
-                          <p className="text-sm text-gray-600">{property.occupiedUnits}/{property.totalUnits} units occupied</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium text-green-600">{formatCurrency(property.monthlyRevenue, property.currency || 'NGN')}</p>
-                        <p className="text-sm text-gray-600">{((property.occupiedUnits / property.totalUnits) * 100).toFixed(1)}%</p>
-                      </div>
-                    </div>
-                  ))}
+          <div className="grid lg:grid-cols-2 gap-4 md:gap-6">
+            <Card className="border-0 shadow-xl overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 border-b border-purple-100">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-xl bg-gradient-to-br from-[#7C3AED] to-[#5B21B6] p-2.5 shadow-lg shadow-purple-500/25">
+                    <TrendingUp className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-gray-900 font-bold text-lg">Property Performance</CardTitle>
+                    <CardDescription className="text-gray-600 font-medium">Revenue and occupancy by property</CardDescription>
+                  </div>
                 </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                {properties.length > 0 ? (
+                  <div className="divide-y divide-gray-100">
+                    {properties.map((property) => {
+                      const occupancyRate = property.totalUnits > 0
+                        ? ((property.occupiedUnits / property.totalUnits) * 100)
+                        : 0;
+                      return (
+                        <div key={property.id} className="flex items-center justify-between p-5 hover:bg-purple-50/50 transition-colors">
+                          <div className="flex items-center space-x-4">
+                            <div className="h-14 w-14 rounded-xl overflow-hidden bg-gray-100 shadow-md">
+                              <ImageWithFallback
+                                src={property.image}
+                                alt={property.name}
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-gray-900">{property.name}</h4>
+                              <p className="text-sm text-gray-500 font-medium">{property.occupiedUnits}/{property.totalUnits} units occupied</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-lg text-green-600">{formatCurrency(property.monthlyRevenue, property.currency || 'NGN')}</p>
+                            <p className={`text-sm font-semibold ${occupancyRate >= 80 ? 'text-green-600' : occupancyRate >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>
+                              {occupancyRate.toFixed(1)}% occupied
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 px-4">
+                    <div className="rounded-full bg-gradient-to-br from-purple-100 to-indigo-100 p-6 mb-4">
+                      <Building2 className="h-10 w-10 text-purple-500" />
+                    </div>
+                    <p className="text-gray-500 font-medium">No properties to display</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
-                <CardDescription>Latest updates across all properties</CardDescription>
+            <Card className="border-0 shadow-xl overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-green-50 via-emerald-50 to-teal-50 border-b border-green-100">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 p-2.5 shadow-lg shadow-green-500/25">
+                    <Activity className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-gray-900 font-bold text-lg">Recent Activity</CardTitle>
+                    <CardDescription className="text-gray-600 font-medium">Latest updates across all properties</CardDescription>
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-start space-x-3 p-3 border rounded-lg">
-                    <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+              <CardContent className="p-0">
+                <div className="divide-y divide-gray-100">
+                  <div className="flex items-center gap-4 p-5 hover:bg-green-50/50 transition-colors">
+                    <div className="rounded-lg bg-gradient-to-br from-green-100 to-emerald-100 p-2.5">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium">Lease renewed at Sunset Apartments</p>
-                      <p className="text-xs text-gray-600">Unit A201 - 1 year extension</p>
-                      <p className="text-xs text-gray-400">2 hours ago</p>
+                      <p className="font-semibold text-gray-900">Lease renewed at Sunset Apartments</p>
+                      <p className="text-sm text-gray-500">Unit A201 - 1 year extension</p>
+                      <p className="text-xs text-gray-400 mt-1">2 hours ago</p>
                     </div>
                   </div>
 
-                  <div className="flex items-start space-x-3 p-3 border rounded-lg">
-                    <Wrench className="h-5 w-5 text-yellow-600 mt-0.5" />
+                  <div className="flex items-center gap-4 p-5 hover:bg-green-50/50 transition-colors">
+                    <div className="rounded-lg bg-gradient-to-br from-yellow-100 to-amber-100 p-2.5">
+                      <Wrench className="h-5 w-5 text-yellow-600" />
+                    </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium">New maintenance request</p>
-                      <p className="text-xs text-gray-600">Pine View Townhomes - TH02</p>
-                      <p className="text-xs text-gray-400">4 hours ago</p>
+                      <p className="font-semibold text-gray-900">New maintenance request</p>
+                      <p className="text-sm text-gray-500">Pine View Townhomes - TH02</p>
+                      <p className="text-xs text-gray-400 mt-1">4 hours ago</p>
                     </div>
                   </div>
 
-                  <div className="flex items-start space-x-3 p-3 border rounded-lg">
-                    <DollarSign className="h-5 w-5 text-green-600 mt-0.5" />
+                  <div className="flex items-center gap-4 p-5 hover:bg-green-50/50 transition-colors">
+                    <div className="rounded-lg bg-gradient-to-br from-green-100 to-emerald-100 p-2.5">
+                      <DollarSign className="h-5 w-5 text-green-600" />
+                    </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium">Rent payment received</p>
-                      <p className="text-xs text-gray-600">Oak Street Condos - B301</p>
-                      <p className="text-xs text-gray-400">1 day ago</p>
+                      <p className="font-semibold text-gray-900">Rent payment received</p>
+                      <p className="text-sm text-gray-500">Oak Street Condos - B301</p>
+                      <p className="text-xs text-gray-400 mt-1">1 day ago</p>
                     </div>
                   </div>
 
-                  <div className="flex items-start space-x-3 p-3 border rounded-lg">
-                    <Home className="h-5 w-5 text-blue-600 mt-0.5" />
+                  <div className="flex items-center gap-4 p-5 hover:bg-green-50/50 transition-colors">
+                    <div className="rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100 p-2.5">
+                      <Home className="h-5 w-5 text-blue-600" />
+                    </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium">Unit became available</p>
-                      <p className="text-xs text-gray-600">Sunset Apartments - A301</p>
-                      <p className="text-xs text-gray-400">2 days ago</p>
+                      <p className="font-semibold text-gray-900">Unit became available</p>
+                      <p className="text-sm text-gray-500">Sunset Apartments - A301</p>
+                      <p className="text-xs text-gray-400 mt-1">2 days ago</p>
                     </div>
                   </div>
                 </div>
@@ -845,21 +937,21 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
         {/* Properties Tab */}
         <TabsContent value="properties" className="space-y-6">
           {/* Search and Filters */}
-          <Card>
+          <Card className="border-0 shadow-lg">
             <CardContent className="pt-6">
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                   <Input
-                    placeholder="Search properties..."
+                    placeholder="Search properties by name or address..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
+                    className="pl-12 h-12 text-base rounded-xl border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED]/20"
                   />
                 </div>
 
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full md:w-40">
+                  <SelectTrigger className="w-full md:w-44 h-12 rounded-xl border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED]/20">
                     <SelectValue placeholder="All Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -870,18 +962,20 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
                   </SelectContent>
                 </Select>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-xl">
                   <Button
-                    variant={viewMode === 'grid' ? 'default' : 'outline'}
+                    variant={viewMode === 'grid' ? 'default' : 'ghost'}
                     size="sm"
                     onClick={() => setViewMode('grid')}
+                    className={viewMode === 'grid' ? 'bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-md' : 'text-gray-600 hover:text-gray-900'}
                   >
                     <LayoutGrid className="h-4 w-4" />
                   </Button>
                   <Button
-                    variant={viewMode === 'list' ? 'default' : 'outline'}
+                    variant={viewMode === 'list' ? 'default' : 'ghost'}
                     size="sm"
                     onClick={() => setViewMode('list')}
+                    className={viewMode === 'list' ? 'bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-md' : 'text-gray-600 hover:text-gray-900'}
                   >
                     <List className="h-4 w-4" />
                   </Button>
@@ -890,135 +984,147 @@ export const PropertyManagement = ({ assignedPropertyIds = [], isManagerView = f
             </CardContent>
           </Card>
 
-          {/* Properties Grid - simplified for brevity */}
+          {/* Properties Grid - Enhanced with brand guidelines */}
           {viewMode === 'grid' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredProperties.map((property) => (
-                <Card key={property.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                  <div className="h-48 bg-gray-200 relative">
-                    <ImageWithFallback
-                      src={property.image}
-                      alt={property.name}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute top-3 right-3">
-                      <Badge variant={getStatusBadgeVariant(property.status)}>
-                        {property.status}
-                      </Badge>
-                    </div>
-                  </div>
-                  <CardHeader>
-                    <CardTitle className="text-lg">{property.name}</CardTitle>
-                    <CardDescription className="flex items-center">
-                      <MapPin className="h-3 w-3 mr-1" />
-                      {property.address}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className="text-center p-2 bg-gray-50 rounded">
-                          <p className="text-xs text-gray-500 mb-1">Units</p>
-                          <p className="font-semibold text-gray-900">{property.occupiedUnits}/{property.totalUnits}</p>
-                        </div>
-                        <div className="text-center p-2 bg-blue-50 rounded">
-                          <p className="text-xs text-blue-600 mb-1">Occupancy</p>
-                          <p className="font-semibold text-blue-900">
-                            {property.totalUnits > 0 ? Math.round((property.occupiedUnits / property.totalUnits) * 100) : 0}%
-                          </p>
-                        </div>
-                        <div className="text-center p-2 bg-green-50 rounded">
-                          <p className="text-xs text-green-600 mb-1">Revenue</p>
-                          <p className="font-semibold text-green-900 text-sm">
-                            {formatCurrency(property.monthlyRevenue, property.currency)}
-                          </p>
-                        </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+              {filteredProperties.map((property) => {
+                const occupancyRate = property.totalUnits > 0 ? Math.round((property.occupiedUnits / property.totalUnits) * 100) : 0;
+                return (
+                  <Card key={property.id} className="overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 group">
+                    <div className="h-48 bg-gray-200 relative overflow-hidden">
+                      <ImageWithFallback
+                        src={property.image}
+                        alt={property.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+                      <div className="absolute top-3 right-3">
+                        <Badge
+                          className={`font-semibold shadow-lg ${
+                            property.status === 'Active' || property.status === 'active'
+                              ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0'
+                              : property.status === 'Maintenance' || property.status === 'maintenance'
+                              ? 'bg-gradient-to-r from-yellow-500 to-amber-500 text-white border-0'
+                              : 'bg-gradient-to-r from-gray-500 to-slate-500 text-white border-0'
+                          }`}
+                        >
+                          {property.status}
+                        </Badge>
                       </div>
-                      <div className="flex gap-2 pt-2 items-center justify-between">
-                        {/* Permission badges */}
-                        {isManagerView && (
-                          <div className="flex gap-1 flex-wrap">
-                            {canEditProperty(property) && (
-                              <Badge variant="secondary" className="text-xs">Can Edit</Badge>
-                            )}
-                            {canDeleteProperty(property) && (
-                              <Badge variant="destructive" className="text-xs">Can Delete</Badge>
-                            )}
-                            {!canEditProperty(property) && !canDeleteProperty(property) && (
-                              <Badge variant="outline" className="text-xs">View Only</Badge>
-                            )}
+                      <div className="absolute bottom-3 left-3 right-3">
+                        <h3 className="text-white font-bold text-lg truncate drop-shadow-lg">{property.name}</h3>
+                        <p className="text-white/80 text-sm flex items-center">
+                          <MapPin className="h-3 w-3 mr-1" />
+                          {property.address}
+                        </p>
+                      </div>
+                    </div>
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="text-center p-3 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl border border-purple-100">
+                            <p className="text-xs text-purple-600 font-semibold mb-1">Units</p>
+                            <p className="font-bold text-gray-900">{property.occupiedUnits}/{property.totalUnits}</p>
                           </div>
-                        )}
+                          <div className="text-center p-3 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl border border-blue-100">
+                            <p className="text-xs text-blue-600 font-semibold mb-1">Occupancy</p>
+                            <p className={`font-bold ${occupancyRate >= 80 ? 'text-green-600' : occupancyRate >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>
+                              {occupancyRate}%
+                            </p>
+                          </div>
+                          <div className="text-center p-3 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-100">
+                            <p className="text-xs text-green-600 font-semibold mb-1">Revenue</p>
+                            <p className="font-bold text-gray-900 text-xs">
+                              {formatCurrency(property.monthlyRevenue, property.currency)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 pt-2 items-center justify-between">
+                          {/* Permission badges */}
+                          {isManagerView && (
+                            <div className="flex gap-1 flex-wrap">
+                              {canEditProperty(property) && (
+                                <Badge className="text-xs bg-purple-100 text-purple-700 border-purple-200">Can Edit</Badge>
+                              )}
+                              {canDeleteProperty(property) && (
+                                <Badge className="text-xs bg-red-100 text-red-700 border-red-200">Can Delete</Badge>
+                              )}
+                              {!canEditProperty(property) && !canDeleteProperty(property) && (
+                                <Badge className="text-xs bg-gray-100 text-gray-600 border-gray-200">View Only</Badge>
+                              )}
+                            </div>
+                          )}
 
-                        {/* Three-dot menu */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 w-8 p-0 ml-auto"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuLabel>Property Actions</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
+                          {/* Three-dot menu */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 w-8 p-0 ml-auto hover:bg-purple-50 hover:border-purple-200"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuLabel>Property Actions</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
 
-                            <DropdownMenuItem
-                              onClick={() => setSelectedProperty(property)}
-                            >
-                              <Eye className="h-4 w-4 mr-2" />
-                              View Details
-                            </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => setSelectedProperty(property)}
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                View Details
+                              </DropdownMenuItem>
 
-                            {canEditProperty(property) && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setSelectedProperty(property);
-                                    toast.info('Edit property feature coming soon');
-                                  }}
-                                >
-                                  <Edit className="h-4 w-4 mr-2" />
-                                  Edit Property
-                                </DropdownMenuItem>
-                              </>
-                            )}
-
-                            {canDeleteProperty(property) && (
-                              <>
-                                <DropdownMenuSeparator />
-                                {!isManagerView && (
+                              {canEditProperty(property) && (
+                                <>
+                                  <DropdownMenuSeparator />
                                   <DropdownMenuItem
                                     onClick={() => {
-                                      toast.info('Archive feature coming soon');
+                                      setSelectedProperty(property);
+                                      toast.info('Edit property feature coming soon');
                                     }}
                                   >
-                                    <Archive className="h-4 w-4 mr-2" />
-                                    Archive
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Edit Property
                                   </DropdownMenuItem>
-                                )}
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setPropertyToDelete(property);
-                                    setShowDeleteDialog(true);
-                                  }}
-                                  className="text-red-600"
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete Property
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                                </>
+                              )}
+
+                              {canDeleteProperty(property) && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  {!isManagerView && (
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        toast.info('Archive feature coming soon');
+                                      }}
+                                    >
+                                      <Archive className="h-4 w-4 mr-2" />
+                                      Archive
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setPropertyToDelete(property);
+                                      setShowDeleteDialog(true);
+                                    }}
+                                    className="text-red-600"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete Property
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
 

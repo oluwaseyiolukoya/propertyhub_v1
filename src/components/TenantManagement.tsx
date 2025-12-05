@@ -1256,15 +1256,31 @@ export const TenantManagement = ({ properties = [] as any[] }: { properties?: an
           <div className="overflow-auto rounded-xl border-0 shadow-md">
             <Table>
               <TableHeader>
-                <TableRow className="bg-[#111827] hover:bg-[#111827]">
-                  <TableHead className="text-white font-semibold">Tenant</TableHead>
-                  <TableHead className="text-white font-semibold">Contact</TableHead>
-                  <TableHead className="text-white font-semibold">Unit</TableHead>
-                  <TableHead className="text-white font-semibold">Lease Period</TableHead>
-                  <TableHead className="text-white font-semibold">Rent</TableHead>
-                  <TableHead className="text-white font-semibold">Status</TableHead>
-                  <TableHead className="text-white font-semibold">Credentials</TableHead>
-                  <TableHead className="text-white font-semibold">Actions</TableHead>
+                <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Tenant
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Contact
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Unit
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Lease Period
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Rent
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Status
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Credentials
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

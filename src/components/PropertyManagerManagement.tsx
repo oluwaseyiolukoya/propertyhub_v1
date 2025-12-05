@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Checkbox } from "./ui/checkbox";
 import { Alert, AlertDescription } from "./ui/alert";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
-import { Plus, Edit, Mail, Phone, MapPin, Building, Users, Eye, Copy, Settings, Trash2, UserPlus, KeyRound, RefreshCcw, MoreHorizontal } from 'lucide-react';
+import { Plus, Edit, Mail, Phone, MapPin, Building, Users, Eye, Copy, Settings, Trash2, UserPlus, KeyRound, RefreshCcw, MoreHorizontal, Shield, CheckCircle } from 'lucide-react';
 import { toast } from "sonner";
 import { getManagerStats, ManagerStats, resetManagerPassword } from '../lib/api/property-managers';
 
@@ -299,64 +299,123 @@ export const PropertyManagerManagement = ({
         </div>
       </div>
 
-      {/* Add Manager Dialog */}
+      {/* Add Manager Dialog - Enhanced Design */}
       <Dialog open={showAddManager} onOpenChange={setShowAddManager}>
-          <DialogContent className="max-w-2xl border-0 shadow-2xl">
-            <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] -m-6 mb-0 p-6 rounded-t-lg">
-              <DialogTitle className="text-2xl text-white">Add New Property Manager</DialogTitle>
-              <DialogDescription className="text-purple-100">
-                Create a new manager account and assign them to your properties
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4 px-6">
-              <div className="grid gap-2">
-                <Label htmlFor="name" className="text-sm font-semibold text-gray-700">Full Name *</Label>
-                <Input
-                  id="name"
-                  value={newManager.name}
-                  onChange={(e) => setNewManager({...newManager, name: e.target.value})}
-                  placeholder="Sarah Johnson"
-                  className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
-                />
+        <DialogContent className="max-w-lg border-0 shadow-2xl p-0 overflow-hidden">
+          {/* Gradient Header */}
+          <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] px-6 py-5">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <UserPlus className="h-6 w-6 text-white" />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="email" className="text-sm font-semibold text-gray-700">Email Address *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={newManager.email}
-                  onChange={(e) => setNewManager({...newManager, email: e.target.value})}
-                  placeholder="sarah@example.com"
-                  className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
-                />
+              <div>
+                <DialogTitle className="text-xl font-bold text-white m-0">
+                  Add New Property Manager
+                </DialogTitle>
+                <DialogDescription className="text-purple-200 mt-1">
+                  Create a manager account for your properties
+                </DialogDescription>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="phone" className="text-sm font-semibold text-gray-700">Phone Number</Label>
-                <Input
-                  id="phone"
-                  value={newManager.phone}
-                  onChange={(e) => setNewManager({...newManager, phone: e.target.value})}
-                  placeholder="(555) 123-4567"
-                  className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
-                />
+            </div>
+          </div>
+
+          <div className="p-6 space-y-6">
+            {/* Personal Information Section */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-100 to-violet-100 flex items-center justify-center">
+                  <Users className="h-4 w-4 text-[#7C3AED]" />
+                </div>
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Personal Information</h3>
               </div>
 
-              <div className="grid gap-2">
-                <Label className="text-sm font-semibold text-gray-700">Generate Password</Label>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="name" className="text-sm font-semibold text-gray-700 flex items-center gap-1">
+                    Full Name
+                    <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="relative mt-1.5">
+                    <Input
+                      id="name"
+                      value={newManager.name}
+                      onChange={(e) => setNewManager({...newManager, name: e.target.value})}
+                      placeholder="e.g., Sarah Johnson"
+                      className="pl-10 h-11 rounded-xl border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                    />
+                    <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="email" className="text-sm font-semibold text-gray-700 flex items-center gap-1">
+                    Email Address
+                    <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="relative mt-1.5">
+                    <Input
+                      id="email"
+                      type="email"
+                      value={newManager.email}
+                      onChange={(e) => setNewManager({...newManager, email: e.target.value})}
+                      placeholder="e.g., sarah@company.com"
+                      className="pl-10 h-11 rounded-xl border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                    />
+                    <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="phone" className="text-sm font-semibold text-gray-700">
+                    Phone Number <span className="text-gray-400 font-normal">(Optional)</span>
+                  </Label>
+                  <div className="relative mt-1.5">
+                    <Input
+                      id="phone"
+                      value={newManager.phone}
+                      onChange={(e) => setNewManager({...newManager, phone: e.target.value})}
+                      placeholder="+234 800 000 0000"
+                      className="pl-10 h-11 rounded-xl border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                    />
+                    <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Password Generation Section */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center">
+                  <KeyRound className="h-4 w-4 text-green-600" />
+                </div>
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Password</h3>
+              </div>
+
+              <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                 <div className="flex gap-2">
-                  <Input
-                    readOnly
-                    value={generatedPassword}
-                    placeholder="Click Generate to create a strong password"
-                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
-                  />
+                  <div className="relative flex-1">
+                    <Input
+                      readOnly
+                      value={generatedPassword}
+                      placeholder="Click Generate to create password"
+                      className="h-11 rounded-xl border-gray-200 bg-white pr-10 font-mono text-sm"
+                    />
+                    {generatedPassword && (
+                      <CheckCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-green-500" />
+                    )}
+                  </div>
                   <Button
                     type="button"
-                    variant="secondary"
                     onClick={generateStrongPassword}
-                    className="bg-purple-100 hover:bg-purple-200 text-[#7C3AED]"
+                    className="h-11 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl px-4"
                   >
-                    <KeyRound className="h-4 w-4 mr-1" /> Generate
+                    <KeyRound className="h-4 w-4 mr-2" />
+                    Generate
                   </Button>
                   <Button
                     type="button"
@@ -367,38 +426,53 @@ export const PropertyManagerManagement = ({
                       toast.success('Password copied to clipboard');
                     }}
                     disabled={!generatedPassword}
-                    className="border-gray-300 hover:bg-purple-50 hover:text-[#7C3AED] hover:border-[#7C3AED]"
+                    className="h-11 rounded-xl border-gray-200 hover:bg-purple-50 hover:text-[#7C3AED] hover:border-[#7C3AED] disabled:opacity-50"
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
-                <p className="text-xs text-gray-500">Password will be included in the new manager's credentials.</p>
+                <p className="text-xs text-gray-500 mt-2">
+                  Share this password securely with the manager. They can change it after logging in.
+                </p>
               </div>
+            </div>
 
-              <Alert className="bg-blue-50 border-blue-200">
-                <AlertDescription className="text-blue-900">
-                  Login credentials will be automatically generated and can be shared with the manager.
-                </AlertDescription>
-              </Alert>
+            {/* Info Card */}
+            <div className="bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-200 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <div className="h-8 w-8 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+                  <Shield className="h-4 w-4 text-[#7C3AED]" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-purple-900 mb-1">What happens next?</p>
+                  <p className="text-xs text-purple-700 leading-relaxed">
+                    The manager can log in immediately with these credentials. You can then assign
+                    properties to them from this page.
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="flex justify-end gap-2 border-t pt-6 mt-6 px-6">
-              <Button
-                variant="outline"
-                onClick={() => setShowAddManager(false)}
-                className="border-gray-300"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleAddManager}
-                className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Create Manager
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+          </div>
+
+          {/* Footer with Actions */}
+          <div className="bg-gray-50 px-6 py-4 flex items-center justify-end gap-3 border-t border-gray-100">
+            <Button
+              variant="outline"
+              onClick={() => setShowAddManager(false)}
+              className="border-gray-300 text-gray-700 hover:bg-gray-100 rounded-xl px-5"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddManager}
+              className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25 rounded-xl px-6"
+            >
+              <UserPlus className="h-4 w-4 mr-2" />
+              Create Manager
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Manager Overview Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -486,12 +560,22 @@ export const PropertyManagerManagement = ({
           <div className="overflow-auto rounded-xl border-0">
             <Table>
               <TableHeader>
-                <TableRow className="bg-[#111827] hover:bg-[#111827]">
-                  <TableHead className="text-white font-semibold">Manager</TableHead>
-                  <TableHead className="text-white font-semibold">Contact</TableHead>
-                  <TableHead className="text-white font-semibold">Assigned Properties</TableHead>
-                  <TableHead className="text-white font-semibold">Status</TableHead>
-                  <TableHead className="text-right text-white font-semibold">Actions</TableHead>
+                <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Manager
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Contact
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Assigned Properties
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Status
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">
+                    Actions
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

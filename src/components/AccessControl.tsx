@@ -1207,17 +1207,37 @@ export const AccessControl = () => {
               <div className="overflow-x-auto rounded-xl border-0">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-[#111827] hover:bg-[#111827]">
-                      <TableHead className="text-white font-semibold">Key Number</TableHead>
-                      <TableHead className="text-white font-semibold">Type</TableHead>
-                      <TableHead className="text-white font-semibold">Property / Unit</TableHead>
-                      <TableHead className="text-white font-semibold">Status</TableHead>
-                      <TableHead className="text-white font-semibold">Holder</TableHead>
-                      <TableHead className="text-white font-semibold">Issued</TableHead>
-                      <TableHead className="text-white font-semibold">Expected Return</TableHead>
-                      <TableHead className="text-white font-semibold">Deposit</TableHead>
-                      <TableHead className="text-white font-semibold">Location</TableHead>
-                      <TableHead className="text-right text-white font-semibold">Actions</TableHead>
+                    <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Key Number
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Type
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Property / Unit
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Status
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Holder
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Issued
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Expected Return
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Deposit
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Location
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">
+                        Actions
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

@@ -2024,93 +2024,169 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
         </div>
       </div>
 
-      {/* Create Manager Dialog */}
+      {/* Create Manager Dialog - Enhanced Design */}
       <Dialog open={showCreateManagerDialog} onOpenChange={setShowCreateManagerDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create New Property Manager</DialogTitle>
-            <DialogDescription>
-              Add a new manager to your organization. They will receive an email with login credentials.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div>
-              <Label htmlFor="manager-name">Manager Name *</Label>
-              <Input
-                id="manager-name"
-                placeholder="Enter full name"
-                value={newManagerForm.name}
-                onChange={(e) => {
-                  setNewManagerForm(prev => ({ ...prev, name: e.target.value }));
-                  if (managerFormErrors.name) {
-                    setManagerFormErrors(prev => ({ ...prev, name: '' }));
-                  }
-                }}
-                className={managerFormErrors.name ? 'border-red-500' : ''}
-              />
-              {managerFormErrors.name && (
-                <p className="text-sm text-red-600 mt-1">{managerFormErrors.name}</p>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor="manager-email">Email Address *</Label>
-              <Input
-                id="manager-email"
-                type="email"
-                placeholder="manager@example.com"
-                value={newManagerForm.email}
-                onChange={(e) => {
-                  setNewManagerForm(prev => ({ ...prev, email: e.target.value }));
-                  if (managerFormErrors.email) {
-                    setManagerFormErrors(prev => ({ ...prev, email: '' }));
-                  }
-                }}
-                className={managerFormErrors.email ? 'border-red-500' : ''}
-              />
-              {managerFormErrors.email && (
-                <p className="text-sm text-red-600 mt-1">{managerFormErrors.email}</p>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor="manager-phone">Phone Number (Optional)</Label>
-              <Input
-                id="manager-phone"
-                type="tel"
-                placeholder="+234 800 000 0000"
-                value={newManagerForm.phone}
-                onChange={(e) => {
-                  setNewManagerForm(prev => ({ ...prev, phone: e.target.value }));
-                }}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="manager-department">Department (Optional)</Label>
-              <Input
-                id="manager-department"
-                placeholder="e.g., Property Management"
-                value={newManagerForm.department}
-                onChange={(e) => {
-                  setNewManagerForm(prev => ({ ...prev, department: e.target.value }));
-                }}
-              />
-            </div>
-
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <div className="flex items-start">
-                <Info className="h-5 w-5 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
-                <p className="text-sm text-blue-800">
-                  A temporary password will be generated and sent to the manager's email address.
-                  They will be able to log in and change their password on first login.
-                </p>
+        <DialogContent className="max-w-lg border-0 shadow-2xl p-0 overflow-hidden">
+          {/* Gradient Header */}
+          <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] px-6 py-5">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <UserPlus className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-bold text-white m-0">
+                  Create New Property Manager
+                </DialogTitle>
+                <DialogDescription className="text-purple-200 mt-1">
+                  Add a manager to your organization
+                </DialogDescription>
               </div>
             </div>
           </div>
 
-          <DialogFooter>
+          <div className="p-6 space-y-6">
+            {/* Personal Information Section */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-100 to-violet-100 flex items-center justify-center">
+                  <Users className="h-4 w-4 text-[#7C3AED]" />
+                </div>
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Personal Information</h3>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="manager-name" className="text-sm font-semibold text-gray-700 flex items-center gap-1">
+                    Full Name
+                    <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="relative mt-1.5">
+                    <Input
+                      id="manager-name"
+                      placeholder="e.g., Sarah Johnson"
+                      value={newManagerForm.name}
+                      onChange={(e) => {
+                        setNewManagerForm(prev => ({ ...prev, name: e.target.value }));
+                        if (managerFormErrors.name) {
+                          setManagerFormErrors(prev => ({ ...prev, name: '' }));
+                        }
+                      }}
+                      className={`pl-10 h-11 rounded-xl border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED] ${managerFormErrors.name ? 'border-red-400 bg-red-50' : ''}`}
+                    />
+                    <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  </div>
+                  {managerFormErrors.name && (
+                    <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {managerFormErrors.name}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="manager-email" className="text-sm font-semibold text-gray-700 flex items-center gap-1">
+                    Email Address
+                    <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="relative mt-1.5">
+                    <Input
+                      id="manager-email"
+                      type="email"
+                      placeholder="e.g., sarah@company.com"
+                      value={newManagerForm.email}
+                      onChange={(e) => {
+                        setNewManagerForm(prev => ({ ...prev, email: e.target.value }));
+                        if (managerFormErrors.email) {
+                          setManagerFormErrors(prev => ({ ...prev, email: '' }));
+                        }
+                      }}
+                      className={`pl-10 h-11 rounded-xl border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED] ${managerFormErrors.email ? 'border-red-400 bg-red-50' : ''}`}
+                    />
+                    <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  {managerFormErrors.email && (
+                    <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {managerFormErrors.email}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Contact & Details Section */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center">
+                  <Info className="h-4 w-4 text-blue-600" />
+                </div>
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Additional Details</h3>
+                <span className="text-xs text-gray-400 font-normal normal-case">(Optional)</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="manager-phone" className="text-sm font-semibold text-gray-700">
+                    Phone Number
+                  </Label>
+                  <div className="relative mt-1.5">
+                    <Input
+                      id="manager-phone"
+                      type="tel"
+                      placeholder="+234 800 000 0000"
+                      value={newManagerForm.phone}
+                      onChange={(e) => {
+                        setNewManagerForm(prev => ({ ...prev, phone: e.target.value }));
+                      }}
+                      className="pl-10 h-11 rounded-xl border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                    />
+                    <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="manager-department" className="text-sm font-semibold text-gray-700">
+                    Department
+                  </Label>
+                  <div className="relative mt-1.5">
+                    <Input
+                      id="manager-department"
+                      placeholder="e.g., Operations"
+                      value={newManagerForm.department}
+                      onChange={(e) => {
+                        setNewManagerForm(prev => ({ ...prev, department: e.target.value }));
+                      }}
+                      className="pl-10 h-11 rounded-xl border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                    />
+                    <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Info Card */}
+            <div className="bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-200 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <div className="h-8 w-8 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+                  <Shield className="h-4 w-4 text-[#7C3AED]" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-purple-900 mb-1">Secure Credentials</p>
+                  <p className="text-xs text-purple-700 leading-relaxed">
+                    A temporary password will be generated and sent to the manager's email.
+                    They can change it on their first login.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer with Actions */}
+          <div className="bg-gray-50 px-6 py-4 flex items-center justify-end gap-3 border-t border-gray-100">
             <Button
               type="button"
               variant="outline"
@@ -2120,7 +2196,7 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
                 setManagerFormErrors({});
               }}
               disabled={isCreatingManager}
-              className="border-gray-300 text-gray-700 hover:bg-gray-100"
+              className="border-gray-300 text-gray-700 hover:bg-gray-100 rounded-xl px-5"
             >
               Cancel
             </Button>
@@ -2128,12 +2204,12 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
               type="button"
               onClick={handleCreateManager}
               disabled={isCreatingManager}
-              className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25"
+              className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25 rounded-xl px-6"
             >
               {isCreatingManager ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Creating...
+                  Creating Manager...
                 </>
               ) : (
                 <>
@@ -2142,7 +2218,7 @@ export function AddPropertyPage({ user, onBack, onSave, initialValues, mode = 'a
                 </>
               )}
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

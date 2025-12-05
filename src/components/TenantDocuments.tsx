@@ -13,7 +13,11 @@ import {
   Loader2,
   Receipt,
   ClipboardList,
-  Shield
+  Shield,
+  FolderOpen,
+  Sparkles,
+  FileBox,
+  AlertCircle
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Badge } from './ui/badge';
@@ -305,30 +309,40 @@ const TenantDocuments: React.FC = () => {
   const insuranceDocs = filteredDocuments.filter(doc => doc.type === 'insurance');
 
   const DocumentCard = ({ doc }: { doc: Document }) => (
-    <Card className="hover:border-blue-300 transition-colors">
+    <Card className="border-0 shadow-md hover:shadow-lg hover:border-[#7C3AED]/30 transition-all duration-200">
       <CardContent className="p-4">
         <div className="flex items-start space-x-3">
-          <div className="p-2 bg-gray-100 rounded-lg">
+          <div className="p-2 bg-purple-50 rounded-lg border border-purple-100">
             {getDocumentIcon(doc.type)}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between mb-2">
               <div className="flex-1">
-                <h4 className="font-medium truncate">{doc.name}</h4>
-                <p className="text-sm text-muted-foreground">{doc.description}</p>
+                <h4 className="font-semibold text-gray-900 truncate">{doc.name}</h4>
+                <p className="text-sm text-gray-600">{doc.description}</p>
               </div>
             </div>
             <div className="flex items-center justify-between mt-3">
-              <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+              <div className="flex items-center space-x-4 text-sm text-gray-600 font-medium">
                 <span>{getDisplayFormat(doc)} • {getDisplaySizeText(doc)}</span>
                 <span>•</span>
                 <span>{doc.createdAt ? formatDate(doc.createdAt) : 'N/A'}</span>
               </div>
               <div className="flex items-center space-x-2">
-                <Button variant="ghost" size="sm" onClick={() => handleView(doc)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleView(doc)}
+                  className="text-[#7C3AED] hover:bg-[#7C3AED]/10"
+                >
                   <Eye className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => handleDownload(doc)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleDownload(doc)}
+                  className="text-[#7C3AED] hover:bg-[#7C3AED]/10"
+                >
                   <Download className="h-4 w-4" />
                 </Button>
               </div>
@@ -340,75 +354,96 @@ const TenantDocuments: React.FC = () => {
   );
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1>Documents</h1>
-        <p className="text-muted-foreground">Access your lease, receipts, and important documents</p>
+    <div className="space-y-5 md:space-y-6">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#7C3AED] via-[#6D28D9] to-[#5B21B6] p-6 md:p-8 shadow-xl">
+        <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.6))]"></div>
+        <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-purple-900/20 rounded-full blur-3xl"></div>
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl shadow-lg hidden md:flex">
+              <FolderOpen className="h-8 w-8 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-white">Documents</h1>
+              <p className="text-white/80 font-medium mt-1">Access your lease, receipts, and important documents</p>
+            </div>
+          </div>
+          <div className="bg-white/20 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/30">
+            <p className="text-white/70 text-xs font-medium">Total Documents</p>
+            <p className="text-white font-bold text-xl">{documents.length}</p>
+          </div>
+        </div>
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Documents</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-indigo-500/5 group-hover:from-purple-500/10 group-hover:to-indigo-500/10 transition-all duration-300"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
+            <CardTitle className="text-xs md:text-sm font-semibold text-gray-700">All Documents</CardTitle>
+            <div className="rounded-xl bg-gradient-to-br from-purple-500 to-indigo-500 p-2 md:p-2.5 shadow-lg shadow-purple-500/25 group-hover:scale-110 transition-transform duration-300">
+              <FileText className="h-4 w-4 text-white" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{documents.length}</div>
-            <p className="text-xs text-muted-foreground">
-              All files
-            </p>
+          <CardContent className="relative">
+            <div className="text-xl md:text-3xl font-bold text-gray-900">{documents.length}</div>
+            <p className="text-xs text-gray-500 font-medium mt-1">Total files</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Lease Documents</CardTitle>
-            <FileCheck className="h-4 w-4 text-muted-foreground" />
+        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-cyan-500/5 group-hover:from-blue-500/10 group-hover:to-cyan-500/10 transition-all duration-300"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
+            <CardTitle className="text-xs md:text-sm font-semibold text-gray-700">Lease Docs</CardTitle>
+            <div className="rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 p-2 md:p-2.5 shadow-lg shadow-blue-500/25 group-hover:scale-110 transition-transform duration-300">
+              <FileCheck className="h-4 w-4 text-white" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{leaseDocuments.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Active lease
-            </p>
+          <CardContent className="relative">
+            <div className="text-xl md:text-3xl font-bold text-gray-900">{leaseDocuments.length}</div>
+            <p className="text-xs text-gray-500 font-medium mt-1">Active lease</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Receipts</CardTitle>
-            <File className="h-4 w-4 text-muted-foreground" />
+        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-emerald-500/5 group-hover:from-green-500/10 group-hover:to-emerald-500/10 transition-all duration-300"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
+            <CardTitle className="text-xs md:text-sm font-semibold text-gray-700">Receipts</CardTitle>
+            <div className="rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 p-2 md:p-2.5 shadow-lg shadow-green-500/25 group-hover:scale-110 transition-transform duration-300">
+              <Receipt className="h-4 w-4 text-white" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{receipts.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Payment records
-            </p>
+          <CardContent className="relative">
+            <div className="text-xl md:text-3xl font-bold text-gray-900">{receipts.length}</div>
+            <p className="text-xs text-gray-500 font-medium mt-1">Payment records</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Recent</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-amber-500/5 group-hover:from-orange-500/10 group-hover:to-amber-500/10 transition-all duration-300"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
+            <CardTitle className="text-xs md:text-sm font-semibold text-gray-700">Recent</CardTitle>
+            <div className="rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 p-2 md:p-2.5 shadow-lg shadow-orange-500/25 group-hover:scale-110 transition-transform duration-300">
+              <Calendar className="h-4 w-4 text-white" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.recent ?? 0}</div>
-            <p className="text-xs text-muted-foreground">
-              This month
-            </p>
+          <CardContent className="relative">
+            <div className="text-xl md:text-3xl font-bold text-gray-900">{stats?.recent ?? 0}</div>
+            <p className="text-xs text-gray-500 font-medium mt-1">This month</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Search */}
-      <Card>
-        <CardContent className="pt-6">
+      <Card className="border-0 shadow-lg overflow-hidden">
+        <CardContent className="p-4">
           <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <Input
-              placeholder="Search documents..."
-              className="pl-10"
+              placeholder="Search documents by name, type, or category..."
+              className="pl-12 pr-4 py-3 h-12 border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED]/20 rounded-xl text-base"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -417,166 +452,386 @@ const TenantDocuments: React.FC = () => {
       </Card>
 
       <Tabs defaultValue="lease" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="all">All Documents</TabsTrigger>
-          <TabsTrigger value="lease">Lease & Inspections</TabsTrigger>
-          <TabsTrigger value="receipts">Receipts</TabsTrigger>
-          <TabsTrigger value="policies">Policies & Notices</TabsTrigger>
-          <TabsTrigger value="insurance">Insurance</TabsTrigger>
+        <TabsList className="bg-white/80 backdrop-blur-sm p-1.5 border border-gray-200 shadow-lg rounded-xl h-auto flex-wrap">
+          <TabsTrigger
+            value="all"
+            className="rounded-lg px-4 py-2.5 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#7C3AED] data-[state=active]:to-[#5B21B6] data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25 font-semibold transition-all duration-200"
+          >
+            <FileBox className="h-4 w-4 mr-2" />
+            All
+          </TabsTrigger>
+          <TabsTrigger
+            value="lease"
+            className="rounded-lg px-4 py-2.5 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#7C3AED] data-[state=active]:to-[#5B21B6] data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25 font-semibold transition-all duration-200"
+          >
+            <FileCheck className="h-4 w-4 mr-2" />
+            Lease
+          </TabsTrigger>
+          <TabsTrigger
+            value="receipts"
+            className="rounded-lg px-4 py-2.5 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#7C3AED] data-[state=active]:to-[#5B21B6] data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25 font-semibold transition-all duration-200"
+          >
+            <Receipt className="h-4 w-4 mr-2" />
+            Receipts
+          </TabsTrigger>
+          <TabsTrigger
+            value="policies"
+            className="rounded-lg px-4 py-2.5 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#7C3AED] data-[state=active]:to-[#5B21B6] data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25 font-semibold transition-all duration-200"
+          >
+            <Shield className="h-4 w-4 mr-2" />
+            Policies
+          </TabsTrigger>
+          <TabsTrigger
+            value="insurance"
+            className="rounded-lg px-4 py-2.5 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#7C3AED] data-[state=active]:to-[#5B21B6] data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25 font-semibold transition-all duration-200"
+          >
+            <Shield className="h-4 w-4 mr-2" />
+            Insurance
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="all" className="space-y-4">
-          <div className="grid grid-cols-1 gap-4">
-            {filteredDocuments.map((doc) => (
-              <DocumentCard key={doc.id} doc={doc} />
-            ))}
-          </div>
+          <Card className="border-0 shadow-xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 border-b border-purple-100">
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-gradient-to-br from-[#7C3AED] to-[#5B21B6] p-2.5 shadow-lg shadow-purple-500/25">
+                  <FileBox className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-gray-900 font-bold text-lg">All Documents</CardTitle>
+                  <CardDescription className="text-gray-600 font-medium">Browse all your documents</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {loading ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-10 w-10 border-4 border-purple-200 border-t-purple-600 mx-auto"></div>
+                    <p className="mt-4 text-sm text-gray-500 font-medium">Loading documents...</p>
+                  </div>
+                </div>
+              ) : filteredDocuments.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 px-4">
+                  <div className="rounded-full bg-gradient-to-br from-gray-100 to-slate-100 p-6 mb-4">
+                    <FolderOpen className="h-12 w-12 text-gray-400" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Documents Found</h3>
+                  <p className="text-gray-500 text-center max-w-sm">
+                    {searchQuery ? `No documents match "${searchQuery}"` : 'Your documents will appear here once they are uploaded.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {filteredDocuments.map((doc) => (
+                    <div key={doc.id} className="flex items-center justify-between p-5 hover:bg-purple-50/50 transition-colors">
+                      <div className="flex items-center space-x-4">
+                        <div className="p-3 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-xl">
+                          {getDocumentIcon(doc.type)}
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-900">{doc.name}</p>
+                          <p className="text-sm text-gray-600">{doc.description}</p>
+                          <p className="text-xs text-gray-500 font-medium mt-1">
+                            {getDisplayFormat(doc)} • {getDisplaySizeText(doc)} • {doc.createdAt ? formatDate(doc.createdAt) : 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleView(doc)}
+                          className="border-purple-200 text-purple-700 hover:bg-purple-50 font-semibold"
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          View
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDownload(doc)}
+                          className="border-purple-200 text-purple-700 hover:bg-purple-50 font-semibold"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="lease" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Lease & Inspection Documents</CardTitle>
-              <CardDescription>Your lease agreement and property inspection reports</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {leaseDocuments.map((doc) => (
-                <div key={doc.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-gray-100 rounded-lg">
-                      {getDocumentIcon(doc.type)}
-                    </div>
-                    <div>
-                      <p className="font-medium">{doc.name}</p>
-                      <p className="text-sm text-muted-foreground">{doc.description}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{doc.format} • {doc.size} • {doc.dateAdded}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => handleView(doc)}>
-                      <Eye className="h-4 w-4 mr-2" />
-                      View
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => handleDownload(doc)}>
-                      <Download className="h-4 w-4 mr-2" />
-                      Download
-                    </Button>
-                  </div>
+          <Card className="border-0 shadow-xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-blue-50 via-indigo-50 to-cyan-50 border-b border-blue-100">
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 p-2.5 shadow-lg shadow-blue-500/25">
+                  <FileCheck className="h-5 w-5 text-white" />
                 </div>
-              ))}
+                <div>
+                  <CardTitle className="text-gray-900 font-bold text-lg">Lease & Inspection Documents</CardTitle>
+                  <CardDescription className="text-gray-600 font-medium">Your lease agreement and property inspection reports</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {leaseDocuments.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 px-4">
+                  <div className="rounded-full bg-gradient-to-br from-blue-100 to-cyan-100 p-6 mb-4">
+                    <FileCheck className="h-12 w-12 text-blue-500" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Lease Documents</h3>
+                  <p className="text-gray-500 text-center max-w-sm">Your lease documents will appear here once they are generated or uploaded.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {leaseDocuments.map((doc) => (
+                    <div key={doc.id} className="flex items-center justify-between p-5 hover:bg-blue-50/50 transition-colors">
+                      <div className="flex items-center space-x-4">
+                        <div className="p-3 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-xl">
+                          {getDocumentIcon(doc.type)}
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-900">{doc.name}</p>
+                          <p className="text-sm text-gray-600">{doc.description}</p>
+                          <p className="text-xs text-gray-500 font-medium mt-1">
+                            {getDisplayFormat(doc)} • {getDisplaySizeText(doc)} • {doc.createdAt ? formatDate(doc.createdAt) : 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleView(doc)}
+                          className="border-blue-200 text-blue-700 hover:bg-blue-50 font-semibold"
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          View
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDownload(doc)}
+                          className="border-blue-200 text-blue-700 hover:bg-blue-50 font-semibold"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="receipts" className="space-y-4">
-          <Card>
-            <CardHeader>
+          <Card className="border-0 shadow-xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-green-50 via-emerald-50 to-teal-50 border-b border-green-100">
               <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Payment Receipts</CardTitle>
-                  <CardDescription>All your payment confirmations and receipts</CardDescription>
+                <div className="flex items-center gap-3">
+                  <div className="rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 p-2.5 shadow-lg shadow-green-500/25">
+                    <Receipt className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-gray-900 font-bold text-lg">Payment Receipts</CardTitle>
+                    <CardDescription className="text-gray-600 font-medium">All your payment confirmations and receipts</CardDescription>
+                  </div>
                 </div>
-                <Button variant="outline" size="sm">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download All
-                </Button>
+                {receipts.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-green-200 text-green-700 hover:bg-green-50 font-semibold"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download All
+                  </Button>
+                )}
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {receipts.map((doc) => (
-                <div key={doc.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-gray-100 rounded-lg">
-                      {getDocumentIcon(doc.type)}
-                    </div>
-                    <div>
-                      <p className="font-medium">{doc.name}</p>
-                      <p className="text-sm text-muted-foreground">{doc.description}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{doc.format} • {doc.size} • {doc.dateAdded}</p>
-                    </div>
+            <CardContent className="p-0">
+              {receipts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 px-4">
+                  <div className="rounded-full bg-gradient-to-br from-green-100 to-emerald-100 p-6 mb-4">
+                    <Receipt className="h-12 w-12 text-green-500" />
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => handleView(doc)}>
-                      <Eye className="h-4 w-4 mr-2" />
-                      View
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => handleDownload(doc)}>
-                      <Download className="h-4 w-4 mr-2" />
-                      Download
-                    </Button>
-                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Receipts Yet</h3>
+                  <p className="text-gray-500 text-center max-w-sm">Your payment receipts will appear here after you make payments.</p>
                 </div>
-              ))}
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {receipts.map((doc) => (
+                    <div key={doc.id} className="flex items-center justify-between p-5 hover:bg-green-50/50 transition-colors">
+                      <div className="flex items-center space-x-4">
+                        <div className="p-3 bg-gradient-to-br from-green-100 to-emerald-100 rounded-xl">
+                          {getDocumentIcon(doc.type)}
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-900">{doc.name}</p>
+                          <p className="text-sm text-gray-600">{doc.description}</p>
+                          <p className="text-xs text-gray-500 font-medium mt-1">
+                            {getDisplayFormat(doc)} • {getDisplaySizeText(doc)} • {doc.createdAt ? formatDate(doc.createdAt) : 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleView(doc)}
+                          className="border-green-200 text-green-700 hover:bg-green-50 font-semibold"
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          View
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDownload(doc)}
+                          className="border-green-200 text-green-700 hover:bg-green-50 font-semibold"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="policies" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Property Policies & Notices</CardTitle>
-              <CardDescription>Rules, regulations, and property notices</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {policies.map((doc) => (
-                <div key={doc.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-gray-100 rounded-lg">
-                      {getDocumentIcon(doc.type)}
-                    </div>
-                    <div>
-                      <p className="font-medium">{doc.name}</p>
-                      <p className="text-sm text-muted-foreground">{doc.description}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{doc.format} • {doc.size} • {doc.dateAdded}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => handleView(doc)}>
-                      <Eye className="h-4 w-4 mr-2" />
-                      View
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => handleDownload(doc)}>
-                      <Download className="h-4 w-4 mr-2" />
-                      Download
-                    </Button>
-                  </div>
+          <Card className="border-0 shadow-xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 border-b border-purple-100">
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-gradient-to-br from-purple-500 to-indigo-500 p-2.5 shadow-lg shadow-purple-500/25">
+                  <Shield className="h-5 w-5 text-white" />
                 </div>
-              ))}
+                <div>
+                  <CardTitle className="text-gray-900 font-bold text-lg">Property Policies & Notices</CardTitle>
+                  <CardDescription className="text-gray-600 font-medium">Rules, regulations, and property notices</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {policies.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 px-4">
+                  <div className="rounded-full bg-gradient-to-br from-purple-100 to-indigo-100 p-6 mb-4">
+                    <Shield className="h-12 w-12 text-purple-500" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Policies Available</h3>
+                  <p className="text-gray-500 text-center max-w-sm">Property policies and notices will appear here once they are uploaded.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {policies.map((doc) => (
+                    <div key={doc.id} className="flex items-center justify-between p-5 hover:bg-purple-50/50 transition-colors">
+                      <div className="flex items-center space-x-4">
+                        <div className="p-3 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-xl">
+                          {getDocumentIcon(doc.type)}
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-900">{doc.name}</p>
+                          <p className="text-sm text-gray-600">{doc.description}</p>
+                          <p className="text-xs text-gray-500 font-medium mt-1">
+                            {getDisplayFormat(doc)} • {getDisplaySizeText(doc)} • {doc.createdAt ? formatDate(doc.createdAt) : 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleView(doc)}
+                          className="border-purple-200 text-purple-700 hover:bg-purple-50 font-semibold"
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          View
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDownload(doc)}
+                          className="border-purple-200 text-purple-700 hover:bg-purple-50 font-semibold"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="insurance" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Insurance Documents</CardTitle>
-              <CardDescription>Your renters insurance policies</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {insuranceDocs.map((doc) => (
-                <div key={doc.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-gray-100 rounded-lg">
-                      {getDocumentIcon(doc.type)}
-                    </div>
-                    <div>
-                      <p className="font-medium">{doc.name}</p>
-                      <p className="text-sm text-muted-foreground">{doc.description}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{doc.format} • {doc.size} • {doc.dateAdded}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => handleView(doc)}>
-                      <Eye className="h-4 w-4 mr-2" />
-                      View
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => handleDownload(doc)}>
-                      <Download className="h-4 w-4 mr-2" />
-                      Download
-                    </Button>
-                  </div>
+          <Card className="border-0 shadow-xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-orange-50 via-amber-50 to-yellow-50 border-b border-orange-100">
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 p-2.5 shadow-lg shadow-orange-500/25">
+                  <Shield className="h-5 w-5 text-white" />
                 </div>
-              ))}
+                <div>
+                  <CardTitle className="text-gray-900 font-bold text-lg">Insurance Documents</CardTitle>
+                  <CardDescription className="text-gray-600 font-medium">Your renters insurance policies</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {insuranceDocs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 px-4">
+                  <div className="rounded-full bg-gradient-to-br from-orange-100 to-amber-100 p-6 mb-4">
+                    <Shield className="h-12 w-12 text-orange-500" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Insurance Documents</h3>
+                  <p className="text-gray-500 text-center max-w-sm">Upload your renters insurance policy to keep it on file.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {insuranceDocs.map((doc) => (
+                    <div key={doc.id} className="flex items-center justify-between p-5 hover:bg-orange-50/50 transition-colors">
+                      <div className="flex items-center space-x-4">
+                        <div className="p-3 bg-gradient-to-br from-orange-100 to-amber-100 rounded-xl">
+                          {getDocumentIcon(doc.type)}
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-900">{doc.name}</p>
+                          <p className="text-sm text-gray-600">{doc.description}</p>
+                          <p className="text-xs text-gray-500 font-medium mt-1">
+                            {getDisplayFormat(doc)} • {getDisplaySizeText(doc)} • {doc.createdAt ? formatDate(doc.createdAt) : 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleView(doc)}
+                          className="border-orange-200 text-orange-700 hover:bg-orange-50 font-semibold"
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          View
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDownload(doc)}
+                          className="border-orange-200 text-orange-700 hover:bg-orange-50 font-semibold"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -584,25 +839,27 @@ const TenantDocuments: React.FC = () => {
 
       {/* Document Viewer Dialog */}
       <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle>{viewingDocument?.name}</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-4xl max-h-[90vh] border-0 shadow-2xl">
+          <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] -m-6 mb-0 p-6 rounded-t-lg">
+            <DialogTitle className="text-xl font-bold text-white">{viewingDocument?.name}</DialogTitle>
+            <DialogDescription className="text-white/80 font-medium">
               {viewingDocument?.description || 'Document preview'}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-4 pt-6">
             {/* Document Info */}
-            <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl border border-purple-100 gap-4">
               <div className="space-y-1">
-                <p className="text-sm font-medium">Document Details</p>
-                <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                  <span>{viewingDocument ? getDisplayFormat(viewingDocument) : 'PDF'}</span>
-                  <span>•</span>
-                  <span>{viewingDocument ? getDisplaySizeText(viewingDocument) : '—'}</span>
-                  <span>•</span>
-                  <span>{viewingDocument?.createdAt ? formatDate(viewingDocument.createdAt) : 'N/A'}</span>
+                <p className="text-sm font-bold text-gray-900">Document Details</p>
+                <div className="flex items-center flex-wrap gap-2 text-sm text-gray-600">
+                  <Badge className="bg-purple-100 text-purple-700 border-purple-200 font-semibold">
+                    {viewingDocument ? getDisplayFormat(viewingDocument) : 'PDF'}
+                  </Badge>
+                  <span className="text-gray-400">•</span>
+                  <span className="font-medium">{viewingDocument ? getDisplaySizeText(viewingDocument) : '—'}</span>
+                  <span className="text-gray-400">•</span>
+                  <span className="font-medium">{viewingDocument?.createdAt ? formatDate(viewingDocument.createdAt) : 'N/A'}</span>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
@@ -610,6 +867,7 @@ const TenantDocuments: React.FC = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => viewingDocument && handleDownload(viewingDocument, 'pdf')}
+                  className="border-purple-200 text-purple-700 hover:bg-purple-50 font-semibold"
                 >
                   <Download className="h-4 w-4 mr-2" />
                   PDF
@@ -618,6 +876,7 @@ const TenantDocuments: React.FC = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => viewingDocument && handleDownload(viewingDocument, 'docx')}
+                  className="border-purple-200 text-purple-700 hover:bg-purple-50 font-semibold"
                 >
                   <Download className="h-4 w-4 mr-2" />
                   DOCX
@@ -626,19 +885,19 @@ const TenantDocuments: React.FC = () => {
             </div>
 
             {/* Document Preview */}
-            <div className="border rounded-lg overflow-hidden" style={{ height: '500px' }}>
+            <div className="border-2 border-gray-200 rounded-xl overflow-hidden shadow-inner" style={{ height: '500px' }}>
               {viewingDocument?.fileUrl ? (
                 // For uploaded files, show iframe or image
                 viewingDocument.fileUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
                   <img
                     src={getDocumentDownloadUrl(viewingDocument.fileUrl)}
                     alt={viewingDocument.name}
-                    className="w-full h-full object-contain"
+                    className="w-full h-full object-contain bg-gray-50"
                   />
                 ) : (
                   <iframe
                     src={getDocumentDownloadUrl(viewingDocument.fileUrl)}
-                    className="w-full h-full"
+                    className="w-full h-full bg-white"
                     title={viewingDocument.name}
                   />
                 )
@@ -646,7 +905,7 @@ const TenantDocuments: React.FC = () => {
                 // For generated contracts, show PDF preview
                 <iframe
                   src={viewingDocument ? downloadDocumentInFormat(viewingDocument.id, 'pdf', { inline: true, includeToken: true }) : ''}
-                  className="w-full h-full"
+                  className="w-full h-full bg-white"
                   title={viewingDocument?.name || 'Document'}
                 />
               )}

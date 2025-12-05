@@ -1070,38 +1070,38 @@ export const PaymentOverview: React.FC = () => {
           <div className="overflow-auto rounded-xl border-0">
             <Table>
               <TableHeader>
-                <TableRow className="bg-[#111827] hover:bg-[#111827]">
-                  <TableHead className="text-white font-semibold">
+                <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Reference
                   </TableHead>
-                  <TableHead className="text-white font-semibold">
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Tenant
                   </TableHead>
-                  <TableHead className="text-white font-semibold">
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Property
                   </TableHead>
-                  <TableHead className="text-white font-semibold">
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Unit
                   </TableHead>
-                  <TableHead className="text-white font-semibold">
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Type
                   </TableHead>
-                  <TableHead className="text-white font-semibold">
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Amount
                   </TableHead>
-                  <TableHead className="text-white font-semibold">
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Date
                   </TableHead>
-                  <TableHead className="text-white font-semibold">
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Time
                   </TableHead>
-                  <TableHead className="text-white font-semibold">
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Method
                   </TableHead>
-                  <TableHead className="text-white font-semibold">
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Status
                   </TableHead>
-                  <TableHead className="text-right text-white font-semibold">
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">
                     Actions
                   </TableHead>
                 </TableRow>

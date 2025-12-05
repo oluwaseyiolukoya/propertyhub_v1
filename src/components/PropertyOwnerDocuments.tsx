@@ -1517,13 +1517,13 @@ ${dialogType === 'manager-contract' ? `
               </div>
               <div className="overflow-auto rounded-xl border-0 shadow-md">
               <Table>
-                  <TableHeader className="bg-[#111827]">
-                  <TableRow>
-                      <TableHead className="text-white font-semibold">Document Name</TableHead>
-                      <TableHead className="text-white font-semibold">Status</TableHead>
-                      <TableHead className="text-white font-semibold">Upload Date</TableHead>
-                      <TableHead className="text-white font-semibold">Expiry Date</TableHead>
-                      <TableHead className="text-right text-white font-semibold">Actions</TableHead>
+                <TableHeader>
+                  <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Document Name</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Upload Date</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Expiry Date</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1691,15 +1691,15 @@ ${dialogType === 'manager-contract' ? `
               </div>
               <div className="overflow-auto rounded-xl border-0 shadow-md">
               <Table>
-                  <TableHeader className="bg-[#111827]">
-                  <TableRow>
-                      <TableHead className="text-white font-semibold">Document Name</TableHead>
-                      <TableHead className="text-white font-semibold">Type</TableHead>
-                      <TableHead className="text-white font-semibold">Property</TableHead>
-                      <TableHead className="text-white font-semibold">Status</TableHead>
-                      <TableHead className="text-white font-semibold">Upload Date</TableHead>
-                      <TableHead className="text-white font-semibold">Expiry Date</TableHead>
-                      <TableHead className="text-right text-white font-semibold">Actions</TableHead>
+                <TableHeader>
+                  <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Document Name</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Property</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Upload Date</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Expiry Date</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1835,14 +1835,14 @@ ${dialogType === 'manager-contract' ? `
               </div>
               <div className="overflow-auto rounded-xl border-0 shadow-md">
               <Table>
-                  <TableHeader className="bg-[#111827]">
-                  <TableRow>
-                      <TableHead className="text-white font-semibold">Document Name</TableHead>
-                      <TableHead className="text-white font-semibold">Type</TableHead>
-                      <TableHead className="text-white font-semibold">Property</TableHead>
-                      <TableHead className="text-white font-semibold">Amount</TableHead>
-                      <TableHead className="text-white font-semibold">Upload Date</TableHead>
-                      <TableHead className="text-right text-white font-semibold">Actions</TableHead>
+                <TableHeader>
+                  <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Document Name</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Property</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Upload Date</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1973,14 +1973,14 @@ ${dialogType === 'manager-contract' ? `
               </div>
               <div className="overflow-auto rounded-xl border-0 shadow-md">
               <Table>
-                  <TableHeader className="bg-[#111827]">
-                  <TableRow>
-                      <TableHead className="text-white font-semibold">Document Name</TableHead>
-                      <TableHead className="text-white font-semibold">Type</TableHead>
-                      <TableHead className="text-white font-semibold">Property</TableHead>
-                      <TableHead className="text-white font-semibold">Status</TableHead>
-                      <TableHead className="text-white font-semibold">Date</TableHead>
-                      <TableHead className="text-right text-white font-semibold">Actions</TableHead>
+                <TableHeader>
+                  <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Document Name</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Property</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -2115,14 +2115,14 @@ ${dialogType === 'manager-contract' ? `
               </div>
               <div className="overflow-auto rounded-xl border-0 shadow-md">
               <Table>
-                  <TableHeader className="bg-[#111827]">
-                  <TableRow>
-                      <TableHead className="text-white font-semibold">Document Name</TableHead>
-                      <TableHead className="text-white font-semibold">Policy Number</TableHead>
-                      <TableHead className="text-white font-semibold">Property</TableHead>
-                      <TableHead className="text-white font-semibold">Status</TableHead>
-                      <TableHead className="text-white font-semibold">Expiry Date</TableHead>
-                      <TableHead className="text-right text-white font-semibold">Actions</TableHead>
+                <TableHeader>
+                  <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Document Name</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Policy Number</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Property</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Expiry Date</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

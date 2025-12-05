@@ -2207,14 +2207,28 @@ export const FinancialReports = ({
               <div className="overflow-auto rounded-b-xl">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-[#111827] hover:bg-[#111827]">
-                      <TableHead className="text-white font-semibold">Property</TableHead>
-                      <TableHead className="text-white font-semibold">Monthly Revenue</TableHead>
-                      <TableHead className="text-white font-semibold">Occupancy</TableHead>
-                      <TableHead className="text-white font-semibold">Cap Rate</TableHead>
-                      <TableHead className="text-white font-semibold">Cash Flow</TableHead>
-                      <TableHead className="text-white font-semibold">ROI</TableHead>
-                      <TableHead className="text-white font-semibold">Status</TableHead>
+                    <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Property
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Monthly Revenue
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Occupancy
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Cap Rate
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Cash Flow
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        ROI
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Status
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

@@ -29,7 +29,15 @@ import {
   CheckCircle2,
   AlertCircle,
   Banknote,
-  Building2
+  Building2,
+  Sparkles,
+  ArrowRight,
+  TrendingUp,
+  Wallet,
+  Receipt,
+  Eye,
+  Trash2,
+  Star
 } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
@@ -551,199 +559,319 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1>Payments</h1>
-          <p className="text-muted-foreground">Manage your rent payments and view history</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => handleOpenPaymentDialog('custom')}>
-            <DollarSign className="h-4 w-4 mr-2" />
-            Custom Payment
-          </Button>
-          <Button onClick={() => handleOpenPaymentDialog('full')}>
-            <CreditCard className="h-4 w-4 mr-2" />
-            Pay Rent
-          </Button>
+    <div className="space-y-5 md:space-y-6">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#7C3AED] via-[#6D28D9] to-[#5B21B6] p-6 md:p-8 shadow-xl">
+        <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.6))]"></div>
+        <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-purple-900/20 rounded-full blur-3xl"></div>
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl shadow-lg hidden md:flex">
+              <Wallet className="h-8 w-8 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-white">Payments</h1>
+              <p className="text-white/80 font-medium mt-1">Manage your rent payments and view history</p>
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => handleOpenPaymentDialog('custom')}
+              size="lg"
+              className="bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 font-semibold shadow-lg transition-all duration-200"
+            >
+              <DollarSign className="h-5 w-5 mr-2" />
+              Custom Payment
+            </Button>
+            <Button
+              onClick={() => handleOpenPaymentDialog('full')}
+              size="lg"
+              className="bg-white hover:bg-gray-50 text-[#7C3AED] font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              <CreditCard className="h-5 w-5 mr-2" />
+              Pay Rent
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Current Rent Status */}
       {currentRent.balance === 0 && currentRent.daysUntilDue <= 15 && (
-        <Alert className="border-blue-200 bg-blue-50">
-          <Calendar className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-blue-900 flex items-center justify-between">
-            <span>Your rent payment of ₦{currentRent.amount.toLocaleString()} is due on {currentRent.dueDate} ({currentRent.daysUntilDue} days remaining)</span>
-            <Button size="sm" onClick={() => handleOpenPaymentDialog('full')}>
-              Pay Now
-            </Button>
-          </AlertDescription>
-        </Alert>
+        <Card className="border-0 shadow-xl overflow-hidden animate-in slide-in-from-top-2 duration-300">
+          <div className={`p-4 md:p-5 ${currentRent.daysUntilDue <= 3 ? 'bg-gradient-to-r from-red-500 to-pink-500' : currentRent.daysUntilDue <= 7 ? 'bg-gradient-to-r from-orange-500 to-amber-500' : 'bg-gradient-to-r from-[#7C3AED] to-[#5B21B6]'}`}>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-white/20 backdrop-blur-sm rounded-xl">
+                  <Clock className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-white/90 text-sm font-medium">Rent Payment Due</p>
+                  <p className="text-white text-lg font-bold">
+                    ₦{currentRent.amount.toLocaleString()} • {currentRent.daysUntilDue} days remaining
+                  </p>
+                  <p className="text-white/80 text-xs font-medium mt-0.5">Due on {currentRent.dueDate}</p>
+                </div>
+              </div>
+              <Button
+                size="lg"
+                className="w-full sm:w-auto shrink-0 bg-white hover:bg-gray-50 text-gray-900 font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+                onClick={() => handleOpenPaymentDialog('full')}
+              >
+                Pay Now
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </div>
+          </div>
+        </Card>
       )}
 
       {currentRent.balance > 0 && (
-        <Alert className="border-red-200 bg-red-50">
-          <AlertCircle className="h-4 w-4 text-red-600" />
-          <AlertDescription className="text-red-900 flex items-center justify-between">
-            <span>You have an outstanding balance of ₦{currentRent.balance.toLocaleString()}</span>
-            <Button size="sm" variant="destructive" onClick={() => handleOpenPaymentDialog('custom')}>
-              Pay Now
-            </Button>
-          </AlertDescription>
-        </Alert>
+        <Card className="border-0 shadow-xl overflow-hidden animate-in slide-in-from-top-2 duration-300">
+          <div className="p-4 md:p-5 bg-gradient-to-r from-red-500 to-pink-500">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-white/20 backdrop-blur-sm rounded-xl">
+                  <AlertCircle className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-white/90 text-sm font-medium">Outstanding Balance</p>
+                  <p className="text-white text-lg font-bold">₦{currentRent.balance.toLocaleString()}</p>
+                  <p className="text-white/80 text-xs font-medium mt-0.5">Please pay as soon as possible</p>
+                </div>
+              </div>
+              <Button
+                size="lg"
+                className="w-full sm:w-auto shrink-0 bg-white hover:bg-gray-50 text-red-600 font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+                onClick={() => handleOpenPaymentDialog('custom')}
+              >
+                Pay Now
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </div>
+          </div>
+        </Card>
       )}
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Next Payment</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-indigo-500/5 group-hover:from-purple-500/10 group-hover:to-indigo-500/10 transition-all duration-300"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
+            <CardTitle className="text-xs md:text-sm font-semibold text-gray-700">Next Payment</CardTitle>
+            <div className="rounded-xl bg-gradient-to-br from-purple-500 to-indigo-500 p-2 md:p-2.5 shadow-lg shadow-purple-500/25 group-hover:scale-110 transition-transform duration-300">
+              <Calendar className="h-4 w-4 text-white" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">₦{currentRent.amount.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
+          <CardContent className="relative">
+            <div className="text-xl md:text-3xl font-bold text-gray-900">₦{currentRent.amount.toLocaleString()}</div>
+            <p className="text-xs text-gray-500 font-medium mt-1">
               Due {currentRent.dueDate}
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Balance</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-emerald-500/5 group-hover:from-green-500/10 group-hover:to-emerald-500/10 transition-all duration-300"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
+            <CardTitle className="text-xs md:text-sm font-semibold text-gray-700">Balance</CardTitle>
+            <div className="rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 p-2 md:p-2.5 shadow-lg shadow-green-500/25 group-hover:scale-110 transition-transform duration-300">
+              <DollarSign className="h-4 w-4 text-white" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">₦{currentRent.balance.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              {currentRent.balance === 0 ? 'All paid up!' : 'Outstanding'}
+          <CardContent className="relative">
+            <div className="text-xl md:text-3xl font-bold text-gray-900">₦{currentRent.balance.toLocaleString()}</div>
+            <p className="text-xs text-gray-500 font-medium mt-1">
+              {currentRent.balance === 0 ? '✨ All paid up!' : 'Outstanding'}
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Auto-Pay</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative">
+          <div className={`absolute inset-0 ${currentRent.autopayEnabled ? 'bg-gradient-to-br from-green-500/5 to-emerald-500/5 group-hover:from-green-500/10 group-hover:to-emerald-500/10' : 'bg-gradient-to-br from-gray-500/5 to-slate-500/5 group-hover:from-gray-500/10 group-hover:to-slate-500/10'} transition-all duration-300`}></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
+            <CardTitle className="text-xs md:text-sm font-semibold text-gray-700">Auto-Pay</CardTitle>
+            <div className={`rounded-xl p-2 md:p-2.5 shadow-lg group-hover:scale-110 transition-transform duration-300 ${currentRent.autopayEnabled ? 'bg-gradient-to-br from-green-500 to-emerald-500 shadow-green-500/25' : 'bg-gradient-to-br from-gray-400 to-slate-500 shadow-gray-500/25'}`}>
+              <CheckCircle2 className="h-4 w-4 text-white" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{currentRent.autopayEnabled ? 'Enabled' : 'Disabled'}</div>
-            <p className="text-xs text-muted-foreground">
-              Payment method on file
+          <CardContent className="relative">
+            <div className={`text-xl md:text-3xl font-bold ${currentRent.autopayEnabled ? 'text-green-600' : 'text-gray-900'}`}>{currentRent.autopayEnabled ? 'Enabled' : 'Disabled'}</div>
+            <p className="text-xs text-gray-500 font-medium mt-1">
+              {currentRent.autopayEnabled ? 'Auto-charging active' : 'Manual payments'}
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Payment Methods</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
+        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-cyan-500/5 group-hover:from-blue-500/10 group-hover:to-cyan-500/10 transition-all duration-300"></div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
+            <CardTitle className="text-xs md:text-sm font-semibold text-gray-700">Cards</CardTitle>
+            <div className="rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 p-2 md:p-2.5 shadow-lg shadow-blue-500/25 group-hover:scale-110 transition-transform duration-300">
+              <CreditCard className="h-4 w-4 text-white" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{paymentMethods.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Cards on file
+          <CardContent className="relative">
+            <div className="text-xl md:text-3xl font-bold text-gray-900">{paymentMethods.length}</div>
+            <p className="text-xs text-gray-500 font-medium mt-1">
+              Payment methods saved
             </p>
           </CardContent>
         </Card>
       </div>
 
       <Tabs defaultValue="history" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="history">Payment History</TabsTrigger>
-          <TabsTrigger value="scheduled">Scheduled Payments</TabsTrigger>
-          <TabsTrigger value="methods">Payment Methods</TabsTrigger>
+        <TabsList className="bg-white/80 backdrop-blur-sm p-1.5 border border-gray-200 shadow-lg rounded-xl h-auto flex-wrap">
+          <TabsTrigger
+            value="history"
+            className="rounded-lg px-4 py-2.5 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#7C3AED] data-[state=active]:to-[#5B21B6] data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25 font-semibold transition-all duration-200"
+          >
+            <Receipt className="h-4 w-4 mr-2" />
+            Payment History
+          </TabsTrigger>
+          <TabsTrigger
+            value="scheduled"
+            className="rounded-lg px-4 py-2.5 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#7C3AED] data-[state=active]:to-[#5B21B6] data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25 font-semibold transition-all duration-200"
+          >
+            <Calendar className="h-4 w-4 mr-2" />
+            Scheduled
+          </TabsTrigger>
+          <TabsTrigger
+            value="methods"
+            className="rounded-lg px-4 py-2.5 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#7C3AED] data-[state=active]:to-[#5B21B6] data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25 font-semibold transition-all duration-200"
+          >
+            <CreditCard className="h-4 w-4 mr-2" />
+            Payment Methods
+          </TabsTrigger>
         </TabsList>
 
         {/* Payment History */}
         <TabsContent value="history" className="space-y-4">
-          <Card>
-            <CardHeader>
+          <Card className="border-0 shadow-xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-green-50 via-emerald-50 to-teal-50 border-b border-green-100">
               <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Payment History</CardTitle>
-                  <CardDescription>All your past payments and transactions</CardDescription>
+                <div className="flex items-center gap-3">
+                  <div className="rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 p-2.5 shadow-lg shadow-green-500/25">
+                    <Receipt className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-gray-900 font-bold text-lg">Payment History</CardTitle>
+                    <CardDescription className="text-gray-600 font-medium">All your past payments and transactions</CardDescription>
+                  </div>
                 </div>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="border-green-200 text-green-700 hover:bg-green-50 font-semibold">
                   <Download className="h-4 w-4 mr-2" />
                   Export
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto -mx-6 px-6">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="whitespace-nowrap">Date</TableHead>
-                      <TableHead className="whitespace-nowrap">Time</TableHead>
-                      <TableHead className="whitespace-nowrap">Type</TableHead>
-                      <TableHead className="whitespace-nowrap">Method</TableHead>
-                      <TableHead className="whitespace-nowrap">Confirmation</TableHead>
-                      <TableHead className="text-right whitespace-nowrap">Amount</TableHead>
-                      <TableHead className="whitespace-nowrap">Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paymentHistory.map((payment) => (
-                      <TableRow key={payment.id}>
-                        <TableCell className="whitespace-nowrap">{payment.date}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{payment.timestamp}</TableCell>
-                        <TableCell className="whitespace-nowrap">{payment.type}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{payment.method}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{payment.confirmation}</TableCell>
-                        <TableCell className="text-right font-medium whitespace-nowrap">{payment.currency === 'NGN' ? '₦' : ''}{payment.amount.toLocaleString()} {payment.currency !== 'NGN' ? payment.currency : ''}</TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          <Badge variant="outline" className={getStatusColor(payment.status)}>
-                            {payment.status}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <div className="flex items-center justify-between mt-3">
-                <div className="text-sm text-muted-foreground">
-                  Page {page} of {totalPages} • {total} items
+            <CardContent className="p-0">
+              {paymentHistory.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 px-4">
+                  <div className="rounded-full bg-gradient-to-br from-gray-100 to-slate-100 p-6 mb-4">
+                    <Receipt className="h-12 w-12 text-gray-400" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Payment History</h3>
+                  <p className="text-gray-500 text-center max-w-sm">Your payment history will appear here once you make your first payment.</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => { setPage(p => Math.max(1, p - 1)); setTimeout(() => loadPaymentHistory(), 0); }}>
-                    Previous
-                  </Button>
-                  <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => { setPage(p => Math.min(totalPages, p + 1)); setTimeout(() => loadPaymentHistory(), 0); }}>
-                    Next
-                  </Button>
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-gray-50/50 hover:bg-gray-50/50">
+                          <TableHead className="whitespace-nowrap font-semibold text-gray-700">Date</TableHead>
+                          <TableHead className="whitespace-nowrap font-semibold text-gray-700">Time</TableHead>
+                          <TableHead className="whitespace-nowrap font-semibold text-gray-700">Type</TableHead>
+                          <TableHead className="whitespace-nowrap font-semibold text-gray-700">Method</TableHead>
+                          <TableHead className="whitespace-nowrap font-semibold text-gray-700">Confirmation</TableHead>
+                          <TableHead className="text-right whitespace-nowrap font-semibold text-gray-700">Amount</TableHead>
+                          <TableHead className="whitespace-nowrap font-semibold text-gray-700">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {paymentHistory.map((payment) => (
+                          <TableRow key={payment.id} className="hover:bg-green-50/50 transition-colors border-b border-gray-100">
+                            <TableCell className="whitespace-nowrap font-medium text-gray-900">{payment.date}</TableCell>
+                            <TableCell className="text-sm text-gray-500 whitespace-nowrap">{payment.timestamp}</TableCell>
+                            <TableCell className="whitespace-nowrap text-gray-600 capitalize">{payment.type}</TableCell>
+                            <TableCell className="text-sm text-gray-500 whitespace-nowrap">{payment.method}</TableCell>
+                            <TableCell className="text-sm text-gray-500 whitespace-nowrap font-mono text-xs">{payment.confirmation}</TableCell>
+                            <TableCell className="text-right font-bold text-gray-900 whitespace-nowrap">{payment.currency === 'NGN' ? '₦' : ''}{payment.amount.toLocaleString()} {payment.currency !== 'NGN' ? payment.currency : ''}</TableCell>
+                            <TableCell className="whitespace-nowrap">
+                              <Badge className={getStatusColor(payment.status) + ' font-semibold border capitalize'}>
+                                {payment.status}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <div className="flex items-center justify-between p-4 border-t border-gray-100">
+                    <div className="text-sm text-gray-500 font-medium">
+                      Page {page} of {totalPages} • {total} items
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={page <= 1}
+                        onClick={() => { setPage(p => Math.max(1, p - 1)); setTimeout(() => loadPaymentHistory(), 0); }}
+                        className="font-semibold"
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={page >= totalPages}
+                        onClick={() => { setPage(p => Math.min(totalPages, p + 1)); setTimeout(() => loadPaymentHistory(), 0); }}
+                        className="font-semibold"
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* Scheduled Payments */}
         <TabsContent value="scheduled" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Scheduled Payments</CardTitle>
-              <CardDescription>Upcoming rent payments</CardDescription>
+          <Card className="border-0 shadow-xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-b border-blue-100">
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 p-2.5 shadow-lg shadow-blue-500/25">
+                  <Calendar className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-gray-900 font-bold text-lg">Scheduled Payments</CardTitle>
+                  <CardDescription className="text-gray-600 font-medium">Upcoming rent payments</CardDescription>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               {loadingScheduled ? (
-                <div className="flex items-center justify-center py-8">
+                <div className="flex items-center justify-center py-16">
                   <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="mt-2 text-sm text-muted-foreground">Loading scheduled payments...</p>
+                    <div className="animate-spin rounded-full h-10 w-10 border-4 border-purple-200 border-t-purple-600 mx-auto"></div>
+                    <p className="mt-4 text-sm text-gray-500 font-medium">Loading scheduled payments...</p>
                   </div>
                 </div>
               ) : scheduledPayments.length === 0 ? (
-                <div className="text-center py-8">
-                  <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-muted-foreground">No scheduled payments</p>
-                  <p className="text-sm text-muted-foreground mt-1">Your next payment will appear here after you make a payment</p>
+                <div className="flex flex-col items-center justify-center py-16 px-4">
+                  <div className="rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 p-6 mb-4">
+                    <Calendar className="h-12 w-12 text-blue-500" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Scheduled Payments</h3>
+                  <p className="text-gray-500 text-center max-w-sm">Your next payment will appear here after you make a payment or enable auto-pay.</p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="divide-y divide-gray-100">
                   {scheduledPayments.map((payment) => {
                     const scheduledDate = payment.scheduledDate
                       ? new Date(payment.scheduledDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -753,32 +881,32 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
                       : null;
 
                     return (
-                      <div key={payment.id} className="flex items-center justify-between p-4 border rounded-lg bg-blue-50 border-blue-200">
+                      <div key={payment.id} className="flex items-center justify-between p-5 hover:bg-blue-50/50 transition-colors">
                         <div className="flex items-center space-x-4">
-                          <div className="p-2 bg-blue-100 rounded-lg">
-                            <Calendar className="h-5 w-5 text-blue-600" />
+                          <div className="p-3 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl">
+                            <Calendar className="h-6 w-6 text-blue-600" />
                           </div>
                           <div>
-                            <p className="font-medium text-blue-900">
+                            <p className="font-bold text-gray-900 text-lg">
                               {payment.currency || '₦'}{payment.amount?.toLocaleString()}
-                              <span className="text-sm font-normal text-blue-700 ml-2">
+                              <span className="text-sm font-medium text-gray-500 ml-2">
                                 ({payment.rentFrequency === 'annual' ? 'Annual' : 'Monthly'} Rent)
                               </span>
                             </p>
-                            <p className="text-sm text-blue-700">
+                            <p className="text-sm text-gray-600 font-medium">
                               Due: {scheduledDate}
                               {daysUntil !== null && daysUntil > 0 && (
-                                <span className="ml-2">({daysUntil} days remaining)</span>
+                                <span className="ml-2 text-blue-600">({daysUntil} days remaining)</span>
                               )}
                             </p>
                             {payment.lease && (
-                              <p className="text-xs text-blue-600 mt-1">
+                              <p className="text-xs text-gray-500 mt-1">
                                 {payment.lease.properties?.name} - Unit {payment.lease.units?.unitNumber}
                               </p>
                             )}
                           </div>
                         </div>
-                        <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
+                        <Badge className="bg-blue-100 text-blue-700 border-blue-200 font-semibold">
                           Scheduled
                         </Badge>
                       </div>
@@ -792,57 +920,77 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
 
         {/* Payment Methods */}
         <TabsContent value="methods" className="space-y-4">
-          <Card>
-            <CardHeader>
+          <Card className="border-0 shadow-xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 border-b border-purple-100">
               <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Payment Methods</CardTitle>
-                  <CardDescription>Manage your saved payment methods</CardDescription>
+                <div className="flex items-center gap-3">
+                  <div className="rounded-xl bg-gradient-to-br from-[#7C3AED] to-[#5B21B6] p-2.5 shadow-lg shadow-purple-500/25">
+                    <CreditCard className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-gray-900 font-bold text-lg">Payment Methods</CardTitle>
+                    <CardDescription className="text-gray-600 font-medium">Manage your saved payment methods</CardDescription>
+                  </div>
                 </div>
-                <Button onClick={() => setShowAddCardDialog(true)}>
+                <Button
+                  onClick={() => setShowAddCardDialog(true)}
+                  className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white font-semibold shadow-lg shadow-purple-500/25"
+                >
                   <CreditCard className="h-4 w-4 mr-2" />
                   Add Card
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               {loadingMethods ? (
-                <div className="flex items-center justify-center py-8">
+                <div className="flex items-center justify-center py-16">
                   <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="mt-2 text-sm text-muted-foreground">Loading payment methods...</p>
+                    <div className="animate-spin rounded-full h-10 w-10 border-4 border-purple-200 border-t-purple-600 mx-auto"></div>
+                    <p className="mt-4 text-sm text-gray-500 font-medium">Loading payment methods...</p>
                   </div>
                 </div>
               ) : paymentMethods.length === 0 ? (
-                <div className="text-center py-8">
-                  <CreditCard className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-muted-foreground">No payment methods saved</p>
-                  <p className="text-sm text-muted-foreground mt-1">Add a card to enable quick payments</p>
+                <div className="flex flex-col items-center justify-center py-16 px-4">
+                  <div className="rounded-full bg-gradient-to-br from-purple-100 to-indigo-100 p-6 mb-4">
+                    <CreditCard className="h-12 w-12 text-purple-500" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Payment Methods</h3>
+                  <p className="text-gray-500 text-center max-w-sm mb-4">Add a card to enable quick payments and auto-pay.</p>
+                  <Button
+                    onClick={() => setShowAddCardDialog(true)}
+                    className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white font-semibold shadow-lg shadow-purple-500/25"
+                  >
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Add Your First Card
+                  </Button>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="divide-y divide-gray-100">
                   {paymentMethods.map((method) => (
-                    <div key={method.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div key={method.id} className="flex items-center justify-between p-5 hover:bg-purple-50/50 transition-colors">
                       <div className="flex items-center space-x-4">
-                        <div className="p-2 bg-gray-100 rounded-lg">
-                          <CreditCard className="h-5 w-5" />
+                        <div className={`p-3 rounded-xl ${method.isDefault ? 'bg-gradient-to-br from-purple-100 to-indigo-100' : 'bg-gray-100'}`}>
+                          <CreditCard className={`h-6 w-6 ${method.isDefault ? 'text-purple-600' : 'text-gray-600'}`} />
                         </div>
                         <div>
-                          <p className="font-medium">{method.cardBrand} •••• {method.cardLast4}</p>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="font-bold text-gray-900 flex items-center gap-2">
+                            {method.cardBrand} •••• {method.cardLast4}
+                            {method.isDefault && (
+                              <Badge className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white border-0 font-semibold text-xs">
+                                <Star className="h-3 w-3 mr-1" />
+                                Default
+                              </Badge>
+                            )}
+                          </p>
+                          <p className="text-sm text-gray-500 font-medium">
                             Expires {method.cardExpMonth}/{method.cardExpYear}
                           </p>
                           {method.bank && (
-                            <p className="text-xs text-muted-foreground">{method.bank}</p>
+                            <p className="text-xs text-gray-400">{method.bank}</p>
                           )}
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        {method.isDefault && (
-                          <Badge variant="outline" className="bg-blue-100 text-blue-800">
-                            Default
-                          </Badge>
-                        )}
                         {!method.isDefault && (
                           <Button
                             variant="outline"
@@ -856,6 +1004,7 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
                                 loadPaymentMethods();
                               }
                             }}
+                            className="border-purple-200 text-purple-700 hover:bg-purple-50 font-semibold"
                           >
                             Set Default
                           </Button>
@@ -863,7 +1012,7 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
                         <Button
                           variant="outline"
                           size="sm"
-                          className="text-red-600 hover:text-red-700"
+                          className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-semibold"
                           onClick={async () => {
                             if (confirm('Are you sure you want to remove this card?')) {
                               const result = await removePaymentMethod(method.id);
@@ -876,7 +1025,7 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
                             }
                           }}
                         >
-                          Remove
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
@@ -887,24 +1036,34 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
           </Card>
 
           {/* Auto-Pay Settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Auto-Pay Settings</CardTitle>
-              <CardDescription>Automatically pay rent each {autopaySettings?.rentFrequency === 'annual' ? 'year' : 'month'}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Enable/Disable Toggle */}
-              <div className="flex items-center justify-between">
+          <Card className="border-0 shadow-xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-green-50 via-emerald-50 to-teal-50 border-b border-green-100">
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 p-2.5 shadow-lg shadow-green-500/25">
+                  <Sparkles className="h-5 w-5 text-white" />
+                </div>
                 <div>
-                  <p className="font-medium">Enable Auto-Pay</p>
-                  <p className="text-sm text-muted-foreground">
+                  <CardTitle className="text-gray-900 font-bold text-lg">Auto-Pay Settings</CardTitle>
+                  <CardDescription className="text-gray-600 font-medium">Automatically pay rent each {autopaySettings?.rentFrequency === 'annual' ? 'year' : 'month'}</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6 p-6">
+              {/* Enable/Disable Toggle */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <div>
+                  <p className="font-bold text-gray-900">Enable Auto-Pay</p>
+                  <p className="text-sm text-gray-500 font-medium">
                     Automatically charge your selected payment method on your chosen day
                   </p>
                 </div>
                 <Button
-                  variant={autopaySettings?.enabled ? "destructive" : "default"}
                   onClick={handleToggleAutoPay}
                   disabled={autopayLoading}
+                  className={autopaySettings?.enabled
+                    ? "bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-semibold shadow-lg shadow-red-500/25"
+                    : "bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold shadow-lg shadow-green-500/25"
+                  }
                 >
                   {autopayLoading ? 'Updating...' : autopaySettings?.enabled ? "Disable" : "Enable"}
                 </Button>
@@ -976,27 +1135,41 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
 
               {/* Status Alert */}
               {autopaySettings?.enabled && selectedAutopayCard && (
-                <Alert className="bg-green-50 border-green-200">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-green-800">
-                    Auto-pay is enabled. Your {autopaySettings?.rentFrequency === 'annual' ? 'annual' : 'monthly'} rent of{' '}
-                    <strong>₦{(autopaySettings?.amount || 0).toLocaleString()}</strong> will be automatically charged to{' '}
-                    <strong>
-                      {paymentMethods.find(m => m.id === selectedAutopayCard)?.cardBrand || 'Card'} ••••{' '}
-                      {paymentMethods.find(m => m.id === selectedAutopayCard)?.cardLast4}
-                    </strong>{' '}
-                    on day {autopayDay} of each {autopaySettings?.rentFrequency === 'annual' ? 'year' : 'month'}.
-                  </AlertDescription>
-                </Alert>
+                <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-lg bg-green-100 p-2">
+                      <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-green-900 mb-1">Auto-Pay Active</p>
+                      <p className="text-sm text-green-700">
+                        Your {autopaySettings?.rentFrequency === 'annual' ? 'annual' : 'monthly'} rent of{' '}
+                        <strong>₦{(autopaySettings?.amount || 0).toLocaleString()}</strong> will be automatically charged to{' '}
+                        <strong>
+                          {paymentMethods.find(m => m.id === selectedAutopayCard)?.cardBrand || 'Card'} ••••{' '}
+                          {paymentMethods.find(m => m.id === selectedAutopayCard)?.cardLast4}
+                        </strong>{' '}
+                        on day {autopayDay} of each {autopaySettings?.rentFrequency === 'annual' ? 'year' : 'month'}.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               )}
 
               {!autopaySettings?.enabled && (
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Auto-pay is disabled. You will need to manually pay your rent each {autopaySettings?.rentFrequency === 'annual' ? 'year' : 'month'}.
-                  </AlertDescription>
-                </Alert>
+                <div className="p-4 bg-gradient-to-br from-gray-50 to-slate-50 border-2 border-gray-200 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-lg bg-gray-100 p-2">
+                      <AlertCircle className="h-5 w-5 text-gray-600" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-gray-900 mb-1">Auto-Pay Disabled</p>
+                      <p className="text-sm text-gray-600">
+                        You will need to manually pay your rent each {autopaySettings?.rentFrequency === 'annual' ? 'year' : 'month'}.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -1005,10 +1178,10 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
 
       {/* Make Payment Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Make a Payment</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-md border-0 shadow-2xl">
+          <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] -m-6 mb-0 p-6 rounded-t-lg">
+            <DialogTitle className="text-2xl font-bold text-white">Make a Payment</DialogTitle>
+            <DialogDescription className="text-white/80 font-medium">
               {selectedPaymentType === 'full'
                 ? 'Pay your rent securely online'
                 : 'Make a custom payment amount'}
@@ -1135,13 +1308,14 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
               )}
             </Alert>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>
+          <DialogFooter className="pt-4 border-t border-gray-100">
+            <Button variant="outline" onClick={() => setShowPaymentDialog(false)} className="font-semibold">
               Cancel
             </Button>
             <Button
               onClick={handleMakePayment}
               disabled={isSubmitting || !paymentAmount || parseFloat(paymentAmount) <= 0}
+              className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white font-semibold shadow-lg shadow-purple-500/25 disabled:opacity-50"
             >
               {isSubmitting
                 ? 'Processing…'
@@ -1155,10 +1329,10 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
 
       {/* Add Card Dialog */}
       <Dialog open={showAddCardDialog} onOpenChange={setShowAddCardDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add Payment Method</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-md border-0 shadow-2xl">
+          <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] -m-6 mb-0 p-6 rounded-t-lg">
+            <DialogTitle className="text-2xl font-bold text-white">Add Payment Method</DialogTitle>
+            <DialogDescription className="text-white/80 font-medium">
               Securely add a credit or debit card via Paystack
             </DialogDescription>
           </DialogHeader>
@@ -1184,11 +1358,14 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({ dashboardData }
               </AlertDescription>
             </Alert>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddCardDialog(false)}>
+          <DialogFooter className="pt-4 border-t border-gray-100">
+            <Button variant="outline" onClick={() => setShowAddCardDialog(false)} className="font-semibold">
               Cancel
             </Button>
-            <Button onClick={handleAddCard}>
+            <Button
+              onClick={handleAddCard}
+              className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white font-semibold shadow-lg shadow-purple-500/25"
+            >
               <CreditCard className="h-4 w-4 mr-2" />
               Continue to Paystack
             </Button>

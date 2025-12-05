@@ -54,15 +54,15 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { 
-  getDocuments, 
-  createDocument, 
-  uploadDocument, 
-  updateDocument, 
-  deleteDocument, 
+import {
+  getDocuments,
+  createDocument,
+  uploadDocument,
+  updateDocument,
+  deleteDocument,
   getDocumentStats,
   Document,
-  DocumentStats 
+  DocumentStats
 } from '../lib/api/documents';
 import { getProperties } from '../lib/api/properties';
 import { getUnits } from '../lib/api/units';
@@ -89,7 +89,7 @@ const PropertyManagerDocuments: React.FC = () => {
   const [filterTenantId, setFilterTenantId] = useState('all');
   const [activeTab, setActiveTab] = useState('tenant-contracts');
   const [editableContent, setEditableContent] = useState('');
-  
+
   // Data state
   const [documents, setDocuments] = useState<Document[]>([]);
   const [stats, setStats] = useState<DocumentStats | null>(null);
@@ -98,7 +98,7 @@ const PropertyManagerDocuments: React.FC = () => {
   const [properties, setProperties] = useState<any[]>([]);
   const [tenants, setTenants] = useState<any[]>([]);
   const [propertyUnits, setPropertyUnits] = useState<any[]>([]);
-  
+
   // Form states
   const [uploadForm, setUploadForm] = useState({
     file: null as File | null,
@@ -111,7 +111,7 @@ const PropertyManagerDocuments: React.FC = () => {
     tenantId: '',
     isShared: false,
   });
-  
+
   // Form states for generating contracts
   const [contractForm, setContractForm] = useState({
     tenantId: '',
@@ -347,7 +347,7 @@ const PropertyManagerDocuments: React.FC = () => {
       setPropertyUnits([]);
       return;
     }
-    
+
     try {
       const { data, error } = await getUnits({ propertyId });
       if (error) {
@@ -367,13 +367,13 @@ const PropertyManagerDocuments: React.FC = () => {
     if (unit) {
       // Auto-populate monthly rent from unit
       const monthlyRent = unit.monthlyRent ? unit.monthlyRent.toString() : '';
-      
+
       // Auto-populate tenant if unit has one
       if (unit.currentTenantId) {
         const tenant = tenants.find(t => t.id === unit.currentTenantId);
         if (tenant) {
-          setContractForm(prev => ({ 
-            ...prev, 
+          setContractForm(prev => ({
+            ...prev,
             tenantId: tenant.id,
             compensation: monthlyRent
           }));
@@ -392,19 +392,19 @@ const PropertyManagerDocuments: React.FC = () => {
 
     // Filter by tab
     if (activeTab === 'tenant-contracts') {
-      filtered = filtered.filter(doc => 
-        doc.type === 'tenant-contract' || 
+      filtered = filtered.filter(doc =>
+        doc.type === 'tenant-contract' ||
         doc.type === 'contract' ||
         doc.category === 'Tenant Contracts'
       );
     } else if (activeTab === 'leases-inspections') {
-      filtered = filtered.filter(doc => 
-        doc.type === 'lease' || 
+      filtered = filtered.filter(doc =>
+        doc.type === 'lease' ||
         doc.type === 'inspection' ||
         doc.category === 'Leases & Inspections'
       );
     } else if (activeTab === 'receipts') {
-      filtered = filtered.filter(doc => 
+      filtered = filtered.filter(doc =>
         doc.type === 'receipt' ||
         doc.category === 'Receipts' ||
         doc.category === 'Financial Records'
@@ -457,7 +457,7 @@ const PropertyManagerDocuments: React.FC = () => {
       formData.append('isShared', uploadForm.isShared.toString());
 
       const { error } = await uploadDocument(formData);
-      
+
       if (error) {
         toast.error(error);
       } else {
@@ -513,22 +513,22 @@ const PropertyManagerDocuments: React.FC = () => {
   const handleDownload = async (doc: Document) => {
     try {
       console.log('Starting download for document:', doc.id, doc.name);
-      
+
       if (doc.fileUrl) {
         // For uploaded files, download the original file
         console.log('Downloading uploaded file from:', doc.fileUrl);
         const API_URL = API_BASE_URL;
         const token = getAuthToken();
-        
+
         const response = await fetch(`${API_URL}${doc.fileUrl}`, {
           headers: token ? { 'Authorization': `Bearer ${token}` } : {}
         });
-        
+
         if (!response.ok) {
           console.error('Upload file download failed:', response.status, response.statusText);
           throw new Error(`Download failed: ${response.statusText}`);
         }
-        
+
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -544,22 +544,22 @@ const PropertyManagerDocuments: React.FC = () => {
         console.log('Downloading generated contract as PDF');
         const API_URL = API_BASE_URL;
         const token = getAuthToken();
-        
+
         console.log('Token exists:', !!token);
         console.log('Download URL:', `${API_URL}/api/documents/${doc.id}/download/pdf`);
-        
+
         const response = await fetch(`${API_URL}/api/documents/${doc.id}/download/pdf`, token ? {
           headers: { 'Authorization': `Bearer ${token}` }
         } : undefined);
-        
+
         console.log('Download response status:', response.status, response.statusText);
-        
+
         if (!response.ok) {
           const errorText = await response.text();
           console.error('Download failed:', response.status, errorText);
           throw new Error(`Download failed: ${response.status} ${response.statusText}`);
         }
-        
+
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -723,7 +723,7 @@ const PropertyManagerDocuments: React.FC = () => {
     const tenant = tenants.find(t => t.id === contractForm.tenantId);
     const unit = propertyUnits.find(u => u.id === contractForm.unitId);
     const currencySymbol = property?.currency === 'USD' ? '$' : '₦';
-    
+
     const compensationText = `${currencySymbol}${contractForm.compensation} per month`;
 
     // Parse responsibilities to create proper list items
@@ -890,7 +890,7 @@ ${contractForm.specialTerms ? `
   if (showTemplateManager) {
   return (
     <div className="space-y-6">
-        <DocumentTemplateManager 
+        <DocumentTemplateManager
           onSelectTemplate={handleTemplateSelect}
           onClose={() => setShowTemplateManager(false)}
         />
@@ -1004,7 +1004,7 @@ ${contractForm.specialTerms ? `
                     className="pl-10"
                   />
                 </div>
-                
+
                 {/* Filters */}
                 <div className="flex gap-4">
                   <Select value={filterPropertyId} onValueChange={setFilterPropertyId}>
@@ -1037,7 +1037,7 @@ ${contractForm.specialTerms ? `
 
                   {(filterPropertyId !== 'all' || filterTenantId !== 'all') && (
             <Button
-                      variant="ghost" 
+                      variant="ghost"
                       size="sm"
               onClick={() => {
                         setFilterPropertyId('all');
@@ -1051,14 +1051,14 @@ ${contractForm.specialTerms ? `
               </div>
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Document Name</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Property</TableHead>
-                    <TableHead>Tenant</TableHead>
-                    <TableHead>Upload Date</TableHead>
-                    <TableHead>Expiry Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                  <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Document Name</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Property</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Tenant</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Upload Date</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Expiry Date</TableHead>
+                    <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1075,8 +1075,11 @@ ${contractForm.specialTerms ? `
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredDocuments.map((doc) => (
-                      <TableRow key={doc.id}>
+                    filteredDocuments.map((doc, index) => (
+                      <TableRow
+                        key={doc.id}
+                        className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} hover:bg-purple-50/50 transition-colors`}
+                      >
                         <TableCell>
                           <div className="flex items-center space-x-2">
                             {getStatusIcon(doc.status)}
@@ -1117,7 +1120,7 @@ ${contractForm.specialTerms ? `
                                   <DropdownMenuItem onClick={() => handleEditContract(doc)}>
                                     <FileSignature className="h-4 w-4 mr-2" /> Edit Contract
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem 
+                                  <DropdownMenuItem
                                     onClick={() => handleMakeActive(doc)}
                                     className="text-green-600"
                                   >
@@ -1135,7 +1138,7 @@ ${contractForm.specialTerms ? `
                               )}
                               {/* Only show Make Active/Inactive for generated contracts (no fileUrl) */}
                               {!doc.fileUrl && doc.status === 'active' && (
-                                <DropdownMenuItem 
+                                <DropdownMenuItem
                                   onClick={() => handleMakeInactive(doc)}
                                   className="text-orange-600"
                                 >
@@ -1143,7 +1146,7 @@ ${contractForm.specialTerms ? `
                                 </DropdownMenuItem>
                               )}
                               {!doc.fileUrl && doc.status === 'inactive' && (
-                                <DropdownMenuItem 
+                                <DropdownMenuItem
                                   onClick={() => handleMakeActive(doc)}
                                   className="text-green-600"
                                 >
@@ -1151,8 +1154,8 @@ ${contractForm.specialTerms ? `
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                className="text-red-600" 
+                              <DropdownMenuItem
+                                className="text-red-600"
                                 onClick={() => handleDeleteDocument(doc)}
                               >
                                 <Trash2 className="h-4 w-4 mr-2" /> Delete
@@ -1195,7 +1198,7 @@ ${contractForm.specialTerms ? `
                 className="pl-10"
               />
             </div>
-                
+
                 {/* Filters */}
                 <div className="flex gap-4">
                   <Select value={filterPropertyId} onValueChange={setFilterPropertyId}>
@@ -1211,7 +1214,7 @@ ${contractForm.specialTerms ? `
                   ))}
                 </SelectContent>
               </Select>
-              
+
                   <Select value={filterTenantId} onValueChange={setFilterTenantId}>
                     <SelectTrigger className="w-[250px]">
                       <SelectValue placeholder="Filter by Tenant" />
@@ -1227,9 +1230,9 @@ ${contractForm.specialTerms ? `
                   </Select>
 
                   {(filterPropertyId !== 'all' || filterTenantId !== 'all') && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                       onClick={() => {
                         setFilterPropertyId('all');
                         setFilterTenantId('all');
@@ -1240,17 +1243,17 @@ ${contractForm.specialTerms ? `
                       )}
                     </div>
                     </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Document Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Property</TableHead>
-                    <TableHead>Tenant</TableHead>
-                    <TableHead>Upload Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
+                <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Document Name</TableHead>
+                <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</TableHead>
+                <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Property</TableHead>
+                <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Tenant</TableHead>
+                <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Upload Date</TableHead>
+                <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
@@ -1264,9 +1267,12 @@ ${contractForm.specialTerms ? `
                         No documents found
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    filteredDocuments.map((doc) => (
-                      <TableRow key={doc.id}>
+              ) : (
+                filteredDocuments.map((doc, index) => (
+                  <TableRow
+                    key={doc.id}
+                    className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} hover:bg-purple-50/50 transition-colors`}
+                  >
                         <TableCell>
                           <div className="flex items-center space-x-2">
                             {getStatusIcon(doc.status)}
@@ -1302,8 +1308,8 @@ ${contractForm.specialTerms ? `
                                 <Share2 className="h-4 w-4 mr-2" /> Share
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                className="text-red-600" 
+                              <DropdownMenuItem
+                                className="text-red-600"
                                 onClick={() => handleDeleteDocument(doc)}
                               >
                                 <Trash2 className="h-4 w-4 mr-2" /> Delete
@@ -1346,7 +1352,7 @@ ${contractForm.specialTerms ? `
                     className="pl-10"
                   />
                     </div>
-                    
+
                 {/* Filters */}
                 <div className="flex gap-4">
                   <Select value={filterPropertyId} onValueChange={setFilterPropertyId}>
@@ -1378,9 +1384,9 @@ ${contractForm.specialTerms ? `
                       </Select>
 
                   {(filterPropertyId !== 'all' || filterTenantId !== 'all') && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                       onClick={() => {
                         setFilterPropertyId('all');
                         setFilterTenantId('all');
@@ -1393,13 +1399,13 @@ ${contractForm.specialTerms ? `
               </div>
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Document Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Property</TableHead>
-                <TableHead>Tenant</TableHead>
-                    <TableHead>Upload Date</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+              <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
+                <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Document Name</TableHead>
+                <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</TableHead>
+                <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Property</TableHead>
+                <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Tenant</TableHead>
+                <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Upload Date</TableHead>
+                <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1415,9 +1421,12 @@ ${contractForm.specialTerms ? `
                         No receipts found
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    filteredDocuments.map((doc) => (
-                <TableRow key={doc.id}>
+              ) : (
+                filteredDocuments.map((doc, index) => (
+                  <TableRow
+                    key={doc.id}
+                    className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} hover:bg-purple-50/50 transition-colors`}
+                  >
                   <TableCell>
                     <div className="flex items-center space-x-2">
                             <Receipt className="h-4 w-4 text-blue-600" />
@@ -1453,8 +1462,8 @@ ${contractForm.specialTerms ? `
                                 <Share2 className="h-4 w-4 mr-2" /> Share
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                className="text-red-600" 
+                              <DropdownMenuItem
+                                className="text-red-600"
                         onClick={() => handleDeleteDocument(doc)}
                       >
                                 <Trash2 className="h-4 w-4 mr-2" /> Delete
@@ -1919,7 +1928,7 @@ ${contractForm.specialTerms ? `
                 <div className="flex flex-wrap gap-2">
                   {shareForm.sharedWith.map((userId) => {
                     const tenant = tenants.find(t => t.id === userId);
-                    
+
                     return tenant ? (
                       <Badge key={userId} variant="secondary" className="flex items-center gap-2">
                         {tenant.name}
@@ -1953,8 +1962,8 @@ ${contractForm.specialTerms ? `
             </div>
           </div>
           <DialogFooter>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 setShowShareDialog(false);
                 setShareForm({ sharedWith: [], message: '' });
@@ -1962,7 +1971,7 @@ ${contractForm.specialTerms ? `
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleShareDocument}
               disabled={shareForm.sharedWith.length === 0}
             >

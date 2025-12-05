@@ -1108,15 +1108,31 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
               <div className="overflow-auto rounded-xl border-0">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-[#111827] hover:bg-[#111827]">
-                      <TableHead className="text-white font-semibold">Ticket ID</TableHead>
-                      <TableHead className="text-white font-semibold">Title</TableHead>
-                      <TableHead className="text-white font-semibold">Tenant/Unit</TableHead>
-                      <TableHead className="text-white font-semibold">Priority</TableHead>
-                      <TableHead className="text-white font-semibold">Category</TableHead>
-                      <TableHead className="text-white font-semibold">Status</TableHead>
-                      <TableHead className="text-white font-semibold">Created</TableHead>
-                      <TableHead className="text-white font-semibold">Actions</TableHead>
+                    <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Ticket ID
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Title
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Tenant/Unit
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Priority
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Category
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Status
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Created
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1197,14 +1213,28 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
               <div className="overflow-auto rounded-xl border-0">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-[#111827] hover:bg-[#111827]">
-                      <TableHead className="text-white font-semibold">Ticket ID</TableHead>
-                      <TableHead className="text-white font-semibold">Title</TableHead>
-                      <TableHead className="text-white font-semibold">Tenant/Unit</TableHead>
-                      <TableHead className="text-white font-semibold">Category</TableHead>
-                      <TableHead className="text-white font-semibold">Assigned To</TableHead>
-                      <TableHead className="text-white font-semibold">Completed</TableHead>
-                      <TableHead className="text-white font-semibold">Actions</TableHead>
+                    <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Ticket ID
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Title
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Tenant/Unit
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Category
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Assigned To
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Completed
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1272,14 +1302,28 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
               <div className="overflow-auto rounded-xl border-0">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-[#111827] hover:bg-[#111827]">
-                      <TableHead className="text-white font-semibold">Ticket ID</TableHead>
-                      <TableHead className="text-white font-semibold">Title</TableHead>
-                      <TableHead className="text-white font-semibold">Tenant/Unit</TableHead>
-                      <TableHead className="text-white font-semibold">Priority</TableHead>
-                      <TableHead className="text-white font-semibold">Status</TableHead>
-                      <TableHead className="text-white font-semibold">Created</TableHead>
-                      <TableHead className="text-white font-semibold">Actions</TableHead>
+                    <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Ticket ID
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Title
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Tenant/Unit
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Priority
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Status
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Created
+                      </TableHead>
+                      <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1339,32 +1383,38 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
 
       {/* Ticket Details Dialog */}
       <Dialog open={!!selectedTicket} onOpenChange={(open) => { if (!open) { setSelectedTicket(null); setReviewNote(''); } }}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto border-0 shadow-2xl">
           {selectedTicket && (
             <>
-              <DialogHeader>
-                <DialogTitle className="text-xl">{selectedTicket.title}</DialogTitle>
-                <DialogDescription>
+              <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] -m-6 mb-0 p-6 rounded-t-lg">
+                <DialogTitle className="text-2xl font-bold text-white">{selectedTicket.title}</DialogTitle>
+                <DialogDescription className="text-white/80 font-medium">
                   Ticket {selectedTicket.ticketNumber || selectedTicket.id} • {selectedTicket.category}
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-6 py-2">
+              <div className="space-y-6 py-6">
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline">Status: {selectedTicket.status}</Badge>
-                  <Badge variant="outline">Priority: {selectedTicket.priority}</Badge>
-                  {selectedTicket.property && <Badge variant="outline">Property: {selectedTicket.property}</Badge>}
-                  {selectedTicket.unit && <Badge variant="outline">Unit: {selectedTicket.unit}</Badge>}
+                  <Badge className="bg-purple-100 text-purple-700 border-purple-200 font-semibold">Status: {selectedTicket.status}</Badge>
+                  <Badge className="bg-orange-100 text-orange-700 border-orange-200 font-semibold">Priority: {selectedTicket.priority}</Badge>
+                  {selectedTicket.property && <Badge className="bg-blue-100 text-blue-700 border-blue-200 font-semibold">Property: {selectedTicket.property}</Badge>}
+                  {selectedTicket.unit && <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 font-semibold">Unit: {selectedTicket.unit}</Badge>}
                 </div>
 
-                <div>
-                  <h4 className="font-medium mb-1">Description</h4>
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedTicket.description}</p>
+                <div className="p-4 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl border border-purple-100">
+                  <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#7C3AED]"></span>
+                    Description
+                  </h4>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{selectedTicket.description}</p>
                 </div>
 
                 {/* Attachments from initial ticket (photos/images) */}
                 {Array.isArray((selectedTicket as any).photos) && (selectedTicket as any).photos.length > 0 && (
                   <div>
-                    <h4 className="font-medium mb-1">Attachments</h4>
+                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#7C3AED]"></span>
+                      Attachments
+                    </h4>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       {(selectedTicket as any).photos.map((img: any, idx: number) => {
                         const base = (import.meta as any).env.VITE_API_URL || 'http://localhost:5000';
@@ -1374,13 +1424,13 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
                         const isImage = (typeof img === 'object' && img?.mimetype ? img.mimetype.startsWith('image/') : /\.(png|jpe?g|gif|webp)$/i.test(raw));
                         if (isImage) {
                           return (
-                            <a key={idx} href={fullUrl} target="_blank" rel="noopener noreferrer" className="block">
-                              <img src={fullUrl} alt={name} className="h-32 w-full object-cover rounded border" />
+                            <a key={idx} href={fullUrl} target="_blank" rel="noopener noreferrer" className="block group">
+                              <img src={fullUrl} alt={name} className="h-32 w-full object-cover rounded-xl border-2 border-gray-200 group-hover:border-[#7C3AED] transition-colors shadow-sm group-hover:shadow-md" />
                             </a>
                           );
                         }
                         return (
-                          <a key={idx} href={fullUrl} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2 text-sm text-blue-600 hover:underline">
+                          <a key={idx} href={fullUrl} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2 text-sm text-[#7C3AED] hover:text-[#5B21B6] font-medium p-3 bg-purple-50 rounded-lg border border-purple-100 hover:border-purple-300 transition-colors">
                             <FileIcon className="h-4 w-4" />
                             <span className="truncate">{name}</span>
                           </a>
@@ -1391,32 +1441,35 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
                 )}
 
                 {/* Tenant & Assignment Info */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-gray-50 border rounded p-3">
-                  <div>
-                    <p className="text-xs text-gray-500">Reported By</p>
-                    <p className="font-medium">{selectedTicket.tenant}</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
+                    <p className="text-xs text-gray-500 font-semibold mb-1">Reported By</p>
+                    <p className="font-semibold text-gray-900">{selectedTicket.tenant}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Created</p>
-                    <p className="font-medium">{selectedTicket.createdDate}</p>
+                  <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
+                    <p className="text-xs text-gray-500 font-semibold mb-1">Created</p>
+                    <p className="font-semibold text-gray-900">{selectedTicket.createdDate}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Assigned To</p>
-                    <p className="font-medium">{selectedTicket.assignedTo || 'Unassigned'}</p>
+                  <div className="p-3 bg-blue-50 rounded-xl border border-blue-200">
+                    <p className="text-xs text-blue-600 font-semibold mb-1">Assigned To</p>
+                    <p className="font-semibold text-gray-900">{selectedTicket.assignedTo || 'Unassigned'}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Preferred Time</p>
-                    <p className="font-medium">{selectedTicket.preferredTime || 'Anytime'}</p>
+                  <div className="p-3 bg-purple-50 rounded-xl border border-purple-200">
+                    <p className="text-xs text-purple-600 font-semibold mb-1">Preferred Time</p>
+                    <p className="font-semibold text-gray-900">{selectedTicket.preferredTime || 'Anytime'}</p>
                   </div>
                 </div>
 
                 {/* Assign to Manager */}
                 {selectedTicket.status !== 'Completed' && (
-                  <div className="space-y-3 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="font-medium text-blue-900">Assign Ticket</h4>
+                  <div className="space-y-3 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-4">
+                    <h4 className="font-semibold text-blue-900 flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Assign Ticket
+                    </h4>
                     <div className="flex gap-3 items-end">
                       <div className="flex-1">
-                        <Label htmlFor="assignTo" className="text-sm text-blue-800">Assign to Manager</Label>
+                        <Label htmlFor="assignTo" className="text-sm text-blue-800 font-semibold">Assign to Manager</Label>
                         <Select
                           value={selectedTicket.assignedToId || 'none'}
                           onValueChange={(value) => {
@@ -1426,7 +1479,7 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
                             }));
                           }}
                         >
-                          <SelectTrigger className="bg-white">
+                          <SelectTrigger className="bg-white border-blue-200 focus:border-[#7C3AED] focus:ring-[#7C3AED]/20">
                             <SelectValue placeholder="Select manager" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1463,7 +1516,7 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
                             }));
                           }
                         }}
-                        className="bg-blue-600 hover:bg-blue-700"
+                        className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white font-semibold shadow-lg shadow-purple-500/25"
                       >
                         Assign
                       </Button>
@@ -1472,81 +1525,86 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
                 )}
 
                 {/* Status Actions */}
-                <div className="flex flex-wrap gap-2">
-                  <Label className="w-full text-sm font-medium mb-1">Update Status</Label>
-                  <Select
-                    value={selectedTicket.status.toLowerCase().replace(' ', '_')}
-                    onValueChange={async (value) => {
-                      const res = await updateMaintenanceRequest(selectedTicket.id, { status: value });
-                      if ((res as any).error) {
-                        toast.error((res as any).error.error || 'Failed to update status');
-                      } else {
-                        toast.success('Status updated');
-                        fetchMaintenanceRequests();
-                        setSelectedTicket((prev: any) => ({
-                          ...prev,
-                          status: value.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-                        }));
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="w-48">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="open">Open</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="on_hold">On Hold</SelectItem>
-                      <SelectItem value="scheduled">Scheduled</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  {selectedTicket.status !== 'Completed' && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={async () => {
-                        const res = await completeMaintenanceRequest(selectedTicket.id, {});
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                  <Label className="w-full text-sm font-semibold text-gray-700 mb-3 block">Update Status</Label>
+                  <div className="flex flex-wrap gap-3">
+                    <Select
+                      value={selectedTicket.status.toLowerCase().replace(' ', '_')}
+                      onValueChange={async (value) => {
+                        const res = await updateMaintenanceRequest(selectedTicket.id, { status: value });
                         if ((res as any).error) {
-                          toast.error((res as any).error.error || 'Failed to complete');
+                          toast.error((res as any).error.error || 'Failed to update status');
                         } else {
-                          toast.success('Ticket marked as completed');
+                          toast.success('Status updated');
                           fetchMaintenanceRequests();
                           setSelectedTicket((prev: any) => ({
                             ...prev,
-                            status: 'Completed'
+                            status: value.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
                           }));
                         }
                       }}
-                      className="bg-green-600 hover:bg-green-700"
                     >
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Mark Completed
-                    </Button>
-                  )}
+                      <SelectTrigger className="w-48 border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED]/20">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="open">Open</SelectItem>
+                        <SelectItem value="in_progress">In Progress</SelectItem>
+                        <SelectItem value="on_hold">On Hold</SelectItem>
+                        <SelectItem value="scheduled">Scheduled</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {selectedTicket.status !== 'Completed' && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={async () => {
+                          const res = await completeMaintenanceRequest(selectedTicket.id, {});
+                          if ((res as any).error) {
+                            toast.error((res as any).error.error || 'Failed to complete');
+                          } else {
+                            toast.success('Ticket marked as completed');
+                            fetchMaintenanceRequests();
+                            setSelectedTicket((prev: any) => ({
+                              ...prev,
+                              status: 'Completed'
+                            }));
+                          }
+                        }}
+                        className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold shadow-lg shadow-green-500/25"
+                      >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Mark Completed
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Updates & Activity */}
                 {Array.isArray((selectedTicket as any).updates) && (
-                  <div className="space-y-2">
-                    <h4 className="font-medium">Updates</h4>
-                    <div className="space-y-3">
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#7C3AED]"></span>
+                      Updates
+                    </h4>
+                    <div className="space-y-3 bg-gray-50 rounded-xl p-4 border border-gray-200">
                       {(selectedTicket as any).updates.map((u: any, idx: number) => (
-                        <div key={idx} className="border-b pb-2 last:border-0">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="font-medium">{u?.updatedBy?.name || 'Update'}</span>
-                            <span className="text-gray-500">{u?.createdAt ? new Date(u.createdAt).toLocaleString() : ''}</span>
+                        <div key={idx} className="border-b border-gray-200 pb-3 last:border-0 last:pb-0">
+                          <div className="flex items-center justify-between text-sm mb-1">
+                            <span className="font-semibold text-gray-900">{u?.updatedBy?.name || 'Update'}</span>
+                            <span className="text-gray-500 font-medium text-xs">{u?.createdAt ? new Date(u.createdAt).toLocaleString() : ''}</span>
                           </div>
                           <div className="text-sm text-gray-700 whitespace-pre-wrap">{u?.note}</div>
                           {Array.isArray(u?.attachments) && u.attachments.length > 0 && (
-                            <div className="mt-2 space-y-1">
+                            <div className="mt-2 flex flex-wrap gap-2">
                               {u.attachments.map((f: any, i: number) => {
                                 const base = (import.meta as any).env.VITE_API_URL || 'http://localhost:5000';
                                 const href = typeof f === 'string' ? (f.startsWith('http') ? f : `${base}${f}`) : ((f?.url || '').startsWith('http') ? f.url : `${base}${f?.url || ''}`);
                                 const label = typeof f === 'string' ? 'Attachment' : (f.originalName || 'Attachment');
                                 return (
-                                  <a key={i} href={href} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">
+                                  <a key={i} href={href} target="_blank" rel="noopener noreferrer" className="text-xs text-[#7C3AED] hover:text-[#5B21B6] font-medium bg-purple-50 px-2 py-1 rounded-md border border-purple-200 hover:border-purple-300 transition-colors">
                                     {label}
                                   </a>
                                 );
@@ -1560,28 +1618,43 @@ export const MaintenanceTickets: React.FC<MaintenanceTicketsProps> = ({ properti
                 )}
 
                 {/* Manager/Owner Review (reply) */}
-                <div className="space-y-2">
-                  <h4 className="font-medium">Add Manager/Owner Review</h4>
-                  <Textarea rows={3} value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} placeholder="Write a short review or note for the tenant (visible in ticket updates)" />
+                <div className="space-y-3 p-4 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl border border-purple-100">
+                  <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#7C3AED]"></span>
+                    Add Manager/Owner Review
+                  </h4>
+                  <Textarea
+                    rows={3}
+                    value={reviewNote}
+                    onChange={(e) => setReviewNote(e.target.value)}
+                    placeholder="Write a short review or note for the tenant (visible in ticket updates)"
+                    className="border-purple-200 focus:border-[#7C3AED] focus:ring-[#7C3AED]/20 bg-white"
+                  />
                   <div className="flex justify-end">
-                    <Button size="sm" onClick={async () => {
-                      if (!reviewNote.trim()) return;
-                      const res = await replyMaintenanceRequest(selectedTicket.id, { note: reviewNote.trim() });
-                      if ((res as any).error) { toast.error((res as any).error.error || 'Failed to add review'); return; }
-                      toast.success('Review added');
-                      setReviewNote('');
-                      // Reload details
-                      try {
-                        const d = await getMaintenanceRequest(selectedTicket.id);
-                        if ((d as any).data) {
-                          const req: any = (d as any).data;
-                          setSelectedTicket((prev: any) => ({
-                            ...prev,
-                            updates: req.updates || prev?.updates || []
-                          }));
-                        }
-                      } catch {}
-                    }}>Submit Review</Button>
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        if (!reviewNote.trim()) return;
+                        const res = await replyMaintenanceRequest(selectedTicket.id, { note: reviewNote.trim() });
+                        if ((res as any).error) { toast.error((res as any).error.error || 'Failed to add review'); return; }
+                        toast.success('Review added');
+                        setReviewNote('');
+                        // Reload details
+                        try {
+                          const d = await getMaintenanceRequest(selectedTicket.id);
+                          if ((d as any).data) {
+                            const req: any = (d as any).data;
+                            setSelectedTicket((prev: any) => ({
+                              ...prev,
+                              updates: req.updates || prev?.updates || []
+                            }));
+                          }
+                        } catch {}
+                      }}
+                      className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white font-semibold shadow-lg shadow-purple-500/25"
+                    >
+                      Submit Review
+                    </Button>
                   </div>
                 </div>
               </div>

@@ -135,6 +135,8 @@ import {
   FileSpreadsheet,
   AlertCircle,
   X,
+  Search,
+  Maximize,
 } from "lucide-react";
 import { createProperty } from "../lib/api/properties";
 
@@ -223,6 +225,12 @@ export function PropertiesPage({
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [unitsViewMode, setUnitsViewMode] = useState<"grid" | "list">("grid");
+  const [unitsCurrentPage, setUnitsCurrentPage] = useState(1);
+  const [unitsSearchTerm, setUnitsSearchTerm] = useState("");
+  const [unitsPropertyFilter, setUnitsPropertyFilter] = useState("all");
+  const [unitsStatusFilter, setUnitsStatusFilter] = useState<"all" | "occupied" | "vacant" | "maintenance">("all");
+  const UNITS_PER_PAGE = 10;
 
   // Calculate smart base currency based on properties
   const smartBaseCurrency = getSmartBaseCurrency(properties);
@@ -1792,9 +1800,13 @@ export function PropertiesPage({
   ) => {
     if (!sectionData) {
       return (
-        <p className="text-sm text-muted-foreground">
-          No data available for this report.
-        </p>
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <div className="h-16 w-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+            <FileText className="h-8 w-8 text-gray-400" />
+          </div>
+          <p className="text-gray-500 font-medium">No data available for this report.</p>
+          <p className="text-gray-400 text-sm mt-1">Try adjusting your filters or date range.</p>
+        </div>
       );
     }
 
@@ -1802,256 +1814,344 @@ export function PropertiesPage({
       case "financial": {
         const { portfolio, expenses, revenueTrends, recentExpenses } =
           sectionData || {};
+        const netIncome = (portfolio?.netOperatingIncome ?? 0) - (expenses?.total ?? 0);
         return (
           <div className="space-y-6">
+            {/* Financial Stats Grid */}
             <div className="grid gap-4 md:grid-cols-4">
-              <div className="rounded-lg border p-4">
-                <p className="text-xs text-muted-foreground">Total revenue</p>
-                <p className="text-xl font-semibold">
-                  {formatCurrency(
-                    portfolio?.totalRevenue ?? 0,
-                    smartBaseCurrency
-                  )}
+              <div className="rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-green-600">Total Revenue</p>
+                  <div className="h-8 w-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                    <TrendingUp className="h-4 w-4 text-green-600" />
+                  </div>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(portfolio?.totalRevenue ?? 0, smartBaseCurrency)}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  Net{" "}
-                  {formatCurrency(
-                    portfolio?.netOperatingIncome ?? 0,
-                    smartBaseCurrency
-                  )}
+                <p className="text-xs text-green-600 mt-1">
+                  Net {formatCurrency(portfolio?.netOperatingIncome ?? 0, smartBaseCurrency)}
                 </p>
               </div>
-              <div className="rounded-lg border p-4">
-                <p className="text-xs text-muted-foreground">Total expenses</p>
-                <p className="text-xl font-semibold text-red-600">
+              <div className="rounded-xl bg-gradient-to-br from-red-50 to-rose-50 border border-red-100 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-red-600">Total Expenses</p>
+                  <div className="h-8 w-8 rounded-lg bg-red-500/20 flex items-center justify-center">
+                    <TrendingDown className="h-4 w-4 text-red-600" />
+                  </div>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">
                   {formatCurrency(expenses?.total ?? 0, smartBaseCurrency)}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  {context.propertyLabel}
-                </p>
+                <p className="text-xs text-gray-500 mt-1">{context.propertyLabel}</p>
               </div>
-              <div className="rounded-lg border p-4">
-                <p className="text-xs text-muted-foreground">Occupancy rate</p>
-                <p className="text-xl font-semibold">
-                  {portfolio?.occupancyRate
-                    ? `${portfolio.occupancyRate.toFixed(1)}%`
-                    : "0%"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {portfolio?.occupiedUnits ?? 0} of{" "}
-                  {portfolio?.totalUnits ?? 0} units
-                </p>
-              </div>
-              <div className="rounded-lg border p-4">
-                <p className="text-xs text-muted-foreground">Net income</p>
-                <p className="text-xl font-semibold text-green-600">
-                  {formatCurrency(
-                    (portfolio?.netOperatingIncome ?? 0) -
-                      (expenses?.total ?? 0),
-                    smartBaseCurrency
-                  )}
-                </p>
-                <p className="text-xs text-muted-foreground">After expenses</p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="font-semibold">Top expense categories</h4>
-                <Badge variant="outline">
-                  {expenses?.categories?.length ?? 0}
-                </Badge>
-              </div>
-              {expenses?.categories?.length ? (
-                <div className="space-y-2">
-                  {expenses.categories.map((category: any) => (
-                    <div
-                      key={category.category}
-                      className="flex items-center justify-between rounded-lg border p-3"
-                    >
-                      <div>
-                        <p className="font-medium">{category.label}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {category.count} expense
-                          {category.count === 1 ? "" : "s"}
-                        </p>
-                      </div>
-                      <p className="text-sm font-semibold">
-                        {formatCurrency(category.amount, smartBaseCurrency)}
-                      </p>
-                    </div>
-                  ))}
+              <div className="rounded-xl bg-gradient-to-br from-purple-50 to-violet-50 border border-purple-100 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-[#7C3AED]">Occupancy Rate</p>
+                  <div className="h-8 w-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                    <PieChart className="h-4 w-4 text-[#7C3AED]" />
+                  </div>
                 </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No expenses recorded for the selected filters.
+                <p className="text-2xl font-bold text-gray-900">
+                  {portfolio?.occupancyRate ? `${portfolio.occupancyRate.toFixed(1)}%` : "0%"}
                 </p>
-              )}
+                <p className="text-xs text-gray-500 mt-1">
+                  {portfolio?.occupiedUnits ?? 0} of {portfolio?.totalUnits ?? 0} units
+                </p>
+              </div>
+              <div className="rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-100 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-blue-600">Net Income</p>
+                  <div className="h-8 w-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                    <DollarSign className="h-4 w-4 text-blue-600" />
+                  </div>
+                </div>
+                <p className={`text-2xl font-bold ${netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {formatCurrency(netIncome, smartBaseCurrency)}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">After expenses</p>
+              </div>
             </div>
 
-            {revenueTrends?.length ? (
-              <div className="space-y-3">
+            {/* Expense Categories */}
+            <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+              <div className="bg-gradient-to-r from-red-50 to-rose-50 px-5 py-3 border-b border-red-100">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-semibold">Revenue trend</h4>
-                  <Badge variant="outline">
-                    Last {revenueTrends.length} months
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-lg bg-red-500/20 flex items-center justify-center">
+                      <PieChart className="h-4 w-4 text-red-600" />
+                    </div>
+                    <h4 className="font-semibold text-gray-900">Top Expense Categories</h4>
+                  </div>
+                  <Badge className="bg-red-100 text-red-700 border-red-200">
+                    {expenses?.categories?.length ?? 0} Categories
                   </Badge>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {revenueTrends.map((item: MonthlyRevenueData) => (
-                    <div
-                      key={item.month}
-                      className="flex items-center justify-between rounded-lg border p-3"
-                    >
-                      <div>
-                        <p className="text-sm font-medium">
-                          {formatMonthLabel(item.month)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Net{" "}
-                          {formatCurrency(
-                            item.netIncome || 0,
-                            smartBaseCurrency
-                          )}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-semibold text-green-600">
-                          {formatCurrency(item.revenue || 0, smartBaseCurrency)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Expenses{" "}
-                          {formatCurrency(
-                            item.expenses || 0,
-                            smartBaseCurrency
-                          )}
+              </div>
+              <div className="p-4">
+                {expenses?.categories?.length ? (
+                  <div className="space-y-3">
+                    {expenses.categories.map((category: any, index: number) => (
+                      <div
+                        key={category.category}
+                        className="flex items-center gap-4 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+                      >
+                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-red-400 to-rose-500 flex items-center justify-center text-white text-sm font-bold">
+                          {index + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900">{category.label}</p>
+                          <p className="text-xs text-gray-500">
+                            {category.count} expense{category.count === 1 ? "" : "s"}
+                          </p>
+                        </div>
+                        <p className="text-sm font-bold text-gray-900">
+                          {formatCurrency(category.amount, smartBaseCurrency)}
                         </p>
                       </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    No expenses recorded for the selected filters.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Revenue Trends */}
+            {revenueTrends?.length ? (
+              <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-5 py-3 border-b border-green-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                        <LineChart className="h-4 w-4 text-green-600" />
+                      </div>
+                      <h4 className="font-semibold text-gray-900">Revenue Trend</h4>
                     </div>
-                  ))}
+                    <Badge className="bg-green-100 text-green-700 border-green-200">
+                      Last {revenueTrends.length} months
+                    </Badge>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {revenueTrends.map((item: MonthlyRevenueData) => (
+                      <div
+                        key={item.month}
+                        className="flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200"
+                      >
+                        <div>
+                          <p className="font-semibold text-gray-900">{formatMonthLabel(item.month)}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Net {formatCurrency(item.netIncome || 0, smartBaseCurrency)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-green-600">
+                            {formatCurrency(item.revenue || 0, smartBaseCurrency)}
+                          </p>
+                          <p className="text-xs text-red-500 mt-1">
+                            -{formatCurrency(item.expenses || 0, smartBaseCurrency)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             ) : null}
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="font-semibold">Recent expenses</h4>
-                <Badge variant="outline">{recentExpenses?.length ?? 0}</Badge>
-              </div>
-              {recentExpenses?.length ? (
-                <div className="space-y-2">
-                  {recentExpenses.map((expense: Expense) => (
-                    <div
-                      key={expense.id}
-                      className="flex items-center justify-between rounded-lg border p-3"
-                    >
-                      <div>
-                        <p className="font-medium">{expense.description}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {expense.property?.name || "—"} •{" "}
-                          {formatCategoryLabel(expense.category)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-semibold">
-                          {formatCurrency(
-                            expense.amount,
-                            expense.currency || smartBaseCurrency
-                          )}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {expense.date
-                            ? new Date(expense.date).toLocaleDateString()
-                            : "—"}
-                        </p>
-                      </div>
+            {/* Recent Expenses */}
+            <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+              <div className="bg-gradient-to-r from-amber-50 to-yellow-50 px-5 py-3 border-b border-amber-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                      <Clock className="h-4 w-4 text-amber-600" />
                     </div>
-                  ))}
+                    <h4 className="font-semibold text-gray-900">Recent Expenses</h4>
+                  </div>
+                  <Badge className="bg-amber-100 text-amber-700 border-amber-200">
+                    {recentExpenses?.length ?? 0} Items
+                  </Badge>
                 </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No expense data available for this filter.
-                </p>
-              )}
+              </div>
+              <div className="p-4">
+                {recentExpenses?.length ? (
+                  <div className="space-y-3">
+                    {recentExpenses.map((expense: Expense) => (
+                      <div
+                        key={expense.id}
+                        className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                            <DollarSign className="h-5 w-5 text-amber-600" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">{expense.description}</p>
+                            <p className="text-xs text-gray-500">
+                              {expense.property?.name || "—"} • {formatCategoryLabel(expense.category)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-gray-900">
+                            {formatCurrency(expense.amount, expense.currency || smartBaseCurrency)}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {expense.date ? new Date(expense.date).toLocaleDateString() : "—"}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    No expense data available for this filter.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         );
       }
       case "occupancy": {
         const { summary, propertyBreakdown } = sectionData || {};
+        const occupancyRate = summary?.occupancyRate ?? 0;
         return (
           <div className="space-y-6">
+            {/* Occupancy Stats Grid */}
             <div className="grid gap-4 md:grid-cols-4">
-              <div className="rounded-lg border p-4">
-                <p className="text-xs text-muted-foreground">Total units</p>
-                <p className="text-xl font-semibold">
-                  {summary?.totalUnits ?? 0}
-                </p>
+              <div className="rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-blue-600">Total Units</p>
+                  <div className="h-8 w-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                    <Building2 className="h-4 w-4 text-blue-600" />
+                  </div>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{summary?.totalUnits ?? 0}</p>
+                <p className="text-xs text-gray-500 mt-1">Across all properties</p>
               </div>
-              <div className="rounded-lg border p-4">
-                <p className="text-xs text-muted-foreground">Occupied</p>
-                <p className="text-xl font-semibold text-green-600">
-                  {summary?.occupiedUnits ?? 0}
-                </p>
+              <div className="rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-green-600">Occupied</p>
+                  <div className="h-8 w-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                  </div>
+                </div>
+                <p className="text-2xl font-bold text-green-600">{summary?.occupiedUnits ?? 0}</p>
+                <p className="text-xs text-gray-500 mt-1">Active tenants</p>
               </div>
-              <div className="rounded-lg border p-4">
-                <p className="text-xs text-muted-foreground">Vacant</p>
-                <p className="text-xl font-semibold text-yellow-600">
-                  {summary?.vacantUnits ?? 0}
-                </p>
+              <div className="rounded-xl bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-100 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-amber-600">Vacant</p>
+                  <div className="h-8 w-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                    <Home className="h-4 w-4 text-amber-600" />
+                  </div>
+                </div>
+                <p className="text-2xl font-bold text-amber-600">{summary?.vacantUnits ?? 0}</p>
+                <p className="text-xs text-gray-500 mt-1">Available units</p>
               </div>
-              <div className="rounded-lg border p-4">
-                <p className="text-xs text-muted-foreground">Occupancy rate</p>
-                <p className="text-xl font-semibold">
-                  {summary?.occupancyRate
-                    ? `${summary.occupancyRate.toFixed(1)}%`
-                    : "0%"}
+              <div className="rounded-xl bg-gradient-to-br from-purple-50 to-violet-50 border border-purple-100 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-[#7C3AED]">Occupancy Rate</p>
+                  <div className="h-8 w-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                    <Percent className="h-4 w-4 text-[#7C3AED]" />
+                  </div>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">
+                  {occupancyRate ? `${occupancyRate.toFixed(1)}%` : "0%"}
                 </p>
+                <div className="mt-2">
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-[#7C3AED] to-purple-600 rounded-full transition-all"
+                      style={{ width: `${Math.min(occupancyRate, 100)}%` }}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
+            {/* Property Breakdown Table */}
             {propertyBreakdown?.length ? (
-              <div className="overflow-x-auto rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Property</TableHead>
-                      <TableHead>Total Units</TableHead>
-                      <TableHead>Occupied</TableHead>
-                      <TableHead>Vacant</TableHead>
-                      <TableHead>Occupancy</TableHead>
-                      <TableHead className="text-right">Revenue</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {propertyBreakdown.map((property: any) => (
-                      <TableRow key={property.id}>
-                        <TableCell className="font-medium">
-                          {property.name}
-                        </TableCell>
-                        <TableCell>{property.totalUnits}</TableCell>
-                        <TableCell>{property.occupiedUnits}</TableCell>
-                        <TableCell>{property.vacantUnits}</TableCell>
-                        <TableCell>
-                          {property.occupancyRate
-                            ? `${property.occupancyRate.toFixed(1)}%`
-                            : "0%"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(
-                            property.monthlyRevenue || 0,
-                            property.currency || smartBaseCurrency
-                          )}
-                        </TableCell>
+              <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+                <div className="bg-gradient-to-r from-purple-50 to-violet-50 px-5 py-3 border-b border-purple-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                        <BarChart3 className="h-4 w-4 text-[#7C3AED]" />
+                      </div>
+                      <h4 className="font-semibold text-gray-900">Property Breakdown</h4>
+                    </div>
+                    <Badge className="bg-purple-100 text-[#7C3AED] border-purple-200">
+                      {propertyBreakdown.length} Properties
+                    </Badge>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
+                        <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Property</TableHead>
+                        <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Units</TableHead>
+                        <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Occupied</TableHead>
+                        <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Vacant</TableHead>
+                        <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Occupancy</TableHead>
+                        <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Revenue</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {propertyBreakdown.map((property: any, index: number) => (
+                        <TableRow key={property.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} hover:bg-purple-50/50 transition-colors`}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-[#7C3AED] to-purple-600 flex items-center justify-center text-white text-sm font-bold">
+                                {property.name?.charAt(0) || 'P'}
+                              </div>
+                              <span className="font-medium text-gray-900">{property.name}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-medium text-gray-900">{property.totalUnits}</TableCell>
+                          <TableCell>
+                            <span className="text-green-600 font-medium">{property.occupiedUnits}</span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-amber-600 font-medium">{property.vacantUnits}</span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-gradient-to-r from-[#7C3AED] to-purple-600 rounded-full"
+                                  style={{ width: `${property.occupancyRate || 0}%` }}
+                                />
+                              </div>
+                              <span className="text-sm font-medium text-gray-900">
+                                {property.occupancyRate ? `${property.occupancyRate.toFixed(1)}%` : "0%"}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-bold text-green-600">
+                            {formatCurrency(property.monthlyRevenue || 0, property.currency || smartBaseCurrency)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                No occupancy data available for the selected filters.
-              </p>
+              <div className="rounded-xl border-2 border-dashed border-gray-200 p-8 text-center">
+                <div className="h-12 w-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                  <Building2 className="h-6 w-6 text-gray-400" />
+                </div>
+                <p className="text-gray-500 font-medium">No occupancy data available</p>
+                <p className="text-gray-400 text-sm mt-1">Try adjusting your filters</p>
+              </div>
             )}
           </div>
         );
@@ -2061,104 +2161,191 @@ export function PropertiesPage({
           sectionData || {};
         return (
           <div className="space-y-6">
+            {/* Maintenance Stats Grid */}
             <div className="grid gap-4 md:grid-cols-4">
-              <div className="rounded-lg border p-4">
-                <p className="text-xs text-muted-foreground">Active requests</p>
-                <p className="text-xl font-semibold">
-                  {summary?.totalRequests ?? 0}
-                </p>
+              <div className="rounded-xl bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-100 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-orange-600">Active Requests</p>
+                  <div className="h-8 w-8 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                    <Wrench className="h-4 w-4 text-orange-600" />
+                  </div>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{summary?.totalRequests ?? 0}</p>
+                <p className="text-xs text-gray-500 mt-1">Open work orders</p>
               </div>
-              <div className="rounded-lg border p-4">
-                <p className="text-xs text-muted-foreground">Completed</p>
-                <p className="text-xl font-semibold text-green-600">
-                  {summary?.completed ?? 0}
-                </p>
+              <div className="rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-green-600">Completed</p>
+                  <div className="h-8 w-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                  </div>
+                </div>
+                <p className="text-2xl font-bold text-green-600">{summary?.completed ?? 0}</p>
+                <p className="text-xs text-gray-500 mt-1">Resolved this period</p>
               </div>
-              <div className="rounded-lg border p-4">
-                <p className="text-xs text-muted-foreground">High priority</p>
-                <p className="text-xl font-semibold text-red-600">
-                  {summary?.highPriority ?? 0}
-                </p>
+              <div className="rounded-xl bg-gradient-to-br from-red-50 to-rose-50 border border-red-100 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-red-600">High Priority</p>
+                  <div className="h-8 w-8 rounded-lg bg-red-500/20 flex items-center justify-center">
+                    <AlertTriangle className="h-4 w-4 text-red-600" />
+                  </div>
+                </div>
+                <p className="text-2xl font-bold text-red-600">{summary?.highPriority ?? 0}</p>
+                <p className="text-xs text-gray-500 mt-1">Urgent attention needed</p>
               </div>
-              <div className="rounded-lg border p-4">
-                <p className="text-xs text-muted-foreground">Avg. cost</p>
-                <p className="text-xl font-semibold">
+              <div className="rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-100 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-blue-600">Avg. Cost</p>
+                  <div className="h-8 w-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                    <DollarSign className="h-4 w-4 text-blue-600" />
+                  </div>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">
                   {formatCurrency(summary?.averageCost ?? 0, smartBaseCurrency)}
                 </p>
+                <p className="text-xs text-gray-500 mt-1">Per work order</p>
               </div>
             </div>
 
+            {/* High Priority Queue */}
             {highPriorityRequests?.length ? (
-              <div className="space-y-3">
-                <h4 className="font-semibold">High-priority queue</h4>
-                <div className="space-y-2">
-                  {highPriorityRequests.map((request: any) => (
-                    <div key={request.id} className="rounded-lg border p-3">
-                      <div className="flex items-center justify-between">
-                        <p className="font-medium">{request.title}</p>
-                        <Badge variant="destructive">High</Badge>
+              <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+                <div className="bg-gradient-to-r from-red-50 to-rose-50 px-5 py-3 border-b border-red-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-lg bg-red-500/20 flex items-center justify-center">
+                        <AlertTriangle className="h-4 w-4 text-red-600" />
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {request.property?.name || "—"} •{" "}
-                        {request.category || "general"}
-                      </p>
+                      <h4 className="font-semibold text-gray-900">High-Priority Queue</h4>
+                    </div>
+                    <Badge className="bg-red-100 text-red-700 border-red-200">
+                      {highPriorityRequests.length} Urgent
+                    </Badge>
+                  </div>
+                </div>
+                <div className="p-4 space-y-3">
+                  {highPriorityRequests.map((request: any) => (
+                    <div key={request.id} className="flex items-center gap-4 p-3 rounded-xl bg-red-50/50 border border-red-100">
+                      <div className="h-10 w-10 rounded-lg bg-red-500 flex items-center justify-center">
+                        <AlertTriangle className="h-5 w-5 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900">{request.title}</p>
+                        <p className="text-xs text-gray-500">
+                          {request.property?.name || "—"} • {request.category || "general"}
+                        </p>
+                      </div>
+                      <Badge className="bg-red-100 text-red-700 border-red-200">High</Badge>
                     </div>
                   ))}
                 </div>
               </div>
             ) : null}
 
+            {/* Recent Activity & Upcoming Schedule */}
             <div className="grid gap-6 lg:grid-cols-2">
-              <div className="space-y-3">
-                <h4 className="font-semibold">Recent activity</h4>
-                {recentRequests?.length ? (
-                  <div className="space-y-2">
-                    {recentRequests.map((request: any) => (
-                      <div
-                        key={request.id}
-                        className="flex items-center justify-between rounded-lg border p-3"
-                      >
-                        <div>
-                          <p className="font-medium">{request.title}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {request.property?.name || "—"} •{" "}
-                            {request.status || "pending"}
-                          </p>
-                        </div>
-                        <Badge variant="outline">
-                          {request.priority || "medium"}
-                        </Badge>
+              {/* Recent Activity */}
+              <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-5 py-3 border-b border-blue-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                        <Activity className="h-4 w-4 text-blue-600" />
                       </div>
-                    ))}
+                      <h4 className="font-semibold text-gray-900">Recent Activity</h4>
+                    </div>
+                    <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                      {recentRequests?.length ?? 0}
+                    </Badge>
                   </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No maintenance activity recorded for this filter.
-                  </p>
-                )}
+                </div>
+                <div className="p-4">
+                  {recentRequests?.length ? (
+                    <div className="space-y-3">
+                      {recentRequests.map((request: any) => (
+                        <div
+                          key={request.id}
+                          className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="h-9 w-9 rounded-lg bg-blue-100 flex items-center justify-center">
+                              <Wrench className="h-4 w-4 text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{request.title}</p>
+                              <p className="text-xs text-gray-500">
+                                {request.property?.name || "—"} • {request.status || "pending"}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge className={
+                            request.priority === 'high'
+                              ? 'bg-red-100 text-red-700 border-red-200'
+                              : request.priority === 'medium'
+                              ? 'bg-amber-100 text-amber-700 border-amber-200'
+                              : 'bg-green-100 text-green-700 border-green-200'
+                          }>
+                            {request.priority || "medium"}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <div className="h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center mx-auto mb-2">
+                        <Activity className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <p className="text-sm text-gray-500">No maintenance activity recorded</p>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="space-y-3">
-                <h4 className="font-semibold">Upcoming schedule</h4>
-                {upcoming?.length ? (
-                  <div className="space-y-2">
-                    {upcoming.map((request: any) => (
-                      <div key={request.id} className="rounded-lg border p-3">
-                        <p className="font-medium">{request.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {request.property?.name || "—"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(request.scheduledDate).toLocaleString()}
-                        </p>
+              {/* Upcoming Schedule */}
+              <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-5 py-3 border-b border-green-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                        <Calendar className="h-4 w-4 text-green-600" />
                       </div>
-                    ))}
+                      <h4 className="font-semibold text-gray-900">Upcoming Schedule</h4>
+                    </div>
+                    <Badge className="bg-green-100 text-green-700 border-green-200">
+                      {upcoming?.length ?? 0}
+                    </Badge>
                   </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No upcoming visits scheduled.
-                  </p>
-                )}
+                </div>
+                <div className="p-4">
+                  {upcoming?.length ? (
+                    <div className="space-y-3">
+                      {upcoming.map((request: any) => (
+                        <div key={request.id} className="p-3 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100">
+                          <div className="flex items-center gap-3">
+                            <div className="h-9 w-9 rounded-lg bg-green-500 flex items-center justify-center">
+                              <Calendar className="h-4 w-4 text-white" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{request.title}</p>
+                              <p className="text-xs text-gray-500">{request.property?.name || "—"}</p>
+                            </div>
+                          </div>
+                          <div className="mt-2 flex items-center gap-2 text-xs text-green-600">
+                            <Clock className="h-3 w-3" />
+                            {new Date(request.scheduledDate).toLocaleString()}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <div className="h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center mx-auto mb-2">
+                        <Calendar className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <p className="text-sm text-gray-500">No upcoming visits scheduled</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -2181,67 +2368,135 @@ export function PropertiesPage({
 
         return (
           <div className="space-y-6">
+            {/* Tenant Stats Grid */}
             <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-lg border p-4">
-                <p className="text-xs text-muted-foreground">Active tenants</p>
-                <p className="text-xl font-semibold">{totalTenants ?? 0}</p>
+              <div className="rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-blue-600">Active Tenants</p>
+                  <div className="h-8 w-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                    <Users className="h-4 w-4 text-blue-600" />
+                  </div>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{totalTenants ?? 0}</p>
+                <p className="text-xs text-gray-500 mt-1">Currently leasing</p>
               </div>
-              <div className="rounded-lg border p-4">
-                <p className="text-xs text-muted-foreground">
-                  Expiring within 30 days
-                </p>
-                <p className="text-xl font-semibold text-yellow-600">
-                  {expiringSoon ?? 0}
-                </p>
+              <div className="rounded-xl bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-100 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-amber-600">Expiring Soon</p>
+                  <div className="h-8 w-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  </div>
+                </div>
+                <p className="text-2xl font-bold text-amber-600">{expiringSoon ?? 0}</p>
+                <p className="text-xs text-gray-500 mt-1">Within 30 days</p>
               </div>
-              <div className="rounded-lg border p-4">
-                <p className="text-xs text-muted-foreground">Vacant units</p>
-                <p className="text-xl font-semibold">{selectedVacantUnits}</p>
+              <div className="rounded-xl bg-gradient-to-br from-gray-50 to-slate-50 border border-gray-200 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-gray-600">Vacant Units</p>
+                  <div className="h-8 w-8 rounded-lg bg-gray-200 flex items-center justify-center">
+                    <Home className="h-4 w-4 text-gray-600" />
+                  </div>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{selectedVacantUnits}</p>
+                <p className="text-xs text-gray-500 mt-1">Available for lease</p>
               </div>
             </div>
 
+            {/* Tenant List */}
             {tenants?.length ? (
-              <div className="space-y-2">
-                {tenants.map((tenant: any) => {
-                  const propertyName =
-                    visibleProperties.find(
-                      (property) => property.id === tenant.propertyId
-                    )?.name || "—";
-                  return (
-                    <div
-                      key={`${tenant.unitId}-${tenant.tenantName}-${tenant.email}`}
-                      className="rounded-lg border p-3"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">{tenant.tenantName}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {propertyName} • Unit {tenant.unitNumber}
-                          </p>
-                        </div>
-                        <Badge variant="outline">
-                          {tenant.status || "occupied"}
-                        </Badge>
+              <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-5 py-3 border-b border-blue-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                        <Users className="h-4 w-4 text-blue-600" />
                       </div>
-                      <div className="mt-2 text-xs text-muted-foreground space-y-1">
-                        {tenant.email && <p>{tenant.email}</p>}
-                        {tenant.phone && <p>{tenant.phone}</p>}
-                        {tenant.leaseEnd && (
-                          <p>
-                            Lease ends{" "}
-                            {new Date(tenant.leaseEnd).toLocaleDateString()}
-                          </p>
-                        )}
-                      </div>
+                      <h4 className="font-semibold text-gray-900">Tenant Directory</h4>
                     </div>
-                  );
-                })}
+                    <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                      {tenants.length} Tenants
+                    </Badge>
+                  </div>
+                </div>
+                <div className="p-4 space-y-3">
+                  {tenants.map((tenant: any) => {
+                    const propertyName =
+                      visibleProperties.find(
+                        (property) => property.id === tenant.propertyId
+                      )?.name || "—";
+                    const isExpiringSoon = tenant.leaseEnd &&
+                      new Date(tenant.leaseEnd).getTime() - Date.now() < 30 * 24 * 60 * 60 * 1000;
+                    return (
+                      <div
+                        key={`${tenant.unitId}-${tenant.tenantName}-${tenant.email}`}
+                        className={`rounded-xl border p-4 hover:shadow-md transition-all ${
+                          isExpiringSoon
+                            ? 'bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-200'
+                            : 'bg-white border-gray-200 hover:border-blue-200'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className={`h-12 w-12 rounded-xl flex items-center justify-center text-white font-bold text-lg ${
+                              isExpiringSoon
+                                ? 'bg-gradient-to-br from-amber-500 to-yellow-500'
+                                : 'bg-gradient-to-br from-blue-500 to-indigo-600'
+                            }`}>
+                              {tenant.tenantName?.charAt(0)?.toUpperCase() || 'T'}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-900">{tenant.tenantName}</p>
+                              <p className="text-sm text-gray-500">
+                                {propertyName} • Unit {tenant.unitNumber}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge className={
+                            tenant.status === 'occupied'
+                              ? 'bg-green-100 text-green-700 border-green-200'
+                              : 'bg-gray-100 text-gray-700 border-gray-200'
+                          }>
+                            {tenant.status || "occupied"}
+                          </Badge>
+                        </div>
+                        <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          {tenant.email && (
+                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                              <Send className="h-3 w-3" />
+                              <span className="truncate">{tenant.email}</span>
+                            </div>
+                          )}
+                          {tenant.phone && (
+                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                              <Info className="h-3 w-3" />
+                              <span>{tenant.phone}</span>
+                            </div>
+                          )}
+                          {tenant.leaseEnd && (
+                            <div className={`flex items-center gap-2 text-sm ${
+                              isExpiringSoon ? 'text-amber-600 font-medium' : 'text-gray-500'
+                            }`}>
+                              <Calendar className="h-3 w-3" />
+                              <span>
+                                {isExpiringSoon && '⚠️ '}
+                                Ends {new Date(tenant.leaseEnd).toLocaleDateString()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                No tenant data available. Assign tenants to units to populate
-                this report.
-              </p>
+              <div className="rounded-xl border-2 border-dashed border-gray-200 p-8 text-center">
+                <div className="h-12 w-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                  <Users className="h-6 w-6 text-gray-400" />
+                </div>
+                <p className="text-gray-500 font-medium">No tenant data available</p>
+                <p className="text-gray-400 text-sm mt-1">Assign tenants to units to populate this report</p>
+              </div>
             )}
           </div>
         );
@@ -2257,26 +2512,56 @@ export function PropertiesPage({
     const propertyLabel = reportPreviewPropertyLabel || "All properties";
     const context = { propertyLabel, filters: reportPreview.filters };
 
+    const getReportTypeColors = (type: string) => {
+      switch (type) {
+        case 'financial':
+          return { bg: 'from-green-500 to-emerald-600', icon: DollarSign, badge: 'bg-green-100 text-green-700 border-green-200' };
+        case 'occupancy':
+          return { bg: 'from-[#7C3AED] to-purple-600', icon: PieChart, badge: 'bg-purple-100 text-[#7C3AED] border-purple-200' };
+        case 'maintenance':
+          return { bg: 'from-orange-500 to-amber-600', icon: Wrench, badge: 'bg-orange-100 text-orange-700 border-orange-200' };
+        case 'tenant':
+          return { bg: 'from-blue-500 to-indigo-600', icon: Users, badge: 'bg-blue-100 text-blue-700 border-blue-200' };
+        default:
+          return { bg: 'from-gray-500 to-gray-600', icon: FileText, badge: 'bg-gray-100 text-gray-700 border-gray-200' };
+      }
+    };
+
     if (reportPreview.type === "all") {
       return (
-        <div className="space-y-10">
+        <div className="space-y-8">
           {ALL_REPORT_TYPES.map((type) => {
             const sectionData = reportPreview.data?.[type];
             if (!sectionData) return null;
+            const colors = getReportTypeColors(type);
+            const IconComponent = colors.icon;
             return (
-              <div key={type} className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-lg font-semibold">
-                      {REPORT_TYPE_LABELS[type]} Report
-                    </h4>
-                    <p className="text-sm text-muted-foreground">
-                      Snapshot for {propertyLabel}
-                    </p>
+              <div key={type} className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
+                {/* Section Header */}
+                <div className={`bg-gradient-to-r ${colors.bg} px-6 py-4`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                        <IconComponent className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-bold text-white">
+                          {REPORT_TYPE_LABELS[type]} Report
+                        </h4>
+                        <p className="text-sm text-white/80">
+                          Snapshot for {propertyLabel}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge className={colors.badge}>
+                      {REPORT_TYPE_LABELS[type]}
+                    </Badge>
                   </div>
-                  <Badge variant="outline">{REPORT_TYPE_LABELS[type]}</Badge>
                 </div>
-                {renderReportSection(type, sectionData, context)}
+                {/* Section Content */}
+                <div className="p-6 bg-gray-50/50">
+                  {renderReportSection(type, sectionData, context)}
+                </div>
               </div>
             );
           })}
@@ -2718,195 +3003,316 @@ export function PropertiesPage({
             </TabsList>
 
             <TabsContent value="overview" className="space-y-6">
-              {/* Portfolio Metrics - Brand Styled */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
-                  <div className="h-1 bg-gradient-to-r from-[#7C3AED] to-[#A855F7]"></div>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-600">
-                      Total Properties
-                    </CardTitle>
-                    <div className="p-2 bg-[#7C3AED]/10 rounded-lg">
-                      <Building2 className="h-4 w-4 text-[#7C3AED]" />
+              {/* Portfolio Overview Header Card */}
+              <Card className="border-0 shadow-xl overflow-hidden">
+                <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] px-6 py-6">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    <div>
+                      <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                          <BarChart3 className="h-5 w-5 text-white" />
+                        </div>
+                        Portfolio Overview
+                      </h2>
+                      <p className="text-purple-200 text-sm mt-2">
+                        Real-time insights across all your properties
+                      </p>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-gray-900">
-                      {portfolioMetrics.totalProperties}
-                    </div>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {portfolioMetrics.totalUnits} total units
-                    </p>
-                  </CardContent>
-                </Card>
 
-                <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
-                  <div className="h-1 bg-gradient-to-r from-[#10B981] to-[#34D399]"></div>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-600">
-                      Occupancy Rate
-                    </CardTitle>
-                    <div className="p-2 bg-[#10B981]/10 rounded-lg">
-                      <Users className="h-4 w-4 text-[#10B981]" />
+                    {/* Key Stats in Header */}
+                    <div className="flex items-center gap-4 flex-wrap">
+                      <div className="bg-white/15 backdrop-blur-sm rounded-2xl px-5 py-3 min-w-[140px]">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center">
+                            <Building2 className="h-5 w-5 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-3xl font-bold text-white">{portfolioMetrics.totalProperties}</p>
+                            <p className="text-xs text-purple-200">Properties</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-white/15 backdrop-blur-sm rounded-2xl px-5 py-3 min-w-[140px]">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-xl bg-[#10B981]/30 flex items-center justify-center">
+                            <TrendingUp className="h-5 w-5 text-[#34D399]" />
+                          </div>
+                          <div>
+                            <p className="text-3xl font-bold text-white">{portfolioMetrics.avgOccupancy.toFixed(0)}%</p>
+                            <p className="text-xs text-purple-200">Occupancy</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-white/15 backdrop-blur-sm rounded-2xl px-5 py-3 min-w-[140px]">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-xl bg-[#3B82F6]/30 flex items-center justify-center">
+                            <Home className="h-5 w-5 text-[#60A5FA]" />
+                          </div>
+                          <div>
+                            <p className="text-3xl font-bold text-white">{portfolioMetrics.totalUnits}</p>
+                            <p className="text-xs text-purple-200">Total Units</p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-gray-900">
-                      {portfolioMetrics.avgOccupancy.toFixed(1)}%
-                    </div>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {portfolioMetrics.occupiedUnits}/
-                      {portfolioMetrics.totalUnits} units occupied
-                    </p>
-                  </CardContent>
-                </Card>
+                  </div>
 
-                <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
-                  <div className="h-1 bg-gradient-to-r from-[#3B82F6] to-[#60A5FA]"></div>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-600">
-                      Monthly Revenue
-                    </CardTitle>
-                    <div className="p-2 bg-[#3B82F6]/10 rounded-lg">
-                      <DollarSign className="h-4 w-4 text-[#3B82F6]" />
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-gray-900">
-                      {formatCurrency(
-                        Number(portfolioMetrics.totalRevenue) || 0,
-                        smartBaseCurrency
-                      )}
-                    </div>
-                    <p className="text-sm mt-1">
-                      {properties.length > 1 &&
-                        properties.some(
-                          (p) => p.currency !== smartBaseCurrency
-                        ) && (
-                          <span className="text-orange-600 mr-2">
-                            Multi-currency ·{" "}
-                          </span>
-                        )}
-                      <span className="text-[#10B981]">
-                        +8.2% from last month
+                  {/* Occupancy Progress Bar */}
+                  <div className="mt-6 bg-white/10 backdrop-blur-sm rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-purple-100">Portfolio Occupancy</span>
+                      <span className="text-sm font-bold text-white">
+                        {portfolioMetrics.occupiedUnits}/{portfolioMetrics.totalUnits} units
                       </span>
-                    </p>
+                    </div>
+                    <div className="h-3 bg-white/20 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-[#34D399] to-[#10B981] rounded-full transition-all duration-500"
+                        style={{ width: `${portfolioMetrics.avgOccupancy}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between mt-2 text-xs text-purple-200">
+                      <span className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-[#34D399]"></span>
+                        Occupied: {portfolioMetrics.occupiedUnits}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-[#FBBF24]"></span>
+                        Vacant: {portfolioMetrics.vacantUnits}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-[#F87171]"></span>
+                        Maintenance: {portfolioMetrics.maintenanceRequests}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Revenue & Stats Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                {/* Monthly Revenue Card */}
+                <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
+                  <div className="h-1.5 bg-gradient-to-r from-[#10B981] to-[#34D399]"></div>
+                  <CardContent className="pt-5">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Monthly Revenue</p>
+                        <p className="text-2xl font-bold text-gray-900 mt-1">
+                          {formatCurrency(Number(portfolioMetrics.totalRevenue) || 0, smartBaseCurrency)}
+                        </p>
+                        <div className="flex items-center gap-1 mt-2">
+                          <div className="flex items-center gap-1 px-2 py-0.5 bg-green-100 rounded-full">
+                            <TrendingUp className="h-3 w-3 text-green-600" />
+                            <span className="text-xs font-medium text-green-700">+8.2%</span>
+                          </div>
+                          <span className="text-xs text-gray-400">vs last month</span>
+                        </div>
+                      </div>
+                      <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[#10B981]/20 to-[#34D399]/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <DollarSign className="h-6 w-6 text-[#10B981]" />
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
 
-                <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
-                  <div className="h-1 bg-gradient-to-r from-[#F59E0B] to-[#FBBF24]"></div>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-600">
-                      Maintenance Requests
-                    </CardTitle>
-                    <div className="p-2 bg-[#F59E0B]/10 rounded-lg">
-                      <Wrench className="h-4 w-4 text-[#F59E0B]" />
+                {/* Occupied Units Card */}
+                <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
+                  <div className="h-1.5 bg-gradient-to-r from-[#3B82F6] to-[#60A5FA]"></div>
+                  <CardContent className="pt-5">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Occupied Units</p>
+                        <p className="text-2xl font-bold text-gray-900 mt-1">
+                          {portfolioMetrics.occupiedUnits}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-2">
+                          of {portfolioMetrics.totalUnits} total units
+                        </p>
+                      </div>
+                      <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[#3B82F6]/20 to-[#60A5FA]/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Users className="h-6 w-6 text-[#3B82F6]" />
+                      </div>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-gray-900">
-                      {portfolioMetrics.maintenanceRequests}
+                  </CardContent>
+                </Card>
+
+                {/* Vacant Units Card */}
+                <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
+                  <div className="h-1.5 bg-gradient-to-r from-[#F59E0B] to-[#FBBF24]"></div>
+                  <CardContent className="pt-5">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Vacant Units</p>
+                        <p className="text-2xl font-bold text-gray-900 mt-1">
+                          {portfolioMetrics.vacantUnits}
+                        </p>
+                        <p className="text-xs text-amber-600 mt-2 font-medium">
+                          Available for rent
+                        </p>
+                      </div>
+                      <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[#F59E0B]/20 to-[#FBBF24]/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Home className="h-6 w-6 text-[#F59E0B]" />
+                      </div>
                     </div>
-                    <p className="text-sm text-gray-500 mt-1">
-                      1 high priority
-                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Maintenance Card */}
+                <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
+                  <div className="h-1.5 bg-gradient-to-r from-[#EF4444] to-[#F87171]"></div>
+                  <CardContent className="pt-5">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Maintenance</p>
+                        <p className="text-2xl font-bold text-gray-900 mt-1">
+                          {portfolioMetrics.maintenanceRequests}
+                        </p>
+                        <p className="text-xs text-red-600 mt-2 font-medium">
+                          {portfolioMetrics.maintenanceRequests > 0 ? '1 high priority' : 'All clear'}
+                        </p>
+                      </div>
+                      <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[#EF4444]/20 to-[#F87171]/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Wrench className="h-6 w-6 text-[#EF4444]" />
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
 
-              {/* Property Performance Summary - Brand Styled */}
+              {/* Property Performance & Recent Activity */}
               <div className="grid lg:grid-cols-2 gap-6">
-                <Card className="border-0 shadow-lg">
-                  <CardHeader>
-                    <CardTitle className="text-xl font-bold">
-                      Property Performance
-                    </CardTitle>
-                    <CardDescription>
-                      Revenue and occupancy by property
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {visibleProperties.map((property) => (
-                        <div
-                          key={property.id}
-                          className="flex items-center justify-between p-4 border border-gray-100 rounded-xl hover:border-[#7C3AED]/30 hover:shadow-md transition-all duration-200"
-                        >
-                          <div className="flex items-center space-x-3">
-                            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#7C3AED]/10 to-[#A855F7]/10 flex items-center justify-center">
-                              <Building2 className="h-5 w-5 text-[#7C3AED]" />
-                            </div>
-                            <div>
-                              <h4 className="font-semibold text-gray-900">
-                                {property.name}
-                              </h4>
-                              <p className="text-sm text-gray-600">
-                                {property.occupiedUnits ?? 0}/
-                                {property._count?.units ?? 0} units
-                              </p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-medium">
-                              {formatCurrency(
-                                Number(property.totalMonthlyIncome) || 0,
-                                property.currency || "NGN"
-                              )}
-                            </p>
-                            <p className="text-sm text-gray-600">
-                              {(property._count?.units ?? 0) > 0
-                                ? (
-                                    ((property.occupiedUnits ?? 0) /
-                                      (property._count?.units ?? 1)) *
-                                    100
-                                  ).toFixed(1)
-                                : "0.0"}
-                              % occupied
-                            </p>
-                          </div>
+                {/* Property Performance Card */}
+                <Card className="border-0 shadow-xl overflow-hidden">
+                  <div className="bg-gradient-to-r from-purple-50 to-violet-50 px-6 py-4 border-b border-purple-100">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-[#7C3AED]/20 flex items-center justify-center">
+                          <BarChart3 className="h-5 w-5 text-[#7C3AED]" />
                         </div>
-                      ))}
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-900">Property Performance</h3>
+                          <p className="text-xs text-gray-500">Revenue and occupancy by property</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <CardContent className="p-5">
+                    <div className="space-y-3">
+                      {visibleProperties.length === 0 ? (
+                        <div className="text-center py-8">
+                          <div className="mx-auto w-14 h-14 bg-purple-100 rounded-2xl flex items-center justify-center mb-3">
+                            <Building2 className="h-7 w-7 text-[#7C3AED]" />
+                          </div>
+                          <p className="text-sm text-gray-500">No properties yet</p>
+                          <Button
+                            onClick={onNavigateToAddProperty}
+                            className="mt-3 bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white"
+                            size="sm"
+                          >
+                            <Plus className="h-4 w-4 mr-1" /> Add Property
+                          </Button>
+                        </div>
+                      ) : (
+                        visibleProperties.map((property, idx) => {
+                          const occupancyRate = (property._count?.units ?? 0) > 0
+                            ? ((property.occupiedUnits ?? 0) / (property._count?.units ?? 1)) * 100
+                            : 0;
+                          return (
+                            <div
+                              key={property.id}
+                              className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors group cursor-pointer"
+                            >
+                              <div className="flex items-center gap-4">
+                                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-[#7C3AED] to-[#A855F7] flex items-center justify-center text-white font-bold text-lg">
+                                  {idx + 1}
+                                </div>
+                                <div>
+                                  <h4 className="font-semibold text-gray-900 group-hover:text-[#7C3AED] transition-colors">
+                                    {property.name}
+                                  </h4>
+                                  <div className="flex items-center gap-3 mt-1">
+                                    <span className="text-xs text-gray-500">
+                                      {property.occupiedUnits ?? 0}/{property._count?.units ?? 0} units
+                                    </span>
+                                    <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full bg-gradient-to-r from-[#10B981] to-[#34D399] rounded-full"
+                                        style={{ width: `${occupancyRate}%` }}
+                                      />
+                                    </div>
+                                    <span className="text-xs font-medium text-gray-600">{occupancyRate.toFixed(0)}%</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-bold text-[#10B981]">
+                                  {formatCurrency(Number(property.totalMonthlyIncome) || 0, property.currency || "NGN")}
+                                </p>
+                                <p className="text-xs text-gray-500">monthly</p>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="border-0 shadow-lg">
-                  <CardHeader>
-                    <CardTitle className="text-xl font-bold">
-                      Recent Activity
-                    </CardTitle>
-                    <CardDescription>
-                      Latest updates across all properties
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
+                {/* Recent Activity Card */}
+                <Card className="border-0 shadow-xl overflow-hidden">
+                  <div className="bg-gradient-to-r from-blue-50 to-cyan-50 px-6 py-4 border-b border-blue-100">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                          <Activity className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-900">Recent Activity</h3>
+                          <p className="text-xs text-gray-500">Latest updates across all properties</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <CardContent className="p-5">
+                    <div className="space-y-3 max-h-[320px] overflow-y-auto">
                       {recentActivity.length === 0 ? (
                         <div className="text-center py-8">
-                          <div className="mx-auto w-12 h-12 bg-[#7C3AED]/10 rounded-full flex items-center justify-center mb-3">
-                            <Clock className="h-6 w-6 text-[#7C3AED]" />
+                          <div className="mx-auto w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center mb-3">
+                            <Clock className="h-7 w-7 text-blue-600" />
                           </div>
-                          <p className="text-sm text-gray-500">
-                            No recent activity
-                          </p>
+                          <p className="text-sm font-medium text-gray-900">No recent activity</p>
+                          <p className="text-xs text-gray-500 mt-1">Activity will appear here as you manage properties</p>
                         </div>
                       ) : (
                         recentActivity.map((log: any) => (
                           <div
                             key={log.id}
-                            className="flex items-start space-x-3 p-4 border border-gray-100 rounded-xl bg-gray-50/50 hover:bg-gray-50 transition-colors"
+                            className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
                           >
-                            <div className="p-2 bg-[#7C3AED]/10 rounded-lg">
-                              <Activity className="h-4 w-4 text-[#7C3AED]" />
+                            <div className={`h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                              log.action === 'created' ? 'bg-green-100' :
+                              log.action === 'updated' ? 'bg-blue-100' :
+                              log.action === 'deleted' ? 'bg-red-100' : 'bg-purple-100'
+                            }`}>
+                              <Activity className={`h-4 w-4 ${
+                                log.action === 'created' ? 'text-green-600' :
+                                log.action === 'updated' ? 'text-blue-600' :
+                                log.action === 'deleted' ? 'text-red-600' : 'text-purple-600'
+                              }`} />
                             </div>
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-900">
-                                [{log.entity}] {log.action}: {log.description}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {log.description}
                               </p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {new Date(log.createdAt).toLocaleString()}
-                              </p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge variant="outline" className="text-[10px] px-2 py-0">
+                                  {log.entity}
+                                </Badge>
+                                <span className="text-xs text-gray-400">
+                                  {new Date(log.createdAt).toLocaleDateString()}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         ))
@@ -2916,31 +3322,33 @@ export function PropertiesPage({
                 </Card>
               </div>
 
-              {/* Quick Actions - Brand Styled */}
-              <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-xl font-bold">
-                    Quick Actions
-                  </CardTitle>
-                  <CardDescription>
-                    Common property management tasks
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
+              {/* Quick Actions */}
+              <Card className="border-0 shadow-xl overflow-hidden">
+                <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-gray-200 flex items-center justify-center">
+                      <Zap className="h-5 w-5 text-gray-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">Quick Actions</h3>
+                      <p className="text-xs text-gray-500">Common property management tasks</p>
+                    </div>
+                  </div>
+                </div>
+                <CardContent className="p-6">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <button
                       onClick={onNavigateToAddProperty}
-                      className="group h-24 flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#7C3AED]/30 bg-[#7C3AED]/5 hover:border-[#7C3AED] hover:bg-[#7C3AED]/10 transition-all duration-200"
+                      className="group relative h-28 flex flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-[#7C3AED] to-[#5B21B6] text-white shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/30 hover:scale-[1.02] transition-all duration-200"
                     >
-                      <div className="p-2 bg-[#7C3AED]/10 rounded-lg group-hover:bg-[#7C3AED]/20 transition-colors">
-                        <Plus className="h-6 w-6 text-[#7C3AED]" />
+                      <div className="absolute inset-0 rounded-2xl bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <div className="h-12 w-12 rounded-xl bg-white/20 flex items-center justify-center mb-2">
+                        <Plus className="h-6 w-6" />
                       </div>
-                      <span className="mt-2 text-sm font-medium text-gray-700">
-                        Add Property
-                      </span>
+                      <span className="text-sm font-semibold">Add Property</span>
                     </button>
+
                     <button
-                      className="group h-24 flex flex-col items-center justify-center rounded-xl border border-gray-200 hover:border-[#7C3AED] hover:shadow-md transition-all duration-200"
                       onClick={() => {
                         if (onNavigateToTenants) {
                           onNavigateToTenants();
@@ -2948,43 +3356,38 @@ export function PropertiesPage({
                           toast.info("Tenant management feature coming soon!");
                         }
                       }}
+                      className="group h-28 flex flex-col items-center justify-center rounded-2xl border-2 border-gray-200 bg-white hover:border-[#7C3AED] hover:shadow-lg transition-all duration-200"
                     >
-                      <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-[#7C3AED]/10 transition-colors">
-                        <Users className="h-6 w-6 text-gray-600 group-hover:text-[#7C3AED]" />
+                      <div className="h-12 w-12 rounded-xl bg-gray-100 group-hover:bg-[#7C3AED]/10 flex items-center justify-center mb-2 transition-colors">
+                        <Users className="h-6 w-6 text-gray-500 group-hover:text-[#7C3AED] transition-colors" />
                       </div>
-                      <span className="mt-2 text-sm font-medium text-gray-700">
-                        Manage Tenants
-                      </span>
+                      <span className="text-sm font-semibold text-gray-700 group-hover:text-[#7C3AED] transition-colors">Manage Tenants</span>
                     </button>
+
                     <button
-                      className="group h-24 flex flex-col items-center justify-center rounded-xl border border-gray-200 hover:border-[#7C3AED] hover:shadow-md transition-all duration-200"
                       onClick={() => {
                         if (onNavigateToMaintenance) {
                           onNavigateToMaintenance();
                         } else {
-                          toast.info(
-                            "Maintenance scheduling feature coming soon!"
-                          );
+                          toast.info("Maintenance scheduling feature coming soon!");
                         }
                       }}
+                      className="group h-28 flex flex-col items-center justify-center rounded-2xl border-2 border-gray-200 bg-white hover:border-[#F59E0B] hover:shadow-lg transition-all duration-200"
                     >
-                      <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-[#7C3AED]/10 transition-colors">
-                        <Wrench className="h-6 w-6 text-gray-600 group-hover:text-[#7C3AED]" />
+                      <div className="h-12 w-12 rounded-xl bg-gray-100 group-hover:bg-[#F59E0B]/10 flex items-center justify-center mb-2 transition-colors">
+                        <Wrench className="h-6 w-6 text-gray-500 group-hover:text-[#F59E0B] transition-colors" />
                       </div>
-                      <span className="mt-2 text-sm font-medium text-gray-700">
-                        Schedule Maintenance
-                      </span>
+                      <span className="text-sm font-semibold text-gray-700 group-hover:text-[#F59E0B] transition-colors">Maintenance</span>
                     </button>
+
                     <button
-                      className="group h-24 flex flex-col items-center justify-center rounded-xl border border-gray-200 hover:border-[#7C3AED] hover:shadow-md transition-all duration-200"
                       onClick={() => setActiveTab("reports")}
+                      className="group h-28 flex flex-col items-center justify-center rounded-2xl border-2 border-gray-200 bg-white hover:border-[#3B82F6] hover:shadow-lg transition-all duration-200"
                     >
-                      <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-[#7C3AED]/10 transition-colors">
-                        <FileText className="h-6 w-6 text-gray-600 group-hover:text-[#7C3AED]" />
+                      <div className="h-12 w-12 rounded-xl bg-gray-100 group-hover:bg-[#3B82F6]/10 flex items-center justify-center mb-2 transition-colors">
+                        <FileText className="h-6 w-6 text-gray-500 group-hover:text-[#3B82F6] transition-colors" />
                       </div>
-                      <span className="mt-2 text-sm font-medium text-gray-700">
-                        Generate Report
-                      </span>
+                      <span className="text-sm font-semibold text-gray-700 group-hover:text-[#3B82F6] transition-colors">Reports</span>
                     </button>
                   </div>
                 </CardContent>
@@ -2992,71 +3395,216 @@ export function PropertiesPage({
             </TabsContent>
 
             <TabsContent value="properties" className="space-y-6">
-              {/* Search and Filters - Brand Styled */}
-              <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-xl font-bold">
-                    Property Search & Filters
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-col md:flex-row gap-4 items-center">
-                    <div className="flex-1">
-                      <Input
-                        placeholder="Search properties..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full bg-gray-50 border-gray-200 focus:bg-white focus:border-[#7C3AED] focus:ring-[#7C3AED]"
-                      />
+              {/* Properties Management Header */}
+              <Card className="border-0 shadow-xl overflow-hidden">
+                {/* Gradient Header */}
+                <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] px-6 py-6">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    <div>
+                      <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                          <Building2 className="h-5 w-5 text-white" />
+                        </div>
+                        Property Management
+                      </h2>
+                      <p className="text-purple-200 text-sm mt-2">
+                        Manage all your properties in one place
+                      </p>
                     </div>
 
-                    <Select
-                      value={statusFilter}
-                      onValueChange={setStatusFilter}
-                    >
-                      <SelectTrigger className="w-full md:w-40 bg-gray-50 border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
-                        <SelectValue placeholder="All Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Status</SelectItem>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="maintenance">Maintenance</SelectItem>
-                        <SelectItem value="vacant">Vacant</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {/* Stats in Header */}
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <div className="bg-white/15 backdrop-blur-sm rounded-2xl px-5 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center">
+                            <Building2 className="h-5 w-5 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-2xl font-bold text-white">{properties.length}</p>
+                            <p className="text-xs text-purple-200">Properties</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-white/15 backdrop-blur-sm rounded-2xl px-5 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-xl bg-[#10B981]/30 flex items-center justify-center">
+                            <CheckCircle className="h-5 w-5 text-[#34D399]" />
+                          </div>
+                          <div>
+                            <p className="text-2xl font-bold text-white">{properties.filter(p => p.status === 'active').length}</p>
+                            <p className="text-xs text-purple-200">Active</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-white/15 backdrop-blur-sm rounded-2xl px-5 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-xl bg-[#3B82F6]/30 flex items-center justify-center">
+                            <DollarSign className="h-5 w-5 text-[#60A5FA]" />
+                          </div>
+                          <div>
+                            <p className="text-lg font-bold text-white">{formatCurrency(Number(portfolioMetrics.totalRevenue) || 0, smartBaseCurrency)}</p>
+                            <p className="text-xs text-purple-200">Monthly Revenue</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
 
-                    <div className="flex items-center space-x-2 bg-gray-100 p-1 rounded-lg">
-                      <Button
-                        variant={viewMode === "grid" ? "default" : "ghost"}
-                        size="sm"
-                        onClick={() => setViewMode("grid")}
-                        className={
-                          viewMode === "grid"
-                            ? "bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-md"
-                            : "text-gray-600 hover:text-gray-900"
-                        }
-                      >
-                        Grid
-                      </Button>
-                      <Button
-                        variant={viewMode === "list" ? "default" : "ghost"}
-                        size="sm"
-                        onClick={() => setViewMode("list")}
-                        className={
-                          viewMode === "list"
-                            ? "bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-md"
-                            : "text-gray-600 hover:text-gray-900"
-                        }
-                      >
-                        List
-                      </Button>
+                    <Button
+                      onClick={onNavigateToAddProperty}
+                      className="bg-white text-[#7C3AED] hover:bg-purple-50 shadow-lg font-semibold whitespace-nowrap"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Property
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Search & Filters */}
+                <CardContent className="p-6">
+                  <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full lg:w-auto">
+                      <div className="relative w-full sm:w-72">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          placeholder="Search properties..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="pl-10 bg-white border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED] rounded-xl h-11"
+                        />
+                        {searchTerm && (
+                          <button
+                            onClick={() => setSearchTerm("")}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="w-full sm:w-40 bg-white border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED] rounded-xl h-11">
+                          <SelectValue placeholder="All Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Status</SelectItem>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="maintenance">Maintenance</SelectItem>
+                          <SelectItem value="vacant">Vacant</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      {/* Results count */}
+                      <span className="text-sm text-gray-500">
+                        {filteredProperties.length} {filteredProperties.length === 1 ? 'property' : 'properties'}
+                      </span>
+
+                      {/* View Toggle */}
+                      <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-xl">
+                        <button
+                          onClick={() => setViewMode("grid")}
+                          className={`p-2.5 rounded-lg transition-all ${
+                            viewMode === "grid"
+                              ? "bg-white text-[#7C3AED] shadow-sm"
+                              : "text-gray-500 hover:text-[#7C3AED]"
+                          }`}
+                          title="Grid View"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => setViewMode("list")}
+                          className={`p-2.5 rounded-lg transition-all ${
+                            viewMode === "list"
+                              ? "bg-white text-[#7C3AED] shadow-sm"
+                              : "text-gray-500 hover:text-[#7C3AED]"
+                          }`}
+                          title="List View"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                   </div>
+
+                  {/* Active filters */}
+                  {(searchTerm || statusFilter !== "all") && (
+                    <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-100">
+                      <span className="text-xs font-medium text-gray-500">Filters:</span>
+                      {searchTerm && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-100 text-purple-700 rounded-lg text-xs font-medium">
+                          <Search className="h-3 w-3" />
+                          "{searchTerm}"
+                          <button onClick={() => setSearchTerm("")} className="hover:text-purple-900">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      )}
+                      {statusFilter !== "all" && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-medium">
+                          Status: {statusFilter}
+                          <button onClick={() => setStatusFilter("all")} className="hover:text-blue-900">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      )}
+                      <button
+                        onClick={() => { setSearchTerm(""); setStatusFilter("all"); }}
+                        className="text-xs text-gray-500 hover:text-[#7C3AED] ml-2"
+                      >
+                        Clear all
+                      </button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
-              {/* Properties Grid/List View - Brand Styled */}
-              {viewMode === "grid" ? (
+              {/* Properties Grid/List View */}
+              {filteredProperties.length === 0 ? (
+                <Card className="border-0 shadow-lg">
+                  <CardContent className="py-16">
+                    <div className="text-center">
+                      <div className="h-16 w-16 rounded-2xl bg-purple-100 flex items-center justify-center mx-auto mb-4">
+                        <Building2 className="h-8 w-8 text-purple-600" />
+                      </div>
+                      {properties.length === 0 ? (
+                        <>
+                          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Properties Yet</h3>
+                          <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                            Start building your portfolio by adding your first property.
+                          </p>
+                          <Button
+                            onClick={onNavigateToAddProperty}
+                            className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg"
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Your First Property
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Properties Found</h3>
+                          <p className="text-gray-500 mb-4 max-w-md mx-auto">
+                            No properties match your current filters. Try adjusting your search.
+                          </p>
+                          <Button
+                            variant="outline"
+                            onClick={() => { setSearchTerm(""); setStatusFilter("all"); }}
+                            className="border-gray-300 hover:border-[#7C3AED] hover:text-[#7C3AED]"
+                          >
+                            <X className="h-4 w-4 mr-2" />
+                            Clear Filters
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : viewMode === "grid" ? (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredProperties.map((property) => (
                     <Card
@@ -3289,29 +3837,29 @@ export function PropertiesPage({
                   <CardContent className="p-0">
                     <Table>
                       <TableHeader>
-                        <TableRow className="bg-[#111827] hover:bg-[#111827]">
-                          <TableHead className="text-white font-semibold">
+                        <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             Property
                           </TableHead>
-                          <TableHead className="text-white font-semibold">
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             Location
                           </TableHead>
-                          <TableHead className="text-white font-semibold">
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             Units
                           </TableHead>
-                          <TableHead className="text-white font-semibold">
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             Occupancy
                           </TableHead>
-                          <TableHead className="text-white font-semibold">
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             Revenue
                           </TableHead>
-                          <TableHead className="text-white font-semibold">
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             Manager
                           </TableHead>
-                          <TableHead className="text-white font-semibold">
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             Status
                           </TableHead>
-                          <TableHead className="text-white font-semibold">
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             Actions
                           </TableHead>
                         </TableRow>
@@ -3514,633 +4062,983 @@ export function PropertiesPage({
 
             {/* Other tabs with full implementation */}
             <TabsContent value="units" className="space-y-6">
-              {/* Units Overview - Brand Styled */}
-              <div className="grid md:grid-cols-4 gap-6">
-                <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
-                  <div className="h-1 bg-gradient-to-r from-[#7C3AED] to-[#A855F7]"></div>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-600">
-                      Total Units
-                    </CardTitle>
-                    <div className="p-2 bg-[#7C3AED]/10 rounded-lg">
-                      <Home className="h-4 w-4 text-[#7C3AED]" />
+              {/* Units Management - Unified Design */}
+              <Card className="border-0 shadow-xl overflow-hidden">
+                {/* Gradient Header with Stats */}
+                <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] px-6 py-6">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    <div>
+                      <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                        <Home className="h-5 w-5" />
+                        Unit Management
+                      </h2>
+                      <p className="text-purple-200 text-sm mt-1">
+                        Manage and monitor all units across your properties
+                      </p>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-gray-900">
-                      {portfolioMetrics.totalUnits}
-                    </div>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Across all properties
-                    </p>
-                  </CardContent>
-                </Card>
 
-                <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
-                  <div className="h-1 bg-gradient-to-r from-[#10B981] to-[#34D399]"></div>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-600">
-                      Occupied
-                    </CardTitle>
-                    <div className="p-2 bg-[#10B981]/10 rounded-lg">
-                      <Users className="h-4 w-4 text-[#10B981]" />
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-[#10B981]">
-                      {portfolioMetrics.occupiedUnits}
-                    </div>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {(
-                        (portfolioMetrics.occupiedUnits /
-                          portfolioMetrics.totalUnits) *
-                        100
-                      ).toFixed(1)}
-                      % occupied
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
-                  <div className="h-1 bg-gradient-to-r from-[#F59E0B] to-[#FBBF24]"></div>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-600">
-                      Vacant
-                    </CardTitle>
-                    <div className="p-2 bg-[#F59E0B]/10 rounded-lg">
-                      <Home className="h-4 w-4 text-[#F59E0B]" />
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-[#F59E0B]">
-                      {portfolioMetrics.vacantUnits}
-                    </div>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Available for rent
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
-                  <div className="h-1 bg-gradient-to-r from-[#3B82F6] to-[#60A5FA]"></div>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-600">
-                      Avg. Rent
-                    </CardTitle>
-                    <div className="p-2 bg-[#3B82F6]/10 rounded-lg">
-                      <DollarSign className="h-4 w-4 text-[#3B82F6]" />
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {(() => {
-                      if (unitsData.length === 0) {
-                        return (
-                          <>
-                            <div className="text-3xl font-bold text-gray-900">
-                              {formatCurrency(0, smartBaseCurrency)}
-                            </div>
-                            <p className="text-sm text-gray-500 mt-1">
-                              No units
-                            </p>
-                          </>
-                        );
-                      }
-
-                      // Helper to safely get rent frequency from unit
-                      const getRentFrequency = (unit: any): string => {
-                        // Try to get features - it might be a string that needs parsing or an object
-                        let features = unit.features;
-                        if (typeof features === "string") {
-                          try {
-                            features = JSON.parse(features);
-                          } catch {
-                            features = {};
-                          }
-                        }
-                        // Check various possible paths for rentFrequency
-                        return (
-                          features?.nigeria?.rentFrequency ||
-                          features?.rentFrequency ||
-                          unit.rentFrequency ||
-                          "monthly"
-                        );
-                      };
-
-                      // Get frequencies for all units
-                      const frequencies = unitsData.map((u) =>
-                        getRentFrequency(u)
-                      );
-                      const allMonthly = frequencies.every(
-                        (f) => f === "monthly"
-                      );
-                      const allAnnual = frequencies.every(
-                        (f) => f === "annual"
-                      );
-
-                      if (allAnnual) {
-                        // All units are annual - show annual average directly
-                        const avgAnnualRent =
-                          unitsData.reduce(
-                            (sum, u) => sum + (u.monthlyRent || 0),
-                            0
-                          ) / unitsData.length;
-                        return (
-                          <>
-                            <div className="text-3xl font-bold text-gray-900">
-                              {formatCurrency(avgAnnualRent, smartBaseCurrency)}
-                            </div>
-                            <p className="text-sm text-gray-500 mt-1">
-                              Per unit per year
-                            </p>
-                          </>
-                        );
-                      } else if (allMonthly) {
-                        // All units are monthly - show monthly average directly
-                        const avgMonthlyRent =
-                          unitsData.reduce(
-                            (sum, u) => sum + (u.monthlyRent || 0),
-                            0
-                          ) / unitsData.length;
-                        return (
-                          <>
-                            <div className="text-3xl font-bold text-gray-900">
-                              {formatCurrency(
-                                avgMonthlyRent,
-                                smartBaseCurrency
-                              )}
-                            </div>
-                            <p className="text-sm text-gray-500 mt-1">
-                              Per unit per month
-                            </p>
-                          </>
-                        );
-                      } else {
-                        // Mixed frequencies - convert all to monthly for comparison
-                        const totalMonthlyRent = unitsData.reduce(
-                          (sum, u, idx) => {
-                            const rent = u.monthlyRent || 0;
-                            const freq = frequencies[idx];
-                            // If annual, divide by 12 to get monthly equivalent
-                            return sum + (freq === "annual" ? rent / 12 : rent);
-                          },
-                          0
-                        );
-                        const avgMonthlyRent =
-                          totalMonthlyRent / unitsData.length;
-                        return (
-                          <>
-                            <div className="text-3xl font-bold text-gray-900">
-                              {formatCurrency(
-                                avgMonthlyRent,
-                                smartBaseCurrency
-                              )}
-                            </div>
-                            <p className="text-sm text-gray-500 mt-1">
-                              Per unit per month (avg)
-                            </p>
-                          </>
-                        );
-                      }
-                    })()}
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Units Management - Brand Styled */}
-              <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-xl font-bold">
-                    Unit Management
-                  </CardTitle>
-                  <CardDescription>
-                    Manage individual units across all properties
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full md:w-auto">
-                        <Input
-                          placeholder="Search units..."
-                          className="w-full sm:w-64 bg-gray-50 border-gray-200 focus:bg-white focus:border-[#7C3AED] focus:ring-[#7C3AED]"
-                        />
-                        <Select defaultValue="all">
-                          <SelectTrigger className="w-full sm:w-40 bg-gray-50 border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Units</SelectItem>
-                            <SelectItem value="occupied">Occupied</SelectItem>
-                            <SelectItem value="vacant">Vacant</SelectItem>
-                            <SelectItem value="maintenance">
-                              Maintenance
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
+                    {/* Compact Stats in Header */}
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-xl px-4 py-2.5">
+                        <div className="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center">
+                          <Home className="h-4 w-4 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-medium text-purple-200 uppercase tracking-wider">Total</p>
+                          <p className="text-lg font-bold text-white leading-tight">{portfolioMetrics.totalUnits}</p>
+                        </div>
                       </div>
-                      <Button
-                        onClick={() => setShowAddUnitDialog(true)}
-                        className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md w-full md:w-auto"
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Unit
-                      </Button>
+                      <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-xl px-4 py-2.5">
+                        <div className="h-8 w-8 rounded-lg bg-[#10B981]/30 flex items-center justify-center">
+                          <Users className="h-4 w-4 text-[#34D399]" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-medium text-purple-200 uppercase tracking-wider">Occupied</p>
+                          <p className="text-lg font-bold text-white leading-tight">{portfolioMetrics.occupiedUnits}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-xl px-4 py-2.5">
+                        <div className="h-8 w-8 rounded-lg bg-[#F59E0B]/30 flex items-center justify-center">
+                          <Home className="h-4 w-4 text-[#FBBF24]" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-medium text-purple-200 uppercase tracking-wider">Vacant</p>
+                          <p className="text-lg font-bold text-white leading-tight">{portfolioMetrics.vacantUnits}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-xl px-4 py-2.5">
+                        <div className="h-8 w-8 rounded-lg bg-[#EF4444]/30 flex items-center justify-center">
+                          <Wrench className="h-4 w-4 text-[#F87171]" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-medium text-purple-200 uppercase tracking-wider">Maintenance</p>
+                          <p className="text-lg font-bold text-white leading-tight">{units.filter(u => u.status === 'maintenance').length}</p>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="rounded-xl overflow-hidden border-0 shadow-md">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-[#111827] hover:bg-[#111827]">
-                            <TableHead className="text-white font-semibold">
-                              Property
-                            </TableHead>
-                            <TableHead className="text-white font-semibold">
-                              Unit
-                            </TableHead>
-                            <TableHead className="text-white font-semibold">
-                              Details
-                            </TableHead>
-                            <TableHead className="text-white font-semibold">
-                              Rent
-                            </TableHead>
-                            <TableHead className="text-white font-semibold">
-                              Tenant
-                            </TableHead>
-                            <TableHead className="text-white font-semibold">
-                              Lease
-                            </TableHead>
-                            <TableHead className="text-white font-semibold">
-                              Status
-                            </TableHead>
-                            <TableHead className="text-white font-semibold">
-                              Actions
-                            </TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {units.map((unit, index) => {
-                            const property = properties.find(
-                              (p) => p.id === unit.propertyId
-                            );
-                            return (
-                              <TableRow
-                                key={unit.id}
-                                className={`hover:bg-[#7C3AED]/5 transition-colors ${
-                                  index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
-                                }`}
-                              >
-                                <TableCell>
-                                  <span className="font-medium text-gray-900">
-                                    {property?.name}
-                                  </span>
-                                </TableCell>
-                                <TableCell>
-                                  <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-[#7C3AED]/10 text-sm font-semibold text-[#7C3AED]">
-                                    {unit.unit}
-                                  </span>
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex items-center gap-3 text-sm">
-                                    <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-lg">
-                                      <Bed className="h-3.5 w-3.5 text-gray-600" />
-                                      <span className="font-medium text-gray-900">
-                                        {unit.bedrooms}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-lg">
-                                      <Bath className="h-3.5 w-3.5 text-gray-600" />
-                                      <span className="font-medium text-gray-900">
-                                        {unit.bathrooms}
-                                      </span>
-                                    </div>
-                                    <span className="text-gray-600">
-                                      {unit.sqft} sqft
-                                    </span>
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#10B981]/10 to-[#10B981]/5 border border-[#10B981]/20">
-                                    <span className="text-sm font-bold text-[#10B981]">
-                                      {formatCurrency(
-                                        unit.rent,
-                                        property?.currency || "USD"
-                                      )}
-                                    </span>
-                                  </span>
-                                </TableCell>
-                                <TableCell>
-                                  {unit.tenant ? (
-                                    <div>
-                                      <p className="font-semibold text-gray-900">
-                                        {unit.tenant}
-                                      </p>
-                                      <p className="text-xs text-gray-500">
-                                        {unit.phoneNumber}
-                                      </p>
-                                    </div>
-                                  ) : (
-                                    <span className="inline-flex items-center px-2 py-1 rounded-lg bg-gray-100 text-sm text-gray-500">
-                                      Vacant
-                                    </span>
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  {unit.leaseEnd ? (
-                                    <div className="text-sm">
-                                      <p className="font-medium text-gray-900">
-                                        Expires: {unit.leaseEnd}
-                                      </p>
-                                    </div>
-                                  ) : (
-                                    <span className="inline-flex items-center px-2 py-1 rounded-lg bg-gray-100 text-sm text-gray-500">
-                                      No lease
-                                    </span>
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  <Badge
-                                    variant="outline"
-                                    className={getUnitStatusColor(unit.status)}
-                                  >
-                                    {unit.status.charAt(0).toUpperCase() +
-                                      unit.status.slice(1)}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 w-8 p-0 hover:bg-[#7C3AED]/10 hover:text-[#7C3AED]"
-                                      >
-                                        <MoreHorizontal className="h-4 w-4" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent
-                                      align="end"
-                                      className="w-48"
-                                    >
-                                      <DropdownMenuLabel className="font-semibold">
-                                        Unit Actions
-                                      </DropdownMenuLabel>
-                                      <DropdownMenuSeparator />
+                    <Button
+                      onClick={() => setShowAddUnitDialog(true)}
+                      className="bg-white text-[#7C3AED] hover:bg-purple-50 shadow-lg font-semibold whitespace-nowrap"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add New Unit
+                    </Button>
+                  </div>
 
-                                      <DropdownMenuItem
-                                        onClick={() => handleViewUnit(unit)}
-                                        className="cursor-pointer"
-                                      >
-                                        <Eye className="h-4 w-4 mr-2 text-blue-600" />
-                                        View Details
-                                      </DropdownMenuItem>
-
-                                      <DropdownMenuItem
-                                        onClick={() => handleEditUnit(unit)}
-                                        className="cursor-pointer"
-                                      >
-                                        <Edit className="h-4 w-4 mr-2 text-[#7C3AED]" />
-                                        Edit Unit
-                                      </DropdownMenuItem>
-
-                                      <DropdownMenuSeparator />
-
-                                      <DropdownMenuItem
-                                        onClick={() => {
-                                          setUnitToDelete(unit);
-                                          setShowDeleteDialog(true);
-                                        }}
-                                        className="text-red-600 focus:text-red-600 cursor-pointer"
-                                      >
-                                        <Trash2 className="h-4 w-4 mr-2" />
-                                        Delete Unit
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
+                  {/* Occupancy Progress Bar in Header */}
+                  <div className="mt-5 bg-white/10 backdrop-blur-sm rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-purple-100">Portfolio Occupancy</span>
+                      <span className="text-sm font-bold text-white">
+                        {units.length > 0 ? ((units.filter(u => u.status === 'occupied').length / units.length) * 100).toFixed(1) : 0}%
+                      </span>
+                    </div>
+                    <div className="h-2.5 bg-white/20 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-[#34D399] to-[#10B981] rounded-full transition-all duration-500"
+                        style={{ width: `${units.length > 0 ? (units.filter(u => u.status === 'occupied').length / units.length) * 100 : 0}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center gap-4 mt-2.5 text-xs text-purple-200">
+                      <span className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-[#34D399]"></span>
+                        Occupied: {units.filter(u => u.status === 'occupied').length}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-[#FBBF24]"></span>
+                        Vacant: {units.filter(u => u.status === 'vacant').length}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-[#F87171]"></span>
+                        Maintenance: {units.filter(u => u.status === 'maintenance').length}
+                      </span>
+                      {unitsData.length > 0 && (
+                        <span className="ml-auto flex items-center gap-1.5">
+                          <DollarSign className="h-3 w-3" />
+                          Avg Rent: {(() => {
+                            const getRentFrequency = (unit: any): string => {
+                              let features = unit.features;
+                              if (typeof features === "string") {
+                                try { features = JSON.parse(features); } catch { features = {}; }
+                              }
+                              return features?.nigeria?.rentFrequency || features?.rentFrequency || unit.rentFrequency || "monthly";
+                            };
+                            const frequencies = unitsData.map(u => getRentFrequency(u));
+                            const allAnnual = frequencies.every(f => f === "annual");
+                            const avgRent = unitsData.reduce((sum, u) => sum + (u.monthlyRent || 0), 0) / unitsData.length;
+                            return formatCurrency(avgRent, smartBaseCurrency) + (allAnnual ? '/yr' : '/mo');
+                          })()}
+                        </span>
+                      )}
                     </div>
                   </div>
+                </div>
+
+                <CardContent className="p-6">
+
+                  {/* Search and Filters */}
+                  <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between mb-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full lg:w-auto">
+                      <div className="relative w-full sm:w-72">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          placeholder="Search by unit, tenant, property..."
+                          value={unitsSearchTerm}
+                          onChange={(e) => {
+                            setUnitsSearchTerm(e.target.value);
+                            setUnitsCurrentPage(1); // Reset to first page on search
+                          }}
+                          className="pl-10 bg-white border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED] rounded-xl"
+                        />
+                        {unitsSearchTerm && (
+                          <button
+                            onClick={() => {
+                              setUnitsSearchTerm("");
+                              setUnitsCurrentPage(1);
+                            }}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 hover:text-gray-600"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                      <Select
+                        value={unitsPropertyFilter}
+                        onValueChange={(value) => {
+                          setUnitsPropertyFilter(value);
+                          setUnitsCurrentPage(1); // Reset to first page on filter change
+                        }}
+                      >
+                        <SelectTrigger className="w-full sm:w-44 bg-white border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED] rounded-xl">
+                          <SelectValue placeholder="Filter by Property" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Properties</SelectItem>
+                          {properties.map((property) => (
+                            <SelectItem key={property.id} value={property.id}>
+                              {property.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      {/* Status Filter Tabs */}
+                      <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-xl">
+                        {(["all", "occupied", "vacant", "maintenance"] as const).map((status) => (
+                          <button
+                            key={status}
+                            onClick={() => {
+                              setUnitsStatusFilter(status);
+                              setUnitsCurrentPage(1); // Reset to first page on filter change
+                            }}
+                            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                              unitsStatusFilter === status
+                                ? "bg-white text-[#7C3AED] shadow-sm"
+                                : "text-gray-600 hover:text-[#7C3AED] hover:bg-white/50"
+                            }`}
+                          >
+                            {status.charAt(0).toUpperCase() + status.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* View Toggle */}
+                      <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-xl">
+                        <button
+                          onClick={() => setUnitsViewMode("grid")}
+                          className={`p-2 rounded-lg transition-all ${
+                            unitsViewMode === "grid"
+                              ? "bg-white text-[#7C3AED] shadow-sm"
+                              : "text-gray-500 hover:text-[#7C3AED]"
+                          }`}
+                          title="Grid View"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => setUnitsViewMode("list")}
+                          className={`p-2 rounded-lg transition-all ${
+                            unitsViewMode === "list"
+                              ? "bg-white text-[#7C3AED] shadow-sm"
+                              : "text-gray-500 hover:text-[#7C3AED]"
+                          }`}
+                          title="List View"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Units Grid/List View */}
+                  {(() => {
+                    // Filter units based on search, property, and status
+                    const filteredUnits = units.filter((unit) => {
+                      // Property filter
+                      if (unitsPropertyFilter !== "all" && unit.propertyId !== unitsPropertyFilter) {
+                        return false;
+                      }
+
+                      // Status filter
+                      if (unitsStatusFilter !== "all" && unit.status !== unitsStatusFilter) {
+                        return false;
+                      }
+
+                      // Search filter
+                      if (unitsSearchTerm) {
+                        const searchLower = unitsSearchTerm.toLowerCase();
+                        const property = properties.find((p) => p.id === unit.propertyId);
+                        const unitName = (unit.unit || "").toLowerCase();
+                        const tenantName = (unit.tenant || "").toLowerCase();
+                        const propertyName = (property?.name || "").toLowerCase();
+                        const unitType = (unit.type || "").toLowerCase();
+
+                        if (!unitName.includes(searchLower) &&
+                            !tenantName.includes(searchLower) &&
+                            !propertyName.includes(searchLower) &&
+                            !unitType.includes(searchLower)) {
+                          return false;
+                        }
+                      }
+
+                      return true;
+                    });
+
+                    // Pagination calculations
+                    const totalPages = Math.ceil(filteredUnits.length / UNITS_PER_PAGE);
+                    const startIndex = (unitsCurrentPage - 1) * UNITS_PER_PAGE;
+                    const endIndex = startIndex + UNITS_PER_PAGE;
+                    const paginatedUnits = filteredUnits.slice(startIndex, endIndex);
+
+                    // Show empty state if no units exist at all
+                    if (units.length === 0) {
+                      return (
+                        <div className="text-center py-16 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+                          <div className="h-16 w-16 rounded-2xl bg-purple-100 flex items-center justify-center mx-auto mb-4">
+                            <Home className="h-8 w-8 text-purple-600" />
+                          </div>
+                          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Units Yet</h3>
+                          <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                            Start by adding your first unit to one of your properties.
+                            Units help you track individual rental spaces, tenants, and rent collection.
+                          </p>
+                          <Button
+                            onClick={() => setShowAddUnitDialog(true)}
+                            className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg"
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Your First Unit
+                          </Button>
+                        </div>
+                      );
+                    }
+
+                    // Show "no results" state if filters return no units
+                    if (filteredUnits.length === 0) {
+                      return (
+                        <div className="text-center py-12 bg-gray-50 rounded-2xl border border-gray-200">
+                          <div className="h-14 w-14 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-4">
+                            <Search className="h-7 w-7 text-amber-600" />
+                          </div>
+                          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Units Found</h3>
+                          <p className="text-gray-500 mb-4 max-w-md mx-auto">
+                            No units match your current filters. Try adjusting your search or filters.
+                          </p>
+                          <div className="flex items-center justify-center gap-3">
+                            {(unitsSearchTerm || unitsPropertyFilter !== "all" || unitsStatusFilter !== "all") && (
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  setUnitsSearchTerm("");
+                                  setUnitsPropertyFilter("all");
+                                  setUnitsStatusFilter("all");
+                                  setUnitsCurrentPage(1);
+                                }}
+                                className="border-gray-300 hover:border-[#7C3AED] hover:text-[#7C3AED]"
+                              >
+                                <X className="h-4 w-4 mr-2" />
+                                Clear Filters
+                              </Button>
+                            )}
+                          </div>
+                          {/* Active filters display */}
+                          <div className="flex items-center justify-center gap-2 mt-4 flex-wrap">
+                            {unitsSearchTerm && (
+                              <span className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                                Search: "{unitsSearchTerm}"
+                                <button onClick={() => { setUnitsSearchTerm(""); setUnitsCurrentPage(1); }} className="hover:text-purple-900">
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </span>
+                            )}
+                            {unitsPropertyFilter !== "all" && (
+                              <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                                Property: {properties.find(p => p.id === unitsPropertyFilter)?.name || unitsPropertyFilter}
+                                <button onClick={() => { setUnitsPropertyFilter("all"); setUnitsCurrentPage(1); }} className="hover:text-blue-900">
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </span>
+                            )}
+                            {unitsStatusFilter !== "all" && (
+                              <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                                Status: {unitsStatusFilter.charAt(0).toUpperCase() + unitsStatusFilter.slice(1)}
+                                <button onClick={() => { setUnitsStatusFilter("all"); setUnitsCurrentPage(1); }} className="hover:text-green-900">
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <>
+                        {/* Active Filters Bar */}
+                        {(unitsSearchTerm || unitsPropertyFilter !== "all" || unitsStatusFilter !== "all") && (
+                          <div className="flex items-center justify-between bg-purple-50 border border-purple-200 rounded-xl px-4 py-3 mb-4">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-medium text-purple-700">Active filters:</span>
+                              {unitsSearchTerm && (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-purple-200 text-purple-700 rounded-lg text-xs font-medium shadow-sm">
+                                  <Search className="h-3 w-3" />
+                                  "{unitsSearchTerm}"
+                                  <button
+                                    onClick={() => { setUnitsSearchTerm(""); setUnitsCurrentPage(1); }}
+                                    className="ml-1 hover:text-purple-900"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </span>
+                              )}
+                              {unitsPropertyFilter !== "all" && (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-blue-200 text-blue-700 rounded-lg text-xs font-medium shadow-sm">
+                                  <Building2 className="h-3 w-3" />
+                                  {properties.find(p => p.id === unitsPropertyFilter)?.name || "Property"}
+                                  <button
+                                    onClick={() => { setUnitsPropertyFilter("all"); setUnitsCurrentPage(1); }}
+                                    className="ml-1 hover:text-blue-900"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </span>
+                              )}
+                              {unitsStatusFilter !== "all" && (
+                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 bg-white rounded-lg text-xs font-medium shadow-sm ${
+                                  unitsStatusFilter === "occupied" ? "border border-green-200 text-green-700" :
+                                  unitsStatusFilter === "vacant" ? "border border-amber-200 text-amber-700" :
+                                  "border border-red-200 text-red-700"
+                                }`}>
+                                  {unitsStatusFilter === "occupied" ? <Users className="h-3 w-3" /> :
+                                   unitsStatusFilter === "vacant" ? <Home className="h-3 w-3" /> :
+                                   <Wrench className="h-3 w-3" />}
+                                  {unitsStatusFilter.charAt(0).toUpperCase() + unitsStatusFilter.slice(1)}
+                                  <button
+                                    onClick={() => { setUnitsStatusFilter("all"); setUnitsCurrentPage(1); }}
+                                    className="ml-1 hover:opacity-70"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </span>
+                              )}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setUnitsSearchTerm("");
+                                setUnitsPropertyFilter("all");
+                                setUnitsStatusFilter("all");
+                                setUnitsCurrentPage(1);
+                              }}
+                              className="text-purple-600 hover:text-purple-800 hover:bg-purple-100"
+                            >
+                              Clear all
+                            </Button>
+                          </div>
+                        )}
+
+                        {unitsViewMode === "grid" ? (
+                          /* Grid View */
+                          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+                            {paginatedUnits.map((unit) => {
+                        const property = properties.find((p) => p.id === unit.propertyId);
+                        const isOccupied = unit.status === 'occupied';
+                        const isVacant = unit.status === 'vacant';
+                        const isMaintenance = unit.status === 'maintenance';
+
+                        return (
+                          <div
+                            key={unit.id}
+                            className="group bg-white rounded-2xl border border-gray-200 hover:border-[#7C3AED]/30 hover:shadow-lg transition-all duration-300 overflow-hidden"
+                          >
+                            {/* Unit Header with Status Color */}
+                            <div className={`h-1.5 ${
+                              isOccupied ? 'bg-gradient-to-r from-[#10B981] to-[#34D399]' :
+                              isVacant ? 'bg-gradient-to-r from-[#F59E0B] to-[#FBBF24]' :
+                              'bg-gradient-to-r from-[#EF4444] to-[#F87171]'
+                            }`} />
+
+                            <div className="p-5">
+                              {/* Top Row: Unit Badge & Status */}
+                              <div className="flex items-start justify-between mb-4">
+                                <div>
+                                  <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#7C3AED]/10 to-[#A855F7]/10 text-sm font-bold text-[#7C3AED] border border-[#7C3AED]/20">
+                                    {unit.unit}
+                                  </span>
+                                  <p className="text-sm text-gray-500 mt-2 flex items-center gap-1">
+                                    <MapPin className="h-3.5 w-3.5" />
+                                    {property?.name || 'Unknown Property'}
+                                  </p>
+                                </div>
+                                <Badge
+                                  variant="outline"
+                                  className={`${
+                                    isOccupied ? 'bg-green-50 text-green-700 border-green-200' :
+                                    isVacant ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                    'bg-red-50 text-red-700 border-red-200'
+                                  } font-semibold`}
+                                >
+                                  {unit.status.charAt(0).toUpperCase() + unit.status.slice(1)}
+                                </Badge>
+                              </div>
+
+                              {/* Unit Details */}
+                              <div className="flex items-center gap-2 mb-4">
+                                <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 rounded-lg">
+                                  <Bed className="h-4 w-4 text-gray-600" />
+                                  <span className="text-sm font-medium text-gray-900">{unit.bedrooms}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 rounded-lg">
+                                  <Bath className="h-4 w-4 text-gray-600" />
+                                  <span className="text-sm font-medium text-gray-900">{unit.bathrooms}</span>
+                                </div>
+                                {unit.sqft && (
+                                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 rounded-lg">
+                                    <Maximize className="h-4 w-4 text-gray-600" />
+                                    <span className="text-sm font-medium text-gray-900">{unit.sqft} sqft</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Rent Display */}
+                              <div className="p-3 bg-gradient-to-r from-[#10B981]/5 to-[#10B981]/10 rounded-xl border border-[#10B981]/20 mb-4">
+                                <p className="text-xs text-gray-500 mb-1">Monthly Rent</p>
+                                <p className="text-xl font-bold text-[#10B981]">
+                                  {formatCurrency(unit.rent, property?.currency || "USD")}
+                                </p>
+                              </div>
+
+                              {/* Tenant Info or Vacant State */}
+                              {unit.tenant ? (
+                                <div className="p-3 bg-gray-50 rounded-xl mb-4">
+                                  <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#7C3AED] to-[#A855F7] flex items-center justify-center text-white font-bold text-sm">
+                                      {unit.tenant.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div>
+                                      <p className="font-semibold text-gray-900">{unit.tenant}</p>
+                                      <p className="text-xs text-gray-500">{unit.phoneNumber || 'No phone'}</p>
+                                    </div>
+                                  </div>
+                                  {unit.leaseEnd && (
+                                    <div className="mt-3 pt-3 border-t border-gray-200 flex items-center gap-2 text-xs text-gray-500">
+                                      <Calendar className="h-3.5 w-3.5" />
+                                      <span>Lease expires: <span className="font-medium text-gray-700">{unit.leaseEnd}</span></span>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="p-3 bg-amber-50 rounded-xl mb-4 border border-amber-100">
+                                  <div className="flex items-center gap-2">
+                                    <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center">
+                                      <Users className="h-4 w-4 text-amber-600" />
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-medium text-amber-800">Vacant Unit</p>
+                                      <p className="text-xs text-amber-600">Available for new tenant</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Action Buttons */}
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleViewUnit(unit)}
+                                  className="flex-1 border-gray-200 hover:border-[#7C3AED] hover:text-[#7C3AED] transition-colors"
+                                >
+                                  <Eye className="h-4 w-4 mr-1.5" />
+                                  View
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleEditUnit(unit)}
+                                  className="flex-1 border-gray-200 hover:border-[#7C3AED] hover:text-[#7C3AED] transition-colors"
+                                >
+                                  <Edit className="h-4 w-4 mr-1.5" />
+                                  Edit
+                                </Button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="border-gray-200 hover:border-[#7C3AED] hover:text-[#7C3AED] px-2"
+                                    >
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-48">
+                                    <DropdownMenuLabel className="font-semibold text-gray-900">
+                                      More Actions
+                                    </DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setUnitToDelete(unit);
+                                        setShowDeleteDialog(true);
+                                      }}
+                                      className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete Unit
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                            })}
+                          </div>
+                        ) : (
+                          /* List View */
+                          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                            {/* List Header */}
+                            <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                              <div className="col-span-2">Unit</div>
+                              <div className="col-span-2">Property</div>
+                              <div className="col-span-1">Type</div>
+                              <div className="col-span-2">Tenant</div>
+                              <div className="col-span-2">Rent</div>
+                              <div className="col-span-1">Status</div>
+                              <div className="col-span-2 text-right">Actions</div>
+                            </div>
+
+                            {/* List Items */}
+                            <div className="divide-y divide-gray-100">
+                              {paginatedUnits.map((unit) => {
+                          const property = properties.find((p) => p.id === unit.propertyId);
+                          const isOccupied = unit.status === 'occupied';
+                          const isVacant = unit.status === 'vacant';
+                          const isMaintenance = unit.status === 'maintenance';
+
+                          return (
+                            <div
+                              key={unit.id}
+                              className="grid grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-gray-50 transition-colors group"
+                            >
+                              {/* Unit */}
+                              <div className="col-span-2">
+                                <div className="flex items-center gap-3">
+                                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${
+                                    isOccupied ? 'bg-green-100' :
+                                    isVacant ? 'bg-amber-100' :
+                                    'bg-red-100'
+                                  }`}>
+                                    <Home className={`h-5 w-5 ${
+                                      isOccupied ? 'text-green-600' :
+                                      isVacant ? 'text-amber-600' :
+                                      'text-red-600'
+                                    }`} />
+                                  </div>
+                                  <div>
+                                    <p className="font-bold text-gray-900">{unit.unit}</p>
+                                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                                      <span className="flex items-center gap-1">
+                                        <Bed className="h-3 w-3" /> {unit.bedrooms}
+                                      </span>
+                                      <span className="flex items-center gap-1">
+                                        <Bath className="h-3 w-3" /> {unit.bathrooms}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Property */}
+                              <div className="col-span-2">
+                                <p className="text-sm font-medium text-gray-900 truncate">
+                                  {property?.name || 'Unknown'}
+                                </p>
+                                <p className="text-xs text-gray-500 truncate">
+                                  {property?.address || '-'}
+                                </p>
+                              </div>
+
+                              {/* Type */}
+                              <div className="col-span-1">
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-purple-50 text-xs font-medium text-purple-700">
+                                  {unit.type || 'Unit'}
+                                </span>
+                              </div>
+
+                              {/* Tenant */}
+                              <div className="col-span-2">
+                                {unit.tenant ? (
+                                  <div className="flex items-center gap-2">
+                                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#7C3AED] to-[#A855F7] flex items-center justify-center text-white font-bold text-xs">
+                                      {unit.tenant.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-medium text-gray-900 truncate">{unit.tenant}</p>
+                                      <p className="text-xs text-gray-500">{unit.phoneNumber || 'No phone'}</p>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="text-sm text-gray-400 italic">No tenant</span>
+                                )}
+                              </div>
+
+                              {/* Rent */}
+                              <div className="col-span-2">
+                                <p className="text-sm font-bold text-[#10B981]">
+                                  {formatCurrency(unit.rent, property?.currency || "USD")}
+                                </p>
+                                <p className="text-xs text-gray-500">per month</p>
+                              </div>
+
+                              {/* Status */}
+                              <div className="col-span-1">
+                                <Badge
+                                  variant="outline"
+                                  className={`${
+                                    isOccupied ? 'bg-green-50 text-green-700 border-green-200' :
+                                    isVacant ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                    'bg-red-50 text-red-700 border-red-200'
+                                  } font-semibold text-xs`}
+                                >
+                                  {unit.status.charAt(0).toUpperCase() + unit.status.slice(1)}
+                                </Badge>
+                              </div>
+
+                              {/* Actions */}
+                              <div className="col-span-2 flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleViewUnit(unit)}
+                                  className="h-8 w-8 p-0 text-gray-400 hover:text-[#7C3AED] hover:bg-purple-50"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditUnit(unit)}
+                                  className="h-8 w-8 p-0 text-gray-400 hover:text-[#7C3AED] hover:bg-purple-50"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 w-8 p-0 text-gray-400 hover:text-[#7C3AED] hover:bg-purple-50"
+                                    >
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-48">
+                                    <DropdownMenuLabel className="font-semibold text-gray-900">
+                                      More Actions
+                                    </DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setUnitToDelete(unit);
+                                        setShowDeleteDialog(true);
+                                      }}
+                                      className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete Unit
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                                </div>
+                              </div>
+                            );
+                          })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Pagination Controls */}
+                        {totalPages > 1 && (
+                          <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
+                            <div className="text-sm text-gray-600">
+                              Showing <span className="font-semibold text-gray-900">{startIndex + 1}</span> to{' '}
+                              <span className="font-semibold text-gray-900">{Math.min(endIndex, filteredUnits.length)}</span> of{' '}
+                              <span className="font-semibold text-gray-900">{filteredUnits.length}</span> units
+                              {filteredUnits.length !== units.length && (
+                                <span className="text-gray-400 ml-1">(filtered from {units.length})</span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              {/* Previous Button */}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setUnitsCurrentPage(prev => Math.max(1, prev - 1))}
+                                disabled={unitsCurrentPage === 1}
+                                className="border-gray-200 hover:border-[#7C3AED] hover:text-[#7C3AED] disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                </svg>
+                                Previous
+                              </Button>
+
+                              {/* Page Numbers */}
+                              <div className="flex items-center gap-1">
+                                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                                  // Show first page, last page, current page, and pages around current
+                                  const showPage = page === 1 ||
+                                    page === totalPages ||
+                                    Math.abs(page - unitsCurrentPage) <= 1;
+
+                                  // Show ellipsis
+                                  const showEllipsisBefore = page === unitsCurrentPage - 2 && unitsCurrentPage > 3;
+                                  const showEllipsisAfter = page === unitsCurrentPage + 2 && unitsCurrentPage < totalPages - 2;
+
+                                  if (showEllipsisBefore || showEllipsisAfter) {
+                                    return (
+                                      <span key={page} className="px-2 text-gray-400">...</span>
+                                    );
+                                  }
+
+                                  if (!showPage) return null;
+
+                                  return (
+                                    <button
+                                      key={page}
+                                      onClick={() => setUnitsCurrentPage(page)}
+                                      className={`h-8 w-8 rounded-lg text-sm font-medium transition-all ${
+                                        page === unitsCurrentPage
+                                          ? 'bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-md'
+                                          : 'text-gray-600 hover:bg-purple-50 hover:text-[#7C3AED]'
+                                      }`}
+                                    >
+                                      {page}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Next Button */}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setUnitsCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                disabled={unitsCurrentPage === totalPages}
+                                className="border-gray-200 hover:border-[#7C3AED] hover:text-[#7C3AED] disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                Next
+                                <svg className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             </TabsContent>
 
             <TabsContent value="financials" className="space-y-6">
-              {/* Financial Overview - Brand Styled */}
-              <TooltipProvider>
-                <div className="grid md:grid-cols-4 gap-6">
-                  <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
-                    <div className="h-1 bg-gradient-to-r from-[#10B981] to-[#34D399]"></div>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-sm font-medium text-gray-600">
-                          Gross Income
-                        </CardTitle>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="h-4 w-4 text-gray-400 cursor-help hover:text-[#7C3AED] transition-colors" />
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                            <p className="font-semibold mb-1">
-                              How it's calculated:
-                            </p>
-                            <p className="text-xs">
-                              Sum of all monthly rent from occupied units across
-                              all properties. This represents your total rental
-                              income before any expenses.
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                      <div className="p-2 bg-[#10B981]/10 rounded-lg">
-                        <TrendingUp className="h-4 w-4 text-[#10B981]" />
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-3xl font-bold text-[#10B981]">
-                        {formatCurrency(
-                          Number(financialStats.gross) || 0,
-                          smartBaseCurrency
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Live collected this period
+              {/* Financial Overview Header */}
+              <Card className="border-0 shadow-xl overflow-hidden">
+                <div className="bg-gradient-to-r from-[#10B981] to-[#059669] px-6 py-6">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    <div>
+                      <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                          <DollarSign className="h-5 w-5 text-white" />
+                        </div>
+                        Financial Overview
+                      </h2>
+                      <p className="text-green-100 text-sm mt-2">
+                        Track your portfolio's financial performance
                       </p>
-                    </CardContent>
-                  </Card>
+                    </div>
 
-                  <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
-                    <div className="h-1 bg-gradient-to-r from-[#3B82F6] to-[#60A5FA]"></div>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-sm font-medium text-gray-600">
-                          Net Income
-                        </CardTitle>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="h-4 w-4 text-gray-400 cursor-help hover:text-[#7C3AED] transition-colors" />
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                            <p className="font-semibold mb-1">
-                              How it's calculated:
-                            </p>
-                            <p className="text-xs">
-                              Gross Income minus Operating Expenses. This is
-                              your Net Operating Income (NOI) - the actual
-                              profit from your rental operations.
-                            </p>
-                            <p className="text-xs mt-1 italic">
-                              Formula: Gross Income - Operating Expenses
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                      <div className="p-2 bg-[#3B82F6]/10 rounded-lg">
-                        <DollarSign className="h-4 w-4 text-[#3B82F6]" />
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-3xl font-bold text-[#3B82F6]">
-                        {formatCurrency(
-                          Number(financialStats.net) || 0,
-                          smartBaseCurrency
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Gross minus operating expenses
-                      </p>
-                    </CardContent>
-                  </Card>
+                    {/* Key Financial Stats in Header */}
+                    <div className="flex items-center gap-4 flex-wrap">
+                      <TooltipProvider>
+                        <div className="bg-white/15 backdrop-blur-sm rounded-2xl px-5 py-3 min-w-[160px]">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center gap-3 cursor-help">
+                                <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center">
+                                  <TrendingUp className="h-5 w-5 text-white" />
+                                </div>
+                                <div>
+                                  <p className="text-xl font-bold text-white">{formatCurrency(Number(financialStats.gross) || 0, smartBaseCurrency)}</p>
+                                  <p className="text-xs text-green-100">Gross Income</p>
+                                </div>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p className="font-semibold mb-1">Gross Income</p>
+                              <p className="text-xs">Sum of all monthly rent from occupied units across all properties.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
 
-                  <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
-                    <div className="h-1 bg-gradient-to-r from-[#EF4444] to-[#F87171]"></div>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-sm font-medium text-gray-600">
-                          Operating Expenses
-                        </CardTitle>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="h-4 w-4 text-gray-400 cursor-help hover:text-[#7C3AED] transition-colors" />
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                            <p className="font-semibold mb-1">
-                              How it's calculated:
-                            </p>
-                            <p className="text-xs">
-                              Estimated at 30% of Gross Income, based on
-                              industry standards. This includes maintenance,
-                              property management fees, insurance, utilities,
-                              and other operational costs.
-                            </p>
-                            <p className="text-xs mt-1 italic">
-                              Formula: Gross Income × 0.30
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                      <div className="p-2 bg-[#EF4444]/10 rounded-lg">
-                        <TrendingDown className="h-4 w-4 text-[#EF4444]" />
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-3xl font-bold text-[#EF4444]">
-                        {formatCurrency(
-                          Number(financialStats.expenses) || 0,
-                          smartBaseCurrency
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Sum of expense-type payments
-                      </p>
-                    </CardContent>
-                  </Card>
+                        <div className="bg-white/15 backdrop-blur-sm rounded-2xl px-5 py-3 min-w-[160px]">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center gap-3 cursor-help">
+                                <div className="h-10 w-10 rounded-xl bg-[#3B82F6]/40 flex items-center justify-center">
+                                  <DollarSign className="h-5 w-5 text-white" />
+                                </div>
+                                <div>
+                                  <p className="text-xl font-bold text-white">{formatCurrency(Number(financialStats.net) || 0, smartBaseCurrency)}</p>
+                                  <p className="text-xs text-green-100">Net Income</p>
+                                </div>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p className="font-semibold mb-1">Net Income (NOI)</p>
+                              <p className="text-xs">Gross Income minus Operating Expenses.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
 
-                  <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
-                    <div className="h-1 bg-gradient-to-r from-[#7C3AED] to-[#A855F7]"></div>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-sm font-medium text-gray-600">
-                          Cap Rate
-                        </CardTitle>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="h-4 w-4 text-gray-400 cursor-help hover:text-[#7C3AED] transition-colors" />
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                            <p className="font-semibold mb-1">
-                              How it's calculated:
-                            </p>
-                            <p className="text-xs">
-                              Capitalization Rate measures your return on
-                              investment. It's the annual Net Operating Income
-                              divided by the total property value, expressed as
-                              a percentage.
-                            </p>
-                            <p className="text-xs mt-1 italic">
-                              Formula: (Annual NOI ÷ Total Property Value) × 100
-                            </p>
-                            <p className="text-xs mt-1 text-[#F59E0B]">
-                              Higher cap rates indicate better potential
-                              returns.
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                      <div className="p-2 bg-[#7C3AED]/10 rounded-lg">
-                        <Percent className="h-4 w-4 text-[#7C3AED]" />
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-3xl font-bold text-gray-900">
-                        {(Number(financialStats.capRate) || 0).toLocaleString()}
-                        %
-                      </div>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Approximation
-                      </p>
-                    </CardContent>
-                  </Card>
+                        <div className="bg-white/15 backdrop-blur-sm rounded-2xl px-5 py-3 min-w-[160px]">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center gap-3 cursor-help">
+                                <div className="h-10 w-10 rounded-xl bg-[#EF4444]/40 flex items-center justify-center">
+                                  <TrendingDown className="h-5 w-5 text-white" />
+                                </div>
+                                <div>
+                                  <p className="text-xl font-bold text-white">{formatCurrency(Number(financialStats.expenses) || 0, smartBaseCurrency)}</p>
+                                  <p className="text-xs text-green-100">Expenses</p>
+                                </div>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p className="font-semibold mb-1">Operating Expenses</p>
+                              <p className="text-xs">Estimated at 30% of Gross Income including maintenance, fees, and utilities.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+
+                        <div className="bg-white/15 backdrop-blur-sm rounded-2xl px-5 py-3 min-w-[120px]">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center gap-3 cursor-help">
+                                <div className="h-10 w-10 rounded-xl bg-[#7C3AED]/40 flex items-center justify-center">
+                                  <Percent className="h-5 w-5 text-white" />
+                                </div>
+                                <div>
+                                  <p className="text-xl font-bold text-white">{(Number(financialStats.capRate) || 0).toLocaleString()}%</p>
+                                  <p className="text-xs text-green-100">Cap Rate</p>
+                                </div>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p className="font-semibold mb-1">Capitalization Rate</p>
+                              <p className="text-xs">Annual NOI ÷ Total Property Value. Higher rates = better returns.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </TooltipProvider>
+                    </div>
+                  </div>
+
+                  {/* Profit Margin Bar */}
+                  <div className="mt-6 bg-white/10 backdrop-blur-sm rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-green-100">Profit Margin</span>
+                      <span className="text-sm font-bold text-white">
+                        {Number(financialStats.gross) > 0
+                          ? ((Number(financialStats.net) / Number(financialStats.gross)) * 100).toFixed(1)
+                          : 0}%
+                      </span>
+                    </div>
+                    <div className="h-2.5 bg-white/20 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-white rounded-full transition-all duration-500"
+                        style={{ width: `${Number(financialStats.gross) > 0 ? (Number(financialStats.net) / Number(financialStats.gross)) * 100 : 0}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between mt-2 text-xs text-green-200">
+                      <span>Income: {formatCurrency(Number(financialStats.gross) || 0, smartBaseCurrency)}</span>
+                      <span>Expenses: {formatCurrency(Number(financialStats.expenses) || 0, smartBaseCurrency)}</span>
+                      <span>Net: {formatCurrency(Number(financialStats.net) || 0, smartBaseCurrency)}</span>
+                    </div>
+                  </div>
                 </div>
-              </TooltipProvider>
+              </Card>
 
-              {/* Property Financial Performance - Brand Styled */}
-              <Card className="border-0 shadow-lg overflow-hidden">
-                <CardHeader>
-                  <CardTitle className="text-xl font-bold">
-                    Property Financial Performance
-                  </CardTitle>
-                  <CardDescription>
-                    Revenue, expenses, and profitability by property
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="rounded-xl overflow-hidden border-0 shadow-md">
+              {/* Property Financial Performance */}
+              <Card className="border-0 shadow-xl overflow-hidden">
+                <div className="bg-gradient-to-r from-purple-50 to-violet-50 px-6 py-4 border-b border-purple-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-[#7C3AED]/20 flex items-center justify-center">
+                        <BarChart3 className="h-5 w-5 text-[#7C3AED]" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900">Property Financial Performance</h3>
+                        <p className="text-xs text-gray-500">Revenue, expenses, and profitability by property</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <CardContent className="p-0">
+                  <div className="overflow-hidden">
                     <Table>
                       <TableHeader>
-                        <TableRow className="bg-[#111827] hover:bg-[#111827]">
-                          <TableHead className="text-white font-semibold">
+                        <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             Property
                           </TableHead>
-                          <TableHead className="text-white font-semibold">
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             Gross Rent
                           </TableHead>
-                          <TableHead className="text-white font-semibold">
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             Expenses
                           </TableHead>
-                          <TableHead className="text-white font-semibold">
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             Net Income
                           </TableHead>
-                          <TableHead className="text-white font-semibold">
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             Cap Rate
                           </TableHead>
-                          <TableHead className="text-white font-semibold">
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             Cash Flow
                           </TableHead>
-                          <TableHead className="text-white font-semibold">
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             Actions
                           </TableHead>
                         </TableRow>
@@ -4236,92 +5134,94 @@ export function PropertiesPage({
                 </CardContent>
               </Card>
 
-              {/* Expense Breakdown - Brand Styled */}
+              {/* Expense Breakdown - Enhanced Design */}
               <div className="grid lg:grid-cols-2 gap-6">
-                <Card className="border-0 shadow-lg">
-                  <CardHeader>
-                    <CardTitle className="text-xl font-bold">
-                      Expense Categories
-                    </CardTitle>
-                    <CardDescription>
-                      Monthly operating expenses breakdown
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
+                <Card className="border-0 shadow-xl overflow-hidden">
+                  <div className="bg-gradient-to-r from-red-50 to-rose-50 px-6 py-4 border-b border-red-100">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-[#EF4444]/20 flex items-center justify-center">
+                        <TrendingDown className="h-5 w-5 text-[#EF4444]" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900">Expense Categories</h3>
+                        <p className="text-xs text-gray-500">Monthly operating expenses breakdown</p>
+                      </div>
+                    </div>
+                  </div>
+                  <CardContent className="p-5">
                     <div className="space-y-3">
                       {expenseCategoryBreakdown.items.length ? (
-                        expenseCategoryBreakdown.items.map((item) => (
+                        expenseCategoryBreakdown.items.map((item, idx) => (
                           <div
                             key={item.key}
-                            className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                            className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors group"
                           >
-                            <div className="flex items-center space-x-3">
-                              <div className="p-2 bg-[#7C3AED]/10 rounded-lg">
-                                <item.Icon className="h-4 w-4 text-[#7C3AED]" />
+                            <div className="flex items-center gap-4">
+                              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#7C3AED] to-[#A855F7] flex items-center justify-center text-white font-bold text-sm">
+                                {idx + 1}
                               </div>
-                              <span className="font-medium text-gray-900">
-                                {item.label}
-                              </span>
+                              <div>
+                                <span className="font-semibold text-gray-900 group-hover:text-[#7C3AED] transition-colors">
+                                  {item.label}
+                                </span>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-gradient-to-r from-[#EF4444] to-[#F87171] rounded-full"
+                                      style={{ width: `${item.percent}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-xs text-gray-500">{item.percent.toFixed(1)}%</span>
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-right">
-                              <p className="font-bold text-gray-900">
-                                {formatCurrency(item.amount, smartBaseCurrency)}
-                              </p>
-                              <p className="text-sm text-gray-500">
-                                {item.percent.toFixed(1)}%
-                              </p>
-                            </div>
+                            <span className="font-bold text-[#EF4444]">
+                              {formatCurrency(item.amount, smartBaseCurrency)}
+                            </span>
                           </div>
                         ))
                       ) : (
-                        <div className="text-center py-8">
-                          <div className="mx-auto w-12 h-12 bg-[#7C3AED]/10 rounded-full flex items-center justify-center mb-3">
-                            <FileText className="h-6 w-6 text-[#7C3AED]" />
+                        <div className="text-center py-10">
+                          <div className="mx-auto w-14 h-14 bg-red-100 rounded-2xl flex items-center justify-center mb-3">
+                            <FileText className="h-7 w-7 text-[#EF4444]" />
                           </div>
-                          <p className="text-sm text-gray-500">
-                            No expense data available yet.
-                          </p>
+                          <p className="text-sm font-medium text-gray-900">No expense data</p>
+                          <p className="text-xs text-gray-500 mt-1">Expenses will appear once recorded</p>
                         </div>
                       )}
 
                       {expenseCategoryBreakdown.items.length > 0 && (
-                        <>
-                          <div className="h-px bg-gray-200 my-4" />
-
-                          <div className="flex items-center justify-between p-3 bg-gradient-to-r from-[#7C3AED]/10 to-[#A855F7]/5 rounded-lg border border-[#7C3AED]/20">
-                            <span className="font-bold text-gray-900">
-                              Total Monthly Expenses
-                            </span>
-                            <span className="font-bold text-[#7C3AED]">
-                              {formatCurrency(
-                                expenseCategoryBreakdown.total,
-                                smartBaseCurrency
-                              )}
-                            </span>
-                          </div>
-                        </>
+                        <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[#EF4444]/10 to-[#F87171]/5 rounded-xl border border-[#EF4444]/20 mt-4">
+                          <span className="font-bold text-gray-900">Total Monthly Expenses</span>
+                          <span className="text-lg font-bold text-[#EF4444]">
+                            {formatCurrency(expenseCategoryBreakdown.total, smartBaseCurrency)}
+                          </span>
+                        </div>
                       )}
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="border-0 shadow-lg">
-                  <CardHeader>
-                    <CardTitle className="text-xl font-bold">
-                      Financial Trends
-                    </CardTitle>
-                    <CardDescription>
-                      6-month performance overview
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
+                <Card className="border-0 shadow-xl overflow-hidden">
+                  <div className="bg-gradient-to-r from-blue-50 to-cyan-50 px-6 py-4 border-b border-blue-100">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                        <LineChart className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900">Financial Trends</h3>
+                        <p className="text-xs text-gray-500">6-month performance overview</p>
+                      </div>
+                    </div>
+                  </div>
+                  <CardContent className="p-5">
                     <TooltipProvider>
                       <div className="space-y-3">
                         {financialTrendCards.length ? (
                           financialTrendCards.map((card) => (
                             <div
                               key={card.title}
-                              className="p-4 border border-gray-200 rounded-xl hover:border-[#7C3AED]/30 hover:shadow-md transition-all duration-200 bg-white"
+                              className="p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all duration-200"
                             >
                               <div className="flex items-center justify-between mb-3">
                                 <div className="flex items-center gap-2">
@@ -4341,43 +5241,50 @@ export function PropertiesPage({
                                 </div>
                                 {card.change !== null && (
                                   <div
-                                    className={`flex items-center space-x-1 px-2 py-1 rounded-lg ${
+                                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg ${
                                       card.positive
                                         ? "bg-[#10B981]/10 text-[#10B981]"
                                         : "bg-[#EF4444]/10 text-[#EF4444]"
                                     }`}
                                   >
                                     {card.positive ? (
-                                      <ArrowUpRight className="h-4 w-4" />
+                                      <ArrowUpRight className="h-3.5 w-3.5" />
                                     ) : (
-                                      <ArrowDownRight className="h-4 w-4" />
+                                      <ArrowDownRight className="h-3.5 w-3.5" />
                                     )}
-                                    <span className="text-sm font-semibold">
+                                    <span className="text-xs font-bold">
                                       {card.change > 0 ? "+" : ""}
                                       {card.change.toFixed(1)}%
                                     </span>
                                   </div>
                                 )}
                               </div>
-                              <Progress
-                                value={card.progress}
-                                className="h-2.5 bg-gray-100"
-                              />
-                              <p className="text-sm font-medium text-gray-900 mt-2">
-                                {card.value}
-                              </p>
-                              {card.subtitle && (
-                                <p className="text-xs text-gray-500 mt-1">
-                                  {card.subtitle}
-                                </p>
-                              )}
+                              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-500 ${
+                                    card.positive
+                                      ? 'bg-gradient-to-r from-[#10B981] to-[#34D399]'
+                                      : 'bg-gradient-to-r from-[#3B82F6] to-[#60A5FA]'
+                                  }`}
+                                  style={{ width: `${card.progress}%` }}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between mt-2">
+                                <p className="text-sm font-bold text-gray-900">{card.value}</p>
+                                {card.subtitle && (
+                                  <p className="text-xs text-gray-500">{card.subtitle}</p>
+                                )}
+                              </div>
                             </div>
                           ))
                         ) : (
-                          <p className="text-sm text-gray-500">
-                            Financial trend data will appear once transactions
-                            are recorded.
-                          </p>
+                          <div className="text-center py-10">
+                            <div className="mx-auto w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center mb-3">
+                              <LineChart className="h-7 w-7 text-blue-600" />
+                            </div>
+                            <p className="text-sm font-medium text-gray-900">No trend data yet</p>
+                            <p className="text-xs text-gray-500 mt-1">Data will appear once transactions are recorded</p>
+                          </div>
                         )}
                       </div>
                     </TooltipProvider>
@@ -4386,19 +5293,25 @@ export function PropertiesPage({
               </div>
 
               {/* Expense Management Section */}
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle>Expense Management</CardTitle>
-                    <CardDescription>
-                      Track and manage property expenses
-                    </CardDescription>
+              <Card className="border-0 shadow-xl overflow-hidden">
+                <div className="bg-gradient-to-r from-amber-50 to-yellow-50 px-6 py-4 border-b border-amber-100 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-[#F59E0B]/20 flex items-center justify-center">
+                      <FileText className="h-5 w-5 text-[#F59E0B]" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">Expense Management</h3>
+                      <p className="text-xs text-gray-500">Track and manage property expenses</p>
+                    </div>
                   </div>
-                  <Button onClick={handleAddExpense}>
+                  <Button
+                    onClick={handleAddExpense}
+                    className="bg-gradient-to-r from-[#F59E0B] to-[#D97706] hover:from-[#D97706] hover:to-[#B45309] text-white shadow-lg"
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Add Expense
                   </Button>
-                </CardHeader>
+                </div>
                 <CardContent>
                   {/* Expense Statistics */}
                   {expenseStats && (
@@ -4614,187 +5527,198 @@ export function PropertiesPage({
             </TabsContent>
 
             <TabsContent value="maintenance" className="space-y-6">
-              {/* Maintenance Overview - Brand Styled */}
-              <div className="grid md:grid-cols-4 gap-6">
-                <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
-                  <div className="h-1 bg-gradient-to-r from-[#F59E0B] to-[#FBBF24]"></div>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-600">
-                      Active Requests
-                    </CardTitle>
-                    <div className="p-2 bg-[#F59E0B]/10 rounded-lg">
-                      <Wrench className="h-4 w-4 text-[#F59E0B]" />
+              {/* Maintenance Overview Header */}
+              <Card className="border-0 shadow-xl overflow-hidden">
+                <div className="bg-gradient-to-r from-[#F59E0B] to-[#D97706] px-6 py-6">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    <div>
+                      <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                          <Wrench className="h-5 w-5 text-white" />
+                        </div>
+                        Maintenance Management
+                      </h2>
+                      <p className="text-amber-100 text-sm mt-2">
+                        Track and manage property maintenance requests
+                      </p>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-gray-900">
-                      {maintenanceStatsAggregates.total}
-                    </div>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Across all properties
-                    </p>
-                  </CardContent>
-                </Card>
 
-                <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
-                  <div className="h-1 bg-gradient-to-r from-[#EF4444] to-[#F87171]"></div>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-600">
-                      High Priority
-                    </CardTitle>
-                    <div className="p-2 bg-[#EF4444]/10 rounded-lg">
-                      <AlertTriangle className="h-4 w-4 text-[#EF4444]" />
+                    {/* Key Stats in Header */}
+                    <div className="flex items-center gap-4 flex-wrap">
+                      <div className="bg-white/15 backdrop-blur-sm rounded-2xl px-5 py-3 min-w-[130px]">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center">
+                            <Wrench className="h-5 w-5 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-2xl font-bold text-white">{maintenanceStatsAggregates.total}</p>
+                            <p className="text-xs text-amber-100">Active</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-white/15 backdrop-blur-sm rounded-2xl px-5 py-3 min-w-[130px]">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-xl bg-[#EF4444]/40 flex items-center justify-center">
+                            <AlertTriangle className="h-5 w-5 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-2xl font-bold text-white">{maintenanceStatsAggregates.highPriority}</p>
+                            <p className="text-xs text-amber-100">High Priority</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-white/15 backdrop-blur-sm rounded-2xl px-5 py-3 min-w-[130px]">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-xl bg-[#10B981]/40 flex items-center justify-center">
+                            <DollarSign className="h-5 w-5 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-xl font-bold text-white">{formatCurrency(maintenanceStatsAggregates.avgCost, smartBaseCurrency)}</p>
+                            <p className="text-xs text-amber-100">Avg Cost</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-white/15 backdrop-blur-sm rounded-2xl px-5 py-3 min-w-[130px]">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-xl bg-[#3B82F6]/40 flex items-center justify-center">
+                            <Clock className="h-5 w-5 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-2xl font-bold text-white">
+                              {maintenanceStatsAggregates.avgResponseHours !== null
+                                ? `${maintenanceStatsAggregates.avgResponseHours.toFixed(1)}h`
+                                : "—"}
+                            </p>
+                            <p className="text-xs text-amber-100">Response</p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-[#EF4444]">
-                      {maintenanceStatsAggregates.highPriority}
-                    </div>
-                    <p className="text-sm text-gray-500 mt-1">
-                      High priority open tickets
-                    </p>
-                  </CardContent>
-                </Card>
 
-                <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
-                  <div className="h-1 bg-gradient-to-r from-[#10B981] to-[#34D399]"></div>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-600">
-                      Average Cost
-                    </CardTitle>
-                    <div className="p-2 bg-[#10B981]/10 rounded-lg">
-                      <DollarSign className="h-4 w-4 text-[#10B981]" />
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-gray-900">
-                      {formatCurrency(
-                        maintenanceStatsAggregates.avgCost,
-                        smartBaseCurrency
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Per request (actual/estimated)
-                    </p>
-                  </CardContent>
-                </Card>
+                    <Button
+                      onClick={() => {
+                        resetMaintenanceForm();
+                        setShowAddMaintenanceDialog(true);
+                      }}
+                      className="bg-white text-[#D97706] hover:bg-amber-50 shadow-lg font-semibold whitespace-nowrap"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Request
+                    </Button>
+                  </div>
 
-                <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
-                  <div className="h-1 bg-gradient-to-r from-[#3B82F6] to-[#60A5FA]"></div>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-600">
-                      Response Time
-                    </CardTitle>
-                    <div className="p-2 bg-[#3B82F6]/10 rounded-lg">
-                      <Clock className="h-4 w-4 text-[#3B82F6]" />
+                  {/* Priority Breakdown Bar */}
+                  <div className="mt-6 bg-white/10 backdrop-blur-sm rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-amber-100">Request Status Breakdown</span>
+                      <span className="text-sm font-bold text-white">{maintenanceStatsAggregates.total} total requests</span>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-gray-900">
-                      {maintenanceStatsAggregates.avgResponseHours !== null
-                        ? `${maintenanceStatsAggregates.avgResponseHours.toFixed(
-                            1
-                          )}h`
-                        : "—"}
+                    <div className="h-2.5 bg-white/20 rounded-full overflow-hidden flex">
+                      <div className="h-full bg-[#EF4444]" style={{ width: `${maintenanceStatsAggregates.total > 0 ? (maintenanceStatsAggregates.highPriority / maintenanceStatsAggregates.total) * 100 : 0}%` }} />
+                      <div className="h-full bg-[#3B82F6]" style={{ width: '30%' }} />
+                      <div className="h-full bg-[#10B981]" style={{ width: '20%' }} />
                     </div>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {maintenanceStatsAggregates.avgResponseHours !== null
-                        ? "Average response time"
-                        : "Not enough data yet"}
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
+                    <div className="flex items-center justify-between mt-2 text-xs text-amber-200">
+                      <span className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-[#EF4444]"></span>
+                        High: {maintenanceStatsAggregates.highPriority}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-[#3B82F6]"></span>
+                        In Progress
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-[#10B981]"></span>
+                        Completed
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </Card>
 
-              {/* Maintenance Requests - Brand Styled */}
-              <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-xl font-bold">
-                    Maintenance Requests
-                  </CardTitle>
-                  <CardDescription>
-                    Track and manage property maintenance across your portfolio
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full md:w-auto">
+              {/* Maintenance Requests */}
+              <Card className="border-0 shadow-xl overflow-hidden">
+                <div className="bg-gradient-to-r from-purple-50 to-violet-50 px-6 py-4 border-b border-purple-100">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-[#7C3AED]/20 flex items-center justify-center">
+                        <Wrench className="h-5 w-5 text-[#7C3AED]" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900">Maintenance Requests</h3>
+                        <p className="text-xs text-gray-500">Track and manage requests across your portfolio</p>
+                      </div>
+                    </div>
+
+                    {/* Search & Filters */}
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                         <Input
                           placeholder="Search requests..."
-                          className="w-full sm:w-64 bg-gray-50 border-gray-200 focus:bg-white focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                          className="pl-10 w-full sm:w-56 bg-white border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED] rounded-xl h-10"
                         />
-                        <Select defaultValue="all">
-                          <SelectTrigger className="w-full sm:w-40 bg-gray-50 border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Status</SelectItem>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="in-progress">
-                              In Progress
-                            </SelectItem>
-                            <SelectItem value="scheduled">Scheduled</SelectItem>
-                            <SelectItem value="completed">Completed</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Select defaultValue="all">
-                          <SelectTrigger className="w-full sm:w-40 bg-gray-50 border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Priority</SelectItem>
-                            <SelectItem value="high">High</SelectItem>
-                            <SelectItem value="medium">Medium</SelectItem>
-                            <SelectItem value="low">Low</SelectItem>
-                          </SelectContent>
-                        </Select>
                       </div>
-                      <Button
-                        onClick={() => {
-                          resetMaintenanceForm();
-                          setShowAddMaintenanceDialog(true);
-                        }}
-                        className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md w-full md:w-auto"
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Request
-                      </Button>
+                      <Select defaultValue="all">
+                        <SelectTrigger className="w-full sm:w-36 bg-white border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED] rounded-xl h-10">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Status</SelectItem>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="in-progress">In Progress</SelectItem>
+                          <SelectItem value="scheduled">Scheduled</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Select defaultValue="all">
+                        <SelectTrigger className="w-full sm:w-36 bg-white border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED] rounded-xl h-10">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Priority</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="low">Low</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-
-                    <div className="rounded-xl overflow-hidden border-0 shadow-md">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-[#111827] hover:bg-[#111827]">
-                            <TableHead className="text-white font-semibold">
-                              Property & Unit
-                            </TableHead>
-                            <TableHead className="text-white font-semibold">
-                              Issue
-                            </TableHead>
-                            <TableHead className="text-white font-semibold">
-                              Tenant
-                            </TableHead>
-                            <TableHead className="text-white font-semibold">
-                              Priority
-                            </TableHead>
-                            <TableHead className="text-white font-semibold">
-                              Status
-                            </TableHead>
-                            <TableHead className="text-white font-semibold">
-                              Assigned To
-                            </TableHead>
-                            <TableHead className="text-white font-semibold">
-                              Cost
-                            </TableHead>
-                            <TableHead className="text-white font-semibold">
-                              Date
-                            </TableHead>
-                            <TableHead className="text-white font-semibold">
-                              Actions
-                            </TableHead>
-                          </TableRow>
-                        </TableHeader>
+                  </div>
+                </div>
+                <CardContent className="p-0">
+                  <div className="overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            Property & Unit
+                          </TableHead>
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            Issue
+                          </TableHead>
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            Tenant
+                          </TableHead>
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            Priority
+                          </TableHead>
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            Status
+                          </TableHead>
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            Assigned To
+                          </TableHead>
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            Cost
+                          </TableHead>
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            Date
+                          </TableHead>
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            Actions
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
                         <TableBody>
                           {maintenanceRequests.map(
                             (request: any, index: number) => (
@@ -4937,60 +5861,79 @@ export function PropertiesPage({
                         </TableBody>
                       </Table>
                     </div>
-                  </div>
                 </CardContent>
               </Card>
 
-              {/* Maintenance Schedule */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Scheduled Maintenance</CardTitle>
-                  <CardDescription>
-                    Upcoming preventive maintenance and inspections
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
+              {/* Scheduled Maintenance */}
+              <Card className="border-0 shadow-xl overflow-hidden">
+                <div className="bg-gradient-to-r from-blue-50 to-cyan-50 px-6 py-4 border-b border-blue-100">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                      <Calendar className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">Scheduled Maintenance</h3>
+                      <p className="text-xs text-gray-500">Upcoming preventive maintenance and inspections</p>
+                    </div>
+                  </div>
+                </div>
+                <CardContent className="p-5">
+                  <div className="space-y-3">
                     {scheduledMaintenanceList.length ? (
-                      scheduledMaintenanceList.map((request: any) => (
+                      scheduledMaintenanceList.map((request: any, idx: number) => (
                         <div
                           key={request.id}
-                          className="flex items-center justify-between p-4 border rounded-lg"
+                          className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors group"
                         >
-                          <div className="flex items-center space-x-3">
-                            <Calendar className="h-5 w-5 text-blue-600" />
+                          <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                              {new Date(request.scheduledDate || Date.now()).getDate()}
+                            </div>
                             <div>
-                              <h4 className="font-medium">{request.title}</h4>
+                              <h4 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">{request.title}</h4>
                               <p className="text-sm text-gray-600">
-                                {request.property?.name ||
-                                  "Unassigned property"}
+                                {request.property?.name || "Unassigned property"}
                               </p>
-                              <p className="text-xs text-gray-500">
+                              <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                                <Clock className="h-3 w-3" />
                                 {request.scheduledDate
-                                  ? new Date(
-                                      request.scheduledDate
-                                    ).toLocaleString()
+                                  ? new Date(request.scheduledDate).toLocaleString()
                                   : "No schedule date"}
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <Badge variant="outline">
-                              {(request.status || "scheduled")
-                                .toString()
-                                .replace(/_/g, " ")}
+                          <div className="flex items-center gap-3">
+                            <Badge
+                              variant="outline"
+                              className={`${
+                                request.status === 'completed'
+                                  ? 'bg-green-50 text-green-700 border-green-200'
+                                  : request.status === 'in-progress'
+                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                  : 'bg-amber-50 text-amber-700 border-amber-200'
+                              } font-semibold`}
+                            >
+                              {(request.status || "scheduled").toString().replace(/_/g, " ")}
                             </Badge>
-                            <Button variant="ghost" size="sm">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-gray-200 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50"
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
                               View
                             </Button>
                           </div>
                         </div>
                       ))
                     ) : (
-                      <p className="text-sm text-gray-500">
-                        No upcoming scheduled maintenance. Requests scheduled in
-                        advance will appear here.
-                      </p>
+                      <div className="text-center py-10">
+                        <div className="mx-auto w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center mb-3">
+                          <Calendar className="h-7 w-7 text-blue-600" />
+                        </div>
+                        <p className="text-sm font-medium text-gray-900">No scheduled maintenance</p>
+                        <p className="text-xs text-gray-500 mt-1">Requests scheduled in advance will appear here</p>
+                      </div>
                     )}
                   </div>
                 </CardContent>
@@ -4998,116 +5941,231 @@ export function PropertiesPage({
             </TabsContent>
 
             <TabsContent value="reports" className="space-y-6">
-              {/* Report Overview - Brand Styled */}
-              <div className="grid md:grid-cols-4 gap-6">
-                <Card className="border-gray-200 bg-gradient-to-br from-white to-gray-50 hover:shadow-lg transition-all duration-200">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                    <CardTitle className="text-sm font-semibold text-gray-700">
-                      Reports Generated
-                    </CardTitle>
-                    <div className="p-2.5 bg-blue-50 rounded-xl">
-                      <FileText className="h-5 w-5 text-blue-600" />
+              {/* Report Analytics Header Card */}
+              <Card className="border-0 shadow-xl overflow-hidden">
+                <div className="bg-gradient-to-r from-[#7C3AED] via-purple-600 to-[#5B21B6] px-6 py-6">
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                        <FileText className="h-7 w-7 text-white" />
+                      </div>
+                      <div>
+                        <h2 className="text-2xl font-bold text-white">Reports & Analytics</h2>
+                        <p className="text-purple-100 text-sm mt-0.5">Generate insights from your portfolio data</p>
+                      </div>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-[#111827] mb-1">47</div>
-                    <p className="text-xs font-medium text-gray-500">This month</p>
-                  </CardContent>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20">
+                        <p className="text-purple-100 text-xs">This Month</p>
+                        <p className="text-white font-bold text-lg">47 Reports</p>
+                      </div>
+                      <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20">
+                        <p className="text-purple-100 text-xs">Scheduled</p>
+                        <p className="text-white font-bold text-lg">2 Active</p>
+                      </div>
+                      <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20">
+                        <p className="text-purple-100 text-xs">Downloads</p>
+                        <p className="text-white font-bold text-lg">156</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Report Type Distribution */}
+                  <div className="mt-5 bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-purple-100 text-sm">Report Type Distribution</span>
+                      <span className="text-white font-semibold text-sm">47 Total</span>
+                    </div>
+                    <div className="flex gap-1 h-3 rounded-full overflow-hidden">
+                      <div className="bg-green-400 w-[30%]" title="Financial: 12"></div>
+                      <div className="bg-purple-300 w-[20%]" title="Occupancy: 8"></div>
+                      <div className="bg-orange-400 w-[35%]" title="Maintenance: 15"></div>
+                      <div className="bg-blue-400 w-[15%]" title="Tenant: 12"></div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-4 mt-3">
+                      <span className="flex items-center gap-1.5 text-xs text-purple-100">
+                        <span className="h-2 w-2 rounded-full bg-green-400"></span>
+                        Financial (12)
+                      </span>
+                      <span className="flex items-center gap-1.5 text-xs text-purple-100">
+                        <span className="h-2 w-2 rounded-full bg-purple-300"></span>
+                        Occupancy (8)
+                      </span>
+                      <span className="flex items-center gap-1.5 text-xs text-purple-100">
+                        <span className="h-2 w-2 rounded-full bg-orange-400"></span>
+                        Maintenance (15)
+                      </span>
+                      <span className="flex items-center gap-1.5 text-xs text-purple-100">
+                        <span className="h-2 w-2 rounded-full bg-blue-400"></span>
+                        Tenant (12)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Report Category Stats */}
+              <div className="grid md:grid-cols-4 gap-4">
+                {/* Financial Reports Card */}
+                <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-all duration-300">
+                  <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-5">
+                    <div className="flex items-center justify-between">
+                      <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                        <DollarSign className="h-6 w-6 text-white" />
+                      </div>
+                      <Badge className="bg-white/20 text-white border-0 backdrop-blur-sm">
+                        <TrendingUp className="h-3 w-3 mr-1" />
+                        +15%
+                      </Badge>
+                    </div>
+                    <div className="mt-4">
+                      <p className="text-green-100 text-xs font-medium">Financial Reports</p>
+                      <p className="text-3xl font-bold text-white mt-1">12</p>
+                      <p className="text-green-100 text-xs mt-2">P&L, Revenue, Expenses</p>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-white/20">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-green-100">Last generated</span>
+                        <span className="text-white font-medium">2 days ago</span>
+                      </div>
+                    </div>
+                  </div>
                 </Card>
 
-                <Card className="border-gray-200 bg-gradient-to-br from-white to-gray-50 hover:shadow-lg transition-all duration-200">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                    <CardTitle className="text-sm font-semibold text-gray-700">
-                      Financial Reports
-                    </CardTitle>
-                    <div className="p-2.5 bg-green-50 rounded-xl">
-                      <BarChart3 className="h-5 w-5 text-green-600" />
+                {/* Occupancy Reports Card */}
+                <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-all duration-300">
+                  <div className="bg-gradient-to-br from-[#7C3AED] to-purple-700 p-5">
+                    <div className="flex items-center justify-between">
+                      <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                        <PieChart className="h-6 w-6 text-white" />
+                      </div>
+                      <Badge className="bg-white/20 text-white border-0 backdrop-blur-sm">
+                        <Activity className="h-3 w-3 mr-1" />
+                        Weekly
+                      </Badge>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-[#111827] mb-1">12</div>
-                    <p className="text-xs font-medium text-gray-500">
-                      Monthly P&L statements
-                    </p>
-                  </CardContent>
+                    <div className="mt-4">
+                      <p className="text-purple-100 text-xs font-medium">Occupancy Reports</p>
+                      <p className="text-3xl font-bold text-white mt-1">8</p>
+                      <p className="text-purple-100 text-xs mt-2">Vacancy, Turnover rates</p>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-white/20">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-purple-100">Last generated</span>
+                        <span className="text-white font-medium">Today</span>
+                      </div>
+                    </div>
+                  </div>
                 </Card>
 
-                <Card className="border-gray-200 bg-gradient-to-br from-white to-gray-50 hover:shadow-lg transition-all duration-200">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                    <CardTitle className="text-sm font-semibold text-gray-700">
-                      Occupancy Reports
-                    </CardTitle>
-                    <div className="p-2.5 bg-purple-50 rounded-xl">
-                      <PieChart className="h-5 w-5 text-[#7C3AED]" />
+                {/* Maintenance Reports Card */}
+                <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-all duration-300">
+                  <div className="bg-gradient-to-br from-orange-500 to-amber-600 p-5">
+                    <div className="flex items-center justify-between">
+                      <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                        <Wrench className="h-6 w-6 text-white" />
+                      </div>
+                      <Badge className="bg-white/20 text-white border-0 backdrop-blur-sm">
+                        <TrendingDown className="h-3 w-3 mr-1" />
+                        -8%
+                      </Badge>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-[#111827] mb-1">8</div>
-                    <p className="text-xs font-medium text-gray-500">
-                      Weekly occupancy tracking
-                    </p>
-                  </CardContent>
+                    <div className="mt-4">
+                      <p className="text-orange-100 text-xs font-medium">Maintenance Reports</p>
+                      <p className="text-3xl font-bold text-white mt-1">15</p>
+                      <p className="text-orange-100 text-xs mt-2">Work orders, Costs</p>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-white/20">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-orange-100">Last generated</span>
+                        <span className="text-white font-medium">Yesterday</span>
+                      </div>
+                    </div>
+                  </div>
                 </Card>
 
-                <Card className="border-gray-200 bg-gradient-to-br from-white to-gray-50 hover:shadow-lg transition-all duration-200">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                    <CardTitle className="text-sm font-semibold text-gray-700">
-                      Maintenance Reports
-                    </CardTitle>
-                    <div className="p-2.5 bg-orange-50 rounded-xl">
-                      <LineChart className="h-5 w-5 text-orange-600" />
+                {/* Tenant Reports Card */}
+                <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-all duration-300">
+                  <div className="bg-gradient-to-br from-blue-500 to-cyan-600 p-5">
+                    <div className="flex items-center justify-between">
+                      <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                        <Users className="h-6 w-6 text-white" />
+                      </div>
+                      <Badge className="bg-white/20 text-white border-0 backdrop-blur-sm">
+                        <TrendingUp className="h-3 w-3 mr-1" />
+                        +5%
+                      </Badge>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-[#111827] mb-1">15</div>
-                    <p className="text-xs font-medium text-gray-500">
-                      Work order summaries
-                    </p>
-                  </CardContent>
+                    <div className="mt-4">
+                      <p className="text-blue-100 text-xs font-medium">Tenant Reports</p>
+                      <p className="text-3xl font-bold text-white mt-1">12</p>
+                      <p className="text-blue-100 text-xs mt-2">Leases, Payments</p>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-white/20">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-blue-100">Last generated</span>
+                        <span className="text-white font-medium">3 days ago</span>
+                      </div>
+                    </div>
+                  </div>
                 </Card>
               </div>
 
-              {/* Interactive Report Generation - Brand Styled */}
-              <Card className="border-gray-200 shadow-sm">
-                <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white rounded-t-lg">
-                  <CardTitle className="text-lg font-bold">Generate Reports</CardTitle>
-                  <CardDescription className="text-purple-100">
-                    Use live portfolio data with filters to view detailed
-                    reports directly in this page.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6 pt-6">
+              {/* Interactive Report Generation */}
+              <Card className="border-0 shadow-xl overflow-hidden">
+                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 px-6 py-4 border-b border-indigo-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#7C3AED] to-purple-600 flex items-center justify-center">
+                        <Zap className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900">Generate Reports</h3>
+                        <p className="text-xs text-gray-500">Use live portfolio data with filters to view detailed reports</p>
+                      </div>
+                    </div>
+                    <Badge className="bg-purple-100 text-[#7C3AED] border-purple-200">
+                      <Activity className="h-3 w-3 mr-1" />
+                      Real-time
+                    </Badge>
+                  </div>
+                </div>
+                <CardContent className="p-6">
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <div className="space-y-2">
-                      <Label htmlFor="report-type" className="text-sm font-semibold text-gray-700">Report type</Label>
+                      <Label htmlFor="report-type" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-gray-400" />
+                        Report Type
+                      </Label>
                       <Select
                         value={reportType}
                         onValueChange={(value) =>
                           setReportType(value as ReportType)
                         }
                       >
-                        <SelectTrigger id="report-type" className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
+                        <SelectTrigger id="report-type" className="bg-white border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED] rounded-xl h-11">
                           <SelectValue placeholder="Select report type" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">All report types</SelectItem>
                           <SelectItem value="financial">Financial</SelectItem>
                           <SelectItem value="occupancy">Occupancy</SelectItem>
-                          <SelectItem value="maintenance">
-                            Maintenance
-                          </SelectItem>
+                          <SelectItem value="maintenance">Maintenance</SelectItem>
                           <SelectItem value="tenant">Tenant</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="report-property" className="text-sm font-semibold text-gray-700">Property</Label>
+                      <Label htmlFor="report-property" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-gray-400" />
+                        Property
+                      </Label>
                       <Select
                         value={reportPropertyFilter}
                         onValueChange={setReportPropertyFilter}
                       >
-                        <SelectTrigger id="report-property" className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]">
+                        <SelectTrigger id="report-property" className="bg-white border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED] rounded-xl h-11">
                           <SelectValue placeholder="All properties" />
                         </SelectTrigger>
                         <SelectContent>
@@ -5125,47 +6183,53 @@ export function PropertiesPage({
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="report-start" className="text-sm font-semibold text-gray-700">Start date</Label>
+                      <Label htmlFor="report-start" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-gray-400" />
+                        Start Date
+                      </Label>
                       <Input
                         id="report-start"
                         type="date"
                         value={reportStartDate}
                         onChange={(e) => setReportStartDate(e.target.value)}
-                        className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                        className="bg-white border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED] rounded-xl h-11"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="report-end" className="text-sm font-semibold text-gray-700">End date</Label>
+                      <Label htmlFor="report-end" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-gray-400" />
+                        End Date
+                      </Label>
                       <Input
                         id="report-end"
                         type="date"
                         value={reportEndDate}
                         onChange={(e) => setReportEndDate(e.target.value)}
-                        className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                        className="bg-white border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED] rounded-xl h-11"
                       />
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-gray-200">
-                    <p className="text-sm text-gray-600 max-w-2xl">
-                      Reports are generated instantly from the data already
-                      loaded in this dashboard. Adjust filters to refine the
-                      view.
-                    </p>
+                  <div className="flex flex-wrap items-center justify-between gap-4 mt-6 pt-5 border-t border-gray-100">
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <Info className="h-4 w-4" />
+                      <span>Reports generated from live dashboard data</span>
+                    </div>
                     <div className="flex items-center gap-3">
                       <Button
                         variant="outline"
                         onClick={handleResetReportFilters}
                         disabled={reportGenerating && !reportPreview}
-                        className="border-gray-300 text-gray-700 hover:bg-gray-100"
+                        className="border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl h-10"
                       >
+                        <X className="h-4 w-4 mr-2" />
                         Reset
                       </Button>
                       <Button
                         onClick={handleGenerateReport}
                         disabled={reportGenerating}
-                        className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25"
+                        className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25 rounded-xl h-10 px-6"
                       >
                         {reportGenerating ? (
                           <>
@@ -5175,7 +6239,7 @@ export function PropertiesPage({
                         ) : (
                           <>
                             <BarChart3 className="mr-2 h-4 w-4" />
-                            Generate report
+                            Generate Report
                           </>
                         )}
                       </Button>
@@ -5185,39 +6249,51 @@ export function PropertiesPage({
               </Card>
 
               {reportPreview && (
-                <Card className="border-gray-200 shadow-sm">
-                  <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white rounded-t-lg">
+                <Card className="border-0 shadow-xl overflow-hidden">
+                  <div className="bg-gradient-to-r from-[#7C3AED] via-purple-600 to-[#5B21B6] px-6 py-5">
                     <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div className="flex flex-col gap-2">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <CardTitle className="text-lg font-bold">
-                            {REPORT_TYPE_LABELS[reportPreview.type]} Report
-                          </CardTitle>
-                          <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">Live preview</Badge>
+                      <div className="flex items-start gap-4">
+                        <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                          <BarChart3 className="h-6 w-6 text-white" />
                         </div>
-                        <CardDescription className="flex flex-wrap items-center gap-2 text-purple-100">
-                          <span>
-                            Generated{" "}
-                            {new Date(
-                              reportPreview.generatedAt
-                            ).toLocaleString()}
-                          </span>
-                          <span>•</span>
-                          <span>{reportPreviewPropertyLabel}</span>
-                          {reportPreviewDateRange && (
-                            <>
-                              <span>•</span>
-                              <span>{reportPreviewDateRange}</span>
-                            </>
-                          )}
-                        </CardDescription>
+                        <div>
+                          <div className="flex flex-wrap items-center gap-3 mb-1">
+                            <h3 className="text-xl font-bold text-white">
+                              {REPORT_TYPE_LABELS[reportPreview.type]} Report
+                            </h3>
+                            <Badge className="bg-green-400/20 text-green-100 border-green-400/30">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Live Preview
+                            </Badge>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2 text-purple-100 text-sm">
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {new Date(reportPreview.generatedAt).toLocaleString()}
+                            </span>
+                            <span className="text-white/40">•</span>
+                            <span className="flex items-center gap-1">
+                              <Building2 className="h-3 w-3" />
+                              {reportPreviewPropertyLabel}
+                            </span>
+                            {reportPreviewDateRange && (
+                              <>
+                                <span className="text-white/40">•</span>
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  {reportPreviewDateRange}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={handleDownloadReport}
-                          className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+                          className="bg-white/10 border-white/20 text-white hover:bg-white/20 rounded-lg"
                         >
                           <Download className="mr-2 h-4 w-4" />
                           Download
@@ -5225,45 +6301,63 @@ export function PropertiesPage({
                         <Button
                           size="sm"
                           onClick={handleEmailReport}
-                          className="bg-white text-[#7C3AED] hover:bg-white/90 shadow-lg"
+                          className="bg-white text-[#7C3AED] hover:bg-white/90 shadow-lg rounded-lg"
                         >
                           <Send className="mr-2 h-4 w-4" />
                           Send to Email
                         </Button>
                       </div>
                     </div>
-                  </CardHeader>
-                  <CardContent className="pt-6">
+                  </div>
+                  <CardContent className="p-6 bg-gray-50/50">
                     <div ref={reportPreviewRef}>{renderReportPreview()}</div>
                   </CardContent>
                 </Card>
               )}
 
-              {/* Recent Reports - Brand Styled */}
-              <Card className="border-gray-200 shadow-sm">
-                <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white rounded-t-lg">
-                  <CardTitle className="text-lg font-bold">Recent Reports</CardTitle>
-                  <CardDescription className="text-purple-100">
-                    Previously generated reports and downloads
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-6">
-                  <div className="overflow-x-auto rounded-xl border-0 shadow-md">
+              {/* Recent Reports */}
+              <Card className="border-0 shadow-xl overflow-hidden">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-blue-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                        <Archive className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900">Recent Reports</h3>
+                        <p className="text-xs text-gray-500">Previously generated reports and downloads</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                        <FileText className="h-3 w-3 mr-1" />
+                        3 Reports
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+                <CardContent className="p-0">
+                  <div className="overflow-hidden">
                     <Table>
                       <TableHeader>
-                        <TableRow className="bg-[#111827] hover:bg-[#111827]">
-                          <TableHead className="text-white font-semibold">Report Name</TableHead>
-                          <TableHead className="text-white font-semibold">Type</TableHead>
-                          <TableHead className="text-white font-semibold">Property</TableHead>
-                          <TableHead className="text-white font-semibold">Generated</TableHead>
-                          <TableHead className="text-white font-semibold">Size</TableHead>
-                          <TableHead className="text-white font-semibold">Actions</TableHead>
+                        <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Report Name</TableHead>
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</TableHead>
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Property</TableHead>
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Generated</TableHead>
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Size</TableHead>
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        <TableRow className="bg-white hover:bg-[#7C3AED]/5 transition-colors">
-                          <TableCell className="font-semibold text-gray-900">
-                            March 2024 Financial Report
+                        <TableRow className="bg-white hover:bg-purple-50/50 transition-colors border-b border-gray-100">
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="h-9 w-9 rounded-lg bg-green-100 flex items-center justify-center">
+                                <DollarSign className="h-4 w-4 text-green-600" />
+                              </div>
+                              <span className="font-semibold text-gray-900">March 2024 Financial Report</span>
+                            </div>
                           </TableCell>
                           <TableCell>
                             <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">Financial</Badge>
@@ -5272,14 +6366,14 @@ export function PropertiesPage({
                           <TableCell className="text-gray-600">March 21, 2024</TableCell>
                           <TableCell className="text-gray-600">2.3 MB</TableCell>
                           <TableCell>
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center justify-end space-x-2">
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() =>
                                   toast.success("Downloading report...")
                                 }
-                                className="border-gray-300 text-gray-700 hover:bg-gray-100"
+                                className="border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg h-8 w-8 p-0"
                               >
                                 <Download className="h-4 w-4" />
                               </Button>
@@ -5289,7 +6383,7 @@ export function PropertiesPage({
                                 onClick={() =>
                                   toast.info("Opening report in new tab...")
                                 }
-                                className="border-gray-300 text-gray-700 hover:bg-gray-100"
+                                className="border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg h-8 w-8 p-0"
                               >
                                 <ExternalLink className="h-4 w-4" />
                               </Button>
@@ -5297,9 +6391,14 @@ export function PropertiesPage({
                           </TableCell>
                         </TableRow>
 
-                        <TableRow className="bg-gray-50/50 hover:bg-[#7C3AED]/5 transition-colors">
-                          <TableCell className="font-semibold text-gray-900">
-                            Q1 2024 Occupancy Analysis
+                        <TableRow className="bg-gray-50/50 hover:bg-purple-50/50 transition-colors border-b border-gray-100">
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="h-9 w-9 rounded-lg bg-purple-100 flex items-center justify-center">
+                                <PieChart className="h-4 w-4 text-[#7C3AED]" />
+                              </div>
+                              <span className="font-semibold text-gray-900">Q1 2024 Occupancy Analysis</span>
+                            </div>
                           </TableCell>
                           <TableCell>
                             <Badge className="bg-purple-100 text-[#7C3AED] hover:bg-purple-100 border-purple-200">Occupancy</Badge>
@@ -5308,14 +6407,14 @@ export function PropertiesPage({
                           <TableCell className="text-gray-600">March 20, 2024</TableCell>
                           <TableCell className="text-gray-600">1.8 MB</TableCell>
                           <TableCell>
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center justify-end space-x-2">
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() =>
                                   toast.success("Downloading report...")
                                 }
-                                className="border-gray-300 text-gray-700 hover:bg-gray-100"
+                                className="border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg h-8 w-8 p-0"
                               >
                                 <Download className="h-4 w-4" />
                               </Button>
@@ -5325,7 +6424,7 @@ export function PropertiesPage({
                                 onClick={() =>
                                   toast.info("Opening report in new tab...")
                                 }
-                                className="border-gray-300 text-gray-700 hover:bg-gray-100"
+                                className="border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg h-8 w-8 p-0"
                               >
                                 <ExternalLink className="h-4 w-4" />
                               </Button>
@@ -5333,9 +6432,14 @@ export function PropertiesPage({
                           </TableCell>
                         </TableRow>
 
-                        <TableRow className="bg-white hover:bg-[#7C3AED]/5 transition-colors">
-                          <TableCell className="font-semibold text-gray-900">
-                            Sunset Apartments Maintenance Summary
+                        <TableRow className="bg-white hover:bg-purple-50/50 transition-colors">
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="h-9 w-9 rounded-lg bg-orange-100 flex items-center justify-center">
+                                <Wrench className="h-4 w-4 text-orange-600" />
+                              </div>
+                              <span className="font-semibold text-gray-900">Sunset Apartments Maintenance</span>
+                            </div>
                           </TableCell>
                           <TableCell>
                             <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 border-orange-200">Maintenance</Badge>
@@ -5344,14 +6448,14 @@ export function PropertiesPage({
                           <TableCell className="text-gray-600">March 19, 2024</TableCell>
                           <TableCell className="text-gray-600">0.9 MB</TableCell>
                           <TableCell>
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center justify-end space-x-2">
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() =>
                                   toast.success("Downloading report...")
                                 }
-                                className="border-gray-300 text-gray-700 hover:bg-gray-100"
+                                className="border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg h-8 w-8 p-0"
                               >
                                 <Download className="h-4 w-4" />
                               </Button>
@@ -5361,7 +6465,7 @@ export function PropertiesPage({
                                 onClick={() =>
                                   toast.info("Opening report in new tab...")
                                 }
-                                className="border-gray-300 text-gray-700 hover:bg-gray-100"
+                                className="border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg h-8 w-8 p-0"
                               >
                                 <ExternalLink className="h-4 w-4" />
                               </Button>
@@ -5374,73 +6478,116 @@ export function PropertiesPage({
                 </CardContent>
               </Card>
 
-              {/* Report Scheduling - Brand Styled */}
-              <Card className="border-gray-200 shadow-sm">
-                <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white rounded-t-lg">
-                  <CardTitle className="text-lg font-bold">Scheduled Reports</CardTitle>
-                  <CardDescription className="text-purple-100">
-                    Automatically generate and deliver reports
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-5 border border-gray-200 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100/50 hover:shadow-md transition-all duration-200">
-                      <div className="flex items-center space-x-4">
-                        <div className="p-3 bg-blue-500 rounded-xl">
-                          <Calendar className="h-5 w-5 text-white" />
+              {/* Scheduled Reports */}
+              <Card className="border-0 shadow-xl overflow-hidden">
+                <div className="bg-gradient-to-r from-amber-50 to-yellow-50 px-6 py-4 border-b border-amber-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
+                        <Clock className="h-5 w-5 text-amber-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900">Scheduled Reports</h3>
+                        <p className="text-xs text-gray-500">Automatically generate and deliver reports</p>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() =>
+                        toast.info("Report scheduling coming soon...")
+                      }
+                      className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25 rounded-xl"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Schedule Report
+                    </Button>
+                  </div>
+                </div>
+                <CardContent className="p-5">
+                  <div className="space-y-3">
+                    {/* Monthly Financial Report */}
+                    <div className="group flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 hover:shadow-md hover:border-blue-200 transition-all duration-200">
+                      <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                          <Calendar className="h-6 w-6 text-white" />
                         </div>
                         <div>
-                          <h4 className="font-bold text-gray-900">
-                            Monthly Financial Report
-                          </h4>
-                          <p className="text-sm text-gray-600 mt-0.5">
-                            Generated on the 1st of each month
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-gray-900">Monthly Financial Report</h4>
+                            <Badge className="bg-green-100 text-green-700 border-green-200">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Active
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-gray-500 mt-0.5">Generated on the 1st of each month</p>
+                          <div className="flex items-center gap-4 mt-2">
+                            <span className="text-xs text-gray-400 flex items-center gap-1">
+                              <Send className="h-3 w-3" />
+                              Sent to owner@company.com
+                            </span>
+                            <span className="text-xs text-gray-400 flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Next: Apr 1, 2024
+                            </span>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-3">
-                        <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">Active</Badge>
-                        <Button variant="outline" size="sm" className="border-gray-300 text-gray-700 hover:bg-white">
+                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="outline" size="sm" className="border-gray-200 text-gray-700 hover:bg-white rounded-lg h-9">
+                          <Edit className="h-4 w-4 mr-1" />
+                          Edit
+                        </Button>
+                        <Button variant="outline" size="sm" className="border-gray-200 text-gray-700 hover:bg-white rounded-lg h-9 w-9 p-0">
                           <Settings className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between p-5 border border-gray-200 rounded-xl bg-gradient-to-br from-green-50 to-green-100/50 hover:shadow-md transition-all duration-200">
-                      <div className="flex items-center space-x-4">
-                        <div className="p-3 bg-green-500 rounded-xl">
-                          <Clock className="h-5 w-5 text-white" />
+                    {/* Weekly Occupancy Update */}
+                    <div className="group flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100 hover:shadow-md hover:border-green-200 transition-all duration-200">
+                      <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/30">
+                          <Activity className="h-6 w-6 text-white" />
                         </div>
                         <div>
-                          <h4 className="font-bold text-gray-900">
-                            Weekly Occupancy Update
-                          </h4>
-                          <p className="text-sm text-gray-600 mt-0.5">
-                            Generated every Monday
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-gray-900">Weekly Occupancy Update</h4>
+                            <Badge className="bg-green-100 text-green-700 border-green-200">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Active
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-gray-500 mt-0.5">Generated every Monday at 9:00 AM</p>
+                          <div className="flex items-center gap-4 mt-2">
+                            <span className="text-xs text-gray-400 flex items-center gap-1">
+                              <Send className="h-3 w-3" />
+                              Sent to team@company.com
+                            </span>
+                            <span className="text-xs text-gray-400 flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Next: Monday, Mar 25
+                            </span>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-3">
-                        <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">Active</Badge>
-                        <Button variant="outline" size="sm" className="border-gray-300 text-gray-700 hover:bg-white">
+                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="outline" size="sm" className="border-gray-200 text-gray-700 hover:bg-white rounded-lg h-9">
+                          <Edit className="h-4 w-4 mr-1" />
+                          Edit
+                        </Button>
+                        <Button variant="outline" size="sm" className="border-gray-200 text-gray-700 hover:bg-white rounded-lg h-9 w-9 p-0">
                           <Settings className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
 
-                    <div className="flex justify-between items-center pt-4 border-t border-gray-200">
-                      <p className="text-sm text-gray-600 font-medium">
-                        Set up automatic report generation and email delivery
-                      </p>
-                      <Button
-                        onClick={() =>
-                          toast.info("Report scheduling coming soon...")
-                        }
-                        className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25"
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Schedule Report
-                      </Button>
+                    {/* Add More Hint */}
+                    <div className="flex items-center justify-center p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-[#7C3AED]/40 hover:bg-purple-50/30 transition-all cursor-pointer group"
+                      onClick={() => toast.info("Report scheduling coming soon...")}
+                    >
+                      <div className="flex items-center gap-3 text-gray-400 group-hover:text-[#7C3AED] transition-colors">
+                        <Plus className="h-5 w-5" />
+                        <span className="font-medium">Add another scheduled report</span>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -6028,245 +7175,213 @@ export function PropertiesPage({
         </DialogContent>
       </Dialog>
 
-      {/* View Unit Details Dialog */}
+      {/* View Unit Details Dialog - Enhanced Design */}
       <Dialog open={showViewUnitDialog} onOpenChange={setShowViewUnitDialog}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Unit Details - {selectedUnit?.unitNumber}</DialogTitle>
-            <DialogDescription>
-              {selectedUnit?.properties?.name && (
-                <span className="text-sm font-medium text-gray-700">
-                  Property: {selectedUnit.properties.name}
-                </span>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden p-0 border-0 shadow-2xl">
           {selectedUnit && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <h4 className="text-sm font-semibold text-gray-700">
-                    Basic Information
-                  </h4>
-                  <div className="bg-gray-50 border rounded-lg p-3 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Unit Number:</span>
-                      <span className="font-medium">
-                        {selectedUnit.unitNumber}
-                      </span>
+            <>
+              {/* Gradient Header */}
+              <div className={`px-6 py-6 ${
+                selectedUnit.status === "occupied"
+                  ? "bg-gradient-to-r from-[#10B981] to-[#059669]"
+                  : selectedUnit.status === "vacant"
+                  ? "bg-gradient-to-r from-[#F59E0B] to-[#D97706]"
+                  : "bg-gradient-to-r from-[#EF4444] to-[#DC2626]"
+              }`}>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="h-16 w-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                      <Home className="h-8 w-8 text-white" />
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Type:</span>
-                      <span className="font-medium">
-                        {selectedUnit.type || "-"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Floor:</span>
-                      <span className="font-medium">
-                        {selectedUnit.floor || "-"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Status:</span>
-                      <Badge
-                        variant={
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <h2 className="text-2xl font-bold text-white">{selectedUnit.unitNumber}</h2>
+                        <Badge className={`${
                           selectedUnit.status === "occupied"
-                            ? "default"
-                            : "secondary"
-                        }
-                      >
-                        {selectedUnit.status}
-                      </Badge>
+                            ? "bg-white/20 text-white border-white/30"
+                            : selectedUnit.status === "vacant"
+                            ? "bg-white/20 text-white border-white/30"
+                            : "bg-white/20 text-white border-white/30"
+                        } font-semibold uppercase text-xs`}>
+                          {selectedUnit.status}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2 mt-2 text-white/90">
+                        <MapPin className="h-4 w-4" />
+                        <span className="text-sm font-medium">{selectedUnit?.properties?.name || "Unknown Property"}</span>
+                      </div>
+                      {selectedUnit.type && (
+                        <span className="inline-flex items-center mt-2 px-3 py-1 bg-white/15 rounded-lg text-xs font-medium text-white">
+                          {selectedUnit.type}
+                        </span>
+                      )}
                     </div>
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <h4 className="text-sm font-semibold text-gray-700">
-                    Property Details
-                  </h4>
-                  <div className="bg-gray-50 border rounded-lg p-3 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Bedrooms:</span>
-                      <span className="font-medium">
-                        {selectedUnit.bedrooms || 0}
-                      </span>
+                  {/* Quick Stats */}
+                  <div className="flex items-center gap-3">
+                    <div className="text-center px-4 py-2 bg-white/15 backdrop-blur-sm rounded-xl">
+                      <div className="flex items-center justify-center gap-1">
+                        <Bed className="h-4 w-4 text-white/80" />
+                        <span className="text-xl font-bold text-white">{selectedUnit.bedrooms || 0}</span>
+                      </div>
+                      <span className="text-xs text-white/70">Beds</span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Bathrooms:</span>
-                      <span className="font-medium">
-                        {selectedUnit.bathrooms || 0}
-                      </span>
+                    <div className="text-center px-4 py-2 bg-white/15 backdrop-blur-sm rounded-xl">
+                      <div className="flex items-center justify-center gap-1">
+                        <Bath className="h-4 w-4 text-white/80" />
+                        <span className="text-xl font-bold text-white">{selectedUnit.bathrooms || 0}</span>
+                      </div>
+                      <span className="text-xs text-white/70">Baths</span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Size:</span>
-                      <span className="font-medium">
-                        {selectedUnit.size ? `${selectedUnit.size} sqft` : "-"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <h4 className="text-sm font-semibold text-gray-700">
-                    Financial Details
-                  </h4>
-                  <div className="bg-gray-50 border rounded-lg p-3 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Monthly Rent:</span>
-                      <span className="font-medium">
-                        {formatCurrency(
-                          selectedUnit.monthlyRent || 0,
-                          selectedUnitCurrency
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Security Deposit:</span>
-                      <span className="font-medium">
-                        {formatCurrency(
-                          selectedUnit.securityDeposit ||
-                            selectedUnit.properties?.securityDeposit ||
-                            0,
-                          selectedUnitCurrency
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Service Charge:</span>
-                      <span className="font-medium">
-                        {formatCurrency(
-                          (selectedUnitNigeria as any).serviceCharge ??
-                            selectedUnit.properties?.serviceCharge ??
-                            0,
-                          selectedUnitCurrency
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Application Fee:</span>
-                      <span className="font-medium">
-                        {formatCurrency(
-                          (selectedUnitNigeria as any).applicationFee ??
-                            selectedUnit.properties?.applicationFee ??
-                            0,
-                          selectedUnitCurrency
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <h4 className="text-sm font-semibold text-gray-700">
-                    Additional Fees & Utilities
-                  </h4>
-                  <div className="bg-gray-50 border rounded-lg p-3 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Caution Fee:</span>
-                      <span className="font-medium">
-                        {formatCurrency(
-                          (selectedUnitNigeria as any).cautionFee ??
-                            selectedUnit.properties?.cautionFee ??
-                            0,
-                          selectedUnitCurrency
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Legal Fee:</span>
-                      <span className="font-medium">
-                        {formatCurrency(
-                          (selectedUnitNigeria as any).legalFee ??
-                            selectedUnit.properties?.legalFee ??
-                            0,
-                          selectedUnitCurrency
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Agent Commission:</span>
-                      <span className="font-medium">
-                        {formatCurrency(
-                          (selectedUnitNigeria as any).agentCommission ??
-                            selectedUnit.properties?.agentCommission ??
-                            0,
-                          selectedUnitCurrency
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Agreement Fee:</span>
-                      <span className="font-medium">
-                        {formatCurrency(
-                          (selectedUnitNigeria as any).agreementFee ??
-                            selectedUnit.properties?.agreementFee ??
-                            0,
-                          selectedUnitCurrency
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Waste Management:</span>
-                      <span className="font-medium">
-                        {formatCurrency(
-                          (selectedUnitNigeria as any).wasteFee || 0,
-                          selectedUnitCurrency
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Estate Dues:</span>
-                      <span className="font-medium">
-                        {formatCurrency(
-                          (selectedUnitNigeria as any).estateDues || 0,
-                          selectedUnitCurrency
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Electricity Meter:</span>
-                      <span className="font-medium">
-                        {(selectedUnitNigeria as any).electricityMeter || "N/A"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Prepaid Meter:</span>
-                      <span className="font-medium">
-                        {(selectedUnitNigeria as any).prepaidMeter
-                          ? "Yes"
-                          : "No"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Water Source:</span>
-                      <span className="font-medium">
-                        {(selectedUnitNigeria as any).waterSource
-                          ? (selectedUnitNigeria as any).waterSource
-                          : "Not specified"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Parking Available:</span>
-                      <span className="font-medium">
-                        {(selectedUnitNigeria as any).parkingAvailable
-                          ? "Yes"
-                          : "No"}
-                      </span>
-                    </div>
+                    {selectedUnit.size && (
+                      <div className="text-center px-4 py-2 bg-white/15 backdrop-blur-sm rounded-xl">
+                        <div className="flex items-center justify-center gap-1">
+                          <Maximize className="h-4 w-4 text-white/80" />
+                          <span className="text-xl font-bold text-white">{selectedUnit.size}</span>
+                        </div>
+                        <span className="text-xs text-white/70">Sqft</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-2 pt-4">
+              {/* Content */}
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                  {/* Rent & Financial Highlights */}
+                  <div className="lg:col-span-2">
+                    <div className="bg-gradient-to-r from-[#10B981]/10 to-[#10B981]/5 border border-[#10B981]/20 rounded-2xl p-5">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="h-10 w-10 rounded-xl bg-[#10B981]/20 flex items-center justify-center">
+                          <DollarSign className="h-5 w-5 text-[#10B981]" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-900">Monthly Rent</h3>
+                          <p className="text-xs text-gray-500">Primary rental amount</p>
+                        </div>
+                        <div className="ml-auto">
+                          <span className="text-3xl font-bold text-[#10B981]">
+                            {formatCurrency(selectedUnit.monthlyRent || 0, selectedUnitCurrency)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Quick Financial Stats */}
+                      <div className="grid grid-cols-3 gap-4 pt-4 border-t border-[#10B981]/20">
+                        <div className="text-center">
+                          <p className="text-sm font-semibold text-gray-900">
+                            {formatCurrency(selectedUnit.securityDeposit || selectedUnit.properties?.securityDeposit || 0, selectedUnitCurrency)}
+                          </p>
+                          <p className="text-xs text-gray-500">Security Deposit</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm font-semibold text-gray-900">
+                            {formatCurrency((selectedUnitNigeria as any).serviceCharge ?? selectedUnit.properties?.serviceCharge ?? 0, selectedUnitCurrency)}
+                          </p>
+                          <p className="text-xs text-gray-500">Service Charge</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm font-semibold text-gray-900">
+                            {selectedUnit.floor || "N/A"}
+                          </p>
+                          <p className="text-xs text-gray-500">Floor Level</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Fees Section */}
+                  <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                    <div className="bg-gradient-to-r from-purple-50 to-violet-50 px-5 py-4 border-b border-gray-200">
+                      <div className="flex items-center gap-2">
+                        <div className="h-8 w-8 rounded-lg bg-[#7C3AED]/20 flex items-center justify-center">
+                          <FileText className="h-4 w-4 text-[#7C3AED]" />
+                        </div>
+                        <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Fees & Charges</h3>
+                      </div>
+                    </div>
+                    <div className="p-5 space-y-3">
+                      {[
+                        { label: "Application Fee", value: (selectedUnitNigeria as any).applicationFee ?? selectedUnit.properties?.applicationFee ?? 0 },
+                        { label: "Legal Fee", value: (selectedUnitNigeria as any).legalFee ?? selectedUnit.properties?.legalFee ?? 0 },
+                        { label: "Agent Commission", value: (selectedUnitNigeria as any).agentCommission ?? selectedUnit.properties?.agentCommission ?? 0 },
+                        { label: "Agreement Fee", value: (selectedUnitNigeria as any).agreementFee ?? selectedUnit.properties?.agreementFee ?? 0 },
+                      ].map((fee, idx) => (
+                        <div key={idx} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                          <span className="text-sm text-gray-600">{fee.label}</span>
+                          <span className="text-sm font-semibold text-gray-900">
+                            {formatCurrency(fee.value, selectedUnitCurrency)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Utilities Section */}
+                  <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                    <div className="bg-gradient-to-r from-blue-50 to-cyan-50 px-5 py-4 border-b border-gray-200">
+                      <div className="flex items-center gap-2">
+                        <div className="h-8 w-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                          <Zap className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Utilities & Amenities</h3>
+                      </div>
+                    </div>
+                    <div className="p-5 space-y-3">
+                      <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                        <span className="text-sm text-gray-600">Waste Management</span>
+                        <span className="text-sm font-semibold text-gray-900">
+                          {formatCurrency((selectedUnitNigeria as any).wasteFee || 0, selectedUnitCurrency)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                        <span className="text-sm text-gray-600">Estate Dues</span>
+                        <span className="text-sm font-semibold text-gray-900">
+                          {formatCurrency((selectedUnitNigeria as any).estateDues || 0, selectedUnitCurrency)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                        <span className="text-sm text-gray-600">Electricity Meter</span>
+                        <span className="text-sm font-semibold text-gray-900">
+                          {(selectedUnitNigeria as any).electricityMeter || "N/A"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                        <span className="text-sm text-gray-600">Prepaid Meter</span>
+                        <Badge variant="outline" className={`${(selectedUnitNigeria as any).prepaidMeter ? "bg-green-50 text-green-700 border-green-200" : "bg-gray-50 text-gray-600 border-gray-200"}`}>
+                          {(selectedUnitNigeria as any).prepaidMeter ? "Yes" : "No"}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                        <span className="text-sm text-gray-600">Water Source</span>
+                        <span className="text-sm font-semibold text-gray-900">
+                          {(selectedUnitNigeria as any).waterSource || "Not specified"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between py-2">
+                        <span className="text-sm text-gray-600">Parking Available</span>
+                        <Badge variant="outline" className={`${(selectedUnitNigeria as any).parkingAvailable ? "bg-green-50 text-green-700 border-green-200" : "bg-gray-50 text-gray-600 border-gray-200"}`}>
+                          {(selectedUnitNigeria as any).parkingAvailable ? "Yes" : "No"}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Footer Actions */}
+              <div className="bg-gray-50 px-6 py-4 flex items-center justify-end gap-3 border-t border-gray-200">
                 <Button
                   variant="outline"
                   onClick={() => {
                     setShowViewUnitDialog(false);
                     setSelectedUnit(null);
                   }}
+                  className="border-gray-300 text-gray-700 hover:bg-gray-100 rounded-xl px-5"
                 >
                   Close
                 </Button>
@@ -6275,12 +7390,13 @@ export function PropertiesPage({
                     setShowViewUnitDialog(false);
                     handleEditUnit(selectedUnit);
                   }}
+                  className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25 rounded-xl px-6"
                 >
                   <Edit className="h-4 w-4 mr-2" />
                   Edit Unit
                 </Button>
               </div>
-            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
@@ -7177,12 +8293,22 @@ export function PropertiesPage({
                   <div className="rounded-xl overflow-hidden border-0 shadow-sm">
                     <Table>
                       <TableHeader>
-                        <TableRow className="bg-[#111827] hover:bg-[#111827]">
-                          <TableHead className="text-white font-semibold">Date</TableHead>
-                          <TableHead className="text-white font-semibold">Description</TableHead>
-                          <TableHead className="text-white font-semibold">Unit</TableHead>
-                          <TableHead className="text-white font-semibold">Category</TableHead>
-                          <TableHead className="text-right text-white font-semibold">Amount</TableHead>
+                        <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            Date
+                          </TableHead>
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            Description
+                          </TableHead>
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            Unit
+                          </TableHead>
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            Category
+                          </TableHead>
+                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">
+                            Amount
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>

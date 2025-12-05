@@ -51,6 +51,13 @@ backend/uploads/documents/*.jpg
 backend/uploads/documents/*.jpeg
 backend/uploads/documents/*.png
 !backend/uploads/maintenance/
+backend/uploads/maintenance/**
+
+# Database dumps
+backups/*.dump
+backups/*.sql
+do-backup-*.dump
+backend/backups/*.dump
 
 # Build artifacts
 build/
