@@ -77,7 +77,10 @@ export const getAllSubmissions = (filters?: FilterOptions) => {
  * Admin API - Get statistics
  */
 export const getSubmissionStats = (dateFrom?: string, dateTo?: string) => {
-  return apiClient.get('/api/landing-forms/admin/stats', { dateFrom, dateTo } as any);
+  const params: any = {};
+  if (dateFrom) params.dateFrom = dateFrom;
+  if (dateTo) params.dateTo = dateTo;
+  return apiClient.get('/api/landing-forms/admin/stats', params);
 };
 
 /**

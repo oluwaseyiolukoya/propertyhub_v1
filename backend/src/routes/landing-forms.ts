@@ -190,8 +190,19 @@ router.get('/admin', authMiddleware, async (req: AuthRequest, res: Response) => 
  */
 router.get('/admin/stats', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const dateFrom = req.query.dateFrom ? new Date(req.query.dateFrom as string) : undefined;
-    const dateTo = req.query.dateTo ? new Date(req.query.dateTo as string) : undefined;
+    // Parse date parameters, handle "undefined" string and invalid dates
+    let dateFrom: Date | undefined;
+    let dateTo: Date | undefined;
+
+    if (req.query.dateFrom && req.query.dateFrom !== 'undefined') {
+      const parsedFrom = new Date(req.query.dateFrom as string);
+      dateFrom = isNaN(parsedFrom.getTime()) ? undefined : parsedFrom;
+    }
+
+    if (req.query.dateTo && req.query.dateTo !== 'undefined') {
+      const parsedTo = new Date(req.query.dateTo as string);
+      dateTo = isNaN(parsedTo.getTime()) ? undefined : parsedTo;
+    }
 
     const stats = await landingFormsService.getStatistics(dateFrom, dateTo);
 
@@ -204,6 +215,7 @@ router.get('/admin/stats', authMiddleware, async (req: AuthRequest, res: Respons
     res.status(500).json({
       success: false,
       error: 'Failed to fetch statistics',
+      details: error.message,
     });
   }
 });
