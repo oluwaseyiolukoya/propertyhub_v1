@@ -117,6 +117,7 @@ model customers {
   mrr                         Float                        @default(0)
   trialEndsAt                 DateTime?
   subscriptionStartDate       DateTime?
+  nextPaymentDate             DateTime?
   status                      String                       @default("trial")
   lastLogin                   DateTime?
   propertyLimit               Int                          @default(5)
@@ -503,25 +504,25 @@ model properties {
 }
 
 model report_schedules {
-  id           String   @id @default(uuid())
-  customerId   String
-  userId       String
-  name         String
-  reportType   String   // financial, occupancy, maintenance, tenant, all
-  propertyId   String?  // null means "all properties"
-  frequency    String   // weekly, monthly
-  dayOfWeek    String?  // monday, tuesday, etc. (for weekly)
-  dayOfMonth   Int?     // 1-31 (for monthly)
-  time         String   // HH:mm format
-  email        String
-  status       String   @default("active") // active, paused
-  filters      Json?    // Additional report filters (startDate, endDate, etc.)
-  lastRun      DateTime?
-  nextRun      DateTime
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  customers    customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  users        users     @relation(fields: [userId], references: [id])
+  id         String    @id @default(uuid())
+  customerId String
+  userId     String
+  name       String
+  reportType String // financial, occupancy, maintenance, tenant, all
+  propertyId String? // null means "all properties"
+  frequency  String // weekly, monthly
+  dayOfWeek  String? // monday, tuesday, etc. (for weekly)
+  dayOfMonth Int? // 1-31 (for monthly)
+  time       String // HH:mm format
+  email      String
+  status     String    @default("active") // active, paused
+  filters    Json? // Additional report filters (startDate, endDate, etc.)
+  lastRun    DateTime?
+  nextRun    DateTime
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  customers  customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  users      users     @relation(fields: [userId], references: [id])
 
   @@index([customerId])
   @@index([userId])
@@ -1690,24 +1691,24 @@ model sessions {
 // ============================================
 
 model verification_requests {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   customerId      String
   customerEmail   String?
-  customerType    String   // 'property_owner', 'developer', 'property_manager', 'tenant'
-  status          String   @default("pending") // pending, in_progress, approved, rejected, failed
-  submittedAt     DateTime @default(now())
+  customerType    String // 'property_owner', 'developer', 'property_manager', 'tenant'
+  status          String    @default("pending") // pending, in_progress, approved, rejected, failed
+  submittedAt     DateTime  @default(now())
   completedAt     DateTime?
   reviewedBy      String?
   reviewedAt      DateTime?
-  rejectionReason String?  @db.Text
+  rejectionReason String?   @db.Text
   ipAddress       String?
-  userAgent       String?  @db.Text
+  userAgent       String?   @db.Text
 
   // Relations
-  customer        customers  @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  reviewer        users?     @relation("verification_reviewer", fields: [reviewedBy], references: [id])
-  documents       verification_documents[]
-  history         verification_history[]
+  customer  customers                @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  reviewer  users?                   @relation("verification_reviewer", fields: [reviewedBy], references: [id])
+  documents verification_documents[]
+  history   verification_history[]
 
   @@index([customerId])
   @@index([customerEmail])
@@ -1716,25 +1717,25 @@ model verification_requests {
 }
 
 model verification_documents {
-  id                String   @id @default(uuid())
+  id                String    @id @default(uuid())
   requestId         String
-  documentType      String   // 'nin', 'passport', 'drivers_license', 'voters_card', 'utility_bill', 'proof_of_address'
-  documentNumber    String?  @db.Text // Encrypted with AES-256-GCM
-  fileUrl           String   @db.Text // S3 URL
+  documentType      String // 'nin', 'passport', 'drivers_license', 'voters_card', 'utility_bill', 'proof_of_address'
+  documentNumber    String?   @db.Text // Encrypted with AES-256-GCM
+  fileUrl           String    @db.Text // S3 URL
   fileName          String
   fileSize          Int
   mimeType          String
-  status            String   @default("pending")
-  provider          String?  // 'dojah', 'youverify', etc.
+  status            String    @default("pending")
+  provider          String? // 'dojah', 'youverify', etc.
   providerReference String?
   verificationData  Json?
   confidence        Float?
   verifiedAt        DateTime?
-  failureReason     String?  @db.Text
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  failureReason     String?   @db.Text
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  request           verification_requests @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  request verification_requests @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   @@index([requestId])
   @@index([status])
@@ -1750,7 +1751,7 @@ model verification_history {
   details     Json?
   createdAt   DateTime @default(now())
 
-  request     verification_requests @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  request verification_requests @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   @@index([requestId])
   @@index([action])

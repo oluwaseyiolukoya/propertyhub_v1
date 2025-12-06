@@ -93,6 +93,26 @@ export function BillingPlansAdmin() {
   const [txStartDate, setTxStartDate] = useState<string>(''); // YYYY-MM-DD
   const [txEndDate, setTxEndDate] = useState<string>('');
 
+  // Customer Subscriptions filters
+  const [custShowFilters, setCustShowFilters] = useState(false);
+  const [custSearchTerm, setCustSearchTerm] = useState('');
+  const [custStatusFilter, setCustStatusFilter] = useState<'all' | 'active' | 'trial'>('all');
+  const [custPlanFilter, setCustPlanFilter] = useState<string>('all');
+  const [custPaymentStartDate, setCustPaymentStartDate] = useState<string>('');
+  const [custPaymentEndDate, setCustPaymentEndDate] = useState<string>('');
+  const [custSortBy, setCustSortBy] = useState<'nextPayment' | 'mrr' | 'company'>('nextPayment');
+  const [custSortOrder, setCustSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  const clearCustFilters = () => {
+    setCustSearchTerm('');
+    setCustStatusFilter('all');
+    setCustPlanFilter('all');
+    setCustPaymentStartDate('');
+    setCustPaymentEndDate('');
+    setCustSortBy('nextPayment');
+    setCustSortOrder('asc');
+  };
+
   const clearTxFilters = () => {
     setTxStatusFilter('all');
     setTxPlanFilter('all');
@@ -1280,6 +1300,323 @@ export function BillingPlansAdmin() {
                   </div>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Customer Subscriptions with Next Payment Dates */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Customer Subscriptions</CardTitle>
+                <CardDescription>Active subscriptions and upcoming payment dates</CardDescription>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCustShowFilters(!custShowFilters)}
+                >
+                  <Filter className="h-4 w-4 mr-1" />
+                  Filters
+                </Button>
+                <Badge variant="outline">{customers.filter((c: any) => c.status === 'active').length} Active</Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {/* Filters */}
+              {custShowFilters && (
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Search */}
+                    <div>
+                      <Label htmlFor="cust-search" className="text-xs font-medium mb-1">Search Customer</Label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          id="cust-search"
+                          placeholder="Company or owner name..."
+                          value={custSearchTerm}
+                          onChange={(e) => setCustSearchTerm(e.target.value)}
+                          className="pl-9"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Status Filter */}
+                    <div>
+                      <Label htmlFor="cust-status" className="text-xs font-medium mb-1">Status</Label>
+                      <Select value={custStatusFilter} onValueChange={(val: any) => setCustStatusFilter(val)}>
+                        <SelectTrigger id="cust-status">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Statuses</SelectItem>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="trial">Trial</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Plan Filter */}
+                    <div>
+                      <Label htmlFor="cust-plan" className="text-xs font-medium mb-1">Plan</Label>
+                      <Select value={custPlanFilter} onValueChange={setCustPlanFilter}>
+                        <SelectTrigger id="cust-plan">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Plans</SelectItem>
+                          {subscriptionPlans.map(p => (
+                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Payment Date Range */}
+                    <div>
+                      <Label htmlFor="cust-payment-start" className="text-xs font-medium mb-1">Payment From</Label>
+                      <Input
+                        id="cust-payment-start"
+                        type="date"
+                        value={custPaymentStartDate}
+                        onChange={(e) => setCustPaymentStartDate(e.target.value)}
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="cust-payment-end" className="text-xs font-medium mb-1">Payment To</Label>
+                      <Input
+                        id="cust-payment-end"
+                        type="date"
+                        value={custPaymentEndDate}
+                        onChange={(e) => setCustPaymentEndDate(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Sort Options */}
+                    <div>
+                      <Label htmlFor="cust-sort" className="text-xs font-medium mb-1">Sort By</Label>
+                      <div className="flex space-x-2">
+                        <Select value={custSortBy} onValueChange={(val: any) => setCustSortBy(val)}>
+                          <SelectTrigger id="cust-sort" className="flex-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="nextPayment">Next Payment</SelectItem>
+                            <SelectItem value="mrr">MRR</SelectItem>
+                            <SelectItem value="company">Company</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCustSortOrder(custSortOrder === 'asc' ? 'desc' : 'asc')}
+                          className="px-3"
+                        >
+                          {custSortOrder === 'asc' ? '↑' : '↓'}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center pt-2">
+                    <div className="text-sm text-gray-600">
+                      {(custSearchTerm || custStatusFilter !== 'all' || custPlanFilter !== 'all' || custPaymentStartDate || custPaymentEndDate) && (
+                        <span>(filters applied)</span>
+                      )}
+                    </div>
+                    <Button variant="outline" size="sm" onClick={clearCustFilters}>
+                      Clear Filters
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {customersLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
+                </div>
+              ) : customers.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Users className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                  <p>No customers found</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Plan</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Billing Cycle</TableHead>
+                        <TableHead>MRR</TableHead>
+                        <TableHead>Next Payment</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(() => {
+                        // Apply all filters
+                        let filteredCustomers = customers.filter((c: any) => {
+                          // Status filter
+                          if (custStatusFilter !== 'all' && c.status !== custStatusFilter) return false;
+
+                          // Search filter
+                          if (custSearchTerm) {
+                            const search = custSearchTerm.toLowerCase();
+                            const matchesCompany = c.company?.toLowerCase().includes(search);
+                            const matchesOwner = c.owner?.toLowerCase().includes(search);
+                            const matchesEmail = c.email?.toLowerCase().includes(search);
+                            if (!matchesCompany && !matchesOwner && !matchesEmail) return false;
+                          }
+
+                          // Plan filter
+                          if (custPlanFilter !== 'all' && c.planId !== custPlanFilter) return false;
+
+                          // Payment date range filter
+                          if (c.nextPaymentDate) {
+                            const paymentDate = new Date(c.nextPaymentDate);
+                            if (custPaymentStartDate) {
+                              const startDate = new Date(custPaymentStartDate);
+                              if (paymentDate < startDate) return false;
+                            }
+                            if (custPaymentEndDate) {
+                              const endDate = new Date(custPaymentEndDate);
+                              endDate.setHours(23, 59, 59, 999); // Include entire end date
+                              if (paymentDate > endDate) return false;
+                            }
+                          }
+
+                          return true;
+                        });
+
+                        // Apply sorting
+                        filteredCustomers.sort((a: any, b: any) => {
+                          let compareValue = 0;
+
+                          if (custSortBy === 'nextPayment') {
+                            if (!a.nextPaymentDate) return 1;
+                            if (!b.nextPaymentDate) return -1;
+                            compareValue = new Date(a.nextPaymentDate).getTime() - new Date(b.nextPaymentDate).getTime();
+                          } else if (custSortBy === 'mrr') {
+                            compareValue = (a.mrr || 0) - (b.mrr || 0);
+                          } else if (custSortBy === 'company') {
+                            compareValue = (a.company || '').localeCompare(b.company || '');
+                          }
+
+                          return custSortOrder === 'asc' ? compareValue : -compareValue;
+                        });
+
+                        const displayCustomers = filteredCustomers.slice(0, 20);
+
+                        return displayCustomers.map((customer: any) => {
+                          const nextPaymentDate = customer.nextPaymentDate ? new Date(customer.nextPaymentDate) : null;
+                          const daysUntil = nextPaymentDate 
+                            ? Math.ceil((nextPaymentDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+                            : null;
+
+                          return (
+                            <TableRow key={customer.id}>
+                              <TableCell>
+                                <div>
+                                  <div className="font-medium">{customer.company}</div>
+                                  <div className="text-sm text-gray-500">{customer.owner}</div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center space-x-2">
+                                  <span>{customer.plan?.name || 'No Plan'}</span>
+                                  {customer.plan && (
+                                    <Badge variant="outline" className="text-[10px]">
+                                      {customer.planCategory === 'development' ? 'Dev' : 'Property'}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={
+                                  customer.status === 'active' ? 'default' :
+                                  customer.status === 'trial' ? 'secondary' :
+                                  'outline'
+                                }>
+                                  {customer.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="capitalize">{customer.billingCycle || 'monthly'}</TableCell>
+                              <TableCell className="font-medium">
+                                {formatCurrency(customer.mrr || 0, selectedCurrency)}
+                              </TableCell>
+                              <TableCell>
+                                {nextPaymentDate ? (
+                                  <div>
+                                    <div className="font-medium">
+                                      {nextPaymentDate.toLocaleDateString('en-US', { 
+                                        month: 'short', 
+                                        day: 'numeric',
+                                        year: 'numeric'
+                                      })}
+                                    </div>
+                                    <div className={`text-xs ${
+                                      daysUntil! <= 3 ? 'text-red-600 font-medium' :
+                                      daysUntil! <= 7 ? 'text-orange-600' :
+                                      'text-gray-500'
+                                    }`}>
+                                      {daysUntil! < 0 ? `${Math.abs(daysUntil!)} days overdue` :
+                                       daysUntil === 0 ? 'Due today' :
+                                       daysUntil === 1 ? 'Tomorrow' :
+                                       `In ${daysUntil} days`}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400">No date set</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        });
+                      })()}
+                    </TableBody>
+                  </Table>
+                  {(() => {
+                    const filteredCount = customers.filter((c: any) => {
+                      if (custStatusFilter !== 'all' && c.status !== custStatusFilter) return false;
+                      if (custSearchTerm) {
+                        const search = custSearchTerm.toLowerCase();
+                        const matches = c.company?.toLowerCase().includes(search) ||
+                                      c.owner?.toLowerCase().includes(search) ||
+                                      c.email?.toLowerCase().includes(search);
+                        if (!matches) return false;
+                      }
+                      if (custPlanFilter !== 'all' && c.planId !== custPlanFilter) return false;
+                      if (c.nextPaymentDate) {
+                        const paymentDate = new Date(c.nextPaymentDate);
+                        if (custPaymentStartDate && paymentDate < new Date(custPaymentStartDate)) return false;
+                        if (custPaymentEndDate) {
+                          const endDate = new Date(custPaymentEndDate);
+                          endDate.setHours(23, 59, 59, 999);
+                          if (paymentDate > endDate) return false;
+                        }
+                      }
+                      return true;
+                    }).length;
+
+                    if (filteredCount > 20) {
+                      return (
+                        <div className="mt-4 text-center text-sm text-gray-500">
+                          Showing 20 of {filteredCount} matching subscriptions
+                        </div>
+                      );
+                    } else if (custSearchTerm || custStatusFilter !== 'all' || custPlanFilter !== 'all' || custPaymentStartDate || custPaymentEndDate) {
+                      return (
+                        <div className="mt-4 text-center text-sm text-gray-500">
+                          Found {filteredCount} matching subscription{filteredCount !== 1 ? 's' : ''}
+                        </div>
+                      );
+                    }
+                  })()}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

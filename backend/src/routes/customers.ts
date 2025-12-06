@@ -7,6 +7,7 @@ import { emitToAdmins, emitToCustomer } from "../lib/socket";
 import { captureSnapshotOnChange } from "../lib/mrr-snapshot";
 import { calculateTrialEndDate } from "../lib/trial-config";
 import { sendCustomerInvitation, sendEmail } from "../lib/email";
+import { calculateNextPaymentDate } from "../utils/billing";
 
 const router = express.Router();
 
@@ -116,10 +117,18 @@ router.get("/", async (req: AuthRequest, res: Response) => {
         orderBy: { createdAt: "desc" },
       });
 
-      const customers = customersRaw.map((c: any) => ({
-        ...c,
-        plan: c.plans || null,
-      }));
+      const customers = customersRaw.map((c: any) => {
+        // Calculate next payment date if subscription is active
+        const nextPaymentDate = c.status === 'active' && c.subscriptionStartDate
+          ? calculateNextPaymentDate(c.subscriptionStartDate, c.billingCycle, c.nextPaymentDate)
+          : c.nextPaymentDate;
+
+        return {
+          ...c,
+          plan: c.plans || null,
+          nextPaymentDate,
+        };
+      });
 
       console.log("✅ Customers fetched from database:", customers.length);
       if (customers.length > 0) {
