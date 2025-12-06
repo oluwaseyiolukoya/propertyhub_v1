@@ -195,6 +195,7 @@ model customers {
   email_queue                 email_queue[]
   notification_templates      notification_templates[]
   notification_logs           notification_logs[]
+  report_schedules            report_schedules[]
 
   @@index([status])
   @@index([trialEndsAt])
@@ -499,6 +500,33 @@ model properties {
   @@index([ownerId])
   @@index([customerId])
   @@index([status])
+}
+
+model report_schedules {
+  id           String   @id @default(uuid())
+  customerId   String
+  userId       String
+  name         String
+  reportType   String   // financial, occupancy, maintenance, tenant, all
+  propertyId   String?  // null means "all properties"
+  frequency    String   // weekly, monthly
+  dayOfWeek    String?  // monday, tuesday, etc. (for weekly)
+  dayOfMonth   Int?     // 1-31 (for monthly)
+  time         String   // HH:mm format
+  email        String
+  status       String   @default("active") // active, paused
+  filters      Json?    // Additional report filters (startDate, endDate, etc.)
+  lastRun      DateTime?
+  nextRun      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  customers    customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  users        users     @relation(fields: [userId], references: [id])
+
+  @@index([customerId])
+  @@index([userId])
+  @@index([status])
+  @@index([nextRun])
 }
 
 model property_key_transactions {
@@ -819,6 +847,7 @@ model users {
   activated_applications                                                        onboarding_applications[]    @relation("activated_by")
   // Verification system relations
   verification_requests_reviewed                                                verification_requests[]      @relation("verification_reviewer")
+  report_schedules                                                              report_schedules[]
 }
 
 model maintenance_requests {

@@ -163,6 +163,8 @@ import verificationHealthRoutes from "./routes/verification-health";
 import forgotPasswordRoutes from "./routes/forgot-password";
 // Storage routes
 import storageRoutes from "./routes/storage";
+// Report Schedules routes
+import reportSchedulesRoutes from "./routes/report-schedules";
 // Cron jobs
 import { initializeCronJobs } from "./lib/cron-jobs";
 
@@ -412,6 +414,8 @@ app.use("/api/email-test", emailTestRoutes);
 app.use("/api/forgot-password", forgotPasswordRoutes);
 // Storage routes
 app.use("/api/storage", storageRoutes);
+// Report Schedules routes
+app.use("/api/report-schedules", reportSchedulesRoutes);
 // Team Management routes
 app.use("/api/team", teamRoutes);
 // Approval Workflow routes

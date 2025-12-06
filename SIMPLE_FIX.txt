@@ -1,0 +1,62 @@
+===========================================
+SIMPLE FIX FOR PROPERTIESPAGE.TSX
+===========================================
+
+The error says line 7242 has a JSX structure problem.
+
+MANUAL FIX STEPS:
+=================
+
+1. Open src/components/PropertiesPage.tsx
+
+2. Press Cmd+F (or Ctrl+F) and search for:
+   "Maintenance Reports"
+
+3. You should find it around line 7226
+
+4. Scroll down a bit - you'll see the reports tab content ends with cards
+
+5. The structure should look like this at the END of reports tab:
+
+```tsx
+                </Card>
+              </div>
+            </TabsContent>  ← This should close the reports tab
+          </Tabs>
+        </div>
+      </div>
+    );
+  };
+```
+
+6. Make sure there's NO extra </div> before </TabsContent>
+
+7. Count your opening and closing tags - they must match!
+
+ALTERNATIVE - REVERT AND USE COMPONENT:
+========================================
+
+If the structure is too broken, do this:
+
+1. Find the line with: <TabsContent value="reports"
+
+2. Delete EVERYTHING from that line until you see </TabsContent>
+
+3. Replace with:
+```tsx
+<TabsContent value="reports" className="space-y-6">
+  <div className="text-center py-12">
+    <p className="text-gray-600">Reports tab - Integration pending</p>
+    <p className="text-sm text-gray-500 mt-2">
+      ReportsTabContent component is ready in src/components/reports/
+    </p>
+  </div>
+</TabsContent>
+```
+
+4. Save and the error should go away
+
+5. Then you can properly integrate the ReportsTabContent component
+
+This will at least get your app running!
+

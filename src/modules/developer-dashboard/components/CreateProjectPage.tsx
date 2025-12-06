@@ -159,72 +159,94 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Create New Project</h1>
-              <p className="text-gray-600 mt-1">Set up your project in 4 easy steps</p>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onCancel}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          </div>
-
-          {/* Progress Steps */}
-          <div className="flex items-center justify-between mt-8">
-            {steps.map((step, index) => {
-              const StepIcon = step.icon;
-              const isActive = currentStep === step.number;
-              const isCompleted = currentStep > step.number;
-
-              return (
-                <div key={step.number} className="flex items-center flex-1">
-                  <div className="flex flex-col items-center">
-                    <div
-                      className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
-                        isCompleted
-                          ? 'bg-green-500 text-white'
-                          : isActive
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-200 text-gray-500'
-                      }`}
-                    >
-                      {isCompleted ? (
-                        <Check className="w-6 h-6" />
-                      ) : (
-                        <StepIcon className="w-6 h-6" />
-                      )}
-                    </div>
-                    <p
-                      className={`text-sm mt-2 font-medium ${
-                        isActive ? 'text-blue-600' : 'text-gray-600'
-                      }`}
-                    >
-                      {step.title}
-                    </p>
-                  </div>
-                  {index < steps.length - 1 && (
-                    <div
-                      className={`flex-1 h-1 mx-4 rounded ${
-                        currentStep > step.number ? 'bg-green-500' : 'bg-gray-200'
-                      }`}
-                    />
-                  )}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Enhanced Header with Purple Gradient */}
+        <Card className="border-0 shadow-lg overflow-hidden mb-8">
+          <div className="bg-gradient-to-r from-purple-600 via-violet-600 to-purple-700 p-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <Building2 className="h-8 w-8 text-white" />
                 </div>
-              );
-            })}
+                <div>
+                  <h1 className="text-3xl font-bold text-white">Create New Project</h1>
+                  <p className="text-purple-100 mt-1">Set up your project in 4 easy steps</p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onCancel}
+                className="text-white hover:bg-white/20 h-10 w-10"
+              >
+                <X className="h-6 w-6" />
+              </Button>
+            </div>
           </div>
-        </div>
 
-        {/* Step Content */}
-        <Card className="mb-6">
+          {/* Enhanced Progress Steps */}
+          <div className="bg-white p-6">
+            <div className="flex items-center justify-between">
+              {steps.map((step, index) => {
+                const StepIcon = step.icon;
+                const isActive = currentStep === step.number;
+                const isCompleted = currentStep > step.number;
+
+                return (
+                  <div key={step.number} className="flex items-center flex-1">
+                    <div className="flex flex-col items-center">
+                      <div
+                        className={`w-14 h-14 rounded-xl flex items-center justify-center transition-all duration-300 shadow-md ${
+                          isCompleted
+                            ? 'bg-gradient-to-br from-green-500 to-emerald-600 text-white'
+                            : isActive
+                            ? 'bg-gradient-to-br from-purple-600 to-violet-600 text-white shadow-lg shadow-purple-500/30'
+                            : 'bg-gray-100 text-gray-400'
+                        }`}
+                      >
+                        {isCompleted ? (
+                          <Check className="w-7 h-7" />
+                        ) : (
+                          <StepIcon className="w-7 h-7" />
+                        )}
+                      </div>
+                      <p
+                        className={`text-sm mt-2 font-medium text-center ${
+                          isActive ? 'text-purple-600' : isCompleted ? 'text-green-600' : 'text-gray-500'
+                        }`}
+                      >
+                        {step.title}
+                      </p>
+                    </div>
+                    {index < steps.length - 1 && (
+                      <div
+                        className={`flex-1 h-2 mx-4 rounded-full transition-all duration-300 ${
+                          currentStep > step.number
+                            ? 'bg-gradient-to-r from-green-500 to-emerald-500'
+                            : 'bg-gray-200'
+                        }`}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </Card>
+
+        {/* Enhanced Step Content */}
+        <Card className="mb-6 border-0 shadow-lg">
+          <div className="bg-gradient-to-r from-purple-50 to-violet-50 border-b border-purple-100 px-8 py-4">
+            <div className="flex items-center gap-2">
+              {currentStep === 1 && <Building2 className="h-5 w-5 text-purple-600" />}
+              {currentStep === 2 && <DollarSign className="h-5 w-5 text-purple-600" />}
+              {currentStep === 3 && <Users className="h-5 w-5 text-purple-600" />}
+              {currentStep === 4 && <CheckCircle2 className="h-5 w-5 text-purple-600" />}
+              <h2 className="text-xl font-bold text-gray-900">
+                {steps[currentStep - 1].title}
+              </h2>
+            </div>
+          </div>
           <CardContent className="p-8">
             {/* Step 1: Project Info */}
             {currentStep === 1 && (
@@ -457,15 +479,17 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                   </p>
                 </div>
 
-                <Card className="bg-blue-50 border-blue-200">
-                  <CardContent className="p-4">
+                <Card className="border-0 shadow-md overflow-hidden">
+                  <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-6 text-white">
                     <div className="flex items-start gap-3">
-                      <DollarSign className="w-5 h-5 text-blue-600 mt-0.5" />
+                      <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                        <DollarSign className="w-6 h-6 text-white" />
+                      </div>
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-blue-900 mb-1">
+                        <p className="text-sm font-medium text-green-100 mb-2">
                           Total Project Budget (with Contingency)
                         </p>
-                        <p className="text-2xl font-bold text-gray-900">
+                        <p className="text-3xl font-bold text-white">
                           {projectData.totalBudget &&
                             formatCurrency(
                               parseFloat(projectData.totalBudget) +
@@ -474,12 +498,14 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                                   100
                             )}
                         </p>
-                        <p className="text-xs text-gray-600 mt-1">
-                          Base Budget + {projectData.contingency}% Contingency Reserve
-                        </p>
+                        <div className="mt-3 pt-3 border-t border-white/20">
+                          <p className="text-xs text-green-100">
+                            Base Budget + {projectData.contingency}% Contingency Reserve
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </CardContent>
+                  </div>
                 </Card>
               </div>
             )}
@@ -530,21 +556,23 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                   </div>
                 </div>
 
-                <Card className="bg-amber-50 border-amber-200">
-                  <CardContent className="p-4">
+                <Card className="border-0 shadow-md overflow-hidden">
+                  <div className="bg-gradient-to-br from-amber-500 to-orange-600 p-6 text-white">
                     <div className="flex items-start gap-3">
-                      <Users className="w-5 h-5 text-amber-600 mt-0.5" />
+                      <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                        <Users className="w-6 h-6 text-white" />
+                      </div>
                       <div>
-                        <p className="text-sm font-medium text-amber-900 mb-1">
+                        <p className="text-sm font-medium text-amber-100 mb-2">
                           Team Assignment
                         </p>
-                        <p className="text-sm text-gray-700">
+                        <p className="text-sm text-white/90">
                           You can assign team members and set permissions after creating the
                           project from the project dashboard.
                         </p>
                       </div>
                     </div>
-                  </CardContent>
+                  </div>
                 </Card>
               </div>
             )}
@@ -552,13 +580,20 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
             {/* Step 4: Review & Confirm */}
             {currentStep === 4 && (
               <div className="space-y-6">
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <CheckCircle2 className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900">
                     Project Summary
                   </h3>
                 </div>
+                <p className="text-gray-600 mb-6">Review your project details before creating</p>
 
-                <Card>
+                <Card className="border-2 border-purple-200 shadow-md">
+                  <div className="bg-gradient-to-r from-purple-50 to-violet-50 px-6 py-3 border-b border-purple-100">
+                    <h4 className="font-semibold text-gray-900">Project Information</h4>
+                  </div>
                   <CardContent className="p-6 space-y-4">
                     <div className="space-y-3">
                       <div className="flex justify-between">
@@ -594,7 +629,10 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="border-2 border-green-200 shadow-md">
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-3 border-b border-green-100">
+                    <h4 className="font-semibold text-gray-900">Financial Details</h4>
+                  </div>
                   <CardContent className="p-6 space-y-4">
                     <div className="space-y-3">
                       <div className="flex justify-between">
@@ -617,9 +655,9 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                         </span>
                       </div>
                       <Separator />
-                      <div className="flex justify-between items-center">
+                      <div className="flex justify-between items-center bg-green-50 -mx-6 -mb-6 px-6 py-4 mt-4 border-t-2 border-green-200">
                         <span className="font-semibold text-gray-900">Total Budget:</span>
-                        <span className="text-2xl font-bold text-blue-600">
+                        <span className="text-2xl font-bold text-green-600">
                           {formatCurrency(
                             parseFloat(projectData.totalBudget) +
                               (parseFloat(projectData.totalBudget) *
@@ -632,7 +670,10 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="border-2 border-blue-200 shadow-md">
+                  <div className="bg-gradient-to-r from-blue-50 to-cyan-50 px-6 py-3 border-b border-blue-100">
+                    <h4 className="font-semibold text-gray-900">Timeline</h4>
+                  </div>
                   <CardContent className="p-6 space-y-3">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Start Date:</span>
@@ -665,49 +706,55 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                   </CardContent>
                 </Card>
 
-                <Card className="bg-green-50 border-green-200">
-                  <CardContent className="p-4">
+                <Card className="border-0 shadow-md overflow-hidden">
+                  <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-6 text-white">
                     <div className="flex items-start gap-3">
-                      <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5" />
+                      <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                        <CheckCircle2 className="w-6 h-6 text-white" />
+                      </div>
                       <div>
-                        <p className="text-sm font-medium text-green-900">
+                        <p className="text-sm font-medium text-white mb-1">
                           Ready to create this project
                         </p>
-                        <p className="text-xs text-gray-600 mt-1">
+                        <p className="text-sm text-green-100">
                           Click "Create Project" to finalize and start managing your project
                         </p>
                       </div>
                     </div>
-                  </CardContent>
+                  </div>
                 </Card>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Navigation Buttons */}
-        <Card>
+        {/* Enhanced Navigation Buttons */}
+        <Card className="border-0 shadow-lg">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <Button
                 variant="outline"
                 onClick={handleBack}
                 disabled={currentStep === 1}
-                className="gap-2"
+                className="gap-2 border-purple-200 hover:bg-purple-50 hover:text-purple-700 hover:border-purple-400 disabled:opacity-50"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back
               </Button>
 
               <div className="flex gap-3">
-                <Button variant="outline" onClick={onCancel}>
+                <Button
+                  variant="outline"
+                  onClick={onCancel}
+                  className="border-gray-300 hover:bg-gray-100"
+                >
                   Cancel
                 </Button>
                 {currentStep < 4 ? (
                   <Button
                     onClick={handleNext}
                     disabled={!isStepValid()}
-                    className="gap-2 bg-blue-600 hover:bg-blue-700"
+                    className="gap-2 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white shadow-lg shadow-purple-500/30"
                   >
                     Next
                     <ArrowRight className="w-4 h-4" />
@@ -715,7 +762,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                 ) : (
                   <Button
                     onClick={handleCreate}
-                    className="gap-2 bg-green-600 hover:bg-green-700"
+                    className="gap-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg shadow-green-500/30"
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     Create Project

@@ -314,7 +314,7 @@ export const PropertyManagerManagement = ({
                 </DialogTitle>
                 <DialogDescription className="text-purple-200 mt-1">
                   Create a manager account for your properties
-                </DialogDescription>
+              </DialogDescription>
               </div>
             </div>
           </div>
@@ -336,15 +336,15 @@ export const PropertyManagerManagement = ({
                     <span className="text-red-500">*</span>
                   </Label>
                   <div className="relative mt-1.5">
-                    <Input
-                      id="name"
-                      value={newManager.name}
-                      onChange={(e) => setNewManager({...newManager, name: e.target.value})}
+                <Input
+                  id="name"
+                  value={newManager.name}
+                  onChange={(e) => setNewManager({...newManager, name: e.target.value})}
                       placeholder="e.g., Sarah Johnson"
                       className="pl-10 h-11 rounded-xl border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
-                    />
+                />
                     <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  </div>
+              </div>
                 </div>
 
                 <div>
@@ -353,18 +353,18 @@ export const PropertyManagerManagement = ({
                     <span className="text-red-500">*</span>
                   </Label>
                   <div className="relative mt-1.5">
-                    <Input
-                      id="email"
-                      type="email"
-                      value={newManager.email}
-                      onChange={(e) => setNewManager({...newManager, email: e.target.value})}
+                <Input
+                  id="email"
+                  type="email"
+                  value={newManager.email}
+                  onChange={(e) => setNewManager({...newManager, email: e.target.value})}
                       placeholder="e.g., sarah@company.com"
                       className="pl-10 h-11 rounded-xl border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
-                    />
+                />
                     <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
-                  </div>
+              </div>
                 </div>
 
                 <div>
@@ -372,20 +372,20 @@ export const PropertyManagerManagement = ({
                     Phone Number <span className="text-gray-400 font-normal">(Optional)</span>
                   </Label>
                   <div className="relative mt-1.5">
-                    <Input
-                      id="phone"
-                      value={newManager.phone}
-                      onChange={(e) => setNewManager({...newManager, phone: e.target.value})}
+                <Input
+                  id="phone"
+                  value={newManager.phone}
+                  onChange={(e) => setNewManager({...newManager, phone: e.target.value})}
                       placeholder="+234 800 000 0000"
                       className="pl-10 h-11 rounded-xl border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
-                    />
+                />
                     <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                     </svg>
                   </div>
                 </div>
               </div>
-            </div>
+              </div>
 
             {/* Password Generation Section */}
             <div>
@@ -399,12 +399,12 @@ export const PropertyManagerManagement = ({
               <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                 <div className="flex gap-2">
                   <div className="relative flex-1">
-                    <Input
-                      readOnly
-                      value={generatedPassword}
+                  <Input
+                    readOnly
+                    value={generatedPassword}
                       placeholder="Click Generate to create password"
                       className="h-11 rounded-xl border-gray-200 bg-white pr-10 font-mono text-sm"
-                    />
+                  />
                     {generatedPassword && (
                       <CheckCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-green-500" />
                     )}
@@ -435,14 +435,14 @@ export const PropertyManagerManagement = ({
                   Share this password securely with the manager. They can change it after logging in.
                 </p>
               </div>
-            </div>
+              </div>
 
             {/* Info Card */}
             <div className="bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-200 rounded-xl p-4">
               <div className="flex items-start gap-3">
                 <div className="h-8 w-8 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
                   <Shield className="h-4 w-4 text-[#7C3AED]" />
-                </div>
+            </div>
                 <div>
                   <p className="text-sm font-semibold text-purple-900 mb-1">What happens next?</p>
                   <p className="text-xs text-purple-700 leading-relaxed">
@@ -456,23 +456,23 @@ export const PropertyManagerManagement = ({
 
           {/* Footer with Actions */}
           <div className="bg-gray-50 px-6 py-4 flex items-center justify-end gap-3 border-t border-gray-100">
-            <Button
-              variant="outline"
-              onClick={() => setShowAddManager(false)}
+              <Button
+                variant="outline"
+                onClick={() => setShowAddManager(false)}
               className="border-gray-300 text-gray-700 hover:bg-gray-100 rounded-xl px-5"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleAddManager}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleAddManager}
               className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25 rounded-xl px-6"
-            >
+              >
               <UserPlus className="h-4 w-4 mr-2" />
-              Create Manager
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+                Create Manager
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
       {/* Manager Overview Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

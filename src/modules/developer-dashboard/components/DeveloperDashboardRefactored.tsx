@@ -17,6 +17,51 @@ import {
   DollarSign,
   Shield,
 } from "lucide-react";
+
+// Exact Contrezz logo from Figma Brand Guidelines
+function ContrezztLogo({ className = "w-8 h-8" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 40 40"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <rect
+        x="4"
+        y="16"
+        width="12"
+        height="20"
+        rx="2"
+        fill="currentColor"
+        fillOpacity="0.9"
+      />
+      <rect
+        x="20"
+        y="8"
+        width="12"
+        height="28"
+        rx="2"
+        fill="currentColor"
+        fillOpacity="1"
+      />
+      <rect
+        x="12"
+        y="4"
+        width="8"
+        height="14"
+        rx="1.5"
+        fill="currentColor"
+        fillOpacity="0.7"
+      />
+      <circle cx="10" cy="22" r="1.5" fill="white" fillOpacity="0.6" />
+      <circle cx="10" cy="28" r="1.5" fill="white" fillOpacity="0.6" />
+      <circle cx="26" cy="14" r="1.5" fill="white" fillOpacity="0.6" />
+      <circle cx="26" cy="20" r="1.5" fill="white" fillOpacity="0.6" />
+      <circle cx="26" cy="26" r="1.5" fill="white" fillOpacity="0.6" />
+    </svg>
+  );
+}
 import { Button } from "../../../components/ui/button";
 import { Avatar, AvatarFallback } from "../../../components/ui/avatar";
 import { Badge } from "../../../components/ui/badge";
@@ -398,26 +443,16 @@ export const DeveloperDashboardRefactored: React.FC<
     });
   }
 
-  // Project-specific menu items (filtered by role permissions)
+  // Project-specific menu items (organized by developer workflow hierarchy)
   const allProjectMenuItems = [
+    // 1. Overview & Planning
     {
       id: "project-dashboard" as Page,
       label: "Project Dashboard",
       icon: LayoutDashboard,
       visible: true, // Everyone can view
     },
-    {
-      id: "project-funding" as Page,
-      label: "Project Funding",
-      icon: DollarSign,
-      visible: canManageProjects, // Owner, Project Manager
-    },
-    {
-      id: "expense-management" as Page,
-      label: "Expenses",
-      icon: Receipt,
-      visible: true, // Everyone can view expenses
-    },
+    // 2. Financial Planning & Setup
     {
       id: "budgets" as Page,
       label: "Budgets",
@@ -425,17 +460,32 @@ export const DeveloperDashboardRefactored: React.FC<
       visible: true, // Everyone can view budgets
     },
     {
+      id: "project-funding" as Page,
+      label: "Project Funding",
+      icon: DollarSign,
+      visible: canManageProjects, // Owner, Project Manager
+    },
+    // 3. Procurement & Operations
+    {
       id: "purchase-orders" as Page,
       label: "Purchase Orders",
       icon: CreditCard,
       visible: true, // Everyone can view POs
     },
     {
+      id: "expense-management" as Page,
+      label: "Expenses",
+      icon: Receipt,
+      visible: true, // Everyone can view expenses
+    },
+    // 4. Billing & Payments
+    {
       id: "project-invoices" as Page,
       label: "Invoices",
       icon: Receipt,
       visible: true, // Everyone can view invoices
     },
+    // 5. Analytics & Insights
     {
       id: "reports" as Page,
       label: "Reports",
@@ -647,245 +697,160 @@ export const DeveloperDashboardRefactored: React.FC<
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 w-full">
-      {/* Top Navigation Bar */}
-      <header className="bg-white shadow-sm border-b sticky top-0 z-40 w-full">
+    <div className="min-h-screen bg-gray-50 flex flex-col w-full">
+      {/* Header - Dark Brand Design (Matching Owner Dashboard) */}
+      <header className="bg-[#111827] shadow-lg sticky top-0 z-40">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <PlatformLogo
-                showText={false}
-                iconClassName={
-                  hasCustomLogo
-                    ? "h-8 w-auto max-w-[200px] object-contain"
-                    : "h-6 w-6 text-orange-600 mr-2"
-                }
-                onLogoLoad={(hasLogo) => setHasCustomLogo(hasLogo)}
-              />
-              {!hasCustomLogo && (
-                <h1 className="text-xl font-semibold text-gray-900">
-                  Contrezz Developer
-                </h1>
-              )}
+            <div className="flex items-center gap-3">
+              <div className="bg-gradient-to-br from-[#A855F7] to-[#7C3AED] p-2 rounded-xl">
+                <ContrezztLogo className="w-6 h-6 text-[#111827]" />
+              </div>
+              <span className="text-xl font-bold text-white tracking-tight hidden sm:inline">
+                Contrezz
+              </span>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center space-x-4">
               {user?.company && (
-                <Badge
-                  variant="outline"
-                  className="bg-orange-50 text-orange-700 border-orange-200"
-                >
+                <Badge className="bg-white/10 text-white border-white/20 hover:bg-white/20">
                   {user.company}
                 </Badge>
               )}
 
-              <NotificationCenter />
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="flex items-center gap-2 hover:bg-gray-100"
-                  >
-                    <Avatar className="w-8 h-8">
-                      <AvatarFallback className="bg-orange-600 text-white text-sm font-medium">
-                        {getInitials(user?.name || "Developer")}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="hidden sm:block text-left">
-                      <div className="text-sm font-medium text-gray-900">
-                        {user?.name || "Developer"}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        Property Developer
-                      </div>
-                    </div>
-                    <ChevronDown className="w-4 h-4 text-gray-500" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>
-                    <div className="flex flex-col space-y-1">
-                      <p className="font-medium">{user?.name || "Developer"}</p>
-                      <p className="text-xs text-gray-500 font-normal">
-                        {user?.email || "developer@contrezz.com"}
-                      </p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="gap-2 cursor-pointer"
-                    onClick={() => setCurrentPage("profile")}
-                  >
-                    <Users className="w-4 h-4" />
-                    <span>Profile</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="gap-2 cursor-pointer"
-                    onClick={() => setShowChangePasswordModal(true)}
-                  >
-                    <Shield className="w-4 h-4" />
-                    <span>Change Password</span>
-                  </DropdownMenuItem>
-                  {isOwner && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="gap-2 cursor-pointer"
-                        onClick={() => handleOpenSettings("organization")}
-                      >
-                        <Building2 className="w-4 h-4" />
-                        <span>Organization</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="gap-2 cursor-pointer"
-                        onClick={() => handleOpenSettings("billing")}
-                      >
-                        <CreditCard className="w-4 h-4" />
-                        <span>Billing</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="gap-2 cursor-pointer"
-                        onClick={() => handleOpenSettings("team")}
-                      >
-                        <Users className="w-4 h-4" />
-                        <span>Team</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="gap-2 cursor-pointer"
-                        onClick={() => handleOpenSettings("notifications")}
-                      >
-                        <Bell className="w-4 h-4" />
-                        <span>Notifications</span>
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="gap-2 cursor-pointer">
-                    <HelpCircle className="w-4 h-4" />
-                    <span>Help & Support</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="gap-2 cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
-                    onClick={onLogout}
-                  >
-                    <LogOut className="w-4 h-4" />
-                    <span>Log out</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <div className="flex items-center space-x-3">
+                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#A855F7] to-[#7C3AED] flex items-center justify-center ring-2 ring-white/20">
+                  <span className="text-white text-sm font-semibold">
+                    {getInitials(user?.name || "Developer")}
+                  </span>
+                </div>
+                <div className="hidden sm:block">
+                  <div className="text-sm font-medium text-white">
+                    {user?.name || "Developer"}
+                  </div>
+                  <div className="text-xs text-white/60">Property Developer</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="flex w-full">
-        {/* Left Sidebar */}
-        <aside className="hidden lg:block w-64 bg-white border-r min-h-screen p-6 sticky top-16 self-start flex-shrink-0 overflow-y-auto">
-          <div className="mb-6">
-            <h2 className="text-gray-900 px-3 mb-1 font-semibold">
-              Developer Cost & Reporting
-            </h2>
-            <p className="text-sm text-gray-600 px-3">Property Management</p>
-            {selectedProjectId && (
-              <div className="mt-3 px-3 py-2 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-xs text-blue-600 mb-1">Current Project</p>
-                <p className="text-sm font-medium text-blue-900">
+      <div className="flex flex-1">
+        {/* Sidebar - Dark Brand Design (Matching Owner Dashboard) */}
+        <div className="hidden lg:block w-64 bg-[#111827] shadow-xl border-r border-white/10">
+          {selectedProjectId && (
+            <div className="p-4 border-b border-white/10">
+              <div className="px-3 py-2 bg-purple-600/20 rounded-lg border border-purple-500/30">
+                <p className="text-xs text-purple-300 mb-1">Current Project</p>
+                <p className="text-sm font-medium text-white">
                   {getProjectName(selectedProjectId)}
                 </p>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          <nav className="space-y-1">
-            {/* Main Menu Items */}
-            {mainMenuItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = currentPage === item.id;
+          <nav className="mt-6 px-3">
+            <div className="space-y-1">
+              {/* Main Menu Items */}
+              {mainMenuItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = currentPage === item.id;
 
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    if (item.id === "settings") {
-                      // Open Settings with Organization tab active by default
-                      handleOpenSettings("organization");
-                    } else {
-                      setCurrentPage(item.id);
-                    }
-                  }}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                    isActive
-                      ? "bg-blue-50 text-blue-600"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-
-            {/* Project-Specific Menu Items (only show when project is selected) */}
-            {selectedProjectId && (
-              <>
-                <div className="pt-4 pb-2">
-                  <p className="text-xs text-gray-500 px-3">PROJECT MENU</p>
-                </div>
-                {projectMenuItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = currentPage === item.id;
-
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => setCurrentPage(item.id)}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                        isActive
-                          ? "bg-blue-50 text-blue-600"
-                          : "text-gray-700 hover:bg-gray-100"
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      if (item.id === "settings") {
+                        handleOpenSettings("organization");
+                      } else {
+                        setCurrentPage(item.id);
+                      }
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                      isActive
+                        ? "bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-lg shadow-purple-500/25"
+                        : "text-white/70 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    <Icon
+                      className={`h-5 w-5 ${
+                        isActive ? "text-white" : "text-white/60"
                       }`}
-                    >
-                      <Icon className="w-5 h-5" />
-                      <span>{item.label}</span>
-                    </button>
-                  );
-                })}
-              </>
-            )}
+                    />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+
+              {/* Project-Specific Menu Items */}
+              {selectedProjectId && (
+                <>
+                  <div className="pt-6 pb-2">
+                    <p className="text-xs text-white/50 px-4 uppercase tracking-wider">
+                      Project Menu
+                    </p>
+                  </div>
+                  {projectMenuItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = currentPage === item.id;
+
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => setCurrentPage(item.id)}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                          isActive
+                            ? "bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-lg shadow-purple-500/25"
+                            : "text-white/70 hover:bg-white/10 hover:text-white"
+                        }`}
+                      >
+                        <Icon
+                          className={`h-5 w-5 ${
+                            isActive ? "text-white" : "text-white/60"
+                          }`}
+                        />
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+
+            {/* Logout Button */}
+            <div className="mt-6 pt-6 border-t border-white/10">
+              <button
+                onClick={onLogout}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
+              >
+                <LogOut className="h-5 w-5" />
+                <span>Logout</span>
+              </button>
+            </div>
           </nav>
 
-          {/* Pinned Projects (only show when no project is selected) */}
-          {!selectedProjectId && (
-            <div className="mt-8">
-              <p className="text-xs text-gray-500 px-3 mb-2">PINNED PROJECTS</p>
+          {/* Pinned Projects */}
+          {!selectedProjectId && projects.length > 0 && (
+            <div className="mt-8 px-3">
+              <p className="text-xs text-white/50 px-4 mb-2 uppercase tracking-wider">
+                Pinned Projects
+              </p>
               <div className="space-y-1">
-                {projects.slice(0, 2).map((project) => (
+                {projects.slice(0, 3).map((project) => (
                   <button
                     key={project.id}
                     onClick={() => handleProjectSelect(project.id)}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-colors text-left"
                   >
-                    <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
-                    <span className="text-sm">{project.name}</span>
+                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                    <span className="text-sm truncate">{project.name}</span>
                   </button>
                 ))}
               </div>
             </div>
           )}
-
-          {/* Help Section */}
-          <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm text-gray-900 mb-1 font-medium">Need Help?</p>
-            <p className="text-xs text-gray-600 mb-3">
-              Check our documentation and support resources
-            </p>
-            <button className="text-sm text-blue-600 hover:underline">
-              View Documentation
-            </button>
-          </div>
-        </aside>
+        </div>
 
         {/* Main Content Area */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 w-full min-w-0">

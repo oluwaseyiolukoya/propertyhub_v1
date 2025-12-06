@@ -294,7 +294,7 @@ export function PropertyManagerSettings({ user, onBack, onSave, onLogout }: Prop
         return;
       }
 
-      toast.success('Password changed successfully');
+    toast.success('Password changed successfully');
       setSecuritySettings((prev: any) => ({
         ...prev,
         passwordLastChanged: new Date().toISOString(),
@@ -1237,8 +1237,8 @@ function SecuritySection({
               </div>
             </div>
             <Switch
-                  checked={securitySettings.twoFactorEnabled}
-                  onCheckedChange={(checked) => {
+              checked={securitySettings.twoFactorEnabled}
+              onCheckedChange={(checked) => {
                     if (checked) {
                       startTwoFactorSetup();
                     } else {
@@ -1252,7 +1252,7 @@ function SecuritySection({
           <div className="space-y-3">
             <Label>Session Timeout</Label>
             <Select
-                  value={securitySettings.sessionTimeout}
+              value={securitySettings.sessionTimeout}
                   onValueChange={(value) => handleSecuritySettingChange('sessionTimeout', value)}
                   disabled={updatingSecuritySetting}
             >

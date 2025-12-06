@@ -93,6 +93,51 @@ import {
   AlertCircle,
   BookOpen
 } from 'lucide-react';
+
+// Exact Contrezz logo from Figma Brand Guidelines
+function ContrezztLogo({ className = "w-8 h-8" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 40 40"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <rect
+        x="4"
+        y="16"
+        width="12"
+        height="20"
+        rx="2"
+        fill="currentColor"
+        fillOpacity="0.9"
+      />
+      <rect
+        x="20"
+        y="8"
+        width="12"
+        height="28"
+        rx="2"
+        fill="currentColor"
+        fillOpacity="1"
+      />
+      <rect
+        x="12"
+        y="4"
+        width="8"
+        height="14"
+        rx="1.5"
+        fill="currentColor"
+        fillOpacity="0.7"
+      />
+      <circle cx="10" cy="22" r="1.5" fill="white" fillOpacity="0.6" />
+      <circle cx="10" cy="28" r="1.5" fill="white" fillOpacity="0.6" />
+      <circle cx="26" cy="14" r="1.5" fill="white" fillOpacity="0.6" />
+      <circle cx="26" cy="20" r="1.5" fill="white" fillOpacity="0.6" />
+      <circle cx="26" cy="26" r="1.5" fill="white" fillOpacity="0.6" />
+    </svg>
+  );
+}
 import { Textarea } from './ui/textarea';
 import { useCurrency } from '../lib/CurrencyContext';
 import { computeCustomerChurn, computeMRRChurn, lastNDaysWindow } from '../lib/metrics';
@@ -1367,149 +1412,101 @@ export function SuperAdminDashboard({
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col overflow-x-hidden">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b sticky top-0 z-40">
+      {/* Enhanced Header - Dark Brand Design */}
+      <header className="bg-[#111827] shadow-lg sticky top-0 z-40">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
+            <div className="flex items-center gap-3">
               <Button
                 variant="ghost"
                 size="sm"
-                className="lg:hidden mr-2"
+                className="lg:hidden mr-2 text-white hover:bg-white/10"
                 onClick={() => setSidebarOpen(!sidebarOpen)}
               >
                 <Menu className="h-5 w-5" />
               </Button>
-              <PlatformLogo
-                iconClassName={hasCustomLogo ? "h-10 w-auto max-w-[200px] object-contain" : "h-6 w-6 text-blue-600 mr-2"}
-                showText={false}
-                onLogoLoad={(hasLogo) => setHasCustomLogo(hasLogo)}
-              />
-              {!hasCustomLogo && (
-                <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Contrezz Admin</h1>
-              )}
-              <Badge variant="destructive" className="ml-2 text-xs">ADMIN</Badge>
+              <div className="bg-gradient-to-br from-[#A855F7] to-[#7C3AED] p-2 rounded-xl">
+                <ContrezztLogo className="w-6 h-6 text-[#111827]" />
+              </div>
+              <span className="text-xl font-bold text-white tracking-tight hidden sm:inline">
+                Contrezz
+              </span>
+              <Badge className="bg-red-600 text-white border-red-700 hover:bg-red-700">ADMIN</Badge>
             </div>
 
             <div className="flex items-center space-x-2 sm:space-x-4">
               {/* Clear Cache Button */}
-              <Button
-                variant="outline"
-                size="sm"
+              <button
                 onClick={handleClearCache}
                 disabled={isClearingCache}
-                className="text-xs sm:text-sm"
+                className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 text-white text-xs font-medium hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-white/20 hover:border-white/30"
               >
                 {isClearingCache ? (
                   <>
-                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-600 mr-2"></div>
-                    Clearing...
+                    <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white/30 border-t-white"></div>
+                    <span>Clearing...</span>
                   </>
                 ) : (
                   <>
-                    <Trash2 className="h-3 w-3 mr-2" />
-                    Clear Cache
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Clear Cache</span>
                   </>
                 )}
-              </Button>
+              </button>
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="flex items-center gap-2 hover:bg-gray-100"
-                  >
-                    <Avatar className="w-8 h-8">
-                      <AvatarFallback className="bg-red-600 text-white text-sm font-medium">
+              <div className="flex items-center space-x-3">
+                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center ring-2 ring-white/20">
+                  <span className="text-white text-sm font-semibold">
                     {user.name.split(' ').map((n: string) => n[0]).join('')}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="hidden sm:block text-left">
-                  <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                  <div className="text-xs text-gray-500">{user.role}</div>
+                  </span>
                 </div>
-                    <ChevronDown className="w-4 h-4 text-gray-500" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>
-                    <div className="flex flex-col space-y-1">
-                      <p className="font-medium">{user.name}</p>
-                      <p className="text-xs text-gray-500 font-normal">
-                        {user.email}
-                      </p>
+                <div className="hidden sm:block">
+                  <div className="text-sm font-medium text-white">{user.name}</div>
+                  <div className="text-xs text-white/60">{user.role}</div>
+                </div>
               </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="gap-2 cursor-pointer"
-                    onClick={() => setActiveTab('profile')}
-                  >
-                    <User className="w-4 h-4" />
-                    <span>Profile</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="gap-2 cursor-pointer"
-                    onClick={() => setActiveTab('change-password')}
-                  >
-                    <Shield className="w-4 h-4" />
-                    <span>Change Password</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="gap-2 cursor-pointer"
-                  >
-                    <HelpCircle className="w-4 h-4" />
-                    <span>Help & Support</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="gap-2 cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
-                    onClick={onLogout}
-                  >
-                    <LogOut className="w-4 h-4" />
-                    <span>Logout</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
             </div>
           </div>
         </div>
       </header>
 
       <div className="flex flex-1">
-        {/* Sidebar */}
-        <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-30 w-64 bg-white shadow-lg lg:shadow-none border-r mt-16 lg:mt-0 transition-transform duration-200 ease-in-out`}>
-          <nav className="mt-5 px-4">
-            <ul className="space-y-1">
-              {visibleNavigation.map((item) => (
-                <li key={item.id}>
-                  <Button
-                    variant={activeTab === item.id ? "default" : "ghost"}
-                    className="w-full justify-start text-sm md:text-base"
+        {/* Enhanced Sidebar - Dark Brand Design */}
+        <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-30 w-64 bg-[#111827] shadow-xl border-r border-white/10 mt-16 lg:mt-0 transition-transform duration-200 ease-in-out`}>
+          <nav className="mt-6 px-3">
+            <div className="space-y-1">
+              {visibleNavigation.map((item) => {
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
                     onClick={() => {
                       setActiveTab(item.id);
                       try { localStorage.setItem('admin_active_tab', item.id); } catch {}
                       setSidebarOpen(false);
                     }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                      isActive
+                        ? "bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-lg shadow-purple-500/25"
+                        : "text-white/70 hover:bg-white/10 hover:text-white"
+                    }`}
                   >
-                    {item.name}
-                  </Button>
-                </li>
-              ))}
+                    <span>{item.name}</span>
+                  </button>
+                );
+              })}
 
               {/* Logout Button */}
-              <li className="pt-4">
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start text-sm md:text-base text-red-600 hover:text-red-700 hover:bg-red-50"
+              <div className="mt-6 pt-6 border-t border-white/10">
+                <button
                   onClick={onLogout}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
                 >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout
-                </Button>
-              </li>
-            </ul>
+                  <LogOut className="h-5 w-5" />
+                  <span>Logout</span>
+                </button>
+              </div>
+            </div>
           </nav>
         </div>
 

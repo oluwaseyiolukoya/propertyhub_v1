@@ -40,7 +40,7 @@ function getEmailConfig(): EmailConfig {
 // Create transporter (singleton)
 let transporter: Transporter | null = null;
 
-function getTransporter(): Transporter {
+export function getTransporter(): Transporter {
   if (!transporter) {
     const config = getEmailConfig();
 
@@ -2890,6 +2890,7 @@ Property Management Team
 }
 
 export default {
+  getTransporter,
   testEmailConnection,
   sendTestEmail,
   sendTenantInvitation,

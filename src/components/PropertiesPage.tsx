@@ -12,6 +12,8 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
+import { ReportsTabContent } from "./reports/ReportsTabContent";
+import { useReportSchedules } from "../hooks/useReportSchedules";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -137,6 +139,7 @@ import {
   X,
   Search,
   Maximize,
+  Mail,
 } from "lucide-react";
 import { createProperty } from "../lib/api/properties";
 
@@ -270,7 +273,19 @@ export function PropertiesPage({
     null
   );
   const [reportGenerating, setReportGenerating] = useState(false);
+
+  // Report scheduling state
+  const [scheduleEmail, setScheduleEmail] = useState("");
+  const [scheduleFrequency, setScheduleFrequency] = useState<"weekly" | "monthly">("weekly");
+  const [scheduleDayOfWeek, setScheduleDayOfWeek] = useState("monday");
+  const [scheduleDayOfMonth, setScheduleDayOfMonth] = useState(1);
+  const [scheduleTime, setScheduleTime] = useState("09:00");
   const reportPreviewRef = useRef<HTMLDivElement | null>(null);
+
+  // Email report dialog state
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [emailReportTo, setEmailReportTo] = useState(user?.email || "");
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [financialStats, setFinancialStats] = useState<{
     gross?: number;
     net?: number;
@@ -1585,10 +1600,57 @@ export function PropertiesPage({
       toast.error("Generate a report first");
       return;
     }
+    // Set default email and show dialog
+    setEmailReportTo(user?.email || "");
+    setShowEmailDialog(true);
+  };
 
-    toast.success(
-      "Report queued for delivery. You'll receive it via email shortly."
-    );
+  const sendReportEmail = async () => {
+    if (!reportPreview || !emailReportTo.trim()) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    setIsSendingEmail(true);
+    try {
+      const response = await fetch("/api/dashboard/reports/scheduled/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+        },
+        body: JSON.stringify({
+          email: emailReportTo.trim(),
+          subject: `${REPORT_TYPE_LABELS[reportPreview.type]} Report - ${reportPreviewPropertyLabel}`,
+          report: {
+            type: reportPreview.type,
+            generatedAt: reportPreview.generatedAt,
+            propertyLabel: reportPreviewPropertyLabel,
+            filters: {
+              propertyId: reportPropertyFilter,
+              startDate: reportStartDate,
+              endDate: reportEndDate,
+            },
+            data: reportPreview.data, // Include actual report data
+          },
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        toast.success(`Report sent to ${emailReportTo}`);
+        setShowEmailDialog(false);
+        setEmailReportTo("");
+      } else {
+        toast.error(data.error || "Failed to send report");
+      }
+    } catch (error) {
+      console.error("Failed to send report email:", error);
+      toast.error("Failed to send report. Please try again.");
+    } finally {
+      setIsSendingEmail(false);
+    }
   };
 
   const handleOpenFinancialDetails = (property: any) => {
@@ -5940,658 +6002,40 @@ export function PropertiesPage({
               </Card>
             </TabsContent>
 
+
             <TabsContent value="reports" className="space-y-6">
-              {/* Report Analytics Header Card */}
-              <Card className="border-0 shadow-xl overflow-hidden">
-                <div className="bg-gradient-to-r from-[#7C3AED] via-purple-600 to-[#5B21B6] px-6 py-6">
-                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                      <div className="h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                        <FileText className="h-7 w-7 text-white" />
-                      </div>
-                      <div>
-                        <h2 className="text-2xl font-bold text-white">Reports & Analytics</h2>
-                        <p className="text-purple-100 text-sm mt-0.5">Generate insights from your portfolio data</p>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20">
-                        <p className="text-purple-100 text-xs">This Month</p>
-                        <p className="text-white font-bold text-lg">47 Reports</p>
-                      </div>
-                      <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20">
-                        <p className="text-purple-100 text-xs">Scheduled</p>
-                        <p className="text-white font-bold text-lg">2 Active</p>
-                      </div>
-                      <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20">
-                        <p className="text-purple-100 text-xs">Downloads</p>
-                        <p className="text-white font-bold text-lg">156</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Report Type Distribution */}
-                  <div className="mt-5 bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-purple-100 text-sm">Report Type Distribution</span>
-                      <span className="text-white font-semibold text-sm">47 Total</span>
-                    </div>
-                    <div className="flex gap-1 h-3 rounded-full overflow-hidden">
-                      <div className="bg-green-400 w-[30%]" title="Financial: 12"></div>
-                      <div className="bg-purple-300 w-[20%]" title="Occupancy: 8"></div>
-                      <div className="bg-orange-400 w-[35%]" title="Maintenance: 15"></div>
-                      <div className="bg-blue-400 w-[15%]" title="Tenant: 12"></div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-4 mt-3">
-                      <span className="flex items-center gap-1.5 text-xs text-purple-100">
-                        <span className="h-2 w-2 rounded-full bg-green-400"></span>
-                        Financial (12)
-                      </span>
-                      <span className="flex items-center gap-1.5 text-xs text-purple-100">
-                        <span className="h-2 w-2 rounded-full bg-purple-300"></span>
-                        Occupancy (8)
-                      </span>
-                      <span className="flex items-center gap-1.5 text-xs text-purple-100">
-                        <span className="h-2 w-2 rounded-full bg-orange-400"></span>
-                        Maintenance (15)
-                      </span>
-                      <span className="flex items-center gap-1.5 text-xs text-purple-100">
-                        <span className="h-2 w-2 rounded-full bg-blue-400"></span>
-                        Tenant (12)
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-
-              {/* Report Category Stats */}
-              <div className="grid md:grid-cols-4 gap-4">
-                {/* Financial Reports Card */}
-                <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-all duration-300">
-                  <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-5">
-                    <div className="flex items-center justify-between">
-                      <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                        <DollarSign className="h-6 w-6 text-white" />
-                      </div>
-                      <Badge className="bg-white/20 text-white border-0 backdrop-blur-sm">
-                        <TrendingUp className="h-3 w-3 mr-1" />
-                        +15%
-                      </Badge>
-                    </div>
-                    <div className="mt-4">
-                      <p className="text-green-100 text-xs font-medium">Financial Reports</p>
-                      <p className="text-3xl font-bold text-white mt-1">12</p>
-                      <p className="text-green-100 text-xs mt-2">P&L, Revenue, Expenses</p>
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-white/20">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-green-100">Last generated</span>
-                        <span className="text-white font-medium">2 days ago</span>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-
-                {/* Occupancy Reports Card */}
-                <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-all duration-300">
-                  <div className="bg-gradient-to-br from-[#7C3AED] to-purple-700 p-5">
-                    <div className="flex items-center justify-between">
-                      <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                        <PieChart className="h-6 w-6 text-white" />
-                      </div>
-                      <Badge className="bg-white/20 text-white border-0 backdrop-blur-sm">
-                        <Activity className="h-3 w-3 mr-1" />
-                        Weekly
-                      </Badge>
-                    </div>
-                    <div className="mt-4">
-                      <p className="text-purple-100 text-xs font-medium">Occupancy Reports</p>
-                      <p className="text-3xl font-bold text-white mt-1">8</p>
-                      <p className="text-purple-100 text-xs mt-2">Vacancy, Turnover rates</p>
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-white/20">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-purple-100">Last generated</span>
-                        <span className="text-white font-medium">Today</span>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-
-                {/* Maintenance Reports Card */}
-                <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-all duration-300">
-                  <div className="bg-gradient-to-br from-orange-500 to-amber-600 p-5">
-                    <div className="flex items-center justify-between">
-                      <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                        <Wrench className="h-6 w-6 text-white" />
-                      </div>
-                      <Badge className="bg-white/20 text-white border-0 backdrop-blur-sm">
-                        <TrendingDown className="h-3 w-3 mr-1" />
-                        -8%
-                      </Badge>
-                    </div>
-                    <div className="mt-4">
-                      <p className="text-orange-100 text-xs font-medium">Maintenance Reports</p>
-                      <p className="text-3xl font-bold text-white mt-1">15</p>
-                      <p className="text-orange-100 text-xs mt-2">Work orders, Costs</p>
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-white/20">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-orange-100">Last generated</span>
-                        <span className="text-white font-medium">Yesterday</span>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-
-                {/* Tenant Reports Card */}
-                <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-all duration-300">
-                  <div className="bg-gradient-to-br from-blue-500 to-cyan-600 p-5">
-                    <div className="flex items-center justify-between">
-                      <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                        <Users className="h-6 w-6 text-white" />
-                      </div>
-                      <Badge className="bg-white/20 text-white border-0 backdrop-blur-sm">
-                        <TrendingUp className="h-3 w-3 mr-1" />
-                        +5%
-                      </Badge>
-                    </div>
-                    <div className="mt-4">
-                      <p className="text-blue-100 text-xs font-medium">Tenant Reports</p>
-                      <p className="text-3xl font-bold text-white mt-1">12</p>
-                      <p className="text-blue-100 text-xs mt-2">Leases, Payments</p>
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-white/20">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-blue-100">Last generated</span>
-                        <span className="text-white font-medium">3 days ago</span>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              </div>
-
-              {/* Interactive Report Generation */}
-              <Card className="border-0 shadow-xl overflow-hidden">
-                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 px-6 py-4 border-b border-indigo-100">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#7C3AED] to-purple-600 flex items-center justify-center">
-                        <Zap className="h-5 w-5 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-gray-900">Generate Reports</h3>
-                        <p className="text-xs text-gray-500">Use live portfolio data with filters to view detailed reports</p>
-                      </div>
-                    </div>
-                    <Badge className="bg-purple-100 text-[#7C3AED] border-purple-200">
-                      <Activity className="h-3 w-3 mr-1" />
-                      Real-time
-                    </Badge>
-                  </div>
-                </div>
-                <CardContent className="p-6">
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="report-type" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-gray-400" />
-                        Report Type
-                      </Label>
-                      <Select
-                        value={reportType}
-                        onValueChange={(value) =>
-                          setReportType(value as ReportType)
-                        }
-                      >
-                        <SelectTrigger id="report-type" className="bg-white border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED] rounded-xl h-11">
-                          <SelectValue placeholder="Select report type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All report types</SelectItem>
-                          <SelectItem value="financial">Financial</SelectItem>
-                          <SelectItem value="occupancy">Occupancy</SelectItem>
-                          <SelectItem value="maintenance">Maintenance</SelectItem>
-                          <SelectItem value="tenant">Tenant</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="report-property" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-gray-400" />
-                        Property
-                      </Label>
-                      <Select
-                        value={reportPropertyFilter}
-                        onValueChange={setReportPropertyFilter}
-                      >
-                        <SelectTrigger id="report-property" className="bg-white border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED] rounded-xl h-11">
-                          <SelectValue placeholder="All properties" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All properties</SelectItem>
-                          {visibleProperties.map((property) => (
-                            <SelectItem
-                              key={property.id}
-                              value={String(property.id)}
-                            >
-                              {property.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="report-start" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-gray-400" />
-                        Start Date
-                      </Label>
-                      <Input
-                        id="report-start"
-                        type="date"
-                        value={reportStartDate}
-                        onChange={(e) => setReportStartDate(e.target.value)}
-                        className="bg-white border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED] rounded-xl h-11"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="report-end" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-gray-400" />
-                        End Date
-                      </Label>
-                      <Input
-                        id="report-end"
-                        type="date"
-                        value={reportEndDate}
-                        onChange={(e) => setReportEndDate(e.target.value)}
-                        className="bg-white border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED] rounded-xl h-11"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center justify-between gap-4 mt-6 pt-5 border-t border-gray-100">
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Info className="h-4 w-4" />
-                      <span>Reports generated from live dashboard data</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Button
-                        variant="outline"
-                        onClick={handleResetReportFilters}
-                        disabled={reportGenerating && !reportPreview}
-                        className="border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl h-10"
-                      >
-                        <X className="h-4 w-4 mr-2" />
-                        Reset
-                      </Button>
-                      <Button
-                        onClick={handleGenerateReport}
-                        disabled={reportGenerating}
-                        className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25 rounded-xl h-10 px-6"
-                      >
-                        {reportGenerating ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Generating...
-                          </>
-                        ) : (
-                          <>
-                            <BarChart3 className="mr-2 h-4 w-4" />
-                            Generate Report
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {reportPreview && (
-                <Card className="border-0 shadow-xl overflow-hidden">
-                  <div className="bg-gradient-to-r from-[#7C3AED] via-purple-600 to-[#5B21B6] px-6 py-5">
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div className="flex items-start gap-4">
-                        <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                          <BarChart3 className="h-6 w-6 text-white" />
-                        </div>
-                        <div>
-                          <div className="flex flex-wrap items-center gap-3 mb-1">
-                            <h3 className="text-xl font-bold text-white">
-                              {REPORT_TYPE_LABELS[reportPreview.type]} Report
-                            </h3>
-                            <Badge className="bg-green-400/20 text-green-100 border-green-400/30">
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Live Preview
-                            </Badge>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2 text-purple-100 text-sm">
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {new Date(reportPreview.generatedAt).toLocaleString()}
-                            </span>
-                            <span className="text-white/40">•</span>
-                            <span className="flex items-center gap-1">
-                              <Building2 className="h-3 w-3" />
-                              {reportPreviewPropertyLabel}
-                            </span>
-                            {reportPreviewDateRange && (
-                              <>
-                                <span className="text-white/40">•</span>
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="h-3 w-3" />
-                                  {reportPreviewDateRange}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleDownloadReport}
-                          className="bg-white/10 border-white/20 text-white hover:bg-white/20 rounded-lg"
-                        >
-                          <Download className="mr-2 h-4 w-4" />
-                          Download
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={handleEmailReport}
-                          className="bg-white text-[#7C3AED] hover:bg-white/90 shadow-lg rounded-lg"
-                        >
-                          <Send className="mr-2 h-4 w-4" />
-                          Send to Email
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                  <CardContent className="p-6 bg-gray-50/50">
-                    <div ref={reportPreviewRef}>{renderReportPreview()}</div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Recent Reports */}
-              <Card className="border-0 shadow-xl overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-blue-100">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
-                        <Archive className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-gray-900">Recent Reports</h3>
-                        <p className="text-xs text-gray-500">Previously generated reports and downloads</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className="bg-blue-100 text-blue-700 border-blue-200">
-                        <FileText className="h-3 w-3 mr-1" />
-                        3 Reports
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-                <CardContent className="p-0">
-                  <div className="overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
-                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Report Name</TableHead>
-                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</TableHead>
-                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Property</TableHead>
-                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Generated</TableHead>
-                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Size</TableHead>
-                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        <TableRow className="bg-white hover:bg-purple-50/50 transition-colors border-b border-gray-100">
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <div className="h-9 w-9 rounded-lg bg-green-100 flex items-center justify-center">
-                                <DollarSign className="h-4 w-4 text-green-600" />
-                              </div>
-                              <span className="font-semibold text-gray-900">March 2024 Financial Report</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">Financial</Badge>
-                          </TableCell>
-                          <TableCell className="text-gray-700">All Properties</TableCell>
-                          <TableCell className="text-gray-600">March 21, 2024</TableCell>
-                          <TableCell className="text-gray-600">2.3 MB</TableCell>
-                          <TableCell>
-                            <div className="flex items-center justify-end space-x-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  toast.success("Downloading report...")
-                                }
-                                className="border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg h-8 w-8 p-0"
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  toast.info("Opening report in new tab...")
-                                }
-                                className="border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg h-8 w-8 p-0"
-                              >
-                                <ExternalLink className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-
-                        <TableRow className="bg-gray-50/50 hover:bg-purple-50/50 transition-colors border-b border-gray-100">
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <div className="h-9 w-9 rounded-lg bg-purple-100 flex items-center justify-center">
-                                <PieChart className="h-4 w-4 text-[#7C3AED]" />
-                              </div>
-                              <span className="font-semibold text-gray-900">Q1 2024 Occupancy Analysis</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className="bg-purple-100 text-[#7C3AED] hover:bg-purple-100 border-purple-200">Occupancy</Badge>
-                          </TableCell>
-                          <TableCell className="text-gray-700">Portfolio</TableCell>
-                          <TableCell className="text-gray-600">March 20, 2024</TableCell>
-                          <TableCell className="text-gray-600">1.8 MB</TableCell>
-                          <TableCell>
-                            <div className="flex items-center justify-end space-x-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  toast.success("Downloading report...")
-                                }
-                                className="border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg h-8 w-8 p-0"
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  toast.info("Opening report in new tab...")
-                                }
-                                className="border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg h-8 w-8 p-0"
-                              >
-                                <ExternalLink className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-
-                        <TableRow className="bg-white hover:bg-purple-50/50 transition-colors">
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <div className="h-9 w-9 rounded-lg bg-orange-100 flex items-center justify-center">
-                                <Wrench className="h-4 w-4 text-orange-600" />
-                              </div>
-                              <span className="font-semibold text-gray-900">Sunset Apartments Maintenance</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 border-orange-200">Maintenance</Badge>
-                          </TableCell>
-                          <TableCell className="text-gray-700">Sunset Apartments</TableCell>
-                          <TableCell className="text-gray-600">March 19, 2024</TableCell>
-                          <TableCell className="text-gray-600">0.9 MB</TableCell>
-                          <TableCell>
-                            <div className="flex items-center justify-end space-x-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  toast.success("Downloading report...")
-                                }
-                                className="border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg h-8 w-8 p-0"
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  toast.info("Opening report in new tab...")
-                                }
-                                className="border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg h-8 w-8 p-0"
-                              >
-                                <ExternalLink className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Scheduled Reports */}
-              <Card className="border-0 shadow-xl overflow-hidden">
-                <div className="bg-gradient-to-r from-amber-50 to-yellow-50 px-6 py-4 border-b border-amber-100">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
-                        <Clock className="h-5 w-5 text-amber-600" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-gray-900">Scheduled Reports</h3>
-                        <p className="text-xs text-gray-500">Automatically generate and deliver reports</p>
-                      </div>
-                    </div>
-                    <Button
-                      onClick={() =>
-                        toast.info("Report scheduling coming soon...")
-                      }
-                      className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25 rounded-xl"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Schedule Report
-                    </Button>
-                  </div>
-                </div>
-                <CardContent className="p-5">
-                  <div className="space-y-3">
-                    {/* Monthly Financial Report */}
-                    <div className="group flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 hover:shadow-md hover:border-blue-200 transition-all duration-200">
-                      <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                          <Calendar className="h-6 w-6 text-white" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-bold text-gray-900">Monthly Financial Report</h4>
-                            <Badge className="bg-green-100 text-green-700 border-green-200">
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Active
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-gray-500 mt-0.5">Generated on the 1st of each month</p>
-                          <div className="flex items-center gap-4 mt-2">
-                            <span className="text-xs text-gray-400 flex items-center gap-1">
-                              <Send className="h-3 w-3" />
-                              Sent to owner@company.com
-                            </span>
-                            <span className="text-xs text-gray-400 flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              Next: Apr 1, 2024
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="outline" size="sm" className="border-gray-200 text-gray-700 hover:bg-white rounded-lg h-9">
-                          <Edit className="h-4 w-4 mr-1" />
-                          Edit
-                        </Button>
-                        <Button variant="outline" size="sm" className="border-gray-200 text-gray-700 hover:bg-white rounded-lg h-9 w-9 p-0">
-                          <Settings className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Weekly Occupancy Update */}
-                    <div className="group flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100 hover:shadow-md hover:border-green-200 transition-all duration-200">
-                      <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/30">
-                          <Activity className="h-6 w-6 text-white" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-bold text-gray-900">Weekly Occupancy Update</h4>
-                            <Badge className="bg-green-100 text-green-700 border-green-200">
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Active
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-gray-500 mt-0.5">Generated every Monday at 9:00 AM</p>
-                          <div className="flex items-center gap-4 mt-2">
-                            <span className="text-xs text-gray-400 flex items-center gap-1">
-                              <Send className="h-3 w-3" />
-                              Sent to team@company.com
-                            </span>
-                            <span className="text-xs text-gray-400 flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              Next: Monday, Mar 25
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="outline" size="sm" className="border-gray-200 text-gray-700 hover:bg-white rounded-lg h-9">
-                          <Edit className="h-4 w-4 mr-1" />
-                          Edit
-                        </Button>
-                        <Button variant="outline" size="sm" className="border-gray-200 text-gray-700 hover:bg-white rounded-lg h-9 w-9 p-0">
-                          <Settings className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Add More Hint */}
-                    <div className="flex items-center justify-center p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-[#7C3AED]/40 hover:bg-purple-50/30 transition-all cursor-pointer group"
-                      onClick={() => toast.info("Report scheduling coming soon...")}
-                    >
-                      <div className="flex items-center gap-3 text-gray-400 group-hover:text-[#7C3AED] transition-colors">
-                        <Plus className="h-5 w-5" />
-                        <span className="font-medium">Add another scheduled report</span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <ReportsTabContent
+                user={user}
+                properties={visibleProperties}
+                reportPreview={reportPreview}
+                reportType={reportType}
+                setReportType={setReportType}
+                reportPropertyFilter={reportPropertyFilter}
+                setReportPropertyFilter={setReportPropertyFilter}
+                reportStartDate={reportStartDate}
+                setReportStartDate={setReportStartDate}
+                reportEndDate={reportEndDate}
+                setReportEndDate={setReportEndDate}
+                reportGenerating={reportGenerating}
+                onGenerateReport={handleGenerateReport}
+                onResetFilters={handleResetReportFilters}
+                onDownloadReport={handleDownloadReport}
+                onEmailReport={handleEmailReport}
+                reportPreviewRef={reportPreviewRef}
+                renderReportPreview={renderReportPreview}
+                reportPreviewPropertyLabel={reportPreviewPropertyLabel}
+                reportPreviewDateRange={reportPreviewDateRange}
+                scheduleEmail={scheduleEmail}
+                setScheduleEmail={setScheduleEmail}
+                scheduleFrequency={scheduleFrequency}
+                setScheduleFrequency={setScheduleFrequency}
+                scheduleDayOfWeek={scheduleDayOfWeek}
+                setScheduleDayOfWeek={setScheduleDayOfWeek}
+                scheduleDayOfMonth={scheduleDayOfMonth}
+                setScheduleDayOfMonth={setScheduleDayOfMonth}
+                scheduleTime={scheduleTime}
+                setScheduleTime={setScheduleTime}
+              />
             </TabsContent>
           </Tabs>
         </div>
@@ -7055,6 +6499,72 @@ export function PropertiesPage({
             >
               <Edit className="h-4 w-4 mr-2" />
               Edit
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Email Report Dialog */}
+      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5 text-[#7C3AED]" />
+              Send Report via Email
+            </DialogTitle>
+            <DialogDescription>
+              Enter the email address where you want to receive this report.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="email-to" className="text-sm font-medium">
+                Recipient Email
+              </Label>
+              <Input
+                id="email-to"
+                type="email"
+                placeholder="Enter email address"
+                value={emailReportTo}
+                onChange={(e) => setEmailReportTo(e.target.value)}
+                className="w-full"
+              />
+            </div>
+            {reportPreview && (
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <p className="text-sm font-medium text-gray-700">Report Details:</p>
+                <div className="text-sm text-gray-600 space-y-1">
+                  <p>• Type: {REPORT_TYPE_LABELS[reportPreview.type]}</p>
+                  <p>• Property: {reportPreviewPropertyLabel}</p>
+                  {reportPreviewDateRange && <p>• Date Range: {reportPreviewDateRange}</p>}
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setShowEmailDialog(false)}
+              disabled={isSendingEmail}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={sendReportEmail}
+              disabled={isSendingEmail || !emailReportTo.trim()}
+              className="bg-[#7C3AED] hover:bg-[#6D28D9]"
+            >
+              {isSendingEmail ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="mr-2 h-4 w-4" />
+                  Send Email
+                </>
+              )}
             </Button>
           </div>
         </DialogContent>
