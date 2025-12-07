@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   ArrowRight,
   ArrowLeft,
@@ -8,24 +8,28 @@ import {
   Users,
   CheckCircle2,
   X,
-} from 'lucide-react';
-import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
-import { Label } from '../../../components/ui/label';
-import { Textarea } from '../../../components/ui/textarea';
+} from "lucide-react";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
+import { Textarea } from "../../../components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../../components/ui/select';
-import { Badge } from '../../../components/ui/badge';
-import { Card, CardContent } from '../../../components/ui/card';
-import { Separator } from '../../../components/ui/separator';
-import { toast } from 'sonner';
-import { getProgressFromStage } from '../utils/projectProgress';
-import { NIGERIAN_CITIES, NIGERIAN_STATES, COUNTRIES } from '../../../constants/nigeria-locations';
+} from "../../../components/ui/select";
+import { Badge } from "../../../components/ui/badge";
+import { Card, CardContent } from "../../../components/ui/card";
+import { Separator } from "../../../components/ui/separator";
+import { toast } from "sonner";
+import { getProgressFromStage } from "../utils/projectProgress";
+import {
+  NIGERIAN_CITIES,
+  NIGERIAN_STATES,
+  COUNTRIES,
+} from "../../../constants/nigeria-locations";
 
 interface CreateProjectPageProps {
   onCancel: () => void;
@@ -40,19 +44,19 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
 }) => {
   const [currentStep, setCurrentStep] = useState<Step>(1);
   const [projectData, setProjectData] = useState({
-    name: '',
-    projectType: '',
-    location: '',
-    city: '',
-    state: '',
-    country: 'Nigeria',
-    description: '',
-    currency: 'NGN',
-    totalBudget: '',
-    contingency: '10',
-    startDate: '',
-    estimatedEndDate: '',
-    stage: 'planning',
+    name: "",
+    projectType: "",
+    location: "",
+    city: "",
+    state: "",
+    country: "Nigeria",
+    description: "",
+    currency: "NGN",
+    totalBudget: "",
+    contingency: "10",
+    startDate: "",
+    estimatedEndDate: "",
+    stage: "planning",
   });
 
   const handleNext = () => {
@@ -69,23 +73,24 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
 
   const handleCreate = async () => {
     try {
-      console.log('[CreateProject] Creating project with data:', projectData);
+      console.log("[CreateProject] Creating project with data:", projectData);
 
       // Get auth token
-      const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+      const token =
+        localStorage.getItem("auth_token") || localStorage.getItem("token");
       if (!token) {
-        toast.error('Authentication required', {
-          description: 'Please log in again.',
+        toast.error("Authentication required", {
+          description: "Please log in again.",
         });
         return;
       }
 
       // Call API to create project
-      const response = await fetch('/api/developer-dashboard/projects', {
-        method: 'POST',
+      const response = await fetch("/api/developer-dashboard/projects", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           name: projectData.name,
@@ -104,13 +109,13 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create project');
+        throw new Error(errorData.error || "Failed to create project");
       }
 
       const newProject = await response.json();
-      console.log('[CreateProject] Project created successfully:', newProject);
+      console.log("[CreateProject] Project created successfully:", newProject);
 
-      toast.success('Project Created Successfully', {
+      toast.success("Project Created Successfully", {
         description: `${projectData.name} has been created and is ready to use.`,
       });
 
@@ -120,9 +125,9 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
 
       onCancel(); // Go back to portfolio
     } catch (error: any) {
-      console.error('[CreateProject] Error creating project:', error);
-      toast.error('Failed to create project', {
-        description: error.message || 'Please try again or contact support.',
+      console.error("[CreateProject] Error creating project:", error);
+      toast.error("Failed to create project", {
+        description: error.message || "Please try again or contact support.",
       });
     }
   };
@@ -143,15 +148,15 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
   };
 
   const steps = [
-    { number: 1, title: 'Project Info', icon: Building2 },
-    { number: 2, title: 'Financial Setup', icon: DollarSign },
-    { number: 3, title: 'Timeline & Team', icon: Users },
-    { number: 4, title: 'Review & Confirm', icon: CheckCircle2 },
+    { number: 1, title: "Project Info", icon: Building2 },
+    { number: 2, title: "Financial Setup", icon: DollarSign },
+    { number: 3, title: "Timeline & Team", icon: Users },
+    { number: 4, title: "Review & Confirm", icon: CheckCircle2 },
   ];
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
+    return new Intl.NumberFormat("en-NG", {
+      style: "currency",
       currency: projectData.currency,
       minimumFractionDigits: 0,
     }).format(amount);
@@ -169,8 +174,12 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                   <Building2 className="h-8 w-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-white">Create New Project</h1>
-                  <p className="text-purple-100 mt-1">Set up your project in 4 easy steps</p>
+                  <h1 className="text-3xl font-bold text-white">
+                    Create New Project
+                  </h1>
+                  <p className="text-purple-100 mt-1">
+                    Set up your project in 4 easy steps
+                  </p>
                 </div>
               </div>
               <Button
@@ -198,10 +207,10 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                       <div
                         className={`w-14 h-14 rounded-xl flex items-center justify-center transition-all duration-300 shadow-md ${
                           isCompleted
-                            ? 'bg-gradient-to-br from-green-500 to-emerald-600 text-white'
+                            ? "bg-gradient-to-br from-green-500 to-emerald-600 text-white"
                             : isActive
-                            ? 'bg-gradient-to-br from-purple-600 to-violet-600 text-white shadow-lg shadow-purple-500/30'
-                            : 'bg-gray-100 text-gray-400'
+                            ? "bg-gradient-to-br from-purple-600 to-violet-600 text-white shadow-lg shadow-purple-500/30"
+                            : "bg-gray-100 text-gray-400"
                         }`}
                       >
                         {isCompleted ? (
@@ -212,7 +221,11 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                       </div>
                       <p
                         className={`text-sm mt-2 font-medium text-center ${
-                          isActive ? 'text-purple-600' : isCompleted ? 'text-green-600' : 'text-gray-500'
+                          isActive
+                            ? "text-purple-600"
+                            : isCompleted
+                            ? "text-green-600"
+                            : "text-gray-500"
                         }`}
                       >
                         {step.title}
@@ -222,8 +235,8 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                       <div
                         className={`flex-1 h-2 mx-4 rounded-full transition-all duration-300 ${
                           currentStep > step.number
-                            ? 'bg-gradient-to-r from-green-500 to-emerald-500'
-                            : 'bg-gray-200'
+                            ? "bg-gradient-to-r from-green-500 to-emerald-500"
+                            : "bg-gray-200"
                         }`}
                       />
                     )}
@@ -238,10 +251,18 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
         <Card className="mb-6 border-0 shadow-lg">
           <div className="bg-gradient-to-r from-purple-50 to-violet-50 border-b border-purple-100 px-8 py-4">
             <div className="flex items-center gap-2">
-              {currentStep === 1 && <Building2 className="h-5 w-5 text-purple-600" />}
-              {currentStep === 2 && <DollarSign className="h-5 w-5 text-purple-600" />}
-              {currentStep === 3 && <Users className="h-5 w-5 text-purple-600" />}
-              {currentStep === 4 && <CheckCircle2 className="h-5 w-5 text-purple-600" />}
+              {currentStep === 1 && (
+                <Building2 className="h-5 w-5 text-purple-600" />
+              )}
+              {currentStep === 2 && (
+                <DollarSign className="h-5 w-5 text-purple-600" />
+              )}
+              {currentStep === 3 && (
+                <Users className="h-5 w-5 text-purple-600" />
+              )}
+              {currentStep === 4 && (
+                <CheckCircle2 className="h-5 w-5 text-purple-600" />
+              )}
               <h2 className="text-xl font-bold text-gray-900">
                 {steps[currentStep - 1].title}
               </h2>
@@ -281,10 +302,18 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="residential">Residential Development</SelectItem>
-                        <SelectItem value="commercial">Commercial Building</SelectItem>
-                        <SelectItem value="mixed-use">Mixed-Use Development</SelectItem>
-                        <SelectItem value="infrastructure">Infrastructure</SelectItem>
+                        <SelectItem value="residential">
+                          Residential Development
+                        </SelectItem>
+                        <SelectItem value="commercial">
+                          Commercial Building
+                        </SelectItem>
+                        <SelectItem value="mixed-use">
+                          Mixed-Use Development
+                        </SelectItem>
+                        <SelectItem value="infrastructure">
+                          Infrastructure
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -306,13 +335,18 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                       <SelectContent>
                         <SelectItem value="planning">Planning</SelectItem>
                         <SelectItem value="design">Design</SelectItem>
-                        <SelectItem value="pre-construction">Pre-Construction</SelectItem>
-                        <SelectItem value="construction">Construction</SelectItem>
+                        <SelectItem value="pre-construction">
+                          Pre-Construction
+                        </SelectItem>
+                        <SelectItem value="construction">
+                          Construction
+                        </SelectItem>
                         <SelectItem value="completion">Completion</SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-sm text-blue-600">
-                      ℹ️ Progress will be automatically calculated based on milestones, budget, time, and stage
+                      ℹ️ Progress will be automatically calculated based on
+                      milestones, budget, time, and stage
                     </p>
                   </div>
                 </div>
@@ -391,7 +425,10 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                     placeholder="e.g., Plot 123, Lekki Phase 1, Lagos"
                     value={projectData.location}
                     onChange={(e) =>
-                      setProjectData({ ...projectData, location: e.target.value })
+                      setProjectData({
+                        ...projectData,
+                        location: e.target.value,
+                      })
                     }
                   />
                 </div>
@@ -404,7 +441,10 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                     rows={4}
                     value={projectData.description}
                     onChange={(e) =>
-                      setProjectData({ ...projectData, description: e.target.value })
+                      setProjectData({
+                        ...projectData,
+                        description: e.target.value,
+                      })
                     }
                   />
                 </div>
@@ -429,7 +469,9 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="NGN">NGN - Nigerian Naira</SelectItem>
+                        <SelectItem value="NGN">
+                          NGN - Nigerian Naira
+                        </SelectItem>
                         <SelectItem value="USD">USD - US Dollar</SelectItem>
                         <SelectItem value="EUR">EUR - Euro</SelectItem>
                         <SelectItem value="GBP">GBP - British Pound</SelectItem>
@@ -447,7 +489,10 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                       placeholder="850000000"
                       value={projectData.totalBudget}
                       onChange={(e) =>
-                        setProjectData({ ...projectData, totalBudget: e.target.value })
+                        setProjectData({
+                          ...projectData,
+                          totalBudget: e.target.value,
+                        })
                       }
                     />
                   </div>
@@ -461,7 +506,10 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                       type="number"
                       value={projectData.contingency}
                       onChange={(e) =>
-                        setProjectData({ ...projectData, contingency: e.target.value })
+                        setProjectData({
+                          ...projectData,
+                          contingency: e.target.value,
+                        })
                       }
                       className="w-32"
                     />
@@ -500,7 +548,8 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                         </p>
                         <div className="mt-3 pt-3 border-t border-white/20">
                           <p className="text-xs text-green-100">
-                            Base Budget + {projectData.contingency}% Contingency Reserve
+                            Base Budget + {projectData.contingency}% Contingency
+                            Reserve
                           </p>
                         </div>
                       </div>
@@ -523,7 +572,10 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                       type="date"
                       value={projectData.startDate}
                       onChange={(e) =>
-                        setProjectData({ ...projectData, startDate: e.target.value })
+                        setProjectData({
+                          ...projectData,
+                          startDate: e.target.value,
+                        })
                       }
                     />
                   </div>
@@ -538,8 +590,14 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                       onChange={(e) => {
                         const selectedDate = e.target.value;
                         // Validate that end date is not before start date
-                        if (projectData.startDate && selectedDate && selectedDate < projectData.startDate) {
-                          toast.error('Estimated End Date must be after Start Date');
+                        if (
+                          projectData.startDate &&
+                          selectedDate &&
+                          selectedDate < projectData.startDate
+                        ) {
+                          toast.error(
+                            "Estimated End Date must be after Start Date"
+                          );
                           return;
                         }
                         setProjectData({
@@ -550,7 +608,8 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                     />
                     {projectData.startDate && (
                       <p className="text-xs text-gray-500">
-                        Must be after {new Date(projectData.startDate).toLocaleDateString()}
+                        Must be after{" "}
+                        {new Date(projectData.startDate).toLocaleDateString()}
                       </p>
                     )}
                   </div>
@@ -567,8 +626,8 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                           Team Assignment
                         </p>
                         <p className="text-sm text-white/90">
-                          You can assign team members and set permissions after creating the
-                          project from the project dashboard.
+                          You can assign team members and set permissions after
+                          creating the project from the project dashboard.
                         </p>
                       </div>
                     </div>
@@ -588,11 +647,15 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                     Project Summary
                   </h3>
                 </div>
-                <p className="text-gray-600 mb-6">Review your project details before creating</p>
+                <p className="text-gray-600 mb-6">
+                  Review your project details before creating
+                </p>
 
                 <Card className="border-2 border-purple-200 shadow-md">
                   <div className="bg-gradient-to-r from-purple-50 to-violet-50 px-6 py-3 border-b border-purple-100">
-                    <h4 className="font-semibold text-gray-900">Project Information</h4>
+                    <h4 className="font-semibold text-gray-900">
+                      Project Information
+                    </h4>
                   </div>
                   <CardContent className="p-6 space-y-4">
                     <div className="space-y-3">
@@ -606,7 +669,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                       <div className="flex justify-between">
                         <span className="text-gray-600">Type:</span>
                         <Badge variant="outline" className="capitalize">
-                          {projectData.projectType.replace('-', ' ')}
+                          {projectData.projectType.replace("-", " ")}
                         </Badge>
                       </div>
                       <Separator />
@@ -631,7 +694,9 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
 
                 <Card className="border-2 border-green-200 shadow-md">
                   <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-3 border-b border-green-100">
-                    <h4 className="font-semibold text-gray-900">Financial Details</h4>
+                    <h4 className="font-semibold text-gray-900">
+                      Financial Details
+                    </h4>
                   </div>
                   <CardContent className="p-6 space-y-4">
                     <div className="space-y-3">
@@ -656,7 +721,9 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                       </div>
                       <Separator />
                       <div className="flex justify-between items-center bg-green-50 -mx-6 -mb-6 px-6 py-4 mt-4 border-t-2 border-green-200">
-                        <span className="font-semibold text-gray-900">Total Budget:</span>
+                        <span className="font-semibold text-gray-900">
+                          Total Budget:
+                        </span>
                         <span className="text-2xl font-bold text-green-600">
                           {formatCurrency(
                             parseFloat(projectData.totalBudget) +
@@ -678,27 +745,31 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                     <div className="flex justify-between">
                       <span className="text-gray-600">Start Date:</span>
                       <span className="text-gray-900">
-                        {new Date(projectData.startDate).toLocaleDateString('en-NG', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                        })}
+                        {new Date(projectData.startDate).toLocaleDateString(
+                          "en-NG",
+                          {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          }
+                        )}
                       </span>
                     </div>
                     {projectData.estimatedEndDate && (
                       <>
                         <Separator />
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Estimated End Date:</span>
+                          <span className="text-gray-600">
+                            Estimated End Date:
+                          </span>
                           <span className="text-gray-900">
-                            {new Date(projectData.estimatedEndDate).toLocaleDateString(
-                              'en-NG',
-                              {
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric',
-                              }
-                            )}
+                            {new Date(
+                              projectData.estimatedEndDate
+                            ).toLocaleDateString("en-NG", {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                            })}
                           </span>
                         </div>
                       </>
@@ -717,7 +788,8 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                           Ready to create this project
                         </p>
                         <p className="text-sm text-green-100">
-                          Click "Create Project" to finalize and start managing your project
+                          Click "Create Project" to finalize and start managing
+                          your project
                         </p>
                       </div>
                     </div>
@@ -778,4 +850,3 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
 };
 
 export default CreateProjectPage;
-

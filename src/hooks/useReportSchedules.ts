@@ -4,9 +4,12 @@
  * Handles fetching and state management for scheduled reports
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import { getReportSchedules, type ReportSchedule } from '../services/reportSchedules.api';
-import { toast } from 'sonner';
+import { useState, useEffect, useCallback } from "react";
+import {
+  getReportSchedules,
+  type ReportSchedule,
+} from "../services/reportSchedules.api";
+import { toast } from "sonner";
 
 export function useReportSchedules() {
   const [schedules, setSchedules] = useState<ReportSchedule[]>([]);
@@ -23,11 +26,11 @@ export function useReportSchedules() {
       if (response.success && response.data) {
         setSchedules(response.data);
       } else {
-        setError(response.error || 'Failed to fetch schedules');
+        setError(response.error || "Failed to fetch schedules");
       }
     } catch (err: any) {
-      console.error('Failed to fetch report schedules:', err);
-      setError(err.message || 'Failed to fetch schedules');
+      console.error("Failed to fetch report schedules:", err);
+      setError(err.message || "Failed to fetch schedules");
     } finally {
       setLoading(false);
     }
@@ -48,4 +51,3 @@ export function useReportSchedules() {
     refresh,
   };
 }
-

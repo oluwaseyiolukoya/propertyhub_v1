@@ -32,56 +32,61 @@ try {
 // ============================================
 // Environment Variables Validation
 // ============================================
-console.log('🔍 Validating environment variables...');
+console.log("🔍 Validating environment variables...");
 
-const REQUIRED_ENV_VARS = [
-  'DATABASE_URL',
-  'JWT_SECRET',
-  'NODE_ENV',
-];
+const REQUIRED_ENV_VARS = ["DATABASE_URL", "JWT_SECRET", "NODE_ENV"];
 
-const RECOMMENDED_ENV_VARS = [
-  'FRONTEND_URL',
-  'PORT',
-];
+const RECOMMENDED_ENV_VARS = ["FRONTEND_URL", "PORT"];
 
 // Check required variables
-const missingRequired = REQUIRED_ENV_VARS.filter(key => !process.env[key]);
+const missingRequired = REQUIRED_ENV_VARS.filter((key) => !process.env[key]);
 if (missingRequired.length > 0) {
-  console.error('❌ CRITICAL: Missing required environment variables:');
-  missingRequired.forEach(key => console.error(`   - ${key}`));
-  console.error('\n📖 Please set these in your .env file or environment configuration.');
-  console.error('   See backend/env.example for reference.\n');
+  console.error("❌ CRITICAL: Missing required environment variables:");
+  missingRequired.forEach((key) => console.error(`   - ${key}`));
+  console.error(
+    "\n📖 Please set these in your .env file or environment configuration."
+  );
+  console.error("   See backend/env.example for reference.\n");
   process.exit(1);
 }
 
 // Check recommended variables
-const missingRecommended = RECOMMENDED_ENV_VARS.filter(key => !process.env[key]);
+const missingRecommended = RECOMMENDED_ENV_VARS.filter(
+  (key) => !process.env[key]
+);
 if (missingRecommended.length > 0) {
-  console.warn('⚠️  WARNING: Missing recommended environment variables:');
-  missingRecommended.forEach(key => console.warn(`   - ${key}`));
-  console.warn('   The application may not work correctly without these.\n');
+  console.warn("⚠️  WARNING: Missing recommended environment variables:");
+  missingRecommended.forEach((key) => console.warn(`   - ${key}`));
+  console.warn("   The application may not work correctly without these.\n");
 }
 
 // Validate JWT_SECRET strength (production only)
-if (process.env.NODE_ENV === 'production') {
-  const jwtSecret = process.env.JWT_SECRET || '';
+if (process.env.NODE_ENV === "production") {
+  const jwtSecret = process.env.JWT_SECRET || "";
   if (jwtSecret.length < 32) {
-    console.error('❌ CRITICAL: JWT_SECRET is too short (< 32 characters)');
-    console.error('   Generate a strong secret with:');
-    console.error('   node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"\n');
+    console.error("❌ CRITICAL: JWT_SECRET is too short (< 32 characters)");
+    console.error("   Generate a strong secret with:");
+    console.error(
+      "   node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\"\n"
+    );
     process.exit(1);
   }
-  if (jwtSecret.includes('CHANGE_ME') || jwtSecret === 'secret' || jwtSecret.includes('your-')) {
-    console.error('❌ CRITICAL: JWT_SECRET appears to be a placeholder value');
-    console.error('   You MUST set a real secret in production!');
-    console.error('   Generate one with:');
-    console.error('   node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"\n');
+  if (
+    jwtSecret.includes("CHANGE_ME") ||
+    jwtSecret === "secret" ||
+    jwtSecret.includes("your-")
+  ) {
+    console.error("❌ CRITICAL: JWT_SECRET appears to be a placeholder value");
+    console.error("   You MUST set a real secret in production!");
+    console.error("   Generate one with:");
+    console.error(
+      "   node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\"\n"
+    );
     process.exit(1);
   }
 }
 
-console.log('✅ Environment variables validated successfully\n');
+console.log("✅ Environment variables validated successfully\n");
 
 // Import routes
 import authRoutes from "./routes/auth";
@@ -253,7 +258,10 @@ app.use(
     }
     res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
     // Prevent aggressive browser caching for brand assets (logos/favicons)
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, proxy-revalidate"
+    );
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
     next();
@@ -264,7 +272,10 @@ app.use(
     cacheControl: true,
     maxAge: 0,
     setHeaders: (res) => {
-      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      res.setHeader(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate, proxy-revalidate"
+      );
     },
   })
 );
@@ -291,13 +302,18 @@ app.get("/api/health", (req: Request, res: Response) => {
 app.get("/api/public/branding", async (req: Request, res: Response) => {
   try {
     const [logo, favicon] = await Promise.all([
-      prisma.system_settings.findUnique({ where: { key: "platform_logo_url" } }),
-      prisma.system_settings.findUnique({ where: { key: "platform_favicon_url" } }),
+      prisma.system_settings.findUnique({
+        where: { key: "platform_logo_url" },
+      }),
+      prisma.system_settings.findUnique({
+        where: { key: "platform_favicon_url" },
+      }),
     ]);
 
     res.json({
       logoUrl: logo && typeof logo.value === "string" ? logo.value : null,
-      faviconUrl: favicon && typeof favicon.value === "string" ? favicon.value : null,
+      faviconUrl:
+        favicon && typeof favicon.value === "string" ? favicon.value : null,
     });
   } catch (e: any) {
     res.status(500).json({
@@ -318,8 +334,10 @@ app.get("/api/_diag/db", async (req: Request, res: Response) => {
       internalAdminsCount = await prisma.users.count({
         where: {
           customerId: null,
-          role: { in: ['super_admin', 'admin', 'support', 'finance', 'operations'] }
-        }
+          role: {
+            in: ["super_admin", "admin", "support", "finance", "operations"],
+          },
+        },
       });
     } catch (e) {
       internalAdminsCount = null;
@@ -454,7 +472,9 @@ initializeSocket(httpServer)
   })
   .catch((error) => {
     console.error("❌ Failed to initialize Socket.io:", error);
-    console.warn("⚠️ Server will continue without Socket.io real-time features");
+    console.warn(
+      "⚠️ Server will continue without Socket.io real-time features"
+    );
   });
 
 // Graceful shutdown
@@ -494,13 +514,15 @@ httpServer.listen(PORT, () => {
   console.log(`📧 Email queue processor starting (every 2 minutes)...`);
   setInterval(async () => {
     try {
-      const { notificationService } = await import('./services/notification.service');
+      const { notificationService } = await import(
+        "./services/notification.service"
+      );
       const processed = await notificationService.processPendingEmails(10);
       if (processed > 0) {
         console.log(`📧 Processed ${processed} emails from queue`);
       }
     } catch (error) {
-      console.error('❌ Error processing email queue:', error);
+      console.error("❌ Error processing email queue:", error);
     }
   }, 2 * 60 * 1000); // Every 2 minutes
 });

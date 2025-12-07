@@ -1,11 +1,39 @@
-import React, { useState } from 'react';
-import { Building2, DollarSign, TrendingUp, TrendingDown, AlertCircle, Plus, Search, Filter, LayoutGrid, ArrowUpDown, Eye, CheckCircle2, Clock, MoreVertical, Edit, Trash2, CheckCircle, XCircle, Pause, RotateCcw, ArrowUpRight, X } from 'lucide-react';
-import { toast } from 'sonner';
-import { apiClient } from '../../../lib/api-client';
-import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
-import { Badge } from '../../../components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import React, { useState } from "react";
+import {
+  Building2,
+  DollarSign,
+  TrendingUp,
+  TrendingDown,
+  AlertCircle,
+  Plus,
+  Search,
+  Filter,
+  LayoutGrid,
+  ArrowUpDown,
+  Eye,
+  CheckCircle2,
+  Clock,
+  MoreVertical,
+  Edit,
+  Trash2,
+  CheckCircle,
+  XCircle,
+  Pause,
+  RotateCcw,
+  ArrowUpRight,
+  X,
+} from "lucide-react";
+import { toast } from "sonner";
+import { apiClient } from "../../../lib/api-client";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Badge } from "../../../components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../../../components/ui/card";
 import {
   Table,
   TableBody,
@@ -13,24 +41,28 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '../../../components/ui/table';
+} from "../../../components/ui/table";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../../components/ui/select';
+} from "../../../components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '../../../components/ui/dropdown-menu';
-import KPICard from './KPICard';
-import ProjectCard from './ProjectCard';
-import { usePortfolioOverview, useProjects, useDebounce } from '../hooks/useDeveloperDashboardData';
-import type { ProjectFilters, ProjectSortOptions } from '../types';
+} from "../../../components/ui/dropdown-menu";
+import KPICard from "./KPICard";
+import ProjectCard from "./ProjectCard";
+import {
+  usePortfolioOverview,
+  useProjects,
+  useDebounce,
+} from "../hooks/useDeveloperDashboardData";
+import type { ProjectFilters, ProjectSortOptions } from "../types";
 
 interface PortfolioOverviewProps {
   onViewProject: (projectId: string) => void;
@@ -53,13 +85,13 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
 }) => {
   const { data: overview, loading: overviewLoading } = usePortfolioOverview();
 
-  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [stageFilter, setStageFilter] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<"table" | "grid">("table");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [stageFilter, setStageFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<ProjectSortOptions>({
-    field: 'createdAt',
-    order: 'desc',
+    field: "createdAt",
+    order: "desc",
   });
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -67,21 +99,20 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
 
   const filters: ProjectFilters = {
     search: debouncedSearch || undefined,
-    status: statusFilter !== 'all' ? [statusFilter as any] : undefined,
-    stage: stageFilter !== 'all' ? [stageFilter as any] : undefined,
+    status: statusFilter !== "all" ? [statusFilter as any] : undefined,
+    stage: stageFilter !== "all" ? [stageFilter as any] : undefined,
   };
 
-  const { data: projects, pagination, loading: projectsLoading } = useProjects(
-    filters,
-    sortBy,
-    currentPage,
-    12
-  );
+  const {
+    data: projects,
+    pagination,
+    loading: projectsLoading,
+  } = useProjects(filters, sortBy, currentPage, 12);
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: overview?.currency || 'NGN',
+    return new Intl.NumberFormat("en-NG", {
+      style: "currency",
+      currency: overview?.currency || "NGN",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
@@ -92,29 +123,37 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
     if (absVariance > 10) {
       return <Badge variant="destructive">Critical</Badge>;
     } else if (absVariance > 5) {
-      return <Badge className="bg-amber-500 hover:bg-amber-600 text-white">Warning</Badge>;
+      return (
+        <Badge className="bg-amber-500 hover:bg-amber-600 text-white">
+          Warning
+        </Badge>
+      );
     } else {
-      return <Badge className="bg-green-500 hover:bg-green-600 text-white">Healthy</Badge>;
+      return (
+        <Badge className="bg-green-500 hover:bg-green-600 text-white">
+          Healthy
+        </Badge>
+      );
     }
   };
 
   const getStatusBadge = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'active':
+      case "active":
         return (
           <Badge variant="outline" className="gap-1">
             <Clock className="w-3 h-3" />
             Active
           </Badge>
         );
-      case 'completed':
+      case "completed":
         return (
           <Badge className="bg-blue-500 hover:bg-blue-600 text-white gap-1">
             <CheckCircle2 className="w-3 h-3" />
             Completed
           </Badge>
         );
-      case 'planning':
+      case "planning":
         return (
           <Badge variant="secondary" className="gap-1">
             Planning
@@ -136,20 +175,31 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
                 <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
                   <Building2 className="h-6 w-6 text-white" />
                 </div>
-                <h1 className="text-3xl font-bold text-white">Portfolio Overview</h1>
+                <h1 className="text-3xl font-bold text-white">
+                  Portfolio Overview
+                </h1>
               </div>
-              <p className="text-purple-100 text-lg">Manage all your development projects in one place</p>
+              <p className="text-purple-100 text-lg">
+                Manage all your development projects in one place
+              </p>
 
               {/* Quick Stats Pills */}
               <div className="flex flex-wrap items-center gap-3 mt-4">
                 <div className="px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full border border-white/20">
-                  <span className="text-white font-semibold">{overview?.totalProjects || 0} Projects</span>
+                  <span className="text-white font-semibold">
+                    {overview?.totalProjects || 0} Projects
+                  </span>
                 </div>
                 <div className="px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full border border-white/20">
-                  <span className="text-white font-semibold">{overview?.activeProjects || 0} Active</span>
+                  <span className="text-white font-semibold">
+                    {overview?.activeProjects || 0} Active
+                  </span>
                 </div>
                 <div className="px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full border border-white/20">
-                  <span className="text-white font-semibold">{overview ? formatCurrency(overview.totalBudget) : '₦0'} Budget</span>
+                  <span className="text-white font-semibold">
+                    {overview ? formatCurrency(overview.totalBudget) : "₦0"}{" "}
+                    Budget
+                  </span>
                 </div>
               </div>
             </div>
@@ -179,10 +229,16 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
                 {overview?.activeProjects || 0} Active
               </Badge>
             </div>
-            <p className="text-sm font-medium text-purple-100 mb-1">Total Projects</p>
-            <p className="text-4xl font-bold">{overview?.totalProjects?.toString() || '0'}</p>
+            <p className="text-sm font-medium text-purple-100 mb-1">
+              Total Projects
+            </p>
+            <p className="text-4xl font-bold">
+              {overview?.totalProjects?.toString() || "0"}
+            </p>
             <div className="mt-3 pt-3 border-t border-white/20">
-              <p className="text-xs text-purple-100">All development projects</p>
+              <p className="text-xs text-purple-100">
+                All development projects
+              </p>
             </div>
           </div>
         </Card>
@@ -195,8 +251,12 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
               </div>
               <TrendingUp className="h-5 w-5 text-white/80" />
             </div>
-            <p className="text-sm font-medium text-green-100 mb-1">Portfolio Budget</p>
-            <p className="text-4xl font-bold">{overview ? formatCurrency(overview.totalBudget) : '₦0'}</p>
+            <p className="text-sm font-medium text-green-100 mb-1">
+              Portfolio Budget
+            </p>
+            <p className="text-4xl font-bold">
+              {overview ? formatCurrency(overview.totalBudget) : "₦0"}
+            </p>
             <div className="mt-3 pt-3 border-t border-white/20">
               <p className="text-xs text-green-100">Across all projects</p>
             </div>
@@ -213,8 +273,12 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
                 Actual
               </Badge>
             </div>
-            <p className="text-sm font-medium text-blue-100 mb-1">Total Spend</p>
-            <p className="text-4xl font-bold">{overview ? formatCurrency(overview.totalActualSpend) : '₦0'}</p>
+            <p className="text-sm font-medium text-blue-100 mb-1">
+              Total Spend
+            </p>
+            <p className="text-4xl font-bold">
+              {overview ? formatCurrency(overview.totalActualSpend) : "₦0"}
+            </p>
             <div className="mt-3 pt-3 border-t border-white/20">
               <p className="text-xs text-blue-100">Actual expenditure</p>
             </div>
@@ -222,7 +286,13 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
         </Card>
 
         <Card className="cursor-pointer hover:shadow-xl transition-all duration-300 border-0 shadow-lg overflow-hidden group">
-          <div className={`bg-gradient-to-br p-6 text-white ${overview && overview.variancePercent > 0 ? 'from-red-500 to-rose-600' : 'from-green-500 to-emerald-600'}`}>
+          <div
+            className={`bg-gradient-to-br p-6 text-white ${
+              overview && overview.variancePercent > 0
+                ? "from-red-500 to-rose-600"
+                : "from-green-500 to-emerald-600"
+            }`}
+          >
             <div className="flex items-center justify-between mb-3">
               <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
                 <AlertCircle className="h-6 w-6 text-white" />
@@ -233,13 +303,33 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
                 <TrendingDown className="h-5 w-5 text-white/80" />
               )}
             </div>
-            <p className={`text-sm font-medium mb-1 ${overview && overview.variancePercent > 0 ? 'text-red-100' : 'text-green-100'}`}>Overall Variance</p>
+            <p
+              className={`text-sm font-medium mb-1 ${
+                overview && overview.variancePercent > 0
+                  ? "text-red-100"
+                  : "text-green-100"
+              }`}
+            >
+              Overall Variance
+            </p>
             <p className="text-4xl font-bold">
-              {overview ? `${overview.variancePercent >= 0 ? '+' : ''}${overview.variancePercent.toFixed(1)}%` : '0%'}
+              {overview
+                ? `${
+                    overview.variancePercent >= 0 ? "+" : ""
+                  }${overview.variancePercent.toFixed(1)}%`
+                : "0%"}
             </p>
             <div className="mt-3 pt-3 border-t border-white/20">
-              <p className={`text-xs ${overview && overview.variancePercent > 0 ? 'text-red-100' : 'text-green-100'}`}>
-                {overview && overview.totalVariance > 0 ? 'Over budget' : 'Under budget'}
+              <p
+                className={`text-xs ${
+                  overview && overview.variancePercent > 0
+                    ? "text-red-100"
+                    : "text-green-100"
+                }`}
+              >
+                {overview && overview.totalVariance > 0
+                  ? "Over budget"
+                  : "Under budget"}
               </p>
             </div>
           </div>
@@ -250,7 +340,7 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card
           className="cursor-pointer hover:shadow-xl transition-all duration-300 border-0 shadow-lg overflow-hidden group"
-          onClick={() => setStatusFilter('active')}
+          onClick={() => setStatusFilter("active")}
         >
           <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-6 text-white">
             <div className="flex items-center justify-between mb-3">
@@ -261,9 +351,11 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
                 Filter
               </Badge>
             </div>
-            <p className="text-sm font-medium text-green-100 mb-1">Active Projects</p>
+            <p className="text-sm font-medium text-green-100 mb-1">
+              Active Projects
+            </p>
             <p className="text-4xl font-bold">
-              {projects.filter(p => p.status === 'active').length}
+              {projects.filter((p) => p.status === "active").length}
             </p>
             <div className="mt-3 pt-3 border-t border-white/20">
               <p className="text-xs text-green-100">Click to filter</p>
@@ -273,7 +365,7 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
 
         <Card
           className="cursor-pointer hover:shadow-xl transition-all duration-300 border-0 shadow-lg overflow-hidden group"
-          onClick={() => setStatusFilter('on-hold')}
+          onClick={() => setStatusFilter("on-hold")}
         >
           <div className="bg-gradient-to-br from-amber-500 to-orange-600 p-6 text-white">
             <div className="flex items-center justify-between mb-3">
@@ -286,7 +378,7 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
             </div>
             <p className="text-sm font-medium text-amber-100 mb-1">On Hold</p>
             <p className="text-4xl font-bold">
-              {projects.filter(p => p.status === 'on-hold').length}
+              {projects.filter((p) => p.status === "on-hold").length}
             </p>
             <div className="mt-3 pt-3 border-t border-white/20">
               <p className="text-xs text-amber-100">Click to filter</p>
@@ -296,7 +388,7 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
 
         <Card
           className="cursor-pointer hover:shadow-xl transition-all duration-300 border-0 shadow-lg overflow-hidden group"
-          onClick={() => setStatusFilter('completed')}
+          onClick={() => setStatusFilter("completed")}
         >
           <div className="bg-gradient-to-br from-blue-500 to-cyan-600 p-6 text-white">
             <div className="flex items-center justify-between mb-3">
@@ -309,7 +401,7 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
             </div>
             <p className="text-sm font-medium text-blue-100 mb-1">Completed</p>
             <p className="text-4xl font-bold">
-              {projects.filter(p => p.status === 'completed').length}
+              {projects.filter((p) => p.status === "completed").length}
             </p>
             <div className="mt-3 pt-3 border-t border-white/20">
               <p className="text-xs text-blue-100">Click to filter</p>
@@ -319,7 +411,7 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
 
         <Card
           className="cursor-pointer hover:shadow-xl transition-all duration-300 border-0 shadow-lg overflow-hidden group"
-          onClick={() => setStatusFilter('cancelled')}
+          onClick={() => setStatusFilter("cancelled")}
         >
           <div className="bg-gradient-to-br from-red-500 to-rose-600 p-6 text-white">
             <div className="flex items-center justify-between mb-3">
@@ -332,7 +424,7 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
             </div>
             <p className="text-sm font-medium text-red-100 mb-1">Cancelled</p>
             <p className="text-4xl font-bold">
-              {projects.filter(p => p.status === 'cancelled').length}
+              {projects.filter((p) => p.status === "cancelled").length}
             </p>
             <div className="mt-3 pt-3 border-t border-white/20">
               <p className="text-xs text-red-100">Click to filter</p>
@@ -348,7 +440,9 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
             <Filter className="h-4 w-4 text-purple-600" />
             <h3 className="font-semibold text-gray-900">Filter & Search</h3>
           </div>
-          <p className="text-sm text-gray-600">Find projects quickly with advanced filters</p>
+          <p className="text-sm text-gray-600">
+            Find projects quickly with advanced filters
+          </p>
         </div>
         <CardContent className="p-6">
           <div className="flex flex-wrap items-center gap-4">
@@ -371,7 +465,9 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
                 <SelectItem value="all">All Stages</SelectItem>
                 <SelectItem value="planning">Planning</SelectItem>
                 <SelectItem value="design">Design</SelectItem>
-                <SelectItem value="pre-construction">Pre-Construction</SelectItem>
+                <SelectItem value="pre-construction">
+                  Pre-Construction
+                </SelectItem>
                 <SelectItem value="construction">Construction</SelectItem>
                 <SelectItem value="completion">Completion</SelectItem>
               </SelectContent>
@@ -392,18 +488,26 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
 
             <div className="flex gap-1 border-2 border-purple-200 rounded-lg p-1 bg-purple-50/50">
               <Button
-                variant={viewMode === 'table' ? 'default' : 'ghost'}
+                variant={viewMode === "table" ? "default" : "ghost"}
                 size="sm"
-                onClick={() => setViewMode('table')}
-                className={viewMode === 'table' ? 'bg-gradient-to-r from-purple-600 to-violet-600 text-white' : 'hover:bg-purple-100 hover:text-purple-700'}
+                onClick={() => setViewMode("table")}
+                className={
+                  viewMode === "table"
+                    ? "bg-gradient-to-r from-purple-600 to-violet-600 text-white"
+                    : "hover:bg-purple-100 hover:text-purple-700"
+                }
               >
                 <ArrowUpDown className="w-4 h-4" />
               </Button>
               <Button
-                variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                variant={viewMode === "grid" ? "default" : "ghost"}
                 size="sm"
-                onClick={() => setViewMode('grid')}
-                className={viewMode === 'grid' ? 'bg-gradient-to-r from-purple-600 to-violet-600 text-white' : 'hover:bg-purple-100 hover:text-purple-700'}
+                onClick={() => setViewMode("grid")}
+                className={
+                  viewMode === "grid"
+                    ? "bg-gradient-to-r from-purple-600 to-violet-600 text-white"
+                    : "hover:bg-purple-100 hover:text-purple-700"
+                }
               >
                 <LayoutGrid className="w-4 h-4" />
               </Button>
@@ -411,34 +515,45 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
           </div>
 
           {/* Active Filters Display */}
-          {(searchTerm || statusFilter !== 'all' || stageFilter !== 'all') && (
+          {(searchTerm || statusFilter !== "all" || stageFilter !== "all") && (
             <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-purple-100">
-              <span className="text-sm font-medium text-gray-600">Active Filters:</span>
+              <span className="text-sm font-medium text-gray-600">
+                Active Filters:
+              </span>
               {searchTerm && (
                 <Badge className="bg-purple-100 text-purple-700 border-purple-200 gap-1">
                   Search: {searchTerm}
-                  <X className="h-3 w-3 cursor-pointer" onClick={() => setSearchTerm('')} />
+                  <X
+                    className="h-3 w-3 cursor-pointer"
+                    onClick={() => setSearchTerm("")}
+                  />
                 </Badge>
               )}
-              {statusFilter !== 'all' && (
+              {statusFilter !== "all" && (
                 <Badge className="bg-blue-100 text-blue-700 border-blue-200 gap-1">
                   Status: {statusFilter}
-                  <X className="h-3 w-3 cursor-pointer" onClick={() => setStatusFilter('all')} />
+                  <X
+                    className="h-3 w-3 cursor-pointer"
+                    onClick={() => setStatusFilter("all")}
+                  />
                 </Badge>
               )}
-              {stageFilter !== 'all' && (
+              {stageFilter !== "all" && (
                 <Badge className="bg-green-100 text-green-700 border-green-200 gap-1">
                   Stage: {stageFilter}
-                  <X className="h-3 w-3 cursor-pointer" onClick={() => setStageFilter('all')} />
+                  <X
+                    className="h-3 w-3 cursor-pointer"
+                    onClick={() => setStageFilter("all")}
+                  />
                 </Badge>
               )}
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  setSearchTerm('');
-                  setStatusFilter('all');
-                  setStageFilter('all');
+                  setSearchTerm("");
+                  setStatusFilter("all");
+                  setStageFilter("all");
                 }}
                 className="text-purple-600 hover:text-purple-700 hover:bg-purple-50 h-6 px-2 text-xs"
               >
@@ -455,7 +570,10 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
           <CardContent className="p-6">
             <div className="space-y-4">
               {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="h-16 bg-gradient-to-r from-purple-100 to-violet-100 animate-pulse rounded-lg" />
+                <div
+                  key={i}
+                  className="h-16 bg-gradient-to-r from-purple-100 to-violet-100 animate-pulse rounded-lg"
+                />
               ))}
             </div>
           </CardContent>
@@ -466,29 +584,42 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
             <div className="mx-auto w-20 h-20 bg-gradient-to-br from-purple-100 to-violet-100 rounded-full flex items-center justify-center mb-4">
               <Building2 className="h-10 w-10 text-purple-600" />
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">No projects found</h3>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
+              No projects found
+            </h3>
             <p className="text-gray-600 mb-6 max-w-md mx-auto">
-            {searchTerm || statusFilter !== 'all' || stageFilter !== 'all'
-              ? 'No projects match your current filters. Try adjusting your search criteria.'
-              : canManageProjects
-                ? 'Get started by creating your first project and begin tracking your development portfolio.'
-                : 'No projects available yet. Check back later.'}
-          </p>
-          {!searchTerm && statusFilter === 'all' && stageFilter === 'all' && canManageProjects && (
-            <Button onClick={onCreateProject} className="gap-2 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white shadow-lg">
-              <Plus className="h-4 w-4" />
-              Create Your First Project
-            </Button>
-          )}
+              {searchTerm || statusFilter !== "all" || stageFilter !== "all"
+                ? "No projects match your current filters. Try adjusting your search criteria."
+                : canManageProjects
+                ? "Get started by creating your first project and begin tracking your development portfolio."
+                : "No projects available yet. Check back later."}
+            </p>
+            {!searchTerm &&
+              statusFilter === "all" &&
+              stageFilter === "all" &&
+              canManageProjects && (
+                <Button
+                  onClick={onCreateProject}
+                  className="gap-2 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white shadow-lg"
+                >
+                  <Plus className="h-4 w-4" />
+                  Create Your First Project
+                </Button>
+              )}
           </CardContent>
         </Card>
-      ) : viewMode === 'table' ? (
+      ) : viewMode === "table" ? (
         <Card className="border-0 shadow-lg">
           <CardHeader className="bg-gradient-to-r from-purple-50 to-violet-50 border-b border-purple-100">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-xl font-bold text-gray-900">All Projects</CardTitle>
-                <p className="text-sm text-gray-600 mt-1">{projects.length} project{projects.length !== 1 ? 's' : ''} found</p>
+                <CardTitle className="text-xl font-bold text-gray-900">
+                  All Projects
+                </CardTitle>
+                <p className="text-sm text-gray-600 mt-1">
+                  {projects.length} project{projects.length !== 1 ? "s" : ""}{" "}
+                  found
+                </p>
               </div>
               <Badge className="bg-purple-100 text-purple-700 border-purple-200 px-3 py-1">
                 {projects.length} Total
@@ -499,23 +630,46 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
             <Table>
               <TableHeader>
                 <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
-                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Project Name</TableHead>
-                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Developer</TableHead>
-                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Stage</TableHead>
-                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Location</TableHead>
-                  <TableHead className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Budget</TableHead>
-                  <TableHead className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actual</TableHead>
-                  <TableHead className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Variance</TableHead>
-                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Health</TableHead>
-                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</TableHead>
-                  <TableHead className="text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Project Name
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Developer
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Stage
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Location
+                  </TableHead>
+                  <TableHead className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Budget
+                  </TableHead>
+                  <TableHead className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Actual
+                  </TableHead>
+                  <TableHead className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Variance
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Health
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Status
+                  </TableHead>
+                  <TableHead className="text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {projects.map((project) => {
-                  const variance = project.totalBudget > 0
-                    ? ((project.actualSpend - project.totalBudget) / project.totalBudget) * 100
-                    : 0;
+                  const variance =
+                    project.totalBudget > 0
+                      ? ((project.actualSpend - project.totalBudget) /
+                          project.totalBudget) *
+                        100
+                      : 0;
 
                   return (
                     <TableRow
@@ -525,15 +679,24 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
                     >
                       <TableCell>
                         <div>
-                          <p className="font-medium text-gray-900">{project.name}</p>
+                          <p className="font-medium text-gray-900">
+                            {project.name}
+                          </p>
                           <p className="text-sm text-gray-500">
-                            Updated {new Date(project.updatedAt).toLocaleDateString()}
+                            Updated{" "}
+                            {new Date(project.updatedAt).toLocaleDateString()}
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell className="text-gray-700">{project.city || 'N/A'}</TableCell>
-                      <TableCell className="text-gray-700">{project.stage}</TableCell>
-                      <TableCell className="text-gray-700">{project.location || project.city || 'N/A'}</TableCell>
+                      <TableCell className="text-gray-700">
+                        {project.city || "N/A"}
+                      </TableCell>
+                      <TableCell className="text-gray-700">
+                        {project.stage}
+                      </TableCell>
+                      <TableCell className="text-gray-700">
+                        {project.location || project.city || "N/A"}
+                      </TableCell>
                       <TableCell className="text-right font-medium text-gray-900">
                         {formatCurrency(project.totalBudget)}
                       </TableCell>
@@ -542,10 +705,10 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
                       </TableCell>
                       <TableCell
                         className={`text-right font-medium ${
-                          variance > 0 ? 'text-red-600' : 'text-green-600'
+                          variance > 0 ? "text-red-600" : "text-green-600"
                         }`}
                       >
-                        {variance > 0 ? '+' : ''}
+                        {variance > 0 ? "+" : ""}
                         {variance.toFixed(1)}%
                       </TableCell>
                       <TableCell>{getHealthBadge(variance)}</TableCell>
@@ -583,30 +746,34 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
                                 Edit
                               </DropdownMenuItem>
                             )}
-                            {onMarkAsCompleted && canManageProjects && project.status !== 'completed' && (
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onMarkAsCompleted(project.id);
-                                }}
-                                className="text-green-600 focus:text-green-600"
-                              >
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Mark as Completed
-                              </DropdownMenuItem>
-                            )}
-                            {onReactivateProject && canManageProjects && project.status === 'completed' && (
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onReactivateProject(project.id);
-                                }}
-                                className="text-blue-600 focus:text-blue-600"
-                              >
-                                <RotateCcw className="mr-2 h-4 w-4" />
-                                Reactivate Project
-                              </DropdownMenuItem>
-                            )}
+                            {onMarkAsCompleted &&
+                              canManageProjects &&
+                              project.status !== "completed" && (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onMarkAsCompleted(project.id);
+                                  }}
+                                  className="text-green-600 focus:text-green-600"
+                                >
+                                  <CheckCircle className="mr-2 h-4 w-4" />
+                                  Mark as Completed
+                                </DropdownMenuItem>
+                              )}
+                            {onReactivateProject &&
+                              canManageProjects &&
+                              project.status === "completed" && (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onReactivateProject(project.id);
+                                  }}
+                                  className="text-blue-600 focus:text-blue-600"
+                                >
+                                  <RotateCcw className="mr-2 h-4 w-4" />
+                                  Reactivate Project
+                                </DropdownMenuItem>
+                              )}
                             {onDeleteProject && canManageProjects && (
                               <DropdownMenuItem
                                 onClick={(e) => {
@@ -651,8 +818,9 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
                   Page {currentPage} of {pagination.totalPages}
                 </Badge>
                 <p className="text-sm text-gray-600">
-                  Showing {((currentPage - 1) * pagination.limit) + 1} to{' '}
-                  {Math.min(currentPage * pagination.limit, pagination.total)} of {pagination.total} projects
+                  Showing {(currentPage - 1) * pagination.limit + 1} to{" "}
+                  {Math.min(currentPage * pagination.limit, pagination.total)}{" "}
+                  of {pagination.total} projects
                 </p>
               </div>
               <div className="flex gap-2">

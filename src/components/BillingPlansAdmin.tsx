@@ -1512,7 +1512,7 @@ export function BillingPlansAdmin() {
 
                         return displayCustomers.map((customer: any) => {
                           const nextPaymentDate = customer.nextPaymentDate ? new Date(customer.nextPaymentDate) : null;
-                          const daysUntil = nextPaymentDate 
+                          const daysUntil = nextPaymentDate
                             ? Math.ceil((nextPaymentDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
                             : null;
 
@@ -1551,8 +1551,8 @@ export function BillingPlansAdmin() {
                                 {nextPaymentDate ? (
                                   <div>
                                     <div className="font-medium">
-                                      {nextPaymentDate.toLocaleDateString('en-US', { 
-                                        month: 'short', 
+                                      {nextPaymentDate.toLocaleDateString('en-US', {
+                                        month: 'short',
                                         day: 'numeric',
                                         year: 'numeric'
                                       })}

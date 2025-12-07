@@ -156,11 +156,13 @@ export const DeveloperDashboardRefactored: React.FC<
   // Check for payment callback and redirect to settings
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const paymentCallback = urlParams.get('payment_callback');
+    const paymentCallback = urlParams.get("payment_callback");
 
-    if (paymentCallback === 'payment_method' || paymentCallback === 'upgrade') {
-      console.log('[DeveloperDashboard] Detected payment callback, redirecting to settings...');
-      setCurrentPage('settings');
+    if (paymentCallback === "payment_method" || paymentCallback === "upgrade") {
+      console.log(
+        "[DeveloperDashboard] Detected payment callback, redirecting to settings..."
+      );
+      setCurrentPage("settings");
     }
   }, []);
 
@@ -427,8 +429,10 @@ export const DeveloperDashboardRefactored: React.FC<
     userPermissions.projects !== "view"; // Default true for Owner, false if projects is "view"
   // Owners (isOwner) have all permissions by default
   // Team members need explicit permission
-  const canApproveInvoices = isOwner || userPermissions.canApproveInvoices === true;
-  const canCreateInvoices = isOwner || userPermissions.canCreateInvoices === true;
+  const canApproveInvoices =
+    isOwner || userPermissions.canApproveInvoices === true;
+  const canCreateInvoices =
+    isOwner || userPermissions.canCreateInvoices === true;
   const canViewReports = userPermissions.canViewReports !== false; // Default true
 
   // Main menu items (always visible)
@@ -565,7 +569,10 @@ export const DeveloperDashboardRefactored: React.FC<
         );
       case "project-invoices":
         return selectedProjectId ? (
-          <ProjectInvoicesPage projectId={selectedProjectId} canApproveInvoices={canApproveInvoices} />
+          <ProjectInvoicesPage
+            projectId={selectedProjectId}
+            canApproveInvoices={canApproveInvoices}
+          />
         ) : (
           <div className="flex items-center justify-center h-full">
             <p className="text-gray-500">
@@ -627,7 +634,10 @@ export const DeveloperDashboardRefactored: React.FC<
         );
       case "purchase-orders":
         return selectedProjectId ? (
-          <PurchaseOrdersPage projectId={selectedProjectId} canApproveInvoices={canApproveInvoices} />
+          <PurchaseOrdersPage
+            projectId={selectedProjectId}
+            canApproveInvoices={canApproveInvoices}
+          />
         ) : (
           <div className="flex items-center justify-center h-full">
             <p className="text-gray-500">
@@ -728,7 +738,9 @@ export const DeveloperDashboardRefactored: React.FC<
                   <div className="text-sm font-medium text-white">
                     {user?.name || "Developer"}
                   </div>
-                  <div className="text-xs text-white/60">Property Developer</div>
+                  <div className="text-xs text-white/60">
+                    Property Developer
+                  </div>
                 </div>
               </div>
             </div>
