@@ -109,6 +109,7 @@ import {
 import {
   Users,
   Building,
+  Building2,
   DollarSign,
   TrendingUp,
   LogOut,
@@ -126,6 +127,7 @@ import {
   Trash2,
   Copy,
   CheckCircle,
+  CheckCircle2,
   Key,
   ArrowLeft,
   User,
@@ -134,6 +136,10 @@ import {
   HelpCircle,
   AlertCircle,
   BookOpen,
+  Phone,
+  MapPin,
+  Calendar,
+  Clock,
 } from "lucide-react";
 
 // Exact Contrezz logo from Figma Brand Guidelines
@@ -198,6 +204,8 @@ export function SuperAdminDashboard({
   onLogout,
 }: SuperAdminDashboardProps) {
   const { currency, formatCurrency, convertAmount } = useCurrency();
+  // Admin dashboard should display amounts in NGN (matching BillingPlansAdmin)
+  const adminCurrency = "NGN";
   const [activeTab, setActiveTab] = useState<string>(() => {
     try {
       return localStorage.getItem("admin_active_tab") || "overview";
@@ -263,6 +271,10 @@ export function SuperAdminDashboard({
   const [maxProperties, setMaxProperties] = useState<string>("");
   const [minMRR, setMinMRR] = useState<string>("");
   const [maxMRR, setMaxMRR] = useState<string>("");
+
+  // Customer pagination
+  const [currentCustomerPage, setCurrentCustomerPage] = useState(1);
+  const customersPerPage = 10;
 
   const clearAllFilters = () => {
     setStatusFilter("all");
@@ -1074,6 +1086,29 @@ export function SuperAdminDashboard({
     return true;
   });
 
+  // Calculate pagination for customers
+  const totalCustomerPages = Math.ceil(
+    filteredCustomers.length / customersPerPage
+  );
+  const startIndex = (currentCustomerPage - 1) * customersPerPage;
+  const endIndex = startIndex + customersPerPage;
+  const paginatedCustomers = filteredCustomers.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentCustomerPage(1);
+  }, [
+    statusFilter,
+    planFilter,
+    billingCycleFilter,
+    hasPlanFilter,
+    minProperties,
+    maxProperties,
+    minMRR,
+    maxMRR,
+    searchTerm,
+  ]);
+
   const systemAlerts = [
     {
       id: 1,
@@ -1340,30 +1375,36 @@ export function SuperAdminDashboard({
   // Show View Customer Page
   if (currentView === "view-customer" && selectedCustomer) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col">
-        {/* Header */}
-        <header className="bg-white shadow-sm border-b sticky top-0 z-40">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-purple-50/30 to-gray-50 flex flex-col">
+        {/* Enhanced Header */}
+        <header className="bg-white/80 backdrop-blur-xl shadow-lg border-b border-purple-100/50 sticky top-0 z-40">
           <div className="px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <div className="flex items-center gap-4">
+            <div className="flex justify-between items-center h-20">
+              <div className="flex items-center gap-6">
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   onClick={() => {
                     setCurrentView("dashboard");
                     setSelectedCustomer(null);
                   }}
+                  className="border-purple-200 text-purple-700 hover:bg-purple-50 shadow-sm"
                 >
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to Customers
                 </Button>
-                <div>
-                  <h1 className="text-lg sm:text-xl font-semibold text-gray-900">
-                    Customer Details
-                  </h1>
-                  <p className="text-sm text-gray-500">
-                    {selectedCustomer.company}
-                  </p>
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-2xl bg-gradient-to-br from-purple-500 to-violet-500 shadow-lg">
+                    <Building2 className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gray-900 via-purple-900 to-gray-900 bg-clip-text text-transparent">
+                      Customer Details
+                    </h1>
+                    <p className="text-base text-gray-600 mt-0.5 font-medium">
+                      {selectedCustomer.company}
+                    </p>
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -1374,11 +1415,17 @@ export function SuperAdminDashboard({
                     setCurrentView("dashboard");
                     handleEditCustomer(selectedCustomer);
                   }}
+                  className="border-purple-200 text-purple-700 hover:bg-purple-50 shadow-sm"
                 >
                   <Edit className="h-4 w-4 mr-2" />
                   Edit
                 </Button>
-                <Button variant="ghost" size="sm" onClick={onLogout}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onLogout}
+                  className="hover:bg-gray-100"
+                >
                   <LogOut className="h-4 w-4" />
                 </Button>
               </div>
@@ -1388,58 +1435,99 @@ export function SuperAdminDashboard({
 
         {/* Content */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 w-full min-w-0">
-          <div className="max-w-5xl mx-auto space-y-6 w-full min-w-0">
-            {/* Company Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Company Information</CardTitle>
+          <div className="max-w-6xl mx-auto space-y-8 w-full min-w-0">
+            {/* Enhanced Company Information */}
+            <Card className="border-0 shadow-xl overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-purple-600 via-violet-600 to-purple-600 text-white p-6">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  <CardTitle className="text-white text-xl font-bold">
+                    Company Information
+                  </CardTitle>
+                </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-6 bg-gradient-to-b from-gray-50 to-white">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Company Name</p>
-                    <p className="font-medium text-gray-900">
+                  <div className="space-y-2 p-4 rounded-xl bg-white border border-gray-100 hover:border-purple-200 transition-colors">
+                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Company Name
+                    </Label>
+                    <p className="font-bold text-gray-900 text-lg">
                       {selectedCustomer.company}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Owner</p>
+                  <div className="space-y-2 p-4 rounded-xl bg-white border border-gray-100 hover:border-purple-200 transition-colors">
+                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Owner
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-gray-400" />
+                      <p className="font-semibold text-gray-900 text-lg">
+                        {selectedCustomer.owner}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-2 p-4 rounded-xl bg-white border border-gray-100 hover:border-purple-200 transition-colors">
+                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Email
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-gray-400" />
+                      <p className="font-medium text-gray-900">
+                        {selectedCustomer.email}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-2 p-4 rounded-xl bg-white border border-gray-100 hover:border-purple-200 transition-colors">
+                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Phone
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-gray-400" />
+                      <p className="font-medium text-gray-900">
+                        {selectedCustomer.phone || "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-2 p-4 rounded-xl bg-white border border-gray-100 hover:border-purple-200 transition-colors">
+                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Website
+                    </Label>
                     <p className="font-medium text-gray-900">
-                      {selectedCustomer.owner}
+                      {selectedCustomer.website ? (
+                        <a
+                          href={selectedCustomer.website}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-purple-600 hover:text-purple-700 hover:underline"
+                        >
+                          {selectedCustomer.website}
+                        </a>
+                      ) : (
+                        "N/A"
+                      )}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Email</p>
-                    <p className="font-medium text-gray-900">
-                      {selectedCustomer.email}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Phone</p>
-                    <p className="font-medium text-gray-900">
-                      {selectedCustomer.phone || "N/A"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Website</p>
-                    <p className="font-medium text-gray-900">
-                      {selectedCustomer.website || "N/A"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Tax ID</p>
+                  <div className="space-y-2 p-4 rounded-xl bg-white border border-gray-100 hover:border-purple-200 transition-colors">
+                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Tax ID
+                    </Label>
                     <p className="font-medium text-gray-900">
                       {selectedCustomer.taxId || "N/A"}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Industry</p>
+                  <div className="space-y-2 p-4 rounded-xl bg-white border border-gray-100 hover:border-purple-200 transition-colors">
+                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Industry
+                    </Label>
                     <p className="font-medium text-gray-900">
                       {selectedCustomer.industry || "N/A"}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Company Size</p>
+                  <div className="space-y-2 p-4 rounded-xl bg-white border border-gray-100 hover:border-purple-200 transition-colors">
+                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Company Size
+                    </Label>
                     <p className="font-medium text-gray-900">
                       {selectedCustomer.companySize || "N/A"}
                     </p>
@@ -1448,68 +1536,100 @@ export function SuperAdminDashboard({
               </CardContent>
             </Card>
 
-            {/* Subscription & Billing */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Subscription & Billing</CardTitle>
+            {/* Enhanced Subscription & Billing */}
+            <Card className="border-0 shadow-xl overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-violet-600 via-purple-600 to-violet-600 text-white p-6">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  <CardTitle className="text-white text-xl font-bold">
+                    Subscription & Billing
+                  </CardTitle>
+                </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-6 bg-gradient-to-b from-gray-50 to-white">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Status</p>
-                    <Badge
-                      variant={
-                        selectedCustomer.status === "active"
-                          ? "default"
-                          : selectedCustomer.status === "trial"
-                          ? "secondary"
-                          : selectedCustomer.status === "suspended"
-                          ? "destructive"
-                          : "outline"
-                      }
-                    >
-                      {selectedCustomer.status}
-                    </Badge>
+                  <div className="space-y-2 p-4 rounded-xl bg-white border-2 border-gray-100 hover:border-purple-200 transition-colors">
+                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Status
+                    </Label>
+                    <div className="mt-2">
+                      <Badge
+                        className={
+                          selectedCustomer.status === "active"
+                            ? "bg-green-100 text-green-700 border-green-300 px-3 py-1.5 text-sm font-semibold"
+                            : selectedCustomer.status === "trial"
+                            ? "bg-yellow-100 text-yellow-700 border-yellow-300 px-3 py-1.5 text-sm font-semibold"
+                            : selectedCustomer.status === "suspended"
+                            ? "bg-red-100 text-red-700 border-red-300 px-3 py-1.5 text-sm font-semibold"
+                            : "bg-gray-100 text-gray-700 border-gray-300 px-3 py-1.5 text-sm font-semibold"
+                        }
+                        variant="outline"
+                      >
+                        {selectedCustomer.status}
+                      </Badge>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Plan</p>
-                    <p className="font-medium text-gray-900">
+                  <div className="space-y-2 p-4 rounded-xl bg-white border-2 border-gray-100 hover:border-purple-200 transition-colors">
+                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Plan
+                    </Label>
+                    <p className="font-bold text-gray-900 text-lg">
                       {selectedCustomer.plan?.name || "No Plan"}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Billing Cycle</p>
-                    <p className="font-medium text-gray-900 capitalize">
+                  <div className="space-y-2 p-4 rounded-xl bg-white border-2 border-gray-100 hover:border-purple-200 transition-colors">
+                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Billing Cycle
+                    </Label>
+                    <p className="font-semibold text-gray-900 capitalize text-lg">
                       {selectedCustomer.billingCycle || "N/A"}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">MRR</p>
-                    <p className="font-medium text-gray-900">
-                      ${selectedCustomer.mrr?.toFixed(2) || "0.00"}
+                  <div className="space-y-2 p-4 rounded-xl bg-white border-2 border-gray-100 hover:border-purple-200 transition-colors">
+                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Monthly Revenue
+                    </Label>
+                    <p className="font-bold text-2xl text-gray-900 bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
+                      {formatCurrency(
+                        convertAmount(
+                          selectedCustomer.mrr || 0,
+                          selectedCustomer.plan?.currency || "NGN",
+                          adminCurrency
+                        ),
+                        adminCurrency
+                      )}
                     </p>
                   </div>
                   {selectedCustomer.trialEndsAt && (
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Trial Ends</p>
-                      <p className="font-medium text-gray-900">
-                        {new Date(
-                          selectedCustomer.trialEndsAt
-                        ).toLocaleDateString()}
-                      </p>
+                    <div className="space-y-2 p-4 rounded-xl bg-white border-2 border-yellow-100 hover:border-yellow-200 transition-colors bg-yellow-50/30">
+                      <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        Trial Ends
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-yellow-600" />
+                        <p className="font-semibold text-gray-900">
+                          {new Date(
+                            selectedCustomer.trialEndsAt
+                          ).toLocaleDateString()}
+                        </p>
+                      </div>
                     </div>
                   )}
                   {selectedCustomer.subscriptionStartDate && (
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">
+                    <div className="space-y-2 p-4 rounded-xl bg-white border-2 border-gray-100 hover:border-purple-200 transition-colors">
+                      <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                         Subscription Start
-                      </p>
-                      <p className="font-medium text-gray-900">
-                        {new Date(
-                          selectedCustomer.subscriptionStartDate
-                        ).toLocaleDateString()}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-gray-400" />
+                        <p className="font-semibold text-gray-900">
+                          {new Date(
+                            selectedCustomer.subscriptionStartDate
+                          ).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
                         Next payment:{" "}
                         {(() => {
                           const startDate = new Date(
@@ -1536,72 +1656,113 @@ export function SuperAdminDashboard({
               </CardContent>
             </Card>
 
-            {/* Usage & Limits */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Usage & Limits</CardTitle>
+            {/* Enhanced Usage & Limits */}
+            <Card className="border-0 shadow-xl overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 text-white p-6">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  <CardTitle className="text-white text-xl font-bold">
+                    Usage & Limits
+                  </CardTitle>
+                </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-6 bg-gradient-to-b from-gray-50 to-white">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Properties</p>
-                    <p className="font-medium text-gray-900">
-                      {selectedCustomer.propertiesCount || 0} /{" "}
-                      {selectedCustomer.propertyLimit || "Unlimited"}
+                  <div className="p-5 rounded-xl bg-white border-2 border-gray-100 hover:border-blue-200 transition-colors group">
+                    <div className="flex items-center justify-between mb-3">
+                      <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        Properties
+                      </Label>
+                      <Building2 className="h-5 w-5 text-blue-500 group-hover:scale-110 transition-transform" />
+                    </div>
+                    <p className="font-bold text-2xl text-gray-900">
+                      {selectedCustomer.propertiesCount || 0}
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      of {selectedCustomer.propertyLimit || "Unlimited"}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Users</p>
-                    <p className="font-medium text-gray-900">
-                      {selectedCustomer.usersCount || 0} /{" "}
-                      {selectedCustomer.userLimit || "Unlimited"}
+                  <div className="p-5 rounded-xl bg-white border-2 border-gray-100 hover:border-indigo-200 transition-colors group">
+                    <div className="flex items-center justify-between mb-3">
+                      <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        Users
+                      </Label>
+                      <Users className="h-5 w-5 text-indigo-500 group-hover:scale-110 transition-transform" />
+                    </div>
+                    <p className="font-bold text-2xl text-gray-900">
+                      {selectedCustomer.usersCount || 0}
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      of {selectedCustomer.userLimit || "Unlimited"}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Storage</p>
-                    <p className="font-medium text-gray-900">
-                      {selectedCustomer.storageUsed || 0} MB /{" "}
-                      {selectedCustomer.storageLimit || "Unlimited"} MB
+                  <div className="p-5 rounded-xl bg-white border-2 border-gray-100 hover:border-purple-200 transition-colors group">
+                    <div className="flex items-center justify-between mb-3">
+                      <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        Storage
+                      </Label>
+                      <AlertCircle className="h-5 w-5 text-purple-500 group-hover:scale-110 transition-transform" />
+                    </div>
+                    <p className="font-bold text-2xl text-gray-900">
+                      {selectedCustomer.storageUsed || 0} MB
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      of {selectedCustomer.storageLimit || "Unlimited"} MB
                     </p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Address */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Address</CardTitle>
+            {/* Enhanced Address */}
+            <Card className="border-0 shadow-xl overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 text-white p-6">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  <CardTitle className="text-white text-xl font-bold">
+                    Address
+                  </CardTitle>
+                </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-6 bg-gradient-to-b from-gray-50 to-white">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Street</p>
+                  <div className="space-y-2 p-4 rounded-xl bg-white border border-gray-100 hover:border-emerald-200 transition-colors">
+                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Street
+                    </Label>
                     <p className="font-medium text-gray-900">
                       {selectedCustomer.street || "N/A"}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">City</p>
+                  <div className="space-y-2 p-4 rounded-xl bg-white border border-gray-100 hover:border-emerald-200 transition-colors">
+                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      City
+                    </Label>
                     <p className="font-medium text-gray-900">
                       {selectedCustomer.city || "N/A"}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">State</p>
+                  <div className="space-y-2 p-4 rounded-xl bg-white border border-gray-100 hover:border-emerald-200 transition-colors">
+                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      State
+                    </Label>
                     <p className="font-medium text-gray-900">
                       {selectedCustomer.state || "N/A"}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Postal Code</p>
+                  <div className="space-y-2 p-4 rounded-xl bg-white border border-gray-100 hover:border-emerald-200 transition-colors">
+                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Postal Code
+                    </Label>
                     <p className="font-medium text-gray-900">
                       {selectedCustomer.postalCode || "N/A"}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Country</p>
-                    <p className="font-medium text-gray-900">
+                  <div className="space-y-2 p-4 rounded-xl bg-white border border-emerald-200 bg-emerald-50/30 md:col-span-2">
+                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Country
+                    </Label>
+                    <p className="font-semibold text-gray-900 text-lg">
                       {selectedCustomer.country || "N/A"}
                     </p>
                   </div>
@@ -1609,37 +1770,61 @@ export function SuperAdminDashboard({
               </CardContent>
             </Card>
 
-            {/* Account Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Account Information</CardTitle>
+            {/* Enhanced Account Information */}
+            <Card className="border-0 shadow-xl overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-gray-600 to-slate-600 text-white p-6">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  <CardTitle className="text-white text-xl font-bold">
+                    Account Information
+                  </CardTitle>
+                </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-6 bg-gradient-to-b from-gray-50 to-white">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Created</p>
-                    <p className="font-medium text-gray-900">
-                      {new Date(selectedCustomer.createdAt).toLocaleString()}
-                    </p>
+                  <div className="space-y-2 p-4 rounded-xl bg-white border border-gray-100 hover:border-purple-200 transition-colors">
+                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Created
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-gray-400" />
+                      <p className="font-semibold text-gray-900">
+                        {new Date(selectedCustomer.createdAt).toLocaleString()}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Last Updated</p>
-                    <p className="font-medium text-gray-900">
-                      {new Date(selectedCustomer.updatedAt).toLocaleString()}
-                    </p>
+                  <div className="space-y-2 p-4 rounded-xl bg-white border border-gray-100 hover:border-purple-200 transition-colors">
+                    <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Last Updated
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-gray-400" />
+                      <p className="font-semibold text-gray-900">
+                        {new Date(selectedCustomer.updatedAt).toLocaleString()}
+                      </p>
+                    </div>
                   </div>
                   {selectedCustomer.lastLogin && (
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Last Login</p>
-                      <p className="font-medium text-gray-900">
-                        {new Date(selectedCustomer.lastLogin).toLocaleString()}
-                      </p>
+                    <div className="space-y-2 p-4 rounded-xl bg-white border border-green-100 hover:border-green-200 transition-colors bg-green-50/30">
+                      <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        Last Login
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                        <p className="font-semibold text-gray-900">
+                          {new Date(
+                            selectedCustomer.lastLogin
+                          ).toLocaleString()}
+                        </p>
+                      </div>
                     </div>
                   )}
                   {selectedCustomer.notes && (
-                    <div className="md:col-span-2">
-                      <p className="text-sm text-gray-500 mb-1">Notes</p>
-                      <p className="font-medium text-gray-900 whitespace-pre-wrap">
+                    <div className="md:col-span-2 space-y-2 p-4 rounded-xl bg-white border-2 border-purple-100 hover:border-purple-200 transition-colors">
+                      <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        Notes
+                      </Label>
+                      <p className="font-medium text-gray-900 whitespace-pre-wrap p-3 bg-gray-50 rounded-lg border border-gray-100">
                         {selectedCustomer.notes}
                       </p>
                     </div>
@@ -1793,150 +1978,255 @@ export function SuperAdminDashboard({
             {/* Overview Tab */}
             {activeTab === "overview" && (
               <div className="space-y-8">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900">
-                    Platform Overview
-                  </h2>
-                  <p className="text-gray-600">
-                    Monitor your SaaS platform performance
-                  </p>
+                {/* Enhanced Header with Animated Gradient */}
+                <div className="relative overflow-hidden rounded-3xl">
+                  {/* Animated gradient background */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-violet-500/10 to-purple-500/10 animate-pulse"></div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-600/5 via-violet-600/5 to-purple-600/5"></div>
+
+                  {/* Decorative elements */}
+                  <div className="absolute top-0 right-0 w-96 h-96 bg-purple-200/20 rounded-full blur-3xl -mr-48 -mt-48"></div>
+                  <div className="absolute bottom-0 left-0 w-96 h-96 bg-violet-200/20 rounded-full blur-3xl -ml-48 -mb-48"></div>
+
+                  {/* Content */}
+                  <div className="relative p-8 rounded-3xl border border-purple-200/50 bg-white/90 backdrop-blur-xl shadow-xl">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                          <div className="p-3 rounded-2xl bg-gradient-to-br from-purple-500 to-violet-500 shadow-lg">
+                            <Building className="h-6 w-6 text-white" />
+                          </div>
+                          <div>
+                            <h2 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-purple-900 to-gray-900 bg-clip-text text-transparent">
+                              Platform Overview
+                            </h2>
+                            <p className="text-gray-600 text-lg mt-1">
+                              Real-time insights and performance metrics
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-purple-100 text-purple-700 border-purple-200 px-3 py-1">
+                          Live
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Key Metrics */}
+                {/* Enhanced Key Metrics Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">
+                  <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-300 group bg-gradient-to-br from-white to-purple-50/30">
+                    {/* Animated gradient orb */}
+                    <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-purple-400/30 to-violet-400/30 rounded-full -mr-20 -mt-20 blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-200 to-violet-200 rounded-full -mr-16 -mt-16 opacity-60 group-hover:opacity-100 transition-opacity"></div>
+
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 relative z-10">
+                      <CardTitle className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
                         Total Customers
                       </CardTitle>
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">
-                        {platformStats.totalCustomers}
+                      <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500 to-violet-500 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                        <Users className="h-5 w-5 text-white" />
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        +12% from last month
-                      </p>
+                    </CardHeader>
+                    <CardContent className="relative z-10 space-y-3">
+                      <div className="flex items-baseline gap-2">
+                        <div className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-purple-900 bg-clip-text text-transparent">
+                          {platformStats.totalCustomers}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-green-50">
+                          <TrendingUp className="h-3.5 w-3.5 text-green-600" />
+                          <span className="text-xs font-semibold text-green-700">
+                            +12%
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-500">
+                          vs last month
+                        </span>
+                      </div>
                     </CardContent>
                   </Card>
 
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">
+                  <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-300 group bg-gradient-to-br from-white to-violet-50/30">
+                    {/* Animated gradient orb */}
+                    <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-violet-400/30 to-purple-400/30 rounded-full -mr-20 -mt-20 blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-violet-200 to-purple-200 rounded-full -mr-16 -mt-16 opacity-60 group-hover:opacity-100 transition-opacity"></div>
+
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 relative z-10">
+                      <CardTitle className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
                         Monthly Revenue
                       </CardTitle>
-                      <DollarSign className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">
-                        {formatCurrency(platformStats.totalRevenue / 12)}
+                      <div className="p-3 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                        <DollarSign className="h-5 w-5 text-white" />
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        +15.2% from last month
-                      </p>
+                    </CardHeader>
+                    <CardContent className="relative z-10 space-y-3">
+                      <div className="flex items-baseline gap-2">
+                        <div className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-violet-900 bg-clip-text text-transparent">
+                          {formatCurrency(
+                            convertAmount(
+                              platformStats.totalRevenue / 12,
+                              "NGN",
+                              adminCurrency
+                            ),
+                            adminCurrency
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-green-50">
+                          <TrendingUp className="h-3.5 w-3.5 text-green-600" />
+                          <span className="text-xs font-semibold text-green-700">
+                            +15.2%
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-500">
+                          vs last month
+                        </span>
+                      </div>
                     </CardContent>
                   </Card>
 
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">
+                  <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-300 group bg-gradient-to-br from-white to-purple-50/30">
+                    {/* Animated gradient orb */}
+                    <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-purple-400/30 to-violet-400/30 rounded-full -mr-20 -mt-20 blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-200 to-violet-200 rounded-full -mr-16 -mt-16 opacity-60 group-hover:opacity-100 transition-opacity"></div>
+
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 relative z-10">
+                      <CardTitle className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
                         Active Properties
                       </CardTitle>
-                      <Building className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">
-                        {platformStats.totalProperties}
+                      <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500 to-violet-500 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                        <Building className="h-5 w-5 text-white" />
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {platformStats.totalUnits} total units
-                      </p>
+                    </CardHeader>
+                    <CardContent className="relative z-10 space-y-3">
+                      <div className="flex items-baseline gap-2">
+                        <div className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-purple-900 bg-clip-text text-transparent">
+                          {platformStats.totalProperties}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-purple-50">
+                          <span className="text-xs font-semibold text-purple-700">
+                            {platformStats.totalUnits}
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-500">
+                          total units
+                        </span>
+                      </div>
                     </CardContent>
                   </Card>
 
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">
+                  <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-300 group bg-gradient-to-br from-white to-violet-50/30">
+                    {/* Animated gradient orb */}
+                    <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-violet-400/30 to-purple-400/30 rounded-full -mr-20 -mt-20 blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-violet-200 to-purple-200 rounded-full -mr-16 -mt-16 opacity-60 group-hover:opacity-100 transition-opacity"></div>
+
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 relative z-10">
+                      <CardTitle className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
                         Churn Rate
                       </CardTitle>
-                      <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">
-                        {customerChurn.rate !== null
-                          ? `${customerChurn.rate}%`
-                          : "—"}
+                      <div className="p-3 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                        <TrendingUp className="h-5 w-5 text-white" />
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {mrrChurn.rate !== null
-                          ? `MRR churn: ${mrrChurn.rate}%`
-                          : "MRR churn: —"}
-                      </p>
+                    </CardHeader>
+                    <CardContent className="relative z-10 space-y-3">
+                      <div className="flex items-baseline gap-2">
+                        <div className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-violet-900 bg-clip-text text-transparent">
+                          {customerChurn.rate !== null
+                            ? `${customerChurn.rate}%`
+                            : "—"}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                        <span className="text-xs text-gray-600">
+                          {mrrChurn.rate !== null
+                            ? `MRR churn: ${mrrChurn.rate}%`
+                            : "MRR churn: —"}
+                        </span>
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
 
-                {/* System Alerts */}
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                      <CardTitle>System Alerts</CardTitle>
-                      <CardDescription>
-                        Critical system notifications
+                {/* Enhanced System Alerts */}
+                <Card className="border-0 shadow-xl overflow-hidden">
+                  <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-purple-600 via-violet-600 to-purple-600 text-white p-6">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="h-5 w-5" />
+                        <CardTitle className="text-white text-xl font-bold">
+                          System Alerts
+                        </CardTitle>
+                      </div>
+                      <CardDescription className="text-purple-100">
+                        Critical system notifications and important updates
                       </CardDescription>
                     </div>
-                    <Button variant="outline" size="sm">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="bg-white/20 text-white border-white/30 hover:bg-white/30 backdrop-blur-sm"
+                    >
                       View All
                     </Button>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-6 bg-gradient-to-b from-gray-50 to-white">
                     <div className="space-y-4">
                       {systemAlerts.map((alert) => (
                         <div
                           key={alert.id}
-                          className="flex items-start space-x-3 p-3 border rounded-lg"
+                          className={`group flex items-start gap-4 p-5 rounded-2xl border-2 transition-all duration-300 hover:shadow-lg hover:scale-[1.02] ${
+                            alert.severity === "high"
+                              ? "border-red-200 bg-gradient-to-br from-red-50 to-red-100/50 hover:border-red-300"
+                              : alert.severity === "medium"
+                              ? "border-orange-200 bg-gradient-to-br from-orange-50 to-orange-100/50 hover:border-orange-300"
+                              : "border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100/50 hover:border-blue-300"
+                          }`}
                         >
                           <div
-                            className={`p-1 rounded-full ${
+                            className={`p-3 rounded-xl shadow-md ${
                               alert.severity === "high"
-                                ? "bg-red-100"
+                                ? "bg-gradient-to-br from-red-500 to-red-600"
                                 : alert.severity === "medium"
-                                ? "bg-yellow-100"
-                                : "bg-blue-100"
+                                ? "bg-gradient-to-br from-orange-500 to-orange-600"
+                                : "bg-gradient-to-br from-blue-500 to-blue-600"
                             }`}
                           >
-                            <AlertTriangle
-                              className={`h-4 w-4 ${
-                                alert.severity === "high"
-                                  ? "text-red-600"
-                                  : alert.severity === "medium"
-                                  ? "text-yellow-600"
-                                  : "text-blue-600"
-                              }`}
-                            />
+                            <AlertTriangle className="h-6 w-6 text-white" />
                           </div>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                              <h4 className="font-medium">{alert.title}</h4>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-bold text-gray-900 text-lg">
+                                {alert.title}
+                              </h4>
                               <Badge
-                                variant={
+                                className={`font-semibold px-3 py-1 ${
                                   alert.severity === "high"
-                                    ? "destructive"
+                                    ? "bg-red-100 text-red-700 border-red-300"
                                     : alert.severity === "medium"
-                                    ? "secondary"
-                                    : "default"
-                                }
+                                    ? "bg-orange-100 text-orange-700 border-orange-300"
+                                    : "bg-blue-100 text-blue-700 border-blue-300"
+                                }`}
+                                variant="outline"
                               >
                                 {alert.severity}
                               </Badge>
                             </div>
-                            <p className="text-sm text-gray-600 mt-1">
+                            <p className="text-sm text-gray-700 leading-relaxed mb-2">
                               {alert.message}
                             </p>
-                            <p className="text-xs text-gray-400 mt-2">
-                              {alert.time}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <div className="h-1.5 w-1.5 rounded-full bg-gray-400"></div>
+                              <p className="text-xs font-medium text-gray-500">
+                                {alert.time}
+                              </p>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -1944,86 +2234,143 @@ export function SuperAdminDashboard({
                   </CardContent>
                 </Card>
 
-                {/* Recent Activity */}
+                {/* Enhanced Recent Activity Cards */}
                 <div className="grid lg:grid-cols-2 gap-8">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Top Customers by Revenue</CardTitle>
+                  <Card className="border-0 shadow-xl overflow-hidden">
+                    <CardHeader className="bg-gradient-to-r from-purple-600 via-violet-600 to-purple-600 text-white p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Users className="h-5 w-5" />
+                            <CardTitle className="text-white text-xl font-bold">
+                              Top Customers by Revenue
+                            </CardTitle>
+                          </div>
+                          <CardDescription className="text-purple-100">
+                            Highest revenue generating customers
+                          </CardDescription>
+                        </div>
+                      </div>
                     </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
+                    <CardContent className="p-6 bg-gradient-to-b from-gray-50 to-white">
+                      <div className="space-y-3">
                         {customers
                           .filter((c: any) => c.status === "active")
                           .sort((a: any, b: any) => {
-                            const aMrr = a.mrr || a.plan?.monthlyPrice || 0; // Fixed: use monthlyPrice
-                            const bMrr = b.mrr || b.plan?.monthlyPrice || 0; // Fixed: use monthlyPrice
+                            const aMrr = a.mrr || a.plan?.monthlyPrice || 0;
+                            const bMrr = b.mrr || b.plan?.monthlyPrice || 0;
                             return bMrr - aMrr;
                           })
                           .slice(0, 5)
-                          .map((customer: any) => {
+                          .map((customer: any, index: number) => {
                             const mrr =
                               customer.mrr || customer.plan?.monthlyPrice || 0;
-                            const totalUnits = customer.unitsCount || 0; // Use unitsCount from DB
+                            const totalUnits = customer.unitsCount || 0;
                             return (
                               <div
                                 key={customer.id}
-                                className="flex items-center justify-between"
+                                className="group flex items-center justify-between p-4 rounded-xl border-2 border-gray-100 bg-white hover:border-purple-300 hover:shadow-lg hover:scale-[1.02] transition-all duration-300"
                               >
-                                <div>
-                                  <p className="font-medium">
-                                    {customer.company}
-                                  </p>
-                                  <p className="text-sm text-gray-600">
-                                    {customer.owner}
-                                  </p>
+                                <div className="flex items-center gap-4">
+                                  <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-500 text-white font-bold shadow-md">
+                                    {index + 1}
+                                  </div>
+                                  <div>
+                                    <p className="font-bold text-gray-900 text-base">
+                                      {customer.company}
+                                    </p>
+                                    <p className="text-sm text-gray-600">
+                                      {customer.owner}
+                                    </p>
+                                  </div>
                                 </div>
                                 <div className="text-right">
-                                  <p className="font-medium">
+                                  <p className="font-bold text-gray-900 text-lg">
                                     {formatCurrency(
                                       convertAmount(
                                         mrr,
                                         customer.plan?.currency || "USD"
                                       )
                                     )}
-                                    /mo
+                                    <span className="text-xs text-gray-500 font-normal ml-1">
+                                      /mo
+                                    </span>
                                   </p>
-                                  <p className="text-sm text-gray-600">
-                                    {totalUnits} units
-                                  </p>
+                                  <div className="flex items-center gap-1 mt-1">
+                                    <Building className="h-3 w-3 text-gray-400" />
+                                    <p className="text-xs text-gray-500">
+                                      {totalUnits} units
+                                    </p>
+                                  </div>
                                 </div>
                               </div>
                             );
                           })}
                         {customers.filter((c: any) => c.status === "active")
                           .length === 0 && (
-                          <p className="text-center text-gray-500 py-4">
-                            No active customers
-                          </p>
+                          <div className="text-center py-12">
+                            <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                            <p className="text-gray-500 font-medium">
+                              No active customers
+                            </p>
+                          </div>
                         )}
                       </div>
                     </CardContent>
                   </Card>
 
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Revenue Trend</CardTitle>
+                  <Card className="border-0 shadow-xl overflow-hidden">
+                    <CardHeader className="bg-gradient-to-r from-violet-600 via-purple-600 to-violet-600 text-white p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <TrendingUp className="h-5 w-5" />
+                            <CardTitle className="text-white text-xl font-bold">
+                              Revenue Trend
+                            </CardTitle>
+                          </div>
+                          <CardDescription className="text-purple-100">
+                            Monthly revenue performance
+                          </CardDescription>
+                        </div>
+                      </div>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="p-6 bg-gradient-to-b from-gray-50 to-white">
                       <div className="space-y-3">
                         {revenueData.slice(-3).map((data, index) => (
                           <div
                             key={index}
-                            className="flex justify-between items-center"
+                            className="group flex justify-between items-center p-4 rounded-xl border-2 border-gray-100 bg-white hover:border-violet-300 hover:shadow-lg hover:scale-[1.02] transition-all duration-300"
                           >
-                            <span className="text-sm text-gray-600">
-                              {data.month} 2025
-                            </span>
-                            <div className="text-right">
-                              <div className="font-medium">
-                                {formatCurrency(data.revenue)}
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white font-bold shadow-md">
+                                {index + 1}
                               </div>
-                              <div className="text-sm text-gray-500">
-                                {data.customers} customers
+                              <div>
+                                <span className="text-sm font-bold text-gray-900">
+                                  {data.month} 2025
+                                </span>
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  {data.customers} customers
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-bold text-gray-900 text-lg">
+                                {formatCurrency(
+                                  convertAmount(
+                                    data.revenue,
+                                    "NGN",
+                                    adminCurrency
+                                  ),
+                                  adminCurrency
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1 mt-1 justify-end">
+                                <div className="h-2 w-2 rounded-full bg-violet-500"></div>
+                                <span className="text-xs text-gray-500">
+                                  Revenue
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -2038,44 +2385,77 @@ export function SuperAdminDashboard({
             {/* Customers Tab */}
             {activeTab === "customers" && !loading && (
               <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900">
-                      Customer Management
-                    </h2>
-                    <p className="text-gray-600">
-                      Manage all platform customers • {filteredCustomers.length}{" "}
-                      of {customers.length} customers
-                      {searchTerm && ` matching "${searchTerm}"`}
-                    </p>
+                {/* Enhanced Header with Animated Gradient */}
+                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 p-8 shadow-2xl">
+                  {/* Animated background orbs */}
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse"></div>
+                  <div className="absolute bottom-0 left-0 w-64 h-64 bg-violet-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse delay-1000"></div>
+
+                  {/* Decorative elements */}
+                  <div className="absolute top-4 right-4 opacity-20">
+                    <Building2 className="h-24 w-24 text-white" />
                   </div>
-                  <Button onClick={() => setCurrentView("add-customer")}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Customer
-                  </Button>
+                  <div className="absolute bottom-4 left-4 opacity-20">
+                    <Users className="h-16 w-16 text-white" />
+                  </div>
+
+                  {/* Content */}
+                  <div className="relative z-10">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+                          <Building2 className="h-6 w-6 text-white" />
+                        </div>
+                        <div>
+                          <h2 className="text-4xl font-bold text-white mb-2">
+                            Customer Management
+                          </h2>
+                          <p className="text-purple-100 text-lg">
+                            Manage all platform customers •{" "}
+                            {filteredCustomers.length} of {customers.length}{" "}
+                            customers
+                            {searchTerm && ` matching "${searchTerm}"`}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => setCurrentView("add-customer")}
+                        className="bg-white text-purple-600 hover:bg-purple-50 shadow-lg hover:shadow-xl transition-all duration-200"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Customer
+                      </Button>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex items-center space-x-4">
-                  <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Search customers..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowFilters(!showFilters)}
-                  >
-                    <Filter className="h-4 w-4 mr-2" />
-                    {showFilters ? "Hide Filters" : "Filter"}
-                  </Button>
-                </div>
+                {/* Enhanced Search and Filter Section */}
+                <Card className="border-0 shadow-lg">
+                  <CardContent className="p-6">
+                    <div className="flex items-center space-x-4">
+                      <div className="relative flex-1 max-w-md">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          placeholder="Search customers by name, email, or company..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="pl-10 border-gray-200 focus:border-purple-300 focus:ring-purple-200"
+                        />
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowFilters(!showFilters)}
+                        className="border-purple-200 text-purple-700 hover:bg-purple-50"
+                      >
+                        <Filter className="h-4 w-4 mr-2" />
+                        {showFilters ? "Hide Filters" : "Filter"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
 
                 {showFilters && (
-                  <Card>
+                  <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50/50 to-violet-50/50">
                     <CardContent className="pt-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div className="space-y-2">
@@ -2208,39 +2588,49 @@ export function SuperAdminDashboard({
                   </Card>
                 )}
 
-                <Card>
+                {/* Enhanced Customer Table */}
+                <Card className="border-0 shadow-xl overflow-hidden">
+                  <div className="bg-gradient-to-r from-purple-50 via-violet-50 to-purple-50 border-b border-purple-200/50 px-6 py-4">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <Users className="h-5 w-5 text-purple-600" />
+                      Customer List
+                    </h3>
+                  </div>
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
-                        <TableRow>
-                          <TableHead className="whitespace-nowrap">
+                        <TableRow className="bg-gray-50/50">
+                          <TableHead className="whitespace-nowrap font-semibold text-gray-700">
                             Company
                           </TableHead>
-                          <TableHead className="whitespace-nowrap">
+                          <TableHead className="whitespace-nowrap font-semibold text-gray-700">
                             Owner
                           </TableHead>
-                          <TableHead className="whitespace-nowrap">
+                          <TableHead className="whitespace-nowrap font-semibold text-gray-700">
                             Plan
                           </TableHead>
-                          <TableHead className="whitespace-nowrap">
+                          <TableHead className="whitespace-nowrap font-semibold text-gray-700">
                             Properties
                           </TableHead>
-                          <TableHead className="whitespace-nowrap">
+                          <TableHead className="whitespace-nowrap font-semibold text-gray-700">
                             MRR
                           </TableHead>
-                          <TableHead className="whitespace-nowrap">
+                          <TableHead className="whitespace-nowrap font-semibold text-gray-700">
                             Status
                           </TableHead>
-                          <TableHead className="whitespace-nowrap">
+                          <TableHead className="whitespace-nowrap font-semibold text-gray-700">
+                            Next Payment
+                          </TableHead>
+                          <TableHead className="whitespace-nowrap font-semibold text-gray-700">
                             Last Login
                           </TableHead>
-                          <TableHead className="w-[100px] whitespace-nowrap">
+                          <TableHead className="w-[100px] whitespace-nowrap font-semibold text-gray-700">
                             Actions
                           </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredCustomers.map((customer: any) => {
+                        {paginatedCustomers.map((customer: any) => {
                           const propertiesCount =
                             customer.propertiesCount ||
                             customer._count?.properties ||
@@ -2265,65 +2655,201 @@ export function SuperAdminDashboard({
                               ).toLocaleDateString()
                             : "Never";
 
+                          // Calculate next payment date
+                          const calculateNextPaymentDate = () => {
+                            // If customer is on trial, show trial end date
+                            if (
+                              customer.status === "trial" &&
+                              customer.trialEndsAt
+                            ) {
+                              return {
+                                date: new Date(customer.trialEndsAt),
+                                isTrial: true,
+                              };
+                            }
+
+                            // If customer has nextPaymentDate, use it
+                            if (customer.nextPaymentDate) {
+                              return {
+                                date: new Date(customer.nextPaymentDate),
+                                isTrial: false,
+                              };
+                            }
+
+                            // Calculate from subscription start date and billing cycle
+                            if (
+                              customer.subscriptionStartDate &&
+                              customer.status === "active"
+                            ) {
+                              const startDate = new Date(
+                                customer.subscriptionStartDate
+                              );
+                              const billingCycle =
+                                customer.billingCycle || "monthly";
+                              const nextPayment = new Date(startDate);
+                              const now = new Date();
+
+                              if (
+                                billingCycle === "annual" ||
+                                billingCycle === "yearly"
+                              ) {
+                                // Add years until we're in the future
+                                while (nextPayment <= now) {
+                                  nextPayment.setFullYear(
+                                    nextPayment.getFullYear() + 1
+                                  );
+                                }
+                              } else {
+                                // Monthly billing
+                                while (nextPayment <= now) {
+                                  nextPayment.setMonth(
+                                    nextPayment.getMonth() + 1
+                                  );
+                                }
+                              }
+
+                              return {
+                                date: nextPayment,
+                                isTrial: false,
+                              };
+                            }
+
+                            return null;
+                          };
+
+                          const nextPaymentInfo = calculateNextPaymentDate();
+
                           return (
-                            <TableRow key={customer.id}>
+                            <TableRow
+                              key={customer.id}
+                              className="hover:bg-purple-50/30 transition-colors duration-150"
+                            >
                               <TableCell>
-                                <div>
-                                  <div className="font-medium">
-                                    {customer.company}
+                                <div className="flex items-center gap-3">
+                                  <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-500 text-white font-bold shadow-md">
+                                    {customer.company
+                                      ?.charAt(0)
+                                      ?.toUpperCase() || "C"}
                                   </div>
-                                  <div className="text-sm text-gray-600">
-                                    {customer.email}
+                                  <div>
+                                    <div className="font-semibold text-gray-900">
+                                      {customer.company}
+                                    </div>
+                                    <div className="text-sm text-gray-600">
+                                      {customer.email}
+                                    </div>
                                   </div>
                                 </div>
                               </TableCell>
-                              <TableCell>{customer.owner}</TableCell>
+                              <TableCell>
+                                <div className="font-medium text-gray-900">
+                                  {customer.owner}
+                                </div>
+                              </TableCell>
                               <TableCell>
                                 <Badge
-                                  variant={
+                                  variant="outline"
+                                  className={
                                     planName === "Enterprise"
-                                      ? "default"
+                                      ? "bg-purple-100 text-purple-700 border-purple-300"
                                       : planName === "Professional"
-                                      ? "secondary"
-                                      : "outline"
+                                      ? "bg-violet-100 text-violet-700 border-violet-300"
+                                      : "bg-gray-100 text-gray-700 border-gray-300"
                                   }
                                 >
                                   {planName}
                                 </Badge>
                               </TableCell>
                               <TableCell>
-                                <div>
-                                  <div>
-                                    {propertiesCount}{" "}
-                                    {propLimit ? `/ ${propLimit}` : ""}{" "}
-                                    properties
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <Building2 className="h-4 w-4 text-purple-600" />
+                                    <span className="font-medium text-gray-900">
+                                      {propertiesCount}
+                                      {propLimit ? ` / ${propLimit}` : ""}
+                                    </span>
                                   </div>
-                                  <div className="text-sm text-gray-600">
-                                    {usersCount}{" "}
-                                    {userLimit ? `/ ${userLimit}` : ""} users
+                                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                                    <Users className="h-3 w-3 text-gray-400" />
+                                    <span>
+                                      {usersCount}
+                                      {userLimit ? ` / ${userLimit}` : ""} users
+                                    </span>
                                   </div>
                                 </div>
                               </TableCell>
                               <TableCell>
-                                {formatCurrency(
-                                  convertAmount(
-                                    mrr,
-                                    customer.plan?.currency || "USD"
-                                  )
-                                )}
+                                <div className="font-semibold text-gray-900">
+                                  {formatCurrency(
+                                    convertAmount(
+                                      mrr,
+                                      customer.plan?.currency || "NGN",
+                                      adminCurrency
+                                    ),
+                                    adminCurrency
+                                  )}
+                                </div>
+                                <div className="text-xs text-gray-500">MRR</div>
                               </TableCell>
                               <TableCell>
                                 <Badge
-                                  variant={
+                                  variant="outline"
+                                  className={
                                     customer.status === "active"
-                                      ? "default"
+                                      ? "bg-green-100 text-green-700 border-green-300"
                                       : customer.status === "trial"
-                                      ? "secondary"
-                                      : "destructive"
+                                      ? "bg-yellow-100 text-yellow-700 border-yellow-300"
+                                      : customer.status === "suspended"
+                                      ? "bg-orange-100 text-orange-700 border-orange-300"
+                                      : "bg-red-100 text-red-700 border-red-300"
                                   }
                                 >
                                   {customer.status}
                                 </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {nextPaymentInfo ? (
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                      <Calendar className="h-4 w-4 text-purple-600" />
+                                      <span className="font-medium text-gray-900">
+                                        {nextPaymentInfo.date.toLocaleDateString(
+                                          "en-US",
+                                          {
+                                            month: "short",
+                                            day: "numeric",
+                                            year: "numeric",
+                                          }
+                                        )}
+                                      </span>
+                                    </div>
+                                    <div className="text-xs text-gray-500 flex items-center gap-1">
+                                      {nextPaymentInfo.isTrial ? (
+                                        <>
+                                          <span className="text-yellow-600">
+                                            Trial ends
+                                          </span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <span>Due in</span>
+                                          <span className="font-semibold text-purple-600">
+                                            {Math.ceil(
+                                              (nextPaymentInfo.date.getTime() -
+                                                new Date().getTime()) /
+                                                (1000 * 60 * 60 * 24)
+                                            )}
+                                          </span>
+                                          <span>days</span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="text-sm text-gray-400">
+                                    N/A
+                                  </span>
+                                )}
                               </TableCell>
                               <TableCell className="text-sm text-gray-600">
                                 {lastLogin}
@@ -2407,19 +2933,121 @@ export function SuperAdminDashboard({
                             </TableRow>
                           );
                         })}
-                        {filteredCustomers.length === 0 && (
+                        {paginatedCustomers.length === 0 && (
                           <TableRow>
                             <TableCell
-                              colSpan={8}
-                              className="text-center py-8 text-gray-500"
+                              colSpan={9}
+                              className="text-center py-12"
                             >
-                              No customers found
+                              <div className="flex flex-col items-center gap-3">
+                                <div className="p-4 rounded-full bg-gray-100">
+                                  <Users className="h-8 w-8 text-gray-400" />
+                                </div>
+                                <div className="text-gray-500 font-medium">
+                                  No customers found
+                                </div>
+                                <div className="text-sm text-gray-400">
+                                  {searchTerm || showFilters
+                                    ? "Try adjusting your search or filters"
+                                    : "Get started by adding your first customer"}
+                                </div>
+                              </div>
                             </TableCell>
                           </TableRow>
                         )}
                       </TableBody>
                     </Table>
                   </div>
+
+                  {/* Pagination Controls */}
+                  {totalCustomerPages > 1 && (
+                    <div className="bg-gradient-to-r from-purple-50 via-violet-50 to-purple-50 border-t border-purple-200/50 px-6 py-4">
+                      <div className="flex justify-between items-center">
+                        <div className="text-sm font-medium text-gray-700">
+                          Showing{" "}
+                          <span className="text-purple-600 font-bold">
+                            {filteredCustomers.length === 0
+                              ? 0
+                              : startIndex + 1}
+                          </span>{" "}
+                          to{" "}
+                          <span className="text-purple-600 font-bold">
+                            {Math.min(endIndex, filteredCustomers.length)}
+                          </span>{" "}
+                          of{" "}
+                          <span className="text-purple-600 font-bold">
+                            {filteredCustomers.length}
+                          </span>{" "}
+                          customers
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setCurrentCustomerPage(currentCustomerPage - 1)
+                            }
+                            disabled={currentCustomerPage === 1}
+                            className="border-purple-200 text-purple-700 hover:bg-purple-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Previous
+                          </Button>
+                          <div className="flex items-center space-x-1">
+                            {Array.from(
+                              { length: totalCustomerPages },
+                              (_, i) => i + 1
+                            )
+                              .filter(
+                                (page) =>
+                                  page === 1 ||
+                                  page === totalCustomerPages ||
+                                  (page >= currentCustomerPage - 1 &&
+                                    page <= currentCustomerPage + 1)
+                              )
+                              .map((page, index, array) => (
+                                <React.Fragment key={page}>
+                                  {index > 0 &&
+                                    array[index - 1] !== page - 1 && (
+                                      <span className="px-2 text-gray-400">
+                                        ...
+                                      </span>
+                                    )}
+                                  <Button
+                                    variant={
+                                      page === currentCustomerPage
+                                        ? "default"
+                                        : "outline"
+                                    }
+                                    size="sm"
+                                    onClick={() => setCurrentCustomerPage(page)}
+                                    className={
+                                      page === currentCustomerPage
+                                        ? "bg-gradient-to-r from-purple-600 to-violet-600 text-white border-0"
+                                        : "border-purple-200 text-purple-700 hover:bg-purple-50"
+                                    }
+                                  >
+                                    {page}
+                                  </Button>
+                                </React.Fragment>
+                              ))}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setCurrentCustomerPage(currentCustomerPage + 1)
+                            }
+                            disabled={
+                              currentCustomerPage === totalCustomerPages
+                            }
+                            className="border-purple-200 text-purple-700 hover:bg-purple-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Next
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </Card>
               </div>
             )}
@@ -3577,505 +4205,742 @@ export function SuperAdminDashboard({
         </DialogContent>
       </Dialog>
 
-      {/* Edit Customer Dialog */}
+      {/* Enhanced Edit Customer Dialog */}
       <Dialog
         open={!!editCustomerDialog}
         onOpenChange={() => setEditCustomerDialog(null)}
       >
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Customer</DialogTitle>
-            <DialogDescription>
-              Update customer information and settings
-            </DialogDescription>
-          </DialogHeader>
-          {editCustomerDialog && (
-            <div className="space-y-6">
-              {/* Company Information */}
-              <div>
-                <h3 className="text-sm font-semibold mb-3 text-gray-900">
-                  Company Information
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-company">Company Name *</Label>
-                    <Input
-                      id="edit-company"
-                      value={editFormData.company}
-                      onChange={(e) =>
-                        setEditFormData({
-                          ...editFormData,
-                          company: e.target.value,
-                        })
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-owner">Owner Name *</Label>
-                    <Input
-                      id="edit-owner"
-                      value={editFormData.owner}
-                      onChange={(e) =>
-                        setEditFormData({
-                          ...editFormData,
-                          owner: e.target.value,
-                        })
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-email">Email *</Label>
-                    <Input
-                      id="edit-email"
-                      type="email"
-                      value={editFormData.email}
-                      onChange={(e) =>
-                        setEditFormData({
-                          ...editFormData,
-                          email: e.target.value,
-                        })
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-phone">Phone</Label>
-                    <Input
-                      id="edit-phone"
-                      value={editFormData.phone}
-                      onChange={(e) =>
-                        setEditFormData({
-                          ...editFormData,
-                          phone: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-website">Website</Label>
-                    <Input
-                      id="edit-website"
-                      type="url"
-                      placeholder="https://example.com"
-                      value={editFormData.website}
-                      onChange={(e) =>
-                        setEditFormData({
-                          ...editFormData,
-                          website: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-taxId">Tax ID</Label>
-                    <Input
-                      id="edit-taxId"
-                      value={editFormData.taxId}
-                      onChange={(e) =>
-                        setEditFormData({
-                          ...editFormData,
-                          taxId: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-industry">Industry</Label>
-                    <Input
-                      id="edit-industry"
-                      value={editFormData.industry}
-                      onChange={(e) =>
-                        setEditFormData({
-                          ...editFormData,
-                          industry: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-companySize">Company Size</Label>
-                    <Select
-                      value={editFormData.companySize}
-                      onValueChange={(value) =>
-                        setEditFormData({ ...editFormData, companySize: value })
-                      }
-                    >
-                      <SelectTrigger id="edit-companySize">
-                        <SelectValue placeholder="Select size" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1-10">1-10 employees</SelectItem>
-                        <SelectItem value="11-50">11-50 employees</SelectItem>
-                        <SelectItem value="51-200">51-200 employees</SelectItem>
-                        <SelectItem value="201-500">
-                          201-500 employees
-                        </SelectItem>
-                        <SelectItem value="500+">500+ employees</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0">
+          {/* Enhanced Header */}
+          <div className="bg-gradient-to-r from-purple-600 via-violet-600 to-purple-600 text-white p-6 rounded-t-lg">
+            <DialogHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-white/20 backdrop-blur-sm">
+                  <Edit className="h-5 w-5" />
+                </div>
+                <div>
+                  <DialogTitle className="text-white text-2xl font-bold">
+                    Edit Customer
+                  </DialogTitle>
+                  <DialogDescription className="text-purple-100 mt-1">
+                    Update customer information and settings
+                  </DialogDescription>
                 </div>
               </div>
+            </DialogHeader>
+          </div>
 
-              {/* Account Status & Billing */}
-              <div className="border-t pt-4">
-                <h3 className="text-sm font-semibold mb-3 text-gray-900">
-                  Account Status & Billing
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-plan">Subscription Plan</Label>
-                    <Select
-                      value={editFormData.planId || "none"}
-                      onValueChange={(value) =>
-                        handlePlanChangeInEdit(value === "none" ? "" : value)
-                      }
-                      disabled={plansLoading}
-                    >
-                      <SelectTrigger id="edit-plan">
-                        <SelectValue
-                          placeholder={
-                            plansLoading ? "Loading plans..." : "Select a plan"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">No Plan</SelectItem>
-                        {plans
-                          .filter((p: any) => p.isActive)
-                          .map((plan) => (
-                            <SelectItem key={plan.id} value={plan.id}>
-                              {plan.name} -{" "}
-                              {formatCurrency(
-                                convertAmount(
-                                  plan.monthlyPrice,
-                                  plan.currency || "USD"
-                                )
-                              )}
-                              /mo
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                    {editFormData.planId &&
-                      plans.find((p) => p.id === editFormData.planId) && (
-                        <p className="text-xs text-gray-500">
-                          Limits will be set to:{" "}
-                          {
-                            plans.find((p) => p.id === editFormData.planId)
-                              ?.propertyLimit
-                          }{" "}
-                          properties,{" "}
-                          {
-                            plans.find((p) => p.id === editFormData.planId)
-                              ?.userLimit
-                          }{" "}
-                          users,{" "}
-                          {
-                            plans.find((p) => p.id === editFormData.planId)
-                              ?.storageLimit
-                          }
-                          MB storage
-                        </p>
-                      )}
+          {editCustomerDialog && (
+            <div className="p-6 space-y-8 bg-gradient-to-b from-gray-50 to-white">
+              {/* Enhanced Company Information */}
+              <Card className="border-0 shadow-lg overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-purple-50 to-violet-50 border-b border-purple-100 p-4">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-purple-600" />
+                    <CardTitle className="text-gray-900 font-bold">
+                      Company Information
+                    </CardTitle>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-status">Status</Label>
-                    <Select
-                      value={editFormData.status}
-                      onValueChange={(value) =>
-                        setEditFormData({ ...editFormData, status: value })
-                      }
-                    >
-                      <SelectTrigger id="edit-status">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="trial">Trial</SelectItem>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="suspended">Suspended</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-billingCycle">Billing Cycle</Label>
-                    <Select
-                      value={editFormData.billingCycle}
-                      onValueChange={(value) =>
-                        setEditFormData({
-                          ...editFormData,
-                          billingCycle: value,
-                        })
-                      }
-                    >
-                      <SelectTrigger id="edit-billingCycle">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                        <SelectItem value="annual">Annual</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Trial Period Management - Only show if status is 'trial' */}
-                {editFormData.status === "trial" && (
-                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h4 className="text-sm font-semibold mb-3 text-blue-900 flex items-center gap-2">
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="edit-company"
+                        className="text-sm font-semibold text-gray-700"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      Trial Period
-                    </h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="edit-trialStartsAt">
-                          Trial Start Date
-                        </Label>
+                        Company Name <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="edit-company"
+                        value={editFormData.company}
+                        onChange={(e) =>
+                          setEditFormData({
+                            ...editFormData,
+                            company: e.target.value,
+                          })
+                        }
+                        required
+                        className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="edit-owner"
+                        className="text-sm font-semibold text-gray-700"
+                      >
+                        Owner Name <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="edit-owner"
+                        value={editFormData.owner}
+                        onChange={(e) =>
+                          setEditFormData({
+                            ...editFormData,
+                            owner: e.target.value,
+                          })
+                        }
+                        required
+                        className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="edit-email"
+                        className="text-sm font-semibold text-gray-700"
+                      >
+                        Email <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                         <Input
-                          id="edit-trialStartsAt"
-                          type="date"
-                          value={editFormData.trialStartsAt || ""}
+                          id="edit-email"
+                          type="email"
+                          value={editFormData.email}
                           onChange={(e) =>
                             setEditFormData({
                               ...editFormData,
-                              trialStartsAt: e.target.value,
+                              email: e.target.value,
                             })
                           }
+                          required
+                          className="pl-10 border-gray-200 focus:border-purple-300 focus:ring-purple-200"
                         />
-                        <p className="text-xs text-gray-500">
-                          When the trial period started
-                        </p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="edit-trialEndsAt">Trial End Date</Label>
-                        <Input
-                          id="edit-trialEndsAt"
-                          type="date"
-                          value={editFormData.trialEndsAt || ""}
-                          onChange={(e) =>
-                            setEditFormData({
-                              ...editFormData,
-                              trialEndsAt: e.target.value,
-                            })
-                          }
-                        />
-                        <p className="text-xs text-gray-500">
-                          When the trial period expires
-                        </p>
                       </div>
                     </div>
-                    {editFormData.trialStartsAt && editFormData.trialEndsAt && (
-                      <div className="mt-3 p-2 bg-white rounded border border-blue-200">
-                        <p className="text-sm text-gray-700">
-                          <strong>Trial Duration:</strong>{" "}
-                          {Math.ceil(
-                            (new Date(editFormData.trialEndsAt).getTime() -
-                              new Date(editFormData.trialStartsAt).getTime()) /
-                              (1000 * 60 * 60 * 24)
-                          )}{" "}
-                          days
-                        </p>
-                        <p className="text-sm text-gray-700 mt-1">
-                          <strong>Days Remaining:</strong>{" "}
-                          {Math.max(
-                            0,
-                            Math.floor(
-                              (new Date(editFormData.trialEndsAt).getTime() -
-                                new Date().getTime()) /
-                                (1000 * 60 * 60 * 24)
-                            )
-                          )}{" "}
-                          days
-                        </p>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="edit-phone"
+                        className="text-sm font-semibold text-gray-700"
+                      >
+                        Phone
+                      </Label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          id="edit-phone"
+                          value={editFormData.phone}
+                          onChange={(e) =>
+                            setEditFormData({
+                              ...editFormData,
+                              phone: e.target.value,
+                            })
+                          }
+                          className="pl-10 border-gray-200 focus:border-purple-300 focus:ring-purple-200"
+                        />
                       </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Address */}
-              <div className="border-t pt-4">
-                <h3 className="text-sm font-semibold mb-3 text-gray-900">
-                  Address
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2 col-span-2">
-                    <Label htmlFor="edit-street">Street Address</Label>
-                    <Input
-                      id="edit-street"
-                      value={editFormData.street}
-                      onChange={(e) =>
-                        setEditFormData({
-                          ...editFormData,
-                          street: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-city">City</Label>
-                    <Input
-                      id="edit-city"
-                      value={editFormData.city}
-                      onChange={(e) =>
-                        setEditFormData({
-                          ...editFormData,
-                          city: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-state">State</Label>
-                    <Input
-                      id="edit-state"
-                      value={editFormData.state}
-                      onChange={(e) =>
-                        setEditFormData({
-                          ...editFormData,
-                          state: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-zipCode">ZIP Code</Label>
-                    <Input
-                      id="edit-zipCode"
-                      value={editFormData.zipCode}
-                      onChange={(e) =>
-                        setEditFormData({
-                          ...editFormData,
-                          zipCode: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-country">Country</Label>
-                    <Select
-                      value={editFormData.country || ""}
-                      onValueChange={(value) =>
-                        setEditFormData({ ...editFormData, country: value })
-                      }
-                    >
-                      <SelectTrigger id="edit-country">
-                        <SelectValue placeholder="Select country" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[300px]">
-                        {countries.map((country) => (
-                          <SelectItem key={country} value={country}>
-                            {country}
+                    </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="edit-website"
+                        className="text-sm font-semibold text-gray-700"
+                      >
+                        Website
+                      </Label>
+                      <Input
+                        id="edit-website"
+                        type="url"
+                        placeholder="https://example.com"
+                        value={editFormData.website}
+                        onChange={(e) =>
+                          setEditFormData({
+                            ...editFormData,
+                            website: e.target.value,
+                          })
+                        }
+                        className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="edit-taxId"
+                        className="text-sm font-semibold text-gray-700"
+                      >
+                        Tax ID
+                      </Label>
+                      <Input
+                        id="edit-taxId"
+                        value={editFormData.taxId}
+                        onChange={(e) =>
+                          setEditFormData({
+                            ...editFormData,
+                            taxId: e.target.value,
+                          })
+                        }
+                        className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="edit-industry"
+                        className="text-sm font-semibold text-gray-700"
+                      >
+                        Industry
+                      </Label>
+                      <Input
+                        id="edit-industry"
+                        value={editFormData.industry}
+                        onChange={(e) =>
+                          setEditFormData({
+                            ...editFormData,
+                            industry: e.target.value,
+                          })
+                        }
+                        className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="edit-companySize"
+                        className="text-sm font-semibold text-gray-700"
+                      >
+                        Company Size
+                      </Label>
+                      <Select
+                        value={editFormData.companySize}
+                        onValueChange={(value) =>
+                          setEditFormData({
+                            ...editFormData,
+                            companySize: value,
+                          })
+                        }
+                      >
+                        <SelectTrigger
+                          id="edit-companySize"
+                          className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
+                        >
+                          <SelectValue placeholder="Select size" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1-10">1-10 employees</SelectItem>
+                          <SelectItem value="11-50">11-50 employees</SelectItem>
+                          <SelectItem value="51-200">
+                            51-200 employees
                           </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                          <SelectItem value="201-500">
+                            201-500 employees
+                          </SelectItem>
+                          <SelectItem value="500+">500+ employees</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
 
-              {/* Limits */}
-              <div className="border-t pt-4">
-                <h3 className="text-sm font-semibold mb-3 text-gray-900">
-                  Account Limits
-                </h3>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-properties">Property Limit</Label>
-                    <Input
-                      id="edit-properties"
-                      type="number"
-                      min="1"
-                      value={editFormData.propertyLimit}
-                      onChange={(e) =>
-                        setEditFormData({
-                          ...editFormData,
-                          propertyLimit: parseInt(e.target.value) || 0,
-                        })
-                      }
-                    />
+              {/* Enhanced Account Status & Billing */}
+              <Card className="border-0 shadow-lg overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-violet-50 to-purple-50 border-b border-violet-100 p-4">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-5 w-5 text-violet-600" />
+                    <CardTitle className="text-gray-900 font-bold">
+                      Account Status & Billing
+                    </CardTitle>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-users">User Limit</Label>
-                    <Input
-                      id="edit-users"
-                      type="number"
-                      min="1"
-                      value={editFormData.userLimit}
-                      onChange={(e) =>
-                        setEditFormData({
-                          ...editFormData,
-                          userLimit: parseInt(e.target.value) || 0,
-                        })
-                      }
-                    />
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="edit-plan"
+                        className="text-sm font-semibold text-gray-700"
+                      >
+                        Subscription Plan
+                      </Label>
+                      <Select
+                        value={editFormData.planId || "none"}
+                        onValueChange={(value) =>
+                          handlePlanChangeInEdit(value === "none" ? "" : value)
+                        }
+                        disabled={plansLoading}
+                      >
+                        <SelectTrigger
+                          id="edit-plan"
+                          className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
+                        >
+                          <SelectValue
+                            placeholder={
+                              plansLoading
+                                ? "Loading plans..."
+                                : "Select a plan"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No Plan</SelectItem>
+                          {plans
+                            .filter((p: any) => p.isActive)
+                            .map((plan) => (
+                              <SelectItem key={plan.id} value={plan.id}>
+                                {plan.name} -{" "}
+                                {formatCurrency(
+                                  convertAmount(
+                                    plan.monthlyPrice,
+                                    plan.currency || "USD"
+                                  )
+                                )}
+                                /mo
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      {editFormData.planId &&
+                        plans.find((p) => p.id === editFormData.planId) && (
+                          <div className="mt-2 p-3 rounded-lg bg-purple-50 border border-purple-200">
+                            <p className="text-xs font-medium text-purple-900">
+                              Limits will be set to:{" "}
+                              <span className="font-bold">
+                                {
+                                  plans.find(
+                                    (p) => p.id === editFormData.planId
+                                  )?.propertyLimit
+                                }{" "}
+                                properties
+                              </span>
+                              ,{" "}
+                              <span className="font-bold">
+                                {
+                                  plans.find(
+                                    (p) => p.id === editFormData.planId
+                                  )?.userLimit
+                                }{" "}
+                                users
+                              </span>
+                              ,{" "}
+                              <span className="font-bold">
+                                {
+                                  plans.find(
+                                    (p) => p.id === editFormData.planId
+                                  )?.storageLimit
+                                }{" "}
+                                MB storage
+                              </span>
+                            </p>
+                          </div>
+                        )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="edit-status"
+                        className="text-sm font-semibold text-gray-700"
+                      >
+                        Status
+                      </Label>
+                      <Select
+                        value={editFormData.status}
+                        onValueChange={(value) =>
+                          setEditFormData({ ...editFormData, status: value })
+                        }
+                      >
+                        <SelectTrigger
+                          id="edit-status"
+                          className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="trial">Trial</SelectItem>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="suspended">Suspended</SelectItem>
+                          <SelectItem value="cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="edit-billingCycle"
+                        className="text-sm font-semibold text-gray-700"
+                      >
+                        Billing Cycle
+                      </Label>
+                      <Select
+                        value={editFormData.billingCycle}
+                        onValueChange={(value) =>
+                          setEditFormData({
+                            ...editFormData,
+                            billingCycle: value,
+                          })
+                        }
+                      >
+                        <SelectTrigger
+                          id="edit-billingCycle"
+                          className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                          <SelectItem value="annual">Annual</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-storage">Storage (MB)</Label>
-                    <Input
-                      id="edit-storage"
-                      type="number"
-                      min="100"
-                      value={editFormData.storageLimit}
-                      onChange={(e) =>
-                        setEditFormData({
-                          ...editFormData,
-                          storageLimit: parseInt(e.target.value) || 0,
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
 
-              {/* Additional Notes */}
-              <div className="border-t pt-4">
-                <h3 className="text-sm font-semibold mb-3 text-gray-900">
-                  Additional Notes
-                </h3>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-notes">Internal Notes</Label>
-                  <Textarea
-                    id="edit-notes"
-                    placeholder="Add any additional notes about this customer..."
-                    value={editFormData.notes || ""}
-                    onChange={(e) =>
-                      setEditFormData({
-                        ...editFormData,
-                        notes: e.target.value,
-                      })
-                    }
-                    rows={4}
-                  />
-                </div>
-              </div>
+                  {/* Enhanced Trial Period Management - Only show if status is 'trial' */}
+                  {editFormData.status === "trial" && (
+                    <div className="mt-6 p-5 bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-200 rounded-xl">
+                      <h4 className="text-base font-bold mb-4 text-yellow-900 flex items-center gap-2">
+                        <Clock className="h-5 w-5 text-yellow-600" />
+                        Trial Period Management
+                      </h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-trialStartsAt">
+                            Trial Start Date
+                          </Label>
+                          <Input
+                            id="edit-trialStartsAt"
+                            type="date"
+                            value={editFormData.trialStartsAt || ""}
+                            onChange={(e) =>
+                              setEditFormData({
+                                ...editFormData,
+                                trialStartsAt: e.target.value,
+                              })
+                            }
+                          />
+                          <p className="text-xs text-gray-500">
+                            When the trial period started
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-trialEndsAt">
+                            Trial End Date
+                          </Label>
+                          <Input
+                            id="edit-trialEndsAt"
+                            type="date"
+                            value={editFormData.trialEndsAt || ""}
+                            onChange={(e) =>
+                              setEditFormData({
+                                ...editFormData,
+                                trialEndsAt: e.target.value,
+                              })
+                            }
+                          />
+                          <p className="text-xs text-gray-500">
+                            When the trial period expires
+                          </p>
+                        </div>
+                      </div>
+                      {editFormData.trialStartsAt &&
+                        editFormData.trialEndsAt && (
+                          <div className="mt-4 p-4 bg-white rounded-xl border-2 border-yellow-300 shadow-sm">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="p-3 rounded-lg bg-yellow-50 border border-yellow-200">
+                                <p className="text-xs font-semibold text-yellow-700 uppercase tracking-wide mb-1">
+                                  Trial Duration
+                                </p>
+                                <p className="text-lg font-bold text-yellow-900">
+                                  {Math.ceil(
+                                    (new Date(
+                                      editFormData.trialEndsAt
+                                    ).getTime() -
+                                      new Date(
+                                        editFormData.trialStartsAt
+                                      ).getTime()) /
+                                      (1000 * 60 * 60 * 24)
+                                  )}{" "}
+                                  <span className="text-sm font-normal">
+                                    days
+                                  </span>
+                                </p>
+                              </div>
+                              <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
+                                <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-1">
+                                  Days Remaining
+                                </p>
+                                <p className="text-lg font-bold text-orange-900">
+                                  {Math.max(
+                                    0,
+                                    Math.floor(
+                                      (new Date(
+                                        editFormData.trialEndsAt
+                                      ).getTime() -
+                                        new Date().getTime()) /
+                                        (1000 * 60 * 60 * 24)
+                                    )
+                                  )}{" "}
+                                  <span className="text-sm font-normal">
+                                    days
+                                  </span>
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Enhanced Address */}
+              <Card className="border-0 shadow-lg overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-100 p-4">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-5 w-5 text-emerald-600" />
+                    <CardTitle className="text-gray-900 font-bold">
+                      Address
+                    </CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2 col-span-2">
+                      <Label
+                        htmlFor="edit-street"
+                        className="text-sm font-semibold text-gray-700"
+                      >
+                        Street Address
+                      </Label>
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          id="edit-street"
+                          value={editFormData.street}
+                          onChange={(e) =>
+                            setEditFormData({
+                              ...editFormData,
+                              street: e.target.value,
+                            })
+                          }
+                          className="pl-10 border-gray-200 focus:border-purple-300 focus:ring-purple-200"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="edit-city"
+                        className="text-sm font-semibold text-gray-700"
+                      >
+                        City
+                      </Label>
+                      <Input
+                        id="edit-city"
+                        value={editFormData.city}
+                        onChange={(e) =>
+                          setEditFormData({
+                            ...editFormData,
+                            city: e.target.value,
+                          })
+                        }
+                        className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="edit-state"
+                        className="text-sm font-semibold text-gray-700"
+                      >
+                        State
+                      </Label>
+                      <Input
+                        id="edit-state"
+                        value={editFormData.state}
+                        onChange={(e) =>
+                          setEditFormData({
+                            ...editFormData,
+                            state: e.target.value,
+                          })
+                        }
+                        className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="edit-zipCode"
+                        className="text-sm font-semibold text-gray-700"
+                      >
+                        ZIP Code
+                      </Label>
+                      <Input
+                        id="edit-zipCode"
+                        value={editFormData.zipCode}
+                        onChange={(e) =>
+                          setEditFormData({
+                            ...editFormData,
+                            zipCode: e.target.value,
+                          })
+                        }
+                        className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="edit-country"
+                        className="text-sm font-semibold text-gray-700"
+                      >
+                        Country
+                      </Label>
+                      <Select
+                        value={editFormData.country || ""}
+                        onValueChange={(value) =>
+                          setEditFormData({ ...editFormData, country: value })
+                        }
+                      >
+                        <SelectTrigger
+                          id="edit-country"
+                          className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
+                        >
+                          <SelectValue placeholder="Select country" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[300px]">
+                          {countries.map((country) => (
+                            <SelectItem key={country} value={country}>
+                              {country}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Enhanced Account Limits */}
+              <Card className="border-0 shadow-lg overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 p-4">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-blue-600" />
+                    <CardTitle className="text-gray-900 font-bold">
+                      Account Limits
+                    </CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2 p-4 rounded-xl bg-white border-2 border-gray-100 hover:border-blue-200 transition-colors">
+                      <Label
+                        htmlFor="edit-properties"
+                        className="text-sm font-semibold text-gray-700 flex items-center gap-2"
+                      >
+                        <Building2 className="h-4 w-4 text-blue-500" />
+                        Property Limit
+                      </Label>
+                      <Input
+                        id="edit-properties"
+                        type="number"
+                        min="1"
+                        value={editFormData.propertyLimit}
+                        onChange={(e) =>
+                          setEditFormData({
+                            ...editFormData,
+                            propertyLimit: parseInt(e.target.value) || 0,
+                          })
+                        }
+                        className="border-gray-200 focus:border-purple-300 focus:ring-purple-200 font-semibold"
+                      />
+                    </div>
+                    <div className="space-y-2 p-4 rounded-xl bg-white border-2 border-gray-100 hover:border-indigo-200 transition-colors">
+                      <Label
+                        htmlFor="edit-users"
+                        className="text-sm font-semibold text-gray-700 flex items-center gap-2"
+                      >
+                        <Users className="h-4 w-4 text-indigo-500" />
+                        User Limit
+                      </Label>
+                      <Input
+                        id="edit-users"
+                        type="number"
+                        min="1"
+                        value={editFormData.userLimit}
+                        onChange={(e) =>
+                          setEditFormData({
+                            ...editFormData,
+                            userLimit: parseInt(e.target.value) || 0,
+                          })
+                        }
+                        className="border-gray-200 focus:border-purple-300 focus:ring-purple-200 font-semibold"
+                      />
+                    </div>
+                    <div className="space-y-2 p-4 rounded-xl bg-white border-2 border-gray-100 hover:border-purple-200 transition-colors">
+                      <Label
+                        htmlFor="edit-storage"
+                        className="text-sm font-semibold text-gray-700 flex items-center gap-2"
+                      >
+                        <AlertCircle className="h-4 w-4 text-purple-500" />
+                        Storage (MB)
+                      </Label>
+                      <Input
+                        id="edit-storage"
+                        type="number"
+                        min="100"
+                        value={editFormData.storageLimit}
+                        onChange={(e) =>
+                          setEditFormData({
+                            ...editFormData,
+                            storageLimit: parseInt(e.target.value) || 0,
+                          })
+                        }
+                        className="border-gray-200 focus:border-purple-300 focus:ring-purple-200 font-semibold"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Enhanced Additional Notes */}
+              <Card className="border-0 shadow-lg overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-gray-50 to-slate-50 border-b border-gray-100 p-4">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5 text-gray-600" />
+                    <CardTitle className="text-gray-900 font-bold">
+                      Additional Notes
+                    </CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="edit-notes"
+                      className="text-sm font-semibold text-gray-700"
+                    >
+                      Internal Notes
+                    </Label>
+                    <Textarea
+                      id="edit-notes"
+                      placeholder="Add any additional notes about this customer..."
+                      value={editFormData.notes || ""}
+                      onChange={(e) =>
+                        setEditFormData({
+                          ...editFormData,
+                          notes: e.target.value,
+                        })
+                      }
+                      rows={4}
+                      className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
-          <DialogFooter>
+          {/* Enhanced Footer */}
+          <DialogFooter className="p-6 bg-gradient-to-r from-gray-50 to-white border-t border-gray-200">
             <Button
               variant="outline"
               onClick={() => setEditCustomerDialog(null)}
               disabled={isSubmitting}
+              className="border-gray-200 hover:bg-gray-50"
             >
               Cancel
             </Button>
-            <Button onClick={handleSaveEdit} disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : "Save Changes"}
+            <Button
+              onClick={handleSaveEdit}
+              disabled={isSubmitting}
+              className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white shadow-lg"
+            >
+              {isSubmitting ? (
+                <>
+                  <RotateCcw className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Save Changes
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

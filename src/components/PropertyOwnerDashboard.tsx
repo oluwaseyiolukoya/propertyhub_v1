@@ -535,13 +535,13 @@ export function PropertyOwnerDashboard({
     };
   }, [accountInfo]);
 
-  // Reload managers when switching to property-managers view
+  // Reload managers when switching to managers view
   useEffect(() => {
-    if (currentView === "property-managers" && onRefreshManagers) {
+    if (currentView === "managers" && onRefreshManagers) {
       console.log("🔄 Reloading managers on view change...");
       onRefreshManagers();
     }
-  }, [currentView]);
+  }, [currentView, onRefreshManagers]);
 
   // Refresh data when window regains focus
   useEffect(() => {
@@ -1048,7 +1048,8 @@ export function PropertyOwnerDashboard({
                             <div className="flex items-center gap-2 text-lg">
                               <MapPin className="h-5 w-5" />
                               <span>
-                                {selectedProperty?.address}, {selectedProperty?.city},{" "}
+                                {selectedProperty?.address},{" "}
+                                {selectedProperty?.city},{" "}
                                 {selectedProperty?.state}
                               </span>
                             </div>
@@ -1059,8 +1060,10 @@ export function PropertyOwnerDashboard({
 
                     {/* Title Card (if no cover image) */}
                     {!selectedProperty.coverImage &&
-                      !(Array.isArray(selectedProperty.images) &&
-                        selectedProperty.images[0]) && (
+                      !(
+                        Array.isArray(selectedProperty.images) &&
+                        selectedProperty.images[0]
+                      ) && (
                         <Card className="border-2 border-purple-200 shadow-md">
                           <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white">
                             <CardTitle className="text-3xl">
@@ -1070,7 +1073,8 @@ export function PropertyOwnerDashboard({
                               <div className="flex items-center gap-2">
                                 <MapPin className="h-5 w-5" />
                                 <span>
-                                  {selectedProperty?.address}, {selectedProperty?.city},{" "}
+                                  {selectedProperty?.address},{" "}
+                                  {selectedProperty?.city},{" "}
                                   {selectedProperty?.state}
                                 </span>
                               </div>
@@ -1085,24 +1089,32 @@ export function PropertyOwnerDashboard({
                         <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white">
                           <div className="flex items-center gap-2">
                             <Home className="h-5 w-5" />
-                            <CardTitle className="text-lg">Basic Information</CardTitle>
+                            <CardTitle className="text-lg">
+                              Basic Information
+                            </CardTitle>
                           </div>
                         </CardHeader>
                         <CardContent className="grid grid-cols-2 gap-4 pt-6">
                           <div>
-                            <p className="text-sm text-gray-600 font-medium">Type</p>
+                            <p className="text-sm text-gray-600 font-medium">
+                              Type
+                            </p>
                             <p className="font-semibold text-gray-900">
                               {selectedProperty.propertyType || "N/A"}
                             </p>
                           </div>
                           <div>
-                            <p className="text-sm text-gray-600 font-medium">Status</p>
+                            <p className="text-sm text-gray-600 font-medium">
+                              Status
+                            </p>
                             <p className="font-semibold text-[#7C3AED]">
                               {selectedProperty.status || "N/A"}
                             </p>
                           </div>
                           <div>
-                            <p className="text-sm text-gray-600 font-medium">Created</p>
+                            <p className="text-sm text-gray-600 font-medium">
+                              Created
+                            </p>
                             <p className="font-semibold text-gray-900 text-sm">
                               {selectedProperty.createdAt
                                 ? new Date(
@@ -1112,7 +1124,9 @@ export function PropertyOwnerDashboard({
                             </p>
                           </div>
                           <div>
-                            <p className="text-sm text-gray-600 font-medium">Updated</p>
+                            <p className="text-sm text-gray-600 font-medium">
+                              Updated
+                            </p>
                             <p className="font-semibold text-gray-900 text-sm">
                               {selectedProperty.updatedAt
                                 ? new Date(
@@ -1129,7 +1143,9 @@ export function PropertyOwnerDashboard({
                         <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white">
                           <div className="flex items-center gap-2">
                             <Users className="h-5 w-5" />
-                            <CardTitle className="text-lg">Management</CardTitle>
+                            <CardTitle className="text-lg">
+                              Management
+                            </CardTitle>
                           </div>
                         </CardHeader>
                         <CardContent className="pt-6">
@@ -1158,11 +1174,12 @@ export function PropertyOwnerDashboard({
                               )}
                             </div>
                           ) : (
-                            <p className="text-gray-600 text-center py-4">Unassigned</p>
+                            <p className="text-gray-600 text-center py-4">
+                              Unassigned
+                            </p>
                           )}
                         </CardContent>
                       </Card>
-
                     </div>
 
                     {/* Location Card */}
@@ -1175,31 +1192,41 @@ export function PropertyOwnerDashboard({
                       </CardHeader>
                       <CardContent className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 pt-6">
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">Address</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Address
+                          </p>
                           <p className="font-semibold text-gray-900">
                             {selectedProperty.address || "N/A"}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">City</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            City
+                          </p>
                           <p className="font-semibold text-gray-900">
                             {selectedProperty.city || "N/A"}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">State</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            State
+                          </p>
                           <p className="font-semibold text-gray-900">
                             {selectedProperty.state || "N/A"}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">Postal Code</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Postal Code
+                          </p>
                           <p className="font-semibold text-gray-900">
                             {selectedProperty.postalCode || "N/A"}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">Country</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Country
+                          </p>
                           <p className="font-semibold text-gray-900">
                             {selectedProperty.country || "N/A"}
                           </p>
@@ -1212,42 +1239,60 @@ export function PropertyOwnerDashboard({
                       <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white">
                         <div className="flex items-center gap-2">
                           <Building2 className="h-5 w-5" />
-                          <CardTitle className="text-lg">Property Details</CardTitle>
+                          <CardTitle className="text-lg">
+                            Property Details
+                          </CardTitle>
                         </div>
                       </CardHeader>
                       <CardContent className="grid md:grid-cols-3 gap-4 pt-6">
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">Year Built</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Year Built
+                          </p>
                           <p className="font-semibold text-gray-900">
                             {selectedProperty.yearBuilt ?? "N/A"}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">Total Units</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Total Units
+                          </p>
                           <p className="font-semibold text-[#7C3AED] text-lg">
                             {selectedProperty.totalUnits ?? 0}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">Floors</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Floors
+                          </p>
                           <p className="font-semibold text-gray-900">
                             {selectedProperty.floors ?? "N/A"}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">Total Area</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Total Area
+                          </p>
                           <p className="font-semibold text-gray-900">
-                            {selectedProperty.totalArea ? `${selectedProperty.totalArea} sq ft` : "N/A"}
+                            {selectedProperty.totalArea
+                              ? `${selectedProperty.totalArea} sq ft`
+                              : "N/A"}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">Lot Size</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Lot Size
+                          </p>
                           <p className="font-semibold text-gray-900">
-                            {selectedProperty.lotSize ? `${selectedProperty.lotSize} sq ft` : "N/A"}
+                            {selectedProperty.lotSize
+                              ? `${selectedProperty.lotSize} sq ft`
+                              : "N/A"}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">Parking</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Parking
+                          </p>
                           <p className="font-semibold text-gray-900">
                             {selectedProperty.parking ?? "N/A"} spaces
                           </p>
@@ -1260,77 +1305,189 @@ export function PropertyOwnerDashboard({
                       <CardHeader className="bg-gradient-to-r from-green-500 to-green-600 text-white">
                         <div className="flex items-center gap-2">
                           <DollarSign className="h-5 w-5" />
-                          <CardTitle className="text-lg">Financial Information</CardTitle>
+                          <CardTitle className="text-lg">
+                            Financial Information
+                          </CardTitle>
                         </div>
                       </CardHeader>
                       <CardContent className="grid md:grid-cols-3 gap-4 pt-6">
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">Currency</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Currency
+                          </p>
                           <p className="font-semibold text-gray-900">
                             {selectedProperty.currency}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">Avg Rent</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Avg Rent
+                          </p>
                           <p className="font-semibold text-green-600 text-lg">
-                            {selectedProperty.currency === 'NGN' ? '₦' : selectedProperty.currency === 'USD' ? '$' : selectedProperty.currency === 'GBP' ? '£' : selectedProperty.currency === 'EUR' ? '€' : ''}
-                            {(Number(selectedProperty.avgRent) || 0).toLocaleString()}
+                            {selectedProperty.currency === "NGN"
+                              ? "₦"
+                              : selectedProperty.currency === "USD"
+                              ? "$"
+                              : selectedProperty.currency === "GBP"
+                              ? "£"
+                              : selectedProperty.currency === "EUR"
+                              ? "€"
+                              : ""}
+                            {(
+                              Number(selectedProperty.avgRent) || 0
+                            ).toLocaleString()}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">Security Deposit</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Security Deposit
+                          </p>
                           <p className="font-semibold text-gray-900">
-                            {selectedProperty.currency === 'NGN' ? '₦' : selectedProperty.currency === 'USD' ? '$' : selectedProperty.currency === 'GBP' ? '£' : selectedProperty.currency === 'EUR' ? '€' : ''}
-                            {(Number(selectedProperty.securityDeposit) || 0).toLocaleString()}
+                            {selectedProperty.currency === "NGN"
+                              ? "₦"
+                              : selectedProperty.currency === "USD"
+                              ? "$"
+                              : selectedProperty.currency === "GBP"
+                              ? "£"
+                              : selectedProperty.currency === "EUR"
+                              ? "€"
+                              : ""}
+                            {(
+                              Number(selectedProperty.securityDeposit) || 0
+                            ).toLocaleString()}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">Application Fee</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Application Fee
+                          </p>
                           <p className="font-semibold text-gray-900">
-                            {selectedProperty.currency === 'NGN' ? '₦' : selectedProperty.currency === 'USD' ? '$' : selectedProperty.currency === 'GBP' ? '£' : selectedProperty.currency === 'EUR' ? '€' : ''}
-                            {(Number(selectedProperty.applicationFee) || 0).toLocaleString()}
+                            {selectedProperty.currency === "NGN"
+                              ? "₦"
+                              : selectedProperty.currency === "USD"
+                              ? "$"
+                              : selectedProperty.currency === "GBP"
+                              ? "£"
+                              : selectedProperty.currency === "EUR"
+                              ? "€"
+                              : ""}
+                            {(
+                              Number(selectedProperty.applicationFee) || 0
+                            ).toLocaleString()}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">Caution Fee</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Caution Fee
+                          </p>
                           <p className="font-semibold text-gray-900">
-                            {selectedProperty.currency === 'NGN' ? '₦' : selectedProperty.currency === 'USD' ? '$' : selectedProperty.currency === 'GBP' ? '£' : selectedProperty.currency === 'EUR' ? '€' : ''}
-                            {(Number(selectedProperty.cautionFee) || 0).toLocaleString()}
+                            {selectedProperty.currency === "NGN"
+                              ? "₦"
+                              : selectedProperty.currency === "USD"
+                              ? "$"
+                              : selectedProperty.currency === "GBP"
+                              ? "£"
+                              : selectedProperty.currency === "EUR"
+                              ? "€"
+                              : ""}
+                            {(
+                              Number(selectedProperty.cautionFee) || 0
+                            ).toLocaleString()}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">Legal Fee</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Legal Fee
+                          </p>
                           <p className="font-semibold text-gray-900">
-                            {selectedProperty.currency === 'NGN' ? '₦' : selectedProperty.currency === 'USD' ? '$' : selectedProperty.currency === 'GBP' ? '£' : selectedProperty.currency === 'EUR' ? '€' : ''}
-                            {(Number(selectedProperty.legalFee) || 0).toLocaleString()}
+                            {selectedProperty.currency === "NGN"
+                              ? "₦"
+                              : selectedProperty.currency === "USD"
+                              ? "$"
+                              : selectedProperty.currency === "GBP"
+                              ? "£"
+                              : selectedProperty.currency === "EUR"
+                              ? "€"
+                              : ""}
+                            {(
+                              Number(selectedProperty.legalFee) || 0
+                            ).toLocaleString()}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">Agent Commission</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Agent Commission
+                          </p>
                           <p className="font-semibold text-gray-900">
-                            {selectedProperty.currency === 'NGN' ? '₦' : selectedProperty.currency === 'USD' ? '$' : selectedProperty.currency === 'GBP' ? '£' : selectedProperty.currency === 'EUR' ? '€' : ''}
-                            {(Number(selectedProperty.agentCommission) || 0).toLocaleString()}
+                            {selectedProperty.currency === "NGN"
+                              ? "₦"
+                              : selectedProperty.currency === "USD"
+                              ? "$"
+                              : selectedProperty.currency === "GBP"
+                              ? "£"
+                              : selectedProperty.currency === "EUR"
+                              ? "€"
+                              : ""}
+                            {(
+                              Number(selectedProperty.agentCommission) || 0
+                            ).toLocaleString()}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">Service Charge</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Service Charge
+                          </p>
                           <p className="font-semibold text-gray-900">
-                            {selectedProperty.currency === 'NGN' ? '₦' : selectedProperty.currency === 'USD' ? '$' : selectedProperty.currency === 'GBP' ? '£' : selectedProperty.currency === 'EUR' ? '€' : ''}
-                            {(Number(selectedProperty.serviceCharge) || 0).toLocaleString()}
+                            {selectedProperty.currency === "NGN"
+                              ? "₦"
+                              : selectedProperty.currency === "USD"
+                              ? "$"
+                              : selectedProperty.currency === "GBP"
+                              ? "£"
+                              : selectedProperty.currency === "EUR"
+                              ? "€"
+                              : ""}
+                            {(
+                              Number(selectedProperty.serviceCharge) || 0
+                            ).toLocaleString()}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">Agreement Fee</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Agreement Fee
+                          </p>
                           <p className="font-semibold text-gray-900">
-                            {selectedProperty.currency === 'NGN' ? '₦' : selectedProperty.currency === 'USD' ? '$' : selectedProperty.currency === 'GBP' ? '£' : selectedProperty.currency === 'EUR' ? '€' : ''}
-                            {(Number(selectedProperty.agreementFee) || 0).toLocaleString()}
+                            {selectedProperty.currency === "NGN"
+                              ? "₦"
+                              : selectedProperty.currency === "USD"
+                              ? "$"
+                              : selectedProperty.currency === "GBP"
+                              ? "£"
+                              : selectedProperty.currency === "EUR"
+                              ? "€"
+                              : ""}
+                            {(
+                              Number(selectedProperty.agreementFee) || 0
+                            ).toLocaleString()}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">Property Taxes</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Property Taxes
+                          </p>
                           <p className="font-semibold text-gray-900">
-                            {selectedProperty.currency === 'NGN' ? '₦' : selectedProperty.currency === 'USD' ? '$' : selectedProperty.currency === 'GBP' ? '£' : selectedProperty.currency === 'EUR' ? '€' : ''}
-                            {(Number(selectedProperty.propertyTaxes) || 0).toLocaleString()}
+                            {selectedProperty.currency === "NGN"
+                              ? "₦"
+                              : selectedProperty.currency === "USD"
+                              ? "$"
+                              : selectedProperty.currency === "GBP"
+                              ? "£"
+                              : selectedProperty.currency === "EUR"
+                              ? "€"
+                              : ""}
+                            {(
+                              Number(selectedProperty.propertyTaxes) || 0
+                            ).toLocaleString()}
                           </p>
                         </div>
                       </CardContent>
@@ -1346,26 +1503,44 @@ export function PropertyOwnerDashboard({
                       </CardHeader>
                       <CardContent className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 pt-6">
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">Provider</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Provider
+                          </p>
                           <p className="font-semibold text-gray-900">
                             {selectedProperty.insuranceProvider || "N/A"}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">Policy Number</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Policy Number
+                          </p>
                           <p className="font-semibold text-gray-900 text-sm">
                             {selectedProperty.insurancePolicyNumber || "N/A"}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">Premium</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Premium
+                          </p>
                           <p className="font-semibold text-gray-900">
-                            {selectedProperty.currency === 'NGN' ? '₦' : selectedProperty.currency === 'USD' ? '$' : selectedProperty.currency === 'GBP' ? '£' : selectedProperty.currency === 'EUR' ? '€' : ''}
-                            {(Number(selectedProperty.insurancePremium) || 0).toLocaleString()}
+                            {selectedProperty.currency === "NGN"
+                              ? "₦"
+                              : selectedProperty.currency === "USD"
+                              ? "$"
+                              : selectedProperty.currency === "GBP"
+                              ? "£"
+                              : selectedProperty.currency === "EUR"
+                              ? "€"
+                              : ""}
+                            {(
+                              Number(selectedProperty.insurancePremium) || 0
+                            ).toLocaleString()}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600 font-medium">Expiration</p>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Expiration
+                          </p>
                           <p className="font-semibold text-gray-900">
                             {selectedProperty.insuranceExpiration
                               ? new Date(
@@ -1383,7 +1558,9 @@ export function PropertyOwnerDashboard({
                         <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white">
                           <div className="flex items-center gap-2">
                             <Home className="h-5 w-5" />
-                            <CardTitle className="text-lg">Property Features</CardTitle>
+                            <CardTitle className="text-lg">
+                              Property Features
+                            </CardTitle>
                           </div>
                         </CardHeader>
                         <CardContent className="pt-6">
@@ -1392,12 +1569,18 @@ export function PropertyOwnerDashboard({
                               ? selectedProperty.features
                               : []
                             ).map((f: any, idx: number) => (
-                              <Badge key={idx} className="bg-purple-100 text-[#7C3AED] border border-purple-300 hover:bg-purple-200 px-3 py-1">
+                              <Badge
+                                key={idx}
+                                className="bg-purple-100 text-[#7C3AED] border border-purple-300 hover:bg-purple-200 px-3 py-1"
+                              >
                                 {String(f)}
                               </Badge>
                             ))}
-                            {(!selectedProperty.features || selectedProperty.features.length === 0) && (
-                              <span className="text-gray-500">No features specified</span>
+                            {(!selectedProperty.features ||
+                              selectedProperty.features.length === 0) && (
+                              <span className="text-gray-500">
+                                No features specified
+                              </span>
                             )}
                           </div>
                         </CardContent>
@@ -1407,7 +1590,9 @@ export function PropertyOwnerDashboard({
                         <CardHeader className="bg-gradient-to-r from-green-500 to-green-600 text-white">
                           <div className="flex items-center gap-2">
                             <Bed className="h-5 w-5" />
-                            <CardTitle className="text-lg">Unit Features</CardTitle>
+                            <CardTitle className="text-lg">
+                              Unit Features
+                            </CardTitle>
                           </div>
                         </CardHeader>
                         <CardContent className="pt-6">
@@ -1416,12 +1601,18 @@ export function PropertyOwnerDashboard({
                               ? selectedProperty.unitFeatures
                               : []
                             ).map((f: any, idx: number) => (
-                              <Badge key={idx} className="bg-green-100 text-green-700 border border-green-300 hover:bg-green-200 px-3 py-1">
+                              <Badge
+                                key={idx}
+                                className="bg-green-100 text-green-700 border border-green-300 hover:bg-green-200 px-3 py-1"
+                              >
                                 {String(f)}
                               </Badge>
                             ))}
-                            {(!selectedProperty.unitFeatures || selectedProperty.unitFeatures.length === 0) && (
-                              <span className="text-gray-500">No unit features specified</span>
+                            {(!selectedProperty.unitFeatures ||
+                              selectedProperty.unitFeatures.length === 0) && (
+                              <span className="text-gray-500">
+                                No unit features specified
+                              </span>
                             )}
                           </div>
                         </CardContent>
@@ -1429,18 +1620,23 @@ export function PropertyOwnerDashboard({
                     </div>
 
                     {/* Description & Notes */}
-                    {(selectedProperty.description || selectedProperty.notes) && (
+                    {(selectedProperty.description ||
+                      selectedProperty.notes) && (
                       <Card className="border-2 border-gray-200 shadow-md">
                         <CardHeader className="bg-gradient-to-r from-gray-600 to-gray-700 text-white">
                           <div className="flex items-center gap-2">
                             <Info className="h-5 w-5" />
-                            <CardTitle className="text-lg">Additional Information</CardTitle>
+                            <CardTitle className="text-lg">
+                              Additional Information
+                            </CardTitle>
                           </div>
                         </CardHeader>
                         <CardContent className="space-y-4 pt-6">
                           {selectedProperty.description && (
                             <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                              <p className="text-sm font-semibold text-gray-700 mb-2">Description:</p>
+                              <p className="text-sm font-semibold text-gray-700 mb-2">
+                                Description:
+                              </p>
                               <p className="text-sm text-gray-900 leading-relaxed whitespace-pre-wrap">
                                 {selectedProperty.description}
                               </p>
@@ -1448,7 +1644,9 @@ export function PropertyOwnerDashboard({
                           )}
                           {selectedProperty.notes && (
                             <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                              <p className="text-sm font-semibold text-gray-700 mb-2">Internal Notes:</p>
+                              <p className="text-sm font-semibold text-gray-700 mb-2">
+                                Internal Notes:
+                              </p>
                               <p className="text-sm text-gray-900 leading-relaxed whitespace-pre-wrap">
                                 {selectedProperty.notes}
                               </p>
@@ -1461,7 +1659,9 @@ export function PropertyOwnerDashboard({
                 ) : (
                   <Card className="border-2 border-gray-200 shadow-md">
                     <CardContent className="text-center py-12">
-                      <div className="text-gray-600">Loading property details...</div>
+                      <div className="text-gray-600">
+                        Loading property details...
+                      </div>
                     </CardContent>
                   </Card>
                 )}

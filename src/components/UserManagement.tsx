@@ -802,28 +802,57 @@ export function UserManagement({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Internal User Management
-          </h2>
-          <p className="text-gray-600">
-            Manage internal admin users (staff, support team, etc.). Customer
-            users are managed in Customer Management.
-          </p>
+      {/* Enhanced Header with Animated Gradient */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 p-8 shadow-2xl">
+        {/* Animated background orbs */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse"></div>
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-violet-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse delay-1000"></div>
+
+        {/* Decorative elements */}
+        <div className="absolute top-4 right-4 opacity-20">
+          <Users className="h-24 w-24 text-white" />
+        </div>
+        <div className="absolute bottom-4 left-4 opacity-20">
+          <Shield className="h-16 w-16 text-white" />
         </div>
 
-        <div className="flex items-center space-x-3">
-          <Button variant="outline" onClick={() => setShowAddRole(true)}>
-            <Shield className="h-4 w-4 mr-2" />
-            Add Role
-          </Button>
+        {/* Content */}
+        <div className="relative z-10">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+                <Users className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-4xl font-bold text-white mb-2">
+                  Internal User Management
+                </h2>
+                <p className="text-purple-100 text-lg">
+                  Manage internal admin users (staff, support team, etc.).
+                  Customer users are managed in Customer Management.
+                </p>
+              </div>
+            </div>
 
-          <Button onClick={() => setShowAddUserInline((prev) => !prev)}>
-            <UserPlus className="h-4 w-4 mr-2" />
-            Add Internal User
-          </Button>
+            <div className="flex items-center space-x-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowAddRole(true)}
+                className="bg-white/20 text-white border-white/30 hover:bg-white/30 backdrop-blur-sm"
+              >
+                <Shield className="h-4 w-4 mr-2" />
+                Add Role
+              </Button>
+
+              <Button
+                onClick={() => setShowAddUserInline((prev) => !prev)}
+                className="bg-white text-purple-600 hover:bg-purple-50 shadow-lg"
+              >
+                <UserPlus className="h-4 w-4 mr-2" />
+                Add Internal User
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -834,21 +863,32 @@ export function UserManagement({
           onValueChange={setActiveTab}
           className="space-y-6"
         >
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="users" className="flex items-center space-x-2">
-              <Users className="h-4 w-4" />
-              <span>Users ({users.length})</span>
-            </TabsTrigger>
-            <TabsTrigger value="roles" className="flex items-center space-x-2">
-              <Shield className="h-4 w-4" />
-              <span>Roles ({filteredRoles.length})</span>
-            </TabsTrigger>
-          </TabsList>
+          {/* Enhanced Tabs List */}
+          <div className="bg-gradient-to-r from-purple-50 via-violet-50 to-purple-50 border-b border-purple-200/50 rounded-t-xl">
+            <TabsList className="grid w-full grid-cols-2 h-auto bg-transparent p-2 gap-2">
+              <TabsTrigger
+                value="users"
+                className="flex items-center space-x-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-violet-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 rounded-lg py-3 px-4"
+              >
+                <Users className="h-4 w-4" />
+                <span className="font-medium">Users ({users.length})</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="roles"
+                className="flex items-center space-x-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-violet-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 rounded-lg py-3 px-4"
+              >
+                <Shield className="h-4 w-4" />
+                <span className="font-medium">
+                  Roles ({filteredRoles.length})
+                </span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Users Tab */}
-          <TabsContent value="users" className="space-y-6">
-            {/* Search and Filters */}
-            <Card>
+          <TabsContent value="users" className="space-y-6 mt-0 p-6">
+            {/* Enhanced Search and Filters */}
+            <Card className="border-0 shadow-lg">
               <CardContent className="p-6">
                 <div className="flex flex-col md:flex-row gap-4">
                   <div className="flex-1">
@@ -858,13 +898,13 @@ export function UserManagement({
                         placeholder="Search users by name, email, or company..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
+                        className="pl-10 border-gray-200 focus:border-purple-300 focus:ring-purple-200"
                       />
                     </div>
                   </div>
 
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-full md:w-[150px]">
+                    <SelectTrigger className="w-full md:w-[150px] border-gray-200 focus:border-purple-300 focus:ring-purple-200">
                       <SelectValue placeholder="All Status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -876,7 +916,7 @@ export function UserManagement({
                   </Select>
 
                   <Select value={roleFilter} onValueChange={setRoleFilter}>
-                    <SelectTrigger className="w-full md:w-[150px]">
+                    <SelectTrigger className="w-full md:w-[150px] border-gray-200 focus:border-purple-300 focus:ring-purple-200">
                       <SelectValue placeholder="All Roles" />
                     </SelectTrigger>
                     <SelectContent>
@@ -892,17 +932,20 @@ export function UserManagement({
               </CardContent>
             </Card>
 
-            {/* Inline Add User Form (replaces dialog) */}
+            {/* Enhanced Inline Add User Form */}
             {showAddUserInline && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Add Internal Admin User</CardTitle>
-                  <CardDescription>
+              <Card className="border-0 shadow-xl overflow-hidden">
+                <div className="bg-gradient-to-r from-purple-600 via-violet-600 to-purple-600 text-white p-6">
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <UserPlus className="h-5 w-5" />
+                    Add Internal Admin User
+                  </CardTitle>
+                  <CardDescription className="text-purple-100 mt-2">
                     Create a new internal admin user (staff, support team,
                     etc.). This is NOT for customer users.
                   </CardDescription>
-                </CardHeader>
-                <CardContent>
+                </div>
+                <CardContent className="pt-6">
                   <form onSubmit={handleAddUser} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
@@ -917,6 +960,7 @@ export function UserManagement({
                             }))
                           }
                           required
+                          className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
                         />
                       </div>
                       <div>
@@ -932,6 +976,7 @@ export function UserManagement({
                             }))
                           }
                           required
+                          className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
                         />
                       </div>
                     </div>
@@ -949,6 +994,7 @@ export function UserManagement({
                             }))
                           }
                           placeholder="+234 xxx xxx xxxx"
+                          className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
                         />
                       </div>
                       <div>
@@ -959,7 +1005,7 @@ export function UserManagement({
                             setNewUser((prev) => ({ ...prev, role: value }))
                           }
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="border-gray-200 focus:border-purple-300 focus:ring-purple-200">
                             <SelectValue placeholder="Select role" />
                           </SelectTrigger>
                           <SelectContent>
@@ -986,6 +1032,7 @@ export function UserManagement({
                             }))
                           }
                           placeholder="Contrezz Admin"
+                          className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
                         />
                       </div>
                       <div>
@@ -1000,6 +1047,7 @@ export function UserManagement({
                             }))
                           }
                           placeholder="e.g., Customer Support, IT, etc."
+                          className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
                         />
                       </div>
                     </div>
@@ -1018,215 +1066,273 @@ export function UserManagement({
                       <Label htmlFor="sendInvite">Send invitation email</Label>
                     </div>
 
-                    <div className="flex gap-2 justify-end">
+                    <div className="flex gap-2 justify-end pt-4 border-t border-gray-200">
                       <Button
                         type="button"
                         variant="outline"
                         onClick={() => setShowAddUserInline(false)}
+                        className="border-gray-200 text-gray-700 hover:bg-gray-50"
                       >
                         Cancel
                       </Button>
-                      <Button type="submit">Create User</Button>
+                      <Button
+                        type="submit"
+                        className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white shadow-lg"
+                      >
+                        Create User
+                      </Button>
                     </div>
                   </form>
                 </CardContent>
               </Card>
             )}
 
-            {/* Users Table */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Internal Admin Users</CardTitle>
-                <CardDescription>
-                  Internal staff, support team, and platform administrators
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Company</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Last Login</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredUsers.length === 0 ? (
-                      <TableRow>
-                        <TableCell
-                          colSpan={6}
-                          className="text-center text-gray-500 py-8"
-                        >
-                          No users found
-                        </TableCell>
+            {/* Enhanced Users Table */}
+            <Card className="border-0 shadow-xl overflow-hidden">
+              <div className="bg-gradient-to-r from-purple-50 via-violet-50 to-purple-50 border-b border-purple-200/50 px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Users className="h-5 w-5 text-purple-600" />
+                      Internal Admin Users
+                    </CardTitle>
+                    <CardDescription className="mt-1">
+                      Internal staff, support team, and platform administrators
+                    </CardDescription>
+                  </div>
+                </div>
+              </div>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gray-50/50">
+                        <TableHead className="font-semibold text-gray-700">
+                          User
+                        </TableHead>
+                        <TableHead className="font-semibold text-gray-700">
+                          Role
+                        </TableHead>
+                        <TableHead className="font-semibold text-gray-700">
+                          Company
+                        </TableHead>
+                        <TableHead className="font-semibold text-gray-700">
+                          Status
+                        </TableHead>
+                        <TableHead className="font-semibold text-gray-700">
+                          Last Login
+                        </TableHead>
+                        <TableHead className="font-semibold text-gray-700">
+                          Actions
+                        </TableHead>
                       </TableRow>
-                    ) : (
-                      filteredUsers.map((userItem) => (
-                        <TableRow key={userItem.id}>
-                          <TableCell>
-                            <div className="flex items-center space-x-3">
-                              <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center">
-                                <span className="text-white text-sm font-medium">
-                                  {userItem.name
-                                    .split(" ")
-                                    .map((n: string) => n[0])
-                                    .join("")}
-                                </span>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredUsers.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-12">
+                            <div className="flex flex-col items-center gap-3">
+                              <div className="p-4 rounded-full bg-gray-100">
+                                <Users className="h-8 w-8 text-gray-400" />
                               </div>
+                              <div className="text-gray-500 font-medium">
+                                No users found
+                              </div>
+                              <div className="text-sm text-gray-400">
+                                {searchTerm ||
+                                statusFilter !== "all" ||
+                                roleFilter !== "all"
+                                  ? "Try adjusting your search or filters"
+                                  : "Get started by adding your first internal user"}
+                              </div>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredUsers.map((userItem) => (
+                          <TableRow
+                            key={userItem.id}
+                            className="hover:bg-purple-50/30 transition-colors duration-150"
+                          >
+                            <TableCell>
+                              <div className="flex items-center space-x-3">
+                                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-500 flex items-center justify-center shadow-md">
+                                  <span className="text-white text-sm font-bold">
+                                    {userItem.name
+                                      .split(" ")
+                                      .map((n: string) => n[0])
+                                      .join("")
+                                      .toUpperCase()
+                                      .slice(0, 2)}
+                                  </span>
+                                </div>
+                                <div>
+                                  <div className="font-semibold text-gray-900">
+                                    {userItem.name}
+                                  </div>
+                                  <div className="text-sm text-gray-600">
+                                    {userItem.email}
+                                  </div>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>{getRoleBadge(userItem.role)}</TableCell>
+                            <TableCell>
                               <div>
                                 <div className="font-medium">
-                                  {userItem.name}
+                                  {userItem.company || "N/A"}
                                 </div>
-                                <div className="text-sm text-gray-600">
-                                  {userItem.email}
-                                </div>
+                                {userItem.department && (
+                                  <div className="text-sm text-gray-600">
+                                    {userItem.department}
+                                  </div>
+                                )}
                               </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>{getRoleBadge(userItem.role)}</TableCell>
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">
-                                {userItem.company || "N/A"}
-                              </div>
-                              {userItem.department && (
-                                <div className="text-sm text-gray-600">
-                                  {userItem.department}
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {getStatusBadge(userItem.status)}
-                          </TableCell>
-                          <TableCell className="text-sm text-gray-600">
-                            {userItem.lastLogin
-                              ? new Date(
-                                  userItem.lastLogin
-                                ).toLocaleDateString()
-                              : "Never"}
-                          </TableCell>
-                          <TableCell>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent>
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setSelectedUser(userItem);
-                                    setShowUserDetails(true);
-                                  }}
-                                >
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  View Details
-                                </DropdownMenuItem>
-
-                                {/* Disable edit for Super Admins */}
-                                {!(userItem as any).isSuperAdmin && (
+                            </TableCell>
+                            <TableCell>
+                              {getStatusBadge(userItem.status)}
+                            </TableCell>
+                            <TableCell className="text-sm text-gray-600">
+                              {userItem.lastLogin
+                                ? new Date(
+                                    userItem.lastLogin
+                                  ).toLocaleDateString()
+                                : "Never"}
+                            </TableCell>
+                            <TableCell>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                   <DropdownMenuItem
                                     onClick={() => {
                                       setSelectedUser(userItem);
-                                      setShowEditUser(true);
+                                      setShowUserDetails(true);
                                     }}
                                   >
-                                    <Edit className="h-4 w-4 mr-2" />
-                                    Edit User
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    View Details
                                   </DropdownMenuItem>
-                                )}
 
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    openResetConfirmation(
-                                      userItem.id,
-                                      userItem.name,
-                                      userItem.email
-                                    )
-                                  }
-                                >
-                                  <Lock className="h-4 w-4 mr-2" />
-                                  Reset Password
-                                </DropdownMenuItem>
+                                  {/* Disable edit for Super Admins */}
+                                  {!(userItem as any).isSuperAdmin && (
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setSelectedUser(userItem);
+                                        setShowEditUser(true);
+                                      }}
+                                    >
+                                      <Edit className="h-4 w-4 mr-2" />
+                                      Edit User
+                                    </DropdownMenuItem>
+                                  )}
 
-                                {/* Disable deactivate for Super Admins */}
-                                {!(userItem as any).isSuperAdmin && (
+                                  <DropdownMenuSeparator />
                                   <DropdownMenuItem
                                     onClick={() =>
-                                      toggleUserStatus(
+                                      openResetConfirmation(
                                         userItem.id,
-                                        userItem.status
+                                        userItem.name,
+                                        userItem.email
                                       )
                                     }
                                   >
-                                    {userItem.status === "active" ? (
-                                      <>
-                                        <XCircle className="h-4 w-4 mr-2" />
-                                        Deactivate
-                                      </>
-                                    ) : (
-                                      <>
-                                        <CheckCircle className="h-4 w-4 mr-2" />
-                                        Activate
-                                      </>
-                                    )}
+                                    <Lock className="h-4 w-4 mr-2" />
+                                    Reset Password
                                   </DropdownMenuItem>
-                                )}
 
-                                {/* Disable delete for Super Admins */}
-                                {!(userItem as any).isSuperAdmin && (
-                                  <>
-                                    <DropdownMenuSeparator />
+                                  {/* Disable deactivate for Super Admins */}
+                                  {!(userItem as any).isSuperAdmin && (
                                     <DropdownMenuItem
-                                      className="text-red-600"
-                                      onClick={() => {
-                                        if (
-                                          confirm(
-                                            "Are you sure you want to delete this user?"
-                                          )
-                                        ) {
-                                          onDeleteUser(userItem.id);
-                                        }
-                                      }}
+                                      onClick={() =>
+                                        toggleUserStatus(
+                                          userItem.id,
+                                          userItem.status
+                                        )
+                                      }
                                     >
-                                      <Trash2 className="h-4 w-4 mr-2" />
-                                      Delete User
+                                      {userItem.status === "active" ? (
+                                        <>
+                                          <XCircle className="h-4 w-4 mr-2" />
+                                          Deactivate
+                                        </>
+                                      ) : (
+                                        <>
+                                          <CheckCircle className="h-4 w-4 mr-2" />
+                                          Activate
+                                        </>
+                                      )}
                                     </DropdownMenuItem>
-                                  </>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                                  )}
+
+                                  {/* Disable delete for Super Admins */}
+                                  {!(userItem as any).isSuperAdmin && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        className="text-red-600"
+                                        onClick={() => {
+                                          if (
+                                            confirm(
+                                              "Are you sure you want to delete this user?"
+                                            )
+                                          ) {
+                                            onDeleteUser(userItem.id);
+                                          }
+                                        }}
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Delete User
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
 
           {/* Roles Tab */}
-          <TabsContent value="roles" className="space-y-6">
-            {/* View Mode Toggle */}
-            <Card>
-              <CardContent className="p-4">
+          <TabsContent value="roles" className="space-y-6 mt-0 p-6">
+            {/* Enhanced View Mode Toggle */}
+            <Card className="border-0 shadow-lg">
+              <CardContent className="p-6">
                 <div className="flex items-center justify-between">
-                  <div className="text-sm text-gray-600">
-                    {filteredRoles.length} role
-                    {filteredRoles.length !== 1 ? "s" : ""} available
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-purple-100">
+                      <Shield className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">
+                        {filteredRoles.length} role
+                        {filteredRoles.length !== 1 ? "s" : ""} available
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Manage roles and permissions for internal users
+                      </div>
+                    </div>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Button
                       variant={roleViewMode === "grid" ? "default" : "outline"}
                       size="sm"
                       onClick={() => setRoleViewMode("grid")}
+                      className={
+                        roleViewMode === "grid"
+                          ? "bg-gradient-to-r from-purple-600 to-violet-600 text-white"
+                          : "border-purple-200 text-purple-700 hover:bg-purple-50"
+                      }
                     >
                       <LayoutGrid className="h-4 w-4 mr-2" />
                       Grid
@@ -1235,6 +1341,11 @@ export function UserManagement({
                       variant={roleViewMode === "list" ? "default" : "outline"}
                       size="sm"
                       onClick={() => setRoleViewMode("list")}
+                      className={
+                        roleViewMode === "list"
+                          ? "bg-gradient-to-r from-purple-600 to-violet-600 text-white"
+                          : "border-purple-200 text-purple-700 hover:bg-purple-50"
+                      }
                     >
                       <List className="h-4 w-4 mr-2" />
                       List
@@ -1244,108 +1355,134 @@ export function UserManagement({
               </CardContent>
             </Card>
 
-            {/* Grid View */}
+            {/* Enhanced Grid View */}
             {roleViewMode === "grid" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {filteredRoles.map((role) => (
-                  <Card key={role.id}>
-                    <CardHeader>
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle className="flex items-center space-x-2">
-                            <Shield className="h-5 w-5" />
-                            <span>{role.name}</span>
-                          </CardTitle>
-                          <CardDescription>{role.description}</CardDescription>
+                  <Card
+                    key={role.id}
+                    className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden"
+                  >
+                    <CardHeader className="p-0">
+                      <div className="bg-gradient-to-r from-purple-600 via-violet-600 to-purple-600 text-white p-6">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <CardTitle className="flex items-center space-x-2 text-xl">
+                              <Shield className="h-5 w-5" />
+                              <span>{role.name}</span>
+                            </CardTitle>
+                            <CardDescription className="text-purple-100 mt-2">
+                              {role.description}
+                            </CardDescription>
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSelectedRole(role);
+                                  setShowRoleDetails(true);
+                                }}
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSelectedRole(role);
+                                  setShowEditRole(true);
+                                }}
+                              >
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit Role
+                              </DropdownMenuItem>
+                              {!role.isSystem && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className="text-red-600"
+                                    onClick={() => {
+                                      if (
+                                        confirm(
+                                          `Are you sure you want to delete the "${role.name}" role?`
+                                        )
+                                      ) {
+                                        onDeleteRole(role.id);
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete Role
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setSelectedRole(role);
-                                setShowRoleDetails(true);
-                              }}
-                            >
-                              <Eye className="h-4 w-4 mr-2" />
-                              View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setSelectedRole(role);
-                                setShowEditRole(true);
-                              }}
-                            >
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit Role
-                            </DropdownMenuItem>
-                            {!role.isSystem && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  className="text-red-600"
-                                  onClick={() => {
-                                    if (
-                                      confirm(
-                                        `Are you sure you want to delete the "${role.name}" role?`
-                                      )
-                                    ) {
-                                      onDeleteRole(role.id);
-                                    }
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete Role
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
                       </div>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="p-6">
                       <div className="space-y-4">
-                        <div>
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm font-medium">Users</span>
-                            <Badge variant="secondary">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-3 rounded-lg bg-gradient-to-br from-purple-50 to-violet-50 border border-purple-200">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Users className="h-4 w-4 text-purple-600" />
+                              <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                                Users
+                              </span>
+                            </div>
+                            <Badge className="bg-purple-100 text-purple-700 border-purple-300">
                               {role.userCount || 0}
                             </Badge>
                           </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium">Status</span>
+                          <div className="p-3 rounded-lg bg-gradient-to-br from-purple-50 to-violet-50 border border-purple-200">
+                            <div className="flex items-center gap-2 mb-1">
+                              <CheckCircle className="h-4 w-4 text-purple-600" />
+                              <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                                Status
+                              </span>
+                            </div>
                             {role.isActive ? (
-                              <Badge className="bg-green-100 text-green-800">
+                              <Badge className="bg-green-100 text-green-700 border-green-300">
                                 Active
                               </Badge>
                             ) : (
-                              <Badge variant="secondary">Inactive</Badge>
+                              <Badge
+                                variant="outline"
+                                className="bg-gray-100 text-gray-700 border-gray-300"
+                              >
+                                Inactive
+                              </Badge>
                             )}
                           </div>
                         </div>
 
-                        <div>
-                          <div className="text-sm font-medium mb-2">
+                        <div className="pt-2 border-t border-gray-200">
+                          <div className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                            <Shield className="h-4 w-4 text-purple-600" />
                             Permissions
                           </div>
-                          <div className="flex flex-wrap gap-1">
+                          <div className="flex flex-wrap gap-2">
                             {role.permissions
                               .slice(0, 3)
                               .map((permission: string) => (
                                 <Badge
                                   key={permission}
                                   variant="outline"
-                                  className="text-xs"
+                                  className="text-xs bg-purple-50 text-purple-700 border-purple-200"
                                 >
                                   {getPermissionLabel(permission)}
                                 </Badge>
                               ))}
                             {role.permissions.length > 3 && (
-                              <Badge variant="outline" className="text-xs">
+                              <Badge
+                                variant="outline"
+                                className="text-xs bg-violet-50 text-violet-700 border-violet-200"
+                              >
                                 +{role.permissions.length - 3} more
                               </Badge>
                             )}
@@ -1358,129 +1495,153 @@ export function UserManagement({
               </div>
             )}
 
-            {/* List View */}
+            {/* Enhanced List View */}
             {roleViewMode === "list" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Roles</CardTitle>
-                  <CardDescription>
+              <Card className="border-0 shadow-xl overflow-hidden">
+                <div className="bg-gradient-to-r from-purple-50 via-violet-50 to-purple-50 border-b border-purple-200/50 px-6 py-4">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-purple-600" />
+                    Roles
+                  </CardTitle>
+                  <CardDescription className="mt-1">
                     Complete list of all roles and their permissions
                   </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Role Name</TableHead>
-                        <TableHead>Description</TableHead>
-                        <TableHead>Users</TableHead>
-                        <TableHead>Permissions</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredRoles.map((role) => (
-                        <TableRow key={role.id}>
-                          <TableCell>
-                            <div className="flex items-center space-x-2">
-                              <Shield className="h-4 w-4 text-gray-500" />
-                              <span className="font-medium">{role.name}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <span className="text-sm text-gray-600">
-                              {role.description}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">
-                              {role.userCount || 0}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-1 max-w-xs">
-                              {role.permissions
-                                .slice(0, 2)
-                                .map((permission: string) => (
-                                  <Badge
-                                    key={permission}
-                                    variant="outline"
-                                    className="text-xs"
-                                  >
-                                    {getPermissionLabel(permission)}
-                                  </Badge>
-                                ))}
-                              {role.permissions.length > 2 && (
-                                <Badge variant="outline" className="text-xs">
-                                  +{role.permissions.length - 2} more
-                                </Badge>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {role.isActive ? (
-                              <Badge className="bg-green-100 text-green-800">
-                                Active
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary">Inactive</Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setSelectedRole(role);
-                                    setShowRoleDetails(true);
-                                  }}
-                                >
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  View Details
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setSelectedRole(role);
-                                    setShowEditRole(true);
-                                  }}
-                                >
-                                  <Edit className="h-4 w-4 mr-2" />
-                                  Edit Role
-                                </DropdownMenuItem>
-                                {!role.isSystem && (
-                                  <>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      className="text-red-600"
-                                      onClick={() => {
-                                        if (
-                                          confirm(
-                                            `Are you sure you want to delete the "${role.name}" role?`
-                                          )
-                                        ) {
-                                          onDeleteRole(role.id);
-                                        }
-                                      }}
-                                    >
-                                      <Trash2 className="h-4 w-4 mr-2" />
-                                      Delete Role
-                                    </DropdownMenuItem>
-                                  </>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
+                </div>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-gray-50/50">
+                          <TableHead className="font-semibold text-gray-700">
+                            Role Name
+                          </TableHead>
+                          <TableHead className="font-semibold text-gray-700">
+                            Description
+                          </TableHead>
+                          <TableHead className="font-semibold text-gray-700">
+                            Users
+                          </TableHead>
+                          <TableHead className="font-semibold text-gray-700">
+                            Permissions
+                          </TableHead>
+                          <TableHead className="font-semibold text-gray-700">
+                            Status
+                          </TableHead>
+                          <TableHead className="text-right font-semibold text-gray-700">
+                            Actions
+                          </TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredRoles.map((role) => (
+                          <TableRow
+                            key={role.id}
+                            className="hover:bg-purple-50/30 transition-colors duration-150"
+                          >
+                            <TableCell>
+                              <div className="flex items-center space-x-3">
+                                <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-violet-500">
+                                  <Shield className="h-4 w-4 text-white" />
+                                </div>
+                                <span className="font-semibold text-gray-900">
+                                  {role.name}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-sm text-gray-600">
+                                {role.description}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="secondary">
+                                {role.userCount || 0}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-wrap gap-1 max-w-xs">
+                                {role.permissions
+                                  .slice(0, 2)
+                                  .map((permission: string) => (
+                                    <Badge
+                                      key={permission}
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
+                                      {getPermissionLabel(permission)}
+                                    </Badge>
+                                  ))}
+                                {role.permissions.length > 2 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{role.permissions.length - 2} more
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {role.isActive ? (
+                                <Badge className="bg-green-100 text-green-800">
+                                  Active
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary">Inactive</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setSelectedRole(role);
+                                      setShowRoleDetails(true);
+                                    }}
+                                  >
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    View Details
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setSelectedRole(role);
+                                      setShowEditRole(true);
+                                    }}
+                                  >
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Edit Role
+                                  </DropdownMenuItem>
+                                  {!role.isSystem && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        className="text-red-600"
+                                        onClick={() => {
+                                          if (
+                                            confirm(
+                                              `Are you sure you want to delete the "${role.name}" role?`
+                                            )
+                                          ) {
+                                            onDeleteRole(role.id);
+                                          }
+                                        }}
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Delete Role
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </CardContent>
               </Card>
             )}
@@ -1616,17 +1777,27 @@ export function UserManagement({
         </DialogContent>
       </Dialog>
 
-      {/* Add Role Dialog */}
+      {/* Enhanced Add Role Dialog */}
       <Dialog open={showAddRole} onOpenChange={setShowAddRole}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Add New Role</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="bg-gradient-to-r from-purple-600 via-violet-600 to-purple-600 text-white p-6 -m-6 mb-6 rounded-t-lg flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-lg bg-white/20 backdrop-blur-sm">
+                <Shield className="h-5 w-5 text-white" />
+              </div>
+              <DialogTitle className="text-xl text-white">
+                Add New Role
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-purple-100 mt-2">
               Create a new role with specific permissions
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleAddRole} className="space-y-4">
+          <form
+            onSubmit={handleAddRole}
+            className="space-y-4 flex-1 overflow-y-auto pr-2"
+          >
             <div>
               <Label htmlFor="roleName">Role Name *</Label>
               <Input
@@ -1637,7 +1808,7 @@ export function UserManagement({
                 }
                 placeholder="e.g., Support Staff, Business Analyst, Developer"
                 required
-                className="mt-3"
+                className="mt-3 border-gray-200 focus:border-purple-300 focus:ring-purple-200"
               />
             </div>
 
@@ -1654,13 +1825,13 @@ export function UserManagement({
                 }
                 placeholder="Describe what this role is responsible for..."
                 rows={3}
-                className="mt-3"
+                className="mt-3 border-gray-200 focus:border-purple-300 focus:ring-purple-200"
               />
             </div>
 
             <div>
               <Label>Permissions</Label>
-              <div className="mt-2 space-y-4 max-h-96 overflow-y-auto border rounded-md p-4">
+              <div className="mt-2 space-y-4 max-h-[400px] overflow-y-auto border rounded-md p-4">
                 {/* Group permissions by category */}
                 {Array.from(
                   new Set(availablePermissions.map((p) => p.category))
@@ -1725,16 +1896,19 @@ export function UserManagement({
               </div>
             </div>
 
-            <div className="flex space-x-2">
+            <div className="flex space-x-2 pt-4 border-t border-gray-200 flex-shrink-0">
               <Button
                 type="button"
                 variant="outline"
-                className="flex-1"
+                className="flex-1 border-gray-200 text-gray-700 hover:bg-gray-50"
                 onClick={() => setShowAddRole(false)}
               >
                 Cancel
               </Button>
-              <Button type="submit" className="flex-1">
+              <Button
+                type="submit"
+                className="flex-1 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white shadow-lg"
+              >
                 Create Role
               </Button>
             </div>
@@ -1742,26 +1916,35 @@ export function UserManagement({
         </DialogContent>
       </Dialog>
 
-      {/* User Details Dialog */}
+      {/* Enhanced User Details Dialog */}
       <Dialog open={showUserDetails} onOpenChange={setShowUserDetails}>
         <DialogContent className="max-w-2xl">
           {selectedUser && (
             <>
-              <DialogHeader>
-                <DialogTitle>User Details</DialogTitle>
-                <DialogDescription>
+              <DialogHeader className="bg-gradient-to-r from-purple-600 via-violet-600 to-purple-600 text-white p-6 -m-6 mb-6 rounded-t-lg">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-white/20 backdrop-blur-sm">
+                    <Users className="h-5 w-5 text-white" />
+                  </div>
+                  <DialogTitle className="text-xl text-white">
+                    User Details
+                  </DialogTitle>
+                </div>
+                <DialogDescription className="text-purple-100 mt-2">
                   Detailed information for {selectedUser.name}
                 </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-6">
-                <div className="flex items-center space-x-4">
-                  <div className="h-16 w-16 rounded-full bg-blue-600 flex items-center justify-center">
-                    <span className="text-white text-xl font-medium">
+                <div className="flex items-center space-x-4 p-4 rounded-xl bg-gradient-to-br from-purple-50 to-violet-50 border border-purple-200">
+                  <div className="h-16 w-16 rounded-xl bg-gradient-to-br from-purple-500 to-violet-500 flex items-center justify-center shadow-lg">
+                    <span className="text-white text-xl font-bold">
                       {selectedUser.name
                         .split(" ")
                         .map((n: string) => n[0])
-                        .join("")}
+                        .join("")
+                        .toUpperCase()
+                        .slice(0, 2)}
                     </span>
                   </div>
                   <div>
@@ -1844,14 +2027,21 @@ export function UserManagement({
         </DialogContent>
       </Dialog>
 
-      {/* Edit User Dialog */}
+      {/* Enhanced Edit User Dialog */}
       <Dialog open={showEditUser} onOpenChange={setShowEditUser}>
         <DialogContent className="max-w-md">
           {selectedUser && (
             <>
-              <DialogHeader>
-                <DialogTitle>Edit Internal User</DialogTitle>
-                <DialogDescription>
+              <DialogHeader className="bg-gradient-to-r from-purple-600 via-violet-600 to-purple-600 text-white p-6 -m-6 mb-6 rounded-t-lg">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-white/20 backdrop-blur-sm">
+                    <Edit className="h-5 w-5 text-white" />
+                  </div>
+                  <DialogTitle className="text-xl text-white">
+                    Edit Internal User
+                  </DialogTitle>
+                </div>
+                <DialogDescription className="text-purple-100 mt-2">
                   Update internal admin user information
                 </DialogDescription>
               </DialogHeader>
@@ -1877,6 +2067,7 @@ export function UserManagement({
                         })
                       }
                       required
+                      className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
                     />
                   </div>
                   <div>
@@ -1892,6 +2083,7 @@ export function UserManagement({
                         })
                       }
                       required
+                      className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
                     />
                   </div>
                 </div>
@@ -1918,7 +2110,7 @@ export function UserManagement({
                         setSelectedUser({ ...selectedUser, role: value })
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="border-gray-200 focus:border-purple-300 focus:ring-purple-200">
                         <SelectValue placeholder="Select role" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1944,6 +2136,7 @@ export function UserManagement({
                           company: e.target.value,
                         })
                       }
+                      className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
                     />
                   </div>
                   <div>
@@ -1957,6 +2150,7 @@ export function UserManagement({
                           department: e.target.value,
                         })
                       }
+                      className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
                     />
                   </div>
                 </div>
@@ -1970,7 +2164,10 @@ export function UserManagement({
                         setSelectedUser({ ...selectedUser, country: value })
                       }
                     >
-                      <SelectTrigger id="edit-country">
+                      <SelectTrigger
+                        id="edit-country"
+                        className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
+                      >
                         <SelectValue placeholder="Select country" />
                       </SelectTrigger>
                       <SelectContent className="max-h-[300px]">
@@ -1990,7 +2187,10 @@ export function UserManagement({
                         setSelectedUser({ ...selectedUser, status: value })
                       }
                     >
-                      <SelectTrigger id="edit-status">
+                      <SelectTrigger
+                        id="edit-status"
+                        className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
+                      >
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -2001,16 +2201,19 @@ export function UserManagement({
                   </div>
                 </div>
 
-                <div className="flex space-x-2">
+                <div className="flex space-x-2 pt-4 border-t border-gray-200">
                   <Button
                     type="button"
                     variant="outline"
-                    className="flex-1"
+                    className="flex-1 border-gray-200 text-gray-700 hover:bg-gray-50"
                     onClick={() => setShowEditUser(false)}
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" className="flex-1">
+                  <Button
+                    type="submit"
+                    className="flex-1 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white shadow-lg"
+                  >
                     Update User
                   </Button>
                 </div>
@@ -2127,43 +2330,55 @@ export function UserManagement({
         </DialogContent>
       </Dialog>
 
-      {/* View Role Details Dialog */}
+      {/* Enhanced View Role Details Dialog */}
       <Dialog open={showRoleDetails} onOpenChange={setShowRoleDetails}>
         <DialogContent className="max-w-2xl">
           {selectedRole && (
             <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center space-x-2">
-                  <Shield className="h-5 w-5" />
-                  <span>{selectedRole.name}</span>
-                </DialogTitle>
-                <DialogDescription>
+              <DialogHeader className="bg-gradient-to-r from-purple-600 via-violet-600 to-purple-600 text-white p-6 -m-6 mb-6 rounded-t-lg">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-white/20 backdrop-blur-sm">
+                    <Shield className="h-5 w-5 text-white" />
+                  </div>
+                  <DialogTitle className="text-xl text-white">
+                    {selectedRole.name}
+                  </DialogTitle>
+                </div>
+                <DialogDescription className="text-purple-100 mt-2">
                   {selectedRole.description}
                 </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium text-gray-700">
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-violet-50 border border-purple-200">
+                    <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2 block">
                       Status
                     </Label>
                     <div className="mt-1">
                       {selectedRole.isActive ? (
-                        <Badge className="bg-green-100 text-green-800">
+                        <Badge className="bg-green-100 text-green-700 border-green-300">
+                          <CheckCircle className="h-3 w-3 mr-1" />
                           Active
                         </Badge>
                       ) : (
-                        <Badge variant="secondary">Inactive</Badge>
+                        <Badge
+                          variant="outline"
+                          className="bg-gray-100 text-gray-700 border-gray-300"
+                        >
+                          <XCircle className="h-3 w-3 mr-1" />
+                          Inactive
+                        </Badge>
                       )}
                     </div>
                   </div>
-                  <div>
-                    <Label className="text-sm font-medium text-gray-700">
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-violet-50 border border-purple-200">
+                    <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2 block">
                       Users Assigned
                     </Label>
                     <div className="mt-1">
-                      <Badge variant="secondary">
+                      <Badge className="bg-purple-100 text-purple-700 border-purple-300">
+                        <Users className="h-3 w-3 mr-1" />
                         {selectedRole.userCount || 0} users
                       </Badge>
                     </div>
@@ -2259,14 +2474,21 @@ export function UserManagement({
         </DialogContent>
       </Dialog>
 
-      {/* Edit Role Dialog */}
+      {/* Enhanced Edit Role Dialog */}
       <Dialog open={showEditRole} onOpenChange={setShowEditRole}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           {selectedRole && (
             <>
-              <DialogHeader>
-                <DialogTitle>Edit Role</DialogTitle>
-                <DialogDescription>
+              <DialogHeader className="bg-gradient-to-r from-purple-600 via-violet-600 to-purple-600 text-white p-6 -m-6 mb-6 rounded-t-lg">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-white/20 backdrop-blur-sm">
+                    <Edit className="h-5 w-5 text-white" />
+                  </div>
+                  <DialogTitle className="text-xl text-white">
+                    Edit Role
+                  </DialogTitle>
+                </div>
+                <DialogDescription className="text-purple-100 mt-2">
                   Update role information and permissions
                 </DialogDescription>
               </DialogHeader>
@@ -2293,6 +2515,7 @@ export function UserManagement({
                       }
                       required
                       disabled={selectedRole.isSystem}
+                      className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
                     />
                   </div>
                   <div>
@@ -2306,7 +2529,7 @@ export function UserManagement({
                         })
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="border-gray-200 focus:border-purple-300 focus:ring-purple-200">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -2329,6 +2552,7 @@ export function UserManagement({
                       })
                     }
                     placeholder="Brief description of this role"
+                    className="border-gray-200 focus:border-purple-300 focus:ring-purple-200"
                   />
                 </div>
 
@@ -2392,15 +2616,21 @@ export function UserManagement({
                   </div>
                 </div>
 
-                <div className="flex justify-end space-x-2">
+                <div className="flex justify-end space-x-2 pt-4 border-t border-gray-200">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => setShowEditRole(false)}
+                    className="border-gray-200 text-gray-700 hover:bg-gray-50"
                   >
                     Cancel
                   </Button>
-                  <Button type="submit">Save Changes</Button>
+                  <Button
+                    type="submit"
+                    className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white shadow-lg"
+                  >
+                    Save Changes
+                  </Button>
                 </div>
               </form>
             </>

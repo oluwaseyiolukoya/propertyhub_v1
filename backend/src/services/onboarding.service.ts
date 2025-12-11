@@ -1,7 +1,7 @@
-import { PrismaClient } from '@prisma/client';
-import { v4 as uuidv4 } from 'uuid';
-import bcrypt from 'bcryptjs';
-import { calculateTrialEndDateFrom } from '../lib/trial-config';
+import { PrismaClient } from "@prisma/client";
+import { v4 as uuidv4 } from "uuid";
+import bcrypt from "bcryptjs";
+import { calculateTrialEndDateFrom } from "../lib/trial-config";
 import {
   ApplicationInput,
   ApproveApplicationInput,
@@ -9,7 +9,7 @@ import {
   RequestInfoInput,
   ReviewApplicationInput,
   ApplicationFilters,
-} from '../validators/onboarding.validator';
+} from "../validators/onboarding.validator";
 import {
   ApplicationStatus,
   ApplicationWithRelations,
@@ -18,8 +18,8 @@ import {
   ApprovalResult,
   ActivationResult,
   ApplicationTimeline,
-} from '../types/onboarding.types';
-import { sendEmail } from '../lib/email';
+} from "../types/onboarding.types";
+import { sendEmail } from "../lib/email";
 
 const prisma = new PrismaClient();
 
@@ -33,13 +33,15 @@ export class OnboardingService {
     userAgent?: string
   ): Promise<ApplicationWithRelations> {
     // Check if email already exists in applications
-    const existingApplication = await prisma.onboarding_applications.findUnique({
-      where: { email: data.email },
-    });
+    const existingApplication = await prisma.onboarding_applications.findUnique(
+      {
+        where: { email: data.email },
+      }
+    );
 
     if (existingApplication) {
       // Check if they can reapply (rejected more than 30 days ago)
-      if (existingApplication.status === 'rejected') {
+      if (existingApplication.status === "rejected") {
         const daysSinceRejection = existingApplication.updatedAt
           ? Math.floor(
               (Date.now() - existingApplication.updatedAt.getTime()) /
@@ -52,8 +54,8 @@ export class OnboardingService {
             `You can reapply ${30 - daysSinceRejection} days after rejection`
           );
         }
-      } else if (existingApplication.status !== 'rejected') {
-        throw new Error('An application with this email already exists');
+      } else if (existingApplication.status !== "rejected") {
+        throw new Error("An application with this email already exists");
       }
     }
 
@@ -63,7 +65,7 @@ export class OnboardingService {
     });
 
     if (existingCustomer) {
-      throw new Error('An account with this email already exists');
+      throw new Error("An account with this email already exists");
     }
 
     // Create the application
@@ -73,7 +75,7 @@ export class OnboardingService {
         ...data,
         ipAddress,
         userAgent,
-        status: 'pending',
+        status: "pending",
       },
       include: {
         reviewer: true,
@@ -90,7 +92,9 @@ export class OnboardingService {
   /**
    * Get application by ID
    */
-  async getApplicationById(id: string): Promise<ApplicationWithRelations | null> {
+  async getApplicationById(
+    id: string
+  ): Promise<ApplicationWithRelations | null> {
     const application = await prisma.onboarding_applications.findUnique({
       where: { id },
       include: {
@@ -150,7 +154,9 @@ export class OnboardingService {
   /**
    * Get application by email
    */
-  async getApplicationByEmail(email: string): Promise<ApplicationWithRelations | null> {
+  async getApplicationByEmail(
+    email: string
+  ): Promise<ApplicationWithRelations | null> {
     const application = await prisma.onboarding_applications.findUnique({
       where: { email },
       include: {
@@ -168,8 +174,11 @@ export class OnboardingService {
   /**
    * List applications with filters and pagination
    */
-  async listApplications(filters: ApplicationFilters): Promise<PaginatedApplications> {
-    const { status, applicationType, page, limit, sortBy, sortOrder, search } = filters;
+  async listApplications(
+    filters: ApplicationFilters
+  ): Promise<PaginatedApplications> {
+    const { status, applicationType, page, limit, sortBy, sortOrder, search } =
+      filters;
 
     // Build where clause
     const where: any = {};
@@ -179,14 +188,19 @@ export class OnboardingService {
     }
 
     if (applicationType) {
-      where.applicationType = applicationType;
+      // Handle developer filter - match both 'developer' and 'property-developer' since they're treated the same
+      if (applicationType === "developer") {
+        where.applicationType = { in: ["developer", "property-developer"] };
+      } else {
+        where.applicationType = applicationType;
+      }
     }
 
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-        { companyName: { contains: search, mode: 'insensitive' } },
+        { name: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+        { companyName: { contains: search, mode: "insensitive" } },
       ];
     }
 
@@ -210,7 +224,12 @@ export class OnboardingService {
           select: { id: true, company: true, email: true, status: true },
         },
         plan: {
-          select: { id: true, name: true, monthlyPrice: true, annualPrice: true },
+          select: {
+            id: true,
+            name: true,
+            monthlyPrice: true,
+            annualPrice: true,
+          },
         },
       },
       orderBy: { [sortBy]: sortOrder },
@@ -247,7 +266,8 @@ export class OnboardingService {
         ...data,
         ...(adminId ? { reviewedBy: adminId } : {}),
         reviewedAt: new Date(),
-        status: data.reviewStatus === 'in_progress' ? 'under_review' : undefined,
+        status:
+          data.reviewStatus === "in_progress" ? "under_review" : undefined,
       },
       include: {
         reviewer: true,
@@ -274,11 +294,14 @@ export class OnboardingService {
     });
 
     if (!application) {
-      throw new Error('Application not found');
+      throw new Error("Application not found");
     }
 
-    if (application.status === 'approved' || application.status === 'activated') {
-      throw new Error('Application already approved');
+    if (
+      application.status === "approved" ||
+      application.status === "activated"
+    ) {
+      throw new Error("Application already approved");
     }
 
     // Calculate trial dates
@@ -297,7 +320,10 @@ export class OnboardingService {
       customer = await prisma.customers.update({
         where: { id: existingCustomer.id },
         data: {
-          company: existingCustomer.company || application.companyName || application.name,
+          company:
+            existingCustomer.company ||
+            application.companyName ||
+            application.name,
           owner: existingCustomer.owner || application.name,
           phone: existingCustomer.phone ?? application.phone ?? undefined,
           website: existingCustomer.website ?? application.website ?? undefined,
@@ -305,11 +331,19 @@ export class OnboardingService {
           street: existingCustomer.street ?? application.street ?? undefined,
           city: existingCustomer.city ?? application.city ?? undefined,
           state: existingCustomer.state ?? application.state ?? undefined,
-          postalCode: existingCustomer.postalCode ?? application.postalCode ?? undefined,
+          postalCode:
+            existingCustomer.postalCode ?? application.postalCode ?? undefined,
           country: existingCustomer.country ?? application.country ?? undefined,
-          planId: data.planId || application.selectedPlanId || existingCustomer.planId || undefined,
-          billingCycle: (data.billingCycle || application.selectedBillingCycle || existingCustomer.billingCycle || 'monthly') as any,
-          status: existingCustomer.status === 'active' ? 'active' : 'trial',
+          planId:
+            data.planId ||
+            application.selectedPlanId ||
+            existingCustomer.planId ||
+            undefined,
+          billingCycle: (data.billingCycle ||
+            application.selectedBillingCycle ||
+            existingCustomer.billingCycle ||
+            "monthly") as any,
+          status: existingCustomer.status === "active" ? "active" : "trial",
           trialStartsAt: existingCustomer.trialStartsAt || now,
           trialEndsAt: trialEndsAt,
           subscriptionStartDate: existingCustomer.subscriptionStartDate || now,
@@ -332,8 +366,9 @@ export class OnboardingService {
           postalCode: application.postalCode,
           country: application.country,
           planId: data.planId || application.selectedPlanId,
-          billingCycle: data.billingCycle || application.selectedBillingCycle || 'monthly',
-          status: 'trial',
+          billingCycle:
+            data.billingCycle || application.selectedBillingCycle || "monthly",
+          status: "trial",
           trialStartsAt: now,
           trialEndsAt,
           subscriptionStartDate: now,
@@ -350,24 +385,41 @@ export class OnboardingService {
             <h2 style="margin:0 0 12px">🆕 New Customer Account Created (Onboarding)</h2>
             <p style="margin:0 0 16px">A new customer has been created via onboarding.</p>
             <table style="border-collapse:collapse">
-              <tr><td style="padding:4px 8px;color:#555">Company</td><td style="padding:4px 8px;font-weight:600">${customer.company}</td></tr>
-              <tr><td style="padding:4px 8px;color:#555">Owner</td><td style="padding:4px 8px">${customer.owner}</td></tr>
-              <tr><td style="padding:4px 8px;color:#555">Email</td><td style="padding:4px 8px">${customer.email}</td></tr>
-              <tr><td style="padding:4px 8px;color:#555">Plan ID</td><td style="padding:4px 8px">${customer.planId || 'N/A'}</td></tr>
-              <tr><td style="padding:4px 8px;color:#555">Billing Cycle</td><td style="padding:4px 8px">${customer.billingCycle || 'monthly'}</td></tr>
-              <tr><td style="padding:4px 8px;color:#555">Status</td><td style="padding:4px 8px">${customer.status}</td></tr>
-              <tr><td style="padding:4px 8px;color:#555">Country</td><td style="padding:4px 8px">${customer.country || 'Nigeria'}</td></tr>
+              <tr><td style="padding:4px 8px;color:#555">Company</td><td style="padding:4px 8px;font-weight:600">${
+                customer.company
+              }</td></tr>
+              <tr><td style="padding:4px 8px;color:#555">Owner</td><td style="padding:4px 8px">${
+                customer.owner
+              }</td></tr>
+              <tr><td style="padding:4px 8px;color:#555">Email</td><td style="padding:4px 8px">${
+                customer.email
+              }</td></tr>
+              <tr><td style="padding:4px 8px;color:#555">Plan ID</td><td style="padding:4px 8px">${
+                customer.planId || "N/A"
+              }</td></tr>
+              <tr><td style="padding:4px 8px;color:#555">Billing Cycle</td><td style="padding:4px 8px">${
+                customer.billingCycle || "monthly"
+              }</td></tr>
+              <tr><td style="padding:4px 8px;color:#555">Status</td><td style="padding:4px 8px">${
+                customer.status
+              }</td></tr>
+              <tr><td style="padding:4px 8px;color:#555">Country</td><td style="padding:4px 8px">${
+                customer.country || "Nigeria"
+              }</td></tr>
             </table>
             <p style="margin-top:16px;color:#777;font-size:12px">Sent automatically by Contrezz</p>
           </div>
         `;
         await sendEmail({
-          to: 'admin@contrezz.com',
+          to: "admin@contrezz.com",
           subject: `New customer created (Onboarding): ${customer.company} (${customer.owner})`,
           html,
         });
       } catch (err) {
-        console.error('Failed to send admin onboarding new-customer notification:', err);
+        console.error(
+          "Failed to send admin onboarding new-customer notification:",
+          err
+        );
       }
     })();
 
@@ -375,10 +427,10 @@ export class OnboardingService {
     await prisma.subscription_events.create({
       data: {
         customerId: customer.id,
-        eventType: 'trial_started',
+        eventType: "trial_started",
         previousStatus: existingCustomer?.status || null,
-        newStatus: 'trial',
-        triggeredBy: 'admin',
+        newStatus: "trial",
+        triggeredBy: "admin",
         metadata: {
           trialDays: data.trialDays || 14,
           approvedBy: adminId,
@@ -391,8 +443,10 @@ export class OnboardingService {
     await prisma.onboarding_applications.update({
       where: { id },
       data: {
-        status: 'approved',
-        ...(adminId ? { approvedBy: adminId, approvedAt: new Date() } : { approvedAt: new Date() }),
+        status: "approved",
+        ...(adminId
+          ? { approvedBy: adminId, approvedAt: new Date() }
+          : { approvedAt: new Date() }),
         customerId: customer.id,
         reviewNotes: data.notes || application.reviewNotes,
       },
@@ -401,7 +455,7 @@ export class OnboardingService {
     return {
       success: true,
       customerId: customer.id,
-      message: 'Application approved and customer account created',
+      message: "Application approved and customer account created",
     };
   }
 
@@ -418,15 +472,15 @@ export class OnboardingService {
     });
 
     if (!application) {
-      throw new Error('Application not found');
+      throw new Error("Application not found");
     }
 
-    if (application.status !== 'approved') {
-      throw new Error('Application must be approved first');
+    if (application.status !== "approved") {
+      throw new Error("Application must be approved first");
     }
 
     if (!application.customerId || !application.customer) {
-      throw new Error('Customer account not found');
+      throw new Error("Customer account not found");
     }
 
     // Generate temporary password
@@ -442,9 +496,13 @@ export class OnboardingService {
     });
 
     // If the email already belongs to a different customer, fail with a clear, business-friendly error
-    if (existingUser && existingUser.customerId && existingUser.customerId !== application.customerId) {
+    if (
+      existingUser &&
+      existingUser.customerId &&
+      existingUser.customerId !== application.customerId
+    ) {
       throw new Error(
-        'A user account with this email already exists for a different customer. Please use a different email or contact support.'
+        "A user account with this email already exists for a different customer. Please use a different email or contact support."
       );
     }
 
@@ -455,12 +513,18 @@ export class OnboardingService {
     // They are essentially owners of their own customer account
     // Developers get 'developer' role for access to developer-specific features
     let userRole: string;
-    if (application.applicationType === 'property-developer' || application.applicationType === 'developer') {
-      userRole = 'developer';
-    } else if (application.applicationType === 'property-owner' || application.applicationType === 'property-manager') {
-      userRole = 'owner';
+    if (
+      application.applicationType === "property-developer" ||
+      application.applicationType === "developer"
+    ) {
+      userRole = "developer";
+    } else if (
+      application.applicationType === "property-owner" ||
+      application.applicationType === "property-manager"
+    ) {
+      userRole = "owner";
     } else {
-      userRole = 'tenant';
+      userRole = "tenant";
     }
 
     if (existingUser) {
@@ -475,7 +539,7 @@ export class OnboardingService {
           password: hashedPassword,
           phone: application.phone || existingUser.phone,
           role: userRole,
-          status: 'active',
+          status: "active",
           isActive: true,
           updatedAt: new Date(),
         },
@@ -490,7 +554,7 @@ export class OnboardingService {
           password: hashedPassword,
           phone: application.phone,
           role: userRole,
-          status: 'active',
+          status: "active",
           isActive: true,
           updatedAt: new Date(),
         },
@@ -506,7 +570,7 @@ export class OnboardingService {
     await prisma.customers.update({
       where: { id: application.customerId },
       data: {
-        status: 'pending_kyc', // New status to indicate awaiting KYC
+        status: "pending_kyc", // New status to indicate awaiting KYC
         requiresKyc: true,
         updatedAt: new Date(),
       },
@@ -516,7 +580,7 @@ export class OnboardingService {
     await prisma.onboarding_applications.update({
       where: { id },
       data: {
-        status: 'activated',
+        status: "activated",
         ...(adminId ? { activatedBy: adminId } : {}),
         activatedAt: new Date(),
         userId,
@@ -526,7 +590,7 @@ export class OnboardingService {
     return {
       success: true,
       temporaryPassword: tempPassword,
-      message: 'Account activated successfully',
+      message: "Account activated successfully",
       email: application.email,
       name: application.name,
       companyName: application.companyName || application.customer.company,
@@ -545,10 +609,12 @@ export class OnboardingService {
     const application = await prisma.onboarding_applications.update({
       where: { id },
       data: {
-        status: 'rejected',
+        status: "rejected",
         rejectionReason: data.reason,
         reviewNotes: data.message || undefined,
-        ...(adminId ? { approvedBy: adminId, approvedAt: new Date() } : { approvedAt: new Date() }),
+        ...(adminId
+          ? { approvedBy: adminId, approvedAt: new Date() }
+          : { approvedAt: new Date() }),
       },
       include: {
         reviewer: true,
@@ -570,13 +636,13 @@ export class OnboardingService {
     adminId: string,
     data: RequestInfoInput
   ): Promise<ApplicationWithRelations> {
-    const requestedInfoText = data.requestedInfo.join('\n- ');
+    const requestedInfoText = data.requestedInfo.join("\n- ");
 
     const application = await prisma.onboarding_applications.update({
       where: { id },
       data: {
-        status: 'info_requested',
-        reviewStatus: 'in_progress',
+        status: "info_requested",
+        reviewStatus: "in_progress",
         reviewNotes: `${data.message}\n\nRequested Information:\n- ${requestedInfoText}`,
         ...(adminId ? { reviewedBy: adminId } : {}),
         reviewedAt: new Date(),
@@ -597,17 +663,28 @@ export class OnboardingService {
    * Get application statistics
    */
   async getStats(): Promise<ApplicationStats> {
-    const [pending, under_review, info_requested, approved, rejected, activated] =
-      await Promise.all([
-        prisma.onboarding_applications.count({ where: { status: 'pending' } }),
-        prisma.onboarding_applications.count({ where: { status: 'under_review' } }),
-        prisma.onboarding_applications.count({ where: { status: 'info_requested' } }),
-        prisma.onboarding_applications.count({ where: { status: 'approved' } }),
-        prisma.onboarding_applications.count({ where: { status: 'rejected' } }),
-        prisma.onboarding_applications.count({ where: { status: 'activated' } }),
-      ]);
+    const [
+      pending,
+      under_review,
+      info_requested,
+      approved,
+      rejected,
+      activated,
+    ] = await Promise.all([
+      prisma.onboarding_applications.count({ where: { status: "pending" } }),
+      prisma.onboarding_applications.count({
+        where: { status: "under_review" },
+      }),
+      prisma.onboarding_applications.count({
+        where: { status: "info_requested" },
+      }),
+      prisma.onboarding_applications.count({ where: { status: "approved" } }),
+      prisma.onboarding_applications.count({ where: { status: "rejected" } }),
+      prisma.onboarding_applications.count({ where: { status: "activated" } }),
+    ]);
 
-    const total = pending + under_review + info_requested + approved + rejected + activated;
+    const total =
+      pending + under_review + info_requested + approved + rejected + activated;
 
     return {
       pending,
@@ -627,41 +704,47 @@ export class OnboardingService {
     const timeline: ApplicationTimeline[] = [];
 
     timeline.push({
-      action: 'Application Submitted',
+      action: "Application Submitted",
       timestamp: application.createdAt,
       actor: application.name,
     });
 
     if (application.reviewedAt) {
       timeline.push({
-        action: 'Under Review',
+        action: "Under Review",
         timestamp: application.reviewedAt,
-        actor: application.reviewer?.name || 'Admin',
+        actor: application.reviewer?.name || "Admin",
       });
     }
 
-    if (application.status === 'info_requested') {
+    if (application.status === "info_requested") {
       timeline.push({
-        action: 'Additional Information Requested',
+        action: "Additional Information Requested",
         timestamp: application.updatedAt,
-        actor: application.reviewer?.name || 'Admin',
+        actor: application.reviewer?.name || "Admin",
       });
     }
 
     if (application.approvedAt) {
       timeline.push({
-        action: application.status === 'rejected' ? 'Application Rejected' : 'Application Approved',
+        action:
+          application.status === "rejected"
+            ? "Application Rejected"
+            : "Application Approved",
         timestamp: application.approvedAt,
-        actor: application.approver?.name || 'Admin',
-        details: application.status === 'rejected' ? application.rejectionReason : undefined,
+        actor: application.approver?.name || "Admin",
+        details:
+          application.status === "rejected"
+            ? application.rejectionReason
+            : undefined,
       });
     }
 
     if (application.activatedAt) {
       timeline.push({
-        action: 'Account Activated',
+        action: "Account Activated",
         timestamp: application.activatedAt,
-        actor: application.activator?.name || 'Admin',
+        actor: application.activator?.name || "Admin",
       });
     }
 
@@ -677,18 +760,20 @@ export class OnboardingService {
     });
 
     if (!application) {
-      throw new Error('Application not found');
+      throw new Error("Application not found");
     }
 
     // Check if customer account exists and is active
     if (application.customerId) {
       const customer = await prisma.customers.findUnique({
         where: { id: application.customerId },
-        select: { id: true, status: true, email: true }
+        select: { id: true, status: true, email: true },
       });
 
       if (customer) {
-        throw new Error(`Cannot delete application: Customer account exists (${customer.email}). Please deactivate or delete the customer account first.`);
+        throw new Error(
+          `Cannot delete application: Customer account exists (${customer.email}). Please deactivate or delete the customer account first.`
+        );
       }
     }
 
@@ -706,8 +791,9 @@ export class OnboardingService {
    * Generate temporary password
    */
   private generateTemporaryPassword(): string {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%^&*';
-    let password = '';
+    const chars =
+      "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%^&*";
+    let password = "";
     for (let i = 0; i < 12; i++) {
       password += chars.charAt(Math.floor(Math.random() * chars.length));
     }
@@ -716,4 +802,3 @@ export class OnboardingService {
 }
 
 export const onboardingService = new OnboardingService();
-

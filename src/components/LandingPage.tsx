@@ -1,15 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Building, Star, ArrowRight, Building2, Users, Key, CreditCard, Wrench, Shield, CheckCircle, Zap, TrendingUp, Hammer, Sparkles } from 'lucide-react';
+import {
+  Building,
+  Star,
+  ArrowRight,
+  Building2,
+  Users,
+  Key,
+  CreditCard,
+  Wrench,
+  Shield,
+  CheckCircle,
+  Zap,
+  TrendingUp,
+  Hammer,
+  Sparkles,
+} from "lucide-react";
 import {
   ADD_ONS,
   formatCurrency,
   type UserType,
   type PricingPlan,
-} from '../types/pricing';
+} from "../types/pricing";
 
 interface LandingPageProps {
   onNavigateToLogin: () => void;
@@ -27,11 +42,28 @@ interface LandingPageProps {
   onNavigateToSecurity?: () => void;
 }
 
-export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavigateToAPIDocumentation, onNavigateToIntegrations, onNavigateToAbout, onNavigateToContact, onNavigateToScheduleDemo, onNavigateToBlog, onNavigateToCareers, onNavigateToHelpCenter, onNavigateToCommunity, onNavigateToStatus, onNavigateToSecurity }: LandingPageProps) {
+export function LandingPage({
+  onNavigateToLogin,
+  onNavigateToGetStarted,
+  onNavigateToAPIDocumentation,
+  onNavigateToIntegrations,
+  onNavigateToAbout,
+  onNavigateToContact,
+  onNavigateToScheduleDemo,
+  onNavigateToBlog,
+  onNavigateToCareers,
+  onNavigateToHelpCenter,
+  onNavigateToCommunity,
+  onNavigateToStatus,
+  onNavigateToSecurity,
+}: LandingPageProps) {
   const [scrollY, setScrollY] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
-  const [selectedUserType, setSelectedUserType] = useState<UserType>('property-owner');
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+  const [selectedUserType, setSelectedUserType] =
+    useState<UserType>("property-owner");
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">(
+    "monthly"
+  );
   const [ownerPlans, setOwnerPlans] = useState<PricingPlan[]>([]);
   const [developerPlans, setDeveloperPlans] = useState<PricingPlan[]>([]);
   const [pricingLoading, setPricingLoading] = useState(true);
@@ -40,8 +72,8 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
   useEffect(() => {
     setIsVisible(true);
     const handleScroll = () => setScrollY(window.scrollY);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   // Fetch pricing plans for landing page from public API (database is source of truth)
@@ -50,14 +82,16 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
       try {
         setPricingLoading(true);
         setPricingError(null);
-        console.log('[LandingPage] Fetching pricing plans from /api/public/plans');
+        console.log(
+          "[LandingPage] Fetching pricing plans from /api/public/plans"
+        );
 
         const timestamp = new Date().getTime();
         const response = await fetch(`/api/public/plans?_t=${timestamp}`, {
-          cache: 'no-cache',
+          cache: "no-cache",
           headers: {
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache',
+            "Cache-Control": "no-cache",
+            Pragma: "no-cache",
           },
         });
 
@@ -68,23 +102,23 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
         const result = await response.json();
 
         if (!result.success || !Array.isArray(result.data)) {
-          throw new Error('Invalid pricing response');
+          throw new Error("Invalid pricing response");
         }
 
         const plans = result.data as any[];
 
         // Backend already filters isActive=true, so no need to check p.isActive here
         const owner: PricingPlan[] = plans
-          .filter((p) => p.category === 'property_management')
+          .filter((p) => p.category === "property_management")
           .sort((a, b) => a.monthlyPrice - b.monthlyPrice)
-          .map((p) => convertDbPlanToPricingPlan(p, 'property-owner'));
+          .map((p) => convertDbPlanToPricingPlan(p, "property-owner"));
 
         const developers: PricingPlan[] = plans
-          .filter((p) => p.category === 'development')
+          .filter((p) => p.category === "development")
           .sort((a, b) => a.monthlyPrice - b.monthlyPrice)
-          .map((p) => convertDbPlanToPricingPlan(p, 'property-developer'));
+          .map((p) => convertDbPlanToPricingPlan(p, "property-developer"));
 
-        console.log('[LandingPage] Loaded pricing plans:', {
+        console.log("[LandingPage] Loaded pricing plans:", {
           owner: owner.map((p) => ({ name: p.name, price: p.price })),
           developers: developers.map((p) => ({ name: p.name, price: p.price })),
         });
@@ -92,8 +126,8 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
         setOwnerPlans(owner);
         setDeveloperPlans(developers);
       } catch (error: any) {
-        console.error('[LandingPage] Failed to load pricing plans:', error);
-        setPricingError(error.message || 'Failed to load pricing plans');
+        console.error("[LandingPage] Failed to load pricing plans:", error);
+        setPricingError(error.message || "Failed to load pricing plans");
         setOwnerPlans([]);
         setDeveloperPlans([]);
       } finally {
@@ -105,26 +139,29 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
   }, []);
 
   // Map database plan shape to landing page PricingPlan shape
-  const convertDbPlanToPricingPlan = (dbPlan: any, userType: UserType): PricingPlan => {
+  const convertDbPlanToPricingPlan = (
+    dbPlan: any,
+    userType: UserType
+  ): PricingPlan => {
     const features = Array.isArray(dbPlan.features)
       ? dbPlan.features.map((text: string) => ({ text, included: true }))
       : [];
 
     const storageGB =
-      typeof dbPlan.storageLimit === 'number'
+      typeof dbPlan.storageLimit === "number"
         ? dbPlan.storageLimit >= 999999
-          ? 'Unlimited'
+          ? "Unlimited"
           : `${Math.floor(dbPlan.storageLimit / 1024)}GB`
-        : '0GB';
+        : "0GB";
 
     const plan: PricingPlan = {
       id: dbPlan.id,
       name: dbPlan.name,
-      description: dbPlan.description || '',
+      description: dbPlan.description || "",
       price: dbPlan.monthlyPrice,
       annualPrice: dbPlan.annualPrice,
-      currency: dbPlan.currency || 'NGN',
-      billingPeriod: 'month',
+      currency: dbPlan.currency || "NGN",
+      billingPeriod: "month",
       userType,
       popular: dbPlan.isPopular || false,
       limits: {
@@ -136,8 +173,9 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
       },
       features,
       cta: {
-        text: dbPlan.monthlyPrice > 50000 ? 'Contact Sales' : 'Start Free Trial',
-        action: dbPlan.monthlyPrice > 50000 ? 'contact' : 'signup',
+        text:
+          dbPlan.monthlyPrice > 50000 ? "Contact Sales" : "Start Free Trial",
+        action: dbPlan.monthlyPrice > 50000 ? "contact" : "signup",
       },
     };
 
@@ -147,46 +185,52 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
   const features = [
     {
       icon: Building2,
-      title: 'Property & Portfolio Management',
-      description: 'Manage rental properties and development projects from a single dashboard. Track occupancy, monitor construction progress, and access real-time insights across your entire portfolio.',
-      color: 'blue'
+      title: "Property & Portfolio Management",
+      description:
+        "Manage rental properties and development projects from a single dashboard. Track occupancy, monitor construction progress, and access real-time insights across your entire portfolio.",
+      color: "blue",
     },
     {
       icon: Users,
-      title: 'Tenant & Stakeholder Management',
-      description: 'From application to move-out, manage the entire tenant lifecycle. Digital lease agreements, automated communication, and a portal that keeps tenants, investors, and stakeholders informed.',
-      color: 'green'
+      title: "Tenant & Stakeholder Management",
+      description:
+        "From application to move-out, manage the entire tenant lifecycle. Digital lease agreements, automated communication, and a portal that keeps tenants, investors, and stakeholders informed.",
+      color: "green",
     },
     {
       icon: CreditCard,
-      title: 'Payment & Financial Management',
-      description: 'Never chase payments again. Automated rent collection for property managers, milestone-based payments for developers. Multiple payment options via Paystack with instant notifications.',
-      color: 'purple'
+      title: "Payment & Financial Management",
+      description:
+        "Never chase payments again. Automated rent collection for property managers, milestone-based payments for developers. Multiple payment options via Paystack with instant notifications.",
+      color: "purple",
     },
     {
       icon: Key,
-      title: 'Smart Access Control',
-      description: 'Revolutionary keycard system for rental properties and construction sites. Control who enters your properties with automated access that syncs with payment status—no more manual tracking.',
-      color: 'orange'
+      title: "Smart Access Control",
+      description:
+        "Revolutionary keycard system for rental properties and construction sites. Control who enters your properties with automated access that syncs with payment status—no more manual tracking.",
+      color: "orange",
     },
     {
       icon: Wrench,
-      title: 'Project & Maintenance Tracking',
-      description: 'From construction milestones to maintenance requests, track every task from start to finish. Assign vendors, monitor progress, and keep everyone updated in real-time.',
-      color: 'red'
+      title: "Project & Maintenance Tracking",
+      description:
+        "From construction milestones to maintenance requests, track every task from start to finish. Assign vendors, monitor progress, and keep everyone updated in real-time.",
+      color: "red",
     },
     {
       icon: Shield,
-      title: 'Security & Compliance',
-      description: 'Bank-level security protects your data and your tenants\' information. SSL encryption, regular backups, and NDPR compliance give you peace of mind.',
-      color: 'indigo'
-    }
+      title: "Security & Compliance",
+      description:
+        "Bank-level security protects your data and your tenants' information. SSL encryption, regular backups, and NDPR compliance give you peace of mind.",
+      color: "indigo",
+    },
   ];
 
   const stats = [
-    { value: '₦7.5B+', label: 'Total Portfolio Value', icon: TrendingUp },
-    { value: '20 Hours', label: 'Saved Per Week', icon: Zap },
-    { value: '500+', label: 'Active Professionals', icon: Building2 }
+    { value: "₦7.5B+", label: "Total Portfolio Value", icon: TrendingUp },
+    { value: "20 Hours", label: "Saved Per Week", icon: Zap },
+    { value: "500+", label: "Active Professionals", icon: Building2 },
   ];
 
   const testimonials = [
@@ -195,22 +239,22 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
       company: "Skyline Properties Lagos",
       role: "Managing Director | 45 Properties",
       rating: 5,
-      text: "Before Contrezz, I spent 3 days every month chasing rent payments. Now, 98% of my tenants pay on time thanks to automated reminders. The keycard system is genius—no more changing locks when tenants leave!"
+      text: "Before Contrezz, I spent 3 days every month chasing rent payments. Now, 98% of my tenants pay on time thanks to automated reminders. The keycard system is genius—no more changing locks when tenants leave!",
     },
     {
       name: "Olumide Balogun",
       company: "Balogun Developments",
       role: "CEO | ₦2.3B in Active Projects",
       rating: 5,
-      text: "Managing 8 construction projects simultaneously was a nightmare. Contrezz's developer dashboard gives me real-time visibility into budgets, timelines, and vendor performance. We've reduced cost overruns by 15%."
+      text: "Managing 8 construction projects simultaneously was a nightmare. Contrezz's developer dashboard gives me real-time visibility into budgets, timelines, and vendor performance. We've reduced cost overruns by 15%.",
     },
     {
       name: "Chioma Nwosu",
       company: "Prime Estates Nigeria",
       role: "Operations Manager | 60 Properties",
       rating: 5,
-      text: "We manage properties across Lagos and Abuja. Contrezz cut our admin time by 70% and increased our on-time rent collection from 65% to 97%. The ROI was immediate—we recovered the subscription cost in the first month."
-    }
+      text: "We manage properties across Lagos and Abuja. Contrezz cut our admin time by 70% and increased our on-time rent collection from 65% to 97%. The ROI was immediate—we recovered the subscription cost in the first month.",
+    },
   ];
 
   return (
@@ -220,21 +264,30 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <button
-              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
               className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
             >
               <Building className="h-8 w-8 text-blue-600" />
               <h1 className="text-xl font-bold text-gray-900">Contrezz</h1>
-              <Badge variant="secondary" className="ml-2">SaaS</Badge>
+              <Badge variant="secondary" className="ml-2">
+                SaaS
+              </Badge>
             </button>
 
             <nav className="hidden md:flex items-center space-x-8">
-              <a href="#features" className="text-gray-600 hover:text-gray-900">Features</a>
-              <a href="#pricing" className="text-gray-600 hover:text-gray-900">Pricing</a>
-              <a href="#testimonials" className="text-gray-600 hover:text-gray-900">Testimonials</a>
-              <Button onClick={onNavigateToLogin}>
-                Sign In
-              </Button>
+              <a href="#features" className="text-gray-600 hover:text-gray-900">
+                Features
+              </a>
+              <a href="#pricing" className="text-gray-600 hover:text-gray-900">
+                Pricing
+              </a>
+              <a
+                href="#testimonials"
+                className="text-gray-600 hover:text-gray-900"
+              >
+                Testimonials
+              </a>
+              <Button onClick={onNavigateToLogin}>Sign In</Button>
             </nav>
           </div>
         </div>
@@ -250,16 +303,27 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
 
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className={`transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+            <div
+              className={`transition-all duration-1000 ${
+                isVisible
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-10"
+              }`}
+            >
               <Badge className="mb-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 animate-bounce">
-                <Building2 className="h-3 w-3 mr-1" /> For Property Managers & Developers
+                <Building2 className="h-3 w-3 mr-1" /> For Property Managers &
+                Developers
               </Badge>
               <h1 className="text-4xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight">
                 Property Management & Development.
-                <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> Simplified Reporting.</span>
+                <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  {" "}
+                  Simplified Reporting.
+                </span>
               </h1>
               <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-                Automate operations, track budgets, and collect rent on time. Built for Nigerian property professionals.
+                Automate operations, track budgets, and collect rent on time.
+                Built for Nigerian property professionals.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button
@@ -283,7 +347,13 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
                 {stats.map((stat, index) => (
                   <div
                     key={index}
-                    className={`text-center transform transition-all duration-700 delay-${index * 200} ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
+                    className={`text-center transform transition-all duration-700 delay-${
+                      index * 200
+                    } ${
+                      isVisible
+                        ? "opacity-100 translate-y-0"
+                        : "opacity-0 translate-y-10"
+                    }`}
                   >
                     <div className="flex items-center justify-center mb-2">
                       <stat.icon className="h-6 w-6 text-blue-600 mr-2" />
@@ -297,7 +367,13 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
               </div>
             </div>
 
-            <div className={`relative transition-all duration-1000 delay-300 ${isVisible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-10'}`}>
+            <div
+              className={`relative transition-all duration-1000 delay-300 ${
+                isVisible
+                  ? "opacity-100 translate-x-0"
+                  : "opacity-0 translate-x-10"
+              }`}
+            >
               <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-600 rounded-3xl transform rotate-6 animate-pulse"></div>
               <div className="relative bg-white rounded-3xl shadow-2xl p-8 hover:shadow-3xl transition-shadow duration-300">
                 <div className="space-y-4">
@@ -310,7 +386,9 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
                         Property Portfolio
                         <CheckCircle className="h-4 w-4 text-green-500 ml-2" />
                       </div>
-                      <div className="text-sm text-gray-600">Manage all properties in one place</div>
+                      <div className="text-sm text-gray-600">
+                        Manage all properties in one place
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3 p-3 rounded-lg hover:bg-green-50 transition-colors duration-200 group">
@@ -322,7 +400,9 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
                         Tenant Management
                         <CheckCircle className="h-4 w-4 text-green-500 ml-2" />
                       </div>
-                      <div className="text-sm text-gray-600">Streamlined tenant operations</div>
+                      <div className="text-sm text-gray-600">
+                        Streamlined tenant operations
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3 p-3 rounded-lg hover:bg-purple-50 transition-colors duration-200 group">
@@ -334,7 +414,9 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
                         Payment Processing
                         <CheckCircle className="h-4 w-4 text-green-500 ml-2" />
                       </div>
-                      <div className="text-sm text-gray-600">Automated rent collection</div>
+                      <div className="text-sm text-gray-600">
+                        Automated rent collection
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -345,27 +427,38 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-20 bg-gradient-to-b from-white to-gray-50">
+      <section
+        id="features"
+        className="py-20 bg-gradient-to-b from-white to-gray-50"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <Badge className="mb-4 bg-blue-100 text-blue-700 hover:bg-blue-200">
-              <Building2 className="h-3 w-3 mr-1" /> Built for Managers & Developers
+              <Building2 className="h-3 w-3 mr-1" /> Built for Managers &
+              Developers
             </Badge>
-            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">Everything You Need—From Blueprint to Bottom Line</h2>
+            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
+              Everything You Need—From Blueprint to Bottom Line
+            </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Comprehensive tools for managing existing properties and developing new ones. One platform, unlimited possibilities.
+              Comprehensive tools for managing existing properties and
+              developing new ones. One platform, unlimited possibilities.
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((feature, index) => {
               const colorClasses = {
-                blue: 'from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700',
-                green: 'from-green-500 to-green-600 hover:from-green-600 hover:to-green-700',
-                purple: 'from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700',
-                orange: 'from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700',
-                red: 'from-red-500 to-red-600 hover:from-red-600 hover:to-red-700',
-                indigo: 'from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700'
+                blue: "from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700",
+                green:
+                  "from-green-500 to-green-600 hover:from-green-600 hover:to-green-700",
+                purple:
+                  "from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700",
+                orange:
+                  "from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700",
+                red: "from-red-500 to-red-600 hover:from-red-600 hover:to-red-700",
+                indigo:
+                  "from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700",
               };
 
               return (
@@ -374,9 +467,17 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
                   className="group border-0 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 cursor-pointer overflow-hidden"
                   style={{ animationDelay: `${index * 100}ms` }}
                 >
-                  <div className={`absolute inset-0 bg-gradient-to-br ${colorClasses[feature.color as keyof typeof colorClasses]} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
+                  <div
+                    className={`absolute inset-0 bg-gradient-to-br ${
+                      colorClasses[feature.color as keyof typeof colorClasses]
+                    } opacity-0 group-hover:opacity-10 transition-opacity duration-300`}
+                  ></div>
                   <CardHeader className="relative">
-                    <div className={`h-14 w-14 bg-gradient-to-br ${colorClasses[feature.color as keyof typeof colorClasses]} rounded-xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                    <div
+                      className={`h-14 w-14 bg-gradient-to-br ${
+                        colorClasses[feature.color as keyof typeof colorClasses]
+                      } rounded-xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300`}
+                    >
                       <feature.icon className="h-7 w-7 text-white" />
                     </div>
                     <CardTitle className="text-xl group-hover:text-gray-900 transition-colors">
@@ -384,7 +485,9 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="relative">
-                    <p className="text-gray-600 leading-relaxed">{feature.description}</p>
+                    <p className="text-gray-600 leading-relaxed">
+                      {feature.description}
+                    </p>
                     <div className="mt-4 flex items-center text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                       <span className="text-sm font-semibold">Learn more</span>
                       <ArrowRight className="h-4 w-4 ml-1 transform group-hover:translate-x-1 transition-transform" />
@@ -411,7 +514,8 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
               Simple, Transparent Pricing
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Choose the perfect plan for your needs. All plans include a 14-day free trial.
+              Choose the perfect plan for your needs. All plans include a 14-day
+              free trial.
             </p>
           </div>
 
@@ -447,7 +551,9 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
                   For Property Owners & Managers
                 </p>
                 <p className="text-sm text-gray-500 mt-2">
-                  Perfect for landlords, property managers, and facility management companies managing rental properties. Automate rent collection, tenant management, and maintenance tracking.
+                  Perfect for landlords, property managers, and facility
+                  management companies managing rental properties. Automate rent
+                  collection, tenant management, and maintenance tracking.
                 </p>
               </div>
 
@@ -455,25 +561,27 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
               <div className="flex justify-center mb-8">
                 <div className="inline-flex items-center bg-gray-100 rounded-lg p-1">
                   <button
-                    onClick={() => setBillingCycle('monthly')}
+                    onClick={() => setBillingCycle("monthly")}
                     className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
-                      billingCycle === 'monthly'
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
+                      billingCycle === "monthly"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
                     }`}
                   >
                     Monthly
                   </button>
                   <button
-                    onClick={() => setBillingCycle('annual')}
+                    onClick={() => setBillingCycle("annual")}
                     className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
-                      billingCycle === 'annual'
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
+                      billingCycle === "annual"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
                     }`}
                   >
                     Annual
-                    <span className="ml-2 text-xs text-green-600 font-semibold">Save 17%</span>
+                    <span className="ml-2 text-xs text-green-600 font-semibold">
+                      Save 17%
+                    </span>
                   </button>
                 </div>
               </div>
@@ -485,12 +593,11 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
               ) : ownerPlans.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-gray-600">
-                    No pricing plans are available yet. Please create plans in the Admin dashboard.
+                    No pricing plans are available yet. Please create plans in
+                    the Admin dashboard.
                   </p>
                   {pricingError && (
-                    <p className="text-sm text-red-500 mt-2">
-                      {pricingError}
-                    </p>
+                    <p className="text-sm text-red-500 mt-2">{pricingError}</p>
                   )}
                 </div>
               ) : (
@@ -500,8 +607,8 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
                       key={plan.id}
                       className={`relative flex flex-col ${
                         plan.popular
-                          ? 'border-orange-500 border-2 shadow-xl scale-105'
-                          : 'border-gray-200'
+                          ? "border-orange-500 border-2 shadow-xl scale-105"
+                          : "border-gray-200"
                       }`}
                     >
                       {plan.popular && (
@@ -515,21 +622,27 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
 
                       <CardHeader className="pb-8">
                         <CardTitle className="text-2xl">{plan.name}</CardTitle>
-                        <p className="text-gray-600 text-base mt-2">{plan.description}</p>
+                        <p className="text-gray-600 text-base mt-2">
+                          {plan.description}
+                        </p>
                         <div className="mt-6">
                           <div className="flex items-baseline">
                             <span className="text-4xl font-bold text-gray-900">
-                              {billingCycle === 'annual' && plan.annualPrice
+                              {billingCycle === "annual" && plan.annualPrice
                                 ? formatCurrency(plan.annualPrice)
                                 : formatCurrency(plan.price)}
                             </span>
                             <span className="text-gray-600 ml-2">
-                              /{billingCycle === 'annual' ? 'year' : 'month'}
+                              /{billingCycle === "annual" ? "year" : "month"}
                             </span>
                           </div>
-                          {billingCycle === 'annual' && plan.annualPrice && (
+                          {billingCycle === "annual" && plan.annualPrice && (
                             <p className="text-sm text-green-600 mt-2">
-                              Save {formatCurrency(plan.price * 12 - plan.annualPrice)} per year
+                              Save{" "}
+                              {formatCurrency(
+                                plan.price * 12 - plan.annualPrice
+                              )}{" "}
+                              per year
                             </p>
                           )}
                         </div>
@@ -546,7 +659,9 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
                               )}
                               <span
                                 className={`text-sm ${
-                                  feature.included ? 'text-gray-700' : 'text-gray-400'
+                                  feature.included
+                                    ? "text-gray-700"
+                                    : "text-gray-400"
                                 }`}
                               >
                                 {feature.text}
@@ -560,12 +675,12 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
                         <Button
                           className={`w-full ${
                             plan.popular
-                              ? 'bg-orange-500 hover:bg-orange-600'
-                              : 'bg-gray-900 hover:bg-gray-800'
+                              ? "bg-orange-500 hover:bg-orange-600"
+                              : "bg-gray-900 hover:bg-gray-800"
                           }`}
                           size="lg"
                           onClick={
-                            plan.cta.action === 'contact'
+                            plan.cta.action === "contact"
                               ? onNavigateToContact
                               : onNavigateToGetStarted || onNavigateToLogin
                           }
@@ -586,7 +701,9 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
                   For Property Developers & Builders
                 </p>
                 <p className="text-sm text-gray-500 mt-2">
-                  Designed for developers, construction companies, and real estate investors building new properties. Track project budgets, manage vendors, and monitor construction progress.
+                  Designed for developers, construction companies, and real
+                  estate investors building new properties. Track project
+                  budgets, manage vendors, and monitor construction progress.
                 </p>
               </div>
 
@@ -594,25 +711,27 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
               <div className="flex justify-center mb-8">
                 <div className="inline-flex items-center bg-gray-100 rounded-lg p-1">
                   <button
-                    onClick={() => setBillingCycle('monthly')}
+                    onClick={() => setBillingCycle("monthly")}
                     className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
-                      billingCycle === 'monthly'
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
+                      billingCycle === "monthly"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
                     }`}
                   >
                     Monthly
                   </button>
                   <button
-                    onClick={() => setBillingCycle('annual')}
+                    onClick={() => setBillingCycle("annual")}
                     className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
-                      billingCycle === 'annual'
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
+                      billingCycle === "annual"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
                     }`}
                   >
                     Annual
-                    <span className="ml-2 text-xs text-green-600 font-semibold">Save 17%</span>
+                    <span className="ml-2 text-xs text-green-600 font-semibold">
+                      Save 17%
+                    </span>
                   </button>
                 </div>
               </div>
@@ -624,55 +743,60 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
               ) : developerPlans.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-gray-600">
-                    No developer plans are available yet. Please create plans in the Admin dashboard.
+                    No developer plans are available yet. Please create plans in
+                    the Admin dashboard.
                   </p>
                   {pricingError && (
-                    <p className="text-sm text-red-500 mt-2">
-                      {pricingError}
-                    </p>
+                    <p className="text-sm text-red-500 mt-2">{pricingError}</p>
                   )}
                 </div>
               ) : (
                 <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-                {developerPlans.map((plan) => (
-                  <Card
-                    key={plan.id}
-                    className={`relative flex flex-col ${
-                      plan.popular
-                        ? 'border-orange-500 border-2 shadow-xl scale-105'
-                        : 'border-gray-200'
-                    }`}
-                  >
-                    {plan.popular && (
-                      <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                        <Badge className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-1">
-                          <Sparkles className="w-3 h-3 mr-1 inline" />
-                          Most Popular
-                        </Badge>
-                      </div>
-                    )}
-
-                    <CardHeader className="pb-8">
-                      <CardTitle className="text-2xl">{plan.name}</CardTitle>
-                      <p className="text-gray-600 text-base mt-2">{plan.description}</p>
-                      <div className="mt-6">
-                        <div className="flex items-baseline">
-                          <span className="text-4xl font-bold text-gray-900">
-                            {billingCycle === 'annual' && plan.annualPrice
-                              ? formatCurrency(plan.annualPrice)
-                              : formatCurrency(plan.price)}
-                          </span>
-                          <span className="text-gray-600 ml-2">
-                            /{billingCycle === 'annual' ? 'year' : 'month'}
-                          </span>
+                  {developerPlans.map((plan) => (
+                    <Card
+                      key={plan.id}
+                      className={`relative flex flex-col ${
+                        plan.popular
+                          ? "border-orange-500 border-2 shadow-xl scale-105"
+                          : "border-gray-200"
+                      }`}
+                    >
+                      {plan.popular && (
+                        <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                          <Badge className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-1">
+                            <Sparkles className="w-3 h-3 mr-1 inline" />
+                            Most Popular
+                          </Badge>
                         </div>
-                        {billingCycle === 'annual' && plan.annualPrice && (
-                          <p className="text-sm text-green-600 mt-2">
-                            Save {formatCurrency(plan.price * 12 - plan.annualPrice)} per year
-                          </p>
-                        )}
-                      </div>
-                    </CardHeader>
+                      )}
+
+                      <CardHeader className="pb-8">
+                        <CardTitle className="text-2xl">{plan.name}</CardTitle>
+                        <p className="text-gray-600 text-base mt-2">
+                          {plan.description}
+                        </p>
+                        <div className="mt-6">
+                          <div className="flex items-baseline">
+                            <span className="text-4xl font-bold text-gray-900">
+                              {billingCycle === "annual" && plan.annualPrice
+                                ? formatCurrency(plan.annualPrice)
+                                : formatCurrency(plan.price)}
+                            </span>
+                            <span className="text-gray-600 ml-2">
+                              /{billingCycle === "annual" ? "year" : "month"}
+                            </span>
+                          </div>
+                          {billingCycle === "annual" && plan.annualPrice && (
+                            <p className="text-sm text-green-600 mt-2">
+                              Save{" "}
+                              {formatCurrency(
+                                plan.price * 12 - plan.annualPrice
+                              )}{" "}
+                              per year
+                            </p>
+                          )}
+                        </div>
+                      </CardHeader>
 
                       <CardContent className="flex-1">
                         <ul className="space-y-3">
@@ -685,7 +809,9 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
                               )}
                               <span
                                 className={`text-sm ${
-                                  feature.included ? 'text-gray-700' : 'text-gray-400'
+                                  feature.included
+                                    ? "text-gray-700"
+                                    : "text-gray-400"
                                 }`}
                               >
                                 {feature.text}
@@ -699,12 +825,12 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
                         <Button
                           className={`w-full ${
                             plan.popular
-                              ? 'bg-orange-500 hover:bg-orange-600'
-                              : 'bg-gray-900 hover:bg-gray-800'
+                              ? "bg-orange-500 hover:bg-orange-600"
+                              : "bg-gray-900 hover:bg-gray-800"
                           }`}
                           size="lg"
                           onClick={
-                            plan.cta.action === 'contact'
+                            plan.cta.action === "contact"
                               ? onNavigateToContact
                               : onNavigateToGetStarted || onNavigateToLogin
                           }
@@ -733,7 +859,10 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
               {ADD_ONS.filter((addon) =>
                 addon.userTypes.includes(selectedUserType)
               ).map((addon) => (
-                <Card key={addon.id} className="hover:shadow-lg transition-shadow">
+                <Card
+                  key={addon.id}
+                  className="hover:shadow-lg transition-shadow"
+                >
                   <CardHeader>
                     <CardTitle className="text-lg">{addon.name}</CardTitle>
                     <p className="text-gray-600 text-sm">{addon.description}</p>
@@ -743,7 +872,9 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
                       <span className="text-2xl font-bold text-gray-900">
                         {formatCurrency(addon.price)}
                       </span>
-                      <span className="text-sm text-gray-600">{addon.unit}</span>
+                      <span className="text-sm text-gray-600">
+                        {addon.unit}
+                      </span>
                     </div>
                   </CardContent>
                 </Card>
@@ -753,24 +884,42 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
 
           {/* FAQ Section */}
           <div className="mt-20 max-w-3xl mx-auto">
-            <h3 className="text-2xl font-bold text-center text-gray-900 mb-8">Frequently Asked Questions</h3>
+            <h3 className="text-2xl font-bold text-center text-gray-900 mb-8">
+              Frequently Asked Questions
+            </h3>
             <div className="space-y-6">
               <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
                 <CardContent className="pt-6">
-                  <h4 className="font-semibold text-gray-900 mb-2">Can I change plans later?</h4>
-                  <p className="text-gray-600">Yes! You can upgrade or downgrade your plan at any time. Changes take effect immediately, and we'll prorate the difference.</p>
+                  <h4 className="font-semibold text-gray-900 mb-2">
+                    Can I change plans later?
+                  </h4>
+                  <p className="text-gray-600">
+                    Yes! You can upgrade or downgrade your plan at any time.
+                    Changes take effect immediately, and we'll prorate the
+                    difference.
+                  </p>
                 </CardContent>
               </Card>
               <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
                 <CardContent className="pt-6">
-                  <h4 className="font-semibold text-gray-900 mb-2">What payment methods do you accept?</h4>
-                  <p className="text-gray-600">We accept all major credit cards, debit cards, and bank transfers through our secure payment processor Paystack.</p>
+                  <h4 className="font-semibold text-gray-900 mb-2">
+                    What payment methods do you accept?
+                  </h4>
+                  <p className="text-gray-600">
+                    We accept all major credit cards, debit cards, and bank
+                    transfers through our secure payment processor Paystack.
+                  </p>
                 </CardContent>
               </Card>
               <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
                 <CardContent className="pt-6">
-                  <h4 className="font-semibold text-gray-900 mb-2">Is there a setup fee?</h4>
-                  <p className="text-gray-600">No setup fees! We believe in transparent pricing. What you see is what you pay.</p>
+                  <h4 className="font-semibold text-gray-900 mb-2">
+                    Is there a setup fee?
+                  </h4>
+                  <p className="text-gray-600">
+                    No setup fees! We believe in transparent pricing. What you
+                    see is what you pay.
+                  </p>
                 </CardContent>
               </Card>
             </div>
@@ -779,17 +928,26 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
       </section>
 
       {/* Testimonials Section */}
-      <section id="testimonials" className="py-20 bg-gradient-to-br from-gray-50 to-blue-50 relative overflow-hidden">
+      <section
+        id="testimonials"
+        className="py-20 bg-gradient-to-br from-gray-50 to-blue-50 relative overflow-hidden"
+      >
         <div className="absolute top-0 right-0 w-96 h-96 bg-blue-200/30 rounded-full blur-3xl"></div>
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-200/30 rounded-full blur-3xl"></div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-16">
             <Badge className="mb-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0">
-              <Star className="h-3 w-3 mr-1 fill-current" /> Rated 4.9/5 by Property Professionals
+              <Star className="h-3 w-3 mr-1 fill-current" /> Rated 4.9/5 by
+              Property Professionals
             </Badge>
-            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">Trusted by Managers & Developers Across Nigeria</h2>
-            <p className="text-xl text-gray-600">See how Contrezz is transforming property management and development</p>
+            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
+              Trusted by Managers & Developers Across Nigeria
+            </h2>
+            <p className="text-xl text-gray-600">
+              See how Contrezz is transforming property management and
+              development
+            </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
@@ -808,15 +966,25 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
                       />
                     ))}
                   </div>
-                  <p className="text-gray-700 mb-6 leading-relaxed italic">"{testimonial.text}"</p>
+                  <p className="text-gray-700 mb-6 leading-relaxed italic">
+                    "{testimonial.text}"
+                  </p>
                   <div className="flex items-center space-x-3 pt-4 border-t border-gray-100">
                     <div className="h-12 w-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
                       {testimonial.name.charAt(0)}
                     </div>
                     <div>
-                      <div className="font-semibold text-gray-900">{testimonial.name}</div>
-                      <div className="text-sm text-gray-500">{testimonial.company}</div>
-                      {'role' in testimonial && <div className="text-xs text-gray-400">{testimonial.role}</div>}
+                      <div className="font-semibold text-gray-900">
+                        {testimonial.name}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {testimonial.company}
+                      </div>
+                      {"role" in testimonial && (
+                        <div className="text-xs text-gray-400">
+                          {testimonial.role}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -841,7 +1009,9 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
             Start Managing Properties the Smart Way—Today
           </h2>
           <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-            Join 500+ property professionals who've automated their operations with Contrezz. Try all features free for 14 days. No credit card needed.
+            Join 500+ property professionals who've automated their operations
+            with Contrezz. Try all features free for 14 days. No credit card
+            needed.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
             <Button
@@ -888,15 +1058,32 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
                 <span className="font-bold">Contrezz</span>
               </div>
               <p className="text-gray-400">
-                Contrezz is Nigeria's leading property management and development platform. Trusted by over 500 property managers and developers to automate operations, track construction budgets, collect rent on time, and grow their portfolios.
+                Contrezz is Nigeria's leading property management and
+                development platform. Trusted by over 500 property managers and
+                developers to automate operations, track construction budgets,
+                collect rent on time, and grow their portfolios.
               </p>
             </div>
 
             <div>
               <h3 className="font-semibold mb-4">Product</h3>
               <ul className="space-y-2 text-gray-400">
-                <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
-                <li><a href="#pricing" className="hover:text-white transition-colors">Pricing</a></li>
+                <li>
+                  <a
+                    href="#features"
+                    className="hover:text-white transition-colors"
+                  >
+                    Features
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="#pricing"
+                    className="hover:text-white transition-colors"
+                  >
+                    Pricing
+                  </a>
+                </li>
                 <li>
                   <button
                     onClick={onNavigateToAPIDocumentation}
@@ -1001,4 +1188,3 @@ export function LandingPage({ onNavigateToLogin, onNavigateToGetStarted, onNavig
     </div>
   );
 }
-
