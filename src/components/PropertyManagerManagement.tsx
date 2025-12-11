@@ -1,18 +1,73 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Badge } from "./ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "./ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "./ui/table";
 import { Checkbox } from "./ui/checkbox";
 import { Alert, AlertDescription } from "./ui/alert";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
-import { Plus, Edit, Mail, Phone, MapPin, Building, Users, Eye, Copy, Settings, Trash2, UserPlus, KeyRound, RefreshCcw, MoreHorizontal, Shield, CheckCircle } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
+import {
+  Plus,
+  Edit,
+  Mail,
+  Phone,
+  MapPin,
+  Building,
+  Users,
+  Eye,
+  Copy,
+  Settings,
+  Trash2,
+  UserPlus,
+  KeyRound,
+  RefreshCcw,
+  MoreHorizontal,
+  Shield,
+  CheckCircle,
+} from "lucide-react";
 import { toast } from "sonner";
-import { getManagerStats, ManagerStats, resetManagerPassword } from '../lib/api/property-managers';
+import {
+  getManagerStats,
+  ManagerStats,
+  resetManagerPassword,
+} from "../lib/api/property-managers";
 
 interface PropertyManagerManagementProps {
   user: any;
@@ -20,7 +75,11 @@ interface PropertyManagerManagementProps {
   properties: any[];
   propertyAssignments: any[];
   onAddManager: (managerData: any, ownerId: string) => Promise<any>;
-  onAssignManager: (managerId: string, propertyId: string, permissions?: any) => Promise<void>;
+  onAssignManager: (
+    managerId: string,
+    propertyId: string,
+    permissions?: any
+  ) => Promise<void>;
   onRemoveManager: (managerId: string, propertyId: string) => Promise<void>;
   onUpdateManager: (managerId: string, updates: any) => Promise<void>;
   onDeactivateManager: (managerId: string) => Promise<void>;
@@ -37,61 +96,113 @@ export const PropertyManagerManagement = ({
   onRemoveManager,
   onUpdateManager,
   onDeactivateManager,
-  onRefreshManagers
+  onRefreshManagers,
 }: PropertyManagerManagementProps) => {
   const [showAddManager, setShowAddManager] = useState(false);
   const [showAssignProperties, setShowAssignProperties] = useState(false);
   const [showUnassignProperties, setShowUnassignProperties] = useState(false);
   const [selectedManager, setSelectedManager] = useState<any>(null);
   const [newManager, setNewManager] = useState({
-    name: '',
-    email: '',
-    phone: ''
+    name: "",
+    email: "",
+    phone: "",
   });
-  const [generatedPassword, setGeneratedPassword] = useState('');
+  const [generatedPassword, setGeneratedPassword] = useState("");
   const [managerStats, setManagerStats] = useState<ManagerStats | null>(null);
-  const [loadingStats, setLoadingStats] = useState(true);
-  const [unassigningPropertyId, setUnassigningPropertyId] = useState<string | null>(null);
+  const [unassigningPropertyId, setUnassigningPropertyId] = useState<
+    string | null
+  >(null);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
+  const [newPassword, setNewPassword] = useState("");
   const [isTogglingStatus, setIsTogglingStatus] = useState<string | null>(null);
   const [showEditPermissions, setShowEditPermissions] = useState(false);
-  const [selectedPropertyForPermissions, setSelectedPropertyForPermissions] = useState<any>(null);
-  const [editingPermissions, setEditingPermissions] = useState({ canEdit: false, canDelete: false });
+  const [selectedPropertyForPermissions, setSelectedPropertyForPermissions] =
+    useState<any>(null);
+  const [editingPermissions, setEditingPermissions] = useState({
+    canEdit: false,
+    canDelete: false,
+  });
 
-  // Load manager statistics
+  // Refresh managers when component mounts or when onRefreshManagers is available
   useEffect(() => {
-    const loadStats = async () => {
-      try {
-        setLoadingStats(true);
-        const response = await getManagerStats();
-        if (!response.error && response.data) {
-          setManagerStats(response.data);
-        }
-      } catch (error) {
-        console.error('Failed to load manager stats:', error);
-      } finally {
-        setLoadingStats(false);
-      }
-    };
+    if (onRefreshManagers) {
+      console.log(
+        "🔄 PropertyManagerManagement: Refreshing managers on mount..."
+      );
+      onRefreshManagers();
+    }
+  }, [onRefreshManagers]);
 
-    loadStats();
-  }, [managers, propertyAssignments]); // Reload when managers or assignments change
+  // Track previous values to avoid unnecessary reloads
+  const prevManagersLengthRef = useRef<number>(0);
+  const prevAssignmentsLengthRef = useRef<number>(0);
+  const hasLoadedStatsRef = useRef<boolean>(false);
+
+  // Memoize stable values for dependencies
+  const managersLength = useMemo(
+    () => (Array.isArray(managers) ? managers.length : 0),
+    [managers]
+  );
+  const assignmentsLength = useMemo(
+    () => (Array.isArray(propertyAssignments) ? propertyAssignments.length : 0),
+    [propertyAssignments]
+  );
+  const activeAssignmentsCount = useMemo(() => {
+    return Array.isArray(propertyAssignments)
+      ? propertyAssignments.filter((a) => a.isActive).length
+      : 0;
+  }, [propertyAssignments]);
+
+  // Load manager statistics - only reload when counts actually change
+  useEffect(() => {
+    const managersChanged = managersLength !== prevManagersLengthRef.current;
+    const assignmentsChanged =
+      assignmentsLength !== prevAssignmentsLengthRef.current;
+
+    // Only reload if counts changed (not just array references)
+    if (!hasLoadedStatsRef.current || managersChanged || assignmentsChanged) {
+      const loadStats = async () => {
+        try {
+          // Don't show loading state - show fallback values immediately
+          // API will update silently in background
+          const response = await getManagerStats();
+          if (!response.error && response.data) {
+            setManagerStats(response.data);
+          }
+        } catch (error) {
+          console.error("Failed to load manager stats:", error);
+        } finally {
+          hasLoadedStatsRef.current = true;
+        }
+      };
+
+      // Load stats in background without blocking UI
+      loadStats();
+
+      // Update refs
+      prevManagersLengthRef.current = managersLength;
+      prevAssignmentsLengthRef.current = assignmentsLength;
+    }
+  }, [managersLength, assignmentsLength]); // Use stable length values instead of arrays
 
   const generateStrongPassword = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*()_+';
-    let pwd = '';
-    for (let i = 0; i < 12; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
+    const chars =
+      "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*()_+";
+    let pwd = "";
+    for (let i = 0; i < 12; i++)
+      pwd += chars[Math.floor(Math.random() * chars.length)];
     setGeneratedPassword(pwd);
     return pwd;
   };
 
   // Show all managers for current customer (backend already scopes by customer)
-  const ownersManagers = managers;
+  const ownersManagers = useMemo(() => {
+    return Array.isArray(managers) ? managers : [];
+  }, [managers]);
 
   const handleAddManager = async () => {
     if (!newManager.name || !newManager.email) {
-      toast.error('Please fill in all required fields');
+      toast.error("Please fill in all required fields");
       return;
     }
 
@@ -100,27 +211,40 @@ export const PropertyManagerManagement = ({
       ...newManager,
       password: tempPwd,
       credentials: {
-        username: newManager.email.split('@')[0],
-        tempPassword: tempPwd
-      }
+        username: newManager.email.split("@")[0],
+        tempPassword: tempPwd,
+      },
     };
     try {
       const manager = await onAddManager(payload, user.id);
-      setNewManager({ name: '', email: '', phone: '' });
-      setGeneratedPassword('');
+      setNewManager({ name: "", email: "", phone: "" });
+      setGeneratedPassword("");
       setShowAddManager(false);
-      toast.success(`Manager ${manager.name} created successfully! Credentials: ${manager.credentials.username} / ${manager.credentials.tempPassword}`);
+
+      // Backend returns tempPassword at top level, not in credentials
+      const username = newManager.email.split("@")[0];
+      const password = manager.tempPassword || tempPwd;
+
+      toast.success(
+        `Manager ${manager.name} created successfully! Credentials: ${username} / ${password}`
+      );
     } catch (e: any) {
-      toast.error(e?.message || 'Failed to create manager');
+      toast.error(e?.message || "Failed to create manager");
     }
   };
 
   const getManagerAssignedProperties = (manager: any) => {
-    const assignments = Array.isArray(manager.property_managers) ? manager.property_managers : [];
-    const assignedPropertyIds = assignments.filter((a: any) => a && a.isActive !== false)
+    const assignments = Array.isArray(manager.property_managers)
+      ? manager.property_managers
+      : [];
+    const assignedPropertyIds = assignments
+      .filter((a: any) => a && a.isActive !== false)
       .map((a: any) => (a.properties?.id ?? a.propertyId)?.toString())
       .filter(Boolean);
-    return properties.filter((p) => assignedPropertyIds.includes(p.id.toString()));
+    const validProperties = Array.isArray(properties) ? properties : [];
+    return validProperties.filter(
+      (p) => p && p.id && assignedPropertyIds.includes(p.id.toString())
+    );
   };
 
   const handleAssignProperties = async (
@@ -128,33 +252,71 @@ export const PropertyManagerManagement = ({
     selectedPropertyIds: string[],
     propertyPermissions?: Record<string, any>
   ) => {
-    // Get current assignments for this manager from this owner
-    const manager = managers.find((m) => m.id === managerId) || {} as any;
-    const currentAssignments = (Array.isArray(manager.property_managers) ? manager.property_managers : [])
-      .filter((a: any) => a && a.isActive !== false)
-      .map((a: any) => (a.properties?.id ?? a.propertyId)?.toString())
-      .filter(Boolean);
-
-    // Remove properties that are no longer selected
-    for (const propertyId of currentAssignments) {
-      if (!selectedPropertyIds.includes(propertyId)) {
-        await onRemoveManager(managerId, propertyId);
+    try {
+      // Get current assignments for this manager from this owner
+      const manager = ownersManagers.find((m) => m.id === managerId);
+      if (!manager) {
+        toast.error("Manager not found");
+        return;
       }
-    }
 
-    // Add new property assignments with permissions
-    for (const propertyId of selectedPropertyIds) {
-      if (!currentAssignments.includes(propertyId)) {
-        const permissions = propertyPermissions?.[propertyId] || { canEdit: false, canDelete: false };
-        await onAssignManager(managerId, propertyId, permissions);
+      const currentAssignments = (
+        Array.isArray(manager.property_managers)
+          ? manager.property_managers
+          : []
+      )
+        .filter((a: any) => a && a.isActive !== false)
+        .map((a: any) => (a.properties?.id ?? a.propertyId)?.toString())
+        .filter(Boolean);
+
+      // Remove properties that are no longer selected
+      for (const propertyId of currentAssignments) {
+        if (!selectedPropertyIds.includes(propertyId)) {
+          try {
+            await onRemoveManager(managerId, propertyId);
+          } catch (error: any) {
+            console.error(`Failed to remove property ${propertyId}:`, error);
+            toast.error(
+              `Failed to unassign property: ${
+                error?.message || "Unknown error"
+              }`
+            );
+          }
+        }
       }
-    }
 
-    setShowAssignProperties(false);
-    setSelectedManager(null);
-    toast.success('Property assignments updated successfully');
+      // Add new property assignments with permissions
+      for (const propertyId of selectedPropertyIds) {
+        if (!currentAssignments.includes(propertyId)) {
+          try {
+            const permissions = propertyPermissions?.[propertyId] || {
+              canEdit: false,
+              canDelete: false,
+            };
+            await onAssignManager(managerId, propertyId, permissions);
+          } catch (error: any) {
+            console.error(`Failed to assign property ${propertyId}:`, error);
+            toast.error(
+              `Failed to assign property: ${error?.message || "Unknown error"}`
+            );
+          }
+        }
+      }
+
+      setShowAssignProperties(false);
+      setSelectedManager(null);
+
+      // Refresh managers list to show updated assignments
+      if (onRefreshManagers) {
+        await onRefreshManagers();
+      }
+
+      toast.success("Property assignments updated successfully");
+    } catch (error: any) {
+      console.error("Failed to update property assignments:", error);
+      toast.error(error?.message || "Failed to update property assignments");
+    }
   };
-
 
   const handleGeneratePassword = async (manager: any) => {
     try {
@@ -166,14 +328,14 @@ export const PropertyManagerManagement = ({
       }
 
       // Set the password from backend response
-      const pwd = response.data?.tempPassword || '';
+      const pwd = response.data?.tempPassword || "";
       setNewPassword(pwd);
       setSelectedManager(manager);
       setShowPasswordDialog(true);
 
-      console.log('✅ Password generated for manager:', manager.email);
+      console.log("✅ Password generated for manager:", manager.email);
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to generate password');
+      toast.error(error?.message || "Failed to generate password");
     }
   };
 
@@ -184,12 +346,12 @@ export const PropertyManagerManagement = ({
       // Copy ONLY the password to clipboard
       navigator.clipboard.writeText(newPassword);
 
-      toast.success('Password copied to clipboard! Manager can now log in.');
+      toast.success("Password copied to clipboard! Manager can now log in.");
       setShowPasswordDialog(false);
-      setNewPassword('');
+      setNewPassword("");
       setSelectedManager(null);
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to copy password');
+      toast.error(error?.message || "Failed to copy password");
     }
   };
 
@@ -199,18 +361,24 @@ export const PropertyManagerManagement = ({
       const newStatus = !manager.isActive;
 
       await onUpdateManager(manager.id, {
-        isActive: newStatus
+        isActive: newStatus,
       });
 
-      toast.success(`Manager ${newStatus ? 'activated' : 'deactivated'} successfully`);
+      toast.success(
+        `Manager ${newStatus ? "activated" : "deactivated"} successfully`
+      );
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to update manager status');
+      toast.error(error?.message || "Failed to update manager status");
     } finally {
       setIsTogglingStatus(null);
     }
   };
 
-  const handleUnassignProperty = async (managerId: string, propertyId: string, propertyName: string) => {
+  const handleUnassignProperty = async (
+    managerId: string,
+    propertyId: string,
+    propertyName: string
+  ) => {
     try {
       setUnassigningPropertyId(propertyId);
       await onRemoveManager(managerId, propertyId);
@@ -222,8 +390,8 @@ export const PropertyManagerManagement = ({
         setManagerStats(response.data);
       }
     } catch (error: any) {
-      console.error('Failed to unassign property:', error);
-      toast.error(error?.message || 'Failed to unassign property');
+      console.error("Failed to unassign property:", error);
+      toast.error(error?.message || "Failed to unassign property");
     } finally {
       setUnassigningPropertyId(null);
     }
@@ -231,11 +399,15 @@ export const PropertyManagerManagement = ({
 
   const handleOpenEditPermissions = (manager: any, property: any) => {
     // Get current permissions for this property
-    const managerAssignment = manager.property_managers?.find(
-      (pm: any) => pm.propertyId === property.id && pm.isActive
-    );
+    const managerAssignment = manager.property_managers?.find((pm: any) => {
+      const pmPropertyId = (pm.properties?.id ?? pm.propertyId)?.toString();
+      return pmPropertyId === property.id.toString() && pm.isActive;
+    });
 
-    const currentPermissions = managerAssignment?.permissions || { canEdit: false, canDelete: false };
+    const currentPermissions = managerAssignment?.permissions || {
+      canEdit: false,
+      canDelete: false,
+    };
 
     setSelectedManager(manager);
     setSelectedPropertyForPermissions(property);
@@ -253,7 +425,11 @@ export const PropertyManagerManagement = ({
 
     try {
       // Call API to update permissions
-      await onAssignManager(selectedManager.id, selectedPropertyForPermissions.id, editingPermissions);
+      await onAssignManager(
+        selectedManager.id,
+        selectedPropertyForPermissions.id,
+        editingPermissions
+      );
 
       // Reload managers data to reflect changes
       if (onRefreshManagers) {
@@ -266,12 +442,12 @@ export const PropertyManagerManagement = ({
         setManagerStats(response.data);
       }
 
-      toast.success('Permissions updated successfully');
+      toast.success("Permissions updated successfully");
       setShowEditPermissions(false);
       setSelectedManager(null);
       setSelectedPropertyForPermissions(null);
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to update permissions');
+      toast.error(error?.message || "Failed to update permissions");
     }
   };
 
@@ -285,9 +461,13 @@ export const PropertyManagerManagement = ({
               <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
                 <Users className="h-7 w-7 text-white" />
               </div>
-              <h1 className="text-3xl font-bold text-white">Property Manager Management</h1>
+              <h1 className="text-3xl font-bold text-white">
+                Property Manager Management
+              </h1>
             </div>
-            <p className="text-purple-100 text-lg">Create and manage property managers for your portfolio</p>
+            <p className="text-purple-100 text-lg">
+              Create and manage property managers for your portfolio
+            </p>
           </div>
           <Button
             onClick={() => setShowAddManager(true)}
@@ -314,7 +494,7 @@ export const PropertyManagerManagement = ({
                 </DialogTitle>
                 <DialogDescription className="text-purple-200 mt-1">
                   Create a manager account for your properties
-              </DialogDescription>
+                </DialogDescription>
               </div>
             </div>
           </div>
@@ -326,66 +506,106 @@ export const PropertyManagerManagement = ({
                 <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-100 to-violet-100 flex items-center justify-center">
                   <Users className="h-4 w-4 text-[#7C3AED]" />
                 </div>
-                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Personal Information</h3>
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">
+                  Personal Information
+                </h3>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="name" className="text-sm font-semibold text-gray-700 flex items-center gap-1">
+                  <Label
+                    htmlFor="name"
+                    className="text-sm font-semibold text-gray-700 flex items-center gap-1"
+                  >
                     Full Name
                     <span className="text-red-500">*</span>
                   </Label>
                   <div className="relative mt-1.5">
-                <Input
-                  id="name"
-                  value={newManager.name}
-                  onChange={(e) => setNewManager({...newManager, name: e.target.value})}
+                    <Input
+                      id="name"
+                      value={newManager.name}
+                      onChange={(e) =>
+                        setNewManager({ ...newManager, name: e.target.value })
+                      }
                       placeholder="e.g., Sarah Johnson"
                       className="pl-10 h-11 rounded-xl border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
-                />
+                    />
                     <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              </div>
+                  </div>
                 </div>
 
                 <div>
-                  <Label htmlFor="email" className="text-sm font-semibold text-gray-700 flex items-center gap-1">
+                  <Label
+                    htmlFor="email"
+                    className="text-sm font-semibold text-gray-700 flex items-center gap-1"
+                  >
                     Email Address
                     <span className="text-red-500">*</span>
                   </Label>
                   <div className="relative mt-1.5">
-                <Input
-                  id="email"
-                  type="email"
-                  value={newManager.email}
-                  onChange={(e) => setNewManager({...newManager, email: e.target.value})}
+                    <Input
+                      id="email"
+                      type="email"
+                      value={newManager.email}
+                      onChange={(e) =>
+                        setNewManager({ ...newManager, email: e.target.value })
+                      }
                       placeholder="e.g., sarah@company.com"
                       className="pl-10 h-11 rounded-xl border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
-                />
-                    <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    />
+                    <svg
+                      className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                      />
                     </svg>
-              </div>
+                  </div>
                 </div>
 
                 <div>
-                  <Label htmlFor="phone" className="text-sm font-semibold text-gray-700">
-                    Phone Number <span className="text-gray-400 font-normal">(Optional)</span>
+                  <Label
+                    htmlFor="phone"
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    Phone Number{" "}
+                    <span className="text-gray-400 font-normal">
+                      (Optional)
+                    </span>
                   </Label>
                   <div className="relative mt-1.5">
-                <Input
-                  id="phone"
-                  value={newManager.phone}
-                  onChange={(e) => setNewManager({...newManager, phone: e.target.value})}
+                    <Input
+                      id="phone"
+                      value={newManager.phone}
+                      onChange={(e) =>
+                        setNewManager({ ...newManager, phone: e.target.value })
+                      }
                       placeholder="+234 800 000 0000"
                       className="pl-10 h-11 rounded-xl border-gray-200 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
-                />
-                    <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    />
+                    <svg
+                      className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                      />
                     </svg>
                   </div>
                 </div>
               </div>
-              </div>
+            </div>
 
             {/* Password Generation Section */}
             <div>
@@ -393,18 +613,20 @@ export const PropertyManagerManagement = ({
                 <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center">
                   <KeyRound className="h-4 w-4 text-green-600" />
                 </div>
-                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Password</h3>
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">
+                  Password
+                </h3>
               </div>
 
               <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                 <div className="flex gap-2">
                   <div className="relative flex-1">
-                  <Input
-                    readOnly
-                    value={generatedPassword}
+                    <Input
+                      readOnly
+                      value={generatedPassword}
                       placeholder="Click Generate to create password"
                       className="h-11 rounded-xl border-gray-200 bg-white pr-10 font-mono text-sm"
-                  />
+                    />
                     {generatedPassword && (
                       <CheckCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-green-500" />
                     )}
@@ -423,7 +645,7 @@ export const PropertyManagerManagement = ({
                     onClick={() => {
                       if (!generatedPassword) return;
                       navigator.clipboard.writeText(generatedPassword);
-                      toast.success('Password copied to clipboard');
+                      toast.success("Password copied to clipboard");
                     }}
                     disabled={!generatedPassword}
                     className="h-11 rounded-xl border-gray-200 hover:bg-purple-50 hover:text-[#7C3AED] hover:border-[#7C3AED] disabled:opacity-50"
@@ -432,22 +654,25 @@ export const PropertyManagerManagement = ({
                   </Button>
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
-                  Share this password securely with the manager. They can change it after logging in.
+                  Share this password securely with the manager. They can change
+                  it after logging in.
                 </p>
               </div>
-              </div>
+            </div>
 
             {/* Info Card */}
             <div className="bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-200 rounded-xl p-4">
               <div className="flex items-start gap-3">
                 <div className="h-8 w-8 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
                   <Shield className="h-4 w-4 text-[#7C3AED]" />
-            </div>
+                </div>
                 <div>
-                  <p className="text-sm font-semibold text-purple-900 mb-1">What happens next?</p>
+                  <p className="text-sm font-semibold text-purple-900 mb-1">
+                    What happens next?
+                  </p>
                   <p className="text-xs text-purple-700 leading-relaxed">
-                    The manager can log in immediately with these credentials. You can then assign
-                    properties to them from this page.
+                    The manager can log in immediately with these credentials.
+                    You can then assign properties to them from this page.
                   </p>
                 </div>
               </div>
@@ -456,23 +681,23 @@ export const PropertyManagerManagement = ({
 
           {/* Footer with Actions */}
           <div className="bg-gray-50 px-6 py-4 flex items-center justify-end gap-3 border-t border-gray-100">
-              <Button
-                variant="outline"
-                onClick={() => setShowAddManager(false)}
+            <Button
+              variant="outline"
+              onClick={() => setShowAddManager(false)}
               className="border-gray-300 text-gray-700 hover:bg-gray-100 rounded-xl px-5"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleAddManager}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddManager}
               className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25 rounded-xl px-6"
-              >
+            >
               <UserPlus className="h-4 w-4 mr-2" />
-                Create Manager
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+              Create Manager
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Manager Overview Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -484,16 +709,23 @@ export const PropertyManagerManagement = ({
               <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center">
                 <Users className="h-5 w-5 text-[#7C3AED]" />
               </div>
-              <CardTitle className="text-sm font-semibold text-gray-700">Total Managers</CardTitle>
+              <CardTitle className="text-sm font-semibold text-gray-700">
+                Total Managers
+              </CardTitle>
             </div>
           </CardHeader>
           <CardContent className="relative z-10">
             <div className="text-3xl font-bold text-[#7C3AED]">
-              {loadingStats ? '...' : managerStats?.totalManagers || ownersManagers.length}
+              {managerStats?.totalManagers !== undefined
+                ? managerStats.totalManagers
+                : ownersManagers.length}
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              {managerStats?.activeManagers || 0} active, {managerStats?.pendingManagers || 0} pending
-              {managerStats && managerStats.inactiveManagers > 0 && `, ${managerStats.inactiveManagers} inactive`}
+              {managerStats?.activeManagers || 0} active,{" "}
+              {managerStats?.pendingManagers || 0} pending
+              {managerStats &&
+                managerStats.inactiveManagers > 0 &&
+                `, ${managerStats.inactiveManagers} inactive`}
             </p>
           </CardContent>
         </Card>
@@ -506,15 +738,22 @@ export const PropertyManagerManagement = ({
               <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
                 <Building className="h-5 w-5 text-blue-600" />
               </div>
-              <CardTitle className="text-sm font-semibold text-gray-700">Properties Managed</CardTitle>
+              <CardTitle className="text-sm font-semibold text-gray-700">
+                Properties Managed
+              </CardTitle>
             </div>
           </CardHeader>
           <CardContent className="relative z-10">
             <div className="text-3xl font-bold text-blue-600">
-              {loadingStats ? '...' : managerStats?.propertiesManaged || propertyAssignments.filter(a => a.ownerId === user.id && a.isActive).length}
+              {managerStats?.propertiesManaged !== undefined
+                ? managerStats.propertiesManaged
+                : activeAssignmentsCount}
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              {managerStats?.unmanagedProperties || 0} properties without managers
+              {managerStats?.unmanagedProperties !== undefined
+                ? managerStats.unmanagedProperties
+                : Math.max(0, properties.length - activeAssignmentsCount)}{" "}
+              properties without managers
             </p>
           </CardContent>
         </Card>
@@ -527,15 +766,32 @@ export const PropertyManagerManagement = ({
               <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center">
                 <Eye className="h-5 w-5 text-green-600" />
               </div>
-              <CardTitle className="text-sm font-semibold text-gray-700">Coverage Rate</CardTitle>
+              <CardTitle className="text-sm font-semibold text-gray-700">
+                Coverage Rate
+              </CardTitle>
             </div>
           </CardHeader>
           <CardContent className="relative z-10">
             <div className="text-3xl font-bold text-green-600">
-              {loadingStats ? '...' : `${managerStats?.coverageRate.toFixed(1) || Math.round((propertyAssignments.filter(a => a.ownerId === user.id && a.isActive).length / properties.length) * 100)}%`}
+              {`${
+                managerStats?.coverageRate !== undefined
+                  ? managerStats.coverageRate.toFixed(1)
+                  : properties.length > 0
+                  ? Math.round(
+                      (activeAssignmentsCount / properties.length) * 100
+                    )
+                  : 0
+              }%`}
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              {managerStats?.propertiesManaged || 0} of {managerStats?.totalProperties || properties.length} properties
+              {managerStats?.propertiesManaged !== undefined
+                ? managerStats.propertiesManaged
+                : activeAssignmentsCount}{" "}
+              of{" "}
+              {managerStats?.totalProperties !== undefined
+                ? managerStats.totalProperties
+                : properties.length}{" "}
+              properties
             </p>
           </CardContent>
         </Card>
@@ -580,11 +836,14 @@ export const PropertyManagerManagement = ({
               </TableHeader>
               <TableBody>
                 {ownersManagers.map((manager, index) => {
-                  const assignedProperties = getManagerAssignedProperties(manager);
+                  const assignedProperties =
+                    getManagerAssignedProperties(manager);
                   return (
                     <TableRow
                       key={manager.id}
-                      className={`hover:bg-[#7C3AED]/5 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}
+                      className={`hover:bg-[#7C3AED]/5 ${
+                        index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
+                      }`}
                     >
                       <TableCell>
                         <div>
@@ -608,18 +867,26 @@ export const PropertyManagerManagement = ({
                       </TableCell>
                       <TableCell>
                         <div>
-                          <p className="font-medium">{assignedProperties.length} properties</p>
+                          <p className="font-medium">
+                            {assignedProperties.length} properties
+                          </p>
                           {assignedProperties.length > 0 && (
                             <div className="text-sm text-gray-500 mt-1">
-                              {assignedProperties.slice(0, 2).map(p => p.name).join(', ')}
-                              {assignedProperties.length > 2 && ` +${assignedProperties.length - 2} more`}
+                              {assignedProperties
+                                .slice(0, 2)
+                                .map((p) => p.name)
+                                .join(", ")}
+                              {assignedProperties.length > 2 &&
+                                ` +${assignedProperties.length - 2} more`}
                             </div>
                           )}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={manager.isActive ? 'default' : 'secondary'}>
-                          {manager.isActive ? 'Active' : 'Inactive'}
+                        <Badge
+                          variant={manager.isActive ? "default" : "secondary"}
+                        >
+                          {manager.isActive ? "Active" : "Inactive"}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
@@ -634,7 +901,9 @@ export const PropertyManagerManagement = ({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuLabel>Manager Actions</DropdownMenuLabel>
+                            <DropdownMenuLabel>
+                              Manager Actions
+                            </DropdownMenuLabel>
                             <DropdownMenuSeparator />
 
                             <DropdownMenuItem
@@ -682,7 +951,7 @@ export const PropertyManagerManagement = ({
                               ) : (
                                 <>
                                   <Settings className="h-4 w-4 mr-2" />
-                                  {manager.isActive ? 'Deactivate' : 'Activate'}
+                                  {manager.isActive ? "Deactivate" : "Activate"}
                                 </>
                               )}
                             </DropdownMenuItem>
@@ -692,7 +961,9 @@ export const PropertyManagerManagement = ({
                             <DropdownMenuItem
                               onClick={() => {
                                 // TODO: Implement delete manager
-                                toast.info('Delete manager feature coming soon');
+                                toast.info(
+                                  "Delete manager feature coming soon"
+                                );
                               }}
                               className="text-red-600"
                             >
@@ -711,7 +982,9 @@ export const PropertyManagerManagement = ({
                       <div className="text-gray-500">
                         <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                         <p className="text-lg font-medium">No managers yet</p>
-                        <p className="text-sm">Add your first property manager to get started</p>
+                        <p className="text-sm">
+                          Add your first property manager to get started
+                        </p>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -723,10 +996,15 @@ export const PropertyManagerManagement = ({
       </Card>
 
       {/* Property Assignment Modal */}
-      <Dialog open={showAssignProperties} onOpenChange={setShowAssignProperties}>
+      <Dialog
+        open={showAssignProperties}
+        onOpenChange={setShowAssignProperties}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Assign Properties - {selectedManager?.name}</DialogTitle>
+            <DialogTitle>
+              Assign Properties - {selectedManager?.name}
+            </DialogTitle>
             <DialogDescription>
               Select which properties this manager should have access to
             </DialogDescription>
@@ -738,7 +1016,13 @@ export const PropertyManagerManagement = ({
               properties={properties}
               currentAssignments={getManagerAssignedProperties(selectedManager)}
               allPropertyAssignments={propertyAssignments}
-              onSave={(selectedIds, permissions) => handleAssignProperties(selectedManager.id, selectedIds, permissions)}
+              onSave={(selectedIds, permissions) =>
+                handleAssignProperties(
+                  selectedManager.id,
+                  selectedIds,
+                  permissions
+                )
+              }
               onCancel={() => {
                 setShowAssignProperties(false);
                 setSelectedManager(null);
@@ -749,10 +1033,15 @@ export const PropertyManagerManagement = ({
       </Dialog>
 
       {/* Unassign Properties Dialog */}
-      <Dialog open={showUnassignProperties} onOpenChange={setShowUnassignProperties}>
+      <Dialog
+        open={showUnassignProperties}
+        onOpenChange={setShowUnassignProperties}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Unassign Properties - {selectedManager?.name}</DialogTitle>
+            <DialogTitle>
+              Unassign Properties - {selectedManager?.name}
+            </DialogTitle>
             <DialogDescription>
               Remove property assignments from this manager
             </DialogDescription>
@@ -762,83 +1051,117 @@ export const PropertyManagerManagement = ({
             <div className="space-y-4">
               <div className="max-h-96 overflow-auto border rounded-lg">
                 <div className="space-y-2 p-4">
-                  {getManagerAssignedProperties(selectedManager).map((property) => {
-                    // Get current permissions for this property
-                    const managerAssignment = selectedManager.property_managers?.find(
-                      (pm: any) => pm.propertyId === property.id && pm.isActive
-                    );
-                    const permissions = managerAssignment?.permissions || { canEdit: false, canDelete: false };
+                  {getManagerAssignedProperties(selectedManager).map(
+                    (property) => {
+                      // Get current permissions for this property
+                      const managerAssignment =
+                        selectedManager.property_managers?.find((pm: any) => {
+                          const pmPropertyId = (
+                            pm.properties?.id ?? pm.propertyId
+                          )?.toString();
+                          return (
+                            pmPropertyId === property.id.toString() &&
+                            pm.isActive
+                          );
+                        });
+                      const permissions = managerAssignment?.permissions || {
+                        canEdit: false,
+                        canDelete: false,
+                      };
 
-                    return (
-                      <div key={property.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded border">
-                        <div className="flex-1">
-                          <div className="font-medium">{property.name}</div>
-                          <div className="text-sm text-gray-500 flex items-center mt-1">
-                            <MapPin className="h-3 w-3 mr-1" />
-                            {property.address}
-                          </div>
-                          {property.city && (
-                            <div className="text-xs text-gray-400 mt-1">
-                              {property.city}, {property.state}
+                      return (
+                        <div
+                          key={property.id}
+                          className="flex items-center justify-between p-3 hover:bg-gray-50 rounded border"
+                        >
+                          <div className="flex-1">
+                            <div className="font-medium">{property.name}</div>
+                            <div className="text-sm text-gray-500 flex items-center mt-1">
+                              <MapPin className="h-3 w-3 mr-1" />
+                              {property.address}
                             </div>
-                          )}
-                          <div className="flex gap-2 mt-2">
-                            {permissions.canEdit && (
-                              <Badge variant="secondary" className="text-xs">Can Edit</Badge>
+                            {property.city && (
+                              <div className="text-xs text-gray-400 mt-1">
+                                {property.city}, {property.state}
+                              </div>
                             )}
-                            {permissions.canDelete && (
-                              <Badge variant="secondary" className="text-xs">Can Delete</Badge>
-                            )}
-                            {!permissions.canEdit && !permissions.canDelete && (
-                              <Badge variant="outline" className="text-xs">View Only</Badge>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Three-dot menu */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled={unassigningPropertyId === property.id}
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => handleOpenEditPermissions(selectedManager, property)}
-                            >
-                              <Settings className="h-4 w-4 mr-2" />
-                              Edit Permissions
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => handleUnassignProperty(selectedManager.id, property.id, property.name)}
-                              disabled={unassigningPropertyId === property.id}
-                              className="text-red-600"
-                            >
-                              {unassigningPropertyId === property.id ? (
-                                <>
-                                  <RefreshCcw className="h-4 w-4 mr-2 animate-spin" />
-                                  Removing...
-                                </>
-                              ) : (
-                                <>
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Unassign Property
-                                </>
+                            <div className="flex gap-2 mt-2">
+                              {permissions.canEdit && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Can Edit
+                                </Badge>
                               )}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    );
-                  })}
-                  {getManagerAssignedProperties(selectedManager).length === 0 && (
+                              {permissions.canDelete && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Can Delete
+                                </Badge>
+                              )}
+                              {!permissions.canEdit &&
+                                !permissions.canDelete && (
+                                  <Badge variant="outline" className="text-xs">
+                                    View Only
+                                  </Badge>
+                                )}
+                            </div>
+                          </div>
+
+                          {/* Three-dot menu */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={unassigningPropertyId === property.id}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handleOpenEditPermissions(
+                                    selectedManager,
+                                    property
+                                  )
+                                }
+                              >
+                                <Settings className="h-4 w-4 mr-2" />
+                                Edit Permissions
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handleUnassignProperty(
+                                    selectedManager.id,
+                                    property.id,
+                                    property.name
+                                  )
+                                }
+                                disabled={unassigningPropertyId === property.id}
+                                className="text-red-600"
+                              >
+                                {unassigningPropertyId === property.id ? (
+                                  <>
+                                    <RefreshCcw className="h-4 w-4 mr-2 animate-spin" />
+                                    Removing...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Unassign Property
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      );
+                    }
+                  )}
+                  {getManagerAssignedProperties(selectedManager).length ===
+                    0 && (
                     <div className="text-center py-8 text-gray-500">
                       No properties assigned to this manager
                     </div>
@@ -866,9 +1189,12 @@ export const PropertyManagerManagement = ({
       <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Generate New Password - {selectedManager?.name}</DialogTitle>
+            <DialogTitle>
+              Generate New Password - {selectedManager?.name}
+            </DialogTitle>
             <DialogDescription>
-              A new password has been generated. Copy it and share with the manager securely.
+              A new password has been generated. Copy it and share with the
+              manager securely.
             </DialogDescription>
           </DialogHeader>
 
@@ -895,7 +1221,7 @@ export const PropertyManagerManagement = ({
                   size="sm"
                   onClick={() => {
                     navigator.clipboard.writeText(newPassword);
-                    toast.success('Password copied to clipboard');
+                    toast.success("Password copied to clipboard");
                   }}
                 >
                   <Copy className="h-4 w-4" />
@@ -906,15 +1232,19 @@ export const PropertyManagerManagement = ({
                   onClick={async () => {
                     if (!selectedManager) return;
                     try {
-                      const response = await resetManagerPassword(selectedManager.id);
+                      const response = await resetManagerPassword(
+                        selectedManager.id
+                      );
                       if (response.error) {
                         throw new Error(response.error);
                       }
-                      const pwd = response.data?.tempPassword || '';
+                      const pwd = response.data?.tempPassword || "";
                       setNewPassword(pwd);
-                      toast.success('New password generated');
+                      toast.success("New password generated");
                     } catch (error: any) {
-                      toast.error(error?.message || 'Failed to regenerate password');
+                      toast.error(
+                        error?.message || "Failed to regenerate password"
+                      );
                     }
                   }}
                 >
@@ -931,7 +1261,10 @@ export const PropertyManagerManagement = ({
                 <KeyRound className="h-5 w-5 text-yellow-600 mt-0.5" />
                 <div className="text-sm text-yellow-800">
                   <p className="font-medium">Important:</p>
-                  <p className="mt-1">Make sure to share this password with the manager securely. They will need it to log in.</p>
+                  <p className="mt-1">
+                    Make sure to share this password with the manager securely.
+                    They will need it to log in.
+                  </p>
                 </div>
               </div>
             </div>
@@ -942,7 +1275,7 @@ export const PropertyManagerManagement = ({
               variant="outline"
               onClick={() => {
                 setShowPasswordDialog(false);
-                setNewPassword('');
+                setNewPassword("");
                 setSelectedManager(null);
               }}
             >
@@ -972,7 +1305,9 @@ export const PropertyManagerManagement = ({
                 <div className="flex items-start space-x-3">
                   <Building className="h-5 w-5 text-gray-600 mt-0.5" />
                   <div className="flex-1">
-                    <p className="font-medium">{selectedPropertyForPermissions.name}</p>
+                    <p className="font-medium">
+                      {selectedPropertyForPermissions.name}
+                    </p>
                     <p className="text-sm text-gray-500 flex items-center mt-1">
                       <MapPin className="h-3 w-3 mr-1" />
                       {selectedPropertyForPermissions.address}
@@ -982,22 +1317,31 @@ export const PropertyManagerManagement = ({
               </div>
 
               <div className="space-y-3">
-                <p className="text-sm font-medium text-gray-700">Manager Permissions:</p>
+                <p className="text-sm font-medium text-gray-700">
+                  Manager Permissions:
+                </p>
 
                 <div className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50">
                   <Checkbox
                     id="edit-permission"
                     checked={editingPermissions.canEdit}
                     onCheckedChange={(checked) =>
-                      setEditingPermissions(prev => ({ ...prev, canEdit: checked as boolean }))
+                      setEditingPermissions((prev) => ({
+                        ...prev,
+                        canEdit: checked as boolean,
+                      }))
                     }
                   />
                   <div className="flex-1">
-                    <label htmlFor="edit-permission" className="font-medium cursor-pointer text-sm">
+                    <label
+                      htmlFor="edit-permission"
+                      className="font-medium cursor-pointer text-sm"
+                    >
                       Can Edit Property
                     </label>
                     <p className="text-xs text-gray-500 mt-1">
-                      Allow manager to modify property details, features, and settings
+                      Allow manager to modify property details, features, and
+                      settings
                     </p>
                   </div>
                 </div>
@@ -1007,11 +1351,17 @@ export const PropertyManagerManagement = ({
                     id="delete-permission"
                     checked={editingPermissions.canDelete}
                     onCheckedChange={(checked) =>
-                      setEditingPermissions(prev => ({ ...prev, canDelete: checked as boolean }))
+                      setEditingPermissions((prev) => ({
+                        ...prev,
+                        canDelete: checked as boolean,
+                      }))
                     }
                   />
                   <div className="flex-1">
-                    <label htmlFor="delete-permission" className="font-medium cursor-pointer text-sm">
+                    <label
+                      htmlFor="delete-permission"
+                      className="font-medium cursor-pointer text-sm"
+                    >
                       Can Delete Property
                     </label>
                     <p className="text-xs text-gray-500 mt-1">
@@ -1024,7 +1374,8 @@ export const PropertyManagerManagement = ({
               <Alert>
                 <Settings className="h-4 w-4" />
                 <AlertDescription className="text-xs">
-                  Changes will take effect immediately. The manager will be notified of updated permissions.
+                  Changes will take effect immediately. The manager will be
+                  notified of updated permissions.
                 </AlertDescription>
               </Alert>
             </div>
@@ -1059,7 +1410,7 @@ const PropertyAssignmentForm = ({
   currentAssignments,
   allPropertyAssignments,
   onSave,
-  onCancel
+  onCancel,
 }: {
   manager: any;
   properties: any[];
@@ -1069,47 +1420,61 @@ const PropertyAssignmentForm = ({
   onCancel: () => void;
 }) => {
   const [selectedProperties, setSelectedProperties] = useState<string[]>([]);
-  const [propertyPermissions, setPropertyPermissions] = useState<Record<string, any>>({});
+  const [propertyPermissions, setPropertyPermissions] = useState<
+    Record<string, any>
+  >({});
 
   // Get IDs of properties already assigned to this manager
-  const currentAssignmentIds = currentAssignments.map(p => p.id.toString());
+  const currentAssignmentIds = currentAssignments
+    .filter((p) => p && p.id)
+    .map((p) => p.id.toString())
+    .filter(Boolean);
 
   // Get IDs of properties assigned to ANY manager (excluding this manager)
   const assignedToOtherManagersIds = allPropertyAssignments
-    .filter(a => a.isActive && a.managerId !== manager.id)
-    .map(a => a.propertyId.toString());
+    .filter((a) => a.isActive && a.managerId !== manager.id && a.propertyId)
+    .map((a) => a.propertyId.toString())
+    .filter(Boolean);
 
   // Filter out properties that are already assigned to this manager OR to other managers
-  const availableProperties = properties.filter(
-    property => !currentAssignmentIds.includes(property.id.toString()) &&
-                !assignedToOtherManagersIds.includes(property.id.toString())
+  const validProperties = Array.isArray(properties) ? properties : [];
+  const availableProperties = validProperties.filter(
+    (property) =>
+      property &&
+      property.id &&
+      !currentAssignmentIds.includes(property.id.toString()) &&
+      !assignedToOtherManagersIds.includes(property.id.toString())
   );
 
   const handlePropertyToggle = (propertyId: string, checked: boolean) => {
     if (checked) {
-      setSelectedProperties(prev => [...prev, propertyId]);
+      setSelectedProperties((prev) => [...prev, propertyId]);
       // Initialize default permissions for this property
-      setPropertyPermissions(prev => ({
+      setPropertyPermissions((prev) => ({
         ...prev,
-        [propertyId]: { canEdit: false, canDelete: false }
+        [propertyId]: { canEdit: false, canDelete: false },
       }));
     } else {
-      setSelectedProperties(prev => prev.filter(id => id !== propertyId));
+      setSelectedProperties((prev) => prev.filter((id) => id !== propertyId));
       // Remove permissions for this property
-      setPropertyPermissions(prev => {
+      setPropertyPermissions((prev) => {
         const { [propertyId]: _, ...rest } = prev;
         return rest;
       });
     }
   };
 
-  const handlePermissionToggle = (propertyId: string, permission: string, checked: boolean) => {
-    setPropertyPermissions(prev => ({
+  const handlePermissionToggle = (
+    propertyId: string,
+    permission: string,
+    checked: boolean
+  ) => {
+    setPropertyPermissions((prev) => ({
       ...prev,
       [propertyId]: {
         ...prev[propertyId],
-        [permission]: checked
-      }
+        [permission]: checked,
+      },
     }));
   };
 
@@ -1118,7 +1483,9 @@ const PropertyAssignmentForm = ({
       {availableProperties.length === 0 ? (
         <div className="text-center py-12 border rounded-lg bg-gray-50">
           <Building className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-          <p className="text-gray-600 font-medium">No properties available to assign</p>
+          <p className="text-gray-600 font-medium">
+            No properties available to assign
+          </p>
           <p className="text-sm text-gray-500 mt-1">
             All properties are already assigned to managers
           </p>
@@ -1128,22 +1495,39 @@ const PropertyAssignmentForm = ({
           <div className="max-h-96 overflow-auto border rounded-lg">
             <div className="space-y-3 p-4">
               {availableProperties.map((property) => {
-                const isSelected = selectedProperties.includes(property.id.toString());
-                const permissions = propertyPermissions[property.id.toString()] || { canEdit: false, canDelete: false };
+                const isSelected = selectedProperties.includes(
+                  property.id.toString()
+                );
+                const permissions = propertyPermissions[
+                  property.id.toString()
+                ] || { canEdit: false, canDelete: false };
 
                 return (
-                  <div key={property.id} className={`border rounded-lg p-3 ${isSelected ? 'bg-blue-50 border-blue-200' : 'bg-white'}`}>
+                  <div
+                    key={property.id}
+                    className={`border rounded-lg p-3 ${
+                      isSelected ? "bg-blue-50 border-blue-200" : "bg-white"
+                    }`}
+                  >
                     <div className="flex items-start space-x-3">
                       <Checkbox
                         id={`property-${property.id}`}
                         checked={isSelected}
-                        onCheckedChange={(checked) => handlePropertyToggle(property.id.toString(), checked as boolean)}
+                        onCheckedChange={(checked) =>
+                          handlePropertyToggle(
+                            property.id.toString(),
+                            checked as boolean
+                          )
+                        }
                         className="mt-1"
                       />
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
                           <div>
-                            <label htmlFor={`property-${property.id}`} className="font-medium cursor-pointer">
+                            <label
+                              htmlFor={`property-${property.id}`}
+                              className="font-medium cursor-pointer"
+                            >
                               {property.name}
                             </label>
                             <div className="text-sm text-gray-500 flex items-center mt-1">
@@ -1152,22 +1536,35 @@ const PropertyAssignmentForm = ({
                             </div>
                           </div>
                           <div className="text-right text-sm">
-                            <div className="font-medium">{property.units || property.totalUnits || 0} units</div>
+                            <div className="font-medium">
+                              {property.units || property.totalUnits || 0} units
+                            </div>
                           </div>
                         </div>
 
                         {/* Permissions - Only show if property is selected */}
                         {isSelected && (
                           <div className="mt-3 pt-3 border-t border-blue-200">
-                            <p className="text-xs font-medium text-gray-700 mb-2">Manager Permissions:</p>
+                            <p className="text-xs font-medium text-gray-700 mb-2">
+                              Manager Permissions:
+                            </p>
                             <div className="flex gap-4">
                               <div className="flex items-center space-x-2">
                                 <Checkbox
                                   id={`property-${property.id}-edit`}
                                   checked={permissions.canEdit}
-                                  onCheckedChange={(checked) => handlePermissionToggle(property.id.toString(), 'canEdit', checked as boolean)}
+                                  onCheckedChange={(checked) =>
+                                    handlePermissionToggle(
+                                      property.id.toString(),
+                                      "canEdit",
+                                      checked as boolean
+                                    )
+                                  }
                                 />
-                                <label htmlFor={`property-${property.id}-edit`} className="text-sm cursor-pointer">
+                                <label
+                                  htmlFor={`property-${property.id}-edit`}
+                                  className="text-sm cursor-pointer"
+                                >
                                   Can Edit Property
                                 </label>
                               </div>
@@ -1175,9 +1572,18 @@ const PropertyAssignmentForm = ({
                                 <Checkbox
                                   id={`property-${property.id}-delete`}
                                   checked={permissions.canDelete}
-                                  onCheckedChange={(checked) => handlePermissionToggle(property.id.toString(), 'canDelete', checked as boolean)}
+                                  onCheckedChange={(checked) =>
+                                    handlePermissionToggle(
+                                      property.id.toString(),
+                                      "canDelete",
+                                      checked as boolean
+                                    )
+                                  }
                                 />
-                                <label htmlFor={`property-${property.id}-delete`} className="text-sm cursor-pointer">
+                                <label
+                                  htmlFor={`property-${property.id}-delete`}
+                                  className="text-sm cursor-pointer"
+                                >
                                   Can Delete Property
                                 </label>
                               </div>
@@ -1210,7 +1616,10 @@ const PropertyAssignmentForm = ({
             <Button variant="outline" onClick={onCancel}>
               Cancel
             </Button>
-            <Button onClick={() => onSave(selectedProperties, propertyPermissions)} disabled={selectedProperties.length === 0}>
+            <Button
+              onClick={() => onSave(selectedProperties, propertyPermissions)}
+              disabled={selectedProperties.length === 0}
+            >
               Save Assignments
             </Button>
           </div>
@@ -1219,5 +1628,3 @@ const PropertyAssignmentForm = ({
     </div>
   );
 };
-
-
