@@ -1,8 +1,9 @@
-import prisma from '../../lib/db';
-import { queueService } from './queue.service';
-import { encrypt } from '../../lib/encryption';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import crypto from 'crypto';
+import prisma from "../../lib/db";
+import { queueService } from "./queue.service";
+import { encrypt } from "../../lib/encryption";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import https from "https";
+import crypto from "crypto";
 
 /**
  * Verification Service
@@ -14,33 +15,89 @@ export class VerificationService {
   private spacesRegion: string;
 
   constructor() {
-    this.spacesBucket = process.env.SPACES_BUCKET || '';
-    this.spacesRegion = process.env.SPACES_REGION || 'nyc3';
+    // Support both SPACES_BUCKET and DO_SPACES_BUCKET for compatibility
+    this.spacesBucket =
+      process.env.SPACES_BUCKET || process.env.DO_SPACES_BUCKET || "";
+    this.spacesRegion =
+      process.env.SPACES_REGION || process.env.DO_SPACES_REGION || "nyc3";
 
     // Log Spaces configuration for debugging
-    console.log('[VerificationService] Spaces config:', {
-      bucket: this.spacesBucket ? '✓ set' : '✗ MISSING',
+    console.log("[VerificationService] Spaces config:", {
+      bucket: this.spacesBucket ? "✓ set" : "✗ MISSING",
       region: this.spacesRegion,
-      endpoint: process.env.SPACES_ENDPOINT || 'NOT SET - using default',
-      hasAccessKey: process.env.SPACES_ACCESS_KEY_ID ? '✓ set' : '✗ MISSING',
-      hasSecretKey: process.env.SPACES_SECRET_ACCESS_KEY ? '✓ set' : '✗ MISSING',
+      endpoint: process.env.SPACES_ENDPOINT || "NOT SET - using default",
+      hasAccessKey: process.env.SPACES_ACCESS_KEY_ID ? "✓ set" : "✗ MISSING",
+      hasSecretKey: process.env.SPACES_SECRET_ACCESS_KEY
+        ? "✓ set"
+        : "✗ MISSING",
     });
 
     // Warn if critical env vars are missing
-    if (!process.env.SPACES_BUCKET || !process.env.SPACES_ACCESS_KEY_ID || !process.env.SPACES_SECRET_ACCESS_KEY) {
-      console.error('[VerificationService] ⚠️ WARNING: Missing SPACES environment variables! Document uploads will fail.');
+    const hasBucket = process.env.SPACES_BUCKET || process.env.DO_SPACES_BUCKET;
+    const hasAccessKey =
+      process.env.SPACES_ACCESS_KEY_ID || process.env.DO_SPACES_ACCESS_KEY_ID;
+    const hasSecretKey =
+      process.env.SPACES_SECRET_ACCESS_KEY ||
+      process.env.DO_SPACES_SECRET_ACCESS_KEY;
+
+    if (!hasBucket || !hasAccessKey || !hasSecretKey) {
+      console.error(
+        "[VerificationService] ⚠️ WARNING: Missing SPACES environment variables! Document uploads will fail."
+      );
+      console.error("[VerificationService] Missing:", {
+        bucket: !hasBucket,
+        accessKey: !hasAccessKey,
+        secretKey: !hasSecretKey,
+      });
     }
 
     // Configure S3 client for DigitalOcean Spaces
+    // Support both SPACES_* and DO_SPACES_* environment variable naming
+    const accessKeyId =
+      process.env.SPACES_ACCESS_KEY_ID ||
+      process.env.DO_SPACES_ACCESS_KEY_ID ||
+      "";
+    const secretAccessKey =
+      process.env.SPACES_SECRET_ACCESS_KEY ||
+      process.env.DO_SPACES_SECRET_ACCESS_KEY ||
+      "";
+    const endpoint =
+      process.env.SPACES_ENDPOINT ||
+      process.env.DO_SPACES_ENDPOINT ||
+      `https://${this.spacesRegion}.digitaloceanspaces.com`;
+
+    // Configure S3 client with SSL certificate handling
+    // Handle "unable to get local issuer certificate" errors
+    // Similar to storage.service.ts approach - use httpsAgent to handle SSL certificates
+    const httpsAgent = new https.Agent({
+      // In production, validate SSL certificates. In development/local, allow self-signed/incomplete certs
+      // This fixes "unable to get local issuer certificate" errors
+      rejectUnauthorized:
+        process.env.NODE_ENV === "production" &&
+        process.env.SKIP_SSL_VERIFICATION !== "true",
+    });
+
     this.s3Client = new S3Client({
       region: this.spacesRegion,
-      endpoint: process.env.SPACES_ENDPOINT || `https://${this.spacesRegion}.digitaloceanspaces.com`,
+      endpoint,
       credentials: {
-        accessKeyId: process.env.SPACES_ACCESS_KEY_ID || '',
-        secretAccessKey: process.env.SPACES_SECRET_ACCESS_KEY || '',
+        accessKeyId,
+        secretAccessKey,
       },
       forcePathStyle: false, // DigitalOcean Spaces uses virtual-hosted-style URLs
+      requestHandler: {
+        httpsAgent: httpsAgent,
+      },
     });
+
+    if (
+      process.env.NODE_ENV !== "production" ||
+      process.env.SKIP_SSL_VERIFICATION === "true"
+    ) {
+      console.warn(
+        "[VerificationService] ⚠️ SSL certificate verification is relaxed (development/local mode)"
+      );
+    }
   }
 
   /**
@@ -58,20 +115,24 @@ export class VerificationService {
     userAgent?: string
   ) {
     try {
-      console.log(`[VerificationService] Creating request for customer ${customerId} (${customerEmail})`);
+      console.log(
+        `[VerificationService] Creating request for customer ${customerId} (${customerEmail})`
+      );
 
       // Check if customer already has a pending/in_progress request
       const existingRequest = await prisma.verification_requests.findFirst({
         where: {
           customerId,
           status: {
-            in: ['pending', 'in_progress'],
+            in: ["pending", "in_progress"],
           },
         },
       });
 
       if (existingRequest) {
-        console.log(`[VerificationService] Customer already has pending request: ${existingRequest.id}`);
+        console.log(
+          `[VerificationService] Customer already has pending request: ${existingRequest.id}`
+        );
         return existingRequest;
       }
 
@@ -81,7 +142,7 @@ export class VerificationService {
           customerId,
           customerEmail,
           customerType,
-          status: 'pending',
+          status: "pending",
           ipAddress,
           userAgent,
         },
@@ -91,7 +152,7 @@ export class VerificationService {
       await prisma.verification_history.create({
         data: {
           requestId: request.id,
-          action: 'request_created',
+          action: "request_created",
           performedBy: customerId,
           details: {
             customerType,
@@ -104,8 +165,8 @@ export class VerificationService {
 
       return request;
     } catch (error) {
-      console.error('[VerificationService] Failed to create request:', error);
-      throw new Error('Failed to create verification request');
+      console.error("[VerificationService] Failed to create request:", error);
+      throw new Error("Failed to create verification request");
     }
   }
 
@@ -125,7 +186,9 @@ export class VerificationService {
     metadata?: any
   ) {
     try {
-      console.log(`[VerificationService] Uploading document for request ${requestId}`);
+      console.log(
+        `[VerificationService] Uploading document for request ${requestId}`
+      );
 
       // Validate request exists and is in correct status
       const request = await prisma.verification_requests.findUnique({
@@ -133,15 +196,24 @@ export class VerificationService {
       });
 
       if (!request) {
-        throw new Error('Verification request not found');
+        throw new Error("Verification request not found");
       }
 
-      if (!['pending', 'in_progress'].includes(request.status)) {
-        throw new Error(`Cannot upload documents for request with status: ${request.status}`);
+      if (!["pending", "in_progress"].includes(request.status)) {
+        throw new Error(
+          `Cannot upload documents for request with status: ${request.status}`
+        );
       }
 
       // Validate document type
-      const validTypes = ['nin', 'passport', 'drivers_license', 'voters_card', 'utility_bill', 'proof_of_address'];
+      const validTypes = [
+        "nin",
+        "passport",
+        "drivers_license",
+        "voters_card",
+        "utility_bill",
+        "proof_of_address",
+      ];
       if (!validTypes.includes(documentType)) {
         throw new Error(`Invalid document type: ${documentType}`);
       }
@@ -154,18 +226,27 @@ export class VerificationService {
         },
       });
 
-      if (existingDoc) {
-        throw new Error(`Document type ${documentType} already uploaded`);
+      // Upload file to S3 (common for both new and update)
+      const fileKey = `verification/${requestId}/${documentType}/${Date.now()}-${
+        file.originalname
+      }`;
+      const bucket =
+        process.env.SPACES_BUCKET ||
+        process.env.DO_SPACES_BUCKET ||
+        this.spacesBucket;
+
+      if (!bucket) {
+        throw new Error(
+          "SPACES_BUCKET or DO_SPACES_BUCKET environment variable is not set"
+        );
       }
 
-      // Upload file to S3
-      const fileKey = `verification/${requestId}/${documentType}/${Date.now()}-${file.originalname}`;
       const uploadCommand = new PutObjectCommand({
-        Bucket: process.env.SPACES_BUCKET || '',
+        Bucket: bucket,
         Key: fileKey,
         Body: file.buffer,
         ContentType: file.mimetype,
-        ServerSideEncryption: 'AES256',
+        ServerSideEncryption: "AES256",
       });
 
       await this.s3Client.send(uploadCommand);
@@ -178,32 +259,76 @@ export class VerificationService {
       // Encrypt document number if provided
       const encryptedNumber = documentNumber ? encrypt(documentNumber) : null;
 
-      // Create document record
-      const document = await prisma.verification_documents.create({
-        data: {
-          requestId,
-          documentType,
-          documentNumber: encryptedNumber,
-          fileUrl,
-          fileName: file.originalname,
-          fileSize: file.size,
-          mimeType: file.mimetype,
-          status: 'pending',
-          verificationData: metadata || {},
-        },
-      });
+      let document;
+
+      if (existingDoc) {
+        // If document exists, update it instead of throwing error
+        // This allows users to re-upload documents if they made a mistake
+        console.log(
+          `[VerificationService] Document type ${documentType} already exists for request ${requestId}, updating existing document`
+        );
+
+        // Update existing document record
+        document = await prisma.verification_documents.update({
+          where: { id: existingDoc.id },
+          data: {
+            documentNumber: encryptedNumber,
+            fileUrl,
+            fileName: file.originalname,
+            fileSize: file.size,
+            mimeType: file.mimetype,
+            status: "pending", // Reset status to pending for re-verification
+            verificationData: metadata || {},
+            updatedAt: new Date(),
+          },
+        });
+
+        // Log history
+        await prisma.verification_history.create({
+          data: {
+            requestId,
+            action: "document_reuploaded",
+            performedBy: request.customerId,
+            details: {
+              documentId: document.id,
+              documentType,
+              fileName: file.originalname,
+              reason: "User re-uploaded document",
+            },
+          },
+        });
+
+        console.log(
+          `[VerificationService] ✅ Document updated: ${document.id}`
+        );
+      } else {
+        // Create new document record
+        document = await prisma.verification_documents.create({
+          data: {
+            requestId,
+            documentType,
+            documentNumber: encryptedNumber,
+            fileUrl,
+            fileName: file.originalname,
+            fileSize: file.size,
+            mimeType: file.mimetype,
+            status: "pending",
+            verificationData: metadata || {},
+          },
+        });
+      }
 
       // Update request status to in_progress
       await prisma.verification_requests.update({
         where: { id: requestId },
-        data: { status: 'in_progress' },
+        data: { status: "in_progress" },
       });
 
       // Log history
       await prisma.verification_history.create({
         data: {
           requestId,
-          action: 'document_uploaded',
+          action: "document_uploaded",
           performedBy: request.customerId,
           details: {
             documentId: document.id,
@@ -216,11 +341,13 @@ export class VerificationService {
       // Add to verification queue
       const jobId = await queueService.addVerificationJob(document.id, 5);
 
-      console.log(`[VerificationService] ✅ Document uploaded and queued: ${document.id} (Job: ${jobId})`);
+      console.log(
+        `[VerificationService] ✅ Document uploaded and queued: ${document.id} (Job: ${jobId})`
+      );
 
       return document;
     } catch (error: any) {
-      console.error('[VerificationService] Failed to upload document:', error);
+      console.error("[VerificationService] Failed to upload document:", error);
       throw error;
     }
   }
@@ -249,7 +376,7 @@ export class VerificationService {
       });
 
       if (!request) {
-        throw new Error('Verification request not found');
+        throw new Error("Verification request not found");
       }
 
       return {
@@ -261,8 +388,8 @@ export class VerificationService {
         documents: request.documents,
       };
     } catch (error) {
-      console.error('[VerificationService] Failed to get status:', error);
-      throw new Error('Failed to get verification status');
+      console.error("[VerificationService] Failed to get status:", error);
+      throw new Error("Failed to get verification status");
     }
   }
 
@@ -274,7 +401,7 @@ export class VerificationService {
     try {
       const request = await prisma.verification_requests.findFirst({
         where: { customerId },
-        orderBy: { submittedAt: 'desc' },
+        orderBy: { submittedAt: "desc" },
         include: {
           documents: {
             select: {
@@ -293,13 +420,13 @@ export class VerificationService {
       if (!request) {
         return {
           verified: false,
-          status: 'not_started',
-          message: 'No verification request found',
+          status: "not_started",
+          message: "No verification request found",
         };
       }
 
       return {
-        verified: request.status === 'approved',
+        verified: request.status === "approved",
         status: request.status,
         requestId: request.id,
         submittedAt: request.submittedAt,
@@ -308,8 +435,11 @@ export class VerificationService {
         rejectionReason: request.rejectionReason,
       };
     } catch (error) {
-      console.error('[VerificationService] Failed to get customer verification:', error);
-      throw new Error('Failed to get customer verification status');
+      console.error(
+        "[VerificationService] Failed to get customer verification:",
+        error
+      );
+      throw new Error("Failed to get customer verification status");
     }
   }
 
@@ -321,17 +451,16 @@ export class VerificationService {
     try {
       const history = await prisma.verification_history.findMany({
         where: { requestId },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       });
 
       return history;
     } catch (error) {
-      console.error('[VerificationService] Failed to get history:', error);
-      throw new Error('Failed to get verification history');
+      console.error("[VerificationService] Failed to get history:", error);
+      throw new Error("Failed to get verification history");
     }
   }
 }
 
 // Export singleton instance
 export const verificationService = new VerificationService();
-

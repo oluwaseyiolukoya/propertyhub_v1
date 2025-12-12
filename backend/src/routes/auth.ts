@@ -838,7 +838,17 @@ router.get(
       return res.json({ valid: true });
     } catch (error: any) {
       console.error("Session validation error:", error);
-      return res.status(500).json({ error: "Failed to validate session" });
+      console.error("Session validation error stack:", error.stack);
+      // Check if response has already been sent
+      if (!res.headersSent) {
+        return res.status(500).json({
+          error: "Failed to validate session",
+          message:
+            process.env.NODE_ENV === "development"
+              ? error.message
+              : "An error occurred while validating your session",
+        });
+      }
     }
   }
 );
@@ -1603,11 +1613,9 @@ router.put(
         sessionTimeout !== undefined &&
         (sessionTimeout < 15 || sessionTimeout > 1440)
       ) {
-        return res
-          .status(400)
-          .json({
-            error: "Session timeout must be between 15 and 1440 minutes",
-          });
+        return res.status(400).json({
+          error: "Session timeout must be between 15 and 1440 minutes",
+        });
       }
 
       // Build update data

@@ -1,7 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
+import React, { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/card";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 import {
   FileText,
   Download,
@@ -17,11 +23,11 @@ import {
   FolderOpen,
   Sparkles,
   FileBox,
-  AlertCircle
-} from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Badge } from './ui/badge';
-import { toast } from 'sonner';
+  AlertCircle,
+} from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { Badge } from "./ui/badge";
+import { toast } from "sonner";
 import {
   getDocuments,
   getDocumentStats,
@@ -29,15 +35,21 @@ import {
   downloadDocumentInFormat,
   Document,
   DocumentStats,
-} from '../lib/api/documents';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
+} from "../lib/api/documents";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 
 const TenantDocuments: React.FC = () => {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [documents, setDocuments] = useState<Document[]>([]);
   const [stats, setStats] = useState<DocumentStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState("all");
   const [viewingDocument, setViewingDocument] = useState<Document | null>(null);
   const [showViewDialog, setShowViewDialog] = useState(false);
 
@@ -52,13 +64,13 @@ const TenantDocuments: React.FC = () => {
       setLoading(true);
       const { data, error } = await getDocuments();
       if (error) {
-        console.error('Failed to load documents:', error);
-        toast.error('Failed to load documents');
+        console.error("Failed to load documents:", error);
+        toast.error("Failed to load documents");
       } else if (data) {
         setDocuments(data);
       }
     } catch (error) {
-      console.error('Load documents error:', error);
+      console.error("Load documents error:", error);
     } finally {
       setLoading(false);
     }
@@ -68,12 +80,12 @@ const TenantDocuments: React.FC = () => {
     try {
       const { data, error } = await getDocumentStats();
       if (error) {
-        console.error('Failed to load stats:', error);
+        console.error("Failed to load stats:", error);
       } else if (data) {
         setStats(data);
       }
     } catch (error) {
-      console.error('Load stats error:', error);
+      console.error("Load stats error:", error);
     }
   };
 
@@ -82,42 +94,53 @@ const TenantDocuments: React.FC = () => {
     let filtered = documents;
 
     // Filter by tab
-    if (activeTab !== 'all') {
-      if (activeTab === 'leases') {
-        filtered = filtered.filter(doc => doc.type === 'lease' || doc.category?.includes('Lease'));
-      } else if (activeTab === 'receipts') {
-        filtered = filtered.filter(doc => doc.type === 'receipt' || doc.category?.includes('Receipt'));
-      } else if (activeTab === 'policies') {
-        filtered = filtered.filter(doc => doc.type === 'policy' || doc.category?.includes('Polic'));
-      } else if (activeTab === 'notices') {
-        filtered = filtered.filter(doc => doc.type === 'notice' || doc.category?.includes('Notice'));
+    if (activeTab !== "all") {
+      if (activeTab === "leases") {
+        filtered = filtered.filter(
+          (doc) => doc.type === "lease" || doc.category?.includes("Lease")
+        );
+      } else if (activeTab === "receipts") {
+        filtered = filtered.filter(
+          (doc) => doc.type === "receipt" || doc.category?.includes("Receipt")
+        );
+      } else if (activeTab === "policies") {
+        filtered = filtered.filter(
+          (doc) => doc.type === "policy" || doc.category?.includes("Polic")
+        );
+      } else if (activeTab === "notices") {
+        filtered = filtered.filter(
+          (doc) => doc.type === "notice" || doc.category?.includes("Notice")
+        );
       }
     }
 
     // Filter by search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(doc =>
-        doc.name.toLowerCase().includes(query) ||
-        doc.type.toLowerCase().includes(query) ||
-        doc.category.toLowerCase().includes(query) ||
-        doc.description?.toLowerCase().includes(query)
+      filtered = filtered.filter(
+        (doc) =>
+          doc.name.toLowerCase().includes(query) ||
+          doc.type.toLowerCase().includes(query) ||
+          doc.category.toLowerCase().includes(query) ||
+          doc.description?.toLowerCase().includes(query)
       );
     }
 
     return filtered;
   };
 
-  const handleDownload = (doc: Document, format: 'pdf' | 'docx' = 'pdf') => {
+  const handleDownload = (doc: Document, format: "pdf" | "docx" = "pdf") => {
     // For generated contracts (no fileUrl), use the download API
-    if (!doc.fileUrl || doc.fileUrl === '') {
-      const downloadUrl = downloadDocumentInFormat(doc.id, format, { includeToken: true });
-      window.open(downloadUrl, '_blank');
+    if (!doc.fileUrl || doc.fileUrl === "") {
+      const downloadUrl = downloadDocumentInFormat(doc.id, format, {
+        includeToken: true,
+      });
+      window.open(downloadUrl, "_blank");
       toast.success(`Downloading ${doc.name} as ${format.toUpperCase()}`);
     } else {
       // For uploaded files, use direct file URL
       const downloadUrl = getDocumentDownloadUrl(doc.fileUrl);
-      window.open(downloadUrl, '_blank');
+      window.open(downloadUrl, "_blank");
       toast.success(`Downloading ${doc.name}`);
     }
   };
@@ -128,7 +151,7 @@ const TenantDocuments: React.FC = () => {
   };
 
   const formatFileSize = (bytes: number | null | undefined): string => {
-    if (!bytes) return 'Unknown';
+    if (!bytes) return "Unknown";
     const kb = bytes / 1024;
     if (kb < 1024) return `${kb.toFixed(0)} KB`;
     const mb = kb / 1024;
@@ -136,38 +159,38 @@ const TenantDocuments: React.FC = () => {
   };
 
   const formatDate = (date: string): string => {
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+    return new Date(date).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     });
   };
 
   const getDisplayFormat = (doc: Document): string => {
-    if (!doc.fileUrl) return 'PDF';
+    if (!doc.fileUrl) return "PDF";
     if (doc.format) return doc.format.toUpperCase();
-    const parts = doc.fileUrl.toLowerCase().split('.');
-    const ext = parts.length > 1 ? parts.pop() as string : '';
-    return (ext || 'PDF').toUpperCase();
+    const parts = doc.fileUrl.toLowerCase().split(".");
+    const ext = parts.length > 1 ? (parts.pop() as string) : "";
+    return (ext || "PDF").toUpperCase();
   };
 
   const getDisplaySizeText = (doc: Document): string => {
     if (doc.fileSize) return formatFileSize(doc.fileSize);
-    if (!doc.fileUrl) return 'Generated';
-    return 'Unknown';
+    if (!doc.fileUrl) return "Generated";
+    return "Unknown";
   };
 
   const getTypeIcon = (type: string) => {
     switch (type?.toLowerCase()) {
-      case 'lease':
+      case "lease":
         return <FileText className="h-4 w-4" />;
-      case 'receipt':
+      case "receipt":
         return <Receipt className="h-4 w-4" />;
-      case 'inspection':
+      case "inspection":
         return <ClipboardList className="h-4 w-4" />;
-      case 'policy':
+      case "policy":
         return <Shield className="h-4 w-4" />;
-      case 'notice':
+      case "notice":
         return <FileCheck className="h-4 w-4" />;
       default:
         return <File className="h-4 w-4" />;
@@ -187,7 +210,7 @@ const TenantDocuments: React.FC = () => {
       size: "2.4 MB",
       format: "PDF",
       description: "Annual lease agreement for Unit 204",
-      uploadedBy: "Property Manager"
+      uploadedBy: "Property Manager",
     },
     {
       id: 2,
@@ -198,7 +221,7 @@ const TenantDocuments: React.FC = () => {
       size: "1.8 MB",
       format: "PDF",
       description: "Initial condition report with photos",
-      uploadedBy: "Property Manager"
+      uploadedBy: "Property Manager",
     },
     {
       id: 3,
@@ -209,7 +232,7 @@ const TenantDocuments: React.FC = () => {
       size: "156 KB",
       format: "PDF",
       description: "Payment confirmation for October rent",
-      uploadedBy: "System"
+      uploadedBy: "System",
     },
     {
       id: 4,
@@ -220,7 +243,7 @@ const TenantDocuments: React.FC = () => {
       size: "158 KB",
       format: "PDF",
       description: "Payment confirmation for September rent",
-      uploadedBy: "System"
+      uploadedBy: "System",
     },
     {
       id: 5,
@@ -231,7 +254,7 @@ const TenantDocuments: React.FC = () => {
       size: "157 KB",
       format: "PDF",
       description: "Payment confirmation for August rent",
-      uploadedBy: "System"
+      uploadedBy: "System",
     },
     {
       id: 6,
@@ -242,7 +265,7 @@ const TenantDocuments: React.FC = () => {
       size: "890 KB",
       format: "PDF",
       description: "Community rules and tenant guidelines",
-      uploadedBy: "Property Manager"
+      uploadedBy: "Property Manager",
     },
     {
       id: 7,
@@ -253,7 +276,7 @@ const TenantDocuments: React.FC = () => {
       size: "345 KB",
       format: "PDF",
       description: "Parking rules and assigned spaces",
-      uploadedBy: "Property Manager"
+      uploadedBy: "Property Manager",
     },
     {
       id: 8,
@@ -264,7 +287,7 @@ const TenantDocuments: React.FC = () => {
       size: "234 KB",
       format: "PDF",
       description: "Security deposit payment confirmation",
-      uploadedBy: "Property Manager"
+      uploadedBy: "Property Manager",
     },
     {
       id: 9,
@@ -275,7 +298,7 @@ const TenantDocuments: React.FC = () => {
       size: "1.2 MB",
       format: "PDF",
       description: "Active renters insurance policy",
-      uploadedBy: "Sarah Johnson"
+      uploadedBy: "Sarah Johnson",
     },
     {
       id: 10,
@@ -286,27 +309,40 @@ const TenantDocuments: React.FC = () => {
       size: "189 KB",
       format: "PDF",
       description: "Scheduled maintenance notification",
-      uploadedBy: "Property Manager"
-    }
+      uploadedBy: "Property Manager",
+    },
   ];
 
   const getDocumentIcon = (type: string) => {
-    switch(type) {
-      case 'lease': return <FileCheck className="h-5 w-5 text-blue-600" />;
-      case 'receipt': return <FileText className="h-5 w-5 text-green-600" />;
-      case 'policy': return <File className="h-5 w-5 text-purple-600" />;
-      case 'insurance': return <FileCheck className="h-5 w-5 text-orange-600" />;
-      case 'notice': return <FileText className="h-5 w-5 text-yellow-600" />;
-      case 'inspection': return <FileCheck className="h-5 w-5 text-indigo-600" />;
-      default: return <File className="h-5 w-5 text-gray-600" />;
+    switch (type) {
+      case "lease":
+        return <FileCheck className="h-5 w-5 text-blue-600" />;
+      case "receipt":
+        return <FileText className="h-5 w-5 text-green-600" />;
+      case "policy":
+        return <File className="h-5 w-5 text-purple-600" />;
+      case "insurance":
+        return <FileCheck className="h-5 w-5 text-orange-600" />;
+      case "notice":
+        return <FileText className="h-5 w-5 text-yellow-600" />;
+      case "inspection":
+        return <FileCheck className="h-5 w-5 text-indigo-600" />;
+      default:
+        return <File className="h-5 w-5 text-gray-600" />;
     }
   };
 
   // Use the filtered documents from getFilteredDocuments() above
-  const leaseDocuments = filteredDocuments.filter(doc => doc.type === 'lease' || doc.type === 'inspection');
-  const receipts = filteredDocuments.filter(doc => doc.type === 'receipt');
-  const policies = filteredDocuments.filter(doc => doc.type === 'policy' || doc.type === 'notice');
-  const insuranceDocs = filteredDocuments.filter(doc => doc.type === 'insurance');
+  const leaseDocuments = filteredDocuments.filter(
+    (doc) => doc.type === "lease" || doc.type === "inspection"
+  );
+  const receipts = filteredDocuments.filter((doc) => doc.type === "receipt");
+  const policies = filteredDocuments.filter(
+    (doc) => doc.type === "policy" || doc.type === "notice"
+  );
+  const insuranceDocs = filteredDocuments.filter(
+    (doc) => doc.type === "insurance"
+  );
 
   const DocumentCard = ({ doc }: { doc: Document }) => (
     <Card className="border-0 shadow-md hover:shadow-lg hover:border-[#7C3AED]/30 transition-all duration-200">
@@ -318,15 +354,19 @@ const TenantDocuments: React.FC = () => {
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between mb-2">
               <div className="flex-1">
-                <h4 className="font-semibold text-gray-900 truncate">{doc.name}</h4>
+                <h4 className="font-semibold text-gray-900 truncate">
+                  {doc.name}
+                </h4>
                 <p className="text-sm text-gray-600">{doc.description}</p>
               </div>
             </div>
             <div className="flex items-center justify-between mt-3">
               <div className="flex items-center space-x-4 text-sm text-gray-600 font-medium">
-                <span>{getDisplayFormat(doc)} • {getDisplaySizeText(doc)}</span>
+                <span>
+                  {getDisplayFormat(doc)} • {getDisplaySizeText(doc)}
+                </span>
                 <span>•</span>
-                <span>{doc.createdAt ? formatDate(doc.createdAt) : 'N/A'}</span>
+                <span>{doc.createdAt ? formatDate(doc.createdAt) : "N/A"}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <Button
@@ -366,8 +406,12 @@ const TenantDocuments: React.FC = () => {
               <FolderOpen className="h-8 w-8 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-white">Documents</h1>
-              <p className="text-white/80 font-medium mt-1">Access your lease, receipts, and important documents</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-white">
+                Documents
+              </h1>
+              <p className="text-white/80 font-medium mt-1">
+                Access your lease, receipts, and important documents
+              </p>
             </div>
           </div>
           <div className="bg-white/20 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/30">
@@ -382,55 +426,77 @@ const TenantDocuments: React.FC = () => {
         <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative">
           <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-indigo-500/5 group-hover:from-purple-500/10 group-hover:to-indigo-500/10 transition-all duration-300"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
-            <CardTitle className="text-xs md:text-sm font-semibold text-gray-700">All Documents</CardTitle>
+            <CardTitle className="text-xs md:text-sm font-semibold text-gray-700">
+              All Documents
+            </CardTitle>
             <div className="rounded-xl bg-gradient-to-br from-purple-500 to-indigo-500 p-2 md:p-2.5 shadow-lg shadow-purple-500/25 group-hover:scale-110 transition-transform duration-300">
               <FileText className="h-4 w-4 text-white" />
             </div>
           </CardHeader>
           <CardContent className="relative">
-            <div className="text-xl md:text-3xl font-bold text-gray-900">{documents.length}</div>
-            <p className="text-xs text-gray-500 font-medium mt-1">Total files</p>
+            <div className="text-xl md:text-3xl font-bold text-gray-900">
+              {documents.length}
+            </div>
+            <p className="text-xs text-gray-500 font-medium mt-1">
+              Total files
+            </p>
           </CardContent>
         </Card>
 
         <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-cyan-500/5 group-hover:from-blue-500/10 group-hover:to-cyan-500/10 transition-all duration-300"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
-            <CardTitle className="text-xs md:text-sm font-semibold text-gray-700">Lease Docs</CardTitle>
+            <CardTitle className="text-xs md:text-sm font-semibold text-gray-700">
+              Lease Docs
+            </CardTitle>
             <div className="rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 p-2 md:p-2.5 shadow-lg shadow-blue-500/25 group-hover:scale-110 transition-transform duration-300">
               <FileCheck className="h-4 w-4 text-white" />
             </div>
           </CardHeader>
           <CardContent className="relative">
-            <div className="text-xl md:text-3xl font-bold text-gray-900">{leaseDocuments.length}</div>
-            <p className="text-xs text-gray-500 font-medium mt-1">Active lease</p>
+            <div className="text-xl md:text-3xl font-bold text-gray-900">
+              {leaseDocuments.length}
+            </div>
+            <p className="text-xs text-gray-500 font-medium mt-1">
+              Active lease
+            </p>
           </CardContent>
         </Card>
 
         <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative">
           <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-emerald-500/5 group-hover:from-green-500/10 group-hover:to-emerald-500/10 transition-all duration-300"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
-            <CardTitle className="text-xs md:text-sm font-semibold text-gray-700">Receipts</CardTitle>
+            <CardTitle className="text-xs md:text-sm font-semibold text-gray-700">
+              Receipts
+            </CardTitle>
             <div className="rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 p-2 md:p-2.5 shadow-lg shadow-green-500/25 group-hover:scale-110 transition-transform duration-300">
               <Receipt className="h-4 w-4 text-white" />
             </div>
           </CardHeader>
           <CardContent className="relative">
-            <div className="text-xl md:text-3xl font-bold text-gray-900">{receipts.length}</div>
-            <p className="text-xs text-gray-500 font-medium mt-1">Payment records</p>
+            <div className="text-xl md:text-3xl font-bold text-gray-900">
+              {receipts.length}
+            </div>
+            <p className="text-xs text-gray-500 font-medium mt-1">
+              Payment records
+            </p>
           </CardContent>
         </Card>
 
         <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 group overflow-hidden relative">
           <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-amber-500/5 group-hover:from-orange-500/10 group-hover:to-amber-500/10 transition-all duration-300"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
-            <CardTitle className="text-xs md:text-sm font-semibold text-gray-700">Recent</CardTitle>
+            <CardTitle className="text-xs md:text-sm font-semibold text-gray-700">
+              Recent
+            </CardTitle>
             <div className="rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 p-2 md:p-2.5 shadow-lg shadow-orange-500/25 group-hover:scale-110 transition-transform duration-300">
               <Calendar className="h-4 w-4 text-white" />
             </div>
           </CardHeader>
           <CardContent className="relative">
-            <div className="text-xl md:text-3xl font-bold text-gray-900">{stats?.recent ?? 0}</div>
+            <div className="text-xl md:text-3xl font-bold text-gray-900">
+              {stats?.recent ?? 0}
+            </div>
             <p className="text-xs text-gray-500 font-medium mt-1">This month</p>
           </CardContent>
         </Card>
@@ -498,8 +564,12 @@ const TenantDocuments: React.FC = () => {
                   <FileBox className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <CardTitle className="text-gray-900 font-bold text-lg">All Documents</CardTitle>
-                  <CardDescription className="text-gray-600 font-medium">Browse all your documents</CardDescription>
+                  <CardTitle className="text-gray-900 font-bold text-lg">
+                    All Documents
+                  </CardTitle>
+                  <CardDescription className="text-gray-600 font-medium">
+                    Browse all your documents
+                  </CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -508,7 +578,9 @@ const TenantDocuments: React.FC = () => {
                 <div className="flex items-center justify-center py-16">
                   <div className="text-center">
                     <div className="animate-spin rounded-full h-10 w-10 border-4 border-purple-200 border-t-purple-600 mx-auto"></div>
-                    <p className="mt-4 text-sm text-gray-500 font-medium">Loading documents...</p>
+                    <p className="mt-4 text-sm text-gray-500 font-medium">
+                      Loading documents...
+                    </p>
                   </div>
                 </div>
               ) : filteredDocuments.length === 0 ? (
@@ -516,24 +588,35 @@ const TenantDocuments: React.FC = () => {
                   <div className="rounded-full bg-gradient-to-br from-gray-100 to-slate-100 p-6 mb-4">
                     <FolderOpen className="h-12 w-12 text-gray-400" />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Documents Found</h3>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                    No Documents Found
+                  </h3>
                   <p className="text-gray-500 text-center max-w-sm">
-                    {searchQuery ? `No documents match "${searchQuery}"` : 'Your documents will appear here once they are uploaded.'}
+                    {searchQuery
+                      ? `No documents match "${searchQuery}"`
+                      : "Your documents will appear here once they are uploaded."}
                   </p>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">
                   {filteredDocuments.map((doc) => (
-                    <div key={doc.id} className="flex items-center justify-between p-5 hover:bg-purple-50/50 transition-colors">
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between p-5 hover:bg-purple-50/50 transition-colors"
+                    >
                       <div className="flex items-center space-x-4">
                         <div className="p-3 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-xl">
                           {getDocumentIcon(doc.type)}
                         </div>
                         <div>
                           <p className="font-bold text-gray-900">{doc.name}</p>
-                          <p className="text-sm text-gray-600">{doc.description}</p>
+                          <p className="text-sm text-gray-600">
+                            {doc.description}
+                          </p>
                           <p className="text-xs text-gray-500 font-medium mt-1">
-                            {getDisplayFormat(doc)} • {getDisplaySizeText(doc)} • {doc.createdAt ? formatDate(doc.createdAt) : 'N/A'}
+                            {getDisplayFormat(doc)} • {getDisplaySizeText(doc)}{" "}
+                            •{" "}
+                            {doc.createdAt ? formatDate(doc.createdAt) : "N/A"}
                           </p>
                         </div>
                       </div>
@@ -572,8 +655,12 @@ const TenantDocuments: React.FC = () => {
                   <FileCheck className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <CardTitle className="text-gray-900 font-bold text-lg">Lease & Inspection Documents</CardTitle>
-                  <CardDescription className="text-gray-600 font-medium">Your lease agreement and property inspection reports</CardDescription>
+                  <CardTitle className="text-gray-900 font-bold text-lg">
+                    Lease & Inspection Documents
+                  </CardTitle>
+                  <CardDescription className="text-gray-600 font-medium">
+                    Your lease agreement and property inspection reports
+                  </CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -583,22 +670,34 @@ const TenantDocuments: React.FC = () => {
                   <div className="rounded-full bg-gradient-to-br from-blue-100 to-cyan-100 p-6 mb-4">
                     <FileCheck className="h-12 w-12 text-blue-500" />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Lease Documents</h3>
-                  <p className="text-gray-500 text-center max-w-sm">Your lease documents will appear here once they are generated or uploaded.</p>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                    No Lease Documents
+                  </h3>
+                  <p className="text-gray-500 text-center max-w-sm">
+                    Your lease documents will appear here once they are
+                    generated or uploaded.
+                  </p>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">
                   {leaseDocuments.map((doc) => (
-                    <div key={doc.id} className="flex items-center justify-between p-5 hover:bg-blue-50/50 transition-colors">
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between p-5 hover:bg-blue-50/50 transition-colors"
+                    >
                       <div className="flex items-center space-x-4">
                         <div className="p-3 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-xl">
                           {getDocumentIcon(doc.type)}
                         </div>
                         <div>
                           <p className="font-bold text-gray-900">{doc.name}</p>
-                          <p className="text-sm text-gray-600">{doc.description}</p>
+                          <p className="text-sm text-gray-600">
+                            {doc.description}
+                          </p>
                           <p className="text-xs text-gray-500 font-medium mt-1">
-                            {getDisplayFormat(doc)} • {getDisplaySizeText(doc)} • {doc.createdAt ? formatDate(doc.createdAt) : 'N/A'}
+                            {getDisplayFormat(doc)} • {getDisplaySizeText(doc)}{" "}
+                            •{" "}
+                            {doc.createdAt ? formatDate(doc.createdAt) : "N/A"}
                           </p>
                         </div>
                       </div>
@@ -638,8 +737,12 @@ const TenantDocuments: React.FC = () => {
                     <Receipt className="h-5 w-5 text-white" />
                   </div>
                   <div>
-                    <CardTitle className="text-gray-900 font-bold text-lg">Payment Receipts</CardTitle>
-                    <CardDescription className="text-gray-600 font-medium">All your payment confirmations and receipts</CardDescription>
+                    <CardTitle className="text-gray-900 font-bold text-lg">
+                      Payment Receipts
+                    </CardTitle>
+                    <CardDescription className="text-gray-600 font-medium">
+                      All your payment confirmations and receipts
+                    </CardDescription>
                   </div>
                 </div>
                 {receipts.length > 0 && (
@@ -660,22 +763,34 @@ const TenantDocuments: React.FC = () => {
                   <div className="rounded-full bg-gradient-to-br from-green-100 to-emerald-100 p-6 mb-4">
                     <Receipt className="h-12 w-12 text-green-500" />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Receipts Yet</h3>
-                  <p className="text-gray-500 text-center max-w-sm">Your payment receipts will appear here after you make payments.</p>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                    No Receipts Yet
+                  </h3>
+                  <p className="text-gray-500 text-center max-w-sm">
+                    Your payment receipts will appear here after you make
+                    payments.
+                  </p>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">
                   {receipts.map((doc) => (
-                    <div key={doc.id} className="flex items-center justify-between p-5 hover:bg-green-50/50 transition-colors">
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between p-5 hover:bg-green-50/50 transition-colors"
+                    >
                       <div className="flex items-center space-x-4">
                         <div className="p-3 bg-gradient-to-br from-green-100 to-emerald-100 rounded-xl">
                           {getDocumentIcon(doc.type)}
                         </div>
                         <div>
                           <p className="font-bold text-gray-900">{doc.name}</p>
-                          <p className="text-sm text-gray-600">{doc.description}</p>
+                          <p className="text-sm text-gray-600">
+                            {doc.description}
+                          </p>
                           <p className="text-xs text-gray-500 font-medium mt-1">
-                            {getDisplayFormat(doc)} • {getDisplaySizeText(doc)} • {doc.createdAt ? formatDate(doc.createdAt) : 'N/A'}
+                            {getDisplayFormat(doc)} • {getDisplaySizeText(doc)}{" "}
+                            •{" "}
+                            {doc.createdAt ? formatDate(doc.createdAt) : "N/A"}
                           </p>
                         </div>
                       </div>
@@ -714,8 +829,12 @@ const TenantDocuments: React.FC = () => {
                   <Shield className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <CardTitle className="text-gray-900 font-bold text-lg">Property Policies & Notices</CardTitle>
-                  <CardDescription className="text-gray-600 font-medium">Rules, regulations, and property notices</CardDescription>
+                  <CardTitle className="text-gray-900 font-bold text-lg">
+                    Property Policies & Notices
+                  </CardTitle>
+                  <CardDescription className="text-gray-600 font-medium">
+                    Rules, regulations, and property notices
+                  </CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -725,22 +844,34 @@ const TenantDocuments: React.FC = () => {
                   <div className="rounded-full bg-gradient-to-br from-purple-100 to-indigo-100 p-6 mb-4">
                     <Shield className="h-12 w-12 text-purple-500" />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Policies Available</h3>
-                  <p className="text-gray-500 text-center max-w-sm">Property policies and notices will appear here once they are uploaded.</p>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                    No Policies Available
+                  </h3>
+                  <p className="text-gray-500 text-center max-w-sm">
+                    Property policies and notices will appear here once they are
+                    uploaded.
+                  </p>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">
                   {policies.map((doc) => (
-                    <div key={doc.id} className="flex items-center justify-between p-5 hover:bg-purple-50/50 transition-colors">
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between p-5 hover:bg-purple-50/50 transition-colors"
+                    >
                       <div className="flex items-center space-x-4">
                         <div className="p-3 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-xl">
                           {getDocumentIcon(doc.type)}
                         </div>
                         <div>
                           <p className="font-bold text-gray-900">{doc.name}</p>
-                          <p className="text-sm text-gray-600">{doc.description}</p>
+                          <p className="text-sm text-gray-600">
+                            {doc.description}
+                          </p>
                           <p className="text-xs text-gray-500 font-medium mt-1">
-                            {getDisplayFormat(doc)} • {getDisplaySizeText(doc)} • {doc.createdAt ? formatDate(doc.createdAt) : 'N/A'}
+                            {getDisplayFormat(doc)} • {getDisplaySizeText(doc)}{" "}
+                            •{" "}
+                            {doc.createdAt ? formatDate(doc.createdAt) : "N/A"}
                           </p>
                         </div>
                       </div>
@@ -779,8 +910,12 @@ const TenantDocuments: React.FC = () => {
                   <Shield className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <CardTitle className="text-gray-900 font-bold text-lg">Insurance Documents</CardTitle>
-                  <CardDescription className="text-gray-600 font-medium">Your renters insurance policies</CardDescription>
+                  <CardTitle className="text-gray-900 font-bold text-lg">
+                    Insurance Documents
+                  </CardTitle>
+                  <CardDescription className="text-gray-600 font-medium">
+                    Your renters insurance policies
+                  </CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -790,22 +925,33 @@ const TenantDocuments: React.FC = () => {
                   <div className="rounded-full bg-gradient-to-br from-orange-100 to-amber-100 p-6 mb-4">
                     <Shield className="h-12 w-12 text-orange-500" />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Insurance Documents</h3>
-                  <p className="text-gray-500 text-center max-w-sm">Upload your renters insurance policy to keep it on file.</p>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                    No Insurance Documents
+                  </h3>
+                  <p className="text-gray-500 text-center max-w-sm">
+                    Upload your renters insurance policy to keep it on file.
+                  </p>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">
                   {insuranceDocs.map((doc) => (
-                    <div key={doc.id} className="flex items-center justify-between p-5 hover:bg-orange-50/50 transition-colors">
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between p-5 hover:bg-orange-50/50 transition-colors"
+                    >
                       <div className="flex items-center space-x-4">
                         <div className="p-3 bg-gradient-to-br from-orange-100 to-amber-100 rounded-xl">
                           {getDocumentIcon(doc.type)}
                         </div>
                         <div>
                           <p className="font-bold text-gray-900">{doc.name}</p>
-                          <p className="text-sm text-gray-600">{doc.description}</p>
+                          <p className="text-sm text-gray-600">
+                            {doc.description}
+                          </p>
                           <p className="text-xs text-gray-500 font-medium mt-1">
-                            {getDisplayFormat(doc)} • {getDisplaySizeText(doc)} • {doc.createdAt ? formatDate(doc.createdAt) : 'N/A'}
+                            {getDisplayFormat(doc)} • {getDisplaySizeText(doc)}{" "}
+                            •{" "}
+                            {doc.createdAt ? formatDate(doc.createdAt) : "N/A"}
                           </p>
                         </div>
                       </div>
@@ -841,9 +987,11 @@ const TenantDocuments: React.FC = () => {
       <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
         <DialogContent className="max-w-4xl max-h-[90vh] border-0 shadow-2xl">
           <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] -m-6 mb-0 p-6 rounded-t-lg">
-            <DialogTitle className="text-xl font-bold text-white">{viewingDocument?.name}</DialogTitle>
+            <DialogTitle className="text-xl font-bold text-white">
+              {viewingDocument?.name}
+            </DialogTitle>
             <DialogDescription className="text-white/80 font-medium">
-              {viewingDocument?.description || 'Document preview'}
+              {viewingDocument?.description || "Document preview"}
             </DialogDescription>
           </DialogHeader>
 
@@ -851,22 +999,36 @@ const TenantDocuments: React.FC = () => {
             {/* Document Info */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl border border-purple-100 gap-4">
               <div className="space-y-1">
-                <p className="text-sm font-bold text-gray-900">Document Details</p>
+                <p className="text-sm font-bold text-gray-900">
+                  Document Details
+                </p>
                 <div className="flex items-center flex-wrap gap-2 text-sm text-gray-600">
                   <Badge className="bg-purple-100 text-purple-700 border-purple-200 font-semibold">
-                    {viewingDocument ? getDisplayFormat(viewingDocument) : 'PDF'}
+                    {viewingDocument
+                      ? getDisplayFormat(viewingDocument)
+                      : "PDF"}
                   </Badge>
                   <span className="text-gray-400">•</span>
-                  <span className="font-medium">{viewingDocument ? getDisplaySizeText(viewingDocument) : '—'}</span>
+                  <span className="font-medium">
+                    {viewingDocument
+                      ? getDisplaySizeText(viewingDocument)
+                      : "—"}
+                  </span>
                   <span className="text-gray-400">•</span>
-                  <span className="font-medium">{viewingDocument?.createdAt ? formatDate(viewingDocument.createdAt) : 'N/A'}</span>
+                  <span className="font-medium">
+                    {viewingDocument?.createdAt
+                      ? formatDate(viewingDocument.createdAt)
+                      : "N/A"}
+                  </span>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => viewingDocument && handleDownload(viewingDocument, 'pdf')}
+                  onClick={() =>
+                    viewingDocument && handleDownload(viewingDocument, "pdf")
+                  }
                   className="border-purple-200 text-purple-700 hover:bg-purple-50 font-semibold"
                 >
                   <Download className="h-4 w-4 mr-2" />
@@ -875,7 +1037,9 @@ const TenantDocuments: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => viewingDocument && handleDownload(viewingDocument, 'docx')}
+                  onClick={() =>
+                    viewingDocument && handleDownload(viewingDocument, "docx")
+                  }
                   className="border-purple-200 text-purple-700 hover:bg-purple-50 font-semibold"
                 >
                   <Download className="h-4 w-4 mr-2" />
@@ -885,29 +1049,65 @@ const TenantDocuments: React.FC = () => {
             </div>
 
             {/* Document Preview */}
-            <div className="border-2 border-gray-200 rounded-xl overflow-hidden shadow-inner" style={{ height: '500px' }}>
-              {viewingDocument?.fileUrl ? (
-                // For uploaded files, show iframe or image
+            <div
+              className="border-2 border-gray-200 rounded-xl overflow-hidden shadow-inner"
+              style={{ height: "500px" }}
+            >
+              {viewingDocument ? (
+                // Use download endpoint for all documents (both uploaded files and generated contracts)
+                // This ensures proper authentication via token query parameter
+                viewingDocument.fileUrl &&
                 viewingDocument.fileUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                  // For images, try download endpoint first, fallback to direct URL
                   <img
-                    src={getDocumentDownloadUrl(viewingDocument.fileUrl)}
+                    src={downloadDocumentInFormat(viewingDocument.id, "pdf", {
+                      inline: true,
+                      includeToken: true,
+                    })}
                     alt={viewingDocument.name}
                     className="w-full h-full object-contain bg-gray-50"
+                    onError={(e) => {
+                      // Fallback: try direct file URL with token if download endpoint fails for images
+                      console.warn(
+                        "[Document Preview] Download endpoint failed for image, trying direct URL"
+                      );
+                      const target = e.target as HTMLImageElement;
+                      if (viewingDocument.fileUrl) {
+                        // Import getAuthToken dynamically to avoid circular dependency
+                        import("../lib/api-client").then(({ getAuthToken }) => {
+                          const token = getAuthToken();
+                          const fallbackUrl = getDocumentDownloadUrl(
+                            viewingDocument.fileUrl!
+                          );
+                          target.src = token
+                            ? `${fallbackUrl}?token=${encodeURIComponent(
+                                token
+                              )}`
+                            : fallbackUrl;
+                        });
+                      }
+                    }}
                   />
                 ) : (
+                  // For PDFs and other documents, always use download endpoint with inline=true
+                  // This ensures authentication works and handles both uploaded files and generated contracts
                   <iframe
-                    src={getDocumentDownloadUrl(viewingDocument.fileUrl)}
+                    src={downloadDocumentInFormat(viewingDocument.id, "pdf", {
+                      inline: true,
+                      includeToken: true,
+                    })}
                     className="w-full h-full bg-white"
-                    title={viewingDocument.name}
+                    title={viewingDocument.name || "Document"}
+                    allow="fullscreen"
+                    onError={(e) => {
+                      console.error("[Document Preview] Iframe load error:", e);
+                    }}
                   />
                 )
               ) : (
-                // For generated contracts, show PDF preview
-                <iframe
-                  src={viewingDocument ? downloadDocumentInFormat(viewingDocument.id, 'pdf', { inline: true, includeToken: true }) : ''}
-                  className="w-full h-full bg-white"
-                  title={viewingDocument?.name || 'Document'}
-                />
+                <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                  <p className="text-gray-500">No document selected</p>
+                </div>
               )}
             </div>
           </div>
@@ -918,5 +1118,3 @@ const TenantDocuments: React.FC = () => {
 };
 
 export default TenantDocuments;
-
-

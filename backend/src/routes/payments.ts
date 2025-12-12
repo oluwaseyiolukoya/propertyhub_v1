@@ -226,11 +226,9 @@ router.post("/record", async (req: AuthRequest, res: Response) => {
         },
       });
       if (!assignment) {
-        return res
-          .status(403)
-          .json({
-            error: "You can only record payments for properties you manage",
-          });
+        return res.status(403).json({
+          error: "You can only record payments for properties you manage",
+        });
       }
     }
 
@@ -355,11 +353,9 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
         },
       });
       if (!assignment) {
-        return res
-          .status(403)
-          .json({
-            error: "You can only edit payments for properties you manage",
-          });
+        return res.status(403).json({
+          error: "You can only edit payments for properties you manage",
+        });
       }
     }
 
@@ -514,11 +510,9 @@ router.delete("/:id", async (req: AuthRequest, res: Response) => {
         },
       });
       if (!assignment) {
-        return res
-          .status(403)
-          .json({
-            error: "You can only delete payments for properties you manage",
-          });
+        return res.status(403).json({
+          error: "You can only delete payments for properties you manage",
+        });
       }
     }
 
@@ -595,14 +589,77 @@ router.post("/initialize", async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ error: "Access denied" });
     }
 
-    // Payment settings
-    const settings = await prisma.payment_settings.findFirst({
+    // Payment settings - check for any enabled gateway (Paystack or Monicredit)
+    // Priority: Paystack first, then Monicredit
+    const paystackSettings = await prisma.payment_settings.findFirst({
       where: { customerId, provider: "paystack", isEnabled: true },
     });
-    if (!settings?.secretKey || !settings?.publicKey) {
-      return res
-        .status(400)
-        .json({ error: "Owner has not configured Paystack" });
+    const monicreditSettings = await prisma.payment_settings.findFirst({
+      where: { customerId, provider: "monicredit", isEnabled: true },
+    });
+
+    console.log("[Payment Init] Checking payment gateways:", {
+      customerId,
+      hasPaystack: !!paystackSettings,
+      paystackEnabled: paystackSettings?.isEnabled,
+      hasPaystackKeys: !!(
+        paystackSettings?.secretKey && paystackSettings?.publicKey
+      ),
+      hasMonicredit: !!monicreditSettings,
+      monicreditEnabled: monicreditSettings?.isEnabled,
+      hasMonicreditKeys: !!(
+        monicreditSettings?.secretKey && monicreditSettings?.publicKey
+      ),
+    });
+
+    // Use the first enabled gateway found (Paystack has priority)
+    const settings = paystackSettings || monicreditSettings;
+    const provider = paystackSettings
+      ? "paystack"
+      : monicreditSettings
+      ? "monicredit"
+      : null;
+
+    if (!settings || !provider) {
+      console.error(
+        "[Payment Init] No enabled payment gateway found for customer:",
+        customerId
+      );
+      return res.status(400).json({
+        error: "Owner has not configured any payment gateway",
+        details:
+          "Please ask the property owner to configure a payment gateway (Paystack or Monicredit) in their settings.",
+      });
+    }
+
+    // Validate required keys based on provider
+    if (
+      provider === "paystack" &&
+      (!settings.secretKey || !settings.publicKey)
+    ) {
+      console.error("[Payment Init] Paystack keys missing:", {
+        hasSecretKey: !!settings.secretKey,
+        hasPublicKey: !!settings.publicKey,
+      });
+      return res.status(400).json({
+        error: "Owner has not configured Paystack properly",
+        details:
+          "Paystack public key or secret key is missing. Please ask the property owner to complete their Paystack configuration.",
+      });
+    }
+    if (
+      provider === "monicredit" &&
+      (!settings.secretKey || !settings.publicKey)
+    ) {
+      console.error("[Payment Init] Monicredit keys missing:", {
+        hasSecretKey: !!settings.secretKey,
+        hasPublicKey: !!settings.publicKey,
+      });
+      return res.status(400).json({
+        error: "Owner has not configured Monicredit properly",
+        details:
+          "Monicredit public key or private key is missing. Please ask the property owner to complete their Monicredit configuration.",
+      });
     }
 
     // Determine amount and currency
@@ -637,7 +694,7 @@ router.post("/initialize", async (req: AuthRequest, res: Response) => {
           currency: payCurrency,
           status: "pending",
           type: "rent",
-          provider: "paystack",
+          provider: provider,
           providerReference: reference,
           metadata: {
             leaseNumber: lease.leaseNumber,
@@ -662,63 +719,561 @@ router.post("/initialize", async (req: AuthRequest, res: Response) => {
       throw err;
     }
 
-    // Initialize transaction on Paystack
+    // Initialize transaction based on provider
     const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
     const callbackUrl = `${frontendUrl}/?payment_ref=${encodeURIComponent(
       reference
     )}`;
 
     let resp: any;
-    try {
-      resp = await fetch("https://api.paystack.co/transaction/initialize", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${settings.secretKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: tenant.email || `${tenant.id}@tenant.local`,
-          amount: Math.round(payAmount * 100),
-          currency: payCurrency,
-          reference,
-          callback_url: callbackUrl,
-          metadata: {
-            customerId,
-            leaseId: lease.id,
-            propertyId: property.id,
-            unitId: unit?.id,
-            tenantId: tenant.id,
-            type: "rent",
-          },
-        }),
-      } as any);
-    } catch (err: any) {
-      console.error("Paystack init network error:", err?.message || err);
+    let authorizationUrl: string | null = null;
+
+    if (provider === "paystack") {
+      // Paystack payment initialization
       try {
-        await prisma.payments.updateMany({
-          where: {
-            customerId,
-            provider: "paystack",
-            providerReference: reference,
+        resp = await fetch("https://api.paystack.co/transaction/initialize", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${settings.secretKey}`,
+            "Content-Type": "application/json",
           },
-          data: { status: "failed", updatedAt: new Date() },
-        });
-      } catch {}
-      return res
-        .status(400)
-        .json({
+          body: JSON.stringify({
+            email: tenant.email || `${tenant.id}@tenant.local`,
+            amount: Math.round(payAmount * 100),
+            currency: payCurrency,
+            reference,
+            callback_url: callbackUrl,
+            metadata: {
+              customerId,
+              leaseId: lease.id,
+              propertyId: property.id,
+              unitId: unit?.id,
+              tenantId: tenant.id,
+              type: "rent",
+            },
+          }),
+        } as any);
+      } catch (err: any) {
+        console.error("Paystack init network error:", err?.message || err);
+        try {
+          await prisma.payments.updateMany({
+            where: {
+              customerId,
+              provider: provider,
+              providerReference: reference,
+            },
+            data: { status: "failed", updatedAt: new Date() },
+          });
+        } catch {}
+        return res.status(400).json({
           error: "Network error initializing payment. Please try again.",
         });
+      }
+
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok || !json?.status) {
+        console.error("Paystack init error:", json);
+        try {
+          await prisma.payments.updateMany({
+            where: {
+              customerId,
+              provider: provider,
+              providerReference: reference,
+            },
+            data: { status: "failed", updatedAt: new Date() },
+          });
+        } catch {}
+        return res
+          .status(400)
+          .json({ error: json?.message || "Failed to initialize payment" });
+      }
+
+      authorizationUrl = json.data?.authorization_url;
+    } else if (provider === "monicredit") {
+      // Monicredit payment initialization
+      // Based on Monicredit API documentation:
+      // 1. First authenticate to get Bearer token
+      // 2. Use Bearer token for transaction initiation
+      // Base URL structure: https://demo.backend.monicredit.com/api/v1/...
+      const monicreditBaseUrl =
+        process.env.MONICREDIT_BASE_URL ||
+        "https://demo.backend.monicredit.com";
+      // Monicredit API base - try both /api/v1 and direct /v1 patterns
+      // The init-transaction endpoint uses /v1/payment/transactions/init-transaction
+      const monicreditApiBase = `${monicreditBaseUrl}/api/v1`;
+      const monicreditApiBaseV1 = `${monicreditBaseUrl}/v1`; // For endpoints that use /v1 directly
+
+      try {
+        // Step 1: Get owner's email for Monicredit authentication
+        // Monicredit login requires email, public_key, and private_key
+        // customerId refers to the customers table, not users table
+        const customer = await prisma.customers.findUnique({
+          where: { id: customerId },
+          select: { email: true },
+        });
+
+        if (!customer?.email) {
+          throw new Error(
+            "Owner email not found. Please ensure the property owner has a valid email address in their customer profile."
+          );
+        }
+
+        const ownerEmail = customer.email;
+
+        // Step 2: Authenticate with Monicredit to get Bearer token
+        // Endpoint: POST /api/v1/core/auth/login
+        const loginUrl = `${monicreditApiBase}/core/auth/login`;
+
+        console.log("[Monicredit Auth] Authenticating to get Bearer token...", {
+          loginUrl,
+          ownerEmail: ownerEmail,
+          customerId,
+          hasPublicKey: !!settings.publicKey,
+          hasPrivateKey: !!settings.secretKey,
+        });
+
+        // Monicredit authentication - try two approaches:
+        // Approach 1: Login endpoint (requires account email + account password, not API keys)
+        // Approach 2: Basic Auth directly on transaction endpoint (public_key:private_key)
+        // Since login requires account password (not API private key), we'll try Basic Auth first
+
+        // Try Basic Auth directly on transaction endpoint (common for payment APIs)
+        // Based on Monicredit docs, transaction endpoints are under /payment/transactions
+        // Try common patterns: /payment/transactions/init, /payment/transactions/initiate, /payment/initiate
+
+        // Define possible endpoints to try
+        // Based on Monicredit API documentation:
+        // - Standard payment: POST /v1/payment/transactions/init-transaction
+        //   (from https://monicredit.gitbook.io/mc-api/collection/accept-payment-standard)
+        // Note: The endpoint uses /v1/ not /api/v1/, so we need to adjust the base URL
+        const possibleEndpoints = [
+          process.env.MONICREDIT_TRANSACTION_ENDPOINT, // User-configured first
+          "/v1/payment/transactions/init-transaction", // Official endpoint from docs
+          "/payment/transactions/init-transaction", // Alternative (without /v1)
+          "/api/v1/payment/transactions/init-transaction", // With /api/v1 prefix
+        ].filter(Boolean) as string[]; // Remove undefined and type as string array
+
+        // Create Basic Auth header: base64(publicKey:privateKey)
+        const credentials = `${settings.publicKey}:${settings.secretKey}`;
+        const base64Credentials = Buffer.from(credentials).toString("base64");
+
+        console.log(
+          "[Monicredit] Attempting Basic Auth on transaction endpoints:",
+          {
+            endpointsToTry: possibleEndpoints,
+            hasPublicKey: !!settings.publicKey,
+            hasPrivateKey: !!settings.secretKey,
+            publicKeyPreview: settings.publicKey
+              ? `${settings.publicKey.substring(0, 15)}...`
+              : null,
+          }
+        );
+
+        // Try transaction endpoint with Basic Auth first
+        // Try multiple endpoints if the first one fails with 404/400 (route not found)
+        let resp: Response | null = null;
+        let lastError: any = null;
+        let successfulEndpoint: string | null = null;
+        let successfulUrl: string | null = null;
+
+        for (const endpoint of possibleEndpoints) {
+          // Try with /api/v1 base first, then /v1 base if endpoint starts with /v1
+          let testUrl: string;
+          if (endpoint.startsWith("/v1/")) {
+            // Endpoint already includes /v1, use base URL directly
+            testUrl = `${monicreditBaseUrl}${endpoint}`;
+          } else if (endpoint.startsWith("/api/v1/")) {
+            // Endpoint already includes /api/v1, use base URL directly
+            testUrl = `${monicreditBaseUrl}${endpoint}`;
+          } else {
+            // Endpoint is relative, try with /api/v1 base first
+            testUrl = `${monicreditApiBase}${endpoint}`;
+          }
+          console.log(`[Monicredit] Trying endpoint: ${testUrl}`);
+
+          try {
+            // Try with Basic Auth first, but Monicredit Standard Payment API might use public_key in body
+            // According to docs, public_key is in the request body, not necessarily in headers
+            const testResp = await fetch(testUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+                // Try Basic Auth, but Monicredit might not require it if public_key is in body
+                ...(base64Credentials
+                  ? { Authorization: `Basic ${base64Credentials}` }
+                  : {}),
+              },
+              body: JSON.stringify({
+                // Monicredit Standard Payment API format (from official docs)
+                order_id: reference,
+                public_key: settings.publicKey, // Required in body
+                customer: {
+                  first_name: tenant.name?.split(" ")[0] || "Tenant",
+                  last_name:
+                    tenant.name?.split(" ").slice(1).join(" ") || "User",
+                  email: tenant.email || `${tenant.id}@tenant.local`,
+                  phone: tenant.phone || "00000000000",
+                  // bvn or nin required by new policies
+                  // bvn: "", // Add if available
+                  // nin: "", // Add if available
+                },
+                items: [
+                  {
+                    item: "Rent Payment",
+                    // revenue_head_code might be required - if Monicredit rejects, owner needs to create revenue head
+                    revenue_head_code:
+                      process.env.MONICREDIT_REVENUE_HEAD_CODE || "",
+                    unit_cost: payAmount.toString(),
+                    // split_details: [] // Optional
+                  },
+                ],
+                currency: payCurrency || "NGN",
+                paytype: "standard", // Required for standard flow
+                // Optional metadata
+                meta_data: {
+                  customerId,
+                  leaseId: lease.id,
+                  propertyId: property.id,
+                  unitId: unit?.id,
+                  tenantId: tenant.id,
+                  type: "rent",
+                  callback_url: callbackUrl,
+                },
+              }),
+            } as any);
+
+            // If we get a non-404/400 response, this might be the right endpoint
+            // 401/403 = auth issue (endpoint exists), 404/400 = route not found
+            if (testResp.status !== 404 && testResp.status !== 400) {
+              console.log(
+                `[Monicredit] Endpoint ${endpoint} returned status ${testResp.status} - using this endpoint`
+              );
+              resp = testResp;
+              successfulEndpoint = endpoint;
+              successfulUrl = testUrl;
+              break;
+            }
+
+            // If 404/400, try next endpoint
+            const testRaw = await testResp.text();
+            let testJson: any = {};
+            try {
+              testJson = JSON.parse(testRaw);
+            } catch {}
+
+            if (
+              testJson?.message?.includes("route") ||
+              testJson?.errors?.includes("route")
+            ) {
+              console.log(
+                `[Monicredit] Endpoint ${endpoint} returned 404/400 (route not found) - trying next endpoint`
+              );
+              continue;
+            } else {
+              // Not a "route not found" error, use this response
+              resp = testResp;
+              break;
+            }
+          } catch (err: any) {
+            lastError = err;
+            console.log(
+              `[Monicredit] Endpoint ${endpoint} failed:`,
+              err.message
+            );
+            continue;
+          }
+        }
+
+        if (!resp) {
+          throw new Error(
+            `All Monicredit transaction endpoints failed. Tried: ${possibleEndpoints.join(
+              ", "
+            )}. Please check Monicredit API documentation for the correct transaction initiation endpoint, or set MONICREDIT_TRANSACTION_ENDPOINT environment variable.`
+          );
+        }
+
+        // If Basic Auth works (status 200-299), use it
+        if (resp.ok) {
+          console.log(
+            "[Monicredit] Basic Auth successful on transaction endpoint"
+          );
+          // Continue with response processing below
+        } else if (resp.status === 401 || resp.status === 403) {
+          // Basic Auth failed, try login endpoint approach
+          console.log(
+            "[Monicredit] Basic Auth failed, trying login endpoint..."
+          );
+
+          const loginUrl = `${monicreditApiBase}/core/auth/login`;
+          const loginBody = {
+            email: ownerEmail,
+            password: settings.secretKey, // Try private key as password
+          };
+
+          const loginResp = await fetch(loginUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify(loginBody),
+          } as any);
+
+          const loginRaw = await loginResp.text();
+          let loginJson: any = {};
+
+          try {
+            loginJson = JSON.parse(loginRaw);
+          } catch (err) {
+            throw new Error(
+              `Monicredit authentication failed: Invalid login response. Status: ${loginResp.status}`
+            );
+          }
+
+          if (!loginResp.ok || !loginJson?.success || !loginJson?.accessToken) {
+            throw new Error(
+              loginJson?.message ||
+                `Monicredit login failed. The login endpoint requires your Monicredit account password (not the API private key). Please verify your account email and password, or contact Monicredit support for API authentication instructions.`
+            );
+          }
+
+          const bearerToken = loginJson.accessToken;
+          console.log("[Monicredit] Login successful, using Bearer token");
+
+          // Retry transaction with Bearer token using the successful endpoint
+          const retryUrl =
+            successfulUrl || `${monicreditApiBase}${possibleEndpoints[0]}`;
+          resp = await fetch(retryUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Authorization: `Bearer ${bearerToken}`,
+            },
+            body: JSON.stringify({
+              // Monicredit Standard Payment API format (from official docs)
+              order_id: reference,
+              public_key: settings.publicKey, // Required in body
+              customer: {
+                first_name: tenant.name?.split(" ")[0] || "Tenant",
+                last_name: tenant.name?.split(" ").slice(1).join(" ") || "User",
+                email: tenant.email || `${tenant.id}@tenant.local`,
+                phone: tenant.phone || "00000000000",
+              },
+              items: [
+                {
+                  item: "Rent Payment",
+                  revenue_head_code:
+                    process.env.MONICREDIT_REVENUE_HEAD_CODE || "",
+                  unit_cost: payAmount.toString(),
+                },
+              ],
+              currency: payCurrency || "NGN",
+              paytype: "standard", // Required for standard flow
+              meta_data: {
+                customerId,
+                leaseId: lease.id,
+                propertyId: property.id,
+                unitId: unit?.id,
+                tenantId: tenant.id,
+                type: "rent",
+                callback_url: callbackUrl,
+              },
+            }),
+          } as any);
+        }
+
+        // Continue with response processing below
+
+        console.log(
+          "[Monicredit Transaction] Response status:",
+          resp.status,
+          resp.statusText,
+          "URL:",
+          successfulUrl || "unknown"
+        );
+
+        // If we get 405, the endpoint exists but method is wrong - provide detailed guidance
+        if (resp.status === 405) {
+          console.error("[Monicredit] ⚠️ 405 Method Not Allowed");
+          console.error(
+            "[Monicredit] The endpoint exists but doesn't accept POST method"
+          );
+          console.error("[Monicredit] Possible solutions:");
+          console.error(
+            "  1. Check Monicredit API documentation for the correct endpoint path"
+          );
+          console.error(
+            "  2. Verify the HTTP method (might need GET, PUT, or different method)"
+          );
+          console.error(
+            "  3. Check if endpoint requires public_key in URL path"
+          );
+          console.error("  4. Verify the base URL is correct");
+          console.error(`[Monicredit] Current configuration:`);
+          console.error(`  - Base URL: ${monicreditBaseUrl}`);
+          console.error(`  - Endpoint: ${successfulEndpoint || "unknown"}`);
+          console.error(`  - Full URL: ${successfulUrl || "unknown"}`);
+          console.error(`  - Method: POST`);
+          console.error(
+            `[Monicredit] To configure a different endpoint, set MONICREDIT_TRANSACTION_ENDPOINT environment variable`
+          );
+        }
+
+        // Get raw response to handle both JSON and non-JSON responses
+        const rawResponse = await resp.text();
+        console.log("[Monicredit Transaction] Raw response:", {
+          status: resp.status,
+          statusText: resp.statusText,
+          contentType: resp.headers.get("content-type"),
+          responseLength: rawResponse.length,
+          responsePreview: rawResponse.substring(0, 500),
+        });
+
+        let json: any = {};
+        try {
+          json = JSON.parse(rawResponse);
+        } catch (err) {
+          console.error("[Monicredit Transaction] JSON parse error:", err);
+          // If HTML response, extract error
+          if (
+            rawResponse.includes("<html>") ||
+            rawResponse.includes("<!DOCTYPE")
+          ) {
+            const titleMatch = rawResponse.match(/<title>(.*?)<\/title>/i);
+            const errorTitle = titleMatch ? titleMatch[1] : "Unknown error";
+            json = {
+              error: "Received HTML response",
+              details: `Status: ${resp.status}. ${errorTitle}. Check Monicredit API endpoint and configuration.`,
+            };
+          } else {
+            json = {
+              error: "Failed to parse response",
+              details: `Response was not valid JSON. Status: ${
+                resp.status
+              }. Response: ${rawResponse.substring(0, 200)}`,
+            };
+          }
+        }
+
+        console.log("[Monicredit Transaction] Parsed response:", {
+          ok: resp.ok,
+          status: resp.status,
+          hasSuccess: !!json?.success,
+          hasData: !!json?.data,
+          responseKeys: Object.keys(json || {}),
+          error: json?.error || json?.message,
+        });
+
+        if (!resp.ok) {
+          console.error("[Monicredit Transaction] Init failed:", {
+            status: resp.status,
+            statusText: resp.statusText,
+            response: json,
+            rawResponsePreview: rawResponse.substring(0, 500),
+          });
+          try {
+            await prisma.payments.updateMany({
+              where: {
+                customerId,
+                provider: provider,
+                providerReference: reference,
+              },
+              data: { status: "failed", updatedAt: new Date() },
+            });
+          } catch {}
+          // Provide specific guidance for 405 errors
+          const errorDetails =
+            resp.status === 405
+              ? `The Monicredit API endpoint exists but doesn't accept POST method. ` +
+                `Please check your Monicredit API documentation for the correct endpoint path and HTTP method. ` +
+                `Current endpoint: ${successfulEndpoint || "unknown"}. ` +
+                `You can configure a different endpoint using MONICREDIT_TRANSACTION_ENDPOINT environment variable.`
+              : json?.details ||
+                `Transaction initialization failed with status ${resp.status}. Please check your Monicredit API keys and endpoint configuration.`;
+
+          return res.status(400).json({
+            error:
+              json?.error || json?.message || "Failed to initialize payment",
+            details: errorDetails,
+            statusCode: resp.status,
+            endpoint: successfulUrl || "unknown",
+            method: "POST",
+          });
+        }
+
+        // Monicredit Standard Payment API response format (from official docs):
+        // { status: true, authorization_url: "...", id: "..." }
+        let rawAuthUrl =
+          json.authorization_url || // Standard response format
+          json.data?.authorization_url ||
+          json.data?.payment_url ||
+          json.data?.checkout_url ||
+          json.payment_url ||
+          json.checkout_url;
+
+        // Ensure authorization URL has protocol (Monicredit sometimes returns URLs without https://)
+        if (rawAuthUrl) {
+          if (
+            !rawAuthUrl.startsWith("http://") &&
+            !rawAuthUrl.startsWith("https://")
+          ) {
+            // Prepend https:// if protocol is missing
+            authorizationUrl = `https://${rawAuthUrl}`;
+          } else {
+            authorizationUrl = rawAuthUrl;
+          }
+        }
+
+        console.log("[Monicredit Transaction] Authorization URL:", {
+          found: !!authorizationUrl,
+          url: authorizationUrl
+            ? `${authorizationUrl.substring(0, 50)}...`
+            : null,
+          originalUrl: rawAuthUrl ? `${rawAuthUrl.substring(0, 50)}...` : null,
+          hadProtocol: rawAuthUrl?.startsWith("http"),
+          responseStructure: {
+            hasData: !!json.data,
+            topLevelKeys: Object.keys(json),
+            dataKeys: json.data ? Object.keys(json.data) : [],
+          },
+        });
+      } catch (err: any) {
+        console.error("[Monicredit Transaction] Network error:", {
+          message: err?.message,
+          stack: err?.stack,
+          name: err?.name,
+          code: err?.code,
+          cause: err?.cause,
+        });
+        try {
+          await prisma.payments.updateMany({
+            where: {
+              customerId,
+              provider: provider,
+              providerReference: reference,
+            },
+            data: { status: "failed", updatedAt: new Date() },
+          });
+        } catch {}
+        return res.status(400).json({
+          error: "Network error initializing payment. Please try again.",
+          details:
+            err?.message ||
+            `Network request failed: ${
+              err?.code || "Unknown error"
+            }. Check your internet connection and Monicredit API availability.`,
+        });
+      }
     }
 
-    const json = await resp.json().catch(() => ({}));
-    if (!resp.ok || !json?.status) {
-      console.error("Paystack init error:", json);
+    if (!authorizationUrl) {
       try {
         await prisma.payments.updateMany({
           where: {
             customerId,
-            provider: "paystack",
+            provider: provider,
             providerReference: reference,
           },
           data: { status: "failed", updatedAt: new Date() },
@@ -726,13 +1281,14 @@ router.post("/initialize", async (req: AuthRequest, res: Response) => {
       } catch {}
       return res
         .status(400)
-        .json({ error: json?.message || "Failed to initialize payment" });
+        .json({ error: "Failed to get payment authorization URL" });
     }
 
     return res.json({
-      authorizationUrl: json.data?.authorization_url,
+      authorizationUrl,
       reference,
       publicKey: settings.publicKey,
+      provider: provider,
     });
   } catch (error: any) {
     if (error?.code === "P2021" || error?.code === "P2022") {
@@ -746,12 +1302,10 @@ router.post("/initialize", async (req: AuthRequest, res: Response) => {
       });
     }
     console.error("Initialize payment error:", error?.message || error);
-    return res
-      .status(500)
-      .json({
-        error: "Failed to initialize payment",
-        details: error?.message || String(error),
-      });
+    return res.status(500).json({
+      error: "Failed to initialize payment",
+      details: error?.message || String(error),
+    });
   }
 });
 
@@ -828,11 +1382,9 @@ router.post(
       const json = (await resp.json()) as any;
       if (!resp.ok || !json?.status) {
         console.error("Paystack init (subscription) error:", json);
-        return res
-          .status(400)
-          .json({
-            error: json?.message || "Failed to initialize subscription payment",
-          });
+        return res.status(400).json({
+          error: json?.message || "Failed to initialize subscription payment",
+        });
       }
 
       return res.json({
@@ -872,72 +1424,173 @@ router.get("/verify/:reference", async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: "Unauthorized" });
 
     // Find pending/any payment by reference within the same customer
+    // Support both Paystack and Monicredit
     const payment = await prisma.payments.findFirst({
-      where: { customerId, provider: "paystack", providerReference: reference },
+      where: {
+        customerId,
+        providerReference: reference,
+        // Allow both providers - we'll determine which one based on payment record
+      },
     });
     if (!payment) return res.status(404).json({ error: "Payment not found" });
 
-    // Get secret key: owner-level for rent/fees, system-level for subscriptions
-    let secretKey: string | undefined;
-    if (payment.type === "subscription") {
-      const system = await prisma.system_settings.findUnique({
-        where: { key: "payments.paystack" },
-      });
-      secretKey = (system?.value as any)?.secretKey;
-    } else {
-      const settings = await prisma.payment_settings.findFirst({
-        where: { customerId, provider: "paystack" },
-      });
-      secretKey = settings?.secretKey;
-    }
-    if (!secretKey)
-      return res
-        .status(400)
-        .json({ error: "Paystack configuration not found" });
+    const provider = payment.provider || "paystack";
 
-    // Call Paystack verify
-    const resp = await fetch(
-      `https://api.paystack.co/transaction/verify/${encodeURIComponent(
-        reference
-      )}`,
-      {
-        headers: { Authorization: `Bearer ${secretKey}` },
-      } as any
-    );
-    const json = (await resp.json().catch(() => ({}))) as any;
-    if (!resp.ok || !json?.status) {
-      return res
-        .status(400)
-        .json({ error: json?.message || "Verification failed" });
-    }
-
-    const data = json.data || {};
-    // Map Paystack status
-    // success | failed | abandoned | reversed (map abandoned/reversed to failed/pending decisions)
+    // Verify payment based on provider
     let mappedStatus: "success" | "failed" | "pending" = "pending";
-    if (data.status === "success") mappedStatus = "success";
-    else if (
-      data.status === "failed" ||
-      data.status === "reversed" ||
-      data.gateway_response === "Abandoned"
-    )
-      mappedStatus = "failed";
-    else if (data.status === "abandoned") mappedStatus = "failed";
+    let verifiedData: any = {};
+
+    if (provider === "monicredit") {
+      // Monicredit verification
+      const settings = await prisma.payment_settings.findFirst({
+        where: { customerId, provider: "monicredit" },
+      });
+      if (!settings?.publicKey || !settings?.secretKey) {
+        return res
+          .status(400)
+          .json({ error: "Monicredit configuration not found" });
+      }
+
+      // Monicredit verification endpoint: GET /api/v1/payment/transactions/verify-transaction/{reference}
+      // Or use: GET /api/v1/payment/transactions/init-transaction-info/{reference}
+      const monicreditBaseUrl =
+        process.env.MONICREDIT_BASE_URL ||
+        "https://demo.backend.monicredit.com";
+      const monicreditApiBase = `${monicreditBaseUrl}/api/v1`;
+
+      // Try verify-transaction endpoint first
+      const verifyUrl = `${monicreditApiBase}/payment/transactions/verify-transaction/${reference}`;
+
+      // Create Basic Auth header: base64(publicKey:privateKey)
+      const credentials = `${settings.publicKey}:${settings.secretKey}`;
+      const base64Credentials = Buffer.from(credentials).toString("base64");
+
+      try {
+        const verifyResp = await fetch(verifyUrl, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Basic ${base64Credentials}`,
+          },
+        } as any);
+
+        const verifyRaw = await verifyResp.text();
+        let verifyJson: any = {};
+
+        try {
+          verifyJson = JSON.parse(verifyRaw);
+        } catch (err) {
+          console.error("[Monicredit Verify] Failed to parse response:", err);
+          return res.status(400).json({
+            error: "Monicredit verification failed: Invalid response",
+          });
+        }
+
+        if (!verifyResp.ok || !verifyJson?.status) {
+          return res.status(400).json({
+            error: verifyJson?.message || "Monicredit verification failed",
+          });
+        }
+
+        verifiedData = verifyJson.data || {};
+        // Map Monicredit status: APPROVED, SUCCESS, FAILED, DECLINED, PENDING
+        if (
+          verifiedData.status === "APPROVED" ||
+          verifiedData.status === "SUCCESS"
+        ) {
+          mappedStatus = "success";
+        } else if (
+          verifiedData.status === "FAILED" ||
+          verifiedData.status === "DECLINED"
+        ) {
+          mappedStatus = "failed";
+        } else {
+          mappedStatus = "pending";
+        }
+      } catch (err: any) {
+        console.error("[Monicredit Verify] Network error:", err);
+        return res
+          .status(400)
+          .json({ error: "Monicredit verification failed: Network error" });
+      }
+    } else {
+      // Paystack verification (existing code)
+      let secretKey: string | undefined;
+      if (payment.type === "subscription") {
+        const system = await prisma.system_settings.findUnique({
+          where: { key: "payments.paystack" },
+        });
+        secretKey = (system?.value as any)?.secretKey;
+      } else {
+        const settings = await prisma.payment_settings.findFirst({
+          where: { customerId, provider: "paystack" },
+        });
+        secretKey = settings?.secretKey;
+      }
+      if (!secretKey)
+        return res
+          .status(400)
+          .json({ error: "Paystack configuration not found" });
+
+      // Call Paystack verify
+      const resp = await fetch(
+        `https://api.paystack.co/transaction/verify/${encodeURIComponent(
+          reference
+        )}`,
+        {
+          headers: { Authorization: `Bearer ${secretKey}` },
+        } as any
+      );
+      const json = (await resp.json().catch(() => ({}))) as any;
+      if (!resp.ok || !json?.status) {
+        return res
+          .status(400)
+          .json({ error: json?.message || "Verification failed" });
+      }
+
+      verifiedData = json.data || {};
+      // Map Paystack status
+      // success | failed | abandoned | reversed (map abandoned/reversed to failed/pending decisions)
+      if (verifiedData.status === "success") mappedStatus = "success";
+      else if (
+        verifiedData.status === "failed" ||
+        verifiedData.status === "reversed" ||
+        verifiedData.gateway_response === "Abandoned"
+      )
+        mappedStatus = "failed";
+      else if (verifiedData.status === "abandoned") mappedStatus = "failed";
+    }
 
     // Update DB record
-    const paidAt = data.paid_at
-      ? new Date(data.paid_at)
-      : mappedStatus === "success"
-      ? new Date()
-      : payment.paidAt || undefined;
+    const paidAt =
+      provider === "monicredit"
+        ? verifiedData.date_paid
+          ? new Date(verifiedData.date_paid)
+          : mappedStatus === "success"
+          ? new Date()
+          : payment.paidAt || undefined
+        : verifiedData.paid_at
+        ? new Date(verifiedData.paid_at)
+        : mappedStatus === "success"
+        ? new Date()
+        : payment.paidAt || undefined;
 
     const updated = await prisma.payments.updateMany({
-      where: { customerId, provider: "paystack", providerReference: reference },
+      where: { customerId, provider, providerReference: reference },
       data: {
         status: mappedStatus,
-        currency: data.currency || payment.currency,
-        providerFee: data.fees || payment.providerFee || undefined,
-        paymentMethod: data.channel || payment.paymentMethod || undefined,
+        currency:
+          provider === "monicredit"
+            ? verifiedData.currency || payment.currency
+            : verifiedData.currency || payment.currency,
+        providerFee:
+          provider === "monicredit"
+            ? verifiedData.charges || payment.providerFee || undefined
+            : verifiedData.fees || payment.providerFee || undefined,
+        paymentMethod:
+          provider === "monicredit"
+            ? verifiedData.channel || payment.paymentMethod || undefined
+            : verifiedData.channel || payment.paymentMethod || undefined,
         paidAt,
         updatedAt: new Date(),
       },

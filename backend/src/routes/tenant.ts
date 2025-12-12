@@ -1,15 +1,19 @@
-import express, { Response } from 'express';
-import { authMiddleware, AuthRequest } from '../middleware/auth';
-import prisma from '../lib/db';
-import bcrypt from 'bcryptjs';
-import { randomUUID } from 'crypto';
+import express, { Response } from "express";
+import { authMiddleware, AuthRequest } from "../middleware/auth";
+import prisma from "../lib/db";
+import bcrypt from "bcryptjs";
+import { randomUUID } from "crypto";
 
 const router = express.Router();
 
 router.use(authMiddleware);
 
 // Helper function to calculate next payment due date
-function calculateNextPaymentDue(lastPaymentDate: Date | null, leaseStartDate: Date, isAnnualRent: boolean): Date {
+function calculateNextPaymentDue(
+  lastPaymentDate: Date | null,
+  leaseStartDate: Date,
+  isAnnualRent: boolean
+): Date {
   const today = new Date();
   const leaseStart = new Date(leaseStartDate);
 
@@ -43,16 +47,24 @@ function calculateNextPaymentDue(lastPaymentDate: Date | null, leaseStartDate: D
 }
 
 // Get all tenants for property owner/manager (including assigned and unassigned)
-router.get('/all', async (req: AuthRequest, res: Response) => {
+router.get("/all", async (req: AuthRequest, res: Response) => {
   try {
     const currentUserId = req.user?.id;
     const role = req.user?.role;
 
-    console.log('📋 Fetching all tenants for user:', { currentUserId, role });
+    console.log("📋 Fetching all tenants for user:", { currentUserId, role });
 
     // Check if user is owner or manager
-    if (role !== 'owner' && role !== 'manager' && role !== 'property_manager' && role !== 'admin' && role !== 'super_admin') {
-      return res.status(403).json({ error: 'Access denied. Property owners and managers only.' });
+    if (
+      role !== "owner" &&
+      role !== "manager" &&
+      role !== "property_manager" &&
+      role !== "admin" &&
+      role !== "super_admin"
+    ) {
+      return res
+        .status(403)
+        .json({ error: "Access denied. Property owners and managers only." });
     }
 
     // Get all tenants with their leases
@@ -63,9 +75,13 @@ router.get('/all', async (req: AuthRequest, res: Response) => {
         properties: {
           OR: [
             { ownerId: currentUserId },
-            { property_managers: { some: { managerId: currentUserId, isActive: true } } }
-          ]
-        }
+            {
+              property_managers: {
+                some: { managerId: currentUserId, isActive: true },
+              },
+            },
+          ],
+        },
       },
       include: {
         users: {
@@ -76,8 +92,8 @@ router.get('/all', async (req: AuthRequest, res: Response) => {
             phone: true,
             role: true,
             isActive: true,
-            createdAt: true
-          }
+            createdAt: true,
+          },
         },
         properties: {
           select: {
@@ -86,104 +102,144 @@ router.get('/all', async (req: AuthRequest, res: Response) => {
             address: true,
             city: true,
             state: true,
-            currency: true
-          }
+            currency: true,
+          },
         },
         units: {
           select: {
             id: true,
             unitNumber: true,
-            type: true
-          }
-        }
+            type: true,
+          },
+        },
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: "desc" },
     });
 
-    console.log('✅ Found leases:', leases.length);
+    console.log("✅ Found leases:", leases.length);
     return res.json({ data: leases });
-
   } catch (error: any) {
-    console.error('❌ Failed to get all tenants:', error);
+    console.error("❌ Failed to get all tenants:", error);
     return res.status(500).json({
-      error: 'Failed to retrieve tenants',
-      details: error.message
+      error: "Failed to retrieve tenants",
+      details: error.message,
     });
   }
 });
 
 // Public, tenant-safe payment gateway info (owner-level)
-router.get('/payment-gateway/public', async (req: AuthRequest, res: Response) => {
-  try {
-    const userId = req.user?.id;
-    const role = req.user?.role;
+router.get(
+  "/payment-gateway/public",
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      const role = req.user?.role;
 
-    if (role !== 'tenant') {
-      return res.status(403).json({ error: 'Access denied. Tenant access only.' });
-    }
-
-    // Find tenant's active lease to determine property owner (customer)
-    const lease = await prisma.leases.findFirst({
-      where: { tenantId: userId, status: 'active' },
-      include: {
-        properties: { select: { customerId: true } },
-        units: { include: { properties: { select: { customerId: true } } } }
+      if (role !== "tenant") {
+        return res
+          .status(403)
+          .json({ error: "Access denied. Tenant access only." });
       }
-    });
 
-    if (!lease) {
-      return res.status(404).json({ error: 'No active lease found' });
-    }
+      // Find tenant's active lease to determine property owner (customer)
+      const lease = await prisma.leases.findFirst({
+        where: { tenantId: userId, status: "active" },
+        include: {
+          properties: { select: { customerId: true } },
+          units: { include: { properties: { select: { customerId: true } } } },
+        },
+      });
 
-    const ownerCustomerId = lease.properties?.customerId || lease.units?.properties?.customerId;
-    if (!ownerCustomerId) {
-      return res.status(400).json({ error: 'Property owner not found' });
-    }
-
-    // Get owner's Paystack settings (public key is safe for client)
-    const settings = await prisma.payment_settings.findFirst({
-      where: { customerId: ownerCustomerId, provider: 'paystack' },
-      select: {
-        publicKey: true,
-        testMode: true,
-        isEnabled: true,
-        bankTransferTemplate: true,
-        updatedAt: true
+      if (!lease) {
+        return res.status(404).json({ error: "No active lease found" });
       }
-    });
 
-    if (!settings) {
-      return res.json({ publicKey: null, testMode: false, isEnabled: false, bankTransferTemplate: null });
+      const ownerCustomerId =
+        lease.properties?.customerId || lease.units?.properties?.customerId;
+      if (!ownerCustomerId) {
+        return res.status(400).json({ error: "Property owner not found" });
+      }
+
+      // Get owner's enabled payment gateway settings (check both Paystack and Monicredit)
+      // Priority: Paystack first, then Monicredit
+      const paystackSettings = await prisma.payment_settings.findFirst({
+        where: {
+          customerId: ownerCustomerId,
+          provider: "paystack",
+          isEnabled: true,
+        },
+        select: {
+          provider: true,
+          publicKey: true,
+          testMode: true,
+          isEnabled: true,
+          bankTransferTemplate: true,
+          updatedAt: true,
+        },
+      });
+
+      const monicreditSettings = await prisma.payment_settings.findFirst({
+        where: {
+          customerId: ownerCustomerId,
+          provider: "monicredit",
+          isEnabled: true,
+        },
+        select: {
+          provider: true,
+          publicKey: true,
+          testMode: true,
+          isEnabled: true,
+          updatedAt: true,
+        },
+      });
+
+      // Use the first enabled gateway found (Paystack has priority)
+      const settings = paystackSettings || monicreditSettings;
+
+      if (!settings) {
+        return res.json({
+          provider: null,
+          publicKey: null,
+          testMode: false,
+          isEnabled: false,
+          bankTransferTemplate: null,
+        });
+      }
+
+      return res.json({
+        provider: settings.provider,
+        publicKey: settings.publicKey || null,
+        testMode: settings.testMode,
+        isEnabled: settings.isEnabled,
+        bankTransferTemplate: (settings as any).bankTransferTemplate || null, // Only Paystack has this
+        updatedAt: settings.updatedAt,
+      });
+    } catch (error: any) {
+      console.error("❌ Tenant public payment gateway error:", error);
+      return res
+        .status(500)
+        .json({ error: "Failed to load payment gateway settings" });
     }
-
-    return res.json({
-      publicKey: settings.publicKey || null,
-      testMode: settings.testMode,
-      isEnabled: settings.isEnabled,
-      bankTransferTemplate: settings.bankTransferTemplate || null,
-      updatedAt: settings.updatedAt
-    });
-  } catch (error: any) {
-    console.error('❌ Tenant public payment gateway error:', error);
-    return res.status(500).json({ error: 'Failed to load payment gateway settings' });
   }
-});
+);
 
 // Get tenant dashboard overview
-router.get('/dashboard/overview', async (req: AuthRequest, res: Response) => {
+router.get("/dashboard/overview", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     const role = req.user?.role;
 
-    if (role !== 'tenant') {
-      return res.status(403).json({ error: 'Access denied. Tenant access only.' });
+    if (role !== "tenant") {
+      return res
+        .status(403)
+        .json({ error: "Access denied. Tenant access only." });
     }
 
     // Get tenant's active lease
     const activeLease = await prisma.leases.findFirst({
       where: {
         tenantId: userId,
-        status: 'active'
+        status: "active",
       },
       include: {
         properties: {
@@ -194,8 +250,8 @@ router.get('/dashboard/overview', async (req: AuthRequest, res: Response) => {
             city: true,
             state: true,
             coverImage: true,
-            features: true
-          }
+            features: true,
+          },
         },
         units: {
           select: {
@@ -205,16 +261,16 @@ router.get('/dashboard/overview', async (req: AuthRequest, res: Response) => {
             bedrooms: true,
             bathrooms: true,
             size: true,
-            features: true
-          }
-        }
-      }
+            features: true,
+          },
+        },
+      },
     });
 
     if (!activeLease) {
       return res.json({
         hasActiveLease: false,
-        message: 'No active lease found'
+        message: "No active lease found",
       });
     }
 
@@ -222,8 +278,11 @@ router.get('/dashboard/overview', async (req: AuthRequest, res: Response) => {
 
     // Get rent frequency from unit features
     const unitFeatures = activeLease.units?.features as any;
-    const rentFrequency = unitFeatures?.nigeria?.rentFrequency || unitFeatures?.rentFrequency || 'monthly';
-    const isAnnualRent = rentFrequency === 'annual';
+    const rentFrequency =
+      unitFeatures?.nigeria?.rentFrequency ||
+      unitFeatures?.rentFrequency ||
+      "monthly";
+    const isAnnualRent = rentFrequency === "annual";
 
     // Get the last successful payment and scheduled payment for this lease
     let lastPayment: any = null;
@@ -236,37 +295,37 @@ router.get('/dashboard/overview', async (req: AuthRequest, res: Response) => {
       lastPayment = await prisma.payments.findFirst({
         where: {
           leaseId: activeLease.id,
-          type: 'rent',
-          status: 'success'
+          type: "rent",
+          status: "success",
         },
-        orderBy: { paidAt: 'desc' }
+        orderBy: { paidAt: "desc" },
       });
 
       // Get scheduled payment (next payment due)
       scheduledPayment = await prisma.payments.findFirst({
         where: {
           leaseId: activeLease.id,
-          type: 'rent',
-          status: 'scheduled'
+          type: "rent",
+          status: "scheduled",
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: "desc" },
       });
 
       // Get recent payments
       const recentPaymentsList = await prisma.payments.findMany({
         where: {
           leaseId: activeLease.id,
-          type: 'rent',
-          status: { in: ['success', 'paid'] }
+          type: "rent",
+          status: { in: ["success", "paid"] },
         },
-        orderBy: { paidAt: 'desc' },
-        take: 5
+        orderBy: { paidAt: "desc" },
+        take: 5,
       });
-      recentPayments = recentPaymentsList.map(p => ({
+      recentPayments = recentPaymentsList.map((p) => ({
         id: p.id,
         amount: p.amount,
         paymentDate: p.paidAt,
-        paymentMethod: p.paymentMethod || p.provider
+        paymentMethod: p.paymentMethod || p.provider,
       }));
 
       // Get total paid this year
@@ -274,14 +333,14 @@ router.get('/dashboard/overview', async (req: AuthRequest, res: Response) => {
       totalPaidThisYear = await prisma.payments.aggregate({
         where: {
           leaseId: activeLease.id,
-          type: 'rent',
-          status: { in: ['success', 'paid'] },
-          paidAt: { gte: startOfYear }
+          type: "rent",
+          status: { in: ["success", "paid"] },
+          paidAt: { gte: startOfYear },
         },
-        _sum: { amount: true }
+        _sum: { amount: true },
       });
     } catch (paymentError) {
-      console.error('Error fetching payment data:', paymentError);
+      console.error("Error fetching payment data:", paymentError);
     }
 
     // Calculate next payment due date
@@ -294,17 +353,31 @@ router.get('/dashboard/overview', async (req: AuthRequest, res: Response) => {
         nextPaymentDue = new Date(metadata.scheduledDate);
       } else {
         // Fallback calculation
-        nextPaymentDue = calculateNextPaymentDue(lastPayment?.paidAt, activeLease.startDate, isAnnualRent);
+        nextPaymentDue = calculateNextPaymentDue(
+          lastPayment?.paidAt,
+          activeLease.startDate,
+          isAnnualRent
+        );
       }
     } else if (lastPayment?.paidAt) {
       // Calculate from last payment
-      nextPaymentDue = calculateNextPaymentDue(lastPayment.paidAt, activeLease.startDate, isAnnualRent);
+      nextPaymentDue = calculateNextPaymentDue(
+        lastPayment.paidAt,
+        activeLease.startDate,
+        isAnnualRent
+      );
     } else {
       // No payments yet - due from lease start or 1st of next month
-      nextPaymentDue = calculateNextPaymentDue(null, activeLease.startDate, isAnnualRent);
+      nextPaymentDue = calculateNextPaymentDue(
+        null,
+        activeLease.startDate,
+        isAnnualRent
+      );
     }
 
-    const daysUntilDue = Math.ceil((nextPaymentDue.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const daysUntilDue = Math.ceil(
+      (nextPaymentDue.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    );
     const isOverdue = daysUntilDue < 0;
 
     // Get maintenance data
@@ -313,27 +386,21 @@ router.get('/dashboard/overview', async (req: AuthRequest, res: Response) => {
     try {
       pendingMaintenance = await prisma.maintenance_requests.count({
         where: {
-          OR: [
-            { reportedById: userId },
-            { unitId: activeLease.unitId }
-          ],
-          status: { notIn: ['completed', 'cancelled'] }
-        }
+          OR: [{ reportedById: userId }, { unitId: activeLease.unitId }],
+          status: { notIn: ["completed", "cancelled"] },
+        },
       });
 
       const maintenanceList = await prisma.maintenance_requests.findMany({
         where: {
-          OR: [
-            { reportedById: userId },
-            { unitId: activeLease.unitId }
-          ]
+          OR: [{ reportedById: userId }, { unitId: activeLease.unitId }],
         },
-        orderBy: { createdAt: 'desc' },
-        take: 5
+        orderBy: { createdAt: "desc" },
+        take: 5,
       });
       recentMaintenance = maintenanceList;
     } catch (maintenanceError) {
-      console.error('Error fetching maintenance data:', maintenanceError);
+      console.error("Error fetching maintenance data:", maintenanceError);
     }
 
     const unreadNotifications = 0;
@@ -341,7 +408,9 @@ router.get('/dashboard/overview', async (req: AuthRequest, res: Response) => {
 
     // Calculate lease expiration
     const leaseEndDate = new Date(activeLease.endDate);
-    const daysUntilLeaseEnd = Math.ceil((leaseEndDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const daysUntilLeaseEnd = Math.ceil(
+      (leaseEndDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    );
 
     // Get tenant user information
     const tenantUser = await prisma.users.findUnique({
@@ -350,8 +419,8 @@ router.get('/dashboard/overview', async (req: AuthRequest, res: Response) => {
         id: true,
         email: true,
         name: true,
-        phone: true
-      }
+        phone: true,
+      },
     });
 
     return res.json({
@@ -367,58 +436,59 @@ router.get('/dashboard/overview', async (req: AuthRequest, res: Response) => {
         currency: activeLease.currency,
         daysUntilLeaseEnd,
         isExpiringSoon: daysUntilLeaseEnd <= 60,
-        rentFrequency: rentFrequency // 'monthly' or 'annual'
+        rentFrequency: rentFrequency, // 'monthly' or 'annual'
       },
       property: activeLease.properties,
       unit: {
         ...activeLease.units,
-        rentFrequency: rentFrequency // Also include at unit level for convenience
+        rentFrequency: rentFrequency, // Also include at unit level for convenience
       },
       rent: {
         monthlyAmount: activeLease.monthlyRent,
         daysUntilDue,
-        nextPaymentDue: nextPaymentDue.toISOString().split('T')[0],
+        nextPaymentDue: nextPaymentDue.toISOString().split("T")[0],
         lastPaymentDate: lastPayment?.paidAt || null,
         isOverdue,
         totalPaidThisYear: totalPaidThisYear._sum?.amount || 0,
-        rentFrequency
+        rentFrequency,
       },
       maintenance: {
         pending: pendingMaintenance,
-        recent: recentMaintenance
+        recent: recentMaintenance,
       },
       payments: {
-        recent: recentPayments
+        recent: recentPayments,
       },
       notifications: {
         unread: unreadNotifications,
-        announcements
-      }
+        announcements,
+      },
     });
-
   } catch (error: any) {
-    console.error('❌ Get tenant dashboard error:', error);
-    console.error('❌ Error details:', {
+    console.error("❌ Get tenant dashboard error:", error);
+    console.error("❌ Error details:", {
       message: error.message,
       stack: error.stack,
       code: error.code,
-      meta: error.meta
+      meta: error.meta,
     });
     return res.status(500).json({
-      error: 'Failed to fetch tenant dashboard',
-      details: error.message
+      error: "Failed to fetch tenant dashboard",
+      details: error.message,
     });
   }
 });
 
 // Get tenant profile
-router.get('/profile', async (req: AuthRequest, res: Response) => {
+router.get("/profile", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     const role = req.user?.role;
 
-    if (role !== 'tenant') {
-      return res.status(403).json({ error: 'Access denied. Tenant access only.' });
+    if (role !== "tenant") {
+      return res
+        .status(403)
+        .json({ error: "Access denied. Tenant access only." });
     }
 
     const tenant = await prisma.users.findUnique({
@@ -431,46 +501,47 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
         status: true,
         createdAt: true,
         leases: {
-          where: { status: 'active' },
+          where: { status: "active" },
           include: {
             properties: {
               select: {
                 id: true,
                 name: true,
-                address: true
-              }
+                address: true,
+              },
             },
             units: {
               select: {
                 id: true,
-                unitNumber: true
-              }
-            }
-          }
-        }
-      }
+                unitNumber: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!tenant) {
-      return res.status(404).json({ error: 'Tenant not found' });
+      return res.status(404).json({ error: "Tenant not found" });
     }
 
     return res.json(tenant);
-
   } catch (error: any) {
-    console.error('Get tenant profile error:', error);
-    return res.status(500).json({ error: 'Failed to fetch tenant profile' });
+    console.error("Get tenant profile error:", error);
+    return res.status(500).json({ error: "Failed to fetch tenant profile" });
   }
 });
 
 // Update tenant profile
-router.put('/profile', async (req: AuthRequest, res: Response) => {
+router.put("/profile", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     const role = req.user?.role;
 
-    if (role !== 'tenant') {
-      return res.status(403).json({ error: 'Access denied. Tenant access only.' });
+    if (role !== "tenant") {
+      return res
+        .status(403)
+        .json({ error: "Access denied. Tenant access only." });
     }
 
     const {
@@ -479,64 +550,72 @@ router.put('/profile', async (req: AuthRequest, res: Response) => {
       avatar,
       emergencyContactName,
       emergencyContactPhone,
-      preferences
+      preferences,
     } = req.body;
 
     const tenant = await prisma.users.update({
       where: { id: userId },
       data: {
         name,
-        phone
+        phone,
       },
       select: {
         id: true,
         email: true,
         name: true,
-        phone: true
-      }
+        phone: true,
+      },
     });
 
     return res.json(tenant);
-
   } catch (error: any) {
-    console.error('Update tenant profile error:', error);
-    return res.status(500).json({ error: 'Failed to update tenant profile' });
+    console.error("Update tenant profile error:", error);
+    return res.status(500).json({ error: "Failed to update tenant profile" });
   }
 });
 
 // Change password
-router.post('/change-password', async (req: AuthRequest, res: Response) => {
+router.post("/change-password", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     const role = req.user?.role;
 
-    if (role !== 'tenant') {
-      return res.status(403).json({ error: 'Access denied. Tenant access only.' });
+    if (role !== "tenant") {
+      return res
+        .status(403)
+        .json({ error: "Access denied. Tenant access only." });
     }
 
     const { currentPassword, newPassword } = req.body;
 
     if (!currentPassword || !newPassword) {
-      return res.status(400).json({ error: 'Current password and new password are required' });
+      return res
+        .status(400)
+        .json({ error: "Current password and new password are required" });
     }
 
     if (newPassword.length < 6) {
-      return res.status(400).json({ error: 'New password must be at least 6 characters' });
+      return res
+        .status(400)
+        .json({ error: "New password must be at least 6 characters" });
     }
 
     // Get current user
     const user = await prisma.users.findUnique({
-      where: { id: userId }
+      where: { id: userId },
     });
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: "User not found" });
     }
 
     // Verify current password
-    const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+    const isValidPassword = await bcrypt.compare(
+      currentPassword,
+      user.password
+    );
     if (!isValidPassword) {
-      return res.status(401).json({ error: 'Current password is incorrect' });
+      return res.status(401).json({ error: "Current password is incorrect" });
     }
 
     // Hash new password
@@ -545,31 +624,32 @@ router.post('/change-password', async (req: AuthRequest, res: Response) => {
     // Update password
     await prisma.users.update({
       where: { id: userId },
-      data: { password: hashedPassword }
+      data: { password: hashedPassword },
     });
 
-    return res.json({ message: 'Password changed successfully' });
-
+    return res.json({ message: "Password changed successfully" });
   } catch (error: any) {
-    console.error('Change password error:', error);
-    return res.status(500).json({ error: 'Failed to change password' });
+    console.error("Change password error:", error);
+    return res.status(500).json({ error: "Failed to change password" });
   }
 });
 
 // Get tenant lease details
-router.get('/lease', async (req: AuthRequest, res: Response) => {
+router.get("/lease", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     const role = req.user?.role;
 
-    if (role !== 'tenant') {
-      return res.status(403).json({ error: 'Access denied. Tenant access only.' });
+    if (role !== "tenant") {
+      return res
+        .status(403)
+        .json({ error: "Access denied. Tenant access only." });
     }
 
     const lease = await prisma.leases.findFirst({
       where: {
         tenantId: userId,
-        status: 'active'
+        status: "active",
       },
       include: {
         properties: {
@@ -582,8 +662,8 @@ router.get('/lease', async (req: AuthRequest, res: Response) => {
             postalCode: true,
             country: true,
             coverImage: true,
-            features: true
-          }
+            features: true,
+          },
         },
         units: {
           select: {
@@ -594,33 +674,34 @@ router.get('/lease', async (req: AuthRequest, res: Response) => {
             bathrooms: true,
             size: true,
             features: true,
-            images: true
-          }
-        }
-      }
+            images: true,
+          },
+        },
+      },
     });
 
     if (!lease) {
-      return res.status(404).json({ error: 'No active lease found' });
+      return res.status(404).json({ error: "No active lease found" });
     }
 
     return res.json(lease);
-
   } catch (error: any) {
-    console.error('Get tenant lease error:', error);
-    return res.status(500).json({ error: 'Failed to fetch lease details' });
+    console.error("Get tenant lease error:", error);
+    return res.status(500).json({ error: "Failed to fetch lease details" });
   }
 });
 
 // Get payment history
-router.get('/payment-history', async (req: AuthRequest, res: Response) => {
+router.get("/payment-history", async (req: AuthRequest, res: Response) => {
   try {
     const { startDate, endDate, status } = req.query;
     const userId = req.user?.id;
     const role = req.user?.role;
 
-    if (role !== 'tenant') {
-      return res.status(403).json({ error: 'Access denied. Tenant access only.' });
+    if (role !== "tenant") {
+      return res
+        .status(403)
+        .json({ error: "Access denied. Tenant access only." });
     }
 
     // TODO: payments table doesn't exist yet
@@ -629,71 +710,76 @@ router.get('/payment-history', async (req: AuthRequest, res: Response) => {
       statistics: {
         totalPaid: 0,
         totalLateFees: 0,
-        paymentCount: 0
-      }
+        paymentCount: 0,
+      },
     });
-
   } catch (error: any) {
-    console.error('Get payment history error:', error);
-    return res.status(500).json({ error: 'Failed to fetch payment history' });
+    console.error("Get payment history error:", error);
+    return res.status(500).json({ error: "Failed to fetch payment history" });
   }
 });
 
 // Submit payment (initiate payment)
-router.post('/submit-payment', async (req: AuthRequest, res: Response) => {
+router.post("/submit-payment", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     const customerId = req.user?.customerId;
     const role = req.user?.role;
 
-    if (role !== 'tenant') {
-      return res.status(403).json({ error: 'Access denied. Tenant access only.' });
+    if (role !== "tenant") {
+      return res
+        .status(403)
+        .json({ error: "Access denied. Tenant access only." });
     }
 
     const { amount, paymentMethod, type, notes } = req.body;
 
     if (!amount || !paymentMethod) {
-      return res.status(400).json({ error: 'Amount and payment method are required' });
+      return res
+        .status(400)
+        .json({ error: "Amount and payment method are required" });
     }
 
     // TODO: payments table doesn't exist yet
     return res.status(501).json({
-      error: 'Payment feature not yet implemented',
-      message: 'The payment system is currently under development. Please contact your property manager for payment arrangements.'
+      error: "Payment feature not yet implemented",
+      message:
+        "The payment system is currently under development. Please contact your property manager for payment arrangements.",
     });
-
   } catch (error: any) {
-    console.error('Submit payment error:', error);
-    return res.status(500).json({ error: 'Failed to submit payment' });
+    console.error("Submit payment error:", error);
+    return res.status(500).json({ error: "Failed to submit payment" });
   }
 });
 
 // Get tenant documents
-router.get('/documents', async (req: AuthRequest, res: Response) => {
+router.get("/documents", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     const role = req.user?.role;
 
-    if (role !== 'tenant') {
-      return res.status(403).json({ error: 'Access denied. Tenant access only.' });
+    if (role !== "tenant") {
+      return res
+        .status(403)
+        .json({ error: "Access denied. Tenant access only." });
     }
 
     // Get tenant's active lease
     const lease = await prisma.leases.findFirst({
       where: {
         tenantId: userId,
-        status: 'active'
+        status: "active",
       },
       include: {
-        properties: true
-      }
+        properties: true,
+      },
     });
 
     if (!lease) {
       return res.json({
         lease: null,
         receipts: [],
-        documents: []
+        documents: [],
       });
     }
 
@@ -703,35 +789,47 @@ router.get('/documents', async (req: AuthRequest, res: Response) => {
         id: lease.id,
         leaseNumber: lease.leaseNumber,
         startDate: lease.startDate,
-        endDate: lease.endDate
+        endDate: lease.endDate,
       },
       receipts: [],
-      documents: []
+      documents: [],
     });
-
   } catch (error: any) {
-    console.error('Get tenant documents error:', error);
-    return res.status(500).json({ error: 'Failed to fetch documents' });
+    console.error("Get tenant documents error:", error);
+    return res.status(500).json({ error: "Failed to fetch documents" });
   }
 });
 
 // Reset tenant password (for property owners/managers)
-router.post('/:id/reset-password', async (req: AuthRequest, res: Response) => {
+router.post("/:id/reset-password", async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const currentUserId = req.user?.id;
     const role = req.user?.role;
 
-    console.log('🔐 Reset password request - User role:', role, 'Tenant ID:', id);
+    console.log(
+      "🔐 Reset password request - User role:",
+      role,
+      "Tenant ID:",
+      id
+    );
 
     // Check if user is admin (Super Admin has elevated access)
-    const isAdmin = role === 'admin' || role === 'super_admin';
-    const isOwner = role === 'owner' || role === 'property owner' || role === 'property_owner';
-    const isManager = role === 'property_manager' || role === 'manager';
+    const isAdmin = role === "admin" || role === "super_admin";
+    const isOwner =
+      role === "owner" ||
+      role === "property owner" ||
+      role === "property_owner";
+    const isManager = role === "property_manager" || role === "manager";
 
     if (!isAdmin && !isOwner && !isManager) {
-      console.log('❌ Access denied - Invalid role:', role);
-      return res.status(403).json({ error: 'Access denied. Only property owners and managers can reset tenant passwords.' });
+      console.log("❌ Access denied - Invalid role:", role);
+      return res
+        .status(403)
+        .json({
+          error:
+            "Access denied. Only property owners and managers can reset tenant passwords.",
+        });
     }
 
     // Find the tenant user
@@ -746,31 +844,31 @@ router.post('/:id/reset-password', async (req: AuthRequest, res: Response) => {
                 property_managers: {
                   where: {
                     managerId: currentUserId,
-                    isActive: true
+                    isActive: true,
                   },
                   select: {
-                    managerId: true
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
+                    managerId: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!tenant) {
-      return res.status(404).json({ error: 'Tenant not found' });
+      return res.status(404).json({ error: "Tenant not found" });
     }
 
     // Verify the tenant has role 'tenant'
-    if (tenant.role !== 'tenant') {
-      return res.status(400).json({ error: 'User is not a tenant' });
+    if (tenant.role !== "tenant") {
+      return res.status(400).json({ error: "User is not a tenant" });
     }
 
     // For property owners/managers (non-admins), verify they own/manage a property where this tenant has a lease
     if (!isAdmin) {
-      const hasAccess = tenant.leases.some(lease => {
+      const hasAccess = tenant.leases.some((lease) => {
         // Check if user is the property owner
         if (lease.properties.ownerId === currentUserId) {
           return true;
@@ -783,13 +881,19 @@ router.post('/:id/reset-password', async (req: AuthRequest, res: Response) => {
       });
 
       if (!hasAccess) {
-        console.log('❌ Access denied - User does not own/manage tenant properties');
-        return res.status(403).json({ error: 'Access denied. You do not manage this tenant.' });
+        console.log(
+          "❌ Access denied - User does not own/manage tenant properties"
+        );
+        return res
+          .status(403)
+          .json({ error: "Access denied. You do not manage this tenant." });
       }
     }
 
     // Generate a new temporary password
-    const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase();
+    const tempPassword =
+      Math.random().toString(36).slice(-8) +
+      Math.random().toString(36).slice(-4).toUpperCase();
 
     // Hash the password
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
@@ -798,11 +902,11 @@ router.post('/:id/reset-password', async (req: AuthRequest, res: Response) => {
     await prisma.users.update({
       where: { id },
       data: {
-        password: hashedPassword
-      }
+        password: hashedPassword,
+      },
     });
 
-    console.log('✅ Password reset for tenant:', tenant.email);
+    console.log("✅ Password reset for tenant:", tenant.email);
 
     // Log activity
     if (tenant.customerId) {
@@ -811,53 +915,65 @@ router.post('/:id/reset-password', async (req: AuthRequest, res: Response) => {
           id: randomUUID(),
           customerId: tenant.customerId,
           userId: currentUserId,
-          action: 'update',
-          entity: 'tenant',
+          action: "update",
+          entity: "tenant",
           entityId: id,
-          description: `Password reset for tenant ${tenant.name}`
-        }
+          description: `Password reset for tenant ${tenant.name}`,
+        },
       });
     }
 
     // Return the temporary password (for owner to give to tenant)
     return res.json({
-      message: 'Password reset successfully',
+      message: "Password reset successfully",
       tempPassword: tempPassword,
       tenantEmail: tenant.email,
-      tenantName: tenant.name
+      tenantName: tenant.name,
     });
-
   } catch (error: any) {
-    console.error('❌ Reset tenant password error:', error);
-    console.error('❌ Error details:', {
+    console.error("❌ Reset tenant password error:", error);
+    console.error("❌ Error details:", {
       message: error.message,
       stack: error.stack,
-      code: error.code
+      code: error.code,
     });
     return res.status(500).json({
-      error: 'Failed to reset tenant password',
-      details: error.message
+      error: "Failed to reset tenant password",
+      details: error.message,
     });
   }
 });
 
 // Delete tenant (for property owners/managers)
-router.delete('/:id', async (req: AuthRequest, res: Response) => {
+router.delete("/:id", async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const currentUserId = req.user?.id;
     const role = req.user?.role;
 
-    console.log('🗑️  Delete tenant request - User role:', role, 'Tenant ID:', id);
+    console.log(
+      "🗑️  Delete tenant request - User role:",
+      role,
+      "Tenant ID:",
+      id
+    );
 
     // Check if user is admin (Super Admin has elevated access)
-    const isAdmin = role === 'admin' || role === 'super_admin';
-    const isOwner = role === 'owner' || role === 'property owner' || role === 'property_owner';
-    const isManager = role === 'property_manager' || role === 'manager';
+    const isAdmin = role === "admin" || role === "super_admin";
+    const isOwner =
+      role === "owner" ||
+      role === "property owner" ||
+      role === "property_owner";
+    const isManager = role === "property_manager" || role === "manager";
 
     if (!isAdmin && !isOwner && !isManager) {
-      console.log('❌ Access denied - Invalid role:', role);
-      return res.status(403).json({ error: 'Access denied. Only property owners and managers can delete tenants.' });
+      console.log("❌ Access denied - Invalid role:", role);
+      return res
+        .status(403)
+        .json({
+          error:
+            "Access denied. Only property owners and managers can delete tenants.",
+        });
     }
 
     // Find the tenant user with their leases and KYC info
@@ -875,42 +991,49 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
             properties: {
               select: {
                 ownerId: true,
-                customerId: true
-              }
+                customerId: true,
+              },
             },
             units: {
               select: {
-                id: true
-              }
-            }
-          }
-        }
-      }
+                id: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!tenant) {
-      return res.status(404).json({ error: 'Tenant not found' });
+      return res.status(404).json({ error: "Tenant not found" });
     }
 
     // Verify the tenant has role 'tenant'
-    if (tenant.role !== 'tenant') {
-      return res.status(400).json({ error: 'User is not a tenant' });
+    if (tenant.role !== "tenant") {
+      return res.status(400).json({ error: "User is not a tenant" });
     }
 
     // For property owners/managers (non-admins), verify they own/manage a property where this tenant has a lease
     if (!isAdmin) {
       const hasAccess = tenant.leases.some(
-        lease => lease.properties.ownerId === currentUserId
+        (lease) => lease.properties.ownerId === currentUserId
       );
 
       if (!hasAccess) {
-        console.log('❌ Access denied - User does not own/manage tenant properties');
-        return res.status(403).json({ error: 'Access denied. You do not manage this tenant.' });
+        console.log(
+          "❌ Access denied - User does not own/manage tenant properties"
+        );
+        return res
+          .status(403)
+          .json({ error: "Access denied. You do not manage this tenant." });
       }
     }
 
     // Comprehensive deletion of all tenant-related data
-    console.log('🗑️  Starting comprehensive tenant deletion for:', tenant.email);
+    console.log(
+      "🗑️  Starting comprehensive tenant deletion for:",
+      tenant.email
+    );
 
     // 1. Free up all units and delete all leases
     for (const lease of tenant.leases) {
@@ -918,58 +1041,70 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
       await prisma.units.update({
         where: { id: lease.units.id },
         data: {
-          status: 'vacant',
-          updatedAt: new Date()
-        }
+          status: "vacant",
+          updatedAt: new Date(),
+        },
       });
 
       // Delete the lease
       await prisma.leases.delete({
-        where: { id: lease.id }
+        where: { id: lease.id },
       });
     }
-    console.log('✅ Deleted', tenant.leases.length, 'leases');
+    console.log("✅ Deleted", tenant.leases.length, "leases");
 
     // 2. Delete payments associated with this tenant
     const deletedPayments = await prisma.payments.deleteMany({
-      where: { tenantId: id }
+      where: { tenantId: id },
     });
-    console.log('✅ Deleted', deletedPayments.count, 'payments');
+    console.log("✅ Deleted", deletedPayments.count, "payments");
 
     // 3. Delete payment methods (should cascade, but let's be explicit)
     const deletedPaymentMethods = await prisma.payment_methods.deleteMany({
-      where: { tenantId: id }
+      where: { tenantId: id },
     });
-    console.log('✅ Deleted', deletedPaymentMethods.count, 'payment methods');
+    console.log("✅ Deleted", deletedPaymentMethods.count, "payment methods");
 
     // 4. Delete maintenance requests reported by this tenant
-    const deletedMaintenanceRequests = await prisma.maintenance_requests.deleteMany({
-      where: { reportedById: id }
-    });
-    console.log('✅ Deleted', deletedMaintenanceRequests.count, 'maintenance requests');
+    const deletedMaintenanceRequests =
+      await prisma.maintenance_requests.deleteMany({
+        where: { reportedById: id },
+      });
+    console.log(
+      "✅ Deleted",
+      deletedMaintenanceRequests.count,
+      "maintenance requests"
+    );
 
     // 5. Delete documents (should cascade, but let's be explicit)
     const deletedDocuments = await prisma.documents.deleteMany({
-      where: { tenantId: id }
+      where: { tenantId: id },
     });
-    console.log('✅ Deleted', deletedDocuments.count, 'documents');
+    console.log("✅ Deleted", deletedDocuments.count, "documents");
 
     // 6. Delete any activity logs for this tenant
     const deletedActivityLogs = await prisma.activity_logs.deleteMany({
-      where: { userId: id }
+      where: { userId: id },
     });
-    console.log('✅ Deleted', deletedActivityLogs.count, 'activity logs');
+    console.log("✅ Deleted", deletedActivityLogs.count, "activity logs");
 
     // 7. Delete verification requests if tenant has a kycVerificationId
     if (tenant.kycVerificationId) {
       try {
         // Try to delete from verification service (consolidated)
-        const { AdminService } = await import('../services/verification/admin.service');
+        const { AdminService } = await import(
+          "../services/verification/admin.service"
+        );
         const adminService = new AdminService();
         await adminService.deleteRequest(tenant.kycVerificationId);
-        console.log('✅ Deleted verification request from verification service');
+        console.log(
+          "✅ Deleted verification request from verification service"
+        );
       } catch (verificationError) {
-        console.warn('⚠️ Could not delete verification request:', verificationError);
+        console.warn(
+          "⚠️ Could not delete verification request:",
+          verificationError
+        );
         // Continue with deletion even if verification service fails
       }
     }
@@ -981,69 +1116,81 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
           id: randomUUID(),
           customerId: tenant.customerId,
           userId: currentUserId,
-          action: 'delete',
-          entity: 'tenant',
+          action: "delete",
+          entity: "tenant",
           entityId: id,
-          description: `Tenant ${tenant.name} (${tenant.email}) deleted completely`
-        }
+          description: `Tenant ${tenant.name} (${tenant.email}) deleted completely`,
+        },
       });
     }
 
     // 8. Finally, delete the tenant user record
     await prisma.users.delete({
-      where: { id }
+      where: { id },
     });
-    console.log('✅ Deleted tenant user record');
+    console.log("✅ Deleted tenant user record");
 
-    console.log('✅ Tenant deleted:', tenant.email);
+    console.log("✅ Tenant deleted:", tenant.email);
 
     return res.json({
-      message: 'Tenant deleted successfully',
+      message: "Tenant deleted successfully",
       tenantEmail: tenant.email,
-      tenantName: tenant.name
+      tenantName: tenant.name,
     });
-
   } catch (error: any) {
-    console.error('❌ Delete tenant error:', error);
-    console.error('❌ Error details:', {
+    console.error("❌ Delete tenant error:", error);
+    console.error("❌ Error details:", {
       message: error.message,
       stack: error.stack,
-      code: error.code
+      code: error.code,
     });
     return res.status(500).json({
-      error: 'Failed to delete tenant',
-      details: error.message
+      error: "Failed to delete tenant",
+      details: error.message,
     });
   }
 });
 
 // Update tenant information (for property owners/managers)
-router.put('/:id', async (req: AuthRequest, res: Response) => {
+router.put("/:id", async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const currentUserId = req.user?.id;
     const role = req.user?.role;
     const { name, email, phone } = req.body;
 
-    console.log('📝 Update tenant request:', { tenantId: id, currentUserId, role, updates: { name, email, phone } });
+    console.log("📝 Update tenant request:", {
+      tenantId: id,
+      currentUserId,
+      role,
+      updates: { name, email, phone },
+    });
 
     // Check if user is owner or manager
-    if (role !== 'owner' && role !== 'manager' && role !== 'property_manager' && role !== 'admin' && role !== 'super_admin') {
-      return res.status(403).json({ error: 'Access denied. Property owners and managers only.' });
+    if (
+      role !== "owner" &&
+      role !== "manager" &&
+      role !== "property_manager" &&
+      role !== "admin" &&
+      role !== "super_admin"
+    ) {
+      return res
+        .status(403)
+        .json({ error: "Access denied. Property owners and managers only." });
     }
 
     // Get the tenant
     const tenant = await prisma.users.findUnique({
-      where: { id }
+      where: { id },
     });
 
     if (!tenant) {
-      return res.status(404).json({ error: 'Tenant not found' });
+      return res.status(404).json({ error: "Tenant not found" });
     }
 
     // Verify the tenant is actually a tenant
-    if (tenant.role !== 'tenant') {
-      return res.status(400).json({ error: 'User is not a tenant' });
+    if (tenant.role !== "tenant") {
+      return res.status(400).json({ error: "User is not a tenant" });
     }
 
     // Check if the current user has access to this tenant
@@ -1054,28 +1201,33 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         properties: {
           OR: [
             { ownerId: currentUserId },
-            { property_managers: { some: { managerId: currentUserId, isActive: true } } }
-          ]
-        }
+            {
+              property_managers: {
+                some: { managerId: currentUserId, isActive: true },
+              },
+            },
+          ],
+        },
       },
       include: {
         properties: {
           select: {
             id: true,
             name: true,
-            ownerId: true
-          }
-        }
-      }
+            ownerId: true,
+          },
+        },
+      },
     });
 
-    if (!tenantLease && role !== 'admin' && role !== 'super_admin') {
+    if (!tenantLease && role !== "admin" && role !== "super_admin") {
       return res.status(403).json({
-        error: 'You do not have permission to update this tenant. Tenant must be assigned to your property.'
+        error:
+          "You do not have permission to update this tenant. Tenant must be assigned to your property.",
       });
     }
 
-    console.log('✅ Authorization passed for tenant update');
+    console.log("✅ Authorization passed for tenant update");
 
     // Update tenant information
     const updatedTenant = await prisma.users.update({
@@ -1084,42 +1236,43 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         name: name || tenant.name,
         email: email || tenant.email,
         phone: phone || tenant.phone,
-        updatedAt: new Date()
-      }
+        updatedAt: new Date(),
+      },
     });
 
-    console.log('✅ Tenant updated successfully:', updatedTenant.email);
+    console.log("✅ Tenant updated successfully:", updatedTenant.email);
 
     // Remove password from response
     const { password, ...tenantWithoutPassword } = updatedTenant;
 
     return res.json({
-      message: 'Tenant updated successfully',
-      tenant: tenantWithoutPassword
+      message: "Tenant updated successfully",
+      tenant: tenantWithoutPassword,
     });
-
   } catch (error: any) {
-    console.error('❌ Update tenant error:', error);
+    console.error("❌ Update tenant error:", error);
     return res.status(500).json({
-      error: 'Failed to update tenant',
-      details: error.message
+      error: "Failed to update tenant",
+      details: error.message,
     });
   }
 });
 
 // Get auto-pay settings for tenant
-router.get('/autopay/settings', async (req: AuthRequest, res: Response) => {
+router.get("/autopay/settings", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     const role = req.user?.role;
 
-    if (role !== 'tenant') {
-      return res.status(403).json({ error: 'Access denied. Tenant access only.' });
+    if (role !== "tenant") {
+      return res
+        .status(403)
+        .json({ error: "Access denied. Tenant access only." });
     }
 
     // Get tenant's active lease
     const lease = await prisma.leases.findFirst({
-      where: { tenantId: userId, status: 'active' },
+      where: { tenantId: userId, status: "active" },
       select: {
         id: true,
         monthlyRent: true,
@@ -1127,18 +1280,18 @@ router.get('/autopay/settings', async (req: AuthRequest, res: Response) => {
         specialClauses: true,
         units: {
           select: {
-            features: true
-          }
-        }
-      }
+            features: true,
+          },
+        },
+      },
     });
 
     if (!lease) {
-      return res.status(404).json({ error: 'No active lease found' });
+      return res.status(404).json({ error: "No active lease found" });
     }
 
     // Get auto-pay settings from lease's specialClauses
-    const clauses = lease.specialClauses as any || {};
+    const clauses = (lease.specialClauses as any) || {};
     const autopaySettings = clauses.autopay || null;
 
     // Get default payment method
@@ -1148,46 +1301,52 @@ router.get('/autopay/settings', async (req: AuthRequest, res: Response) => {
         customerId,
         tenantId: userId,
         isDefault: true,
-        isActive: true
+        isActive: true,
       },
       select: {
         id: true,
         cardBrand: true,
         cardLast4: true,
         cardExpMonth: true,
-        cardExpYear: true
-      }
+        cardExpYear: true,
+      },
     });
 
     // Get rent frequency
     const unitFeatures = lease.units?.features as any;
-    const rentFrequency = unitFeatures?.nigeria?.rentFrequency || unitFeatures?.rentFrequency || 'monthly';
+    const rentFrequency =
+      unitFeatures?.nigeria?.rentFrequency ||
+      unitFeatures?.rentFrequency ||
+      "monthly";
 
     return res.json({
       enabled: autopaySettings?.enabled || false,
-      paymentMethodId: autopaySettings?.paymentMethodId || defaultPaymentMethod?.id || null,
+      paymentMethodId:
+        autopaySettings?.paymentMethodId || defaultPaymentMethod?.id || null,
       paymentMethod: defaultPaymentMethod,
       dayOfMonth: autopaySettings?.dayOfMonth || 1,
       amount: lease.monthlyRent,
-      currency: lease.currency || 'NGN',
+      currency: lease.currency || "NGN",
       rentFrequency,
-      leaseId: lease.id
+      leaseId: lease.id,
     });
   } catch (error: any) {
-    console.error('Get autopay settings error:', error);
-    return res.status(500).json({ error: 'Failed to get auto-pay settings' });
+    console.error("Get autopay settings error:", error);
+    return res.status(500).json({ error: "Failed to get auto-pay settings" });
   }
 });
 
 // Update auto-pay settings for tenant
-router.post('/autopay/settings', async (req: AuthRequest, res: Response) => {
+router.post("/autopay/settings", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     const role = req.user?.role;
     const customerId = req.user?.customerId;
 
-    if (role !== 'tenant') {
-      return res.status(403).json({ error: 'Access denied. Tenant access only.' });
+    if (role !== "tenant") {
+      return res
+        .status(403)
+        .json({ error: "Access denied. Tenant access only." });
     }
 
     const { enabled, paymentMethodId, dayOfMonth = 1 } = req.body;
@@ -1197,11 +1356,11 @@ router.post('/autopay/settings', async (req: AuthRequest, res: Response) => {
 
     // Get tenant's active lease
     const lease = await prisma.leases.findFirst({
-      where: { tenantId: userId, status: 'active' }
+      where: { tenantId: userId, status: "active" },
     });
 
     if (!lease) {
-      return res.status(404).json({ error: 'No active lease found' });
+      return res.status(404).json({ error: "No active lease found" });
     }
 
     // If enabling, validate payment method exists and belongs to tenant
@@ -1211,12 +1370,12 @@ router.post('/autopay/settings', async (req: AuthRequest, res: Response) => {
           id: paymentMethodId,
           customerId,
           tenantId: userId,
-          isActive: true
-        }
+          isActive: true,
+        },
       });
 
       if (!paymentMethod) {
-        return res.status(400).json({ error: 'Invalid payment method' });
+        return res.status(400).json({ error: "Invalid payment method" });
       }
     }
 
@@ -1228,16 +1387,16 @@ router.post('/autopay/settings', async (req: AuthRequest, res: Response) => {
         enabled: !!enabled,
         paymentMethodId: enabled ? paymentMethodId : null,
         dayOfMonth: day,
-        updatedAt: new Date().toISOString()
-      }
+        updatedAt: new Date().toISOString(),
+      },
     };
 
     await prisma.leases.update({
       where: { id: lease.id },
       data: {
         specialClauses: updatedClauses,
-        updatedAt: new Date()
-      }
+        updatedAt: new Date(),
+      },
     });
 
     // If enabling and no scheduled payment exists, create one
@@ -1246,15 +1405,19 @@ router.post('/autopay/settings', async (req: AuthRequest, res: Response) => {
       const existingScheduled = await prisma.payments.findFirst({
         where: {
           leaseId: lease.id,
-          status: 'scheduled',
-          type: 'rent'
-        }
+          status: "scheduled",
+          type: "rent",
+        },
       });
 
       if (!existingScheduled) {
         // Calculate next payment date
         const today = new Date();
-        let nextPaymentDate = new Date(today.getFullYear(), today.getMonth(), day);
+        let nextPaymentDate = new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          day
+        );
 
         // If the day has passed this month, schedule for next month
         if (nextPaymentDate <= today) {
@@ -1264,10 +1427,13 @@ router.post('/autopay/settings', async (req: AuthRequest, res: Response) => {
         // Get rent frequency
         const leaseWithUnit = await prisma.leases.findUnique({
           where: { id: lease.id },
-          include: { units: { select: { features: true } } }
+          include: { units: { select: { features: true } } },
         });
         const unitFeatures = leaseWithUnit?.units?.features as any;
-        const rentFrequency = unitFeatures?.nigeria?.rentFrequency || unitFeatures?.rentFrequency || 'monthly';
+        const rentFrequency =
+          unitFeatures?.nigeria?.rentFrequency ||
+          unitFeatures?.rentFrequency ||
+          "monthly";
 
         // Create scheduled payment
         await prisma.payments.create({
@@ -1279,40 +1445,44 @@ router.post('/autopay/settings', async (req: AuthRequest, res: Response) => {
             leaseId: lease.id,
             tenantId: userId,
             amount: lease.monthlyRent,
-            currency: lease.currency || 'NGN',
-            status: 'scheduled',
-            type: 'rent',
-            provider: 'paystack',
-            providerReference: `SCH-AUTO-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            currency: lease.currency || "NGN",
+            status: "scheduled",
+            type: "rent",
+            provider: "paystack",
+            providerReference: `SCH-AUTO-${Date.now()}-${Math.random()
+              .toString(36)
+              .slice(2, 8)}`,
             paymentMethodId,
             metadata: {
               scheduledDate: nextPaymentDate.toISOString(),
               rentFrequency,
-              autopay: true
+              autopay: true,
             } as any,
-            updatedAt: new Date()
-          }
+            updatedAt: new Date(),
+          },
         });
       }
     }
 
     return res.json({
       success: true,
-      message: enabled ? 'Auto-pay enabled successfully' : 'Auto-pay disabled',
+      message: enabled ? "Auto-pay enabled successfully" : "Auto-pay disabled",
       settings: {
         enabled: !!enabled,
         paymentMethodId: enabled ? paymentMethodId : null,
-        dayOfMonth: day
-      }
+        dayOfMonth: day,
+      },
     });
   } catch (error: any) {
-    console.error('Update autopay settings error:', error);
-    return res.status(500).json({ error: 'Failed to update auto-pay settings' });
+    console.error("Update autopay settings error:", error);
+    return res
+      .status(500)
+      .json({ error: "Failed to update auto-pay settings" });
   }
 });
 
 // Process auto-payments (called by cron job or manually)
-router.post('/autopay/process', async (req: AuthRequest, res: Response) => {
+router.post("/autopay/process", async (req: AuthRequest, res: Response) => {
   try {
     // This endpoint should be called by a cron job or admin
     // For security, we'll allow tenant to trigger their own payment manually
@@ -1320,8 +1490,8 @@ router.post('/autopay/process', async (req: AuthRequest, res: Response) => {
     const role = req.user?.role;
     const customerId = req.user?.customerId;
 
-    if (role !== 'tenant') {
-      return res.status(403).json({ error: 'Access denied' });
+    if (role !== "tenant") {
+      return res.status(403).json({ error: "Access denied" });
     }
 
     // Get tenant's scheduled payment that's due
@@ -1329,99 +1499,118 @@ router.post('/autopay/process', async (req: AuthRequest, res: Response) => {
     const scheduledPayment = await prisma.payments.findFirst({
       where: {
         tenantId: userId,
-        status: 'scheduled',
-        type: 'rent',
-        paymentMethodId: { not: null }
+        status: "scheduled",
+        type: "rent",
+        paymentMethodId: { not: null },
       },
       include: {
         payment_methods: true,
         leases: {
           include: {
-            properties: { select: { customerId: true } }
-          }
-        }
-      }
+            properties: { select: { customerId: true } },
+          },
+        },
+      },
     });
 
     if (!scheduledPayment) {
-      return res.status(404).json({ error: 'No scheduled payment found' });
+      return res.status(404).json({ error: "No scheduled payment found" });
     }
 
     // Check if payment is due
     const metadata = scheduledPayment.metadata as any;
-    const scheduledDate = metadata?.scheduledDate ? new Date(metadata.scheduledDate) : null;
+    const scheduledDate = metadata?.scheduledDate
+      ? new Date(metadata.scheduledDate)
+      : null;
 
     if (scheduledDate && scheduledDate > today) {
       return res.status(400).json({
-        error: 'Payment not yet due',
-        scheduledDate: scheduledDate.toISOString()
+        error: "Payment not yet due",
+        scheduledDate: scheduledDate.toISOString(),
       });
     }
 
     // Get owner's Paystack settings
     const ownerCustomerId = scheduledPayment.leases?.properties?.customerId;
     if (!ownerCustomerId) {
-      return res.status(400).json({ error: 'Property owner not found' });
+      return res.status(400).json({ error: "Property owner not found" });
     }
 
     const settings = await prisma.payment_settings.findFirst({
-      where: { customerId: ownerCustomerId, provider: 'paystack', isEnabled: true }
+      where: {
+        customerId: ownerCustomerId,
+        provider: "paystack",
+        isEnabled: true,
+      },
     });
 
     if (!settings?.secretKey) {
-      return res.status(400).json({ error: 'Owner has not configured Paystack' });
+      return res
+        .status(400)
+        .json({ error: "Owner has not configured Paystack" });
     }
 
     // Get payment method authorization code
     const authCode = scheduledPayment.payment_methods?.authorizationCode;
     if (!authCode) {
-      return res.status(400).json({ error: 'Payment method not properly configured' });
+      return res
+        .status(400)
+        .json({ error: "Payment method not properly configured" });
     }
 
     // Charge the card using Paystack
-    const chargeResponse = await fetch('https://api.paystack.co/transaction/charge_authorization', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${settings.secretKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        authorization_code: authCode,
-        email: req.user?.email || `tenant-${userId}@autopay.local`,
-        amount: Math.round(scheduledPayment.amount * 100),
-        currency: scheduledPayment.currency || 'NGN',
-        reference: `AUTO-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        metadata: {
-          leaseId: scheduledPayment.leaseId,
-          tenantId: userId,
-          type: 'autopay_rent',
-          scheduledPaymentId: scheduledPayment.id
-        }
-      })
-    });
+    const chargeResponse = await fetch(
+      "https://api.paystack.co/transaction/charge_authorization",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${settings.secretKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          authorization_code: authCode,
+          email: req.user?.email || `tenant-${userId}@autopay.local`,
+          amount: Math.round(scheduledPayment.amount * 100),
+          currency: scheduledPayment.currency || "NGN",
+          reference: `AUTO-${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2, 8)}`,
+          metadata: {
+            leaseId: scheduledPayment.leaseId,
+            tenantId: userId,
+            type: "autopay_rent",
+            scheduledPaymentId: scheduledPayment.id,
+          },
+        }),
+      }
+    );
 
     const chargeData = await chargeResponse.json();
 
-    if (!chargeResponse.ok || !chargeData.status || chargeData.data?.status !== 'success') {
-      console.error('Auto-pay charge failed:', chargeData);
+    if (
+      !chargeResponse.ok ||
+      !chargeData.status ||
+      chargeData.data?.status !== "success"
+    ) {
+      console.error("Auto-pay charge failed:", chargeData);
 
       // Update scheduled payment to failed
       await prisma.payments.update({
         where: { id: scheduledPayment.id },
         data: {
-          status: 'failed',
+          status: "failed",
           metadata: {
             ...metadata,
             failedAt: new Date().toISOString(),
-            failureReason: chargeData.message || 'Charge failed'
+            failureReason: chargeData.message || "Charge failed",
           } as any,
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       });
 
       return res.status(400).json({
-        error: 'Auto-pay charge failed',
-        message: chargeData.message || 'Payment was declined'
+        error: "Auto-pay charge failed",
+        message: chargeData.message || "Payment was declined",
       });
     }
 
@@ -1429,21 +1618,21 @@ router.post('/autopay/process', async (req: AuthRequest, res: Response) => {
     await prisma.payments.update({
       where: { id: scheduledPayment.id },
       data: {
-        status: 'success',
+        status: "success",
         providerReference: chargeData.data.reference,
         paidAt: new Date(),
         metadata: {
           ...metadata,
           paidViaAutopay: true,
-          paystackReference: chargeData.data.reference
+          paystackReference: chargeData.data.reference,
         } as any,
-        updatedAt: new Date()
-      }
+        updatedAt: new Date(),
+      },
     });
 
     // Create next scheduled payment
-    const rentFrequency = metadata?.rentFrequency || 'monthly';
-    const isAnnual = rentFrequency === 'annual';
+    const rentFrequency = metadata?.rentFrequency || "monthly";
+    const isAnnual = rentFrequency === "annual";
 
     let nextPaymentDate = new Date();
     if (isAnnual) {
@@ -1454,7 +1643,7 @@ router.post('/autopay/process', async (req: AuthRequest, res: Response) => {
 
     // Get autopay day from lease
     const lease = await prisma.leases.findUnique({
-      where: { id: scheduledPayment.leaseId! }
+      where: { id: scheduledPayment.leaseId! },
     });
     const clauses = (lease?.specialClauses as any) || {};
     const autopayDay = clauses.autopay?.dayOfMonth || 1;
@@ -1470,36 +1659,36 @@ router.post('/autopay/process', async (req: AuthRequest, res: Response) => {
         tenantId: scheduledPayment.tenantId,
         amount: scheduledPayment.amount,
         currency: scheduledPayment.currency,
-        status: 'scheduled',
-        type: 'rent',
-        provider: 'paystack',
-        providerReference: `SCH-AUTO-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        status: "scheduled",
+        type: "rent",
+        provider: "paystack",
+        providerReference: `SCH-AUTO-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 8)}`,
         paymentMethodId: scheduledPayment.paymentMethodId,
         metadata: {
           scheduledDate: nextPaymentDate.toISOString(),
           rentFrequency,
-          autopay: true
+          autopay: true,
         } as any,
-        updatedAt: new Date()
-      }
+        updatedAt: new Date(),
+      },
     });
 
     return res.json({
       success: true,
-      message: 'Auto-pay processed successfully',
+      message: "Auto-pay processed successfully",
       payment: {
         amount: scheduledPayment.amount,
         currency: scheduledPayment.currency,
         reference: chargeData.data.reference,
-        nextPaymentDate: nextPaymentDate.toISOString()
-      }
+        nextPaymentDate: nextPaymentDate.toISOString(),
+      },
     });
   } catch (error: any) {
-    console.error('Process autopay error:', error);
-    return res.status(500).json({ error: 'Failed to process auto-pay' });
+    console.error("Process autopay error:", error);
+    return res.status(500).json({ error: "Failed to process auto-pay" });
   }
 });
 
 export default router;
-
-

@@ -9,6 +9,7 @@ import compression from "compression";
 import dotenv from "dotenv";
 import { initializeSocket, cleanupSocket } from "./lib/socket";
 import paystackWebhookRoutes from "./routes/paystack";
+import monicreditRoutes from "./routes/monicredit";
 import prisma from "./lib/db";
 
 // Handle BigInt serialization for JSON.stringify
@@ -188,6 +189,7 @@ app.use(compression()); // Compress responses
 
 // Mount webhook route BEFORE JSON parser to access raw body for signature verification
 app.use("/api/paystack", paystackWebhookRoutes);
+app.use("/api/monicredit", monicreditRoutes);
 
 // CORS configuration - Allow multiple origins
 const allowedOrigins = [

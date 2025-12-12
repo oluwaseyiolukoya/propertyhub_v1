@@ -93,9 +93,9 @@ export const updateOrganization = async (organizationData: {
 export interface PaymentGatewaySettings {
   id?: string;
   customerId?: string;
-  provider: "paystack";
+  provider: "paystack" | "monicredit";
   publicKey?: string;
-  // secretKey is never returned from server
+  // secretKey/privateKey is never returned from server
   testMode?: boolean;
   isEnabled?: boolean;
   metadata?: Record<string, any>;
@@ -103,11 +103,11 @@ export interface PaymentGatewaySettings {
   updatedAt?: string;
 }
 
-export const getPaymentGatewaySettings = async (): Promise<
-  ApiResponse<PaymentGatewaySettings | null>
-> => {
+export const getPaymentGatewaySettings = async (
+  provider: "paystack" | "monicredit" = "paystack"
+): Promise<ApiResponse<PaymentGatewaySettings | null>> => {
   return await apiClient.get<PaymentGatewaySettings | null>(
-    "/api/settings/payment-gateway"
+    `/api/settings/payment-gateway?provider=${provider}`
   );
 };
 
@@ -129,6 +129,7 @@ export const getPublicPaymentGatewaySettings = async (): Promise<
 
 export const getTenantPublicPaymentGateway = async (): Promise<
   ApiResponse<{
+    provider: string | null;
     publicKey: string | null;
     isEnabled: boolean;
     testMode: boolean;
@@ -137,6 +138,7 @@ export const getTenantPublicPaymentGateway = async (): Promise<
   }>
 > => {
   return await apiClient.get<{
+    provider: string | null;
     publicKey: string | null;
     isEnabled: boolean;
     testMode: boolean;
@@ -145,16 +147,21 @@ export const getTenantPublicPaymentGateway = async (): Promise<
   }>("/api/tenant/payment-gateway/public");
 };
 
-export const savePaymentGatewaySettings = async (payload: {
-  publicKey: string;
-  secretKey: string;
-  testMode?: boolean;
-  isEnabled?: boolean;
-}): Promise<
+export const savePaymentGatewaySettings = async (
+  provider: "paystack" | "monicredit",
+  payload: {
+    publicKey?: string;
+    secretKey?: string; // For Paystack
+    privateKey?: string; // For Monicredit
+    testMode?: boolean;
+    isEnabled?: boolean;
+    bankTransferTemplate?: string; // For Paystack only
+  }
+): Promise<
   ApiResponse<{ message: string; settings: PaymentGatewaySettings }>
 > => {
   return await apiClient.put<{
     message: string;
     settings: PaymentGatewaySettings;
-  }>("/api/settings/payment-gateway", payload);
+  }>(`/api/settings/payment-gateway?provider=${provider}`, payload);
 };
