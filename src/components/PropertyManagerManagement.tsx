@@ -161,23 +161,23 @@ export const PropertyManagerManagement = ({
 
     // Only reload if counts changed (not just array references)
     if (!hasLoadedStatsRef.current || managersChanged || assignmentsChanged) {
-      const loadStats = async () => {
-        try {
+    const loadStats = async () => {
+      try {
           // Don't show loading state - show fallback values immediately
           // API will update silently in background
-          const response = await getManagerStats();
-          if (!response.error && response.data) {
-            setManagerStats(response.data);
-          }
-        } catch (error) {
-          console.error("Failed to load manager stats:", error);
-        } finally {
-          hasLoadedStatsRef.current = true;
+        const response = await getManagerStats();
+        if (!response.error && response.data) {
+          setManagerStats(response.data);
         }
-      };
+      } catch (error) {
+        console.error("Failed to load manager stats:", error);
+      } finally {
+          hasLoadedStatsRef.current = true;
+      }
+    };
 
       // Load stats in background without blocking UI
-      loadStats();
+    loadStats();
 
       // Update refs
       prevManagersLengthRef.current = managersLength;
@@ -253,27 +253,27 @@ export const PropertyManagerManagement = ({
     propertyPermissions?: Record<string, any>
   ) => {
     try {
-      // Get current assignments for this manager from this owner
+    // Get current assignments for this manager from this owner
       const manager = ownersManagers.find((m) => m.id === managerId);
       if (!manager) {
         toast.error("Manager not found");
         return;
       }
 
-      const currentAssignments = (
+    const currentAssignments = (
         Array.isArray(manager.property_managers)
           ? manager.property_managers
           : []
-      )
-        .filter((a: any) => a && a.isActive !== false)
-        .map((a: any) => (a.properties?.id ?? a.propertyId)?.toString())
-        .filter(Boolean);
+    )
+      .filter((a: any) => a && a.isActive !== false)
+      .map((a: any) => (a.properties?.id ?? a.propertyId)?.toString())
+      .filter(Boolean);
 
-      // Remove properties that are no longer selected
-      for (const propertyId of currentAssignments) {
-        if (!selectedPropertyIds.includes(propertyId)) {
+    // Remove properties that are no longer selected
+    for (const propertyId of currentAssignments) {
+      if (!selectedPropertyIds.includes(propertyId)) {
           try {
-            await onRemoveManager(managerId, propertyId);
+        await onRemoveManager(managerId, propertyId);
           } catch (error: any) {
             console.error(`Failed to remove property ${propertyId}:`, error);
             toast.error(
@@ -282,36 +282,36 @@ export const PropertyManagerManagement = ({
               }`
             );
           }
-        }
       }
+    }
 
-      // Add new property assignments with permissions
-      for (const propertyId of selectedPropertyIds) {
-        if (!currentAssignments.includes(propertyId)) {
+    // Add new property assignments with permissions
+    for (const propertyId of selectedPropertyIds) {
+      if (!currentAssignments.includes(propertyId)) {
           try {
-            const permissions = propertyPermissions?.[propertyId] || {
-              canEdit: false,
-              canDelete: false,
-            };
-            await onAssignManager(managerId, propertyId, permissions);
+        const permissions = propertyPermissions?.[propertyId] || {
+          canEdit: false,
+          canDelete: false,
+        };
+        await onAssignManager(managerId, propertyId, permissions);
           } catch (error: any) {
             console.error(`Failed to assign property ${propertyId}:`, error);
             toast.error(
               `Failed to assign property: ${error?.message || "Unknown error"}`
             );
           }
-        }
       }
+    }
 
-      setShowAssignProperties(false);
-      setSelectedManager(null);
+    setShowAssignProperties(false);
+    setSelectedManager(null);
 
       // Refresh managers list to show updated assignments
       if (onRefreshManagers) {
         await onRefreshManagers();
       }
 
-      toast.success("Property assignments updated successfully");
+    toast.success("Property assignments updated successfully");
     } catch (error: any) {
       console.error("Failed to update property assignments:", error);
       toast.error(error?.message || "Failed to update property assignments");
@@ -781,7 +781,7 @@ export const PropertyManagerManagement = ({
                       (activeAssignmentsCount / properties.length) * 100
                     )
                   : 0
-              }%`}
+                  }%`}
             </div>
             <p className="text-xs text-gray-500 mt-1">
               {managerStats?.propertiesManaged !== undefined
@@ -1062,7 +1062,7 @@ export const PropertyManagerManagement = ({
                           return (
                             pmPropertyId === property.id.toString() &&
                             pm.isActive
-                          );
+                        );
                         });
                       const permissions = managerAssignment?.permissions || {
                         canEdit: false,

@@ -48,6 +48,7 @@ router.get("/overview", async (req: AuthRequest, res: Response) => {
           select: {
             monthlyRent: true,
             status: true,
+            features: true,
           },
         },
         leases: {
@@ -96,7 +97,31 @@ router.get("/overview", async (req: AuthRequest, res: Response) => {
         property.units.forEach((unit) => {
           totalUnits++;
           if (unit.status === "occupied") {
-            totalRevenue += unit.monthlyRent || 0;
+            // Check billing cycle from unit features
+            let unitFeatures = unit.features;
+            if (typeof unitFeatures === "string") {
+              try {
+                unitFeatures = JSON.parse(unitFeatures);
+              } catch {
+                unitFeatures = {};
+              }
+            }
+
+            // Get rent frequency from unit features
+            const rentFrequency =
+              (unitFeatures as any)?.nigeria?.rentFrequency ||
+              (unitFeatures as any)?.rentFrequency ||
+              "monthly";
+
+            const monthlyRent = unit.monthlyRent || 0;
+
+            if (rentFrequency === "annual" || rentFrequency === "yearly") {
+              // Convert annual rent to monthly equivalent
+              totalRevenue += monthlyRent / 12;
+            } else {
+              // Monthly rent - use as is
+              totalRevenue += monthlyRent;
+            }
             totalOccupiedUnits++;
           }
         });

@@ -231,6 +231,56 @@ export function PropertiesPage({
   // Calculate smart base currency based on properties
   const smartBaseCurrency = getSmartBaseCurrency(properties);
   const [unitsData, setUnitsData] = useState<any[]>([]);
+
+  // Helper function to get rent frequency from unit
+  const getUnitRentFrequency = (unit: any): string => {
+    if (!unit) return "monthly";
+    let features = unit.features;
+    if (typeof features === "string") {
+      try {
+        features = JSON.parse(features);
+      } catch {
+        features = {};
+      }
+    }
+    return (
+      features?.nigeria?.rentFrequency ||
+      features?.rentFrequency ||
+      unit.rentFrequency ||
+      "monthly"
+    );
+  };
+
+  // Helper function to get rent label based on frequency
+  const getRentLabel = (unit: any): string => {
+    const rentFrequency = getUnitRentFrequency(unit);
+    return rentFrequency === "annual" ? "Annual Rent" : "Monthly Rent";
+  };
+
+  // Helper function to get rent frequency from property
+  const getPropertyRentFrequency = (property: any): string => {
+    if (!property) return "monthly";
+    let features = property.features;
+    if (typeof features === "string") {
+      try {
+        features = JSON.parse(features);
+      } catch {
+        features = {};
+      }
+    }
+    return (
+      features?.nigeria?.rentFrequency ||
+      features?.rentFrequency ||
+      property.rentFrequency ||
+      "monthly"
+    );
+  };
+
+  // Helper function to get revenue label based on property rent frequency
+  const getRevenueLabel = (property: any): string => {
+    const rentFrequency = getPropertyRentFrequency(property);
+    return rentFrequency === "annual" ? "Annual Revenue" : "Monthly Revenue";
+  };
   const [showAddUnitDialog, setShowAddUnitDialog] = useState(false);
   const [unitSaving, setUnitSaving] = useState(false);
   const [unitForm, setUnitForm] = useState<any>({
@@ -2948,6 +2998,7 @@ export function PropertiesPage({
     rent: u.monthlyRent,
     deposit: u.securityDeposit,
     status: u.status,
+    features: u.features, // Include features for rent frequency detection
     tenant: u.leases?.[0]?.users?.name || null,
     leaseStart: u.leases?.[0]?.startDate
       ? new Date(u.leases[0].startDate).toISOString().split("T")[0]
@@ -4097,7 +4148,7 @@ export function PropertiesPage({
                           <div className="flex justify-between items-center py-2 px-3 bg-gradient-to-r from-[#10B981]/10 to-[#10B981]/5 rounded-lg border border-[#10B981]/20">
                             <span className="text-sm font-medium text-gray-700 flex items-center">
                               <DollarSign className="h-3.5 w-3.5 mr-1 text-[#10B981]" />
-                              Monthly Revenue
+                              {getRevenueLabel(property)}
                             </span>
                             <span className="text-sm font-bold text-[#10B981]">
                               {formatCurrency(
@@ -5042,7 +5093,7 @@ export function PropertiesPage({
                                     {/* Rent Display */}
                                     <div className="p-3 bg-gradient-to-r from-[#10B981]/5 to-[#10B981]/10 rounded-xl border border-[#10B981]/20 mb-4">
                                       <p className="text-xs text-gray-500 mb-1">
-                                        Monthly Rent
+                                        {getRentLabel(unit)}
                                       </p>
                                       <p className="text-xl font-bold text-[#10B981]">
                                         {formatCurrency(
@@ -8268,7 +8319,7 @@ export function PropertiesPage({
                         </div>
                         <div>
                           <h3 className="text-lg font-bold text-gray-900">
-                            Monthly Rent
+                            {getRentLabel(selectedUnit)}
                           </h3>
                           <p className="text-xs text-gray-500">
                             Primary rental amount

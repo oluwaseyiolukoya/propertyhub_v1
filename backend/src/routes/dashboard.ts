@@ -285,13 +285,33 @@ router.get("/manager/analytics", async (req: AuthRequest, res: Response) => {
           },
           select: {
             monthlyRent: true,
+            features: true,
           },
         });
 
-        const revenue = occupiedUnitsForProperty.reduce(
-          (sum, unit) => sum + unit.monthlyRent,
-          0
-        );
+        // Calculate revenue considering billing cycle (annual vs monthly)
+        const revenue = occupiedUnitsForProperty.reduce((sum, unit) => {
+          let unitFeatures = unit.features;
+          if (typeof unitFeatures === "string") {
+            try {
+              unitFeatures = JSON.parse(unitFeatures);
+            } catch {
+              unitFeatures = {};
+            }
+          }
+
+          const rentFrequency =
+            (unitFeatures as any)?.nigeria?.rentFrequency ||
+            (unitFeatures as any)?.rentFrequency ||
+            "monthly";
+
+          const monthlyRent = unit.monthlyRent || 0;
+
+          if (rentFrequency === "annual" || rentFrequency === "yearly") {
+            return sum + monthlyRent / 12;
+          }
+          return sum + monthlyRent;
+        }, 0);
 
         return {
           id: property.id,
@@ -415,7 +435,7 @@ router.get("/manager/overview", async (req: AuthRequest, res: Response) => {
       },
     });
 
-    // Calculate monthly revenue from occupied units
+    // Calculate monthly revenue from occupied units - considering billing cycle (annual vs monthly)
     const occupiedUnitsWithRent = await prisma.units.findMany({
       where: {
         propertyId: { in: propertyIds },
@@ -423,13 +443,32 @@ router.get("/manager/overview", async (req: AuthRequest, res: Response) => {
       },
       select: {
         monthlyRent: true,
+        features: true,
       },
     });
 
-    const monthlyRevenue = occupiedUnitsWithRent.reduce(
-      (sum, unit) => sum + unit.monthlyRent,
-      0
-    );
+    const monthlyRevenue = occupiedUnitsWithRent.reduce((sum, unit) => {
+      let unitFeatures = unit.features;
+      if (typeof unitFeatures === "string") {
+        try {
+          unitFeatures = JSON.parse(unitFeatures);
+        } catch {
+          unitFeatures = {};
+        }
+      }
+
+      const rentFrequency =
+        (unitFeatures as any)?.nigeria?.rentFrequency ||
+        (unitFeatures as any)?.rentFrequency ||
+        "monthly";
+
+      const monthlyRent = unit.monthlyRent || 0;
+
+      if (rentFrequency === "annual" || rentFrequency === "yearly") {
+        return sum + monthlyRent / 12;
+      }
+      return sum + monthlyRent;
+    }, 0);
 
     // Get maintenance tickets (support_tickets doesn't have propertyId, so we'll use 0 for now)
     // TODO: Create a dedicated maintenance_requests table with propertyId field
@@ -753,7 +792,7 @@ router.get("/owner/overview", async (req: AuthRequest, res: Response) => {
       const portfolioValue = 0;
 
       // Total units and occupancy
-      const [totalUnits, occupiedUnits] = await Promise.all([
+      const [totalUnits, occupiedUnitsCount] = await Promise.all([
         prisma.units.count({ where: { propertyId: { in: propertyIds } } }),
         prisma.units.count({
           where: { propertyId: { in: propertyIds }, status: "occupied" },
@@ -761,13 +800,44 @@ router.get("/owner/overview", async (req: AuthRequest, res: Response) => {
       ]);
 
       const occupancyRate =
-        totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0;
+        totalUnits > 0 ? (occupiedUnitsCount / totalUnits) * 100 : 0;
 
-      // Monthly revenue from occupied units' monthlyRent
-      const monthlyIncome = await prisma.units.aggregate({
+      // Monthly revenue from occupied units - considering billing cycle (annual vs monthly)
+      const occupiedUnitsData = await prisma.units.findMany({
         where: { propertyId: { in: propertyIds }, status: "occupied" },
-        _sum: { monthlyRent: true },
+        select: {
+          monthlyRent: true,
+          features: true,
+        },
       });
+
+      let monthlyIncome = 0;
+      for (const unit of occupiedUnitsData) {
+        let unitFeatures = unit.features;
+        if (typeof unitFeatures === "string") {
+          try {
+            unitFeatures = JSON.parse(unitFeatures);
+          } catch {
+            unitFeatures = {};
+          }
+        }
+
+        // Get rent frequency from unit features
+        const rentFrequency =
+          (unitFeatures as any)?.nigeria?.rentFrequency ||
+          (unitFeatures as any)?.rentFrequency ||
+          "monthly";
+
+        const monthlyRent = unit.monthlyRent || 0;
+
+        if (rentFrequency === "annual" || rentFrequency === "yearly") {
+          // Convert annual rent to monthly equivalent
+          monthlyIncome += monthlyRent / 12;
+        } else {
+          // Monthly rent - use as is
+          monthlyIncome += monthlyRent;
+        }
+      }
 
       // Active managers via property_managers
       const activeManagers = await prisma.property_managers.count({
@@ -813,11 +883,11 @@ router.get("/owner/overview", async (req: AuthRequest, res: Response) => {
           totalProperties: properties.length,
           totalValue: portfolioValue,
           totalUnits,
-          occupiedUnits,
+          occupiedUnits: occupiedUnitsCount,
           occupancyRate: Math.round(occupancyRate * 10) / 10,
         },
         revenue: {
-          currentMonth: monthlyIncome._sum.monthlyRent || 0,
+          currentMonth: monthlyIncome,
         },
         expenses: {
           total: totalExpenses._sum.amount || 0,
@@ -828,19 +898,50 @@ router.get("/owner/overview", async (req: AuthRequest, res: Response) => {
           paidCount: paidExpenses._count || 0,
         },
         collection: await (async () => {
-          // Approximate collection rate from units rent: occupied vs all
-          const [collectedUnits, allUnits] = await Promise.all([
-            prisma.units.aggregate({
+          // Calculate collection rate considering billing cycle (annual vs monthly)
+          const [occupiedUnitsData, allUnitsData] = await Promise.all([
+            prisma.units.findMany({
               where: { propertyId: { in: propertyIds }, status: "occupied" },
-              _sum: { monthlyRent: true },
+              select: { monthlyRent: true, features: true },
             }),
-            prisma.units.aggregate({
+            prisma.units.findMany({
               where: { propertyId: { in: propertyIds } },
-              _sum: { monthlyRent: true },
+              select: { monthlyRent: true, features: true },
             }),
           ]);
-          const collectedAmt = collectedUnits._sum.monthlyRent || 0;
-          const expectedAmt = allUnits._sum.monthlyRent || 0;
+
+          // Helper function to calculate monthly equivalent
+          const getMonthlyEquivalent = (unit: any): number => {
+            let unitFeatures = unit.features;
+            if (typeof unitFeatures === "string") {
+              try {
+                unitFeatures = JSON.parse(unitFeatures);
+              } catch {
+                unitFeatures = {};
+              }
+            }
+
+            const rentFrequency =
+              (unitFeatures as any)?.nigeria?.rentFrequency ||
+              (unitFeatures as any)?.rentFrequency ||
+              "monthly";
+
+            const monthlyRent = unit.monthlyRent || 0;
+
+            if (rentFrequency === "annual" || rentFrequency === "yearly") {
+              return monthlyRent / 12;
+            }
+            return monthlyRent;
+          };
+
+          const collectedAmt = occupiedUnitsData.reduce(
+            (sum, unit) => sum + getMonthlyEquivalent(unit),
+            0
+          );
+          const expectedAmt = allUnitsData.reduce(
+            (sum, unit) => sum + getMonthlyEquivalent(unit),
+            0
+          );
           const rate = expectedAmt > 0 ? (collectedAmt / expectedAmt) * 100 : 0;
           return {
             collected: collectedAmt,
