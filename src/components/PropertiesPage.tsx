@@ -260,6 +260,208 @@ export function PropertiesPage({
   // Helper function to get rent frequency from property
   const getPropertyRentFrequency = (property: any): string => {
     if (!property) return "monthly";
+
+    // First, try to get from property features
+    let features = property.features;
+
+    // Handle null/undefined features
+    if (features === null || features === undefined) {
+      // Fallback: try to infer from units if available
+      const propertyUnits = unitsData.filter(
+        (u) => u.propertyId === property.id
+      );
+      if (propertyUnits.length > 0) {
+        // Check if all units have the same frequency
+        const unitFrequencies = propertyUnits.map((u) =>
+          getUnitRentFrequency(u)
+        );
+        const allAnnual = unitFrequencies.every((f) => f === "annual");
+        const allMonthly = unitFrequencies.every((f) => f === "monthly");
+        if (allAnnual) return "annual";
+        if (allMonthly) return "monthly";
+        // Mixed or no clear pattern - default to monthly
+        return "monthly";
+      }
+      return "monthly";
+    }
+
+    // Handle string features (JSON)
+    if (typeof features === "string") {
+      try {
+        features = JSON.parse(features);
+      } catch {
+        features = {};
+      }
+    }
+
+    // Handle array features (legacy format - amenities array)
+    if (Array.isArray(features)) {
+      // If features is an array, it's likely the old format
+      // Check if property has rentFrequency at top level
+      if (property.rentFrequency) {
+        return property.rentFrequency;
+      }
+      // Fallback: try to infer from units
+      const propertyUnits = unitsData.filter(
+        (u) => u.propertyId === property.id
+      );
+      if (propertyUnits.length > 0) {
+        const unitFrequencies = propertyUnits.map((u) =>
+          getUnitRentFrequency(u)
+        );
+        const allAnnual = unitFrequencies.every((f) => f === "annual");
+        if (allAnnual) return "annual";
+      }
+      return "monthly";
+    }
+
+    // Check for rent frequency in various locations
+    const rentFrequency =
+      features?.nigeria?.rentFrequency ||
+      features?.rentFrequency ||
+      property.rentFrequency;
+
+    // CRITICAL: Always check units as a validation step, even if property has frequency set
+    // This ensures consistency between property and unit frequencies
+    const propertyUnits = unitsData.filter((u) => u.propertyId === property.id);
+    let unitBasedFrequency: string | null = null;
+
+    if (propertyUnits.length > 0) {
+      const unitFrequencies = propertyUnits.map((u) => getUnitRentFrequency(u));
+      const allAnnual = unitFrequencies.every((f) => f === "annual");
+      const allMonthly = unitFrequencies.every((f) => f === "monthly");
+
+      if (allAnnual) {
+        unitBasedFrequency = "annual";
+      } else if (allMonthly) {
+        unitBasedFrequency = "monthly";
+      }
+    }
+
+    // If property has frequency set, use it as the primary source
+    // Property-level frequency should take precedence over unit-level frequency
+    // Units inherit from property, so property frequency is the source of truth
+    if (
+      rentFrequency &&
+      (rentFrequency === "annual" || rentFrequency === "monthly")
+    ) {
+      // Use property frequency as the primary source
+      // Only log mismatch for debugging, but trust property frequency
+      if (
+        unitBasedFrequency &&
+        unitBasedFrequency !== rentFrequency &&
+        propertyUnits.length > 0
+      ) {
+        console.warn(
+          `[Frequency Mismatch] ${property.name}: Property frequency (${rentFrequency}) doesn't match unit frequencies (${unitBasedFrequency}). Using property frequency as source of truth.`,
+          {
+            propertyFrequency: rentFrequency,
+            unitBasedFrequency,
+            features: property.features,
+            unitCount: propertyUnits.length,
+            note: "Property frequency takes precedence - units should inherit from property",
+          }
+        );
+      }
+
+      // Debug logging for frequency detection
+      console.log(
+        `[Frequency Detection] ${property.name}: Using property frequency`,
+        {
+          detectedFrequency: rentFrequency,
+          source: "property.features",
+          featuresNigeria: features?.nigeria,
+          featuresRentFrequency: features?.rentFrequency,
+          topLevelRentFrequency: property.rentFrequency,
+          unitBasedFrequency,
+          unitCount: propertyUnits.length,
+        }
+      );
+
+      return rentFrequency;
+    }
+
+    // Final fallback: use unit-based frequency if available
+    if (unitBasedFrequency) {
+      const isTargetProperty =
+        property.name?.includes("John Adeleke") ||
+        property.name?.includes("Adeleke") ||
+        property.name?.includes("Adewole Estate") ||
+        property.name?.includes("Adewole");
+
+      if (isTargetProperty) {
+        console.log(
+          `[Frequency Detection] ${property.name}: Inferred "${unitBasedFrequency}" from units (fallback)`,
+          {
+            unitFrequencies: propertyUnits.map((u) => getUnitRentFrequency(u)),
+            propertyUnits: propertyUnits.length,
+          }
+        );
+      }
+      return unitBasedFrequency;
+    }
+
+    // Debug logging for target properties - defaulting to monthly
+    const isTargetProperty =
+      property.name?.includes("John Adeleke") ||
+      property.name?.includes("Adeleke") ||
+      property.name?.includes("Adewole Estate") ||
+      property.name?.includes("Adewole");
+
+    if (isTargetProperty) {
+      console.warn(
+        `[Frequency Detection] ${property.name}: Defaulting to "monthly" - NO FREQUENCY FOUND`,
+        {
+          featuresType: typeof features,
+          featuresValue: features,
+          propertyUnits: propertyUnits.length,
+          unitFrequencies: propertyUnits.map((u) => getUnitRentFrequency(u)),
+          warning:
+            "Property frequency not found. Check property.features.nigeria.rentFrequency",
+        }
+      );
+    }
+
+    return "monthly";
+  };
+
+  // Helper function to get revenue label based on property rent frequency
+  const getRevenueLabel = (property: any): string => {
+    if (!property) return "Monthly Revenue";
+
+    const rentFrequency = getPropertyRentFrequency(property);
+
+    // Ensure we have a valid frequency
+    if (
+      !rentFrequency ||
+      (rentFrequency !== "annual" && rentFrequency !== "monthly")
+    ) {
+      console.warn(
+        `[Revenue Label] Invalid frequency for property "${property.name}":`,
+        rentFrequency
+      );
+      return "Monthly Revenue"; // Default to monthly
+    }
+
+    const label =
+      rentFrequency === "annual" ? "Annual Revenue" : "Monthly Revenue";
+
+    // Debug logging for properties that should be monthly but show annual
+    // This helps identify if getPropertyRentFrequency is returning wrong values
+    if (rentFrequency === "monthly" && label !== "Monthly Revenue") {
+      console.error(
+        `[Revenue Label Bug] Property "${property.name}" - Frequency: ${rentFrequency}, Label: ${label}`,
+        {
+          propertyId: property.id,
+          detectedFrequency: rentFrequency,
+          label,
+          features: property.features,
+          propertyRentFrequency: property.rentFrequency,
+        }
+      );
+    }
+
+    // Additional validation: Check if property features say monthly but we're getting annual
     let features = property.features;
     if (typeof features === "string") {
       try {
@@ -268,18 +470,188 @@ export function PropertiesPage({
         features = {};
       }
     }
-    return (
-      features?.nigeria?.rentFrequency ||
-      features?.rentFrequency ||
-      property.rentFrequency ||
-      "monthly"
-    );
+    const propertyFeatureFrequency =
+      features?.nigeria?.rentFrequency || features?.rentFrequency;
+
+    if (propertyFeatureFrequency === "monthly" && rentFrequency === "annual") {
+      console.error(
+        `[Revenue Label Mismatch] Property "${property.name}" - Features say monthly but detected as annual`,
+        {
+          propertyId: property.id,
+          propertyFeatureFrequency,
+          detectedFrequency: rentFrequency,
+          label,
+          features,
+        }
+      );
+      // Override with property feature frequency if there's a mismatch
+      return "Monthly Revenue";
+    }
+
+    return label;
   };
 
-  // Helper function to get revenue label based on property rent frequency
-  const getRevenueLabel = (property: any): string => {
+  // Helper function to get portfolio revenue label based on all properties
+  // Note: This function is defined before visibleProperties, so it will use
+  // the properties prop directly when called during render
+  const getPortfolioRevenueLabel = (): string => {
+    // Get visible properties at call time (not closure)
+    const visibleProps = properties.filter(
+      (property) => !deletedPropertyIds.has(property.id)
+    );
+
+    if (visibleProps.length === 0) {
+      console.log(
+        "[Portfolio Revenue] No visible properties, defaulting to Monthly Revenue"
+      );
+      return "Monthly Revenue";
+    }
+
+    // Get frequencies for all visible properties with detailed logging
+    const frequencies = visibleProps.map((p) => {
+      const freq = getPropertyRentFrequency(p);
+
+      // Enhanced debug logging to diagnose the issue
+      console.log(
+        `[Portfolio Revenue] Property "${p.name || "Unknown"}" (${
+          p.id || "no-id"
+        }):`,
+        {
+          detectedFrequency: freq,
+          featuresType: typeof p.features,
+          featuresValue: p.features,
+          featuresIsArray: Array.isArray(p.features),
+          featuresIsNull: p.features === null,
+          featuresIsUndefined: p.features === undefined,
+          topLevelRentFrequency: p.rentFrequency,
+          unitsCount: unitsData.filter((u) => u.propertyId === p.id).length,
+          propertyKeys: Object.keys(p).filter(
+            (k) =>
+              k.includes("rent") ||
+              k.includes("frequency") ||
+              k.includes("feature")
+          ),
+        }
+      );
+      return freq;
+    });
+
+    console.log(`[Portfolio Revenue] All detected frequencies:`, frequencies);
+    console.log(
+      `[Portfolio Revenue] Total properties checked:`,
+      visibleProps.length
+    );
+
+    const allAnnual =
+      frequencies.length > 0 && frequencies.every((f) => f === "annual");
+    const allMonthly =
+      frequencies.length > 0 && frequencies.every((f) => f === "monthly");
+
+    console.log(
+      `[Portfolio Revenue] Analysis: allAnnual=${allAnnual}, allMonthly=${allMonthly}, frequencies=${JSON.stringify(
+        frequencies
+      )}`
+    );
+
+    if (allAnnual) {
+      console.log("[Portfolio Revenue] Returning: Annual Revenue");
+      return "Annual Revenue";
+    }
+    if (allMonthly) {
+      console.log("[Portfolio Revenue] Returning: Monthly Revenue");
+      return "Monthly Revenue";
+    }
+    console.log("[Portfolio Revenue] Returning: Revenue (mixed frequencies)");
+    return "Revenue"; // Mixed frequencies
+  };
+
+  // Helper function to get revenue amount based on property rent frequency
+  const getPropertyRevenue = (property: any): number => {
     const rentFrequency = getPropertyRentFrequency(property);
-    return rentFrequency === "annual" ? "Annual Revenue" : "Monthly Revenue";
+    const monthlyIncome = Number(property.totalMonthlyIncome || 0);
+
+    // Debug logging for target properties - ALWAYS log for John Adeleke
+    const isTargetProperty =
+      property.name?.includes("John Adeleke") ||
+      property.name?.includes("Adeleke") ||
+      property.name?.includes("Adewole Estate") ||
+      property.name?.includes("Adewole");
+
+    if (isTargetProperty) {
+      console.group(`🔍 [Gross Rent Analysis] ${property.name}`);
+      console.log("Property Data:", {
+        id: property.id,
+        name: property.name,
+        totalMonthlyIncome: property.totalMonthlyIncome,
+        monthlyIncome,
+        rentFrequency,
+        features: property.features,
+        propertyRentFrequency: property.rentFrequency,
+      });
+
+      // Get units for this property
+      const propertyUnits = unitsData.filter(
+        (u) => u.propertyId === property.id
+      );
+      console.log("Units Data:", {
+        unitsCount: propertyUnits.length,
+        units: propertyUnits.map((u) => ({
+          id: u.id,
+          name: u.name,
+          monthlyRent: u.monthlyRent,
+          rentFrequency: getUnitRentFrequency(u),
+          features: u.features,
+        })),
+      });
+    }
+
+    // If property has annual frequency, convert monthly income to annual
+    // (multiply by 12), otherwise return monthly income as is
+    if (rentFrequency === "annual") {
+      const annualRevenue = monthlyIncome * 12;
+
+      if (isTargetProperty) {
+        console.log("Calculation (Annual Property):", {
+          step1: `totalMonthlyIncome from backend: ${monthlyIncome}`,
+          step2: `Detected frequency: ${rentFrequency}`,
+          step3: `Gross Rent = ${monthlyIncome} × 12 = ${annualRevenue}`,
+          finalGrossRent: annualRevenue,
+          note: "Gross Rent is ANNUAL revenue for annual properties",
+        });
+        console.groupEnd();
+      }
+
+      // Validation: If monthlyIncome is very small but property is annual,
+      // it might indicate the property frequency is not detected correctly
+      if (
+        monthlyIncome > 0 &&
+        monthlyIncome < 1000 &&
+        property.name?.includes("John Adeleke")
+      ) {
+        console.warn(`[Revenue Validation] ${property.name}:`, {
+          monthlyIncome,
+          rentFrequency,
+          calculatedAnnualRevenue: annualRevenue,
+          warning:
+            "Monthly income seems low for annual property. Verify frequency detection.",
+        });
+      }
+
+      return annualRevenue;
+    }
+
+    if (isTargetProperty) {
+      console.log("Calculation (Monthly Property):", {
+        step1: `totalMonthlyIncome from backend: ${monthlyIncome}`,
+        step2: `Detected frequency: ${rentFrequency}`,
+        step3: `Gross Rent = ${monthlyIncome} (no conversion needed)`,
+        finalGrossRent: monthlyIncome,
+        note: "Gross Rent is MONTHLY revenue for monthly properties",
+      });
+      console.groupEnd();
+    }
+
+    return monthlyIncome;
   };
   const [showAddUnitDialog, setShowAddUnitDialog] = useState(false);
   const [unitSaving, setUnitSaving] = useState(false);
@@ -455,15 +827,26 @@ export function PropertiesPage({
         if (!dRes.error && dRes.data?.recentActivity)
           setRecentActivity(dRes.data.recentActivity);
         if (!fRes.error && fRes.data) {
-          // Use real financial data from backend
-          const gross = Number(fRes.data.totalRevenue || 0);
+          // Backend returns totalRevenue as monthly equivalent (annual rent / 12)
+          // But we need to calculate gross income based on property frequencies
+          // Calculate gross income from properties directly to account for annual vs monthly
+          const calculatedGross = properties
+            .filter((p) => !deletedPropertyIds.has(p.id))
+            .reduce((sum, p) => sum + getPropertyRevenue(p), 0);
+
+          // Use calculated gross if we have properties, otherwise fall back to backend value
+          const gross =
+            calculatedGross > 0
+              ? calculatedGross
+              : Number(fRes.data.totalRevenue || 0);
           const expenses = Number(fRes.data.estimatedExpenses || 0);
-          const net = Number(fRes.data.netOperatingIncome || 0);
+
+          // Recalculate net income based on the adjusted gross
+          const net = gross - expenses;
+
           const capRate = Number(fRes.data.portfolioCapRate || 0);
           const occupancyRate = Number(fRes.data.occupancyRate || 0);
-          const operatingMargin = Number(
-            fRes.data.operatingMargin || (gross > 0 ? (net / gross) * 100 : 0)
-          );
+          const operatingMargin = Number(gross > 0 ? (net / gross) * 100 : 0);
           setFinancialStats({
             gross,
             net,
@@ -1064,14 +1447,24 @@ export function PropertiesPage({
       // Refresh financial overview
       const fRes = await getFinancialOverview();
       if (!fRes.error && fRes.data) {
-        const gross = Number(fRes.data.totalRevenue || 0);
+        // Calculate gross income from properties directly to account for annual vs monthly
+        const calculatedGross = properties
+          .filter((p) => !deletedPropertyIds.has(p.id))
+          .reduce((sum, p) => sum + getPropertyRevenue(p), 0);
+
+        // Use calculated gross if we have properties, otherwise fall back to backend value
+        const gross =
+          calculatedGross > 0
+            ? calculatedGross
+            : Number(fRes.data.totalRevenue || 0);
         const expenses = Number(fRes.data.estimatedExpenses || 0);
-        const net = Number(fRes.data.netOperatingIncome || 0);
+
+        // Recalculate net income based on the adjusted gross
+        const net = gross - expenses;
+
         const capRate = Number(fRes.data.portfolioCapRate || 0);
         const occupancyRate = Number(fRes.data.occupancyRate || 0);
-        const operatingMargin = Number(
-          fRes.data.operatingMargin || (gross > 0 ? (net / gross) * 100 : 0)
-        );
+        const operatingMargin = Number(gross > 0 ? (net / gross) * 100 : 0);
         setFinancialStats({
           gross,
           net,
@@ -1108,14 +1501,24 @@ export function PropertiesPage({
       // Refresh financial overview
       const fRes = await getFinancialOverview();
       if (!fRes.error && fRes.data) {
-        const gross = Number(fRes.data.totalRevenue || 0);
+        // Calculate gross income from properties directly to account for annual vs monthly
+        const calculatedGross = properties
+          .filter((p) => !deletedPropertyIds.has(p.id))
+          .reduce((sum, p) => sum + getPropertyRevenue(p), 0);
+
+        // Use calculated gross if we have properties, otherwise fall back to backend value
+        const gross =
+          calculatedGross > 0
+            ? calculatedGross
+            : Number(fRes.data.totalRevenue || 0);
         const expenses = Number(fRes.data.estimatedExpenses || 0);
-        const net = Number(fRes.data.netOperatingIncome || 0);
+
+        // Recalculate net income based on the adjusted gross
+        const net = gross - expenses;
+
         const capRate = Number(fRes.data.portfolioCapRate || 0);
         const occupancyRate = Number(fRes.data.occupancyRate || 0);
-        const operatingMargin = Number(
-          fRes.data.operatingMargin || (gross > 0 ? (net / gross) * 100 : 0)
-        );
+        const operatingMargin = Number(gross > 0 ? (net / gross) * 100 : 0);
         setFinancialStats({
           gross,
           net,
@@ -1332,8 +1735,9 @@ export function PropertiesPage({
       const buildReportData = (type: SingleReportType) => {
         switch (type) {
           case "financial": {
+            // Use getPropertyRevenue to account for annual vs monthly rent frequency
             const totalRevenue = targetProperties.reduce(
-              (sum, property) => sum + Number(property.totalMonthlyIncome || 0),
+              (sum, property) => sum + getPropertyRevenue(property),
               0
             );
 
@@ -1678,7 +2082,7 @@ export function PropertiesPage({
       return sum + Math.max(total - occ, 0);
     }, 0),
     totalRevenue: visibleProperties.reduce(
-      (sum, p) => sum + (p.totalMonthlyIncome || 0),
+      (sum, p) => sum + getPropertyRevenue(p),
       0
     ),
     avgOccupancy:
@@ -2971,8 +3375,10 @@ export function PropertiesPage({
       0
     );
 
-    const monthlyRevenue = Number(property.totalMonthlyIncome || 0);
-    const netIncome = monthlyRevenue - totalExpenses;
+    // Use getPropertyRevenue to get the correct revenue based on rent frequency
+    // This will return monthly income for monthly properties, or annual income (monthlyIncome * 12) for annual properties
+    const propertyRevenue = getPropertyRevenue(property);
+    const netIncome = propertyRevenue - totalExpenses;
     const occupancyRate =
       property._count?.units && property._count.units > 0
         ? ((property.occupiedUnits ?? 0) / property._count.units) * 100
@@ -2980,7 +3386,7 @@ export function PropertiesPage({
 
     return {
       property,
-      monthlyRevenue,
+      monthlyRevenue: propertyRevenue, // This is now the display revenue (annual or monthly based on frequency)
       totalExpenses,
       netIncome,
       occupancyRate,
@@ -3361,7 +3767,7 @@ export function PropertiesPage({
                     <div className="flex items-start justify-between">
                       <div>
                         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                          Monthly Revenue
+                          {getPortfolioRevenueLabel()}
                         </p>
                         <p className="text-2xl font-bold text-gray-900 mt-1">
                           {formatCurrency(
@@ -3540,11 +3946,16 @@ export function PropertiesPage({
                               <div className="text-right">
                                 <p className="font-bold text-[#10B981]">
                                   {formatCurrency(
-                                    Number(property.totalMonthlyIncome) || 0,
+                                    getPropertyRevenue(property),
                                     property.currency || "NGN"
                                   )}
                                 </p>
-                                <p className="text-xs text-gray-500">monthly</p>
+                                <p className="text-xs text-gray-500">
+                                  {getPropertyRentFrequency(property) ===
+                                  "annual"
+                                    ? "annual"
+                                    : "monthly"}
+                                </p>
                               </div>
                             </div>
                           );
@@ -3790,7 +4201,7 @@ export function PropertiesPage({
                               )}
                             </p>
                             <p className="text-xs text-purple-200">
-                              Monthly Revenue
+                              {getPortfolioRevenueLabel()}
                             </p>
                           </div>
                         </div>
@@ -4152,7 +4563,7 @@ export function PropertiesPage({
                             </span>
                             <span className="text-sm font-bold text-[#10B981]">
                               {formatCurrency(
-                                Number(property.totalMonthlyIncome) || 0,
+                                getPropertyRevenue(property),
                                 property.currency || "NGN"
                               )}
                             </span>
@@ -4337,7 +4748,7 @@ export function PropertiesPage({
                               <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#10B981]/10 to-[#10B981]/5 border border-[#10B981]/20">
                                 <span className="text-sm font-bold text-[#10B981]">
                                   {formatCurrency(
-                                    Number(property.totalMonthlyIncome) || 0,
+                                    getPropertyRevenue(property),
                                     property.currency || "NGN"
                                   )}
                                 </span>
@@ -5587,8 +5998,10 @@ export function PropertiesPage({
                             <TooltipContent className="max-w-xs">
                               <p className="font-semibold mb-1">Gross Income</p>
                               <p className="text-xs">
-                                Sum of all monthly rent from occupied units
-                                across all properties.
+                                Sum of all rent from occupied units across all
+                                properties. For annual properties, shows annual
+                                rent. For monthly properties, shows monthly
+                                rent.
                               </p>
                             </TooltipContent>
                           </Tooltip>
@@ -5771,119 +6184,645 @@ export function PropertiesPage({
                 </div>
                 <CardContent className="p-0">
                   <div className="overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
-                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                            Property
-                          </TableHead>
-                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                            Gross Rent
-                          </TableHead>
-                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                            Expenses
-                          </TableHead>
-                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                            Net Income
-                          </TableHead>
-                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                            Cap Rate
-                          </TableHead>
-                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                            Cash Flow
-                          </TableHead>
-                          <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                            Actions
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {visibleProperties.map((property, index) => (
-                          <TableRow
-                            key={property.id}
-                            className={`hover:bg-[#7C3AED]/5 transition-colors ${
-                              index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
-                            }`}
-                          >
-                            <TableCell>
-                              <div>
-                                <p className="font-semibold text-gray-900">
-                                  {property.name}
-                                </p>
-                                <p className="text-sm text-gray-500">
-                                  {property._count?.units ?? 0} units
-                                </p>
+                    <TooltipProvider>
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
+                            <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                              <div className="flex items-center gap-1.5">
+                                <span>Property</span>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Info className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600 cursor-help" />
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs">
+                                    <p className="whitespace-normal">
+                                      The name of the property and number of
+                                      units
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#10B981]/10 to-[#10B981]/5 border border-[#10B981]/20">
-                                <span className="text-sm font-bold text-[#10B981]">
-                                  {formatCurrency(
-                                    Number(property.totalMonthlyIncome) || 0,
-                                    property.currency || "NGN"
-                                  )}
-                                </span>
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-[#EF4444]/10 border border-[#EF4444]/20">
-                                <span className="text-sm font-bold text-[#EF4444]">
-                                  {formatCurrency(
-                                    0,
-                                    property.currency || "NGN"
-                                  )}
-                                </span>
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <span className="text-sm font-semibold text-gray-900">
-                                {formatCurrency(
-                                  Number(property.totalMonthlyIncome) || 0,
-                                  property.currency || "NGN"
-                                )}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center space-x-2">
-                                <span className="text-sm font-semibold text-gray-900">
-                                  {0}%
-                                </span>
-                                {false ? (
-                                  <div className="p-1 bg-[#10B981]/10 rounded-lg">
-                                    <ArrowUpRight className="h-4 w-4 text-[#10B981]" />
-                                  </div>
-                                ) : (
-                                  <div className="p-1 bg-[#EF4444]/10 rounded-lg">
-                                    <ArrowDownRight className="h-4 w-4 text-[#EF4444]" />
-                                  </div>
-                                )}
+                            </TableHead>
+                            <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                              <div className="flex items-center gap-1.5">
+                                <span>Gross Rent</span>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Info className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600 cursor-help" />
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs">
+                                    <p className="whitespace-normal">
+                                      Total rental income from all occupied
+                                      units. For annual properties, this shows
+                                      the annual amount. For monthly properties,
+                                      this shows the monthly amount.
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-[#3B82F6]/10 border border-[#3B82F6]/20">
-                                <span className="text-sm font-bold text-[#3B82F6]">
-                                  {(
-                                    Number(property.totalMonthlyIncome) || 0
-                                  ).toLocaleString()}
-                                </span>
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <Button
-                                size="sm"
-                                onClick={() =>
-                                  handleOpenFinancialDetails(property)
-                                }
-                                className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md hover:shadow-lg transition-all"
-                              >
-                                <FileText className="h-4 w-4 mr-2" />
-                                Details
-                              </Button>
-                            </TableCell>
+                            </TableHead>
+                            <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                              <div className="flex items-center gap-1.5">
+                                <span>Expenses</span>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Info className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600 cursor-help" />
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs">
+                                    <p className="whitespace-normal">
+                                      Total expenses for this property including
+                                      maintenance, repairs, utilities, and other
+                                      operating costs
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </div>
+                            </TableHead>
+                            <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                              <div className="flex items-center gap-1.5">
+                                <span>Net Income</span>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Info className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600 cursor-help" />
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs">
+                                    <p className="whitespace-normal">
+                                      Gross Rent minus Expenses. This is the Net
+                                      Operating Income (NOI) for the property.
+                                      For annual properties, this is the annual
+                                      NOI. For monthly properties, this is the
+                                      monthly NOI.
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </div>
+                            </TableHead>
+                            <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                              <div className="flex items-center gap-1.5">
+                                <span>Cap Rate</span>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Info className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600 cursor-help" />
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs">
+                                    <p className="whitespace-normal">
+                                      Capitalization Rate: (Annual NOI /
+                                      Property Value) × 100. Measures the return
+                                      on investment based on the property's
+                                      income and value. Uses Current Property
+                                      Value if set, otherwise estimates as 15x
+                                      annual revenue. Higher cap rates indicate
+                                      better returns.
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </div>
+                            </TableHead>
+                            <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                              <div className="flex items-center gap-1.5">
+                                <span>Cash Flow</span>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Info className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600 cursor-help" />
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs">
+                                    <p className="whitespace-normal">
+                                      Monthly cash flow after expenses.
+                                      Calculated as 60% of Net Operating Income
+                                      (NOI), standardized to monthly. For annual
+                                      properties: (Annual NOI × 0.6) ÷ 12. For
+                                      monthly properties: Monthly NOI × 0.6.
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </div>
+                            </TableHead>
+                            <TableHead className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                              Actions
+                            </TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {visibleProperties.map((property, index) => (
+                            <TableRow
+                              key={property.id}
+                              className={`hover:bg-[#7C3AED]/5 transition-colors ${
+                                index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
+                              }`}
+                            >
+                              <TableCell>
+                                <div>
+                                  <p className="font-semibold text-gray-900">
+                                    {property.name}
+                                  </p>
+                                  <p className="text-sm text-gray-500">
+                                    {property._count?.units ?? 0} units
+                                  </p>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                {(() => {
+                                  try {
+                                    const grossRent =
+                                      getPropertyRevenue(property);
+                                    const isTargetProperty =
+                                      property.name?.includes("John Adeleke") ||
+                                      property.name?.includes("Adeleke");
+
+                                    if (isTargetProperty) {
+                                      const detectedFrequency =
+                                        getPropertyRentFrequency(property);
+                                      console.log(
+                                        `[Gross Rent Display - Financials Tab] ${property.name}:`,
+                                        {
+                                          grossRentValue: grossRent,
+                                          formattedValue: formatCurrency(
+                                            grossRent,
+                                            property.currency || "NGN"
+                                          ),
+                                          totalMonthlyIncome:
+                                            property.totalMonthlyIncome,
+                                          detectedFrequency,
+                                          calculation:
+                                            detectedFrequency === "annual"
+                                              ? `${property.totalMonthlyIncome} × 12 = ${grossRent}`
+                                              : `${property.totalMonthlyIncome} (monthly)`,
+                                        }
+                                      );
+                                    }
+
+                                    return (
+                                      <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#10B981]/10 to-[#10B981]/5 border border-[#10B981]/20">
+                                        <span className="text-sm font-bold text-[#10B981]">
+                                          {formatCurrency(
+                                            grossRent,
+                                            property.currency || "NGN"
+                                          )}
+                                        </span>
+                                      </span>
+                                    );
+                                  } catch (error) {
+                                    console.error(
+                                      `[Gross Rent Error] ${property.name}:`,
+                                      error
+                                    );
+                                    return (
+                                      <span className="text-sm text-red-500">
+                                        Error calculating rent
+                                      </span>
+                                    );
+                                  }
+                                })()}
+                              </TableCell>
+                              <TableCell>
+                                <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-[#EF4444]/10 border border-[#EF4444]/20">
+                                  <span className="text-sm font-bold text-[#EF4444]">
+                                    {formatCurrency(
+                                      expenses
+                                        .filter(
+                                          (e) => e.propertyId === property.id
+                                        )
+                                        .reduce(
+                                          (sum, e) =>
+                                            sum + Number(e.amount || 0),
+                                          0
+                                        ),
+                                      property.currency || "NGN"
+                                    )}
+                                  </span>
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <span className="text-sm font-semibold text-gray-900">
+                                  {formatCurrency(
+                                    getPropertyRevenue(property) -
+                                      expenses
+                                        .filter(
+                                          (e) => e.propertyId === property.id
+                                        )
+                                        .reduce(
+                                          (sum, e) =>
+                                            sum + Number(e.amount || 0),
+                                          0
+                                        ),
+                                    property.currency || "NGN"
+                                  )}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-sm font-semibold text-gray-900">
+                                    {(() => {
+                                      // Step 1: Get property revenue based on frequency
+                                      const rentFrequency =
+                                        getPropertyRentFrequency(property);
+                                      const propertyRevenue =
+                                        getPropertyRevenue(property);
+
+                                      // Step 2: Calculate property expenses (monthly expenses from database)
+                                      const monthlyExpenses = expenses
+                                        .filter(
+                                          (e) => e.propertyId === property.id
+                                        )
+                                        .reduce(
+                                          (sum, e) =>
+                                            sum + Number(e.amount || 0),
+                                          0
+                                        );
+
+                                      // Step 3: Calculate annual revenue for property value estimation
+                                      const annualRevenue =
+                                        rentFrequency === "annual"
+                                          ? propertyRevenue
+                                          : propertyRevenue * 12;
+
+                                      // Step 4: Calculate annual expenses
+                                      const annualExpenses =
+                                        monthlyExpenses * 12;
+
+                                      // Step 5: Estimate property value (15x annual revenue)
+                                      const propertyValue =
+                                        property.currentValue ||
+                                        property.purchasePrice ||
+                                        annualRevenue * 15;
+
+                                      // Step 6: Calculate annual NOI
+                                      // For annual properties: annualRevenue - annualExpenses
+                                      // For monthly properties: (monthlyRevenue - monthlyExpenses) × 12
+                                      const annualNOI =
+                                        rentFrequency === "annual"
+                                          ? annualRevenue - annualExpenses
+                                          : (propertyRevenue -
+                                              monthlyExpenses) *
+                                            12;
+
+                                      // Step 7: Calculate Cap Rate
+                                      const capRate =
+                                        propertyValue > 0
+                                          ? (annualNOI / propertyValue) * 100
+                                          : 0;
+
+                                      // Comprehensive debug logging for specific properties
+                                      const isTargetProperty =
+                                        property.name?.includes(
+                                          "John Adeleke"
+                                        ) ||
+                                        property.name?.includes("Adeleke") ||
+                                        property.name?.includes(
+                                          "Adewole Estate"
+                                        ) ||
+                                        property.name?.includes("Adewole");
+
+                                      if (isTargetProperty) {
+                                        console.group(
+                                          `[Financial Calculation] ${property.name}`
+                                        );
+                                        console.log("📊 Input Data:", {
+                                          totalMonthlyIncome:
+                                            property.totalMonthlyIncome,
+                                          currentValue: property.currentValue,
+                                          purchasePrice: property.purchasePrice,
+                                          currency: property.currency,
+                                          features: property.features,
+                                        });
+                                        console.log(
+                                          "🔄 Step 1 - Frequency Detection:",
+                                          {
+                                            rentFrequency,
+                                            detectedFrom: "property.features",
+                                          }
+                                        );
+                                        console.log(
+                                          "💰 Step 2 - Revenue Calculation:",
+                                          {
+                                            totalMonthlyIncome:
+                                              property.totalMonthlyIncome,
+                                            propertyRevenue,
+                                            calculation:
+                                              rentFrequency === "annual"
+                                                ? `${property.totalMonthlyIncome} × 12 = ${propertyRevenue}`
+                                                : `${property.totalMonthlyIncome} (monthly)`,
+                                          }
+                                        );
+                                        console.log("💸 Step 2 - Expenses:", {
+                                          monthlyExpenses,
+                                          annualExpenses,
+                                          expenseCount: expenses.filter(
+                                            (e) => e.propertyId === property.id
+                                          ).length,
+                                          expenses: expenses
+                                            .filter(
+                                              (e) =>
+                                                e.propertyId === property.id
+                                            )
+                                            .map((e) => ({
+                                              amount: e.amount,
+                                              category: e.category,
+                                              date: e.date,
+                                            })),
+                                        });
+                                        console.log(
+                                          "🏠 Step 3 - Property Value:",
+                                          {
+                                            annualRevenue,
+                                            propertyValue,
+                                            currentValue: property.currentValue,
+                                            purchasePrice:
+                                              property.purchasePrice,
+                                            calculation: property.currentValue
+                                              ? `Using currentValue: ${property.currentValue}`
+                                              : property.purchasePrice
+                                              ? `Using purchasePrice: ${property.purchasePrice}`
+                                              : `Estimated: ${annualRevenue} × 15 = ${propertyValue}`,
+                                            note: "Property value is used in Cap Rate calculation",
+                                          }
+                                        );
+                                        console.log("📊 Step 4 - Annual NOI:", {
+                                          annualNOI,
+                                          calculation:
+                                            rentFrequency === "annual"
+                                              ? `${annualRevenue} - ${annualExpenses} = ${annualNOI}`
+                                              : `(${propertyRevenue} - ${monthlyExpenses}) × 12 = ${annualNOI}`,
+                                          note:
+                                            rentFrequency === "annual"
+                                              ? "Annual property: annual revenue - annual expenses"
+                                              : "Monthly property: (monthly revenue - monthly expenses) × 12",
+                                        });
+                                        console.log("📉 Step 5 - Cap Rate:", {
+                                          capRate: `${capRate.toFixed(2)}%`,
+                                          calculation: `(${annualNOI} / ${propertyValue}) × 100 = ${capRate.toFixed(
+                                            2
+                                          )}%`,
+                                          breakdown: {
+                                            annualNOI,
+                                            propertyValue,
+                                            currentValue: property.currentValue,
+                                            purchasePrice:
+                                              property.purchasePrice,
+                                            ratio: `${(
+                                              annualNOI / propertyValue
+                                            ).toFixed(6)}`,
+                                            percentage: `${capRate.toFixed(
+                                              2
+                                            )}%`,
+                                          },
+                                          note: property.currentValue
+                                            ? "Using Current Property Value from database"
+                                            : property.purchasePrice
+                                            ? "Using Purchase Price from database"
+                                            : "Using estimated value (15x annual revenue)",
+                                        });
+                                        console.groupEnd();
+                                      }
+
+                                      return capRate.toFixed(1);
+                                    })()}
+                                    %
+                                  </span>
+                                  {false ? (
+                                    <div className="p-1 bg-[#10B981]/10 rounded-lg">
+                                      <ArrowUpRight className="h-4 w-4 text-[#10B981]" />
+                                    </div>
+                                  ) : (
+                                    <div className="p-1 bg-[#EF4444]/10 rounded-lg">
+                                      <ArrowDownRight className="h-4 w-4 text-[#EF4444]" />
+                                    </div>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-[#3B82F6]/10 border border-[#3B82F6]/20">
+                                  <span className="text-sm font-bold text-[#3B82F6]">
+                                    {(() => {
+                                      // Step 1: Get property revenue based on frequency
+                                      const rentFrequency =
+                                        getPropertyRentFrequency(property);
+                                      const propertyRevenue =
+                                        getPropertyRevenue(property);
+
+                                      // Step 2: Calculate property expenses
+                                      const propertyExpenses = expenses
+                                        .filter(
+                                          (e) => e.propertyId === property.id
+                                        )
+                                        .reduce(
+                                          (sum, e) =>
+                                            sum + Number(e.amount || 0),
+                                          0
+                                        );
+
+                                      // Step 3: Calculate net income
+                                      const netIncome =
+                                        propertyRevenue - propertyExpenses;
+
+                                      // Step 4: Calculate monthly cash flow (60% of NOI, standardized to monthly)
+                                      const monthlyCashFlow =
+                                        rentFrequency === "annual"
+                                          ? (netIncome * 0.6) / 12 // Annual NOI * 0.6 / 12 = monthly cash flow
+                                          : netIncome * 0.6; // Monthly NOI * 0.6 = monthly cash flow
+
+                                      // Comprehensive debug logging for specific properties
+                                      const isTargetProperty =
+                                        property.name?.includes(
+                                          "John Adeleke"
+                                        ) ||
+                                        property.name?.includes("Adeleke") ||
+                                        property.name?.includes(
+                                          "Adewole Estate"
+                                        ) ||
+                                        property.name?.includes("Adewole");
+
+                                      if (isTargetProperty) {
+                                        console.group(
+                                          `[Cash Flow Calculation] ${property.name}`
+                                        );
+                                        console.log("📊 Input Data:", {
+                                          totalMonthlyIncome:
+                                            property.totalMonthlyIncome,
+                                          currency: property.currency,
+                                          propertyId: property.id,
+                                        });
+                                        console.log(
+                                          "🔄 Step 1 - Frequency Detection:",
+                                          {
+                                            rentFrequency,
+                                            features: property.features,
+                                            featuresType:
+                                              typeof property.features,
+                                            isArray: Array.isArray(
+                                              property.features
+                                            ),
+                                          }
+                                        );
+                                        console.log(
+                                          "💰 Step 2 - Revenue Calculation:",
+                                          {
+                                            totalMonthlyIncome:
+                                              property.totalMonthlyIncome,
+                                            propertyRevenue,
+                                            calculation:
+                                              rentFrequency === "annual"
+                                                ? `${property.totalMonthlyIncome} × 12 = ${propertyRevenue} (ANNUAL)`
+                                                : `${property.totalMonthlyIncome} (MONTHLY)`,
+                                            note:
+                                              rentFrequency === "annual"
+                                                ? "Property is ANNUAL: monthly equivalent × 12 = annual revenue"
+                                                : "Property is MONTHLY: using monthly revenue as-is",
+                                          }
+                                        );
+                                        console.log("💸 Step 3 - Expenses:", {
+                                          propertyExpenses,
+                                          expenseCount: expenses.filter(
+                                            (e) => e.propertyId === property.id
+                                          ).length,
+                                          expenses: expenses
+                                            .filter(
+                                              (e) =>
+                                                e.propertyId === property.id
+                                            )
+                                            .map((e) => ({
+                                              amount: e.amount,
+                                              category: e.category,
+                                              date: e.date,
+                                            })),
+                                          note: "Expenses are actual amounts (not frequency-dependent)",
+                                        });
+                                        console.log("📈 Step 4 - Net Income:", {
+                                          netIncome,
+                                          calculation: `${propertyRevenue} - ${propertyExpenses} = ${netIncome}`,
+                                          note:
+                                            rentFrequency === "annual"
+                                              ? "Net Income is ANNUAL (annual revenue - expenses)"
+                                              : "Net Income is MONTHLY (monthly revenue - expenses)",
+                                        });
+                                        console.log(
+                                          "💵 Step 5 - Monthly Cash Flow:",
+                                          {
+                                            monthlyCashFlow,
+                                            calculation:
+                                              rentFrequency === "annual"
+                                                ? `(${netIncome} × 0.6) / 12 = ${monthlyCashFlow.toFixed(
+                                                    2
+                                                  )}`
+                                                : `${netIncome} × 0.6 = ${monthlyCashFlow.toFixed(
+                                                    2
+                                                  )}`,
+                                            breakdown:
+                                              rentFrequency === "annual"
+                                                ? `Annual NOI: ${netIncome} → 60%: ${(
+                                                    netIncome * 0.6
+                                                  ).toFixed(2)} → Monthly: ${(
+                                                    (netIncome * 0.6) /
+                                                    12
+                                                  ).toFixed(2)}`
+                                                : `Monthly NOI: ${netIncome} → 60%: ${(
+                                                    netIncome * 0.6
+                                                  ).toFixed(2)}`,
+                                            note: "Cash flow is 60% of NOI, standardized to monthly",
+                                          }
+                                        );
+
+                                        // Reverse calculation check
+                                        if (
+                                          Math.abs(monthlyCashFlow - 10000) < 1
+                                        ) {
+                                          console.log(
+                                            "🔍 REVERSE CALCULATION CHECK (Cash Flow ≈ 10,000):",
+                                            {
+                                              ifMonthlyCashFlowIs10000: {
+                                                requiredAnnualNOI:
+                                                  "10,000 × 12 / 0.6 = 200,000",
+                                                requiredNetIncome:
+                                                  "200,000 (annual)",
+                                                ifPropertyRevenueIs900000: {
+                                                  requiredExpenses:
+                                                    "900,000 - 200,000 = 700,000",
+                                                },
+                                                ifPropertyRevenueIs75000: {
+                                                  requiredExpenses:
+                                                    "75,000 - 200,000 = -125,000 (IMPOSSIBLE)",
+                                                  note: "This would mean property is being treated as MONTHLY when it should be ANNUAL",
+                                                },
+                                              },
+                                            }
+                                          );
+                                        }
+
+                                        console.groupEnd();
+                                      }
+
+                                      // Format the result with proper number formatting
+                                      // Use Math.round to avoid floating point precision issues
+                                      const roundedCashFlow =
+                                        Math.round(monthlyCashFlow);
+
+                                      // Additional validation for target properties
+                                      if (isTargetProperty) {
+                                        // Check if the calculation seems incorrect
+                                        const expectedAnnualRevenue =
+                                          rentFrequency === "annual"
+                                            ? property.totalMonthlyIncome * 12
+                                            : property.totalMonthlyIncome;
+
+                                        if (
+                                          rentFrequency === "annual" &&
+                                          property.totalMonthlyIncome > 0
+                                        ) {
+                                          const expectedMonthlyCashFlow =
+                                            ((expectedAnnualRevenue -
+                                              propertyExpenses) *
+                                              0.6) /
+                                            12;
+                                          if (
+                                            Math.abs(
+                                              monthlyCashFlow -
+                                                expectedMonthlyCashFlow
+                                            ) > 0.01
+                                          ) {
+                                            console.error(
+                                              `[Cash Flow Validation Error] ${property.name}:`,
+                                              {
+                                                calculated: monthlyCashFlow,
+                                                expected:
+                                                  expectedMonthlyCashFlow,
+                                                difference: Math.abs(
+                                                  monthlyCashFlow -
+                                                    expectedMonthlyCashFlow
+                                                ),
+                                                rentFrequency,
+                                                propertyRevenue,
+                                                expectedAnnualRevenue,
+                                                propertyExpenses,
+                                                netIncome,
+                                              }
+                                            );
+                                          }
+                                        }
+                                      }
+
+                                      return roundedCashFlow.toLocaleString();
+                                    })()}
+                                  </span>
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  size="sm"
+                                  onClick={() =>
+                                    handleOpenFinancialDetails(property)
+                                  }
+                                  className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-md hover:shadow-lg transition-all"
+                                >
+                                  <FileText className="h-4 w-4 mr-2" />
+                                  Details
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TooltipProvider>
                   </div>
                 </CardContent>
               </Card>
@@ -9544,9 +10483,21 @@ export function PropertiesPage({
               </label>
               <Select
                 value={unitForm.propertyId}
-                onValueChange={(v) =>
-                  setUnitForm({ ...unitForm, propertyId: v })
-                }
+                onValueChange={(v) => {
+                  // Find the selected property
+                  const selectedProperty = visibleProperties.find(
+                    (p: any) => String(p.id) === v
+                  );
+                  // Auto-set rent frequency from property
+                  const propertyRentFrequency = selectedProperty
+                    ? getPropertyRentFrequency(selectedProperty)
+                    : "monthly";
+                  setUnitForm({
+                    ...unitForm,
+                    propertyId: v,
+                    rentFrequency: propertyRentFrequency,
+                  });
+                }}
               >
                 <SelectTrigger
                   id="dialog-propertyId"

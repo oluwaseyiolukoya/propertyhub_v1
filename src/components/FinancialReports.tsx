@@ -101,15 +101,61 @@ export const FinancialReports = ({
   const [expenseStats, setExpenseStats] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Convert selectedPeriod to number of months
+  const getMonthsFromPeriod = (period: string): number => {
+    switch (period) {
+      case "3months":
+        return 3;
+      case "6months":
+        return 6;
+      case "12months":
+        return 12;
+      case "ytd": {
+        // Year to date: from January 1st of current year to now
+        const now = new Date();
+        const january = new Date(now.getFullYear(), 0, 1);
+        const monthsDiff =
+          (now.getFullYear() - january.getFullYear()) * 12 +
+          (now.getMonth() - january.getMonth()) +
+          1; // +1 to include current month
+        return monthsDiff;
+      }
+      case "custom":
+        // For custom, default to 12 months (can be enhanced later with date picker)
+        return 12;
+      default:
+        return 12;
+    }
+  };
+
+  // Get period description for display
+  const getPeriodDescription = (period: string): string => {
+    switch (period) {
+      case "3months":
+        return "Monthly financial performance over the last 3 months";
+      case "6months":
+        return "Monthly financial performance over the last 6 months";
+      case "12months":
+        return "Monthly financial performance over the last 12 months";
+      case "ytd":
+        return "Monthly financial performance year to date";
+      case "custom":
+        return "Monthly financial performance for selected period";
+      default:
+        return "Monthly financial performance over the last 12 months";
+    }
+  };
+
   // Load financial data
   useEffect(() => {
     const loadFinancialData = async () => {
       try {
         setLoading(true);
+        const months = getMonthsFromPeriod(selectedPeriod);
         const [overviewRes, monthlyRes, performanceRes, expenseRes] =
           await Promise.all([
             getFinancialOverview(),
-            getMonthlyRevenue(12),
+            getMonthlyRevenue(months, selectedProperty),
             getPropertyPerformance(),
             getExpenseStats(),
           ]);
@@ -126,7 +172,12 @@ export const FinancialReports = ({
         }
 
         if (!performanceRes.error && Array.isArray(performanceRes.data)) {
+          console.log("📊 Property Performance Data:", performanceRes.data);
           setPropertyPerformanceData(performanceRes.data);
+        } else {
+          console.error("❌ Property Performance Error:", performanceRes.error);
+          // Ensure we have an empty array if API fails
+          setPropertyPerformanceData([]);
         }
 
         if (!expenseRes.error && expenseRes.data) {
@@ -141,10 +192,10 @@ export const FinancialReports = ({
     };
 
     loadFinancialData();
-  }, []);
+  }, [selectedProperty, selectedPeriod]); // Reload when selectedProperty or selectedPeriod changes
 
-  // Mock financial data (fallback)
-  const monthlyRevenueData =
+  // Mock financial data (fallback) - will be replaced with calculated data below
+  const _monthlyRevenueDataFallback =
     monthlyData.length > 0
       ? monthlyData
       : [
@@ -206,6 +257,7 @@ export const FinancialReports = ({
   }, [expenseStats]);
 
   // Use real property performance data if available, otherwise calculate from properties prop
+  // This ensures we always use real-time data from the API
   const propertyPerformance =
     propertyPerformanceData.length > 0
       ? propertyPerformanceData.map((p) => ({
@@ -215,9 +267,19 @@ export const FinancialReports = ({
           address: p.address,
           city: p.city,
           state: p.state,
-          revenue: p.monthlyRevenue,
-          expenses: p.monthlyExpenses,
-          netIncome: p.monthlyNOI,
+          currency: p.currency,
+          // Use annual revenue for display (will be converted to monthly equivalent in table if needed)
+          annualRevenue: p.annualRevenue,
+          monthlyRevenue: p.monthlyRevenue,
+          revenue: p.monthlyRevenue, // Keep for backward compatibility
+          // Use annual expenses for display
+          annualExpenses: p.annualExpenses,
+          monthlyExpenses: p.monthlyExpenses,
+          expenses: p.monthlyExpenses, // Keep for backward compatibility
+          // Use annual NOI for display
+          annualNOI: p.annualNOI,
+          monthlyNOI: p.monthlyNOI,
+          netIncome: p.monthlyNOI, // Keep for backward compatibility
           roi: p.roi,
           capRate: p.capRate,
           cashFlow: p.cashFlow,
@@ -228,9 +290,10 @@ export const FinancialReports = ({
           propertyValue: p.propertyValue,
           purchasePrice: p.purchasePrice,
           currentValue: p.currentValue,
+          status: "active", // Default status, can be enhanced later
         }))
       : properties.map((property) => {
-          // Fallback calculation from properties prop
+          // Fallback calculation from properties prop (only if no API data)
           const monthlyRevenue =
             property.avgRent || property.monthlyRevenue || 0;
           return {
@@ -246,6 +309,8 @@ export const FinancialReports = ({
             capRate: property.financials?.capRate || 6.5,
             cashFlow: property.financials?.cashFlow || monthlyRevenue * 0.6,
             units: property.totalUnits || property._count?.units || 0,
+            occupancyRate: 0,
+            status: "active",
           };
         });
 
@@ -253,10 +318,11 @@ export const FinancialReports = ({
 
   // Calculate totals from real property performance data (from API)
   // This ensures we use actual database values, not mock data
+  // Use annualRevenue and annualNOI to properly handle both monthly and annual properties
   const calculatedTotalRevenue =
     propertyPerformanceData.length > 0
       ? propertyPerformanceData.reduce(
-          (sum, p) => sum + (p.monthlyRevenue || 0),
+          (sum, p) => sum + (p.annualRevenue || 0),
           0
         )
       : 0;
@@ -264,13 +330,15 @@ export const FinancialReports = ({
   const calculatedTotalExpenses =
     propertyPerformanceData.length > 0
       ? propertyPerformanceData.reduce(
-          (sum, p) => sum + (p.monthlyExpenses || 0),
+          (sum, p) => sum + (p.annualExpenses || 0),
           0
         )
       : 0;
 
   const calculatedTotalNetIncome =
-    calculatedTotalRevenue - calculatedTotalExpenses;
+    propertyPerformanceData.length > 0
+      ? propertyPerformanceData.reduce((sum, p) => sum + (p.annualNOI || 0), 0)
+      : calculatedTotalRevenue - calculatedTotalExpenses;
 
   // Use API financial data if available, otherwise use calculated values from property performance
   // Note: We check if financialData exists AND has properties loaded (not just truthy values)
@@ -278,17 +346,35 @@ export const FinancialReports = ({
     financialData &&
     (financialData.totalProperties > 0 || propertyPerformanceData.length > 0);
 
+  // Use annualRevenue from backend if available, otherwise use calculated annual revenue
   const totalRevenue = hasRealFinancialData
-    ? financialData?.totalRevenue ?? calculatedTotalRevenue
+    ? financialData?.annualRevenue ?? calculatedTotalRevenue
     : calculatedTotalRevenue;
 
+  // Expenses: backend returns monthly expenses, so convert to annual (multiply by 12)
+  // Or use annualExpenses from property performance data (which is already annual)
   const totalExpenses = hasRealFinancialData
-    ? financialData?.estimatedExpenses ?? calculatedTotalExpenses
+    ? financialData?.estimatedExpenses
+      ? financialData.estimatedExpenses * 12
+      : calculatedTotalExpenses
     : calculatedTotalExpenses;
 
+  // Use annualNOI from backend if available, otherwise use calculated annual NOI
   const totalNetIncome = hasRealFinancialData
-    ? financialData?.netOperatingIncome ?? calculatedTotalNetIncome
+    ? financialData?.annualNOI ?? calculatedTotalNetIncome
     : calculatedTotalNetIncome;
+
+  // Debug logging for "All Properties" view
+  if (selectedProperty === "all" && hasRealFinancialData) {
+    console.log("[Financial Reports] All Properties Calculation:", {
+      totalRevenue,
+      totalExpenses,
+      totalNetIncome,
+      financialDataAnnualNOI: financialData?.annualNOI,
+      calculatedTotalNetIncome,
+      source: financialData?.annualNOI !== undefined ? "backend" : "calculated",
+    });
+  }
 
   // Calculate occupancy from property performance data
   const calculatedOccupancy =
@@ -322,27 +408,11 @@ export const FinancialReports = ({
     ? financialData?.operatingMargin ?? calculatedOperatingMargin
     : calculatedOperatingMargin;
 
-  // Derive simple growth indicators from monthly revenue data instead of using hard-coded mocks
-  // Use first vs last month in the current 12-month window as an approximation
+  // Growth indicators will be calculated after monthlyRevenueData is defined
+  // Placeholder variables - will be calculated below
   let revenueGrowth = 0;
   let expenseGrowth = 0;
   let yearOverYearGrowth = 0;
-
-  if (monthlyRevenueData.length >= 2) {
-    const first = monthlyRevenueData[0];
-    const last = monthlyRevenueData[monthlyRevenueData.length - 1];
-
-    if (first.revenue > 0) {
-      revenueGrowth = ((last.revenue - first.revenue) / first.revenue) * 100;
-    }
-    if (first.expenses > 0) {
-      expenseGrowth = ((last.expenses - first.expenses) / first.expenses) * 100;
-    }
-    if (first.netIncome > 0) {
-      yearOverYearGrowth =
-        ((last.netIncome - first.netIncome) / first.netIncome) * 100;
-    }
-  }
 
   const filteredProperties =
     selectedProperty === "all"
@@ -363,23 +433,206 @@ export const FinancialReports = ({
 
   // Calculate filtered totals based on selected property
   // For "All Properties", use the API-driven portfolio totals (totalRevenue/totalExpenses)
+  // For individual properties, use annualRevenue and annualNOI from property performance data directly
   const filteredTotalRevenue =
     selectedProperty === "all"
-      ? totalRevenue
-      : filteredProperties.reduce(
-          (sum, p) => sum + (p.revenue || p.monthlyRevenue || 0),
-          0
-        );
+      ? totalRevenue || 0
+      : (() => {
+          const filtered = propertyPerformanceData.filter(
+            (p) => p.id.toString() === selectedProperty
+          );
+          const revenue = filtered.reduce(
+            (sum, p) => sum + (p.annualRevenue || 0),
+            0
+          );
+
+          // Debug logging for Adewole Estate
+          if (filtered.length > 0 && filtered[0].name?.includes("Adewole")) {
+            console.log("[Financial Reports] Adewole Revenue:", {
+              property: filtered[0].name,
+              annualRevenue: filtered[0].annualRevenue,
+              calculatedTotal: revenue,
+            });
+          }
+
+          return revenue;
+        })();
 
   const filteredTotalExpenses =
     selectedProperty === "all"
-      ? totalExpenses
-      : filteredProperties.reduce(
-          (sum, p) => sum + (p.expenses || p.monthlyExpenses || 0),
-          0
-        );
+      ? totalExpenses || 0
+      : (() => {
+          const filtered = propertyPerformanceData.filter(
+            (p) => p.id.toString() === selectedProperty
+          );
+          const expenses = filtered.reduce(
+            (sum, p) => sum + (p.annualExpenses || 0),
+            0
+          );
 
-  const filteredTotalNetIncome = filteredTotalRevenue - filteredTotalExpenses;
+          // Debug logging for Adewole Estate
+          if (filtered.length > 0 && filtered[0].name?.includes("Adewole")) {
+            console.log("[Financial Reports] Adewole Expenses:", {
+              property: filtered[0].name,
+              annualExpenses: filtered[0].annualExpenses,
+              calculatedTotal: expenses,
+            });
+          }
+
+          return expenses;
+        })();
+
+  const filteredTotalNetIncome =
+    selectedProperty === "all"
+      ? totalNetIncome || 0
+      : (() => {
+          const filtered = propertyPerformanceData.filter(
+            (p) => p.id.toString() === selectedProperty
+          );
+
+          // Debug logging for Adewole Estate
+          if (filtered.length > 0 && filtered[0].name?.includes("Adewole")) {
+            console.log("[Financial Reports] Adewole Estate Calculation:", {
+              property: filtered[0].name,
+              annualRevenue: filtered[0].annualRevenue,
+              annualExpenses: filtered[0].annualExpenses,
+              annualNOI: filtered[0].annualNOI,
+              monthlyRevenue: filtered[0].monthlyRevenue,
+              monthlyExpenses: filtered[0].monthlyExpenses,
+              monthlyNOI: filtered[0].monthlyNOI,
+              calculatedNOI:
+                filtered[0].annualRevenue - filtered[0].annualExpenses,
+            });
+          }
+
+          return filtered.reduce((sum, p) => sum + (p.annualNOI || 0), 0);
+        })();
+
+  // Calculate monthly data from property performance data to match card totals
+  // This ensures the chart data aligns with the cards above
+  // Note: This must be defined AFTER filteredTotalRevenue, filteredTotalExpenses, and filteredTotalNetIncome
+  const monthlyRevenueData = React.useMemo(() => {
+    // Safety check: ensure filtered totals are defined
+    if (
+      filteredTotalRevenue === undefined ||
+      filteredTotalExpenses === undefined ||
+      filteredTotalNetIncome === undefined
+    ) {
+      // Return empty array or fallback data if totals aren't ready
+      return monthlyData.length > 0 ? monthlyData : [];
+    }
+
+    // If we have monthly data from API, use it as base but ensure it matches filtered totals
+    if (monthlyData.length > 0) {
+      // Calculate totals from monthly data
+      const totalMonthlyRevenue = monthlyData.reduce(
+        (sum, m) => sum + (m.revenue || 0),
+        0
+      );
+      const totalMonthlyExpenses = monthlyData.reduce(
+        (sum, m) => sum + (m.expenses || 0),
+        0
+      );
+
+      // Get the filtered totals (annual values)
+      const annualRevenue = filteredTotalRevenue || 0;
+      const annualExpenses = filteredTotalExpenses || 0;
+      const annualNOI = filteredTotalNetIncome || 0;
+
+      // Convert annual to monthly for comparison
+      const months = getMonthsFromPeriod(selectedPeriod);
+      const expectedMonthlyRevenueTotal = (annualRevenue / 12) * months;
+      const expectedMonthlyExpensesTotal = (annualExpenses / 12) * months;
+
+      // If monthly data totals don't match card totals, scale the monthly data
+      // This ensures the chart reflects the same totals as the cards
+      if (
+        totalMonthlyRevenue > 0 &&
+        expectedMonthlyRevenueTotal > 0 &&
+        Math.abs(totalMonthlyRevenue - expectedMonthlyRevenueTotal) >
+          expectedMonthlyRevenueTotal * 0.05 // 5% tolerance
+      ) {
+        // Scale factor to match card totals
+        const revenueScale = expectedMonthlyRevenueTotal / totalMonthlyRevenue;
+        const expensesScale =
+          totalMonthlyExpenses > 0 && expectedMonthlyExpensesTotal > 0
+            ? expectedMonthlyExpensesTotal / totalMonthlyExpenses
+            : 1;
+
+        return monthlyData.map((m) => ({
+          ...m,
+          revenue: (m.revenue || 0) * revenueScale,
+          expenses: (m.expenses || 0) * expensesScale,
+          netIncome:
+            (m.revenue || 0) * revenueScale - (m.expenses || 0) * expensesScale,
+        }));
+      }
+
+      return monthlyData;
+    }
+
+    // Fallback: Create monthly breakdown from annual totals
+    const months = getMonthsFromPeriod(selectedPeriod);
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+
+    const now = new Date();
+    const monthlyBreakdown: MonthlyRevenueData[] = [];
+
+    // Distribute annual totals evenly across months
+    const monthlyRevenue = (filteredTotalRevenue || 0) / 12;
+    const monthlyExpenses = (filteredTotalExpenses || 0) / 12;
+    const monthlyNOI = (filteredTotalNetIncome || 0) / 12;
+
+    for (let i = months - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - i);
+      monthlyBreakdown.push({
+        month: monthNames[d.getMonth()],
+        revenue: monthlyRevenue,
+        expenses: monthlyExpenses,
+        netIncome: monthlyNOI,
+      });
+    }
+
+    return monthlyBreakdown;
+  }, [
+    monthlyData,
+    filteredTotalRevenue,
+    filteredTotalExpenses,
+    filteredTotalNetIncome,
+    selectedPeriod,
+  ]);
+
+  // Derive simple growth indicators from monthly revenue data
+  // Use first vs last month in the current period as an approximation
+  if (monthlyRevenueData.length >= 2) {
+    const first = monthlyRevenueData[0];
+    const last = monthlyRevenueData[monthlyRevenueData.length - 1];
+
+    if (first.revenue > 0) {
+      revenueGrowth = ((last.revenue - first.revenue) / first.revenue) * 100;
+    }
+    if (first.expenses > 0) {
+      expenseGrowth = ((last.expenses - first.expenses) / first.expenses) * 100;
+    }
+    if (first.netIncome > 0) {
+      yearOverYearGrowth =
+        ((last.netIncome - first.netIncome) / first.netIncome) * 100;
+    }
+  }
 
   // Calculate filtered cap rate and operating margin based on selected property
   const filteredCapRate =
@@ -696,10 +949,16 @@ export const FinancialReports = ({
             weekday: "long",
             year: "numeric",
             month: "long",
-            day: "numeric"
+            day: "numeric",
           });
           doc.text(`Report Date: ${reportDate}`, margin, 95);
-          doc.text(`Generated At: ${new Date(generatedAt).toLocaleTimeString("en-US")}`, margin, 102);
+          doc.text(
+            `Generated At: ${new Date(generatedAt).toLocaleTimeString(
+              "en-US"
+            )}`,
+            margin,
+            102
+          );
 
           doc.setFont("helvetica", "bold");
           doc.setFontSize(9);
@@ -710,12 +969,15 @@ export const FinancialReports = ({
             { align: "right" }
           );
 
-          doc.text(`Currency: ${displayCurrency}`, pageWidth - margin, 95, { align: "right" });
+          doc.text(`Currency: ${displayCurrency}`, pageWidth - margin, 95, {
+            align: "right",
+          });
         };
 
         // Helper: Check page break
         const checkPageBreak = (neededHeight: number) => {
-          if (yPos + neededHeight > pageHeight - 50) { // 50 for footer space
+          if (yPos + neededHeight > pageHeight - 50) {
+            // 50 for footer space
             doc.addPage();
             addHeader(doc.internal.getNumberOfPages());
             yPos = 130;
@@ -917,10 +1179,14 @@ export const FinancialReports = ({
           weekday: "long",
           year: "numeric",
           month: "long",
-          day: "numeric"
+          day: "numeric",
         });
         doc.text(`Report Date: ${reportDate}`, margin, 95);
-        doc.text(`Generated At: ${new Date(generatedAt).toLocaleTimeString("en-US")}`, margin, 102);
+        doc.text(
+          `Generated At: ${new Date(generatedAt).toLocaleTimeString("en-US")}`,
+          margin,
+          102
+        );
 
         // Right side metadata
         doc.setFont("helvetica", "bold");
@@ -936,7 +1202,9 @@ export const FinancialReports = ({
         doc.setFont("helvetica", "bold");
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(9);
-        doc.text(`Currency: ${displayCurrency}`, pageWidth - margin, 95, { align: "right" });
+        doc.text(`Currency: ${displayCurrency}`, pageWidth - margin, 95, {
+          align: "right",
+        });
 
         // ==================== KEY METRICS ====================
         doc.setTextColor(...primaryColor);
@@ -1089,11 +1357,13 @@ export const FinancialReports = ({
             "100%",
           ]);
 
-          yPos = drawTable(expenseHeaders, expenseRows, expenseColWidths, yPos, [
-            "left",
-            "right",
-            "right",
-          ]);
+          yPos = drawTable(
+            expenseHeaders,
+            expenseRows,
+            expenseColWidths,
+            yPos,
+            ["left", "right", "right"]
+          );
         }
 
         yPos += 6;
@@ -1160,13 +1430,26 @@ export const FinancialReports = ({
           doc.setFontSize(9);
 
           // Company name
-          doc.text("Generated by CONTREZZ Property Management System", margin, pageHeight - 40 + 15);
+          doc.text(
+            "Generated by CONTREZZ Property Management System",
+            margin,
+            pageHeight - 40 + 15
+          );
           // Copyright
-          doc.text("© 2024 Contrezz. All rights reserved.", margin, pageHeight - 40 + 28);
+          doc.text(
+            "© 2024 Contrezz. All rights reserved.",
+            margin,
+            pageHeight - 40 + 28
+          );
 
           // Page number
           doc.setFont("helvetica", "bold");
-          doc.text(`Page ${i} of ${totalPages}`, pageWidth - margin, pageHeight - 40 + 22, { align: "right" });
+          doc.text(
+            `Page ${i} of ${totalPages}`,
+            pageWidth - margin,
+            pageHeight - 40 + 22,
+            { align: "right" }
+          );
         }
 
         doc.save(`financial-report-${datePart}.pdf`);
@@ -1228,7 +1511,10 @@ export const FinancialReports = ({
               </SelectContent>
             </Select>
 
-            <Select value={selectedProperty} onValueChange={setSelectedProperty}>
+            <Select
+              value={selectedProperty}
+              onValueChange={setSelectedProperty}
+            >
               <SelectTrigger className="w-48 bg-white border-gray-300 hover:border-[#7C3AED] focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                 <Building className="h-4 w-4 mr-2 text-[#7C3AED]" />
                 <SelectValue />
@@ -1298,7 +1584,8 @@ export const FinancialReports = ({
                 {formatCurrency(filteredTotalRevenue, displayCurrency)}
               </div>
               <div className="flex items-center text-sm font-semibold text-green-600 mt-2">
-                <ArrowUpRight className="h-4 w-4 mr-1" />+{revenueGrowth.toFixed(1)}% vs last year
+                <ArrowUpRight className="h-4 w-4 mr-1" />+
+                {revenueGrowth.toFixed(1)}% vs last year
               </div>
             </CardContent>
           </Card>
@@ -1317,8 +1604,8 @@ export const FinancialReports = ({
                     <TooltipContent className="max-w-xs">
                       <p className="font-semibold mb-1">How it's calculated:</p>
                       <p className="text-xs">
-                        Total Revenue minus Operating Expenses. This is your NOI -
-                        the actual profit from property operations before
+                        Total Revenue minus Operating Expenses. This is your NOI
+                        - the actual profit from property operations before
                         financing costs and taxes.
                       </p>
                       <p className="text-xs mt-1 italic">
@@ -1337,7 +1624,8 @@ export const FinancialReports = ({
                 {formatCurrency(filteredTotalNetIncome, displayCurrency)}
               </div>
               <div className="flex items-center text-sm font-semibold text-blue-600 mt-2">
-                <ArrowUpRight className="h-4 w-4 mr-1" />+{yearOverYearGrowth.toFixed(1)}% vs last year
+                <ArrowUpRight className="h-4 w-4 mr-1" />+
+                {yearOverYearGrowth.toFixed(1)}% vs last year
               </div>
               {filteredTotalExpenses === 0 && filteredTotalRevenue > 0 && (
                 <p className="text-xs text-gray-500 mt-2">
@@ -1372,8 +1660,8 @@ export const FinancialReports = ({
                         Formula: (Annual NOI ÷ Property Value) × 100
                       </p>
                       <p className="text-xs mt-1 text-purple-200">
-                        Industry benchmark: 4-10% depending on market and property
-                        type.
+                        Industry benchmark: 4-10% depending on market and
+                        property type.
                       </p>
                     </TooltipContent>
                   </Tooltip>
@@ -1507,15 +1795,15 @@ export const FinancialReports = ({
                             <p className="max-w-xs">
                               Visual comparison of monthly revenue (blue bars),
                               operating expenses (green bars), and net income
-                              (orange line) over the past 12 months. Helps identify
-                              trends and seasonality.
+                              (orange line) for the selected period. Helps
+                              identify trends and seasonality.
                             </p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                     </CardTitle>
                     <CardDescription className="text-gray-600">
-                      Monthly financial performance over the last 12 months
+                      {getPeriodDescription(selectedPeriod)}
                     </CardDescription>
                   </div>
                 </div>
@@ -1570,9 +1858,10 @@ export const FinancialReports = ({
                           </TooltipTrigger>
                           <TooltipContent>
                             <p className="max-w-xs">
-                              Pie chart showing the percentage distribution of your
-                              operating expenses across categories like maintenance,
-                              utilities, insurance, taxes, and management fees.
+                              Pie chart showing the percentage distribution of
+                              your operating expenses across categories like
+                              maintenance, utilities, insurance, taxes, and
+                              management fees.
                             </p>
                           </TooltipContent>
                         </Tooltip>
@@ -1758,9 +2047,9 @@ export const FinancialReports = ({
                         </TooltipTrigger>
                         <TooltipContent>
                           <p className="max-w-xs">
-                            Area chart showing monthly rental revenue trends over
-                            time. Use this to identify seasonal patterns, growth
-                            trends, and forecast future income.
+                            Area chart showing monthly rental revenue trends
+                            over time. Use this to identify seasonal patterns,
+                            growth trends, and forecast future income.
                           </p>
                         </TooltipContent>
                       </Tooltip>
@@ -1809,9 +2098,10 @@ export const FinancialReports = ({
                         </TooltipTrigger>
                         <TooltipContent>
                           <p className="max-w-xs">
-                            Comparative view of monthly revenue generated by each
-                            property. Progress bars show relative performance to
-                            help identify your top-performing assets.
+                            Comparative view of monthly revenue generated by
+                            each property. Progress bars show relative
+                            performance to help identify your top-performing
+                            assets.
                           </p>
                         </TooltipContent>
                       </Tooltip>
@@ -2011,9 +2301,9 @@ export const FinancialReports = ({
                         <TooltipContent>
                           <p className="max-w-xs">
                             Detailed breakdown of expenses by category with both
-                            dollar amounts and percentages. Shows where your money
-                            is going: maintenance, utilities, insurance, taxes,
-                            and fees.
+                            dollar amounts and percentages. Shows where your
+                            money is going: maintenance, utilities, insurance,
+                            taxes, and fees.
                           </p>
                         </TooltipContent>
                       </Tooltip>
@@ -2196,7 +2486,9 @@ export const FinancialReports = ({
                   <Building className="h-5 w-5 text-gray-700" />
                 </div>
                 <div className="flex-1">
-                  <CardTitle className="text-gray-900">Property Financial Performance</CardTitle>
+                  <CardTitle className="text-gray-900">
+                    Property Financial Performance
+                  </CardTitle>
                   <CardDescription className="text-gray-600">
                     Individual property analysis and comparison
                   </CardDescription>
@@ -2232,91 +2524,120 @@ export const FinancialReports = ({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredProperties.map((property, index) => (
-                      <TableRow
-                        key={property.id}
-                        className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} hover:bg-[#7C3AED]/5 transition-colors`}
-                      >
-                        <TableCell>
-                          <div>
-                            <p className="font-semibold text-gray-900">{property.name}</p>
-                            <p className="text-sm text-gray-600 font-medium">
-                              {property.units} units
+                    {loading && filteredProperties.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8">
+                          <div className="flex flex-col items-center justify-center">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#7C3AED] mb-2"></div>
+                            <p className="text-gray-500">
+                              Loading property data...
                             </p>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <p className="font-bold text-gray-900">
-                            {formatCurrency(
-                              property.monthlyRevenue || property.revenue || 0,
-                              property.currency || displayCurrency
-                            )}
+                      </TableRow>
+                    ) : filteredProperties.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8">
+                          <p className="text-gray-500">
+                            No property data available
                           </p>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <div className="w-16 bg-gray-200 rounded-full h-2.5">
-                              <div
-                                className="bg-green-600 h-2.5 rounded-full transition-all"
-                                style={{ width: `${property.occupancyRate}%` }}
-                              />
-                            </div>
-                            <span className="text-sm font-semibold text-gray-900">
-                              {property.occupancyRate || 0}%
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            className={`${
-                              property.capRate > 7
-                                ? "bg-[#7C3AED] hover:bg-[#6D28D9] text-white"
-                                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                            } font-semibold`}
-                          >
-                            {(property.capRate || 0).toFixed(1)}%
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <p className="font-bold text-gray-900">
-                            {formatCurrency(
-                              property.cashFlow || 0,
-                              property.currency || displayCurrency
-                            )}
-                          </p>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            {property.roi > 8 ? (
-                              <div className="flex items-center gap-1 px-2 py-1 bg-green-100 rounded-md">
-                                <TrendingUp className="h-4 w-4 text-green-600" />
-                                <span className="text-green-700 font-bold">
-                                  {property.roi.toFixed(1)}%
-                                </span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1 px-2 py-1 bg-red-100 rounded-md">
-                                <TrendingDown className="h-4 w-4 text-red-600" />
-                                <span className="text-red-700 font-bold">
-                                  {property.roi.toFixed(1)}%
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            className={`${
-                              property.status === "active"
-                                ? "bg-green-100 text-green-700 hover:bg-green-200"
-                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                            } font-semibold capitalize`}
-                          >
-                            {property.status}
-                          </Badge>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : (
+                      filteredProperties.map((property, index) => (
+                        <TableRow
+                          key={property.id}
+                          className={`${
+                            index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
+                          } hover:bg-[#7C3AED]/5 transition-colors`}
+                        >
+                          <TableCell>
+                            <div>
+                              <p className="font-semibold text-gray-900">
+                                {property.name}
+                              </p>
+                              <p className="text-sm text-gray-600 font-medium">
+                                {property.units} units
+                              </p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <p className="font-bold text-gray-900">
+                              {formatCurrency(
+                                property.monthlyRevenue ||
+                                  property.revenue ||
+                                  0,
+                                property.currency || displayCurrency
+                              )}
+                            </p>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <div className="w-16 bg-gray-200 rounded-full h-2.5">
+                                <div
+                                  className="bg-green-600 h-2.5 rounded-full transition-all"
+                                  style={{
+                                    width: `${property.occupancyRate}%`,
+                                  }}
+                                />
+                              </div>
+                              <span className="text-sm font-semibold text-gray-900">
+                                {property.occupancyRate || 0}%
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              className={`${
+                                property.capRate > 7
+                                  ? "bg-[#7C3AED] hover:bg-[#6D28D9] text-white"
+                                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                              } font-semibold`}
+                            >
+                              {(property.capRate || 0).toFixed(1)}%
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <p className="font-bold text-gray-900">
+                              {formatCurrency(
+                                property.cashFlow || 0,
+                                property.currency || displayCurrency
+                              )}
+                            </p>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              {property.roi > 8 ? (
+                                <div className="flex items-center gap-1 px-2 py-1 bg-green-100 rounded-md">
+                                  <TrendingUp className="h-4 w-4 text-green-600" />
+                                  <span className="text-green-700 font-bold">
+                                    {property.roi.toFixed(1)}%
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1 px-2 py-1 bg-red-100 rounded-md">
+                                  <TrendingDown className="h-4 w-4 text-red-600" />
+                                  <span className="text-red-700 font-bold">
+                                    {property.roi.toFixed(1)}%
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              className={`${
+                                property.status === "active"
+                                  ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                              } font-semibold capitalize`}
+                            >
+                              {property.status}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -2333,7 +2654,9 @@ export const FinancialReports = ({
                   <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
                     <BarChart3 className="h-5 w-5 text-gray-700" />
                   </div>
-                  <CardTitle className="text-gray-900">Performance Insights</CardTitle>
+                  <CardTitle className="text-gray-900">
+                    Performance Insights
+                  </CardTitle>
                 </div>
               </CardHeader>
               <CardContent className="p-6">
@@ -2392,7 +2715,9 @@ export const FinancialReports = ({
                   <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
                     <FileText className="h-5 w-5 text-gray-700" />
                   </div>
-                  <CardTitle className="text-gray-900">Recommendations</CardTitle>
+                  <CardTitle className="text-gray-900">
+                    Recommendations
+                  </CardTitle>
                 </div>
               </CardHeader>
               <CardContent className="p-6">
@@ -2445,7 +2770,9 @@ export const FinancialReports = ({
                       <div className="w-2 h-2 bg-white rounded-full"></div>
                     </div>
                     <div>
-                      <p className="font-bold text-gray-900">Review insurance policies</p>
+                      <p className="font-bold text-gray-900">
+                        Review insurance policies
+                      </p>
                       <p className="text-sm text-gray-700 font-medium mt-1">
                         Annual review could reduce premiums by 5-10%
                       </p>
@@ -2463,7 +2790,9 @@ export const FinancialReports = ({
                   <TrendingUp className="h-5 w-5 text-gray-700" />
                 </div>
                 <div className="flex-1">
-                  <CardTitle className="text-gray-900">Financial Projections</CardTitle>
+                  <CardTitle className="text-gray-900">
+                    Financial Projections
+                  </CardTitle>
                   <CardDescription className="text-gray-600">
                     12-month outlook based on current trends
                   </CardDescription>
@@ -2497,7 +2826,9 @@ export const FinancialReports = ({
                       displayCurrency
                     )}
                   </p>
-                  <p className="text-sm text-gray-700 font-semibold mb-1">Projected Net Income</p>
+                  <p className="text-sm text-gray-700 font-semibold mb-1">
+                    Projected Net Income
+                  </p>
                   <p className="text-xs text-blue-600 font-bold">+12% growth</p>
                 </div>
                 <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100/50 rounded-xl border-2 border-purple-200 shadow-sm hover:shadow-md transition-shadow">
@@ -2507,8 +2838,12 @@ export const FinancialReports = ({
                   <p className="text-2xl font-bold text-[#7C3AED] mb-2">
                     {(portfolioCapRate + 0.3).toFixed(1)}%
                   </p>
-                  <p className="text-sm text-gray-700 font-semibold mb-1">Target Cap Rate</p>
-                  <p className="text-xs text-[#7C3AED] font-bold">Optimization goal</p>
+                  <p className="text-sm text-gray-700 font-semibold mb-1">
+                    Target Cap Rate
+                  </p>
+                  <p className="text-xs text-[#7C3AED] font-bold">
+                    Optimization goal
+                  </p>
                 </div>
               </div>
             </CardContent>

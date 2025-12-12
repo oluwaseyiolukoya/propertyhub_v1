@@ -134,16 +134,62 @@ router.get("/overview", async (req: AuthRequest, res: Response) => {
         totalPropertyValue += property.purchasePrice;
       } else if (property.units && property.units.length > 0) {
         // Fallback: estimate at 15x annual rent for this property
-        const propertyRevenue = property.units
-          .filter((u) => u.status === "occupied")
-          .reduce((sum, u) => sum + (u.monthlyRent || 0), 0);
-        totalPropertyValue += propertyRevenue * 12 * 15;
+        // Need to calculate annual revenue considering rent frequency
+        let propertyAnnualRevenue = 0;
+
+        // Get property-level rent frequency
+        let propertyFeatures = property.features;
+        if (typeof propertyFeatures === "string") {
+          try {
+            propertyFeatures = JSON.parse(propertyFeatures);
+          } catch {
+            propertyFeatures = {};
+          }
+        }
+        const propertyRentFrequency =
+          propertyFeatures?.nigeria?.rentFrequency ||
+          propertyFeatures?.rentFrequency ||
+          "monthly";
+
+        for (const unit of property.units || []) {
+          if (unit.status !== "occupied") continue;
+
+          let unitFeatures = unit.features;
+          if (typeof unitFeatures === "string") {
+            try {
+              unitFeatures = JSON.parse(unitFeatures);
+            } catch {
+              unitFeatures = {};
+            }
+          }
+
+          const unitRentFrequency =
+            (unitFeatures as any)?.nigeria?.rentFrequency ||
+            (unitFeatures as any)?.rentFrequency ||
+            propertyRentFrequency;
+
+          const monthlyRent = unit.monthlyRent || 0;
+
+          if (
+            unitRentFrequency === "annual" ||
+            unitRentFrequency === "yearly"
+          ) {
+            // Annual rent stored in monthlyRent field
+            propertyAnnualRevenue += monthlyRent;
+          } else {
+            // Monthly rent: multiply by 12
+            propertyAnnualRevenue += monthlyRent * 12;
+          }
+        }
+
+        totalPropertyValue += propertyAnnualRevenue * 15;
       }
     });
 
-    // Calculate actual expenses from database
+    // Calculate actual expenses from database, grouped by property
     const propertyIds = properties.map((p) => p.id);
-    const actualExpenses = await prisma.expenses.aggregate({
+    const propertyExpenses = await prisma.expenses.groupBy({
+      by: ["propertyId"],
       where: {
         propertyId: { in: propertyIds },
         status: { in: ["paid", "pending"] }, // Include paid and pending expenses
@@ -161,10 +207,53 @@ router.get("/overview", async (req: AuthRequest, res: Response) => {
       },
     });
 
+    const expensesByProperty = new Map(
+      propertyExpenses.map((e) => [e.propertyId, e._sum.amount || 0])
+    );
+
+    // Calculate annual expenses properly, considering property rent frequency
+    // For annual properties: expenses are already annual, use as-is
+    // For monthly properties: expenses are monthly, multiply by 12
+    let totalAnnualExpenses = 0;
+    let totalMonthlyExpenses = 0;
+
+    properties.forEach((property) => {
+      const propertyExpensesAmount = expensesByProperty.get(property.id) || 0;
+
+      // Get property-level rent frequency
+      let propertyFeatures = property.features;
+      if (typeof propertyFeatures === "string") {
+        try {
+          propertyFeatures = JSON.parse(propertyFeatures);
+        } catch {
+          propertyFeatures = {};
+        }
+      }
+      const propertyRentFrequency =
+        propertyFeatures?.nigeria?.rentFrequency ||
+        propertyFeatures?.rentFrequency ||
+        "monthly";
+
+      if (
+        propertyRentFrequency === "annual" ||
+        propertyRentFrequency === "yearly"
+      ) {
+        // For annual properties: expenses are already annual
+        totalAnnualExpenses += propertyExpensesAmount;
+        totalMonthlyExpenses += propertyExpensesAmount / 12;
+      } else {
+        // For monthly properties: expenses are monthly, multiply by 12
+        totalAnnualExpenses += propertyExpensesAmount * 12;
+        totalMonthlyExpenses += propertyExpensesAmount;
+      }
+    });
+
     // Use actual expenses only; do not estimate when none are recorded
-    const estimatedExpenses = actualExpenses._sum.amount || 0;
+    // totalRevenue is monthly equivalent, so use monthly expenses for monthly NOI
+    const estimatedExpenses = totalMonthlyExpenses;
 
     // Net Operating Income (NOI) = Revenue - Operating Expenses
+    // totalRevenue is monthly equivalent, so netOperatingIncome is monthly NOI
     const netOperatingIncome = totalRevenue - estimatedExpenses;
 
     // Operating Margin = (NOI / Revenue) * 100
@@ -172,7 +261,22 @@ router.get("/overview", async (req: AuthRequest, res: Response) => {
       totalRevenue > 0 ? (netOperatingIncome / totalRevenue) * 100 : 0;
 
     // Portfolio Cap Rate (based on annual NOI / actual property value)
-    const annualNOI = netOperatingIncome * 12;
+    // Calculate annual NOI directly from annual revenue and annual expenses
+    // This ensures correct calculation for mixed portfolios (annual + monthly properties)
+    const annualRevenue = totalRevenue * 12; // Convert monthly equivalent to annual
+    const annualNOI = annualRevenue - totalAnnualExpenses;
+
+    // Debug logging for overview calculation
+    console.log("[Backend Financial Overview] Portfolio Calculation:", {
+      totalRevenue, // Monthly equivalent
+      totalMonthlyExpenses,
+      totalAnnualExpenses,
+      netOperatingIncome, // Monthly NOI
+      annualRevenue,
+      annualNOI,
+      calculation: `${annualRevenue} - ${totalAnnualExpenses} = ${annualNOI}`,
+      note: "Annual NOI calculated directly from annual revenue and annual expenses",
+    });
     const portfolioCapRate =
       totalPropertyValue > 0 ? (annualNOI / totalPropertyValue) * 100 : 0;
 
@@ -190,8 +294,8 @@ router.get("/overview", async (req: AuthRequest, res: Response) => {
     });
 
     return res.json({
-      totalRevenue,
-      netOperatingIncome,
+      totalRevenue, // Monthly equivalent revenue
+      netOperatingIncome, // Monthly NOI
       portfolioCapRate,
       operatingMargin,
       occupancyRate,
@@ -199,9 +303,9 @@ router.get("/overview", async (req: AuthRequest, res: Response) => {
       totalUnits,
       occupiedUnits: totalOccupiedUnits,
       vacantUnits: totalUnits - totalOccupiedUnits,
-      estimatedExpenses,
-      annualRevenue: totalRevenue * 12,
-      annualNOI,
+      estimatedExpenses: totalMonthlyExpenses, // Monthly expenses
+      annualRevenue: totalRevenue * 12, // Annual revenue (monthly equivalent * 12)
+      annualNOI, // Annual NOI (monthly NOI * 12, or calculated from annual expenses)
       totalPropertyValue,
     });
   } catch (error: any) {
@@ -219,7 +323,7 @@ router.get("/monthly-revenue", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     const role = req.user?.role;
-    const { months = 12 } = req.query;
+    const { months = 12, propertyId } = req.query;
 
     if (role !== "owner" && role !== "manager") {
       return res.status(403).json({ error: "Access denied" });
@@ -228,18 +332,25 @@ router.get("/monthly-revenue", async (req: AuthRequest, res: Response) => {
     const monthsInt = Math.max(1, Math.min(Number(months) || 12, 24));
 
     // Find properties scoped to owner or manager
-    const properties = await prisma.properties.findMany({
-      where:
-        role === "owner"
-          ? { ownerId: userId }
-          : {
-              property_managers: {
-                some: {
-                  managerId: userId,
-                  isActive: true,
-                },
+    const baseWhere =
+      role === "owner"
+        ? { ownerId: userId }
+        : {
+            property_managers: {
+              some: {
+                managerId: userId,
+                isActive: true,
               },
             },
+          };
+
+    // If propertyId is specified, filter to that property
+    const whereClause = propertyId
+      ? { ...baseWhere, id: propertyId as string }
+      : baseWhere;
+
+    const properties = await prisma.properties.findMany({
+      where: whereClause,
       select: { id: true },
     });
 
@@ -393,6 +504,7 @@ router.get("/property-performance", async (req: AuthRequest, res: Response) => {
             id: true,
             monthlyRent: true,
             status: true,
+            features: true,
           },
         },
         leases: {
@@ -412,22 +524,142 @@ router.get("/property-performance", async (req: AuthRequest, res: Response) => {
       return res.json([]);
     }
 
+    // Get actual expenses for all properties
+    const propertyIds = properties.map((p) => p.id);
+    const propertyExpenses = await prisma.expenses.groupBy({
+      by: ["propertyId"],
+      where: {
+        propertyId: { in: propertyIds },
+        status: { in: ["paid", "pending"] },
+      },
+      _sum: {
+        amount: true,
+      },
+    });
+
+    const expensesByProperty = new Map(
+      propertyExpenses.map((e) => [e.propertyId, e._sum.amount || 0])
+    );
+
+    // Get property-level rent frequency from features
+    const getPropertyRentFrequency = (property: any): string => {
+      if (!property.features) return "monthly";
+      let features = property.features;
+      if (typeof features === "string") {
+        try {
+          features = JSON.parse(features);
+        } catch {
+          return "monthly";
+        }
+      }
+      return (
+        features?.nigeria?.rentFrequency || features?.rentFrequency || "monthly"
+      );
+    };
+
     // Calculate performance metrics for each property
     const performanceData = properties.map((property) => {
-      // Calculate revenue (sum of occupied unit rents)
-      const monthlyRevenue = (property.units || [])
-        .filter((u) => u.status === "occupied")
-        .reduce((sum, u) => sum + (u.monthlyRent || 0), 0);
+      // Get property rent frequency
+      const propertyRentFrequency = getPropertyRentFrequency(property);
 
-      const annualRevenue = monthlyRevenue * 12;
+      // Calculate revenue considering unit rent frequencies
+      let monthlyRevenueEquivalent = 0;
+      let annualRevenue = 0;
 
-      // Calculate expenses (30% of revenue)
-      const monthlyExpenses = monthlyRevenue * 0.3;
-      const annualExpenses = monthlyExpenses * 12;
+      for (const unit of property.units || []) {
+        if (unit.status !== "occupied") continue;
+
+        let unitFeatures = unit.features;
+        if (typeof unitFeatures === "string") {
+          try {
+            unitFeatures = JSON.parse(unitFeatures);
+          } catch {
+            unitFeatures = {};
+          }
+        }
+
+        const unitRentFrequency =
+          (unitFeatures as any)?.nigeria?.rentFrequency ||
+          (unitFeatures as any)?.rentFrequency ||
+          propertyRentFrequency;
+
+        const monthlyRent = unit.monthlyRent || 0;
+
+        if (unitRentFrequency === "annual" || unitRentFrequency === "yearly") {
+          // Annual rent: add to annual revenue, convert to monthly equivalent
+          annualRevenue += monthlyRent;
+          monthlyRevenueEquivalent += monthlyRent / 12;
+        } else {
+          // Monthly rent: add to both
+          annualRevenue += monthlyRent * 12;
+          monthlyRevenueEquivalent += monthlyRent;
+        }
+      }
+
+      // Use property-level frequency to determine which revenue to use
+      const monthlyRevenue =
+        propertyRentFrequency === "annual"
+          ? annualRevenue / 12
+          : monthlyRevenueEquivalent;
+
+      // Get actual expenses for this property
+      // Note: Expenses in database are stored as actual amounts (not frequency-dependent)
+      // The expenses represent actual money spent, regardless of property rent frequency
+      //
+      // IMPORTANT ASSUMPTION:
+      // - For annual properties: expenses entered are typically annual amounts (property tax, insurance, etc.)
+      // - For monthly properties: expenses entered are typically monthly amounts (utilities, maintenance, etc.)
+      //
+      // This is a reasonable assumption because:
+      // - Annual properties often have annual expenses (taxes, insurance paid yearly)
+      // - Monthly properties often have monthly expenses (utilities, recurring maintenance)
+      const propertyExpenses = expensesByProperty.get(property.id) || 0;
+
+      // For annual properties: expenses are already annual, use as-is
+      // For monthly properties: expenses are monthly, multiply by 12 to get annual
+      const annualExpenses =
+        propertyRentFrequency === "annual"
+          ? propertyExpenses // Expenses are already annual for annual properties
+          : propertyExpenses * 12; // Convert monthly expenses to annual
+
+      // Calculate monthly equivalent for monthly NOI calculation
+      const monthlyExpenses =
+        propertyRentFrequency === "annual"
+          ? propertyExpenses / 12 // Convert annual expenses to monthly equivalent
+          : propertyExpenses; // Expenses are already monthly
 
       // Calculate NOI
       const monthlyNOI = monthlyRevenue - monthlyExpenses;
-      const annualNOI = monthlyNOI * 12;
+      // For annual properties, annual NOI is already annual; for monthly, multiply by 12
+      const annualNOI =
+        propertyRentFrequency === "annual"
+          ? annualRevenue - annualExpenses
+          : monthlyNOI * 12;
+
+      // Debug logging for Adewole Estate
+      if (
+        property.name?.includes("Adewole") ||
+        property.name?.includes("Adewole Estate")
+      ) {
+        console.log(`[Backend Property Performance] ${property.name}:`, {
+          propertyRentFrequency,
+          propertyExpenses: propertyExpenses, // Raw expenses from database
+          monthlyRevenue,
+          annualRevenue,
+          monthlyExpenses,
+          annualExpenses,
+          monthlyNOI,
+          annualNOI,
+          calculation:
+            propertyRentFrequency === "annual"
+              ? `Annual: ${annualRevenue} - ${annualExpenses} (from DB: ${propertyExpenses}) = ${annualNOI}`
+              : `Monthly: (${monthlyRevenue} - ${monthlyExpenses}) × 12 = ${annualNOI}`,
+          note:
+            propertyRentFrequency === "annual"
+              ? "For annual properties, expenses from DB are treated as annual amounts"
+              : "For monthly properties, expenses from DB are treated as monthly and multiplied by 12",
+        });
+      }
 
       // Calculate occupancy rate
       const totalUnits = (property.units || []).length;
@@ -441,17 +673,46 @@ router.get("/property-performance", async (req: AuthRequest, res: Response) => {
       let capRate = 0;
       let propertyValue = 0;
 
+      // Ensure we have annual revenue for property value estimation
+      const annualRevenueForValue =
+        propertyRentFrequency === "annual"
+          ? annualRevenue
+          : monthlyRevenue * 12;
+
       if (property.currentValue) {
         propertyValue = property.currentValue;
       } else if (property.purchasePrice) {
         propertyValue = property.purchasePrice;
       } else {
-        // Estimate: 15x annual rent
-        propertyValue = annualRevenue * 15;
+        // Estimate: 15x annual revenue
+        propertyValue = annualRevenueForValue * 15;
       }
 
       if (propertyValue > 0) {
         capRate = (annualNOI / propertyValue) * 100;
+      }
+
+      // Debug logging for John Adeleke
+      if (
+        property.name?.includes("John Adeleke") ||
+        property.name?.includes("Adeleke")
+      ) {
+        console.log(`[Backend Cap Rate Calculation] ${property.name}:`, {
+          propertyRentFrequency,
+          monthlyRevenue,
+          annualRevenue,
+          monthlyExpenses,
+          annualExpenses,
+          monthlyNOI,
+          annualNOI,
+          propertyValue,
+          currentValue: property.currentValue,
+          purchasePrice: property.purchasePrice,
+          capRate: `${capRate.toFixed(2)}%`,
+          calculation: `(${annualNOI} / ${propertyValue}) × 100 = ${capRate.toFixed(
+            2
+          )}%`,
+        });
       }
 
       // Calculate ROI (Return on Investment)
@@ -475,7 +736,10 @@ router.get("/property-performance", async (req: AuthRequest, res: Response) => {
         vacantUnits: totalUnits - occupiedUnits,
         occupancyRate,
         monthlyRevenue,
-        annualRevenue,
+        annualRevenue:
+          propertyRentFrequency === "annual"
+            ? annualRevenue
+            : monthlyRevenue * 12,
         monthlyExpenses,
         annualExpenses,
         monthlyNOI,

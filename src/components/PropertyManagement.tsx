@@ -155,6 +155,45 @@ export const PropertyManagement = ({
   // Calculate smart base currency based on properties
   const smartBaseCurrency = getSmartBaseCurrency(propProperties || []);
 
+  // Helper function to get rent frequency from property
+  const getPropertyRentFrequency = (property: any): string => {
+    if (!property) return "monthly";
+    let features = property.features;
+
+    // Handle string features (JSON)
+    if (typeof features === "string") {
+      try {
+        features = JSON.parse(features);
+      } catch {
+        features = {};
+      }
+    }
+
+    // Check for rent frequency in various locations
+    const rentFrequency =
+      features?.nigeria?.rentFrequency ||
+      features?.rentFrequency ||
+      property.rentFrequency ||
+      "monthly";
+
+    return rentFrequency;
+  };
+
+  // Helper function to get property revenue based on rent frequency
+  const getPropertyRevenue = (property: any): number => {
+    const rentFrequency = getPropertyRentFrequency(property);
+    const monthlyIncome = Number(
+      property.totalMonthlyIncome || property.monthlyRevenue || 0
+    );
+
+    // If property has annual frequency, convert monthly income to annual
+    // (multiply by 12), otherwise return monthly income as is
+    if (rentFrequency === "annual") {
+      return monthlyIncome * 12;
+    }
+    return monthlyIncome;
+  };
+
   // Unit search and filter state
   const [unitSearchTerm, setUnitSearchTerm] = useState("");
   const [unitStatusFilter, setUnitStatusFilter] = useState("all");
@@ -718,7 +757,7 @@ export const PropertyManagement = ({
       (sum, p) => sum + (p.totalUnits - p.occupiedUnits),
       0
     ),
-    totalRevenue: properties.reduce((sum, p) => sum + p.monthlyRevenue, 0),
+    totalRevenue: properties.reduce((sum, p) => sum + getPropertyRevenue(p), 0),
     avgOccupancy:
       properties.length > 0
         ? properties.reduce(
@@ -730,6 +769,21 @@ export const PropertyManagement = ({
       (sum, p) => sum + p.maintenanceRequests,
       0
     ),
+  };
+
+  // Determine revenue label based on property frequencies
+  const getRevenueLabel = (): string => {
+    if (properties.length === 0) return "Monthly Revenue";
+    const frequencies = properties.map((p) => getPropertyRentFrequency(p));
+    const allAnnual = frequencies.every((f) => f === "annual");
+    const allMonthly = frequencies.every((f) => f === "monthly");
+
+    // If all properties are annual, show Annual Revenue
+    if (allAnnual) return "Annual Revenue";
+    // If all properties are monthly, show Monthly Revenue
+    if (allMonthly) return "Monthly Revenue";
+    // Mixed frequencies - show generic "Revenue"
+    return "Revenue";
   };
 
   // Filter properties based on search and status
@@ -938,15 +992,21 @@ export const PropertyManagement = ({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <CardTitle className="text-xs md:text-sm font-semibold text-gray-700 flex items-center gap-1 cursor-help">
-                        Monthly Revenue
+                        {getRevenueLabel()}
                       </CardTitle>
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>
-                        Total rental income from all occupied units per month
+                        {getRevenueLabel() === "Annual Revenue"
+                          ? "Total rental income from all occupied units per year"
+                          : getRevenueLabel() === "Monthly Revenue"
+                          ? "Total rental income from all occupied units per month"
+                          : "Total rental income from all occupied units (mixed frequencies)"}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Sum of monthly rent for all active leases
+                        {getRevenueLabel() === "Annual Revenue"
+                          ? "Sum of annual rent for all active leases"
+                          : "Sum of monthly rent for all active leases"}
                       </p>
                     </TooltipContent>
                   </Tooltip>
@@ -1060,7 +1120,7 @@ export const PropertyManagement = ({
                           <div className="text-right">
                             <p className="font-bold text-lg text-green-600">
                               {formatCurrency(
-                                property.monthlyRevenue,
+                                getPropertyRevenue(property),
                                 property.currency || "NGN"
                               )}
                             </p>
@@ -1310,11 +1370,13 @@ export const PropertyManagement = ({
                           </div>
                           <div className="text-center p-3 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-100">
                             <p className="text-xs text-green-600 font-semibold mb-1">
-                              Revenue
+                              {getPropertyRentFrequency(property) === "annual"
+                                ? "Annual Revenue"
+                                : "Monthly Revenue"}
                             </p>
                             <p className="font-bold text-gray-900 text-xs">
                               {formatCurrency(
-                                property.monthlyRevenue,
+                                getPropertyRevenue(property),
                                 property.currency
                               )}
                             </p>
@@ -1502,11 +1564,14 @@ export const PropertyManagement = ({
                               </div>
                               <div>
                                 <p className="text-xs text-green-600">
-                                  Monthly Revenue
+                                  {getPropertyRentFrequency(property) ===
+                                  "annual"
+                                    ? "Annual Revenue"
+                                    : "Monthly Revenue"}
                                 </p>
                                 <p className="font-semibold text-sm text-green-900">
                                   {formatCurrency(
-                                    property.monthlyRevenue,
+                                    getPropertyRevenue(property),
                                     property.currency
                                   )}
                                 </p>
@@ -2261,11 +2326,15 @@ export const PropertyManagement = ({
                       <DollarSign className="h-8 w-8 mx-auto mb-2 text-orange-600" />
                       <p className="text-lg font-bold">
                         {formatCurrency(
-                          selectedProperty.monthlyRevenue,
+                          getPropertyRevenue(selectedProperty),
                           selectedProperty.currency
                         )}
                       </p>
-                      <p className="text-sm text-gray-500">Monthly Revenue</p>
+                      <p className="text-sm text-gray-500">
+                        {getPropertyRentFrequency(selectedProperty) === "annual"
+                          ? "Annual Revenue"
+                          : "Monthly Revenue"}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>

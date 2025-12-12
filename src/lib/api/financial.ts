@@ -1,4 +1,4 @@
-import { apiClient } from '../api-client';
+import { apiClient } from "../api-client";
 
 export interface FinancialOverview {
   totalRevenue: number;
@@ -52,15 +52,28 @@ export interface PropertyPerformance {
   propertyTaxes: number;
 }
 
-export const getFinancialOverview = async (params?: { startDate?: string; endDate?: string }) => {
-  return apiClient.get<FinancialOverview>('/api/financial/overview', params as any);
+export const getFinancialOverview = async (params?: {
+  startDate?: string;
+  endDate?: string;
+}) => {
+  return apiClient.get<FinancialOverview>(
+    "/api/financial/overview",
+    params as any
+  );
 };
 
-export const getMonthlyRevenue = async (months: number = 12) => {
-  return apiClient.get<MonthlyRevenueData[]>('/api/financial/monthly-revenue', { months } as any);
+export const getMonthlyRevenue = async (
+  months: number = 12,
+  propertyId?: string
+) => {
+  return apiClient.get<MonthlyRevenueData[]>("/api/financial/monthly-revenue", {
+    months,
+    ...(propertyId && propertyId !== "all" ? { propertyId } : {}),
+  } as any);
 };
 
 export const getPropertyPerformance = async () => {
-  return apiClient.get<PropertyPerformance[]>('/api/financial/property-performance');
+  return apiClient.get<PropertyPerformance[]>(
+    "/api/financial/property-performance"
+  );
 };
-

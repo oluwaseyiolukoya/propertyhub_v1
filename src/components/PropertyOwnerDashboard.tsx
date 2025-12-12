@@ -363,6 +363,67 @@ export function PropertyOwnerDashboard({
     accountInfo?.customer?.plan?.unitLimit ??
     (!accountInfo?.customer?.planId ? TRIAL_PLAN_LIMITS.units : undefined);
 
+  // Helper function to get rent frequency from property
+  const getPropertyRentFrequency = (property: any): string => {
+    if (!property) return "monthly";
+    let features = property.features;
+
+    // Handle null/undefined features
+    if (features === null || features === undefined) {
+      return "monthly";
+    }
+
+    // Handle string features (JSON)
+    if (typeof features === "string") {
+      try {
+        features = JSON.parse(features);
+      } catch {
+        features = {};
+      }
+    }
+
+    // Handle array features (legacy format - amenities array)
+    if (Array.isArray(features)) {
+      return property.rentFrequency || "monthly";
+    }
+
+    // Check for rent frequency in various locations
+    const rentFrequency =
+      features?.nigeria?.rentFrequency ||
+      features?.rentFrequency ||
+      property.rentFrequency ||
+      "monthly";
+
+    return rentFrequency;
+  };
+
+  // Helper function to get portfolio revenue label based on all properties
+  const getPortfolioRevenueLabel = (): string => {
+    if (properties.length === 0) return "Monthly Revenue";
+
+    const frequencies = properties.map((p) => getPropertyRentFrequency(p));
+    const allAnnual = frequencies.every((f) => f === "annual");
+    const allMonthly = frequencies.every((f) => f === "monthly");
+
+    if (allAnnual) return "Annual Revenue";
+    if (allMonthly) return "Monthly Revenue";
+    return "Revenue"; // Mixed frequencies
+  };
+
+  // Helper function to get property revenue based on rent frequency
+  const getPropertyRevenue = (property: any): number => {
+    const rentFrequency = getPropertyRentFrequency(property);
+    const monthlyIncome = Number(
+      property.totalMonthlyIncome || property.monthlyRevenue || 0
+    );
+
+    // If property has annual frequency, convert monthly income to annual (multiply by 12)
+    if (rentFrequency === "annual") {
+      return monthlyIncome * 12;
+    }
+    return monthlyIncome;
+  };
+
   // Refetch all data - React Query makes this instant with cache
   const fetchData = async (silent = false) => {
     try {
@@ -752,13 +813,20 @@ export function PropertyOwnerDashboard({
   }, [user]);
 
   // Use backend-provided portfolio overview when available
+  // Note: Backend revenue is always monthly equivalent, so we need to calculate
+  // the display value based on property frequencies
   const portfolioStats = dashboardData?.portfolio
     ? {
         totalProperties: dashboardData.portfolio.totalProperties || 0,
         totalUnits: dashboardData.portfolio.totalUnits || 0,
         occupancyRate:
           Math.round((dashboardData.portfolio.occupancyRate || 0) * 10) / 10,
-        monthlyRevenue: dashboardData.revenue?.currentMonth || 0,
+        // Backend provides monthly equivalent, but we need to calculate display value
+        // based on property frequencies (multiply by 12 for annual properties)
+        monthlyRevenue:
+          properties.length > 0
+            ? properties.reduce((sum, p) => sum + getPropertyRevenue(p), 0)
+            : dashboardData.revenue?.currentMonth || 0,
       }
     : {
         totalProperties: properties.length,
@@ -773,7 +841,7 @@ export function PropertyOwnerDashboard({
               )
             : 0,
         monthlyRevenue: properties.reduce(
-          (sum, p) => sum + (p.monthlyRevenue || 0),
+          (sum, p) => sum + getPropertyRevenue(p),
           0
         ),
       };
@@ -1336,6 +1404,28 @@ export function PropertyOwnerDashboard({
                             {(
                               Number(selectedProperty.avgRent) || 0
                             ).toLocaleString()}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Current Property Value
+                          </p>
+                          <p className="font-semibold text-gray-900">
+                            {selectedProperty.currentValue
+                              ? `${
+                                  selectedProperty.currency === "NGN"
+                                    ? "₦"
+                                    : selectedProperty.currency === "USD"
+                                    ? "$"
+                                    : selectedProperty.currency === "GBP"
+                                    ? "£"
+                                    : selectedProperty.currency === "EUR"
+                                    ? "€"
+                                    : ""
+                                }${Number(
+                                  selectedProperty.currentValue
+                                ).toLocaleString()}`
+                              : "N/A"}
                           </p>
                         </div>
                         <div>
@@ -2049,7 +2139,7 @@ export function PropertyOwnerDashboard({
                     <div className="h-1 bg-gradient-to-r from-[#3B82F6] to-[#60A5FA]"></div>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium text-gray-600">
-                        Monthly Revenue
+                        {getPortfolioRevenueLabel()}
                       </CardTitle>
                       <div className="p-2 bg-[#3B82F6]/10 rounded-lg">
                         <DollarSign className="h-4 w-4 text-[#3B82F6]" />

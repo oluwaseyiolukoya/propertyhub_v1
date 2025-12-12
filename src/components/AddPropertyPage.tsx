@@ -601,6 +601,13 @@ export function AddPropertyPage({
           },
           rentFrequency: formData.rentFrequency,
         },
+        // Property value for Cap Rate calculation
+        currentValue: formData.currentValue
+          ? parseFloat(formData.currentValue)
+          : null,
+        purchasePrice: formData.purchasePrice
+          ? parseFloat(formData.purchasePrice)
+          : null,
         financials: {
           grossRent: 0,
           expenses: 0,
@@ -1259,6 +1266,29 @@ export function AddPropertyPage({
                     {formData.rentFrequency === "annual"
                       ? "Annual rental amount per unit"
                       : "Monthly rental amount per unit"}
+                  </p>
+                </div>
+
+                <div>
+                  <Label
+                    htmlFor="currentValue"
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    Current Property Value
+                  </Label>
+                  <Input
+                    id="currentValue"
+                    type="number"
+                    value={formData.currentValue}
+                    onChange={(e) =>
+                      handleInputChange("currentValue", e.target.value)
+                    }
+                    placeholder="Current market value of the property"
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Used for Cap Rate calculation. If not provided, will be
+                    estimated as 15x annual revenue.
                   </p>
                 </div>
 
@@ -2328,6 +2358,19 @@ export function AddPropertyPage({
                           ?.symbol
                       }
                       {Number(formData.avgRent).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600 font-medium">
+                      Current Property Value:
+                    </span>
+                    <span className="font-semibold text-gray-900">
+                      {formData.currentValue
+                        ? `${
+                            currencies.find((c) => c.code === formData.currency)
+                              ?.symbol
+                          }${Number(formData.currentValue).toLocaleString()}`
+                        : "N/A"}
                     </span>
                   </div>
                   <div className="flex justify-between">
