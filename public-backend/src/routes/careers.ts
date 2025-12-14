@@ -22,13 +22,13 @@ router.get("/", async (req: Request, res: Response) => {
 
     const result = await careerService.getPublicPostings(filters);
 
-    res.json({
+    return res.json({
       success: true,
       data: result,
     });
   } catch (error: any) {
     console.error("❌ Get public careers error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: "Failed to fetch career postings",
       message: error.message,
@@ -44,13 +44,13 @@ router.get("/filters", async (req: Request, res: Response) => {
   try {
     const options = await careerService.getFilterOptions();
 
-    res.json({
+    return res.json({
       success: true,
       data: options,
     });
   } catch (error: any) {
     console.error("❌ Get filter options error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: "Failed to fetch filter options",
       message: error.message,
@@ -66,13 +66,13 @@ router.get("/stats", async (req: Request, res: Response) => {
   try {
     const stats = await careerService.getPublicStatistics();
 
-    res.json({
+    return res.json({
       success: true,
       data: stats,
     });
   } catch (error: any) {
     console.error("❌ Get career stats error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: "Failed to fetch statistics",
       message: error.message,
@@ -97,13 +97,13 @@ router.get("/:id", async (req: Request, res: Response) => {
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
       data: posting,
     });
   } catch (error: any) {
     console.error("❌ Get career posting error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: "Failed to fetch career posting",
       message: error.message,
