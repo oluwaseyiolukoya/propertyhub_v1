@@ -54,11 +54,61 @@ import { KYCVerificationPage } from "./components/KYCVerificationPage";
 function App() {
   // Load platform branding (logo and favicon)
   usePlatformBranding();
+
+  // Detect domain for routing
+  const hostname = window.location.hostname;
+  const isAppDomain =
+    hostname === "app.contrezz.com" || hostname === "localhost";
+  const isPublicDomain =
+    hostname === "contrezz.com" || hostname === "www.contrezz.com";
+
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userType, setUserType] = useState<string>("");
   const [customerData, setCustomerData] = useState<any>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
-  const [showLanding, setShowLanding] = useState(true);
+  const [showLanding, setShowLanding] = useState(!isAppDomain); // Don't show landing on app domain
+
+  // Redirect logic: if on wrong domain, redirect to correct one
+  useEffect(() => {
+    // Skip redirects during auth check
+    if (isAuthChecking) return;
+
+    // If on app domain but trying to access public routes, redirect to public domain
+    if (isAppDomain && !currentUser) {
+      const publicRoutes = [
+        "/careers",
+        "/blog",
+        "/about",
+        "/contact",
+        "/help",
+        "/community",
+        "/status",
+        "/security",
+      ];
+      const currentPath = window.location.pathname;
+
+      // Allow login and root on app domain
+      if (currentPath === "/login" || currentPath === "/") {
+        return; // Stay on app domain for login
+      }
+
+      // Redirect public routes to public domain
+      if (publicRoutes.some((route) => currentPath.startsWith(route))) {
+        window.location.href = `https://contrezz.com${currentPath}`;
+        return;
+      }
+    }
+
+    // If on public domain but authenticated, redirect to app domain for dashboard
+    if (isPublicDomain && currentUser && userType) {
+      const currentPath = window.location.pathname;
+      // Only redirect if on landing/login pages
+      if (currentPath === "/" || currentPath === "/login") {
+        window.location.href = "https://app.contrezz.com/";
+        return;
+      }
+    }
+  }, [isAppDomain, isPublicDomain, currentUser, userType, isAuthChecking]);
   const [showKYCVerification, setShowKYCVerification] = useState(false);
   const [showGetStarted, setShowGetStarted] = useState(false);
   const [showAccountReview, setShowAccountReview] = useState(false);
@@ -574,6 +624,12 @@ function App() {
   };
 
   const handleNavigateToLogin = () => {
+    // If on public domain, redirect to app domain for login
+    if (isPublicDomain) {
+      window.location.href = "https://app.contrezz.com/login";
+      return;
+    }
+
     window.scrollTo({ top: 0, behavior: "smooth" });
     setShowLanding(false);
     setShowGetStarted(false);
@@ -1038,8 +1094,8 @@ function App() {
     );
   }
 
-  // Show API Documentation if requested
-  if (!currentUser && showAPIDocumentation) {
+  // Show API Documentation if requested (public domain only)
+  if (!currentUser && showAPIDocumentation && !isAppDomain) {
     return (
       <>
         <APIDocumentation
@@ -1051,8 +1107,8 @@ function App() {
     );
   }
 
-  // Show Integrations page if requested
-  if (!currentUser && showIntegrations) {
+  // Show Integrations page if requested (public domain only)
+  if (!currentUser && showIntegrations && !isAppDomain) {
     return (
       <>
         <IntegrationsPage
@@ -1067,8 +1123,8 @@ function App() {
     );
   }
 
-  // Show About page if requested
-  if (!currentUser && showAbout) {
+  // Show About page if requested (public domain only)
+  if (!currentUser && showAbout && !isAppDomain) {
     return (
       <>
         <AboutPage
@@ -1082,8 +1138,8 @@ function App() {
     );
   }
 
-  // Show Contact page if requested
-  if (!currentUser && showContact) {
+  // Show Contact page if requested (public domain only)
+  if (!currentUser && showContact && !isAppDomain) {
     return (
       <>
         <ContactPage
@@ -1107,8 +1163,8 @@ function App() {
     );
   }
 
-  // Show Schedule Demo page if requested
-  if (!currentUser && showScheduleDemo) {
+  // Show Schedule Demo page if requested (public domain only)
+  if (!currentUser && showScheduleDemo && !isAppDomain) {
     return (
       <>
         <ScheduleDemoPage
@@ -1125,8 +1181,8 @@ function App() {
     );
   }
 
-  // Show Blog page if requested
-  if (!currentUser && showBlog) {
+  // Show Blog page if requested (public domain only)
+  if (!currentUser && showBlog && !isAppDomain) {
     return (
       <>
         <BlogPage
@@ -1142,8 +1198,8 @@ function App() {
     );
   }
 
-  // Show Careers page if requested
-  if (!currentUser && showCareers) {
+  // Show Careers page if requested (public domain only)
+  if (!currentUser && showCareers && !isAppDomain) {
     return (
       <>
         <CareersPage
@@ -1163,8 +1219,8 @@ function App() {
     );
   }
 
-  // Show Help Center page if requested
-  if (!currentUser && showHelpCenter) {
+  // Show Help Center page if requested (public domain only)
+  if (!currentUser && showHelpCenter && !isAppDomain) {
     return (
       <>
         <HelpCenterPage
@@ -1188,8 +1244,8 @@ function App() {
     );
   }
 
-  // Show Community page if requested
-  if (!currentUser && showCommunity) {
+  // Show Community page if requested (public domain only)
+  if (!currentUser && showCommunity && !isAppDomain) {
     return (
       <>
         <CommunityPage
@@ -1214,8 +1270,8 @@ function App() {
     );
   }
 
-  // Show New Discussion page if requested
-  if (!currentUser && showNewDiscussion) {
+  // Show New Discussion page if requested (public domain only)
+  if (!currentUser && showNewDiscussion && !isAppDomain) {
     return (
       <>
         <NewDiscussionPage
@@ -1237,8 +1293,8 @@ function App() {
     );
   }
 
-  // Show Status page if requested
-  if (!currentUser && showStatus) {
+  // Show Status page if requested (public domain only)
+  if (!currentUser && showStatus && !isAppDomain) {
     return (
       <>
         <StatusPage
@@ -1262,8 +1318,8 @@ function App() {
     );
   }
 
-  // Show Security page if requested
-  if (!currentUser && showSecurity) {
+  // Show Security page if requested (public domain only)
+  if (!currentUser && showSecurity && !isAppDomain) {
     return (
       <>
         <SecurityPage
@@ -1287,8 +1343,22 @@ function App() {
     );
   }
 
-  // Show landing page if no user and showLanding is true
-  if (!currentUser && showLanding && !showGetStarted) {
+  // On app domain, show login by default if not authenticated
+  if (isAppDomain && !currentUser && !showGetStarted && !showAccountReview) {
+    return (
+      <>
+        <LoginPage
+          onLogin={handleLogin}
+          onBackToHome={handleBackToHome}
+          onNavigateToScheduleDemo={handleNavigateToScheduleDemo}
+        />
+        <Toaster />
+      </>
+    );
+  }
+
+  // Show landing page if no user and showLanding is true (public domain only)
+  if (!currentUser && showLanding && !showGetStarted && !isAppDomain) {
     return (
       <>
         <LandingPage
@@ -1352,8 +1422,9 @@ function App() {
     );
   }
 
-  // Show login if no user but landing is dismissed
+  // Show login if no user but landing is dismissed (public domain only)
   if (
+    !isAppDomain &&
     !currentUser &&
     !showLanding &&
     !showGetStarted &&

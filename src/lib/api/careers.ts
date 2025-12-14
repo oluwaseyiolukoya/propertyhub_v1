@@ -72,11 +72,14 @@ export interface UpdateCareerPosting {
 
 /**
  * Get public career postings
+ * Uses public API (no authentication required)
  */
 export const getPublicCareerPostings = async (
   filters?: CareerPostingFilters
 ) => {
-  return apiClient.get<{
+  // Import publicApi dynamically to avoid circular dependencies
+  const { publicApi } = await import("./publicApi");
+  return publicApi.get<{
     postings: CareerPosting[];
     pagination: {
       total: number;
@@ -84,27 +87,31 @@ export const getPublicCareerPostings = async (
       limit: number;
       totalPages: number;
     };
-  }>("/api/careers", filters);
+  }>("/careers", filters);
 };
 
 /**
  * Get available filter options for public
+ * Uses public API (no authentication required)
  */
 export const getCareerFilterOptions = async () => {
-  return apiClient.get<{
+  const { publicApi } = await import("./publicApi");
+  return publicApi.get<{
     departments: string[];
     locations: string[];
     types: string[];
     remoteOptions: string[];
     experienceLevels: string[];
-  }>("/api/careers/filters");
+  }>("/careers/filters");
 };
 
 /**
  * Get a single career posting (public)
+ * Uses public API (no authentication required)
  */
 export const getCareerPostingById = async (id: string) => {
-  return apiClient.get<CareerPosting>(`/api/careers/${id}`);
+  const { publicApi } = await import("./publicApi");
+  return publicApi.get<CareerPosting>(`/careers/${id}`);
 };
 
 /**
@@ -174,4 +181,3 @@ export const deleteCareerPosting = async (id: string) => {
 export const permanentDeleteCareerPosting = async (id: string) => {
   return apiClient.delete<CareerPosting>(`/api/admin/careers/${id}/permanent`);
 };
-

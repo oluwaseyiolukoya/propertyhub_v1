@@ -111,10 +111,11 @@ export function CareersPage({
       }
 
       const response = await getPublicCareerPostings(filters);
-      if (response.data?.data) {
-        setJobOpenings(response.data.data.postings || []);
+      if (response.success && response.data) {
+        // Public API returns: { success: true, data: { postings: [], pagination: {} } }
+        setJobOpenings(response.data.postings || []);
       } else if (response.error) {
-        toast.error("Failed to load career postings");
+        toast.error(response.message || "Failed to load career postings");
         setJobOpenings([]);
       }
     } catch (error: any) {
@@ -129,8 +130,9 @@ export function CareersPage({
   const loadFilterOptions = async () => {
     try {
       const response = await getCareerFilterOptions();
-      if (response.data?.data) {
-        setFilterOptions(response.data.data);
+      if (response.success && response.data) {
+        // Public API returns: { success: true, data: { departments: [], ... } }
+        setFilterOptions(response.data);
       }
     } catch (error) {
       console.error("Failed to load filter options:", error);
