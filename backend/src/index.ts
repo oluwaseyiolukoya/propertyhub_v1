@@ -198,6 +198,7 @@ const allowedOrigins = [
   "http://localhost:3000",
   "https://contrezz.com",
   "https://www.contrezz.com",
+  "https://app.contrezz.com", // App domain for login/dashboard
   "https://api.contrezz.com",
   process.env.FRONTEND_URL,
   process.env.CORS_ORIGIN,
