@@ -1776,3 +1776,33 @@ model provider_logs {
   @@index([createdAt])
   @@index([documentId])
 }
+
+model career_postings {
+  id               String    @id @default(uuid())
+  title            String
+  department       String
+  location         String
+  type             String // "Full-time", "Part-time", "Contract", etc.
+  remote           String // "Remote", "Hybrid", "On-site"
+  experience       String // "Entry-level", "Mid-level", "Senior", etc.
+  description      String    @db.Text
+  requirements     String[] // Array of requirement strings
+  salary           String? // Salary range or "Competitive"
+  status           String    @default("active") // "active", "draft", "closed", "archived"
+  postedBy         String? // Admin user ID who created the posting
+  postedAt         DateTime  @default(now())
+  expiresAt        DateTime?
+  viewCount        Int       @default(0)
+  applicationCount Int       @default(0)
+  metadata         Json? // Additional fields (benefits, perks, etc.)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  @@index([status])
+  @@index([department])
+  @@index([location])
+  @@index([type])
+  @@index([postedAt])
+  @@index([expiresAt])
+}

@@ -1,0 +1,224 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("PUBLIC_DATABASE_URL")
+}
+
+// ============================================
+// PUBLIC SITE CONTENT MODELS
+// ============================================
+
+model landing_pages {
+  id             String    @id @default(uuid())
+  slug           String    @unique
+  title          String
+  subtitle       String?
+  content        Json // Flexible content structure
+  seoTitle       String?
+  seoDescription String?   @db.Text
+  seoKeywords    String[]
+  published      Boolean   @default(false)
+  publishedAt    DateTime?
+  coverImage     String?
+  order          Int       @default(0)
+  metadata       Json? // Additional custom fields
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([slug])
+  @@index([published])
+  @@index([order])
+}
+
+model career_postings {
+  id               String    @id @default(uuid())
+  title            String
+  department       String
+  location         String
+  type             String // "Full-time", "Part-time", "Contract", etc.
+  remote           String // "Remote", "Hybrid", "On-site"
+  experience       String // "Entry-level", "Mid-level", "Senior", etc.
+  description      String    @db.Text
+  requirements     String[] // Array of requirement strings
+  responsibilities String[] // Array of responsibility strings
+  salary           String? // Salary range or "Competitive"
+  benefits         String[] // Array of benefits
+  status           String    @default("active") // "active", "draft", "closed", "archived"
+  postedBy         String? // Admin user ID who created the posting
+  postedAt         DateTime  @default(now())
+  expiresAt        DateTime?
+  viewCount        Int       @default(0)
+  applicationCount Int       @default(0)
+  metadata         Json? // Additional fields (perks, etc.)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  @@index([status])
+  @@index([department])
+  @@index([location])
+  @@index([type])
+  @@index([postedAt])
+  @@index([expiresAt])
+}
+
+model blog_posts {
+  id             String    @id @default(uuid())
+  slug           String    @unique
+  title          String
+  excerpt        String    @db.Text
+  content        String    @db.Text
+  author         String
+  authorBio      String?   @db.Text
+  authorImage    String?
+  coverImage     String?
+  tags           String[]
+  category       String?
+  readTime       Int? // in minutes
+  published      Boolean   @default(false)
+  featured       Boolean   @default(false)
+  viewCount      Int       @default(0)
+  publishedAt    DateTime?
+  seoTitle       String?
+  seoDescription String?   @db.Text
+  metadata       Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([slug])
+  @@index([published])
+  @@index([featured])
+  @@index([category])
+  @@index([publishedAt])
+}
+
+model pricing_plans {
+  id           String   @id @default(uuid())
+  name         String   @unique
+  description  String   @db.Text
+  category     String // "property_management" | "development"
+  monthlyPrice Decimal  @db.Decimal(10, 2)
+  annualPrice  Decimal  @db.Decimal(10, 2)
+  currency     String   @default("NGN")
+  features     String[] // Array of feature strings
+  limitations  String[] // Array of limitation strings
+  highlighted  Boolean  @default(false) // Popular or recommended
+  buttonText   String   @default("Get Started")
+  buttonLink   String?
+  order        Int      @default(0)
+  published    Boolean  @default(false)
+  metadata     Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([category])
+  @@index([published])
+  @@index([order])
+}
+
+model contact_submissions {
+  id            String    @id @default(uuid())
+  formType      String // "contact", "demo", "sales", "support"
+  name          String
+  email         String
+  phone         String?
+  company       String?
+  jobTitle      String?
+  subject       String?
+  message       String    @db.Text
+  preferredDate DateTime?
+  preferredTime String?
+  status        String    @default("new") // "new", "contacted", "qualified", "closed"
+  priority      String    @default("normal") // "low", "normal", "high", "urgent"
+  source        String? // utm_source
+  utmMedium     String?
+  utmCampaign   String?
+  referralUrl   String?
+  ipAddress     String?
+  userAgent     String?   @db.Text
+  adminNotes    String?   @db.Text
+  contactedAt   DateTime?
+  closedAt      DateTime?
+  metadata      Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([formType])
+  @@index([status])
+  @@index([priority])
+  @@index([email])
+  @@index([createdAt])
+}
+
+model newsletter_subscribers {
+  id             String    @id @default(uuid())
+  email          String    @unique
+  name           String?
+  status         String    @default("active") // "active", "unsubscribed", "bounced"
+  source         String? // Where they signed up from
+  tags           String[]
+  subscribedAt   DateTime  @default(now())
+  unsubscribedAt DateTime?
+  lastEmailSent  DateTime?
+  metadata       Json?
+
+  @@index([status])
+  @@index([subscribedAt])
+}
+
+model faq_items {
+  id         String   @id @default(uuid())
+  category   String // "general", "pricing", "technical", "billing"
+  question   String   @db.Text
+  answer     String   @db.Text
+  order      Int      @default(0)
+  published  Boolean  @default(true)
+  viewCount  Int      @default(0)
+  helpful    Int      @default(0)
+  notHelpful Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([category])
+  @@index([published])
+  @@index([order])
+}
+
+model testimonials {
+  id          String   @id @default(uuid())
+  name        String
+  title       String? // Job title
+  company     String?
+  avatar      String?
+  rating      Int // 1-5 stars
+  testimonial String   @db.Text
+  featured    Boolean  @default(false)
+  published   Boolean  @default(false)
+  order       Int      @default(0)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([published])
+  @@index([featured])
+  @@index([order])
+}
+
+// Analytics for public pages
+model page_analytics {
+  id        String   @id @default(uuid())
+  pageType  String // "landing", "careers", "blog", "pricing"
+  pageId    String? // ID of specific page/post
+  path      String
+  viewCount Int      @default(1)
+  date      DateTime @db.Date
+  metadata  Json? // User agent, referrer, etc.
+  createdAt DateTime @default(now())
+
+  @@unique([pageType, pageId, date])
+  @@index([pageType])
+  @@index([date])
+}
