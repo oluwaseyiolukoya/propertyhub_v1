@@ -15,8 +15,8 @@ services:
     source_dir: /public-backend
 
     # Build configuration
-    # Note: Need to install devDependencies because buildpack prunes them before custom build
-    build_command: npm install --include=dev && npx prisma generate && npm run build
+    # TypeScript is in dependencies (not devDependencies) so it survives pruning
+    build_command: npx prisma generate && npm run build
     run_command: npm start
 
     # Resource allocation
