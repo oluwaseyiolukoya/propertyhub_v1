@@ -125,19 +125,23 @@ export const adminAuthMiddleware = async (
 /**
  * Middleware to check if admin has required role
  */
-export const requireRole = (...allowedRoles: string[]) => {
-  return (req: AdminAuthRequest, res: Response, next: NextFunction) => {
+export const requireRole = (
+  ...allowedRoles: string[]
+): ((req: AdminAuthRequest, res: Response, next: NextFunction) => void) => {
+  return (req: AdminAuthRequest, res: Response, next: NextFunction): void => {
     if (!req.admin) {
-      return res.status(401).json({ error: "Authentication required" });
+      res.status(401).json({ error: "Authentication required" });
+      return;
     }
 
     if (!allowedRoles.includes(req.admin.role)) {
-      return res.status(403).json({
+      res.status(403).json({
         error: "Insufficient permissions",
         code: "INSUFFICIENT_PERMISSIONS",
         required: allowedRoles,
         current: req.admin.role,
       });
+      return;
     }
 
     next();

@@ -41,7 +41,7 @@ router.get(
       res.json({ pages });
     } catch (error: any) {
       console.error("List landing pages error:", error);
-      res.status(500).json({
+      return res.status(500).json({
         error: "Failed to fetch landing pages",
       });
     }
@@ -70,7 +70,7 @@ router.get(
       res.json({ page });
     } catch (error: any) {
       console.error("Get landing page error:", error);
-      res.status(500).json({
+      return res.status(500).json({
         error: "Failed to fetch landing page",
       });
     }
@@ -152,7 +152,7 @@ router.post(
       });
     } catch (error: any) {
       console.error("Create landing page error:", error);
-      res.status(500).json({
+      return res.status(500).json({
         error: error.message || "Failed to create landing page",
       });
     }
@@ -302,7 +302,7 @@ router.delete(
       });
     } catch (error: any) {
       console.error("Delete landing page error:", error);
-      res.status(500).json({
+      return res.status(500).json({
         error: "Failed to delete landing page",
       });
     }
@@ -410,7 +410,7 @@ router.post(
       });
     } catch (error: any) {
       console.error("Unpublish landing page error:", error);
-      res.status(500).json({
+      return res.status(500).json({
         error: "Failed to unpublish landing page",
       });
     }

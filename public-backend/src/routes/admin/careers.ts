@@ -84,7 +84,7 @@ router.get(
       });
     } catch (error: any) {
       console.error("List careers error:", error);
-      res.status(500).json({
+      return res.status(500).json({
         error: "Failed to fetch career postings",
       });
     }
@@ -104,7 +104,7 @@ router.get(
       res.json(stats);
     } catch (error: any) {
       console.error("Get career stats error:", error);
-      res.status(500).json({
+      return res.status(500).json({
         error: "Failed to fetch statistics",
       });
     }
@@ -133,7 +133,7 @@ router.get(
       res.json({ posting });
     } catch (error: any) {
       console.error("Get career error:", error);
-      res.status(500).json({
+      return res.status(500).json({
         error: "Failed to fetch career posting",
       });
     }
@@ -176,7 +176,7 @@ router.post(
       });
     } catch (error: any) {
       console.error("Create career error:", error);
-      res.status(500).json({
+      return res.status(500).json({
         error: error.message || "Failed to create career posting",
       });
     }
@@ -227,7 +227,7 @@ router.put(
       });
     } catch (error: any) {
       console.error("Update career error:", error);
-      res.status(500).json({
+      return res.status(500).json({
         error: error.message || "Failed to update career posting",
       });
     }
@@ -277,7 +277,7 @@ router.delete(
       });
     } catch (error: any) {
       console.error("Delete career error:", error);
-      res.status(500).json({
+      return res.status(500).json({
         error: "Failed to delete career posting",
       });
     }

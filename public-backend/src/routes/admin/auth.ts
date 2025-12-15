@@ -65,7 +65,7 @@ router.post(
       });
     } catch (error: any) {
       console.error("Admin registration error:", error);
-      res.status(400).json({
+      return res.status(400).json({
         error: error.message || "Failed to create admin",
       });
     }
@@ -143,7 +143,7 @@ router.post("/login", async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error("Admin login error:", error);
-    res.status(401).json({
+    return res.status(401).json({
       error: error.message || "Invalid credentials",
     });
   }
@@ -185,7 +185,7 @@ router.post(
       });
     } catch (error: any) {
       console.error("Admin logout error:", error);
-      res.status(500).json({
+      return res.status(500).json({
         error: "Failed to logout",
       });
     }
@@ -214,7 +214,7 @@ router.get(
       res.json({ admin });
     } catch (error: any) {
       console.error("Get admin error:", error);
-      res.status(500).json({
+      return res.status(500).json({
         error: "Failed to get admin info",
       });
     }
@@ -290,7 +290,7 @@ router.put(
       });
     } catch (error: any) {
       console.error("Change password error:", error);
-      res.status(500).json({
+      return res.status(500).json({
         error: "Failed to change password",
       });
     }
