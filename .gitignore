@@ -27,6 +27,10 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+.env.*
+!.env.example
+*.bak
+*.backup
 *-env-vars*.txt
 verification-service-env-vars-upstash.txt
 
