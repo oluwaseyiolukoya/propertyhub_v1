@@ -17,7 +17,7 @@ const router = express.Router();
 router.get(
   "/",
   adminAuthMiddleware,
-  async (req: AdminAuthRequest, res: Response) => {
+  async (req: AdminAuthRequest, res: Response): Promise<Response | void> => {
     try {
       const {
         status,
@@ -98,7 +98,7 @@ router.get(
 router.get(
   "/stats",
   adminAuthMiddleware,
-  async (req: AdminAuthRequest, res: Response) => {
+  async (req: AdminAuthRequest, res: Response): Promise<Response | void> => {
     try {
       const stats = await careerService.getPublicStatistics();
       return res.json(stats);
@@ -118,7 +118,7 @@ router.get(
 router.get(
   "/:id",
   adminAuthMiddleware,
-  async (req: AdminAuthRequest, res: Response) => {
+  async (req: AdminAuthRequest, res: Response): Promise<Response | void> => {
     try {
       const { id } = req.params;
 
@@ -148,7 +148,7 @@ router.post(
   "/",
   adminAuthMiddleware,
   requireEditor,
-  async (req: AdminAuthRequest, res: Response) => {
+  async (req: AdminAuthRequest, res: Response): Promise<Response | void> => {
     try {
       const posting = await prisma.career_postings.create({
         data: {
@@ -191,7 +191,7 @@ router.put(
   "/:id",
   adminAuthMiddleware,
   requireEditor,
-  async (req: AdminAuthRequest, res: Response) => {
+  async (req: AdminAuthRequest, res: Response): Promise<Response | void> => {
     try {
       const { id } = req.params;
 
@@ -242,7 +242,7 @@ router.delete(
   "/:id",
   adminAuthMiddleware,
   requireEditor,
-  async (req: AdminAuthRequest, res: Response) => {
+  async (req: AdminAuthRequest, res: Response): Promise<Response | void> => {
     try {
       const { id } = req.params;
 

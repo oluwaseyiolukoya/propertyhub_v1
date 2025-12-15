@@ -16,7 +16,7 @@ const router = express.Router();
 router.post(
   "/register",
   adminAuthMiddleware,
-  async (req: AdminAuthRequest, res: Response) => {
+  async (req: AdminAuthRequest, res: Response): Promise<Response | void> => {
     try {
       // Only admins can create new admins
       if (req.admin?.role !== "admin") {
@@ -94,15 +94,21 @@ router.post("/login", async (req: Request, res: Response) => {
       throw new Error("PUBLIC_ADMIN_JWT_SECRET not configured");
     }
 
+    const secret = process.env.PUBLIC_ADMIN_JWT_SECRET;
+    if (!secret) {
+      throw new Error("PUBLIC_ADMIN_JWT_SECRET not configured");
+    }
+
+    const expiresIn = process.env.PUBLIC_ADMIN_JWT_EXPIRES_IN || "24h";
     const token = jwt.sign(
       {
         id: admin.id,
         email: admin.email,
         role: admin.role,
       },
-      process.env.PUBLIC_ADMIN_JWT_SECRET as string,
+      secret,
       {
-        expiresIn: (process.env.PUBLIC_ADMIN_JWT_EXPIRES_IN || "24h") as string | number,
+        expiresIn: expiresIn,
       }
     );
 
@@ -156,7 +162,7 @@ router.post("/login", async (req: Request, res: Response) => {
 router.post(
   "/logout",
   adminAuthMiddleware,
-  async (req: AdminAuthRequest, res: Response) => {
+  async (req: AdminAuthRequest, res: Response): Promise<Response | void> => {
     try {
       const token = req.headers.authorization?.replace("Bearer ", "");
 
@@ -199,7 +205,7 @@ router.post(
 router.get(
   "/me",
   adminAuthMiddleware,
-  async (req: AdminAuthRequest, res: Response) => {
+  async (req: AdminAuthRequest, res: Response): Promise<Response | void> => {
     try {
       if (!req.admin) {
         return res.status(401).json({ error: "Not authenticated" });
@@ -228,7 +234,7 @@ router.get(
 router.put(
   "/password",
   adminAuthMiddleware,
-  async (req: AdminAuthRequest, res: Response) => {
+  async (req: AdminAuthRequest, res: Response): Promise<Response | void> => {
     try {
       const { currentPassword, newPassword } = req.body;
 

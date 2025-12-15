@@ -16,7 +16,7 @@ const router = express.Router();
 router.get(
   "/",
   adminAuthMiddleware,
-  async (req: AdminAuthRequest, res: Response) => {
+  async (req: AdminAuthRequest, res: Response): Promise<Response | void> => {
     try {
       const { published, search } = req.query;
 
@@ -55,7 +55,7 @@ router.get(
 router.get(
   "/:id",
   adminAuthMiddleware,
-  async (req: AdminAuthRequest, res: Response) => {
+  async (req: AdminAuthRequest, res: Response): Promise<Response | void> => {
     try {
       const { id } = req.params;
 
@@ -85,7 +85,7 @@ router.post(
   "/",
   adminAuthMiddleware,
   requireEditor,
-  async (req: AdminAuthRequest, res: Response) => {
+  async (req: AdminAuthRequest, res: Response): Promise<Response | void> => {
     try {
       const {
         slug,
@@ -167,7 +167,7 @@ router.put(
   "/:id",
   adminAuthMiddleware,
   requireEditor,
-  async (req: AdminAuthRequest, res: Response) => {
+  async (req: AdminAuthRequest, res: Response): Promise<Response | void> => {
     try {
       const { id } = req.params;
       const {
@@ -268,7 +268,7 @@ router.delete(
   "/:id",
   adminAuthMiddleware,
   requireEditor,
-  async (req: AdminAuthRequest, res: Response) => {
+  async (req: AdminAuthRequest, res: Response): Promise<Response | void> => {
     try {
       const { id } = req.params;
 
@@ -317,7 +317,7 @@ router.post(
   "/:id/publish",
   adminAuthMiddleware,
   requireEditor,
-  async (req: AdminAuthRequest, res: Response) => {
+  async (req: AdminAuthRequest, res: Response): Promise<Response | void> => {
     try {
       const { id } = req.params;
 
@@ -371,7 +371,7 @@ router.post(
   "/:id/unpublish",
   adminAuthMiddleware,
   requireEditor,
-  async (req: AdminAuthRequest, res: Response) => {
+  async (req: AdminAuthRequest, res: Response): Promise<Response | void> => {
     try {
       const { id } = req.params;
 

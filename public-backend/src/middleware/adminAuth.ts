@@ -19,7 +19,7 @@ export const adminAuthMiddleware = async (
   req: AdminAuthRequest,
   res: Response,
   next: NextFunction
-): Promise<void> => {
+): Promise<Response | void> => {
   try {
     // Extract token from Authorization header
     const authHeader = req.headers.authorization;
