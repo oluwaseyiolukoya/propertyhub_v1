@@ -370,8 +370,10 @@ app.use("/api/auth", authRoutes);
 app.use("/api/onboarding", onboardingRoutes);
 // Landing page forms (public submission + admin management)
 app.use("/api/landing-forms", require("./routes/landing-forms").default);
-// Career postings are handled by public-backend (api.contrezz.com/api/careers)
-// Removed from app backend to avoid route conflicts
+// Career postings: Public endpoints handled by public-backend (api.contrezz.com/api/careers)
+// Admin endpoints: Use separate admin-only router (no catch-all /:id route to avoid conflicts)
+const adminCareersRoutes = require("./routes/admin-careers").default;
+app.use("/api/admin", adminCareersRoutes);
 // Public plans (no auth required - for landing page)
 app.use("/api/public", publicPlansRoutes);
 // Admin routes

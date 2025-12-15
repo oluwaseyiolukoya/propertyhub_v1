@@ -77,12 +77,14 @@ interface LoginPageProps {
   onLogin: (userType: string, userData: any) => void;
   onBackToHome: () => void;
   onNavigateToScheduleDemo?: () => void;
+  onNavigateToContact?: () => void;
 }
 
 export function LoginPage({
   onLogin,
   onBackToHome,
   onNavigateToScheduleDemo,
+  onNavigateToContact,
 }: LoginPageProps) {
   const [loginForm, setLoginForm] = useState({
     email: "",
@@ -618,7 +620,11 @@ export function LoginPage({
               <Button
                 variant="link"
                 className="p-0 h-auto text-[#7C3AED] hover:text-[#5B21B6] font-semibold"
-                onClick={onNavigateToScheduleDemo || onBackToHome}
+                onClick={
+                  onNavigateToContact ||
+                  onNavigateToScheduleDemo ||
+                  onBackToHome
+                }
               >
                 Contact sales
               </Button>

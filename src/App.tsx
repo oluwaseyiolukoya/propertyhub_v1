@@ -50,6 +50,9 @@ import StorageTest from "./components/StorageTest";
 import CheckAuth from "./components/CheckAuth";
 import { verifyUpgrade } from "./lib/api/subscriptions";
 import { KYCVerificationPage } from "./components/KYCVerificationPage";
+import { PublicAdminLogin } from "./components/public-admin/PublicAdminLogin";
+import { PublicAdminLayout } from "./components/public-admin/PublicAdminLayout";
+import { isAdminAuthenticated } from "./lib/api/publicAdminApi";
 
 function App() {
   // Load platform branding (logo and favicon)
@@ -57,10 +60,57 @@ function App() {
 
   // Detect domain for routing
   const hostname = window.location.hostname;
+  const port = window.location.port;
+  // Check for public landing page query parameter (for local dev)
+  const urlParams = new URLSearchParams(window.location.search);
+  const forcePublic = urlParams.get("public") === "true";
+
+  // Detect if we're in local development
+  const isLocalDev =
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "contrezz.local" ||
+    hostname === "app.contrezz.local";
+
+  // Detect if we're on admin subdomain or admin path
+  const currentPath = window.location.pathname;
+  const isAdminDomain =
+    hostname === "admin.contrezz.com" ||
+    hostname === "admin.contrezz.local" ||
+    (isLocalDev && currentPath.startsWith("/admin"));
+
+  // Get base URLs based on environment
+  const getAppUrl = () => {
+    if (isLocalDev) {
+      return `http://localhost:${port || "5173"}`;
+    }
+    return "https://app.contrezz.com";
+  };
+
+  const getPublicUrl = (path: string = "") => {
+    if (isLocalDev) {
+      // If using contrezz.local, use that; otherwise use localhost with ?public=true
+      const baseUrl =
+        hostname === "contrezz.local"
+          ? `http://contrezz.local:${port || "5173"}`
+          : `http://localhost:${port || "5173"}`;
+      // Add query parameter only if not using contrezz.local
+      const query = hostname === "contrezz.local" ? "" : "?public=true";
+      return `${baseUrl}${path}${query}`;
+    }
+    return `https://contrezz.com${path}`;
+  };
+
   const isAppDomain =
-    hostname === "app.contrezz.com" || hostname === "localhost";
+    !forcePublic &&
+    (hostname === "app.contrezz.com" ||
+      hostname === "app.contrezz.local" ||
+      (hostname === "localhost" && !urlParams.get("public")));
   const isPublicDomain =
-    hostname === "contrezz.com" || hostname === "www.contrezz.com";
+    forcePublic ||
+    hostname === "contrezz.com" ||
+    hostname === "www.contrezz.com" ||
+    hostname === "contrezz.local";
 
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userType, setUserType] = useState<string>("");
@@ -68,10 +118,46 @@ function App() {
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [showLanding, setShowLanding] = useState(!isAppDomain); // Don't show landing on app domain
 
+  // Public Admin State
+  const [publicAdminAuthenticated, setPublicAdminAuthenticated] =
+    useState(false);
+
+  // Check if we're on admin path (for localhost access)
+  const isOnAdminPath = isLocalDev && currentPath.startsWith("/admin");
+  const shouldShowAdmin = isAdminDomain || isOnAdminPath;
+
+  // Check public admin authentication on admin domain or path
+  useEffect(() => {
+    if (shouldShowAdmin) {
+      setPublicAdminAuthenticated(isAdminAuthenticated());
+    }
+  }, [shouldShowAdmin]);
+
+  // Listen for pathname changes (for client-side navigation)
+  useEffect(() => {
+    const handleLocationChange = () => {
+      const path = window.location.pathname;
+      const onAdminPath = isLocalDev && path.startsWith("/admin");
+      if (onAdminPath && !publicAdminAuthenticated) {
+        setPublicAdminAuthenticated(isAdminAuthenticated());
+      }
+    };
+
+    // Listen for popstate (browser back/forward)
+    window.addEventListener("popstate", handleLocationChange);
+
+    return () => {
+      window.removeEventListener("popstate", handleLocationChange);
+    };
+  }, [isLocalDev, publicAdminAuthenticated]);
+
   // Redirect logic: if on wrong domain, redirect to correct one
   useEffect(() => {
     // Skip redirects during auth check
     if (isAuthChecking) return;
+
+    // Skip redirects on admin domain or admin path
+    if (isAdminDomain || isOnAdminPath) return;
 
     // If on app domain but trying to access public routes, redirect to public domain
     if (isAppDomain && !currentUser) {
@@ -94,7 +180,7 @@ function App() {
 
       // Redirect public routes to public domain
       if (publicRoutes.some((route) => currentPath.startsWith(route))) {
-        window.location.href = `https://contrezz.com${currentPath}`;
+        window.location.href = getPublicUrl(currentPath);
         return;
       }
     }
@@ -104,7 +190,7 @@ function App() {
       const currentPath = window.location.pathname;
       // Only redirect if on landing/login pages
       if (currentPath === "/" || currentPath === "/login") {
-        window.location.href = "https://app.contrezz.com/";
+        window.location.href = `${getAppUrl()}/`;
         return;
       }
     }
@@ -270,6 +356,76 @@ function App() {
       setShowCheckAuth(true);
     }
   }, []);
+
+  // Helper function to detect and set page based on pathname
+  const detectAndSetPageFromPathname = () => {
+    if (isAuthChecking) return;
+
+    const pathname = window.location.pathname;
+    const urlParams = new URLSearchParams(window.location.search);
+    const forcePublic = urlParams.get("public") === "true";
+
+    // Only handle pathname detection on public domain or when forced
+    if (!isPublicDomain && !forcePublic) return;
+
+    // Reset all page states first
+    setShowLanding(false);
+    setShowGetStarted(false);
+    setShowAccountReview(false);
+    setShowApplicationStatus(false);
+    setShowAPIDocumentation(false);
+    setShowIntegrations(false);
+    setShowAbout(false);
+    setShowContact(false);
+    setShowScheduleDemo(false);
+    setShowBlog(false);
+    setShowCareers(false);
+    setShowHelpCenter(false);
+    setShowCommunity(false);
+    setShowNewDiscussion(false);
+    setShowStatus(false);
+    setShowSecurity(false);
+
+    // Set the appropriate page based on pathname
+    if (pathname === "/contact") {
+      setShowContact(true);
+    } else if (pathname === "/about") {
+      setShowAbout(true);
+    } else if (pathname === "/blog") {
+      setShowBlog(true);
+    } else if (pathname === "/careers") {
+      setShowCareers(true);
+    } else if (pathname === "/help" || pathname === "/help-center") {
+      setShowHelpCenter(true);
+    } else if (pathname === "/community") {
+      setShowCommunity(true);
+    } else if (pathname === "/status") {
+      setShowStatus(true);
+    } else if (pathname === "/security") {
+      setShowSecurity(true);
+    } else if (pathname === "/login") {
+      // Login page is handled separately
+    } else if (pathname === "/" || pathname === "") {
+      // Show landing page for root
+      setShowLanding(true);
+    }
+  };
+
+  // Detect pathname changes and show appropriate page (for public routes)
+  useEffect(() => {
+    detectAndSetPageFromPathname();
+
+    // Listen for popstate events (back/forward button)
+    const handlePopState = () => {
+      detectAndSetPageFromPathname();
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [isPublicDomain, isAuthChecking, hostname, forcePublic]);
 
   // Ensure socket is connected for all authenticated users (tenant, owner, manager, admin)
   useEffect(() => {
@@ -600,36 +756,70 @@ function App() {
   };
 
   const handleBackToHome = () => {
-    // Navigate to landing page
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    setCurrentUser(null);
-    setUserType("");
-    setShowLanding(true);
-    setShowGetStarted(false);
-    setShowAccountReview(false);
-    setShowApplicationStatus(false);
-    setShowAPIDocumentation(false);
-    setShowIntegrations(false);
-    setShowAbout(false);
-    setShowContact(false);
-    setShowScheduleDemo(false);
-    setShowBlog(false);
-    setShowCareers(false);
-    setShowHelpCenter(false);
-    setShowCommunity(false);
-    setShowNewDiscussion(false);
-    setShowStatus(false);
-    setShowSecurity(false);
-    setSignupData(null);
+    // Redirect to public landing page (contrezz.com)
+    // If already on public domain, show landing page
+    if (isPublicDomain) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setCurrentUser(null);
+      setUserType("");
+      setShowLanding(true);
+      setShowGetStarted(false);
+      setShowAccountReview(false);
+      setShowApplicationStatus(false);
+      setShowAPIDocumentation(false);
+      setShowIntegrations(false);
+      setShowAbout(false);
+      setShowContact(false);
+      setShowScheduleDemo(false);
+      setShowBlog(false);
+      setShowCareers(false);
+      setShowHelpCenter(false);
+      setShowCommunity(false);
+      setShowNewDiscussion(false);
+      setShowStatus(false);
+      setShowSecurity(false);
+      setSignupData(null);
+    } else {
+      // If on app domain, redirect to public landing page
+      window.location.href = getPublicUrl();
+    }
   };
 
   const handleNavigateToLogin = () => {
-    // If on public domain, redirect to app domain for login
+    // If on public domain, handle based on environment
     if (isPublicDomain) {
-      window.location.href = "https://app.contrezz.com/login";
-      return;
+      // In local dev, show login in place (same hostname, no redirect needed)
+      // In production, redirect to app domain (different hostname)
+      if (isLocalDev) {
+        // Same hostname in local dev, just show login page without redirect
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        setShowLanding(false);
+        setShowGetStarted(false);
+        setShowAccountReview(false);
+        setShowApplicationStatus(false);
+        setShowAPIDocumentation(false);
+        setShowIntegrations(false);
+        setShowAbout(false);
+        setShowContact(false);
+        setShowScheduleDemo(false);
+        setShowBlog(false);
+        setShowCareers(false);
+        setShowHelpCenter(false);
+        setShowCommunity(false);
+        setShowNewDiscussion(false);
+        setShowStatus(false);
+        setShowSecurity(false);
+        // Update URL to /login without full page reload
+        window.history.pushState({}, "", "/login");
+        return;
+      } else {
+        // Different hostnames in production, redirect to app domain
+        window.location.href = `${getAppUrl()}/login`;
+        return;
+      }
     }
 
+    // If already on app domain, just show login (no redirect needed)
     window.scrollTo({ top: 0, behavior: "smooth" });
     setShowLanding(false);
     setShowGetStarted(false);
@@ -747,6 +937,41 @@ function App() {
   };
 
   const handleNavigateToContact = () => {
+    // If on app domain, handle based on environment
+    if (isAppDomain) {
+      // In local dev, show contact page in place (same hostname, no redirect needed)
+      // In production, redirect to public domain (different hostname)
+      if (isLocalDev) {
+        // Same hostname in local dev, just show contact page without redirect
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        setShowLanding(false);
+        setShowGetStarted(false);
+        setShowAccountReview(false);
+        setShowApplicationStatus(false);
+        setShowAPIDocumentation(false);
+        setShowIntegrations(false);
+        setShowAbout(false);
+        setShowContact(true);
+        setShowScheduleDemo(false);
+        setShowBlog(false);
+        setShowCareers(false);
+        setShowHelpCenter(false);
+        setShowCommunity(false);
+        setShowNewDiscussion(false);
+        setShowStatus(false);
+        setShowSecurity(false);
+        // Update URL to /contact?public=true without full page reload
+        window.history.pushState({}, "", "/contact?public=true");
+        // Note: We've already set showContact(true) above, so no need to call detectAndSetPageFromPathname()
+        // The helper function is useful for direct navigation or browser back/forward
+        return;
+      } else {
+        // Different hostnames in production, redirect to public domain
+        window.location.href = getPublicUrl("/contact");
+        return;
+      }
+    }
+    // If on public domain, show contact page
     window.scrollTo({ top: 0, behavior: "smooth" });
     setShowLanding(false);
     setShowGetStarted(false);
@@ -1082,6 +1307,32 @@ function App() {
     currentUser
   );
 
+  // Public Admin Interface (admin subdomain or /admin path) - Check before other routing
+  if (shouldShowAdmin) {
+    const pathname = window.location.pathname;
+
+    // Show login if not authenticated
+    if (!publicAdminAuthenticated && pathname !== "/admin/login") {
+      return (
+        <PublicAdminLogin
+          onLoginSuccess={() => setPublicAdminAuthenticated(true)}
+        />
+      );
+    }
+
+    // Show admin interface if authenticated
+    if (publicAdminAuthenticated) {
+      return <PublicAdminLayout />;
+    }
+
+    // Show login page
+    return (
+      <PublicAdminLogin
+        onLoginSuccess={() => setPublicAdminAuthenticated(true)}
+      />
+    );
+  }
+
   // Show loading while checking auth
   if (isAuthChecking) {
     return (
@@ -1351,6 +1602,7 @@ function App() {
           onLogin={handleLogin}
           onBackToHome={handleBackToHome}
           onNavigateToScheduleDemo={handleNavigateToScheduleDemo}
+          onNavigateToContact={handleNavigateToContact}
         />
         <Toaster />
       </>
@@ -1448,6 +1700,7 @@ function App() {
           onLogin={handleLogin}
           onBackToHome={handleBackToHome}
           onNavigateToScheduleDemo={handleNavigateToScheduleDemo}
+          onNavigateToContact={handleNavigateToContact}
         />
         <Toaster />
       </>

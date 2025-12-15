@@ -61,7 +61,6 @@ import { SupportTickets } from "./SupportTickets";
 import { PlatformSettings } from "./PlatformSettings";
 import { AddCustomerPage } from "./AddCustomerPage";
 import { OnboardingManager } from "./admin/OnboardingManager";
-import { LandingPageManagement } from "./admin/LandingPageManagement";
 import { VerificationManagement } from "./admin/VerificationManagement";
 import { Documentation } from "./admin/Documentation";
 import { Footer } from "./Footer";
@@ -1154,7 +1153,6 @@ export function SuperAdminDashboard({
     { id: "overview", name: "Overview", permission: null },
     // Show page if user has explicit page permission OR any action within that area
     { id: "onboarding", name: "Onboarding", permission: null }, // Available to all admins
-    { id: "landing-page", name: "Landing Page", permission: null }, // Available to all admins
     {
       id: "customers",
       name: "Customers",
@@ -3138,9 +3136,6 @@ export function SuperAdminDashboard({
                 }}
               />
             )}
-
-            {/* Landing Page Management Tab */}
-            {activeTab === "landing-page" && <LandingPageManagement />}
 
             {/* Other tabs coming soon */}
             {activeTab === "billing" && <BillingPlansAdmin />}

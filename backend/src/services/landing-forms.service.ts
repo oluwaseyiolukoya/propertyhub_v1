@@ -1,9 +1,15 @@
-import prisma from '../lib/db';
-import { randomUUID } from 'crypto';
-import { sendContactFormConfirmation } from '../lib/email';
+import prisma from "../lib/db";
+import { randomUUID } from "crypto";
+import { sendContactFormConfirmation } from "../lib/email";
 
 export interface SubmissionData {
-  formType: 'contact_us' | 'schedule_demo' | 'blog_inquiry' | 'community_request' | 'partnership' | 'support';
+  formType:
+    | "contact_us"
+    | "schedule_demo"
+    | "blog_inquiry"
+    | "community_request"
+    | "partnership"
+    | "support";
   name: string;
   email: string;
   phone?: string;
@@ -45,7 +51,7 @@ export interface UpdateData {
 }
 
 export interface ResponseData {
-  responseType: 'email' | 'phone' | 'meeting' | 'internal_note';
+  responseType: "email" | "phone" | "meeting" | "internal_note";
   content: string;
   respondedById: string;
   attachments?: any;
@@ -53,7 +59,10 @@ export interface ResponseData {
 
 export class LandingFormsService {
   // Rate limiting map (in production, use Redis)
-  private submissionAttempts = new Map<string, { count: number; resetAt: number }>();
+  private submissionAttempts = new Map<
+    string,
+    { count: number; resetAt: number }
+  >();
 
   /**
    * Check rate limit for IP address
@@ -72,10 +81,16 @@ export class LandingFormsService {
         }
         attempts.count++;
       } else {
-        this.submissionAttempts.set(ipAddress, { count: 1, resetAt: now + windowMs });
+        this.submissionAttempts.set(ipAddress, {
+          count: 1,
+          resetAt: now + windowMs,
+        });
       }
     } else {
-      this.submissionAttempts.set(ipAddress, { count: 1, resetAt: now + windowMs });
+      this.submissionAttempts.set(ipAddress, {
+        count: 1,
+        resetAt: now + windowMs,
+      });
     }
 
     return true; // Not rate limited
@@ -86,8 +101,12 @@ export class LandingFormsService {
    */
   private async detectSpam(data: SubmissionData): Promise<boolean> {
     // Check for common spam patterns
-    const spamKeywords = ['viagra', 'casino', 'lottery', 'bitcoin', 'crypto'];
-    const messageText = (data.message + ' ' + (data.subject || '')).toLowerCase();
+    const spamKeywords = ["viagra", "casino", "lottery", "bitcoin", "crypto"];
+    const messageText = (
+      data.message +
+      " " +
+      (data.subject || "")
+    ).toLowerCase();
 
     for (const keyword of spamKeywords) {
       if (messageText.includes(keyword)) {
@@ -96,8 +115,12 @@ export class LandingFormsService {
     }
 
     // Check for suspicious email domains
-    const suspiciousDomains = ['temp-mail.org', 'throwaway.email', 'guerrillamail.com'];
-    const emailDomain = data.email.split('@')[1];
+    const suspiciousDomains = [
+      "temp-mail.org",
+      "throwaway.email",
+      "guerrillamail.com",
+    ];
+    const emailDomain = data.email.split("@")[1];
     if (suspiciousDomains.includes(emailDomain)) {
       return true;
     }
@@ -129,7 +152,7 @@ export class LandingFormsService {
   ): Promise<any> {
     // Rate limiting check
     if (ipAddress && !this.checkRateLimit(ipAddress)) {
-      throw new Error('Too many submissions. Please try again tomorrow.');
+      throw new Error("Too many submissions. Please try again tomorrow.");
     }
 
     // Spam detection
@@ -157,8 +180,8 @@ export class LandingFormsService {
         customFields: data.customFields,
         ipAddress,
         userAgent,
-        status: isSpam ? 'spam' : 'new',
-        priority: 'normal',
+        status: isSpam ? "spam" : "new",
+        priority: "normal",
         internalTags: [],
         updatedAt: new Date(),
       },
@@ -177,9 +200,11 @@ export class LandingFormsService {
           subject: submission.subject || undefined,
           message: submission.message,
         });
-        console.log(`✅ Confirmation email sent successfully to ${submission.email}`);
+        console.log(
+          `✅ Confirmation email sent successfully to ${submission.email}`
+        );
       } catch (emailError) {
-        console.error('❌ Failed to send confirmation email:', emailError);
+        console.error("❌ Failed to send confirmation email:", emailError);
         // Don't fail the submission if email fails
       }
 
@@ -216,15 +241,15 @@ export class LandingFormsService {
       where.deletedAt = null; // Show only active (deletedAt IS null)
     }
 
-    if (formType && formType !== 'all') {
+    if (formType && formType !== "all") {
       where.formType = formType;
     }
 
-    if (status && status !== 'all') {
+    if (status && status !== "all") {
       where.status = status;
     }
 
-    if (priority && priority !== 'all') {
+    if (priority && priority !== "all") {
       where.priority = priority;
     }
 
@@ -234,10 +259,10 @@ export class LandingFormsService {
 
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-        { company: { contains: search, mode: 'insensitive' } },
-        { message: { contains: search, mode: 'insensitive' } },
+        { name: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+        { company: { contains: search, mode: "insensitive" } },
+        { message: { contains: search, mode: "insensitive" } },
       ];
     }
 
@@ -266,7 +291,7 @@ export class LandingFormsService {
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -315,13 +340,13 @@ export class LandingFormsService {
               },
             },
           },
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
         },
       },
     });
 
     if (!submission) {
-      throw new Error('Submission not found');
+      throw new Error("Submission not found");
     }
 
     return submission;
@@ -334,18 +359,20 @@ export class LandingFormsService {
     const updateData: any = { ...updates, updatedAt: new Date() };
 
     // Set timestamps based on status changes
-    if (updates.status === 'contacted' && !updateData.contactedAt) {
+    if (updates.status === "contacted" && !updateData.contactedAt) {
       updateData.contactedAt = new Date();
     }
-    if (updates.status === 'resolved' && !updateData.resolvedAt) {
+    if (updates.status === "resolved" && !updateData.resolvedAt) {
       updateData.resolvedAt = new Date();
     }
 
     // Check if submission is archived and unarchive it if being updated
-    const existingSubmission = await prisma.landing_page_submissions.findUnique({
-      where: { id },
-      select: { deletedAt: true },
-    });
+    const existingSubmission = await prisma.landing_page_submissions.findUnique(
+      {
+        where: { id },
+        select: { deletedAt: true },
+      }
+    );
 
     if (existingSubmission?.deletedAt) {
       // Unarchive the submission by clearing deletedAt
@@ -425,7 +452,7 @@ export class LandingFormsService {
     await prisma.landing_page_submissions.update({
       where: { id },
       data: {
-        responseStatus: 'replied',
+        responseStatus: "replied",
         responseDate: new Date(),
         responseBy: response.respondedById,
         updatedAt: new Date(),
@@ -463,88 +490,120 @@ export class LandingFormsService {
    * Get statistics
    */
   async getStatistics(dateFrom?: Date, dateTo?: Date): Promise<any> {
-    const where: any = { deletedAt: null };
+    try {
+      const where: any = { deletedAt: null };
 
-    if (dateFrom || dateTo) {
-      where.createdAt = {};
-      if (dateFrom) where.createdAt.gte = dateFrom;
-      if (dateTo) where.createdAt.lte = dateTo;
-    }
-
-    const [
-      total,
-      byType,
-      byStatus,
-      byPriority,
-      avgResponseTime,
-    ] = await Promise.all([
-      // Total submissions
-      prisma.landing_page_submissions.count({ where }),
-
-      // By form type
-      prisma.landing_page_submissions.groupBy({
-        by: ['formType'],
-        where,
-        _count: true,
-      }),
-
-      // By status
-      prisma.landing_page_submissions.groupBy({
-        by: ['status'],
-        where,
-        _count: true,
-      }),
-
-      // By priority
-      prisma.landing_page_submissions.groupBy({
-        by: ['priority'],
-        where,
-        _count: true,
-      }),
-
-      // Average response time (for resolved items)
-      prisma.landing_page_submissions.findMany({
-        where: {
-          ...where,
-          resolvedAt: { not: null },
-          createdAt: { not: null },
-        },
-        select: {
-          createdAt: true,
-          resolvedAt: true,
-        },
-      }),
-    ]);
-
-    // Calculate average response time in hours
-    let totalResponseTime = 0;
-    avgResponseTime.forEach((item) => {
-      if (item.resolvedAt && item.createdAt) {
-        const diff = item.resolvedAt.getTime() - item.createdAt.getTime();
-        totalResponseTime += diff;
+      if (dateFrom || dateTo) {
+        where.createdAt = {};
+        if (dateFrom) where.createdAt.gte = dateFrom;
+        if (dateTo) where.createdAt.lte = dateTo;
       }
-    });
 
-    const avgHours = avgResponseTime.length > 0
-      ? totalResponseTime / avgResponseTime.length / (1000 * 60 * 60)
-      : 0;
+      const [total, byType, byStatus, byPriority, avgResponseTime] =
+        await Promise.all([
+          // Total submissions
+          prisma.landing_page_submissions.count({ where }).catch((e) => {
+            console.error("Error counting total submissions:", e);
+            return 0;
+          }),
 
-    return {
-      total,
-      byType: byType.reduce((acc: any, curr: any) => {
-        acc[curr.formType] = curr._count;
-        return acc;
-      }, {}),
-      byStatus: byStatus.reduce((acc: any, curr: any) => {
-        acc[curr.status] = curr._count;
-        return acc;
-      }, {}),
-      byPriority: byPriority.reduce((acc: any, curr: any) => {
-        acc[curr.priority] = curr._count;
-        return acc;
-      }, {}),
-      avgResponseTimeHours: Math.round(avgHours * 10) / 10,
-    };
+          // By form type
+          prisma.landing_page_submissions
+            .groupBy({
+              by: ["formType"],
+              where,
+              _count: true,
+            })
+            .catch((e) => {
+              console.error("Error grouping by formType:", e);
+              return [];
+            }),
+
+          // By status
+          prisma.landing_page_submissions
+            .groupBy({
+              by: ["status"],
+              where,
+              _count: true,
+            })
+            .catch((e) => {
+              console.error("Error grouping by status:", e);
+              return [];
+            }),
+
+          // By priority
+          prisma.landing_page_submissions
+            .groupBy({
+              by: ["priority"],
+              where,
+              _count: true,
+            })
+            .catch((e) => {
+              console.error("Error grouping by priority:", e);
+              return [];
+            }),
+
+          // Average response time (for resolved items)
+          prisma.landing_page_submissions
+            .findMany({
+              where: {
+                ...where,
+                resolvedAt: { not: null },
+                createdAt: { not: null },
+              },
+              select: {
+                createdAt: true,
+                resolvedAt: true,
+              },
+            })
+            .catch((e) => {
+              console.error("Error finding resolved submissions:", e);
+              return [];
+            }),
+        ]);
+
+      // Calculate average response time in hours
+      let totalResponseTime = 0;
+      if (Array.isArray(avgResponseTime)) {
+        avgResponseTime.forEach((item) => {
+          if (item?.resolvedAt && item?.createdAt) {
+            const diff = item.resolvedAt.getTime() - item.createdAt.getTime();
+            totalResponseTime += diff;
+          }
+        });
+      }
+
+      const avgHours =
+        Array.isArray(avgResponseTime) && avgResponseTime.length > 0
+          ? totalResponseTime / avgResponseTime.length / (1000 * 60 * 60)
+          : 0;
+
+      return {
+        total: total || 0,
+        byType: Array.isArray(byType)
+          ? byType.reduce((acc: any, curr: any) => {
+              acc[curr.formType] = curr._count;
+              return acc;
+            }, {})
+          : {},
+        byStatus: Array.isArray(byStatus)
+          ? byStatus.reduce((acc: any, curr: any) => {
+              acc[curr.status] = curr._count;
+              return acc;
+            }, {})
+          : {},
+        byPriority: Array.isArray(byPriority)
+          ? byPriority.reduce((acc: any, curr: any) => {
+              acc[curr.priority] = curr._count;
+              return acc;
+            }, {})
+          : {},
+        avgResponseTimeHours: Math.round(avgHours * 10) / 10,
+      };
+    } catch (error: any) {
+      console.error("❌ getStatistics error:", error);
+      throw new Error(`Failed to fetch statistics: ${error.message}`);
+    }
   }
 
   /**
@@ -552,38 +611,42 @@ export class LandingFormsService {
    */
   async bulkAction(ids: string[], action: string, value?: any): Promise<any> {
     switch (action) {
-      case 'mark_as_read':
+      case "mark_as_read":
         return await prisma.landing_page_submissions.updateMany({
           where: { id: { in: ids } },
-          data: { status: 'contacted', contactedAt: new Date(), updatedAt: new Date() },
+          data: {
+            status: "contacted",
+            contactedAt: new Date(),
+            updatedAt: new Date(),
+          },
         });
 
-      case 'assign':
+      case "assign":
         return await prisma.landing_page_submissions.updateMany({
           where: { id: { in: ids } },
           data: { assignedToId: value, updatedAt: new Date() },
         });
 
-      case 'change_status':
+      case "change_status":
         return await prisma.landing_page_submissions.updateMany({
           where: { id: { in: ids } },
           data: { status: value, updatedAt: new Date() },
         });
 
-      case 'change_priority':
+      case "change_priority":
         return await prisma.landing_page_submissions.updateMany({
           where: { id: { in: ids } },
           data: { priority: value, updatedAt: new Date() },
         });
 
-      case 'delete':
+      case "delete":
         return await prisma.landing_page_submissions.updateMany({
           where: { id: { in: ids } },
           data: { deletedAt: new Date(), updatedAt: new Date() },
         });
 
       default:
-        throw new Error('Invalid bulk action');
+        throw new Error("Invalid bulk action");
     }
   }
 
@@ -591,13 +654,27 @@ export class LandingFormsService {
    * Export submissions to CSV
    */
   async exportSubmissions(filters: FilterOptions = {}): Promise<string> {
-    const { submissions } = await this.getSubmissions({ ...filters, limit: 10000 });
+    const { submissions } = await this.getSubmissions({
+      ...filters,
+      limit: 10000,
+    });
 
     // CSV header
     const headers = [
-      'ID', 'Form Type', 'Name', 'Email', 'Phone', 'Company',
-      'Subject', 'Message', 'Status', 'Priority', 'Assigned To',
-      'Created At', 'Contacted At', 'Resolved At',
+      "ID",
+      "Form Type",
+      "Name",
+      "Email",
+      "Phone",
+      "Company",
+      "Subject",
+      "Message",
+      "Status",
+      "Priority",
+      "Assigned To",
+      "Created At",
+      "Contacted At",
+      "Resolved At",
     ];
 
     // CSV rows
@@ -606,25 +683,25 @@ export class LandingFormsService {
       sub.formType,
       sub.name,
       sub.email,
-      sub.phone || '',
-      sub.company || '',
-      sub.subject || '',
-      sub.message.replace(/\n/g, ' ').replace(/"/g, '""'),
+      sub.phone || "",
+      sub.company || "",
+      sub.subject || "",
+      sub.message.replace(/\n/g, " ").replace(/"/g, '""'),
       sub.status,
       sub.priority,
-      sub.assignedTo?.name || '',
+      sub.assignedTo?.name || "",
       sub.createdAt.toISOString(),
-      sub.contactedAt?.toISOString() || '',
-      sub.resolvedAt?.toISOString() || '',
+      sub.contactedAt?.toISOString() || "",
+      sub.resolvedAt?.toISOString() || "",
     ]);
 
     // Build CSV
     const csv = [
-      headers.join(','),
+      headers.join(","),
       ...rows.map((row: any[]) =>
-        row.map((cell: any) => `"${cell}"`).join(',')
+        row.map((cell: any) => `"${cell}"`).join(",")
       ),
-    ].join('\n');
+    ].join("\n");
 
     return csv;
   }
@@ -634,9 +711,10 @@ export class LandingFormsService {
    */
   private async notifyAdmins(submission: any): Promise<void> {
     // TODO: Implement email notification
-    console.log(`📧 New ${submission.formType} submission from ${submission.email}`);
+    console.log(
+      `📧 New ${submission.formType} submission from ${submission.email}`
+    );
   }
 }
 
 export const landingFormsService = new LandingFormsService();
-

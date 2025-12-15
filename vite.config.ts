@@ -30,6 +30,8 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    host: true, // Allow access from network and custom hostnames (e.g., contrezz.local)
+    strictPort: false, // Allow port to be changed if 5173 is in use
     proxy: {
       "/api": {
         // In development, always proxy to local backend

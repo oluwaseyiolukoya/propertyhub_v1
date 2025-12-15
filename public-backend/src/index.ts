@@ -5,6 +5,9 @@ import morgan from "morgan";
 import dotenv from "dotenv";
 import { rateLimiter } from "./middleware/rateLimiter";
 import careerRoutes from "./routes/careers";
+import adminAuthRoutes from "./routes/admin/auth";
+import adminLandingPagesRoutes from "./routes/admin/landing-pages";
+import adminCareersRoutes from "./routes/admin/careers";
 
 // Load environment variables
 dotenv.config();
@@ -61,46 +64,6 @@ app.use(
   })
 );
 
-// CORS configuration
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
-  .split(",")
-  .filter(Boolean);
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, Postman, etc.)
-      if (!origin) return callback(null, true);
-
-      // In development, allow localhost with any port
-      if (
-        process.env.NODE_ENV === "development" &&
-        origin.startsWith("http://localhost:")
-      ) {
-        return callback(null, true);
-      }
-
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: false, // No auth cookies needed for public API
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "Cache-Control",
-      "Pragma",
-      "Accept",
-      "Origin",
-      "X-Requested-With",
-    ],
-    exposedHeaders: ["Content-Length", "Content-Type"],
-    maxAge: 86400, // 24 hours - cache preflight requests
-  })
-);
-
 // Logging
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
@@ -127,8 +90,13 @@ app.get("/health", (req, res) => {
   });
 });
 
-// API Routes
+// Public API Routes
 app.use("/api/careers", careerRoutes);
+
+// Admin API Routes (require authentication)
+app.use("/api/admin/auth", adminAuthRoutes);
+app.use("/api/admin/landing-pages", adminLandingPagesRoutes);
+app.use("/api/admin/careers", adminCareersRoutes);
 
 // Root endpoint
 app.get("/", (req, res) => {
@@ -138,6 +106,11 @@ app.get("/", (req, res) => {
     endpoints: {
       careers: "/api/careers",
       health: "/health",
+      admin: {
+        auth: "/api/admin/auth",
+        landingPages: "/api/admin/landing-pages",
+        careers: "/api/admin/careers",
+      },
     },
     documentation: "https://docs.contrezz.com/api",
   });
