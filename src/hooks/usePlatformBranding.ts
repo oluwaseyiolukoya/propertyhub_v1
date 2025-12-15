@@ -6,7 +6,17 @@ interface BrandingSettings {
 }
 
 // Get API base URL from environment
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '' : '');
+// For admin domain, skip branding (it's a separate system)
+const isAdminDomain = 
+  typeof window !== 'undefined' && (
+    window.location.hostname === 'admin.contrezz.com' ||
+    window.location.hostname === 'admin.contrezz.local' ||
+    (window.location.hostname === 'localhost' && window.location.pathname.startsWith('/admin'))
+  );
+
+const API_BASE_URL = isAdminDomain 
+  ? null // Skip branding for admin domain
+  : (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '' : ''));
 
 export function usePlatformBranding() {
   const [branding, setBranding] = useState<BrandingSettings>({
@@ -16,6 +26,11 @@ export function usePlatformBranding() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Skip branding fetch for admin domain
+    if (isAdminDomain) {
+      setLoading(false);
+      return;
+    }
     fetchBranding();
   }, []);
 
@@ -30,6 +45,11 @@ export function usePlatformBranding() {
   }, [branding.faviconUrl]);
 
   const fetchBranding = async () => {
+    // Skip if admin domain or no API URL
+    if (isAdminDomain || !API_BASE_URL) {
+      return;
+    }
+
     try {
       const token =
         localStorage.getItem('auth_token') ||

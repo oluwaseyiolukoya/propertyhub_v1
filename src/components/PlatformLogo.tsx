@@ -10,7 +10,17 @@ interface PlatformLogoProps {
 }
 
 // Get API base URL from environment
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '' : '');
+// For admin domain, skip branding (it's a separate system)
+const isAdminDomain = 
+  typeof window !== 'undefined' && (
+    window.location.hostname === 'admin.contrezz.com' ||
+    window.location.hostname === 'admin.contrezz.local' ||
+    (window.location.hostname === 'localhost' && window.location.pathname.startsWith('/admin'))
+  );
+
+const API_BASE_URL = isAdminDomain 
+  ? null // Skip branding for admin domain
+  : (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '' : ''));
 
 export function PlatformLogo({
   className = "flex items-center",
@@ -23,10 +33,21 @@ export function PlatformLogo({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Skip branding fetch for admin domain
+    if (isAdminDomain) {
+      setLoading(false);
+      if (onLogoLoad) onLogoLoad(false);
+      return;
+    }
     fetchLogo();
   }, []);
 
   const fetchLogo = async () => {
+    // Skip if admin domain or no API URL
+    if (isAdminDomain || !API_BASE_URL) {
+      return;
+    }
+
     try {
       // Try multiple token sources (auth_token is the correct key used by the app)
       const token =

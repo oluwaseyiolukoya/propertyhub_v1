@@ -34,7 +34,7 @@ services:
         # Value must be set in DigitalOcean console - never commit passwords
         # Get connection string from: doctl databases connection contrezz-public-db --format ConnectionString
       - key: ALLOWED_ORIGINS
-        value: "https://contrezz.com,https://www.contrezz.com"
+        value: "https://contrezz.com,https://www.contrezz.com,https://admin.contrezz.com"
       - key: APP_URL
         value: "https://app.contrezz.com"
       - key: APP_SIGNUP_URL
