@@ -38,7 +38,7 @@ router.get(
         orderBy: [{ order: "asc" }, { createdAt: "desc" }],
       });
 
-      res.json({ pages });
+      return res.json({ pages });
     } catch (error: any) {
       console.error("List landing pages error:", error);
       return res.status(500).json({
@@ -67,7 +67,7 @@ router.get(
         return res.status(404).json({ error: "Landing page not found" });
       }
 
-      res.json({ page });
+      return res.json({ page });
     } catch (error: any) {
       console.error("Get landing page error:", error);
       return res.status(500).json({
@@ -146,7 +146,7 @@ router.post(
         );
       }
 
-      res.status(201).json({
+      return res.status(201).json({
         message: "Landing page created successfully",
         page,
       });
@@ -247,7 +247,7 @@ router.put(
         );
       }
 
-      res.json({
+      return res.json({
         message: "Landing page updated successfully",
         page,
       });
@@ -297,7 +297,7 @@ router.delete(
         );
       }
 
-      res.json({
+      return res.json({
         message: "Landing page deleted successfully",
       });
     } catch (error: any) {
@@ -350,7 +350,7 @@ router.post(
         );
       }
 
-      res.json({
+      return res.json({
         message: "Landing page published successfully",
         page: updated,
       });
@@ -404,7 +404,7 @@ router.post(
         );
       }
 
-      res.json({
+      return res.json({
         message: "Landing page unpublished successfully",
         page: updated,
       });

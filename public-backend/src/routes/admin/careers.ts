@@ -73,7 +73,7 @@ router.get(
         prisma.career_postings.count({ where }),
       ]);
 
-      res.json({
+      return res.json({
         postings,
         pagination: {
           total,
@@ -101,7 +101,7 @@ router.get(
   async (req: AdminAuthRequest, res: Response) => {
     try {
       const stats = await careerService.getPublicStatistics();
-      res.json(stats);
+      return res.json(stats);
     } catch (error: any) {
       console.error("Get career stats error:", error);
       return res.status(500).json({
@@ -170,7 +170,7 @@ router.post(
         );
       }
 
-      res.status(201).json({
+      return res.status(201).json({
         message: "Career posting created successfully",
         posting,
       });
@@ -221,7 +221,7 @@ router.put(
         );
       }
 
-      res.json({
+      return res.json({
         message: "Career posting updated successfully",
         posting,
       });
@@ -272,7 +272,7 @@ router.delete(
         );
       }
 
-      res.json({
+      return res.json({
         message: "Career posting deleted successfully",
       });
     } catch (error: any) {

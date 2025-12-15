@@ -59,7 +59,7 @@ router.post(
         req.headers["user-agent"]
       );
 
-      res.status(201).json({
+      return res.status(201).json({
         message: "Admin created successfully",
         admin,
       });
@@ -100,9 +100,9 @@ router.post("/login", async (req: Request, res: Response) => {
         email: admin.email,
         role: admin.role,
       },
-      process.env.PUBLIC_ADMIN_JWT_SECRET,
+      process.env.PUBLIC_ADMIN_JWT_SECRET as string,
       {
-        expiresIn: process.env.PUBLIC_ADMIN_JWT_EXPIRES_IN || "24h",
+        expiresIn: (process.env.PUBLIC_ADMIN_JWT_EXPIRES_IN || "24h") as string | number,
       }
     );
 
@@ -131,7 +131,7 @@ router.post("/login", async (req: Request, res: Response) => {
       req.headers["user-agent"]
     );
 
-    res.json({
+    return res.json({
       message: "Login successful",
       token,
       admin: {
@@ -211,7 +211,7 @@ router.get(
         return res.status(404).json({ error: "Admin not found" });
       }
 
-      res.json({ admin });
+      return res.json({ admin });
     } catch (error: any) {
       console.error("Get admin error:", error);
       return res.status(500).json({
