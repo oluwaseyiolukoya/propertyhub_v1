@@ -1,5 +1,5 @@
 import express, { Request, Response } from "express";
-import jwt from "jsonwebtoken";
+import jwt, { SignOptions } from "jsonwebtoken";
 import prisma from "../../lib/db";
 import adminService from "../../services/admin.service";
 import {
@@ -95,7 +95,7 @@ router.post("/login", async (req: Request, res: Response) => {
     }
 
     const secret = process.env.PUBLIC_ADMIN_JWT_SECRET;
-    if (!secret) {
+    if (!secret || typeof secret !== "string") {
       throw new Error("PUBLIC_ADMIN_JWT_SECRET not configured");
     }
 
@@ -109,7 +109,7 @@ router.post("/login", async (req: Request, res: Response) => {
       secret,
       {
         expiresIn: expiresIn,
-      }
+      } as SignOptions
     );
 
     // Create session
