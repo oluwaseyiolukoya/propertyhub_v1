@@ -370,9 +370,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/onboarding", onboardingRoutes);
 // Landing page forms (public submission + admin management)
 app.use("/api/landing-forms", require("./routes/landing-forms").default);
-// Career postings (public + admin management)
-import careersRoutes from "./routes/careers";
-app.use("/api", careersRoutes);
+// Career postings are handled by public-backend (api.contrezz.com/api/careers)
+// Removed from app backend to avoid route conflicts
 // Public plans (no auth required - for landing page)
 app.use("/api/public", publicPlansRoutes);
 // Admin routes

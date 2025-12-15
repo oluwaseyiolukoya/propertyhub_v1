@@ -31,9 +31,8 @@ services:
         value: "8080" # DigitalOcean uses 8080 internally
       - key: PUBLIC_DATABASE_URL
         type: SECRET
-        # Set this value in DigitalOcean App Platform console after deployment
-        # Get connection string: doctl databases connection cfac56be-0cc6-4a18-af98-39d2eab0e719
-        value: "SET_IN_DIGITALOCEAN_CONSOLE"
+        # Value must be set in DigitalOcean console - never commit passwords
+        # Get connection string from: doctl databases connection contrezz-public-db --format ConnectionString
       - key: ALLOWED_ORIGINS
         value: "https://contrezz.com,https://www.contrezz.com"
       - key: APP_URL

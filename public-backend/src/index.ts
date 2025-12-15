@@ -12,16 +12,24 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5001;
 
-// Security middleware
-app.use(helmet());
-
+// CORS must be before helmet to avoid conflicts
 // CORS configuration
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || "").split(",");
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .filter(Boolean);
 app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (mobile apps, Postman, etc.)
       if (!origin) return callback(null, true);
+
+      // In development, allow localhost with any port
+      if (
+        process.env.NODE_ENV === "development" &&
+        origin.startsWith("http://localhost:")
+      ) {
+        return callback(null, true);
+      }
 
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
@@ -30,6 +38,66 @@ app.use(
       }
     },
     credentials: false, // No auth cookies needed for public API
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "Cache-Control",
+      "Pragma",
+      "Accept",
+      "Origin",
+      "X-Requested-With",
+    ],
+    exposedHeaders: ["Content-Length", "Content-Type"],
+    maxAge: 86400, // 24 hours - cache preflight requests
+  })
+);
+
+// Security middleware (after CORS)
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginOpenerPolicy: { policy: "unsafe-none" },
+  })
+);
+
+// CORS configuration
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .filter(Boolean);
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) return callback(null, true);
+
+      // In development, allow localhost with any port
+      if (
+        process.env.NODE_ENV === "development" &&
+        origin.startsWith("http://localhost:")
+      ) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: false, // No auth cookies needed for public API
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "Cache-Control",
+      "Pragma",
+      "Accept",
+      "Origin",
+      "X-Requested-With",
+    ],
+    exposedHeaders: ["Content-Length", "Content-Type"],
+    maxAge: 86400, // 24 hours - cache preflight requests
   })
 );
 

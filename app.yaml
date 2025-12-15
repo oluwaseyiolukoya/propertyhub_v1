@@ -25,9 +25,14 @@ static_sites:
       - key: VITE_PUBLIC_API_URL
         value: https://api.contrezz.com/api
 
-    # Routes
+    # Routes - catch-all for SPA routing
     routes:
       - path: /
+
+    # Custom Pages - catch-all to serve index.html for all routes
+    # This is required for SPA client-side routing
+    # Configure in DigitalOcean console: Settings → frontend component → Custom Pages
+    # Add: Type: Catchall, Page Name: index.html
 
 # Backend Service - Main API (Node.js/Express)
 services:
