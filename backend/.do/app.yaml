@@ -65,12 +65,16 @@ services:
       - key: PAYSTACK_PUBLIC_KEY
         value: ${PAYSTACK_PUBLIC_KEY}
 
-      # Frontend URL (update after frontend deployment)
+      # Frontend URL (app dashboard, NOT landing page)
       - key: FRONTEND_URL
-        value: https://contrezz.com
+        value: https://app.contrezz.com
 
       - key: CORS_ORIGIN
-        value: https://contrezz.com
+        value: https://app.contrezz.com
+
+      # Monicredit configuration - enable trust redirect for demo/sandbox environments
+      - key: MONICREDIT_TRUST_REDIRECT
+        value: "true"
 
     # Routes
     routes:
