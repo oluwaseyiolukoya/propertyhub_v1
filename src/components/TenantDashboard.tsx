@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Home,
   CreditCard,
@@ -8,20 +8,24 @@ import {
   LogOut,
   Bell,
   Menu,
-  X
-} from 'lucide-react';
-import { Button } from './ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { Badge } from './ui/badge';
-import { toast } from 'sonner';
-import TenantOverview from './TenantOverview';
-import TenantPaymentsPage from './TenantPaymentsPage';
-import TenantMaintenanceRequests from './TenantMaintenanceRequests';
-import TenantDocuments from './TenantDocuments';
-import TenantSettings from './TenantSettings';
-import { Footer } from './Footer';
-import { getTenantDashboardOverview, getUserData, removeAuthToken } from '../lib/api';
-import { usePersistentState } from '../lib/usePersistentState';
+  X,
+} from "lucide-react";
+import { Button } from "./ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Badge } from "./ui/badge";
+import { toast } from "sonner";
+import TenantOverview from "./TenantOverview";
+import TenantPaymentsPage from "./TenantPaymentsPage";
+import TenantMaintenanceRequests from "./TenantMaintenanceRequests";
+import TenantDocuments from "./TenantDocuments";
+import TenantSettings from "./TenantSettings";
+import { Footer } from "./Footer";
+import {
+  getTenantDashboardOverview,
+  getUserData,
+  removeAuthToken,
+} from "../lib/api";
+import { usePersistentState } from "../lib/usePersistentState";
 
 // Exact Contrezz logo from Figma Brand Guidelines (matching Owner Dashboard)
 function ContrezztLogo({ className = "w-8 h-8" }: { className?: string }) {
@@ -69,7 +73,10 @@ function ContrezztLogo({ className = "w-8 h-8" }: { className?: string }) {
 }
 
 const TenantDashboard: React.FC = () => {
-  const [activeSection, setActiveSection] = usePersistentState('tenant-dashboard-section', 'dashboard');
+  const [activeSection, setActiveSection] = usePersistentState(
+    "tenant-dashboard-section",
+    "dashboard"
+  );
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -77,8 +84,21 @@ const TenantDashboard: React.FC = () => {
   const userData = getUserData();
 
   // Reset to dashboard section on component mount (every login)
+  // BUT: If payment callback detected, navigate to payments page
   useEffect(() => {
-    setActiveSection('dashboard');
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasPaymentCallback =
+      urlParams.get("payment_ref") ||
+      urlParams.get("reference") ||
+      urlParams.get("transId") ||
+      urlParams.get("transid");
+
+    if (hasPaymentCallback) {
+      // Navigate to payments page to handle the callback
+      setActiveSection("payments");
+    } else {
+      setActiveSection("dashboard");
+    }
   }, []);
 
   // Fetch tenant dashboard data
@@ -87,12 +107,12 @@ const TenantDashboard: React.FC = () => {
       try {
         const response = await getTenantDashboardOverview();
         if (response.error) {
-          toast.error(response.error.error || 'Failed to load dashboard');
+          toast.error(response.error.error || "Failed to load dashboard");
         } else if (response.data) {
           setDashboardData(response.data);
         }
       } catch (error) {
-        toast.error('Failed to load dashboard data');
+        toast.error("Failed to load dashboard data");
       } finally {
         setLoading(false);
       }
@@ -106,22 +126,22 @@ const TenantDashboard: React.FC = () => {
     email: userData?.email || "",
     unit: dashboardData?.unit?.unitNumber || "N/A",
     property: dashboardData?.property?.name || "N/A",
-    notifications: dashboardData?.notifications?.unread || 0
+    notifications: dashboardData?.notifications?.unread || 0,
   };
 
   const handleLogout = () => {
-    if (confirm('Are you sure you want to logout?')) {
+    if (confirm("Are you sure you want to logout?")) {
       removeAuthToken();
-      window.location.href = '/';
+      window.location.href = "/";
     }
   };
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: Home },
-    { id: 'payments', label: 'Payments', icon: CreditCard },
-    { id: 'maintenance', label: 'Maintenance', icon: Wrench },
-    { id: 'documents', label: 'Documents', icon: FileText },
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: "dashboard", label: "Dashboard", icon: Home },
+    { id: "payments", label: "Payments", icon: CreditCard },
+    { id: "maintenance", label: "Maintenance", icon: Wrench },
+    { id: "documents", label: "Documents", icon: FileText },
+    { id: "settings", label: "Settings", icon: Settings },
   ];
 
   const renderContent = () => {
@@ -137,18 +157,28 @@ const TenantDashboard: React.FC = () => {
     }
 
     switch (activeSection) {
-      case 'dashboard':
-        return <TenantOverview onNavigate={setActiveSection} dashboardData={dashboardData} />;
-      case 'payments':
+      case "dashboard":
+        return (
+          <TenantOverview
+            onNavigate={setActiveSection}
+            dashboardData={dashboardData}
+          />
+        );
+      case "payments":
         return <TenantPaymentsPage dashboardData={dashboardData} />;
-      case 'maintenance':
+      case "maintenance":
         return <TenantMaintenanceRequests />;
-      case 'documents':
+      case "documents":
         return <TenantDocuments />;
-      case 'settings':
+      case "settings":
         return <TenantSettings />;
       default:
-        return <TenantOverview onNavigate={setActiveSection} dashboardData={dashboardData} />;
+        return (
+          <TenantOverview
+            onNavigate={setActiveSection}
+            dashboardData={dashboardData}
+          />
+        );
     }
   };
 
@@ -163,7 +193,11 @@ const TenantDashboard: React.FC = () => {
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="text-white hover:bg-white/10 transition-colors"
           >
-            {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {isMobileMenuOpen ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <Menu className="h-5 w-5" />
+            )}
           </Button>
           <div className="bg-gradient-to-br from-[#A855F7] to-[#7C3AED] p-1.5 rounded-lg shadow-lg shadow-purple-500/25">
             <ContrezztLogo className="w-5 h-5 text-white" />
@@ -171,7 +205,11 @@ const TenantDashboard: React.FC = () => {
           <h2 className="font-bold text-white">Contrezz</h2>
         </div>
         <div className="flex items-center space-x-2">
-          <Button variant="ghost" size="icon" className="relative text-white hover:bg-white/10 transition-colors">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative text-white hover:bg-white/10 transition-colors"
+          >
             <Bell className="h-5 w-5" />
             {tenantInfo.notifications > 0 && (
               <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] border-0 shadow-lg shadow-purple-500/25">
@@ -191,12 +229,14 @@ const TenantDashboard: React.FC = () => {
       )}
 
       {/* Sidebar - Dark Brand Design (Matching Owner Dashboard) */}
-      <div className={`
+      <div
+        className={`
         fixed top-0 left-0 h-full w-64 bg-[#111827] shadow-xl z-40 transform transition-transform duration-300 ease-in-out border-r border-white/10
         lg:translate-x-0
-        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+        ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
         pt-16 lg:pt-0
-      `}>
+      `}
+      >
         <div className="flex flex-col h-full">
           {/* Logo - Desktop only */}
           <div className="hidden lg:flex items-center gap-3 p-6 border-b border-white/10">
@@ -214,11 +254,20 @@ const TenantDashboard: React.FC = () => {
             <div className="flex items-center space-x-3">
               <Avatar className="h-10 w-10 border-2 border-white/20 shadow-lg">
                 <AvatarImage src="" alt={tenantInfo.name} />
-                <AvatarFallback className="bg-gradient-to-br from-[#A855F7] to-[#7C3AED] text-white font-semibold">{tenantInfo.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                <AvatarFallback className="bg-gradient-to-br from-[#A855F7] to-[#7C3AED] text-white font-semibold">
+                  {tenantInfo.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")}
+                </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-white truncate">{tenantInfo.name}</p>
-                <p className="text-sm text-white/60 font-medium truncate">{tenantInfo.unit}</p>
+                <p className="font-semibold text-white truncate">
+                  {tenantInfo.name}
+                </p>
+                <p className="text-sm text-white/60 font-medium truncate">
+                  {tenantInfo.unit}
+                </p>
               </div>
             </div>
           </div>
@@ -238,9 +287,10 @@ const TenantDashboard: React.FC = () => {
                     }}
                     className={`
                       w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200
-                      ${isActive
-                        ? 'bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-lg shadow-purple-500/25'
-                        : 'text-white/70 hover:bg-white/10 hover:text-white'
+                      ${
+                        isActive
+                          ? "bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-lg shadow-purple-500/25"
+                          : "text-white/70 hover:bg-white/10 hover:text-white"
                       }
                     `}
                   >
@@ -271,11 +321,19 @@ const TenantDashboard: React.FC = () => {
         <div className="hidden lg:block sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
           <div className="flex items-center justify-between px-8 py-4">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">{tenantInfo.property}</h2>
-              <p className="text-sm text-gray-600 font-medium">{tenantInfo.unit}</p>
+              <h2 className="text-xl font-bold text-gray-900">
+                {tenantInfo.property}
+              </h2>
+              <p className="text-sm text-gray-600 font-medium">
+                {tenantInfo.unit}
+              </p>
             </div>
             <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="icon" className="relative hover:bg-[#7C3AED]/10 hover:text-[#7C3AED] transition-colors">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative hover:bg-[#7C3AED]/10 hover:text-[#7C3AED] transition-colors"
+              >
                 <Bell className="h-5 w-5" />
                 {tenantInfo.notifications > 0 && (
                   <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] border-0 shadow-lg shadow-purple-500/25">
@@ -285,7 +343,12 @@ const TenantDashboard: React.FC = () => {
               </Button>
               <Avatar className="h-9 w-9 border-2 border-[#7C3AED]/20 shadow-sm">
                 <AvatarImage src="" alt={tenantInfo.name} />
-                <AvatarFallback className="bg-gradient-to-br from-[#A855F7] to-[#7C3AED] text-white font-semibold">{tenantInfo.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                <AvatarFallback className="bg-gradient-to-br from-[#A855F7] to-[#7C3AED] text-white font-semibold">
+                  {tenantInfo.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")}
+                </AvatarFallback>
               </Avatar>
             </div>
           </div>
@@ -293,9 +356,7 @@ const TenantDashboard: React.FC = () => {
 
         {/* Page Content */}
         <div className="p-4 lg:p-8 flex-grow w-full max-w-full overflow-x-auto">
-          <div className="max-w-7xl mx-auto">
-            {renderContent()}
-          </div>
+          <div className="max-w-7xl mx-auto">{renderContent()}</div>
         </div>
 
         {/* Footer */}
@@ -306,4 +367,3 @@ const TenantDashboard: React.FC = () => {
 };
 
 export default TenantDashboard;
-

@@ -443,10 +443,65 @@ function App() {
     }
   }, [currentUser]);
 
-  // Handle Paystack redirect: ?payment_ref=...
+  // Handle Paystack/Monicredit redirect: ?payment_ref=... or ?transId=...
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const paymentRef = params.get("payment_ref");
+    // Handle malformed URLs like: ?payment_ref=REF?transId=ACX...
+    // URLSearchParams won't parse this correctly, so we need manual parsing
+    const search = window.location.search;
+    let paymentRef: string | null = null;
+    let transId: string | null = null;
+
+    // First, try normal URLSearchParams parsing
+    const params = new URLSearchParams(search);
+    paymentRef =
+      params.get("transId") ||
+      params.get("transid") ||
+      params.get("payment_ref") ||
+      params.get("reference");
+    transId = params.get("transId") || params.get("transid");
+
+    // If payment_ref contains a malformed query (e.g., "REF?transId=ACX...")
+    // Extract both the reference and transId manually
+    if (paymentRef && paymentRef.includes("?")) {
+      const parts = paymentRef.split("?");
+      paymentRef = parts[0]; // First part is the actual reference
+
+      // Try to extract transId from the malformed part
+      if (parts.length > 1) {
+        const malformedPart = parts.slice(1).join("?"); // Rejoin in case there are multiple ?
+        const malformedParams = new URLSearchParams("?" + malformedPart);
+        transId =
+          malformedParams.get("transId") ||
+          malformedParams.get("transid") ||
+          transId;
+      }
+    }
+
+    // Also check if the entire search string has malformed format
+    // Pattern: ?payment_ref=REF?transId=ACX...
+    if (
+      !paymentRef &&
+      search.includes("payment_ref=") &&
+      search.includes("?transId=")
+    ) {
+      const paymentRefMatch = search.match(/[?&]payment_ref=([^?&]+)/);
+      const transIdMatch = search.match(/[?&]transId=([^&]+)/);
+      if (paymentRefMatch) {
+        paymentRef = paymentRefMatch[1].split("?")[0]; // Clean any embedded query
+      }
+      if (transIdMatch) {
+        transId = transIdMatch[1];
+      }
+    }
+
+    // Prioritize transId if available (Monicredit), otherwise use payment_ref
+    const finalRef = transId || paymentRef;
+
+    // Clean the reference one more time to be safe
+    if (finalRef) {
+      paymentRef = finalRef.split("?")[0].split("&")[0];
+    }
+
     if (!paymentRef || !currentUser) return;
     // Query backend for status and notify
     const fetchStatus = async () => {
@@ -523,6 +578,9 @@ function App() {
         // Clean URL
         const url = new URL(window.location.href);
         url.searchParams.delete("payment_ref");
+        url.searchParams.delete("reference");
+        url.searchParams.delete("transId"); // Monicredit support
+        url.searchParams.delete("transid"); // Case variation
         window.history.replaceState({}, document.title, url.toString());
       }
     };

@@ -306,13 +306,66 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({
     loadScheduledPayments();
   }, []);
 
-  // Handle payment callback from Paystack redirect
+  // Handle payment callback from Paystack/Monicredit redirect
   React.useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const paymentRef =
-      urlParams.get("payment_ref") || urlParams.get("reference");
-    const trxref = urlParams.get("trxref");
+    // Handle malformed URLs like: ?payment_ref=REF?transId=ACX...
+    // URLSearchParams won't parse this correctly, so we need manual parsing
+    const search = window.location.search;
+    let paymentRef: string | null = null;
+    let transId: string | null = null;
 
+    // First, try normal URLSearchParams parsing
+    const urlParams = new URLSearchParams(search);
+    paymentRef =
+      urlParams.get("transId") ||
+      urlParams.get("transid") ||
+      urlParams.get("payment_ref") ||
+      urlParams.get("reference");
+    transId = urlParams.get("transId") || urlParams.get("transid");
+
+    // If payment_ref contains a malformed query (e.g., "REF?transId=ACX...")
+    // Extract both the reference and transId manually
+    if (paymentRef && paymentRef.includes("?")) {
+      const parts = paymentRef.split("?");
+      paymentRef = parts[0]; // First part is the actual reference
+
+      // Try to extract transId from the malformed part
+      if (parts.length > 1) {
+        const malformedPart = parts.slice(1).join("?"); // Rejoin in case there are multiple ?
+        const malformedParams = new URLSearchParams("?" + malformedPart);
+        transId =
+          malformedParams.get("transId") ||
+          malformedParams.get("transid") ||
+          transId;
+      }
+    }
+
+    // Also check if the entire search string has malformed format
+    // Pattern: ?payment_ref=REF?transId=ACX...
+    if (
+      !paymentRef &&
+      search.includes("payment_ref=") &&
+      search.includes("?transId=")
+    ) {
+      const paymentRefMatch = search.match(/[?&]payment_ref=([^?&]+)/);
+      const transIdMatch = search.match(/[?&]transId=([^&]+)/);
+      if (paymentRefMatch) {
+        paymentRef = paymentRefMatch[1].split("?")[0]; // Clean any embedded query
+      }
+      if (transIdMatch) {
+        transId = transIdMatch[1];
+      }
+    }
+
+    // Prioritize transId if available (Monicredit), otherwise use payment_ref
+    const finalRef = transId || paymentRef;
+
+    // Clean the reference one more time to be safe
+    if (finalRef) {
+      paymentRef = finalRef.split("?")[0].split("&")[0];
+    }
+
+    const trxref = urlParams.get("trxref");
     const reference = paymentRef || trxref;
 
     if (reference) {
@@ -321,6 +374,8 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({
       url.searchParams.delete("payment_ref");
       url.searchParams.delete("reference");
       url.searchParams.delete("trxref");
+      url.searchParams.delete("transId"); // Monicredit support
+      url.searchParams.delete("transid"); // Case variation
       window.history.replaceState({}, "", url.toString());
 
       // Verify the payment
@@ -376,8 +431,6 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({
       case "scheduled":
         return "bg-blue-100 text-blue-800";
       case "overdue":
-        return "bg-red-100 text-red-800";
-      case "failed":
         return "bg-red-100 text-red-800";
       case "failed":
         return "bg-red-100 text-red-800";

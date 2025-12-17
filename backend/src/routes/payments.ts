@@ -721,7 +721,8 @@ router.post("/initialize", async (req: AuthRequest, res: Response) => {
 
     // Initialize transaction based on provider
     const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-    const callbackUrl = `${frontendUrl}/?payment_ref=${encodeURIComponent(
+    // Must be mutable (Monicredit flow may append transId later)
+    let callbackUrl = `${frontendUrl}/?payment_ref=${encodeURIComponent(
       reference
     )}`;
 
@@ -930,6 +931,10 @@ router.post("/initialize", async (req: AuthRequest, res: Response) => {
                 ],
                 currency: payCurrency || "NGN",
                 paytype: "standard", // Required for standard flow
+                // Redirect URL for user after payment (top-level field)
+                redirect_url: callbackUrl,
+                return_url: callbackUrl, // Alternative field name some gateways use
+                callback_url: callbackUrl, // Also include in case Monicredit uses this
                 // Optional metadata
                 meta_data: {
                   customerId,
@@ -938,7 +943,7 @@ router.post("/initialize", async (req: AuthRequest, res: Response) => {
                   unitId: unit?.id,
                   tenantId: tenant.id,
                   type: "rent",
-                  callback_url: callbackUrl,
+                  callback_url: callbackUrl, // Keep in metadata too for webhook reference
                 },
               }),
             } as any);
@@ -1071,6 +1076,10 @@ router.post("/initialize", async (req: AuthRequest, res: Response) => {
               ],
               currency: payCurrency || "NGN",
               paytype: "standard", // Required for standard flow
+              // Redirect URL for user after payment (top-level field)
+              redirect_url: callbackUrl,
+              return_url: callbackUrl, // Alternative field name some gateways use
+              callback_url: callbackUrl, // Also include in case Monicredit uses this
               meta_data: {
                 customerId,
                 leaseId: lease.id,
@@ -1078,7 +1087,7 @@ router.post("/initialize", async (req: AuthRequest, res: Response) => {
                 unitId: unit?.id,
                 tenantId: tenant.id,
                 type: "rent",
-                callback_url: callbackUrl,
+                callback_url: callbackUrl, // Keep in metadata too for webhook reference
               },
             }),
           } as any);
@@ -1226,6 +1235,57 @@ router.post("/initialize", async (req: AuthRequest, res: Response) => {
           }
         }
 
+        // Extract Monicredit transaction_id if available (for future webhook matching)
+        const monicreditTransactionId =
+          json.transaction_id ||
+          json.transid ||
+          json.data?.transaction_id ||
+          json.data?.transid ||
+          json.id;
+
+        // If we got a transaction_id, store it in payment metadata for webhook matching
+        if (monicreditTransactionId && monicreditTransactionId !== reference) {
+          try {
+            await prisma.payments.updateMany({
+              where: {
+                customerId,
+                provider: "monicredit",
+                providerReference: reference,
+              },
+              data: {
+                metadata: {
+                  monicreditTransactionId,
+                  monicreditOrderId: reference,
+                  initializedAt: new Date().toISOString(),
+                } as any,
+              },
+            });
+            console.log(
+              "[Monicredit Transaction] Stored transaction_id in metadata:",
+              monicreditTransactionId
+            );
+
+            // Update redirect URL to include transaction_id for better verification
+            // This helps when Monicredit redirects - frontend can use transaction_id directly
+            if (callbackUrl && callbackUrl.includes("payment_ref=")) {
+              // If callback URL has payment_ref, also add transId parameter
+              const url = new URL(callbackUrl);
+              url.searchParams.set("transId", monicreditTransactionId);
+              // Keep payment_ref for backward compatibility
+              callbackUrl = url.toString();
+              console.log(
+                "[Monicredit Transaction] Updated callback URL with transaction_id:",
+                callbackUrl.substring(0, 100) + "..."
+              );
+            }
+          } catch (err) {
+            console.error(
+              "[Monicredit Transaction] Failed to store transaction_id:",
+              err
+            );
+          }
+        }
+
         console.log("[Monicredit Transaction] Authorization URL:", {
           found: !!authorizationUrl,
           url: authorizationUrl
@@ -1233,6 +1293,8 @@ router.post("/initialize", async (req: AuthRequest, res: Response) => {
             : null,
           originalUrl: rawAuthUrl ? `${rawAuthUrl.substring(0, 50)}...` : null,
           hadProtocol: rawAuthUrl?.startsWith("http"),
+          transactionId: monicreditTransactionId,
+          ourReference: reference,
           responseStructure: {
             hasData: !!json.data,
             topLevelKeys: Object.keys(json),
@@ -1425,14 +1487,40 @@ router.get("/verify/:reference", async (req: AuthRequest, res: Response) => {
 
     // Find pending/any payment by reference within the same customer
     // Support both Paystack and Monicredit
-    const payment = await prisma.payments.findFirst({
+    // For Monicredit, reference might be our order_id or Monicredit's transaction_id
+    let payment = await prisma.payments.findFirst({
       where: {
         customerId,
         providerReference: reference,
-        // Allow both providers - we'll determine which one based on payment record
       },
     });
-    if (!payment) return res.status(404).json({ error: "Payment not found" });
+
+    // If not found and might be Monicredit, try searching by transaction_id in metadata
+    if (!payment) {
+      payment = await prisma.payments.findFirst({
+        where: {
+          customerId,
+          OR: [
+            { providerReference: reference },
+            {
+              provider: "monicredit",
+              metadata: {
+                path: ["monicreditTransactionId"],
+                equals: reference,
+              },
+            },
+          ],
+        },
+      });
+    }
+
+    if (!payment) {
+      console.error("[Payment Verify] Payment not found:", {
+        reference,
+        customerId,
+      });
+      return res.status(404).json({ error: "Payment not found" });
+    }
 
     const provider = payment.provider || "paystack";
 
@@ -1441,14 +1529,88 @@ router.get("/verify/:reference", async (req: AuthRequest, res: Response) => {
     let verifiedData: any = {};
 
     if (provider === "monicredit") {
-      // Monicredit verification
+      // CRITICAL FIX: First check if payment is already finalized in DB
+      // This handles cases where webhook already processed the payment
+      // or payment was manually verified
+      if (payment.status === "success" || payment.status === "failed") {
+        console.log("[Monicredit Verify] Payment already finalized in DB:", {
+          reference,
+          status: payment.status,
+          paymentId: payment.id,
+        });
+        return res.json({
+          status: payment.status as "success" | "failed",
+          reference,
+          provider,
+          verified: true,
+          verificationSource: "database",
+          payment,
+        });
+      }
+
+      // Optional: allow disabling external Monicredit verification (fallback to DB status)
+      if (process.env.MONICREDIT_DISABLE_VERIFY === "true") {
+        const currentStatus =
+          payment.status === "success" || payment.status === "failed"
+            ? (payment.status as "success" | "failed")
+            : "pending";
+
+        return res.json({
+          status: currentStatus,
+          reference,
+          provider,
+          verified: false,
+          payment,
+        });
+      }
+
+      // Check for trust redirect mode - useful for demo/sandbox environments
+      // where API verification doesn't work but webhooks or redirects confirm payment
+      const trustRedirect = process.env.MONICREDIT_TRUST_REDIRECT === "true";
+      const hasValidTransactionId =
+        reference.startsWith("ACX") ||
+        !!(payment.metadata as any)?.monicreditTransactionId;
+
+      // Monicredit verification (unreachable until a stable API endpoint is confirmed)
       const settings = await prisma.payment_settings.findFirst({
         where: { customerId, provider: "monicredit" },
       });
       if (!settings?.publicKey || !settings?.secretKey) {
-        return res
-          .status(400)
-          .json({ error: "Monicredit configuration not found" });
+        // If no settings but trust redirect is enabled and we have valid transId
+        if (trustRedirect && hasValidTransactionId) {
+          console.log(
+            "[Monicredit Verify] No settings, but trust redirect enabled with valid transId"
+          );
+          // Update payment to success
+          const updated = await prisma.payments.update({
+            where: { id: payment.id },
+            data: {
+              status: "success",
+              paidAt: new Date(),
+              metadata: {
+                ...((payment.metadata as any) || {}),
+                trustedRedirect: true,
+                verifiedAt: new Date().toISOString(),
+              } as any,
+            },
+          });
+          return res.json({
+            status: "success",
+            reference,
+            provider,
+            verified: true,
+            verificationSource: "trusted_redirect",
+            payment: updated,
+          });
+        }
+        return res.json({
+          status: "pending",
+          reference,
+          provider,
+          verified: false,
+          payment,
+          error: "Monicredit configuration not found",
+        });
       }
 
       // Monicredit verification endpoint: GET /api/v1/payment/transactions/verify-transaction/{reference}
@@ -1458,8 +1620,45 @@ router.get("/verify/:reference", async (req: AuthRequest, res: Response) => {
         "https://demo.backend.monicredit.com";
       const monicreditApiBase = `${monicreditBaseUrl}/api/v1`;
 
-      // Try verify-transaction endpoint first
-      const verifyUrl = `${monicreditApiBase}/payment/transactions/verify-transaction/${reference}`;
+      // For Monicredit, the reference might be our order_id or Monicredit's transaction_id
+      // Check if reference looks like a Monicredit transaction ID (starts with ACX)
+      const isMonicreditTransactionId = reference.startsWith("ACX");
+
+      // Get transaction_id from metadata if available, or use reference if it's already a transaction ID
+      let monicreditTransactionId: string;
+      if (isMonicreditTransactionId) {
+        // Reference is already a Monicredit transaction ID
+        monicreditTransactionId = reference;
+      } else {
+        // Reference is our internal order_id, get transaction_id from metadata
+        monicreditTransactionId =
+          (payment.metadata as any)?.monicreditTransactionId || null;
+
+        if (!monicreditTransactionId) {
+          // Transaction ID not in metadata - this means webhook hasn't been received yet
+          // OR the initialization response didn't include it
+          // Try to verify with our order_id as fallback (some APIs accept order_id)
+          console.warn(
+            "[Monicredit Verify] Transaction ID not found in metadata, using order_id:",
+            reference
+          );
+          monicreditTransactionId = reference;
+        }
+      }
+
+      // Try verify-transaction endpoint with Monicredit's transaction_id
+      const verifyUrl = `${monicreditApiBase}/payment/transactions/verify-transaction/${monicreditTransactionId}`;
+
+      console.log("[Monicredit Verify] Verifying payment:", {
+        ourReference: reference,
+        monicreditTransactionId,
+        isMonicreditTransactionId,
+        hasTransactionIdInMetadata: !!(payment.metadata as any)
+          ?.monicreditTransactionId,
+        verifyUrl,
+        paymentId: payment.id,
+        paymentMetadata: payment.metadata,
+      });
 
       // Create Basic Auth header: base64(publicKey:privateKey)
       const credentials = `${settings.publicKey}:${settings.secretKey}`;
@@ -1481,37 +1680,469 @@ router.get("/verify/:reference", async (req: AuthRequest, res: Response) => {
           verifyJson = JSON.parse(verifyRaw);
         } catch (err) {
           console.error("[Monicredit Verify] Failed to parse response:", err);
-          return res.status(400).json({
+          return res.json({
+            status: "pending",
+            reference,
+            provider,
+            verified: false,
+            payment,
             error: "Monicredit verification failed: Invalid response",
           });
         }
 
         if (!verifyResp.ok || !verifyJson?.status) {
-          return res.status(400).json({
-            error: verifyJson?.message || "Monicredit verification failed",
+          console.error("[Monicredit Verify] API error:", {
+            status: verifyResp.status,
+            statusText: verifyResp.statusText,
+            response: verifyJson,
+            verifyUrl,
+            monicreditTransactionId,
+            ourReference: reference,
           });
+
+          // CRITICAL: Check trust redirect mode FIRST before attempting any fallbacks
+          // This handles demo/sandbox environments where API doesn't work
+          if (trustRedirect && hasValidTransactionId) {
+            console.log(
+              "[Monicredit Verify] API failed, using trust redirect mode to mark as success"
+            );
+            const updated = await prisma.payments.update({
+              where: { id: payment.id },
+              data: {
+                status: "success",
+                paidAt: new Date(),
+                metadata: {
+                  ...((payment.metadata as any) || {}),
+                  monicreditTransactionId: monicreditTransactionId,
+                  trustedRedirect: true,
+                  verifiedAt: new Date().toISOString(),
+                  apiError: verifyJson?.message || "API verification failed",
+                } as any,
+              },
+            });
+            return res.json({
+              status: "success",
+              reference,
+              provider,
+              verified: true,
+              verificationSource: "trusted_redirect",
+              payment: updated,
+              note: "Payment marked success via trusted redirect (API verification unavailable in demo environment)",
+            });
+          }
+
+          // If verification failed and we used our order_id, try alternative approaches
+          // 1. Check if error response contains transaction_id
+          const errorTransactionId =
+            verifyJson?.data?.transaction_id ||
+            verifyJson?.transaction_id ||
+            verifyJson?.data?.id;
+
+          // 2. Try querying by order_id if Monicredit supports it
+          // Some Monicredit APIs have an endpoint to get transaction by order_id
+          if (!errorTransactionId && !isMonicreditTransactionId) {
+            console.log(
+              "[Monicredit Verify] Trying to query transaction by order_id:",
+              reference
+            );
+            // Try alternative endpoint: get transaction info by order_id
+            const orderQueryUrl = `${monicreditApiBase}/payment/transactions/init-transaction-info/${reference}`;
+            try {
+              const orderResp = await fetch(orderQueryUrl, {
+                method: "GET",
+                headers: {
+                  Accept: "application/json",
+                  Authorization: `Basic ${base64Credentials}`,
+                },
+              } as any);
+
+              if (orderResp.ok) {
+                const orderJson = JSON.parse(await orderResp.text());
+                const foundTransactionId =
+                  orderJson?.data?.transaction_id ||
+                  orderJson?.transaction_id ||
+                  orderJson?.data?.id;
+
+                if (foundTransactionId) {
+                  console.log(
+                    "[Monicredit Verify] Found transaction_id via order_id query:",
+                    foundTransactionId
+                  );
+                  // Retry verification with found transaction_id
+                  const retryUrl = `${monicreditApiBase}/payment/transactions/verify-transaction/${foundTransactionId}`;
+                  const retryResp = await fetch(retryUrl, {
+                    method: "GET",
+                    headers: {
+                      Accept: "application/json",
+                      Authorization: `Basic ${base64Credentials}`,
+                    },
+                  } as any);
+
+                  if (retryResp.ok) {
+                    const retryJson = JSON.parse(await retryResp.text());
+                    if (retryJson?.status) {
+                      verifiedData = retryJson.data || {};
+                      // Store transaction_id in metadata
+                      await prisma.payments.update({
+                        where: { id: payment.id },
+                        data: {
+                          metadata: {
+                            ...((payment.metadata as any) || {}),
+                            monicreditTransactionId: foundTransactionId,
+                            lastVerifiedAt: new Date().toISOString(),
+                          } as any,
+                        },
+                      });
+                      // Continue with status mapping below
+                    } else {
+                      return res.json({
+                        status: "pending",
+                        reference,
+                        provider,
+                        verified: false,
+                        payment,
+                        error:
+                          retryJson?.message ||
+                          "Monicredit verification failed",
+                      });
+                    }
+                  } else {
+                    return res.json({
+                      status: "pending",
+                      reference,
+                      provider,
+                      verified: false,
+                      payment,
+                      error:
+                        "Monicredit verification failed: Could not verify transaction",
+                    });
+                  }
+                } else {
+                  // No transaction_id found, return original error
+                  return res.json({
+                    status: "pending",
+                    reference,
+                    provider,
+                    verified: false,
+                    payment,
+                    error:
+                      verifyJson?.message || "Monicredit verification failed",
+                    details:
+                      "Transaction not found. Please check the transaction ID or wait for webhook.",
+                  });
+                }
+              } else {
+                // Order query failed, try error response transaction_id if available
+                if (
+                  errorTransactionId &&
+                  errorTransactionId !== monicreditTransactionId
+                ) {
+                  console.log(
+                    "[Monicredit Verify] Found transaction_id in error response, retrying:",
+                    errorTransactionId
+                  );
+                  const retryUrl = `${monicreditApiBase}/payment/transactions/verify-transaction/${errorTransactionId}`;
+                  const retryResp = await fetch(retryUrl, {
+                    method: "GET",
+                    headers: {
+                      Accept: "application/json",
+                      Authorization: `Basic ${base64Credentials}`,
+                    },
+                  } as any);
+
+                  if (retryResp.ok) {
+                    const retryJson = JSON.parse(await retryResp.text());
+                    if (retryJson?.status) {
+                      verifiedData = retryJson.data || {};
+                      await prisma.payments.update({
+                        where: { id: payment.id },
+                        data: {
+                          metadata: {
+                            ...((payment.metadata as any) || {}),
+                            monicreditTransactionId: errorTransactionId,
+                            lastVerifiedAt: new Date().toISOString(),
+                          } as any,
+                        },
+                      });
+                      // Continue with status mapping below
+                    } else {
+                      return res.json({
+                        status: "pending",
+                        reference,
+                        provider,
+                        verified: false,
+                        payment,
+                        error:
+                          retryJson?.message ||
+                          "Monicredit verification failed",
+                      });
+                    }
+                  } else {
+                    return res.json({
+                      status: "pending",
+                      reference,
+                      provider,
+                      verified: false,
+                      payment,
+                      error:
+                        verifyJson?.message || "Monicredit verification failed",
+                    });
+                  }
+                } else {
+                  return res.json({
+                    status: "pending",
+                    reference,
+                    provider,
+                    verified: false,
+                    payment,
+                    error:
+                      verifyJson?.message || "Monicredit verification failed",
+                    details:
+                      "Could not find transaction. Please check the transaction ID or wait for webhook.",
+                  });
+                }
+              }
+            } catch (orderQueryErr) {
+              console.error(
+                "[Monicredit Verify] Order query error:",
+                orderQueryErr
+              );
+              return res.json({
+                status: "pending",
+                reference,
+                provider,
+                verified: false,
+                payment,
+                error: verifyJson?.message || "Monicredit verification failed",
+              });
+            }
+          } else if (
+            errorTransactionId &&
+            errorTransactionId !== monicreditTransactionId
+          ) {
+            // We have transaction_id from error response, retry
+            console.log(
+              "[Monicredit Verify] Found transaction_id in error response, retrying:",
+              errorTransactionId
+            );
+            const retryUrl = `${monicreditApiBase}/payment/transactions/verify-transaction/${errorTransactionId}`;
+            try {
+              const retryResp = await fetch(retryUrl, {
+                method: "GET",
+                headers: {
+                  Accept: "application/json",
+                  Authorization: `Basic ${base64Credentials}`,
+                },
+              } as any);
+
+              if (retryResp.ok) {
+                const retryJson = JSON.parse(await retryResp.text());
+                if (retryJson?.status) {
+                  verifiedData = retryJson.data || {};
+                  await prisma.payments.update({
+                    where: { id: payment.id },
+                    data: {
+                      metadata: {
+                        ...((payment.metadata as any) || {}),
+                        monicreditTransactionId: errorTransactionId,
+                        lastVerifiedAt: new Date().toISOString(),
+                      } as any,
+                    },
+                  });
+                  // Continue with status mapping below
+                } else {
+                  return res.json({
+                    status: "pending",
+                    reference,
+                    provider,
+                    verified: false,
+                    payment,
+                    error:
+                      retryJson?.message || "Monicredit verification failed",
+                  });
+                }
+              } else {
+                return res.json({
+                  status: "pending",
+                  reference,
+                  provider,
+                  verified: false,
+                  payment,
+                  error:
+                    verifyJson?.message || "Monicredit verification failed",
+                });
+              }
+            } catch (retryErr) {
+              return res.json({
+                status: "pending",
+                reference,
+                provider,
+                verified: false,
+                payment,
+                error: verifyJson?.message || "Monicredit verification failed",
+              });
+            }
+          } else {
+            return res.json({
+              status: "pending",
+              reference,
+              provider,
+              verified: false,
+              payment,
+              error: verifyJson?.message || "Monicredit verification failed",
+              details:
+                "Transaction not found. Please check the transaction ID or wait for webhook.",
+            });
+          }
         }
 
-        verifiedData = verifyJson.data || {};
-        // Map Monicredit status: APPROVED, SUCCESS, FAILED, DECLINED, PENDING
+        // Only set verifiedData if we haven't already set it from retry
+        if (!verifiedData || Object.keys(verifiedData).length === 0) {
+          verifiedData = verifyJson.data || {};
+        }
+
+        // Extract transaction_id from verified data if available and store in metadata
+        const verifiedTransactionId =
+          verifiedData.transaction_id ||
+          verifiedData.transid ||
+          verifiedData.id ||
+          monicreditTransactionId;
+
+        if (verifiedTransactionId && verifiedTransactionId !== reference) {
+          // Update metadata with transaction_id if we don't have it
+          const currentMeta = (payment.metadata as any) || {};
+          if (!currentMeta.monicreditTransactionId) {
+            try {
+              await prisma.payments.update({
+                where: { id: payment.id },
+                data: {
+                  metadata: {
+                    ...currentMeta,
+                    monicreditTransactionId: verifiedTransactionId,
+                    lastVerifiedAt: new Date().toISOString(),
+                  } as any,
+                },
+              });
+              console.log(
+                "[Monicredit Verify] Stored transaction_id in metadata:",
+                verifiedTransactionId
+              );
+            } catch (updateErr) {
+              console.error(
+                "[Monicredit Verify] Failed to update metadata:",
+                updateErr
+              );
+            }
+          }
+        }
+
+        // Map Monicredit status (be case-insensitive and support common field variants)
+        const monicreditStatusRaw =
+          verifiedData?.status ??
+          verifiedData?.payment_status ??
+          verifiedData?.transaction_status ??
+          verifiedData?.transactionStatus ??
+          verifiedData?.paymentStatus;
+        const monicreditStatus = monicreditStatusRaw
+          ? String(monicreditStatusRaw).toUpperCase()
+          : null;
+
         if (
-          verifiedData.status === "APPROVED" ||
-          verifiedData.status === "SUCCESS"
+          monicreditStatus === "APPROVED" ||
+          monicreditStatus === "SUCCESS" ||
+          monicreditStatus === "PAID" ||
+          monicreditStatus === "COMPLETED"
         ) {
           mappedStatus = "success";
         } else if (
-          verifiedData.status === "FAILED" ||
-          verifiedData.status === "DECLINED"
+          monicreditStatus === "FAILED" ||
+          monicreditStatus === "DECLINED" ||
+          monicreditStatus === "CANCELLED" ||
+          monicreditStatus === "CANCELED"
         ) {
           mappedStatus = "failed";
         } else {
+          // API didn't return a valid status - check for trust redirect mode
+          // This handles demo environments where API verification doesn't work
+          // but Monicredit redirects users with valid transaction IDs after payment
+          if (trustRedirect && hasValidTransactionId) {
+            console.log(
+              "[Monicredit Verify] API verification inconclusive, using trust redirect mode"
+            );
+            const updated = await prisma.payments.update({
+              where: { id: payment.id },
+              data: {
+                status: "success",
+                paidAt: new Date(),
+                metadata: {
+                  ...((payment.metadata as any) || {}),
+                  monicreditTransactionId: isMonicreditTransactionId
+                    ? reference
+                    : (payment.metadata as any)?.monicreditTransactionId,
+                  trustedRedirect: true,
+                  verifiedAt: new Date().toISOString(),
+                } as any,
+              },
+            });
+            return res.json({
+              status: "success",
+              reference,
+              provider,
+              verified: true,
+              verificationSource: "trusted_redirect",
+              payment: updated,
+              note: "Payment marked success via trusted redirect (API verification unavailable)",
+            });
+          }
           mappedStatus = "pending";
         }
       } catch (err: any) {
         console.error("[Monicredit Verify] Network error:", err);
-        return res
-          .status(400)
-          .json({ error: "Monicredit verification failed: Network error" });
+        console.error("[Monicredit Verify] Error details:", {
+          message: err?.message,
+          stack: err?.stack,
+          verifyUrl,
+          monicreditTransactionId,
+          ourReference: reference,
+        });
+
+        // Even on network error, check for trust redirect mode
+        if (trustRedirect && hasValidTransactionId) {
+          console.log(
+            "[Monicredit Verify] Network error, using trust redirect mode"
+          );
+          const updated = await prisma.payments.update({
+            where: { id: payment.id },
+            data: {
+              status: "success",
+              paidAt: new Date(),
+              metadata: {
+                ...((payment.metadata as any) || {}),
+                trustedRedirect: true,
+                verifiedAt: new Date().toISOString(),
+              } as any,
+            },
+          });
+          return res.json({
+            status: "success",
+            reference,
+            provider,
+            verified: true,
+            verificationSource: "trusted_redirect",
+            payment: updated,
+            note: "Payment marked success via trusted redirect (network error during API verification)",
+          });
+        }
+
+        return res.json({
+          status: "pending",
+          reference,
+          provider,
+          verified: false,
+          payment,
+          error: "Monicredit verification failed: Network error",
+          details: err?.message || String(err),
+        });
       }
     } else {
       // Paystack verification (existing code)
@@ -1575,8 +2206,9 @@ router.get("/verify/:reference", async (req: AuthRequest, res: Response) => {
         ? new Date()
         : payment.paidAt || undefined;
 
-    const updated = await prisma.payments.updateMany({
-      where: { customerId, provider, providerReference: reference },
+    // Update payment by ID (more reliable than updateMany with reference)
+    const updated = await prisma.payments.update({
+      where: { id: payment.id },
       data: {
         status: mappedStatus,
         currency:
@@ -1593,8 +2225,38 @@ router.get("/verify/:reference", async (req: AuthRequest, res: Response) => {
             : verifiedData.channel || payment.paymentMethod || undefined,
         paidAt,
         updatedAt: new Date(),
+        // Store Monicredit transaction_id in metadata if we have it from verification
+        metadata: (() => {
+          const currentMeta = (payment.metadata as any) || {};
+          if (provider === "monicredit" && verifiedData.transaction_id) {
+            return {
+              ...currentMeta,
+              monicreditTransactionId: verifiedData.transaction_id,
+              lastVerifiedAt: new Date().toISOString(),
+            };
+          }
+          return currentMeta;
+        })(),
       },
     });
+
+    // Emit socket events for real-time updates
+    try {
+      emitToCustomer(customerId, "payment:updated", {
+        reference: updated.providerReference,
+        status: mappedStatus,
+        amount: updated.amount,
+        currency: updated.currency,
+      });
+      if (updated.tenantId) {
+        emitToUser(updated.tenantId, "payment:updated", {
+          reference: updated.providerReference,
+          status: mappedStatus,
+        });
+      }
+    } catch (err) {
+      console.error("[Payment Verify] Socket emit error:", err);
+    }
 
     // If payment successful and it's a rent payment, update lease and create next scheduled payment
     if (
@@ -1675,20 +2337,13 @@ router.get("/verify/:reference", async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // Emit realtime update
-    try {
-      emitToCustomer(customerId, "payment:updated", {
-        reference,
-        status: mappedStatus,
-      });
-      if (payment.tenantId)
-        emitToUser(payment.tenantId, "payment:updated", {
-          reference,
-          status: mappedStatus,
-        });
-    } catch {}
-
-    return res.json({ reference, status: mappedStatus, paidAt });
+    return res.json({
+      status: mappedStatus,
+      reference: updated.providerReference || reference,
+      provider,
+      verified: true,
+      payment: updated,
+    });
   } catch (error: any) {
     console.error("Verify payment error:", error);
     return res.status(500).json({ error: "Failed to verify payment" });
@@ -1708,7 +2363,19 @@ router.get(
       if (!userId || !customerId)
         return res.status(401).json({ error: "Unauthorized" });
 
-      const where: any = { customerId, providerReference: reference };
+      const where: any = {
+        customerId,
+        OR: [
+          { providerReference: reference },
+          {
+            provider: "monicredit",
+            metadata: {
+              path: ["monicreditTransactionId"],
+              equals: reference,
+            },
+          },
+        ],
+      };
       // Scope by role
       if (["owner", "property owner", "property_owner"].includes(role)) {
         where.properties = { ownerId: userId };
