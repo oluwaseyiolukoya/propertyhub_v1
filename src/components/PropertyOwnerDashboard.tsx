@@ -493,37 +493,64 @@ export function PropertyOwnerDashboard({
           const resp = await verifyUpgrade(reference);
           console.log(
             "[PropertyOwnerDashboard] Upgrade verification response:",
-            resp.data
+            resp
           );
 
-          if (!resp.data?.success) {
+          // Check for API error first
+          if (resp.error) {
             throw new Error(
-              resp.data?.message || "Upgrade verification failed"
+              resp.error.message ||
+                resp.error.error ||
+                resp.error.details ||
+                "Upgrade verification failed"
             );
           }
 
-          // Clear stored reference and clean up URL
-          sessionStorage.removeItem("upgrade_reference");
-          sessionStorage.removeItem("upgrade_plan_id");
-          params.delete("reference");
-          params.delete("payment_callback");
-          url.search = params.toString();
-          window.history.replaceState({}, document.title, url.toString());
+          // Handle response similar to tenant payments (check status field)
+          if (!resp.error && resp.data) {
+            const data = resp.data;
 
-          toast.success(
-            "Plan upgraded successfully! Refreshing your dashboard..."
-          );
+            // Clean URL params immediately
+            sessionStorage.removeItem("upgrade_reference");
+            sessionStorage.removeItem("upgrade_plan_id");
+            params.delete("reference");
+            params.delete("trxref");
+            params.delete("payment_callback");
+            url.search = params.toString();
+            window.history.replaceState({}, document.title, url.toString());
 
-          // Reload the page to refresh all data and remove trial banner
-          setTimeout(() => {
-            window.location.reload();
-          }, 1500); // Give time for success message to show
+            if (data.status === "success" || data.success) {
+              toast.success(
+                data.message ||
+                  "Plan upgraded successfully! Refreshing your dashboard..."
+              );
+              // Reload the page to refresh all data and remove trial banner
+              setTimeout(() => {
+                window.location.reload();
+              }, 1500);
+            } else if (data.status === "failed") {
+              toast.error(data.message || "Payment failed. Please try again.");
+            } else if (data.status === "pending") {
+              toast.info(
+                data.message || "Payment is being processed. Please wait..."
+              );
+            } else {
+              // Unknown status - show message or generic info
+              toast.info(data.message || "Payment status: " + data.status);
+            }
+          } else {
+            throw new Error("Upgrade verification failed");
+          }
         } catch (error: any) {
           console.error(
             "[PropertyOwnerDashboard] Subscription upgrade verification error:",
             error
           );
+          // api-client returns errors in format: { error: { error: string, message?: string, details?: string } }
           const message =
+            error?.error?.message ||
+            error?.error?.error ||
+            error?.error?.details ||
             error?.response?.data?.error ||
             error?.message ||
             "Failed to verify subscription upgrade";

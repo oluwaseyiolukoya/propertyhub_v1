@@ -2287,8 +2287,11 @@ export function SuperAdminDashboard({
                                     {formatCurrency(
                                       convertAmount(
                                         mrr,
-                                        customer.plan?.currency || "USD"
-                                      )
+                                        customer.plan?.currency ||
+                                          adminCurrency,
+                                        adminCurrency
+                                      ),
+                                      adminCurrency
                                     )}
                                     <span className="text-xs text-gray-500 font-normal ml-1">
                                       /mo
@@ -3911,8 +3914,10 @@ export function SuperAdminDashboard({
                       {formatCurrency(
                         convertAmount(
                           viewCustomerDialog.mrr || 0,
-                          viewCustomerDialog.plan?.currency || "USD"
-                        )
+                          viewCustomerDialog.plan?.currency || adminCurrency,
+                          adminCurrency
+                        ),
+                        adminCurrency
                       )}
                     </p>
                   </div>
@@ -4471,8 +4476,10 @@ export function SuperAdminDashboard({
                                 {formatCurrency(
                                   convertAmount(
                                     plan.monthlyPrice,
-                                    plan.currency || "USD"
-                                  )
+                                    plan.currency || adminCurrency,
+                                    adminCurrency
+                                  ),
+                                  adminCurrency
                                 )}
                                 /mo
                               </SelectItem>

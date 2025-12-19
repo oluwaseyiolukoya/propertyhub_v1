@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import QRCode from "qrcode";
+import { formatCurrency } from "../lib/currency";
 import {
   Card,
   CardContent,
@@ -1415,7 +1416,11 @@ export function PropertyOwnerSettings({
                         {subscriptionData.plan} Plan
                       </p>
                       <p className="text-xs text-blue-700 mt-1">
-                        ${subscriptionData.amount}/month
+                        {formatCurrency(
+                          subscriptionData.amount,
+                          subscriptionData.currency || "NGN"
+                        )}
+                        /month
                       </p>
                       <Button
                         variant="link"
@@ -2571,8 +2576,11 @@ function SubscriptionSection({ subscriptionData, onCancelClick }: any) {
                 </Badge>
               </div>
               <p className="text-gray-600 text-sm mb-4">
-                ${subscriptionData.amount}/month • Billed{" "}
-                {subscriptionData.billingCycle}
+                {formatCurrency(
+                  subscriptionData.amount,
+                  subscriptionData.currency || "NGN"
+                )}
+                /month • Billed {subscriptionData.billingCycle}
               </p>
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Calendar className="h-4 w-4" />
@@ -2683,7 +2691,7 @@ function SubscriptionSection({ subscriptionData, onCancelClick }: any) {
                 For small property owners
               </p>
               <p className="text-gray-900 text-2xl font-bold mb-4">
-                $299
+                ₦50,000
                 <span className="text-sm font-normal text-gray-600">/mo</span>
               </p>
               <ul className="space-y-2 text-sm text-gray-600 mb-4">
@@ -2714,7 +2722,7 @@ function SubscriptionSection({ subscriptionData, onCancelClick }: any) {
                 For growing portfolios
               </p>
               <p className="text-gray-900 text-2xl font-bold mb-4">
-                $750
+                ₦100,000
                 <span className="text-sm font-normal text-gray-600">/mo</span>
               </p>
               <ul className="space-y-2 text-sm text-gray-600 mb-4">
@@ -2740,7 +2748,7 @@ function SubscriptionSection({ subscriptionData, onCancelClick }: any) {
               <h4 className="font-semibold mb-2">Enterprise</h4>
               <p className="text-gray-600 text-sm mb-4">For large portfolios</p>
               <p className="text-gray-900 text-2xl font-bold mb-4">
-                $2,500
+                ₦250,000
                 <span className="text-sm font-normal text-gray-600">/mo</span>
               </p>
               <ul className="space-y-2 text-sm text-gray-600 mb-4">
@@ -3139,7 +3147,10 @@ function BillingSection({
                       {invoice.description}
                     </TableCell>
                     <TableCell className="font-semibold text-gray-900">
-                      ${invoice.amount}
+                      {formatCurrency(
+                        invoice.amount,
+                        invoice.currency || "NGN"
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge

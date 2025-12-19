@@ -95,7 +95,10 @@ export interface InitializeUpgradeResponse {
   invoiceId: string;
 }
 
-export const initializeUpgrade = async (planId: string, billingCycle?: 'monthly' | 'annual') => {
+export const initializeUpgrade = async (
+  planId: string,
+  billingCycle?: "monthly" | "annual"
+) => {
   return apiClient.post<InitializeUpgradeResponse>(
     "/api/subscriptions/upgrade/initialize",
     { planId, billingCycle }
@@ -104,25 +107,23 @@ export const initializeUpgrade = async (planId: string, billingCycle?: 'monthly'
 
 /**
  * Verify upgrade payment
+ * Uses GET with reference in URL (matches tenant payment pattern)
  */
 export interface VerifyUpgradeResponse {
   success: boolean;
-  message: string;
-  customer: {
-    id: string;
-    plan: string;
-    limits: {
-      projects?: number;
-      properties?: number;
-      users: number;
-      storage: number;
-    };
-  };
+  status: string;
+  reference: string;
+  provider: string;
+  verified: boolean;
+  verificationSource?: string;
+  message?: string;
+  plan?: string;
+  error?: string;
 }
 
 export const verifyUpgrade = async (reference: string) => {
-  return apiClient.post<VerifyUpgradeResponse>(
-    "/api/subscriptions/upgrade/verify",
-    { reference }
+  // Use GET with reference in URL path (same as tenant payments)
+  return apiClient.get<VerifyUpgradeResponse>(
+    `/api/subscriptions/upgrade/verify/${encodeURIComponent(reference)}`
   );
 };

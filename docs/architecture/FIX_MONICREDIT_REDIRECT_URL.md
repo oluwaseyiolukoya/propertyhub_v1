@@ -138,4 +138,3 @@ If Monicredit still redirects to webhook URL after this fix:
 
 **Last Updated:** December 16, 2025  
 **Status:** Monicredit redirect URL fix - match Paystack behavior
-

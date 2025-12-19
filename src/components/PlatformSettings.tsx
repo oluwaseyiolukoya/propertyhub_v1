@@ -116,7 +116,7 @@ export function PlatformSettings() {
       supportEmail: "support@contrezz.com",
       timezone: "UTC-8",
       dateFormat: "MM/DD/YYYY",
-      currency: "USD",
+      currency: "NGN",
       language: "English",
       maintenanceMode: false,
       allowRegistration: true,
