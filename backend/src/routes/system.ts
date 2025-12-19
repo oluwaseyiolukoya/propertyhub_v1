@@ -392,5 +392,151 @@ router.delete('/settings/favicon', adminOnly, async (req: AuthRequest, res: Resp
   }
 });
 
+// ============================================
+// Admin Payment Gateway Configuration
+// Platform-level payment gateway settings (for subscription payments)
+// Stored in system_settings, separate from owner-level payment_settings
+// ============================================
+
+// Get platform payment gateway configuration
+router.get('/admin/payment-gateway', adminOnly, async (req: AuthRequest, res: Response) => {
+  try {
+    const { provider = 'monicredit' } = req.query;
+
+    if (!['paystack', 'monicredit'].includes(provider as string)) {
+      return res.status(400).json({ error: 'Invalid provider. Supported: paystack, monicredit' });
+    }
+
+    const key = `payments.${provider}`;
+    const setting = await prisma.system_settings.findUnique({ where: { key } });
+
+    if (!setting) {
+      return res.json({
+        provider,
+        isEnabled: false,
+        testMode: false,
+        publicKey: null,
+        secretKey: null,
+        privateKey: null,
+        merchantId: null,
+        verifyToken: null,
+      });
+    }
+
+    const value = setting.value as any;
+    const response: any = {
+      provider,
+      isEnabled: value?.isEnabled || false,
+      testMode: value?.testMode || false,
+      publicKey: value?.publicKey || null,
+      // Don't expose secret keys in GET - only show if enabled
+      secretKey: value?.isEnabled ? (value?.secretKey || null) : null,
+      privateKey: value?.isEnabled ? (value?.privateKey || null) : null,
+      merchantId: value?.merchantId || null,
+      verifyToken: value?.verifyToken || null,
+      metadata: value?.metadata || {},
+    };
+
+    return res.json(response);
+  } catch (error: any) {
+    console.error('[Admin Payment Gateway] Get error:', error);
+    return res.status(500).json({ error: 'Failed to fetch payment gateway configuration' });
+  }
+});
+
+// Save/Update platform payment gateway configuration
+router.post('/admin/payment-gateway', adminOnly, async (req: AuthRequest, res: Response) => {
+  try {
+    const { provider = 'monicredit', publicKey, secretKey, privateKey, merchantId, testMode, isEnabled } = req.body;
+
+    if (!['paystack', 'monicredit'].includes(provider)) {
+      return res.status(400).json({ error: 'Invalid provider. Supported: paystack, monicredit' });
+    }
+
+    // Validate required fields
+    if (isEnabled) {
+      if (provider === 'monicredit') {
+        if (!publicKey || !privateKey) {
+          return res.status(400).json({
+            error: 'Public key and private key are required for Monicredit',
+          });
+        }
+      } else if (provider === 'paystack') {
+        if (!publicKey || !secretKey) {
+          return res.status(400).json({
+            error: 'Public key and secret key are required for Paystack',
+          });
+        }
+      }
+    }
+
+    const key = `payments.${provider}`;
+    
+    // Get existing setting to preserve verifyToken if it exists
+    const existing = await prisma.system_settings.findUnique({ where: { key } });
+    let verifyToken = (existing?.value as any)?.verifyToken;
+
+    // Generate verify token for Monicredit if it doesn't exist
+    if (provider === 'monicredit' && !verifyToken) {
+      const crypto = require('crypto');
+      verifyToken = crypto.randomBytes(32).toString('hex');
+    }
+
+    // Prepare value object
+    const value: any = {
+      isEnabled: isEnabled || false,
+      testMode: testMode || false,
+      publicKey: publicKey || null,
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (provider === 'monicredit') {
+      value.privateKey = privateKey || null;
+      value.merchantId = merchantId || null;
+      value.verifyToken = verifyToken;
+    } else if (provider === 'paystack') {
+      value.secretKey = secretKey || null;
+    }
+
+    // Upsert system setting
+    const setting = await prisma.system_settings.upsert({
+      where: { key },
+      update: {
+        value,
+        category: 'payments',
+        description: `Platform-level ${provider} payment gateway configuration for subscription payments`,
+        updatedAt: new Date(),
+      },
+      create: {
+        id: require('crypto').randomUUID(),
+        key,
+        value,
+        category: 'payments',
+        description: `Platform-level ${provider} payment gateway configuration for subscription payments`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    // Return response (don't expose full secret keys)
+    const response: any = {
+      provider,
+      isEnabled: value.isEnabled,
+      testMode: value.testMode,
+      publicKey: value.publicKey,
+      merchantId: value.merchantId || null,
+      verifyToken: value.verifyToken || null,
+      message: `${provider} configuration saved successfully`,
+    };
+
+    console.log(`[Admin Payment Gateway] ${provider} configuration saved`);
+
+    return res.json(response);
+  } catch (error: any) {
+    console.error('[Admin Payment Gateway] Save error:', error);
+    return res.status(500).json({ error: 'Failed to save payment gateway configuration' });
+  }
+});
+
 export default router;
 

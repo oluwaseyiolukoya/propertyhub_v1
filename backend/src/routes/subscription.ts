@@ -1,7 +1,7 @@
-import { Router, Request, Response } from 'express';
-import prisma from '../lib/db';
-import { authMiddleware } from '../middleware/auth';
-import { trialManagementService } from '../services/trial-management.service';
+import { Router, Request, Response } from "express";
+import prisma from "../lib/db";
+import { authMiddleware } from "../middleware/auth";
+import { trialManagementService } from "../services/trial-management.service";
 
 const router = Router();
 
@@ -12,20 +12,23 @@ router.use(authMiddleware);
  * GET /api/subscription/status
  * Get current subscription status and trial information
  */
-router.get('/status', async (req: Request, res: Response) => {
+router.get("/status", async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
 
     if (!user || !user.customerId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
     // Prevent any caching of subscription status
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.set('Pragma', 'no-cache');
-    res.set('Expires', '0');
-    res.set('Surrogate-Control', 'no-store');
-    res.set('Vary', 'Authorization');
+    res.set(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, proxy-revalidate"
+    );
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
+    res.set("Surrogate-Control", "no-store");
+    res.set("Vary", "Authorization");
 
     const customer = await prisma.customers.findUnique({
       where: { id: user.customerId },
@@ -36,7 +39,7 @@ router.get('/status', async (req: Request, res: Response) => {
     });
 
     if (!customer) {
-      return res.status(404).json({ error: 'Customer not found' });
+      return res.status(404).json({ error: "Customer not found" });
     }
 
     // Calculate days remaining
@@ -60,11 +63,11 @@ router.get('/status', async (req: Request, res: Response) => {
 
     // Calculate next billing date
     let nextBillingDate = null;
-    if (customer.status === 'active' && customer.subscriptionStartDate) {
+    if (customer.status === "active" && customer.subscriptionStartDate) {
       const startDate = new Date(customer.subscriptionStartDate);
       nextBillingDate = new Date(startDate);
 
-      if (customer.billingCycle === 'annual') {
+      if (customer.billingCycle === "annual") {
         nextBillingDate.setFullYear(nextBillingDate.getFullYear() + 1);
       } else {
         nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
@@ -82,22 +85,25 @@ router.get('/status', async (req: Request, res: Response) => {
       suspendedAt: customer.suspendedAt,
       suspensionReason: customer.suspensionReason,
       hasPaymentMethod: customer.payment_methods.length > 0,
-      canUpgrade: customer.status === 'trial' || customer.status === 'suspended',
+      canUpgrade:
+        customer.status === "trial" || customer.status === "suspended",
       nextBillingDate,
-      plan: customer.plans ? {
-        id: customer.plans.id,
-        name: customer.plans.name,
-        monthlyPrice: customer.plans.monthlyPrice,
-        annualPrice: customer.plans.annualPrice,
-      } : null,
+      plan: customer.plans
+        ? {
+            id: customer.plans.id,
+            name: customer.plans.name,
+            monthlyPrice: customer.plans.monthlyPrice,
+            annualPrice: customer.plans.annualPrice,
+          }
+        : null,
       billingCycle: customer.billingCycle,
       mrr: customer.mrr,
     };
 
     res.json(response);
   } catch (error) {
-    console.error('[Subscription] Get status error:', error);
-    res.status(500).json({ error: 'Failed to get subscription status' });
+    console.error("[Subscription] Get status error:", error);
+    res.status(500).json({ error: "Failed to get subscription status" });
   }
 });
 
@@ -105,71 +111,113 @@ router.get('/status', async (req: Request, res: Response) => {
  * POST /api/subscription/upgrade
  * Upgrade from trial to paid subscription
  */
-router.post('/upgrade', async (req: Request, res: Response) => {
+router.post("/upgrade", async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
-    const { planId, billingCycle, paymentReference, savePaymentMethod } = req.body;
+    const { planId, billingCycle, paymentReference, savePaymentMethod } =
+      req.body;
 
-    console.log('[Subscription] ========== UPGRADE REQUEST START ==========');
-    console.log('[Subscription] User:', { id: user?.id, customerId: user?.customerId, email: user?.email });
-    console.log('[Subscription] Request body:', { planId, billingCycle, paymentReference, savePaymentMethod });
+    console.log("[Subscription] ========== UPGRADE REQUEST START ==========");
+    console.log("[Subscription] User:", {
+      id: user?.id,
+      customerId: user?.customerId,
+      email: user?.email,
+    });
+    console.log("[Subscription] Request body:", {
+      planId,
+      billingCycle,
+      paymentReference,
+      savePaymentMethod,
+    });
 
     if (!user || !user.customerId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
     if (!planId || !billingCycle) {
-      return res.status(400).json({ error: 'Plan ID and billing cycle are required' });
+      return res
+        .status(400)
+        .json({ error: "Plan ID and billing cycle are required" });
     }
 
     if (!paymentReference) {
-      return res.status(400).json({ error: 'Payment reference is required' });
+      return res.status(400).json({ error: "Payment reference is required" });
     }
 
-    console.log('[Subscription] Fetching customer...');
+    console.log("[Subscription] Fetching customer...");
     const customer = await prisma.customers.findUnique({
       where: { id: user.customerId },
       include: { payment_methods: true, users: true },
     });
 
     if (!customer) {
-      console.error('[Subscription] Customer not found:', user.customerId);
-      return res.status(404).json({ error: 'Customer not found' });
+      console.error("[Subscription] Customer not found:", user.customerId);
+      return res.status(404).json({ error: "Customer not found" });
     }
 
-    console.log('[Subscription] Customer found:', { id: customer.id, email: customer.email, status: customer.status });
+    console.log("[Subscription] Customer found:", {
+      id: customer.id,
+      email: customer.email,
+      status: customer.status,
+    });
 
     // Allow upgrades for trial, suspended, AND active customers (plan changes)
-    if (customer.status !== 'trial' && customer.status !== 'suspended' && customer.status !== 'active') {
-      return res.status(400).json({ error: 'Account is not eligible for upgrade' });
+    if (
+      customer.status !== "trial" &&
+      customer.status !== "suspended" &&
+      customer.status !== "active"
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Account is not eligible for upgrade" });
     }
 
     // Resolve Paystack secret key (customer-level → system-level → env)
-    console.log('[Subscription] Verifying payment with Paystack...');
+    console.log("[Subscription] Verifying payment with Paystack...");
     let paystackSecretKey: string | undefined;
     try {
-      const customerSettings = await prisma.payment_settings.findFirst({
-        where: { customerId: user.customerId, provider: 'paystack', isEnabled: true },
-        select: { secretKey: true }
-      });
+      // For subscription payments, use system-level settings
       const system = await prisma.system_settings.findUnique({
-        where: { key: 'payments.paystack' }
+        where: { key: "payments.paystack" },
       });
       const systemConf = (system?.value as any) || {};
-      paystackSecretKey =
-        customerSettings?.secretKey ||
-        systemConf?.secretKey ||
-        process.env.PAYSTACK_SECRET_KEY;
+
+      // Prioritize system_settings if enabled, otherwise fall back to env for backward compatibility
+      if (system && systemConf?.isEnabled && systemConf?.secretKey) {
+        paystackSecretKey = systemConf.secretKey;
+        console.log(
+          "[Subscription] Using Paystack key from system_settings for verification"
+        );
+      } else {
+        // Fallback to env for in-flight payments that were initiated before Paystack was disabled
+        paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
+        console.log(
+          "[Subscription] Using Paystack key from env for verification (backward compatibility)"
+        );
+      }
     } catch (settingsErr) {
-      console.warn('[Subscription] Failed to read payment settings, falling back to env:', (settingsErr as any)?.message || settingsErr);
+      console.warn(
+        "[Subscription] Failed to read payment settings, falling back to env:",
+        (settingsErr as any)?.message || settingsErr
+      );
       paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
     }
     if (!paystackSecretKey) {
-      console.error('[Subscription] Paystack secret key not configured at any level (customer/system/env)');
-      return res.status(500).json({ error: 'Payment gateway not configured', details: 'Missing Paystack secret key' });
+      console.error(
+        "[Subscription] Paystack secret key not configured at any level (customer/system/env)"
+      );
+      return res
+        .status(500)
+        .json({
+          error: "Payment gateway not configured",
+          details: "Missing Paystack secret key",
+        });
     }
 
-    console.log('[Subscription] Calling Paystack API with reference:', paymentReference);
+    console.log(
+      "[Subscription] Calling Paystack API with reference:",
+      paymentReference
+    );
     const verifyResponse = await fetch(
       `https://api.paystack.co/transaction/verify/${paymentReference}`,
       {
@@ -180,77 +228,92 @@ router.post('/upgrade', async (req: Request, res: Response) => {
     );
 
     const verifyData = await verifyResponse.json();
-    console.log('[Subscription] Paystack verification response:', {
+    console.log("[Subscription] Paystack verification response:", {
       status: verifyData.status,
       dataStatus: verifyData.data?.status,
       message: verifyData.message,
     });
 
-    if (!verifyData.status || verifyData.data.status !== 'success') {
-      console.error('[Subscription] Payment verification failed:', verifyData);
-      return res.status(400).json({ error: 'Payment verification failed', details: verifyData.message });
+    if (!verifyData.status || verifyData.data.status !== "success") {
+      console.error("[Subscription] Payment verification failed:", verifyData);
+      return res
+        .status(400)
+        .json({
+          error: "Payment verification failed",
+          details: verifyData.message,
+        });
     }
 
-    console.log('[Subscription] Payment verified successfully');
+    console.log("[Subscription] Payment verified successfully");
 
     // Create payment record for the subscription
     try {
       const data = verifyData.data || {};
       await prisma.payments.create({
         data: {
-          id: require('crypto').randomUUID(),
+          id: require("crypto").randomUUID(),
           customerId: customer.id,
-          amount: typeof data.amount === 'number' ? data.amount / 100 : 0,
-          currency: (data.currency || 'NGN').toUpperCase(),
-          status: 'success',
-          type: 'subscription',
-          paymentMethod: data.channel || 'card',
-          provider: 'paystack',
+          amount: typeof data.amount === "number" ? data.amount / 100 : 0,
+          currency: (data.currency || "NGN").toUpperCase(),
+          status: "success",
+          type: "subscription",
+          paymentMethod: data.channel || "card",
+          provider: "paystack",
           providerReference: paymentReference,
           paidAt: data.paid_at ? new Date(data.paid_at) : new Date(),
           metadata: {
             planId,
             billingCycle,
-            authorization: data.authorization?.last4 ? {
-              last4: data.authorization.last4,
-              brand: data.authorization.brand,
-              bank: data.authorization.bank,
-              exp: `${data.authorization.exp_month}/${data.authorization.exp_year}`
-            } : undefined
+            authorization: data.authorization?.last4
+              ? {
+                  last4: data.authorization.last4,
+                  brand: data.authorization.brand,
+                  bank: data.authorization.bank,
+                  exp: `${data.authorization.exp_month}/${data.authorization.exp_year}`,
+                }
+              : undefined,
           } as any,
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       });
-      console.log('[Subscription] Payment record created');
+      console.log("[Subscription] Payment record created");
     } catch (paymentCreateErr) {
-      console.warn('[Subscription] Failed to create payment record (non-blocking):', (paymentCreateErr as any)?.message || paymentCreateErr);
+      console.warn(
+        "[Subscription] Failed to create payment record (non-blocking):",
+        (paymentCreateErr as any)?.message || paymentCreateErr
+      );
     }
 
     // Get plan details
-    console.log('[Subscription] Fetching plan:', planId);
+    console.log("[Subscription] Fetching plan:", planId);
     const plan = await prisma.plans.findUnique({ where: { id: planId } });
     if (!plan) {
-      console.error('[Subscription] Plan not found:', planId);
-      return res.status(404).json({ error: 'Plan not found' });
+      console.error("[Subscription] Plan not found:", planId);
+      return res.status(404).json({ error: "Plan not found" });
     }
-    console.log('[Subscription] Plan found:', { id: plan.id, name: plan.name, monthlyPrice: plan.monthlyPrice });
+    console.log("[Subscription] Plan found:", {
+      id: plan.id,
+      name: plan.name,
+      monthlyPrice: plan.monthlyPrice,
+    });
 
     // Calculate MRR
-    const mrr = billingCycle === 'annual'
-      ? (plan.annualPrice || plan.monthlyPrice * 12) / 12
-      : plan.monthlyPrice;
+    const mrr =
+      billingCycle === "annual"
+        ? (plan.annualPrice || plan.monthlyPrice * 12) / 12
+        : plan.monthlyPrice;
 
     // Save payment method if requested
     let savedPaymentMethodId: string | null = null;
     if (savePaymentMethod && verifyData.data.authorization) {
       const auth = verifyData.data.authorization;
-      const ownerUser = customer.users.find(u => u.role === 'owner');
+      const ownerUser = customer.users.find((u) => u.role === "owner");
 
       if (ownerUser) {
         try {
           const newPaymentMethod = await prisma.payment_methods.create({
             data: {
-              id: require('uuid').v4(),
+              id: require("uuid").v4(),
               tenantId: ownerUser.id,
               customerId: customer.id,
               authorizationCode: auth.authorization_code,
@@ -266,16 +329,22 @@ router.post('/upgrade', async (req: Request, res: Response) => {
             },
           });
           savedPaymentMethodId = newPaymentMethod.id;
-          console.log('[Subscription] Payment method saved:', savedPaymentMethodId);
+          console.log(
+            "[Subscription] Payment method saved:",
+            savedPaymentMethodId
+          );
         } catch (pmError) {
-          console.error('[Subscription] Failed to save payment method:', pmError);
+          console.error(
+            "[Subscription] Failed to save payment method:",
+            pmError
+          );
           // Continue with upgrade even if saving payment method fails
         }
       }
     }
 
     // Update customer with plan limits
-    console.log('[Subscription] Updating customer in database...');
+    console.log("[Subscription] Updating customer in database...");
 
     // 1) Set planId via raw SQL to avoid Prisma planId/plans input mismatch
     if (planId) {
@@ -288,7 +357,7 @@ router.post('/upgrade', async (req: Request, res: Response) => {
 
     // 2) Update the rest of the customer fields via Prisma
     const customerUpdateData: any = {
-      status: 'active',
+      status: "active",
       billingCycle,
       mrr,
       userLimit: plan.userLimit,
@@ -304,14 +373,12 @@ router.post('/upgrade', async (req: Request, res: Response) => {
     };
 
     // Apply limits based on plan category, ensuring we never write null into non-nullable columns
-    if (plan.category === 'property_management') {
+    if (plan.category === "property_management") {
       // For property owner plans, update propertyLimit explicitly and clear projectLimit
       customerUpdateData.propertyLimit =
-        plan.propertyLimit ??
-        customer.propertyLimit ??
-        5; // safe default
+        plan.propertyLimit ?? customer.propertyLimit ?? 5; // safe default
       customerUpdateData.projectLimit = null;
-    } else if (plan.category === 'development') {
+    } else if (plan.category === "development") {
       // For developer plans, use projectLimit and leave propertyLimit unchanged
       customerUpdateData.projectLimit =
         plan.projectLimit ?? customer.projectLimit ?? 0;
@@ -326,7 +393,7 @@ router.post('/upgrade', async (req: Request, res: Response) => {
       },
     });
 
-    console.log('[Subscription] Customer updated successfully:', {
+    console.log("[Subscription] Customer updated successfully:", {
       id: updatedCustomer.id,
       status: updatedCustomer.status,
       planId: updatedCustomer.planId,
@@ -336,12 +403,12 @@ router.post('/upgrade', async (req: Request, res: Response) => {
     });
 
     // Reactivate users if suspended
-    if (customer.status === 'suspended') {
+    if (customer.status === "suspended") {
       await prisma.users.updateMany({
         where: { customerId: user.customerId },
         data: {
           isActive: true,
-          status: 'active',
+          status: "active",
         },
       });
     }
@@ -350,23 +417,24 @@ router.post('/upgrade', async (req: Request, res: Response) => {
     await prisma.subscription_events.create({
       data: {
         customerId: user.customerId,
-        eventType: 'subscription_activated',
+        eventType: "subscription_activated",
         previousStatus: customer.status,
-        newStatus: 'active',
-        triggeredBy: 'customer',
+        newStatus: "active",
+        triggeredBy: "customer",
         metadata: {
           planId,
           billingCycle,
           mrr,
           paymentReference,
-          paymentMethodId: savedPaymentMethodId || customer.payment_methods[0]?.id,
+          paymentMethodId:
+            savedPaymentMethodId || customer.payment_methods[0]?.id,
         },
       },
     });
 
     // Calculate next billing date
     const nextBillingDate = new Date();
-    if (billingCycle === 'annual') {
+    if (billingCycle === "annual") {
       nextBillingDate.setFullYear(nextBillingDate.getFullYear() + 1);
     } else {
       nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
@@ -377,24 +445,26 @@ router.post('/upgrade', async (req: Request, res: Response) => {
     let emailErrorDetails: any = null;
 
     try {
-      const { sendPlanUpgradeEmail } = require('../lib/email');
+      const { sendPlanUpgradeEmail } = require("../lib/email");
 
       // Get old plan name (if exists)
-      let oldPlanName = 'Free Plan';
+      let oldPlanName = "Free Plan";
       if (customer.planId) {
         const oldPlan = await prisma.plans.findUnique({
-          where: { id: customer.planId }
+          where: { id: customer.planId },
         });
         if (oldPlan) {
           oldPlanName = oldPlan.name;
         }
       }
 
-      const dashboardUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard`;
-      const effectiveDate = new Date().toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
+      const dashboardUrl = `${
+        process.env.FRONTEND_URL || "http://localhost:5173"
+      }/dashboard`;
+      const effectiveDate = new Date().toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
       });
 
       // Build features object
@@ -403,27 +473,31 @@ router.post('/upgrade', async (req: Request, res: Response) => {
         storage: plan.storageLimit,
       };
 
-      if (plan.category === 'development' && plan.projectLimit) {
+      if (plan.category === "development" && plan.projectLimit) {
         newFeatures.projects = plan.projectLimit;
-      } else if (plan.category === 'property_management') {
+      } else if (plan.category === "property_management") {
         if (plan.propertyLimit) newFeatures.properties = plan.propertyLimit;
         if (plan.unitLimit) newFeatures.units = plan.unitLimit;
       }
 
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('[Subscription] 📧 SENDING UPGRADE CONFIRMATION EMAIL');
-      console.log('[Subscription] Customer:', customer.email);
-      console.log('[Subscription] Plan:', `${oldPlanName} → ${plan.name}`);
-      console.log('[Subscription] Price:', billingCycle === 'annual' ? plan.annualPrice : plan.monthlyPrice);
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("[Subscription] 📧 SENDING UPGRADE CONFIRMATION EMAIL");
+      console.log("[Subscription] Customer:", customer.email);
+      console.log("[Subscription] Plan:", `${oldPlanName} → ${plan.name}`);
+      console.log(
+        "[Subscription] Price:",
+        billingCycle === "annual" ? plan.annualPrice : plan.monthlyPrice
+      );
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
       emailSent = await sendPlanUpgradeEmail({
-        customerName: customer.company || customer.owner || 'Customer',
+        customerName: customer.company || customer.owner || "Customer",
         customerEmail: customer.email,
-        companyName: customer.company || 'Your Company',
+        companyName: customer.company || "Your Company",
         oldPlanName,
         newPlanName: plan.name,
-        newPlanPrice: billingCycle === 'annual' ? plan.annualPrice : plan.monthlyPrice,
+        newPlanPrice:
+          billingCycle === "annual" ? plan.annualPrice : plan.monthlyPrice,
         currency: plan.currency,
         billingCycle,
         effectiveDate,
@@ -431,9 +505,15 @@ router.post('/upgrade', async (req: Request, res: Response) => {
         dashboardUrl,
       });
 
-      console.log('[Subscription] 📧 Email function returned:', emailSent ? '✅ SUCCESS' : '❌ FAILED');
+      console.log(
+        "[Subscription] 📧 Email function returned:",
+        emailSent ? "✅ SUCCESS" : "❌ FAILED"
+      );
     } catch (emailError: any) {
-      console.error('[Subscription] ❌ EXCEPTION while sending upgrade confirmation email:', emailError);
+      console.error(
+        "[Subscription] ❌ EXCEPTION while sending upgrade confirmation email:",
+        emailError
+      );
       emailErrorDetails = {
         message: emailError?.message,
         code: emailError?.code,
@@ -443,60 +523,72 @@ router.post('/upgrade', async (req: Request, res: Response) => {
     }
 
     if (!emailSent) {
-      console.error('[Subscription] ⚠️ VALIDATION FAILED: Upgrade email was NOT sent');
-      console.error('[Subscription] Email error:', emailErrorDetails);
+      console.error(
+        "[Subscription] ⚠️ VALIDATION FAILED: Upgrade email was NOT sent"
+      );
+      console.error("[Subscription] Email error:", emailErrorDetails);
 
       // IMPORTANT: At this point, payment and database updates have succeeded.
       // We still return 500 so the caller knows email delivery failed,
       // similar to the onboarding activation validation behavior.
       return res.status(500).json({
         success: false,
-        error: 'Failed to send upgrade confirmation email',
-        details: emailErrorDetails?.message || 'Unknown email error',
+        error: "Failed to send upgrade confirmation email",
+        details: emailErrorDetails?.message || "Unknown email error",
         data: {
           subscriptionId: updatedCustomer.id,
           customerEmail: customer.email,
           planName: plan.name,
-          note: 'Upgrade was processed but email delivery failed. Please notify the customer manually.',
+          note: "Upgrade was processed but email delivery failed. Please notify the customer manually.",
         },
       });
     }
 
-    console.log('[Subscription] ✅ Upgrade confirmation email sent successfully');
-    console.log('[Subscription] ========== UPGRADE SUCCESS ==========');
+    console.log(
+      "[Subscription] ✅ Upgrade confirmation email sent successfully"
+    );
+    console.log("[Subscription] ========== UPGRADE SUCCESS ==========");
 
     const response = {
       success: true,
       subscriptionId: updatedCustomer.id,
       status: updatedCustomer.status,
-      plan: updatedCustomer.plans ? {
-        id: updatedCustomer.plans.id,
-        name: updatedCustomer.plans.name,
-        monthlyPrice: updatedCustomer.plans.monthlyPrice,
-        annualPrice: updatedCustomer.plans.annualPrice,
-        propertyLimit: updatedCustomer.plans.propertyLimit,
-        userLimit: updatedCustomer.plans.userLimit,
-        storageLimit: updatedCustomer.plans.storageLimit,
-      } : null,
+      plan: updatedCustomer.plans
+        ? {
+            id: updatedCustomer.plans.id,
+            name: updatedCustomer.plans.name,
+            monthlyPrice: updatedCustomer.plans.monthlyPrice,
+            annualPrice: updatedCustomer.plans.annualPrice,
+            propertyLimit: updatedCustomer.plans.propertyLimit,
+            userLimit: updatedCustomer.plans.userLimit,
+            storageLimit: updatedCustomer.plans.storageLimit,
+          }
+        : null,
       propertyLimit: updatedCustomer.propertyLimit,
       userLimit: updatedCustomer.userLimit,
       storageLimit: updatedCustomer.storageLimit,
       nextBillingDate,
-      message: 'Subscription activated successfully',
+      message: "Subscription activated successfully",
       emailSent: true,
     };
 
-    console.log('[Subscription] Sending response:', response);
+    console.log("[Subscription] Sending response:", response);
     res.json(response);
   } catch (error) {
     const message = (error as any)?.message || String(error);
     const code = (error as any)?.code;
     const stack = (error as any)?.stack;
-    console.error('[Subscription] ========== UPGRADE ERROR ==========');
-    console.error('[Subscription] Error message:', message);
-    console.error('[Subscription] Error code:', code);
-    console.error('[Subscription] Error stack:', stack);
-    res.status(500).json({ error: 'Failed to upgrade subscription', details: message, code });
+    console.error("[Subscription] ========== UPGRADE ERROR ==========");
+    console.error("[Subscription] Error message:", message);
+    console.error("[Subscription] Error code:", code);
+    console.error("[Subscription] Error stack:", stack);
+    res
+      .status(500)
+      .json({
+        error: "Failed to upgrade subscription",
+        details: message,
+        code,
+      });
   }
 });
 
@@ -504,13 +596,13 @@ router.post('/upgrade', async (req: Request, res: Response) => {
  * POST /api/subscription/reactivate
  * Reactivate suspended account
  */
-router.post('/reactivate', async (req: Request, res: Response) => {
+router.post("/reactivate", async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     const { paymentMethodId } = req.body;
 
     if (!user || !user.customerId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
     const customer = await prisma.customers.findUnique({
@@ -519,21 +611,28 @@ router.post('/reactivate', async (req: Request, res: Response) => {
     });
 
     if (!customer) {
-      return res.status(404).json({ error: 'Customer not found' });
+      return res.status(404).json({ error: "Customer not found" });
     }
 
-    if (customer.status !== 'suspended') {
-      return res.status(400).json({ error: 'Account is not suspended' });
+    if (customer.status !== "suspended") {
+      return res.status(400).json({ error: "Account is not suspended" });
     }
 
     // Verify payment method
     if (paymentMethodId) {
-      const paymentMethod = customer.payment_methods.find(pm => pm.id === paymentMethodId);
+      const paymentMethod = customer.payment_methods.find(
+        (pm) => pm.id === paymentMethodId
+      );
       if (!paymentMethod) {
-        return res.status(400).json({ error: 'Payment method not found' });
+        return res.status(400).json({ error: "Payment method not found" });
       }
     } else if (customer.payment_methods.length === 0) {
-      return res.status(400).json({ error: 'No payment method on file. Please add a payment method first.' });
+      return res
+        .status(400)
+        .json({
+          error:
+            "No payment method on file. Please add a payment method first.",
+        });
     }
 
     // Reactivate account
@@ -541,12 +640,14 @@ router.post('/reactivate', async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      status: 'active',
-      message: 'Account reactivated successfully',
+      status: "active",
+      message: "Account reactivated successfully",
     });
   } catch (error: any) {
-    console.error('[Subscription] Reactivate error:', error);
-    res.status(500).json({ error: error.message || 'Failed to reactivate account' });
+    console.error("[Subscription] Reactivate error:", error);
+    res
+      .status(500)
+      .json({ error: error.message || "Failed to reactivate account" });
   }
 });
 
@@ -554,26 +655,25 @@ router.post('/reactivate', async (req: Request, res: Response) => {
  * GET /api/subscription/history
  * Get subscription event history
  */
-router.get('/history', async (req: Request, res: Response) => {
+router.get("/history", async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
 
     if (!user || !user.customerId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
     const events = await prisma.subscription_events.findMany({
       where: { customerId: user.customerId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       take: 50,
     });
 
     res.json({ events });
   } catch (error) {
-    console.error('[Subscription] Get history error:', error);
-    res.status(500).json({ error: 'Failed to get subscription history' });
+    console.error("[Subscription] Get history error:", error);
+    res.status(500).json({ error: "Failed to get subscription history" });
   }
 });
 
 export default router;
-

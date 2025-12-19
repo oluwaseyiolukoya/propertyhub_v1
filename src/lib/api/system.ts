@@ -89,3 +89,42 @@ export const uploadPlatformLogo = async (file: File) => {
   return { data: { ...data, url: absoluteUrl } };
 };
 
+/**
+ * Admin Payment Gateway Configuration (Platform-level)
+ * Used for subscription payments, separate from owner-level payment_settings
+ */
+
+export interface AdminPaymentGatewayConfig {
+  provider: 'paystack' | 'monicredit';
+  isEnabled: boolean;
+  testMode: boolean;
+  publicKey: string | null;
+  secretKey?: string | null;
+  privateKey?: string | null;
+  merchantId?: string | null;
+  verifyToken?: string | null;
+  metadata?: any;
+}
+
+/**
+ * Get platform payment gateway configuration
+ */
+export const getAdminPaymentGateway = async (provider: 'paystack' | 'monicredit' = 'monicredit'): Promise<{ data?: AdminPaymentGatewayConfig; error?: any }> => {
+  return apiClient.get<AdminPaymentGatewayConfig>(`/api/system/admin/payment-gateway?provider=${provider}`);
+};
+
+/**
+ * Save/Update platform payment gateway configuration
+ */
+export const saveAdminPaymentGateway = async (config: {
+  provider: 'paystack' | 'monicredit';
+  publicKey?: string;
+  secretKey?: string;
+  privateKey?: string;
+  merchantId?: string;
+  testMode?: boolean;
+  isEnabled?: boolean;
+}): Promise<{ data?: AdminPaymentGatewayConfig; error?: any }> => {
+  return apiClient.post<AdminPaymentGatewayConfig>('/api/system/admin/payment-gateway', config);
+};
+

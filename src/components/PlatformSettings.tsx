@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -92,6 +92,11 @@ import {
   Search,
   Wrench,
 } from "lucide-react";
+import {
+  getAdminPaymentGateway,
+  saveAdminPaymentGateway,
+  AdminPaymentGatewayConfig,
+} from "../lib/api/system";
 
 export function PlatformSettings() {
   const [activeTab, setActiveTab] = useState("general");
@@ -163,6 +168,131 @@ export function PlatformSettings() {
     },
   });
 
+  const [monicreditConfig, setMonicreditConfig] =
+    useState<AdminPaymentGatewayConfig | null>(null);
+  const [loadingMonicredit, setLoadingMonicredit] = useState(false);
+  const [showMonicreditDialog, setShowMonicreditDialog] = useState(false);
+  const [showPrivateKey, setShowPrivateKey] = useState(false);
+  const [savingMonicredit, setSavingMonicredit] = useState(false);
+
+  const [paystackConfig, setPaystackConfig] =
+    useState<AdminPaymentGatewayConfig | null>(null);
+  const [loadingPaystack, setLoadingPaystack] = useState(false);
+  const [showPaystackDialog, setShowPaystackDialog] = useState(false);
+  const [showSecretKey, setShowSecretKey] = useState(false);
+  const [savingPaystack, setSavingPaystack] = useState(false);
+
+  // Load Monicredit configuration
+  useEffect(() => {
+    loadMonicreditConfig();
+  }, []);
+
+  // Load Paystack configuration
+  useEffect(() => {
+    loadPaystackConfig();
+  }, []);
+
+  const loadMonicreditConfig = async () => {
+    try {
+      setLoadingMonicredit(true);
+      const response = await getAdminPaymentGateway("monicredit");
+      if (response.data) {
+        setMonicreditConfig(response.data);
+      }
+    } catch (error: any) {
+      console.error("Failed to load Monicredit config:", error);
+    } finally {
+      setLoadingMonicredit(false);
+    }
+  };
+
+  const handleSaveMonicredit = async (config: AdminPaymentGatewayConfig) => {
+    try {
+      if (config.isEnabled && (!config.publicKey || !config.privateKey)) {
+        toast.error(
+          "Public key and private key are required to enable Monicredit"
+        );
+        return;
+      }
+
+      setSavingMonicredit(true);
+      const response = await saveAdminPaymentGateway({
+        provider: "monicredit",
+        publicKey: config.publicKey || undefined,
+        privateKey: config.privateKey || undefined,
+        merchantId: config.merchantId || undefined,
+        testMode: config.testMode,
+        isEnabled: config.isEnabled,
+      });
+
+      if (response.error) {
+        toast.error(response.error.error || "Failed to save configuration");
+        return;
+      }
+
+      if (response.data) {
+        setMonicreditConfig(response.data);
+        setShowMonicreditDialog(false);
+        toast.success("Monicredit configuration saved successfully");
+      }
+    } catch (error: any) {
+      console.error("Failed to save Monicredit config:", error);
+      toast.error("Failed to save payment gateway configuration");
+    } finally {
+      setSavingMonicredit(false);
+    }
+  };
+
+  const loadPaystackConfig = async () => {
+    try {
+      setLoadingPaystack(true);
+      const response = await getAdminPaymentGateway("paystack");
+      if (response.data) {
+        setPaystackConfig(response.data);
+      }
+    } catch (error: any) {
+      console.error("Failed to load Paystack config:", error);
+    } finally {
+      setLoadingPaystack(false);
+    }
+  };
+
+  const handleSavePaystack = async (config: AdminPaymentGatewayConfig) => {
+    try {
+      if (config.isEnabled && (!config.publicKey || !config.secretKey)) {
+        toast.error(
+          "Public key and secret key are required to enable Paystack"
+        );
+        return;
+      }
+
+      setSavingPaystack(true);
+      const response = await saveAdminPaymentGateway({
+        provider: "paystack",
+        publicKey: config.publicKey || undefined,
+        secretKey: config.secretKey || undefined,
+        testMode: config.testMode,
+        isEnabled: config.isEnabled,
+      });
+
+      if (response.error) {
+        toast.error(response.error.error || "Failed to save configuration");
+        return;
+      }
+
+      if (response.data) {
+        setPaystackConfig(response.data);
+        setShowPaystackDialog(false);
+        toast.success("Paystack configuration saved successfully");
+      }
+    } catch (error: any) {
+      console.error("Failed to save Paystack config:", error);
+      toast.error("Failed to save payment gateway configuration");
+    } finally {
+      setSavingPaystack(false);
+    }
+  };
+
   const integrations = [
     {
       id: 1,
@@ -175,6 +305,26 @@ export function PlatformSettings() {
     },
     {
       id: 2,
+      name: "Paystack Payment Gateway",
+      type: "payment",
+      status: paystackConfig?.isEnabled ? "connected" : "disconnected",
+      lastSync: paystackConfig?.isEnabled ? new Date().toISOString() : null,
+      webhookUrl: "https://api.app.contrezz.com/api/paystack/webhook",
+      apiVersion: "v1.0",
+      isPaystack: true, // Flag to identify Paystack
+    },
+    {
+      id: 3,
+      name: "Monicredit Payment Gateway",
+      type: "payment",
+      status: monicreditConfig?.isEnabled ? "connected" : "disconnected",
+      lastSync: monicreditConfig?.isEnabled ? new Date().toISOString() : null,
+      webhookUrl: "https://api.app.contrezz.com/api/monicredit/webhook/payment",
+      apiVersion: "v1.0",
+      isMonicredit: true, // Flag to identify Monicredit
+    },
+    {
+      id: 4,
       name: "Kisi Access Control",
       type: "access-control",
       status: "connected",
@@ -183,7 +333,7 @@ export function PlatformSettings() {
       apiVersion: "v2.0",
     },
     {
-      id: 3,
+      id: 5,
       name: "Brivo Access Control",
       type: "access-control",
       status: "disconnected",
@@ -192,7 +342,7 @@ export function PlatformSettings() {
       apiVersion: "v1.0",
     },
     {
-      id: 4,
+      id: 6,
       name: "SendGrid Email Service",
       type: "communication",
       status: "connected",
@@ -201,7 +351,7 @@ export function PlatformSettings() {
       apiVersion: "v3",
     },
     {
-      id: 5,
+      id: 7,
       name: "Twilio SMS Service",
       type: "communication",
       status: "pending",
@@ -2141,6 +2291,17 @@ export function PlatformSettings() {
                                 variant="outline"
                                 size="sm"
                                 className="border-blue-200 text-blue-700 hover:bg-blue-50"
+                                onClick={() => {
+                                  if ((integration as any).isPaystack) {
+                                    setShowPaystackDialog(true);
+                                  } else if (
+                                    (integration as any).isMonicredit
+                                  ) {
+                                    setShowMonicreditDialog(true);
+                                  } else {
+                                    toast.info(`Configure ${integration.name}`);
+                                  }
+                                }}
                               >
                                 <Settings className="h-4 w-4" />
                               </Button>
@@ -2148,6 +2309,23 @@ export function PlatformSettings() {
                                 variant="outline"
                                 size="sm"
                                 className="border-blue-200 text-blue-700 hover:bg-blue-50"
+                                onClick={() => {
+                                  if ((integration as any).isPaystack) {
+                                    loadPaystackConfig();
+                                    toast.success(
+                                      "Paystack configuration refreshed"
+                                    );
+                                  } else if (
+                                    (integration as any).isMonicredit
+                                  ) {
+                                    loadMonicreditConfig();
+                                    toast.success(
+                                      "Monicredit configuration refreshed"
+                                    );
+                                  } else {
+                                    toast.info(`Refresh ${integration.name}`);
+                                  }
+                                }}
                               >
                                 <RefreshCw className="h-4 w-4" />
                               </Button>
@@ -2156,6 +2334,41 @@ export function PlatformSettings() {
                                   variant="outline"
                                   size="sm"
                                   className="border-blue-200 text-blue-700 hover:bg-blue-50"
+                                  onClick={() => {
+                                    if (
+                                      (integration as any).isPaystack &&
+                                      paystackConfig
+                                    ) {
+                                      // Copy webhook URL
+                                      navigator.clipboard.writeText(
+                                        integration.webhookUrl
+                                      );
+                                      toast.success(
+                                        "Webhook URL copied to clipboard"
+                                      );
+                                    } else if (
+                                      (integration as any).isMonicredit &&
+                                      monicreditConfig
+                                    ) {
+                                      // Show webhook URL and verify token
+                                      const webhookInfo = `Webhook URL: ${
+                                        integration.webhookUrl
+                                      }\nVerify Token: ${
+                                        monicreditConfig.verifyToken ||
+                                        "Not set"
+                                      }`;
+                                      navigator.clipboard.writeText(
+                                        webhookInfo
+                                      );
+                                      toast.success(
+                                        "Webhook information copied to clipboard"
+                                      );
+                                    } else {
+                                      toast.info(
+                                        `View ${integration.name} details`
+                                      );
+                                    }
+                                  }}
                                 >
                                   <Eye className="h-4 w-4" />
                                 </Button>
@@ -2169,6 +2382,569 @@ export function PlatformSettings() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Monicredit Configuration Dialog */}
+            <Dialog
+              open={showMonicreditDialog}
+              onOpenChange={setShowMonicreditDialog}
+            >
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <CreditCard className="h-5 w-5 text-purple-600" />
+                    Configure Monicredit Payment Gateway
+                  </DialogTitle>
+                  <DialogDescription>
+                    Configure Monicredit for platform-level subscription
+                    payments
+                  </DialogDescription>
+                </DialogHeader>
+
+                {loadingMonicredit ? (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw className="h-6 w-6 animate-spin text-purple-600" />
+                    <span className="ml-2 text-gray-600">
+                      Loading configuration...
+                    </span>
+                  </div>
+                ) : (
+                  <div className="space-y-6 py-4">
+                    {/* Provider Info */}
+                    <div className="flex items-center justify-between p-4 bg-purple-50 rounded-lg border border-purple-200">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-purple-100 rounded-lg">
+                          <CreditCard className="h-5 w-5 text-purple-600" />
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-gray-900">
+                            Monicredit
+                          </h4>
+                          <p className="text-sm text-gray-600">
+                            Platform-level configuration for subscription
+                            payments
+                          </p>
+                        </div>
+                      </div>
+                      <Badge
+                        variant={
+                          monicreditConfig?.isEnabled ? "default" : "secondary"
+                        }
+                      >
+                        {monicreditConfig?.isEnabled ? "Enabled" : "Disabled"}
+                      </Badge>
+                    </div>
+
+                    {/* Enable/Disable Toggle */}
+                    <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                      <div>
+                        <Label
+                          htmlFor="enable-monicredit"
+                          className="text-base font-semibold"
+                        >
+                          Enable Monicredit
+                        </Label>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Allow subscription payments via Monicredit
+                        </p>
+                      </div>
+                      <Switch
+                        id="enable-monicredit"
+                        checked={monicreditConfig?.isEnabled || false}
+                        onCheckedChange={(checked) =>
+                          setMonicreditConfig({
+                            ...(monicreditConfig || {
+                              provider: "monicredit",
+                              isEnabled: false,
+                              testMode: false,
+                              publicKey: null,
+                              privateKey: null,
+                              merchantId: null,
+                              verifyToken: null,
+                            }),
+                            isEnabled: checked,
+                          })
+                        }
+                        className="data-[state=checked]:bg-purple-600"
+                      />
+                    </div>
+
+                    {/* Test Mode Toggle */}
+                    <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                      <div>
+                        <Label
+                          htmlFor="test-mode"
+                          className="text-base font-semibold"
+                        >
+                          Test Mode
+                        </Label>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Use Monicredit sandbox environment
+                        </p>
+                      </div>
+                      <Switch
+                        id="test-mode"
+                        checked={monicreditConfig?.testMode || false}
+                        onCheckedChange={(checked) =>
+                          setMonicreditConfig({
+                            ...(monicreditConfig || {
+                              provider: "monicredit",
+                              isEnabled: false,
+                              testMode: false,
+                              publicKey: null,
+                              privateKey: null,
+                              merchantId: null,
+                              verifyToken: null,
+                            }),
+                            testMode: checked,
+                          })
+                        }
+                        className="data-[state=checked]:bg-purple-600"
+                      />
+                    </div>
+
+                    {/* Configuration Fields */}
+                    {monicreditConfig?.isEnabled && (
+                      <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <div>
+                          <Label
+                            htmlFor="public-key"
+                            className="text-sm font-semibold"
+                          >
+                            Public Key <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            id="public-key"
+                            type="text"
+                            placeholder="Enter Monicredit public key"
+                            value={monicreditConfig?.publicKey || ""}
+                            onChange={(e) =>
+                              setMonicreditConfig({
+                                ...(monicreditConfig || {
+                                  provider: "monicredit",
+                                  isEnabled: true,
+                                  testMode: false,
+                                  publicKey: null,
+                                  privateKey: null,
+                                  merchantId: null,
+                                  verifyToken: null,
+                                }),
+                                publicKey: e.target.value,
+                              })
+                            }
+                            className="mt-2"
+                          />
+                        </div>
+
+                        <div>
+                          <Label
+                            htmlFor="private-key"
+                            className="text-sm font-semibold"
+                          >
+                            Private Key <span className="text-red-500">*</span>
+                          </Label>
+                          <div className="relative mt-2">
+                            <Input
+                              id="private-key"
+                              type={showPrivateKey ? "text" : "password"}
+                              placeholder="Enter Monicredit private key"
+                              value={monicreditConfig?.privateKey || ""}
+                              onChange={(e) =>
+                                setMonicreditConfig({
+                                  ...(monicreditConfig || {
+                                    provider: "monicredit",
+                                    isEnabled: true,
+                                    testMode: false,
+                                    publicKey: null,
+                                    privateKey: null,
+                                    merchantId: null,
+                                    verifyToken: null,
+                                  }),
+                                  privateKey: e.target.value,
+                                })
+                              }
+                              className="pr-10"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3"
+                              onClick={() => setShowPrivateKey(!showPrivateKey)}
+                            >
+                              {showPrivateKey ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label
+                            htmlFor="merchant-id"
+                            className="text-sm font-semibold"
+                          >
+                            Merchant ID (Optional)
+                          </Label>
+                          <Input
+                            id="merchant-id"
+                            type="text"
+                            placeholder="Enter merchant ID if required"
+                            value={monicreditConfig?.merchantId || ""}
+                            onChange={(e) =>
+                              setMonicreditConfig({
+                                ...(monicreditConfig || {
+                                  provider: "monicredit",
+                                  isEnabled: true,
+                                  testMode: false,
+                                  publicKey: null,
+                                  privateKey: null,
+                                  merchantId: null,
+                                  verifyToken: null,
+                                }),
+                                merchantId: e.target.value,
+                              })
+                            }
+                            className="mt-2"
+                          />
+                        </div>
+
+                        {monicreditConfig?.verifyToken && (
+                          <div>
+                            <Label className="text-sm font-semibold">
+                              Webhook Verify Token
+                            </Label>
+                            <div className="flex items-center gap-2 mt-2">
+                              <Input
+                                type="text"
+                                value={monicreditConfig.verifyToken}
+                                readOnly
+                                className="font-mono text-xs"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(
+                                    monicreditConfig.verifyToken || ""
+                                  );
+                                  toast.success(
+                                    "Verify token copied to clipboard"
+                                  );
+                                }}
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Use this token to verify webhook requests from
+                              Monicredit
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowMonicreditDialog(false);
+                      loadMonicreditConfig();
+                    }}
+                    disabled={savingMonicredit}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (monicreditConfig) {
+                        handleSaveMonicredit(monicreditConfig);
+                      }
+                    }}
+                    disabled={savingMonicredit || loadingMonicredit}
+                    className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700"
+                  >
+                    {savingMonicredit ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        Save Configuration
+                      </>
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* Paystack Configuration Dialog */}
+            <Dialog
+              open={showPaystackDialog}
+              onOpenChange={setShowPaystackDialog}
+            >
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <CreditCard className="h-5 w-5 text-green-600" />
+                    Configure Paystack Payment Gateway
+                  </DialogTitle>
+                  <DialogDescription>
+                    Configure Paystack for platform-level subscription payments
+                  </DialogDescription>
+                </DialogHeader>
+
+                {loadingPaystack ? (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw className="h-6 w-6 animate-spin text-green-600" />
+                    <span className="ml-2 text-gray-600">
+                      Loading configuration...
+                    </span>
+                  </div>
+                ) : (
+                  <div className="space-y-6 py-4">
+                    {/* Provider Info */}
+                    <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-green-100 rounded-lg">
+                          <CreditCard className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-gray-900">
+                            Paystack
+                          </h4>
+                          <p className="text-sm text-gray-600">
+                            Platform-level configuration for subscription
+                            payments
+                          </p>
+                        </div>
+                      </div>
+                      <Badge
+                        variant={
+                          paystackConfig?.isEnabled ? "default" : "secondary"
+                        }
+                      >
+                        {paystackConfig?.isEnabled ? "Enabled" : "Disabled"}
+                      </Badge>
+                    </div>
+
+                    {/* Enable/Disable Toggle */}
+                    <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                      <div>
+                        <Label
+                          htmlFor="enable-paystack"
+                          className="text-base font-semibold"
+                        >
+                          Enable Paystack
+                        </Label>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Allow subscription payments via Paystack
+                        </p>
+                      </div>
+                      <Switch
+                        id="enable-paystack"
+                        checked={paystackConfig?.isEnabled || false}
+                        onCheckedChange={(checked) =>
+                          setPaystackConfig({
+                            ...(paystackConfig || {
+                              provider: "paystack",
+                              isEnabled: false,
+                              testMode: false,
+                              publicKey: null,
+                              secretKey: null,
+                            }),
+                            isEnabled: checked,
+                          })
+                        }
+                        className="data-[state=checked]:bg-green-600"
+                      />
+                    </div>
+
+                    {/* Test Mode Toggle */}
+                    <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                      <div>
+                        <Label
+                          htmlFor="paystack-test-mode"
+                          className="text-base font-semibold"
+                        >
+                          Test Mode
+                        </Label>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Use Paystack test environment
+                        </p>
+                      </div>
+                      <Switch
+                        id="paystack-test-mode"
+                        checked={paystackConfig?.testMode || false}
+                        onCheckedChange={(checked) =>
+                          setPaystackConfig({
+                            ...(paystackConfig || {
+                              provider: "paystack",
+                              isEnabled: false,
+                              testMode: false,
+                              publicKey: null,
+                              secretKey: null,
+                            }),
+                            testMode: checked,
+                          })
+                        }
+                        className="data-[state=checked]:bg-green-600"
+                      />
+                    </div>
+
+                    {/* Configuration Fields */}
+                    {paystackConfig?.isEnabled && (
+                      <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <div>
+                          <Label
+                            htmlFor="paystack-public-key"
+                            className="text-sm font-semibold"
+                          >
+                            Public Key <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            id="paystack-public-key"
+                            type="text"
+                            placeholder="Enter Paystack public key (pk_live_... or pk_test_...)"
+                            value={paystackConfig?.publicKey || ""}
+                            onChange={(e) =>
+                              setPaystackConfig({
+                                ...(paystackConfig || {
+                                  provider: "paystack",
+                                  isEnabled: true,
+                                  testMode: false,
+                                  publicKey: null,
+                                  secretKey: null,
+                                }),
+                                publicKey: e.target.value,
+                              })
+                            }
+                            className="mt-2"
+                          />
+                        </div>
+
+                        <div>
+                          <Label
+                            htmlFor="paystack-secret-key"
+                            className="text-sm font-semibold"
+                          >
+                            Secret Key <span className="text-red-500">*</span>
+                          </Label>
+                          <div className="relative mt-2">
+                            <Input
+                              id="paystack-secret-key"
+                              type={showSecretKey ? "text" : "password"}
+                              placeholder="Enter Paystack secret key (sk_live_... or sk_test_...)"
+                              value={paystackConfig?.secretKey || ""}
+                              onChange={(e) =>
+                                setPaystackConfig({
+                                  ...(paystackConfig || {
+                                    provider: "paystack",
+                                    isEnabled: true,
+                                    testMode: false,
+                                    publicKey: null,
+                                    secretKey: null,
+                                  }),
+                                  secretKey: e.target.value,
+                                })
+                              }
+                              className="pr-10"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3"
+                              onClick={() => setShowSecretKey(!showSecretKey)}
+                            >
+                              {showSecretKey ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label className="text-sm font-semibold">
+                            Webhook URL
+                          </Label>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Input
+                              type="text"
+                              value="https://api.app.contrezz.com/api/paystack/webhook"
+                              readOnly
+                              className="font-mono text-xs bg-gray-100"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                navigator.clipboard.writeText(
+                                  "https://api.app.contrezz.com/api/paystack/webhook"
+                                );
+                                toast.success(
+                                  "Webhook URL copied to clipboard"
+                                );
+                              }}
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Configure this URL in your Paystack dashboard for
+                            webhook notifications
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowPaystackDialog(false);
+                      loadPaystackConfig();
+                    }}
+                    disabled={savingPaystack}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (paystackConfig) {
+                        handleSavePaystack(paystackConfig);
+                      }
+                    }}
+                    disabled={savingPaystack || loadingPaystack}
+                    className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                  >
+                    {savingPaystack ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        Save Configuration
+                      </>
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
             {/* Integration Configuration */}
             <Card className="border-0 shadow-xl overflow-hidden">
