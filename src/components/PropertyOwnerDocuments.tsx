@@ -88,7 +88,6 @@ import {
   updateDocument,
   deleteDocument,
   getDocumentStats,
-  getDocumentDownloadUrl,
   Document,
   DocumentStats,
 } from "../lib/api";
@@ -208,24 +207,16 @@ const PropertyOwnerDocuments: React.FC = () => {
         setPropertyUnits(Array.isArray(unitsData) ? unitsData : []);
       }
 
-      // Load managers assigned to the property
-      const managersResponse = await fetch(`${API_URL}/api/property-managers`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
-      });
-      if (managersResponse.ok) {
-        const managersData = await managersResponse.json();
-        // Filter managers assigned to this specific property
-        const assignedManagers = Array.isArray(managersData)
-          ? managersData.filter((m: any) =>
-              m.property_managers?.some(
-                (pm: any) => pm.propertyId === propertyId && pm.isActive
-              )
+      // Use cached managers data instead of refetching (prevents infinite loop)
+      // Filter managers assigned to this specific property from already-loaded managers
+      const assignedManagers = Array.isArray(managers)
+        ? managers.filter((m: any) =>
+            m.property_managers?.some(
+              (pm: any) => pm.propertyId === propertyId && pm.isActive
             )
-          : [];
-        setPropertyManagerAssignments(assignedManagers);
-      }
+          )
+        : [];
+      setPropertyManagerAssignments(assignedManagers);
     } catch (error) {
       console.error("Failed to load units/managers:", error);
       setPropertyUnits([]);
@@ -606,52 +597,53 @@ const PropertyOwnerDocuments: React.FC = () => {
       const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
       const token = localStorage.getItem("auth_token");
 
-      // If this is an uploaded file, stream the original directly
-      if (doc.fileUrl) {
-        const ext = (
-          doc.format ||
-          doc.fileUrl.split(".").pop() ||
-          ""
-        ).toLowerCase();
-        const response = await fetch(`${API_URL}${doc.fileUrl}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        });
-        if (!response.ok) throw new Error("Download failed");
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${doc.name}.${ext || "file"}`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        toast.success("Document downloaded");
-        setShowDownloadDialog(false);
-        return;
-      }
+      // Determine the download format based on the document
+      const fileExtension = doc.fileUrl
+        ? doc.format?.toLowerCase() ||
+          doc.fileUrl.split(".").pop()?.toLowerCase() ||
+          "pdf"
+        : "pdf";
 
-      // If generated (no file), default to PDF via backend conversion
-      const defaultFormat: "pdf" | "docx" = "pdf";
+      // Use the actual file extension for uploaded files, or pdf/docx for generated content
+      const downloadFormat = doc.fileUrl ? fileExtension : "pdf";
+
+      console.log("Downloading document via API:", {
+        id: doc.id,
+        format: downloadFormat,
+        originalFormat: fileExtension,
+      });
+
       const response = await fetch(
-        `${API_URL}/api/documents/${doc.id}/download/${defaultFormat}`,
+        `${API_URL}/api/documents/${doc.id}/download/${downloadFormat}`,
         { headers: token ? { Authorization: `Bearer ${token}` } : undefined }
       );
-      if (!response.ok) throw new Error("Download failed");
+
+      if (!response.ok) {
+        // Try to get error message from response
+        let errorMessage = `Download failed: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          // If response isn't JSON, use status text
+        }
+        throw new Error(errorMessage);
+      }
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${doc.name}.${defaultFormat}`;
+      a.download = `${doc.name}.${downloadFormat}`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       toast.success("Document downloaded");
       setShowDownloadDialog(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Download error:", error);
-      toast.error("Failed to download document");
+      toast.error(error.message || "Failed to download document");
     }
   };
 
@@ -1363,9 +1355,16 @@ ${
 
   const openUploadDialog = (type: string, category: string) => {
     setUploadForm({
-      ...uploadForm,
+      file: null,
+      name: "",
       type,
       category,
+      description: "",
+      propertyId: "",
+      unitId: "",
+      tenantId: "",
+      managerId: "",
+      isShared: false,
     });
     setShowUploadDialog(true);
   };
@@ -1385,22 +1384,27 @@ ${
     if (!selectedDocument) return;
 
     try {
+      const isUnsharing = shareForm.sharedWith.length === 0;
       const { error } = await updateDocument(selectedDocument.id, {
-        isShared: shareForm.sharedWith.length > 0,
+        isShared: !isUnsharing,
         sharedWith: shareForm.sharedWith,
       });
 
       if (error) {
         toast.error(error);
       } else {
-        toast.success("Document shared successfully");
+        toast.success(
+          isUnsharing
+            ? "Document sharing removed successfully"
+            : "Document shared successfully"
+        );
         setShowShareDialog(false);
         setShareForm({ sharedWith: [], message: "" });
         await loadDocuments();
       }
     } catch (error) {
       console.error("Share error:", error);
-      toast.error("Failed to share document");
+      toast.error("Failed to update document sharing");
     }
   };
 
@@ -3767,15 +3771,16 @@ ${
                 Property
               </Label>
               <Select
-                value={uploadForm.propertyId}
+                value={uploadForm.propertyId || "none"}
                 onValueChange={(value) => {
+                  const finalValue = value === "none" ? "" : value;
                   setUploadForm({
                     ...uploadForm,
-                    propertyId: value,
+                    propertyId: finalValue,
                     unitId: "",
                     tenantId: "",
                   });
-                  if (value) loadUnitsForProperty(value);
+                  if (finalValue) loadUnitsForProperty(finalValue);
                 }}
               >
                 <SelectTrigger
@@ -3785,12 +3790,18 @@ ${
                   <SelectValue placeholder="Select property (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  {Array.isArray(properties) &&
+                  <SelectItem value="none">None (optional)</SelectItem>
+                  {Array.isArray(properties) && properties.length > 0 ? (
                     properties.map((property) => (
                       <SelectItem key={property.id} value={property.id}>
                         {property.name}
                       </SelectItem>
-                    ))}
+                    ))
+                  ) : (
+                    <SelectItem value="no-properties" disabled>
+                      No properties available
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -4304,12 +4315,11 @@ ${
             >
               Cancel
             </Button>
-            <Button
-              onClick={handleShareDocument}
-              disabled={shareForm.sharedWith.length === 0}
-            >
+            <Button onClick={handleShareDocument}>
               <Share2 className="h-4 w-4 mr-2" />
-              Share Document
+              {shareForm.sharedWith.length === 0
+                ? "Remove Sharing"
+                : "Share Document"}
             </Button>
           </DialogFooter>
         </DialogContent>

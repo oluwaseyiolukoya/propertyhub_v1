@@ -1,4 +1,4 @@
-import { io, Socket } from 'socket.io-client';
+import { io, Socket } from "socket.io-client";
 
 let socket: Socket | null = null;
 let reconnectAttempts = 0;
@@ -13,7 +13,9 @@ interface SocketEventCallback {
  */
 async function checkServerAvailability(serverUrl: string): Promise<boolean> {
   try {
-    const apiUrl = serverUrl.replace(/^ws:/, 'http:').replace(/^wss:/, 'https:');
+    const apiUrl = serverUrl
+      .replace(/^ws:/, "http:")
+      .replace(/^wss:/, "https:");
 
     // Create an AbortController for timeout
     const controller = new AbortController();
@@ -21,7 +23,7 @@ async function checkServerAvailability(serverUrl: string): Promise<boolean> {
 
     try {
       const response = await fetch(`${apiUrl}/api/health`, {
-        method: 'GET',
+        method: "GET",
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
@@ -43,7 +45,7 @@ async function checkServerAvailability(serverUrl: string): Promise<boolean> {
 export const initializeSocket = async (token: string): Promise<Socket> => {
   // Don't create multiple connections
   if (socket?.connected) {
-    console.log('✅ Socket already connected');
+    console.log("✅ Socket already connected");
     return socket;
   }
 
@@ -52,12 +54,14 @@ export const initializeSocket = async (token: string): Promise<Socket> => {
     socket.disconnect();
   }
 
-  const serverUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const serverUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
   const isProduction = import.meta.env.PROD;
 
   // In production, disable WebSocket unless explicitly enabled
   if (isProduction && !import.meta.env.VITE_ENABLE_WEBSOCKET) {
-    console.log('ℹ️ WebSocket disabled in production (set VITE_ENABLE_WEBSOCKET=true to enable)');
+    console.log(
+      "ℹ️ WebSocket disabled in production (set VITE_ENABLE_WEBSOCKET=true to enable)"
+    );
     // Return a mock socket that won't try to connect
     socket = {
       connected: false,
@@ -74,8 +78,8 @@ export const initializeSocket = async (token: string): Promise<Socket> => {
   // Check if server is available before attempting WebSocket connection
   const serverAvailable = await checkServerAvailability(serverUrl);
   if (!serverAvailable) {
-    console.warn('⚠️ API server not available, skipping WebSocket connection');
-    console.info('ℹ️ The application will work without real-time updates');
+    console.warn("⚠️ API server not available, skipping WebSocket connection");
+    console.info("ℹ️ The application will work without real-time updates");
     // Return a mock socket that won't try to connect
     socket = {
       connected: false,
@@ -89,13 +93,15 @@ export const initializeSocket = async (token: string): Promise<Socket> => {
     return socket;
   }
 
-  console.log('🔌 Initializing Socket.io connection...');
+  console.log("🔌 Initializing Socket.io connection...");
 
-  const transports = import.meta.env.PROD ? ['polling'] : ['websocket', 'polling'];
+  const transports = import.meta.env.PROD
+    ? ["polling"]
+    : ["websocket", "polling"];
 
   socket = io(serverUrl, {
     auth: {
-      token
+      token,
     },
     transports,
     reconnection: true,
@@ -103,27 +109,27 @@ export const initializeSocket = async (token: string): Promise<Socket> => {
     reconnectionDelayMax: 5000,
     reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
     timeout: 20000,
-    autoConnect: true
+    autoConnect: true,
   });
 
   // Connection event handlers
-  socket.on('connect', () => {
-    console.log('✅ Connected to real-time server');
-    console.log('📡 Socket ID:', socket?.id);
+  socket.on("connect", () => {
+    console.log("✅ Connected to real-time server");
+    console.log("📡 Socket ID:", socket?.id);
     reconnectAttempts = 0;
   });
 
-  socket.on('connected', (data) => {
-    console.log('✅ Server confirmed connection:', data);
+  socket.on("connected", (data) => {
+    console.log("✅ Server confirmed connection:", data);
   });
 
-  socket.on('disconnect', (reason) => {
-    console.log('❌ Disconnected from real-time server:', reason);
+  socket.on("disconnect", (reason) => {
+    console.log("❌ Disconnected from real-time server:", reason);
 
     // Auto-reconnect for certain reasons
-    if (reason === 'io server disconnect') {
+    if (reason === "io server disconnect") {
       // Server disconnected us, try to reconnect manually
-      console.log('🔄 Attempting manual reconnection...');
+      console.log("🔄 Attempting manual reconnection...");
       setTimeout(() => {
         if (socket && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
           reconnectAttempts++;
@@ -133,46 +139,53 @@ export const initializeSocket = async (token: string): Promise<Socket> => {
     }
   });
 
-  socket.on('connect_error', (error) => {
+  socket.on("connect_error", (error) => {
     reconnectAttempts++;
 
     // Only log errors occasionally to reduce console spam
     if (reconnectAttempts === 1 || reconnectAttempts % 5 === 0) {
-      console.warn(`⚠️ WebSocket connection error (attempt ${reconnectAttempts}):`, error.message);
+      console.warn(
+        `⚠️ WebSocket connection error (attempt ${reconnectAttempts}):`,
+        error.message
+      );
     }
 
     if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-      console.error('❌ Max reconnection attempts reached. WebSocket features disabled.');
-      console.info('ℹ️ The application will continue to work without real-time updates.');
+      console.error(
+        "❌ Max reconnection attempts reached. WebSocket features disabled."
+      );
+      console.info(
+        "ℹ️ The application will continue to work without real-time updates."
+      );
       // Disable further reconnection attempts
       socket.removeAllListeners();
     }
   });
 
-  socket.on('error', (error) => {
-    console.error('❌ Socket error:', error);
+  socket.on("error", (error) => {
+    console.error("❌ Socket error:", error);
   });
 
-  socket.on('reconnect', (attemptNumber) => {
+  socket.on("reconnect", (attemptNumber) => {
     console.log(`✅ Reconnected after ${attemptNumber} attempts`);
     reconnectAttempts = 0;
   });
 
-  socket.on('reconnect_attempt', (attemptNumber) => {
+  socket.on("reconnect_attempt", (attemptNumber) => {
     console.log(`🔄 Reconnection attempt ${attemptNumber}...`);
   });
 
-  socket.on('reconnect_error', (error) => {
-    console.error('❌ Reconnection error:', error.message);
+  socket.on("reconnect_error", (error) => {
+    console.error("❌ Reconnection error:", error.message);
   });
 
-  socket.on('reconnect_failed', () => {
-    console.error('❌ Reconnection failed. Please refresh the page.');
+  socket.on("reconnect_failed", () => {
+    console.error("❌ Reconnection failed. Please refresh the page.");
   });
 
   // Pong response for ping
-  socket.on('pong', (data) => {
-    console.log('🏓 Pong received:', data);
+  socket.on("pong", (data) => {
+    console.log("🏓 Pong received:", data);
   });
 
   return socket;
@@ -197,7 +210,7 @@ export const isConnected = (): boolean => {
  */
 export const on = (event: string, callback: SocketEventCallback): void => {
   if (!socket) {
-    console.warn('⚠️  Socket not initialized. Call initializeSocket() first.');
+    console.warn("⚠️  Socket not initialized. Call initializeSocket() first.");
     return;
   }
 
@@ -226,7 +239,7 @@ export const off = (event: string, callback?: SocketEventCallback): void => {
  */
 export const emit = (event: string, data?: any): void => {
   if (!socket) {
-    console.warn('⚠️  Socket not initialized. Call initializeSocket() first.');
+    console.warn("⚠️  Socket not initialized. Call initializeSocket() first.");
     return;
   }
 
@@ -238,7 +251,7 @@ export const emit = (event: string, data?: any): void => {
  * Send ping to check connection
  */
 export const ping = (): void => {
-  emit('ping');
+  emit("ping");
 };
 
 /**
@@ -246,7 +259,7 @@ export const ping = (): void => {
  */
 export const disconnectSocket = (): void => {
   if (socket) {
-    console.log('🔌 Disconnecting socket...');
+    console.log("🔌 Disconnecting socket...");
     socket.removeAllListeners();
     socket.disconnect();
     socket = null;
@@ -259,10 +272,10 @@ export const disconnectSocket = (): void => {
  */
 export const reconnectSocket = (): void => {
   if (socket) {
-    console.log('🔄 Reconnecting socket...');
+    console.log("🔄 Reconnecting socket...");
     socket.connect();
   } else {
-    console.warn('⚠️  Socket not initialized. Call initializeSocket() first.');
+    console.warn("⚠️  Socket not initialized. Call initializeSocket() first.");
   }
 };
 
@@ -275,13 +288,13 @@ export const subscribeToCustomerEvents = (callbacks: {
   onDeleted?: (data: any) => void;
 }) => {
   if (callbacks.onCreated) {
-    on('customer:created', callbacks.onCreated);
+    on("customer:created", callbacks.onCreated);
   }
   if (callbacks.onUpdated) {
-    on('customer:updated', callbacks.onUpdated);
+    on("customer:updated", callbacks.onUpdated);
   }
   if (callbacks.onDeleted) {
-    on('customer:deleted', callbacks.onDeleted);
+    on("customer:deleted", callbacks.onDeleted);
   }
 };
 
@@ -289,9 +302,9 @@ export const subscribeToCustomerEvents = (callbacks: {
  * Unsubscribe from customer events
  */
 export const unsubscribeFromCustomerEvents = () => {
-  off('customer:created');
-  off('customer:updated');
-  off('customer:deleted');
+  off("customer:created");
+  off("customer:updated");
+  off("customer:deleted");
 };
 
 /**
@@ -301,7 +314,7 @@ export const subscribeToAccountEvents = (callbacks: {
   onUpdated?: (data: any) => void;
 }) => {
   if (callbacks.onUpdated) {
-    on('account:updated', callbacks.onUpdated);
+    on("account:updated", callbacks.onUpdated);
   }
 };
 
@@ -309,7 +322,7 @@ export const subscribeToAccountEvents = (callbacks: {
  * Unsubscribe from account events
  */
 export const unsubscribeFromAccountEvents = () => {
-  off('account:updated');
+  off("account:updated");
 };
 
 /**
@@ -321,13 +334,13 @@ export const subscribeToUserEvents = (callbacks: {
   onDeleted?: (data: any) => void;
 }) => {
   if (callbacks.onCreated) {
-    on('user:created', callbacks.onCreated);
+    on("user:created", callbacks.onCreated);
   }
   if (callbacks.onUpdated) {
-    on('user:updated', callbacks.onUpdated);
+    on("user:updated", callbacks.onUpdated);
   }
   if (callbacks.onDeleted) {
-    on('user:deleted', callbacks.onDeleted);
+    on("user:deleted", callbacks.onDeleted);
   }
 };
 
@@ -335,9 +348,9 @@ export const subscribeToUserEvents = (callbacks: {
  * Unsubscribe from user events
  */
 export const unsubscribeFromUserEvents = () => {
-  off('user:created');
-  off('user:updated');
-  off('user:deleted');
+  off("user:created");
+  off("user:updated");
+  off("user:deleted");
 };
 
 /**
@@ -349,13 +362,13 @@ export const subscribeToPropertyEvents = (callbacks: {
   onDeleted?: (data: any) => void;
 }) => {
   if (callbacks.onCreated) {
-    on('property:created', callbacks.onCreated);
+    on("property:created", callbacks.onCreated);
   }
   if (callbacks.onUpdated) {
-    on('property:updated', callbacks.onUpdated);
+    on("property:updated", callbacks.onUpdated);
   }
   if (callbacks.onDeleted) {
-    on('property:deleted', callbacks.onDeleted);
+    on("property:deleted", callbacks.onDeleted);
   }
 };
 
@@ -363,9 +376,9 @@ export const subscribeToPropertyEvents = (callbacks: {
  * Unsubscribe from property events
  */
 export const unsubscribeFromPropertyEvents = () => {
-  off('property:created');
-  off('property:updated');
-  off('property:deleted');
+  off("property:created");
+  off("property:updated");
+  off("property:deleted");
 };
 
 /**
@@ -376,10 +389,10 @@ export const subscribeToPaymentEvents = (callbacks: {
   onUpdated?: (data: any) => void;
 }) => {
   if (callbacks.onReceived) {
-    on('payment:received', callbacks.onReceived);
+    on("payment:received", callbacks.onReceived);
   }
   if (callbacks.onUpdated) {
-    on('payment:updated', callbacks.onUpdated);
+    on("payment:updated", callbacks.onUpdated);
   }
 };
 
@@ -387,8 +400,8 @@ export const subscribeToPaymentEvents = (callbacks: {
  * Unsubscribe from payment events
  */
 export const unsubscribeFromPaymentEvents = () => {
-  off('payment:received');
-  off('payment:updated');
+  off("payment:received");
+  off("payment:updated");
 };
 
 /**
@@ -399,10 +412,10 @@ export const subscribeToMaintenanceEvents = (callbacks: {
   onUpdated?: (data: any) => void;
 }) => {
   if (callbacks.onCreated) {
-    on('maintenance:created', callbacks.onCreated);
+    on("maintenance:created", callbacks.onCreated);
   }
   if (callbacks.onUpdated) {
-    on('maintenance:updated', callbacks.onUpdated);
+    on("maintenance:updated", callbacks.onUpdated);
   }
 };
 
@@ -410,49 +423,82 @@ export const subscribeToMaintenanceEvents = (callbacks: {
  * Unsubscribe from maintenance events
  */
 export const unsubscribeFromMaintenanceEvents = () => {
-  off('maintenance:created');
-  off('maintenance:updated');
+  off("maintenance:created");
+  off("maintenance:updated");
 };
 
 /**
  * Subscribe to notification events
  */
-export const subscribeToNotificationEvents = (callback: (data: any) => void) => {
-  on('notification', callback);
+export const subscribeToNotificationEvents = (
+  callback: (data: any) => void
+) => {
+  on("notification", callback);
 };
 
 /**
  * Unsubscribe from notification events
  */
 export const unsubscribeFromNotificationEvents = () => {
-  off('notification');
+  off("notification");
 };
 
 /**
  * Subscribe to force re-authentication events
  */
-export const subscribeToForceReauth = (callback: (data: { reason: string; timestamp: string }) => void) => {
-  on('force:reauth', callback);
+export const subscribeToForceReauth = (
+  callback: (data: { reason: string; timestamp: string }) => void
+) => {
+  on("force:reauth", callback);
 };
 
 /**
  * Unsubscribe from force re-authentication events
  */
 export const unsubscribeFromForceReauth = () => {
-  off('force:reauth');
+  off("force:reauth");
 };
 
 /**
  * Subscribe to permissions updated events (customer-wide)
  */
-export const subscribeToPermissionsUpdated = (callback: (data: { customerId: string; permissions: any }) => void) => {
-  on('permissions:updated', callback);
+export const subscribeToPermissionsUpdated = (
+  callback: (data: { customerId: string; permissions: any }) => void
+) => {
+  on("permissions:updated", callback);
 };
 
 /**
  * Unsubscribe from permissions updated events
  */
 export const unsubscribeFromPermissionsUpdated = () => {
-  off('permissions:updated');
+  off("permissions:updated");
 };
 
+/**
+ * Subscribe to document events (for managers and tenants)
+ */
+export const subscribeToDocumentEvents = (callbacks: {
+  onUpdated?: (data: {
+    documentId: string;
+    action: string;
+    reason?: string;
+    timestamp: string;
+  }) => void;
+  onDeleted?: (data: { documentId: string; timestamp: string }) => void;
+}) => {
+  if (callbacks.onUpdated) {
+    on("document:updated", callbacks.onUpdated);
+  }
+  if (callbacks.onDeleted) {
+    on("document:deleted", callbacks.onDeleted);
+  }
+};
+
+/**
+ * Unsubscribe from document events
+ */
+export const unsubscribeFromDocumentEvents = () => {
+  off("document:updated");
+  off("document:deleted");
+};

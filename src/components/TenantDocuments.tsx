@@ -31,7 +31,6 @@ import { toast } from "sonner";
 import {
   getDocuments,
   getDocumentStats,
-  getDocumentDownloadUrl,
   downloadDocumentInFormat,
   Document,
   DocumentStats,
@@ -43,6 +42,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
+import {
+  subscribeToDocumentEvents,
+  unsubscribeFromDocumentEvents,
+} from "../lib/socket";
 
 const TenantDocuments: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -57,6 +60,50 @@ const TenantDocuments: React.FC = () => {
   useEffect(() => {
     loadDocuments();
     loadStats();
+  }, []);
+
+  // Subscribe to real-time document updates
+  useEffect(() => {
+    const handleDocumentUpdate = (data: {
+      documentId: string;
+      action: string;
+      reason?: string;
+      timestamp: string;
+    }) => {
+      console.log("[TenantDocuments] Real-time update received:", data);
+
+      if (data.action === "removed") {
+        // Document was removed from sharing or made inactive
+        // Remove it from local state immediately for instant UI update
+        setDocuments((prev) =>
+          prev.filter((doc) => doc.id !== data.documentId)
+        );
+
+        // Show appropriate notification
+        if (data.reason === "document_inactive") {
+          toast.info("A shared document has been made inactive");
+        } else if (data.reason === "sharing_removed") {
+          toast.info("A document is no longer shared with you");
+        } else if (data.reason === "document_deleted") {
+          toast.info("A shared document has been deleted");
+        }
+
+        // Reload stats to update counts
+        loadStats();
+      } else if (data.action === "updated") {
+        // Document was updated, reload to get latest data
+        loadDocuments();
+        loadStats();
+      }
+    };
+
+    subscribeToDocumentEvents({
+      onUpdated: handleDocumentUpdate,
+    });
+
+    return () => {
+      unsubscribeFromDocumentEvents();
+    };
   }, []);
 
   const loadDocuments = async () => {
@@ -130,19 +177,26 @@ const TenantDocuments: React.FC = () => {
   };
 
   const handleDownload = (doc: Document, format: "pdf" | "docx" = "pdf") => {
-    // For generated contracts (no fileUrl), use the download API
-    if (!doc.fileUrl || doc.fileUrl === "") {
-      const downloadUrl = downloadDocumentInFormat(doc.id, format, {
+    // Determine the download format based on the document
+    const fileExtension = doc.fileUrl
+      ? doc.format?.toLowerCase() ||
+        doc.fileUrl.split(".").pop()?.toLowerCase() ||
+        format
+      : format;
+
+    // Use the actual file extension for uploaded files, or requested format for generated content
+    const downloadFormat = doc.fileUrl ? fileExtension : format;
+
+    // Always use the API endpoint (handles both uploaded files and generated contracts)
+    const downloadUrl = downloadDocumentInFormat(
+      doc.id,
+      downloadFormat as "pdf" | "docx",
+      {
         includeToken: true,
-      });
-      window.open(downloadUrl, "_blank");
-      toast.success(`Downloading ${doc.name} as ${format.toUpperCase()}`);
-    } else {
-      // For uploaded files, use direct file URL
-      const downloadUrl = getDocumentDownloadUrl(doc.fileUrl);
-      window.open(downloadUrl, "_blank");
-      toast.success(`Downloading ${doc.name}`);
-    }
+      }
+    );
+    window.open(downloadUrl, "_blank");
+    toast.success(`Downloading ${doc.name} as ${downloadFormat.toUpperCase()}`);
   };
 
   const handleView = (doc: Document) => {
@@ -1058,36 +1112,37 @@ const TenantDocuments: React.FC = () => {
                 // This ensures proper authentication via token query parameter
                 viewingDocument.fileUrl &&
                 viewingDocument.fileUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                  // For images, try download endpoint first, fallback to direct URL
-                  <img
-                    src={downloadDocumentInFormat(viewingDocument.id, "pdf", {
-                      inline: true,
-                      includeToken: true,
-                    })}
-                    alt={viewingDocument.name}
-                    className="w-full h-full object-contain bg-gray-50"
-                    onError={(e) => {
-                      // Fallback: try direct file URL with token if download endpoint fails for images
-                      console.warn(
-                        "[Document Preview] Download endpoint failed for image, trying direct URL"
-                      );
-                      const target = e.target as HTMLImageElement;
-                      if (viewingDocument.fileUrl) {
-                        // Import getAuthToken dynamically to avoid circular dependency
-                        import("../lib/api-client").then(({ getAuthToken }) => {
-                          const token = getAuthToken();
-                          const fallbackUrl = getDocumentDownloadUrl(
-                            viewingDocument.fileUrl!
+                  // For images, use download endpoint with correct format
+                  (() => {
+                    const imageFormat =
+                      viewingDocument.format?.toLowerCase() ||
+                      viewingDocument.fileUrl.split(".").pop()?.toLowerCase() ||
+                      "png";
+                    const API_URL =
+                      import.meta.env.VITE_API_URL || "http://localhost:5000";
+                    const token = localStorage.getItem("auth_token");
+                    const params = new URLSearchParams();
+                    params.set("inline", "1");
+                    if (token) params.set("token", token);
+                    const imageUrl = `${API_URL}/api/documents/${
+                      viewingDocument.id
+                    }/download/${imageFormat}?${params.toString()}`;
+
+                    return (
+                      <img
+                        src={imageUrl}
+                        alt={viewingDocument.name}
+                        className="w-full h-full object-contain bg-gray-50"
+                        onError={(e) => {
+                          console.error(
+                            "[Document Preview] Failed to load image from API endpoint"
                           );
-                          target.src = token
-                            ? `${fallbackUrl}?token=${encodeURIComponent(
-                                token
-                              )}`
-                            : fallbackUrl;
-                        });
-                      }
-                    }}
-                  />
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = "none";
+                        }}
+                      />
+                    );
+                  })()
                 ) : (
                   // For PDFs and other documents, always use download endpoint with inline=true
                   // This ensures authentication works and handles both uploaded files and generated contracts

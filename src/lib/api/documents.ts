@@ -1,5 +1,5 @@
-import apiClient, { getAuthToken } from '../api-client';
-import { API_ENDPOINTS } from '../api-config';
+import apiClient, { getAuthToken } from "../api-client";
+import { API_ENDPOINTS } from "../api-config";
 
 export interface Document {
   id: string;
@@ -80,14 +80,16 @@ export async function getDocuments(filters?: DocumentFilters) {
     }
 
     const base = API_ENDPOINTS.DOCUMENTS.LIST;
-    const url = `${base}${params.toString() ? `?${params.toString()}` : ''}`;
-    const response = await apiClient.get(url, undefined, { suppressAuthRedirect: true });
+    const url = `${base}${params.toString() ? `?${params.toString()}` : ""}`;
+    const response = await apiClient.get(url, undefined, {
+      suppressAuthRedirect: true,
+    });
     return { data: response.data, error: null };
   } catch (error: any) {
-    console.error('Get documents error:', error);
+    console.error("Get documents error:", error);
     return {
       data: null,
-      error: error.response?.data?.error || 'Failed to fetch documents'
+      error: error.response?.data?.error || "Failed to fetch documents",
     };
   }
 }
@@ -97,13 +99,17 @@ export async function getDocuments(filters?: DocumentFilters) {
  */
 export async function getDocument(id: string) {
   try {
-    const response = await apiClient.get(API_ENDPOINTS.DOCUMENTS.GET(id), undefined, { suppressAuthRedirect: true });
+    const response = await apiClient.get(
+      API_ENDPOINTS.DOCUMENTS.GET(id),
+      undefined,
+      { suppressAuthRedirect: true }
+    );
     return { data: response.data, error: null };
   } catch (error: any) {
-    console.error('Get document error:', error);
+    console.error("Get document error:", error);
     return {
       data: null,
-      error: error.response?.data?.error || 'Failed to fetch document'
+      error: error.response?.data?.error || "Failed to fetch document",
     };
   }
 }
@@ -116,10 +122,10 @@ export async function createDocument(data: Partial<Document>) {
     const response = await apiClient.post(API_ENDPOINTS.DOCUMENTS.LIST, data);
     return { data: response.data, error: null };
   } catch (error: any) {
-    console.error('Create document error:', error);
+    console.error("Create document error:", error);
     return {
       data: null,
-      error: error.response?.data?.error || 'Failed to create document'
+      error: error.response?.data?.error || "Failed to create document",
     };
   }
 }
@@ -128,17 +134,38 @@ export async function createDocument(data: Partial<Document>) {
  * Upload a new document
  */
 export async function uploadDocument(formData: FormData) {
-  try {
-    // Do NOT set Content-Type manually; let the browser set the multipart boundary
-    const response = await apiClient.post(API_ENDPOINTS.DOCUMENTS.UPLOAD, formData, { suppressAuthRedirect: true });
-    return { data: response.data, error: null };
-  } catch (error: any) {
-    console.error('Upload document error:', error);
+  console.log("[uploadDocument] Starting upload...");
+  console.log("[uploadDocument] FormData entries:");
+  for (const [key, value] of formData.entries()) {
+    console.log(
+      `  ${key}:`,
+      value instanceof File ? `File(${value.name}, ${value.size} bytes)` : value
+    );
+  }
+
+  // Do NOT set Content-Type manually; let the browser set the multipart boundary
+  const response = await apiClient.post(
+    API_ENDPOINTS.DOCUMENTS.UPLOAD,
+    formData,
+    { suppressAuthRedirect: true }
+  );
+
+  console.log("[uploadDocument] Response:", response);
+
+  // API client returns { data } on success, { error } on failure
+  if (response.error) {
+    console.error("[uploadDocument] Upload failed:", response.error);
     return {
       data: null,
-      error: error.response?.data?.error || 'Failed to upload document'
+      error:
+        response.error.error ||
+        response.error.message ||
+        "Failed to upload document",
     };
   }
+
+  console.log("[uploadDocument] Upload successful:", response.data);
+  return { data: response.data, error: null };
 }
 
 /**
@@ -146,13 +173,17 @@ export async function uploadDocument(formData: FormData) {
  */
 export async function updateDocument(id: string, data: Partial<Document>) {
   try {
-    const response = await apiClient.put(API_ENDPOINTS.DOCUMENTS.UPDATE(id), data, { suppressAuthRedirect: true });
+    const response = await apiClient.put(
+      API_ENDPOINTS.DOCUMENTS.UPDATE(id),
+      data,
+      { suppressAuthRedirect: true }
+    );
     return { data: response.data, error: null };
   } catch (error: any) {
-    console.error('Update document error:', error);
+    console.error("Update document error:", error);
     return {
       data: null,
-      error: error.response?.data?.error || 'Failed to update document'
+      error: error.response?.data?.error || "Failed to update document",
     };
   }
 }
@@ -162,13 +193,16 @@ export async function updateDocument(id: string, data: Partial<Document>) {
  */
 export async function deleteDocument(id: string) {
   try {
-    const response = await apiClient.delete(API_ENDPOINTS.DOCUMENTS.DELETE(id), { suppressAuthRedirect: true });
+    const response = await apiClient.delete(
+      API_ENDPOINTS.DOCUMENTS.DELETE(id),
+      { suppressAuthRedirect: true }
+    );
     return { data: response.data, error: null };
   } catch (error: any) {
-    console.error('Delete document error:', error);
+    console.error("Delete document error:", error);
     return {
       data: null,
-      error: error.response?.data?.error || 'Failed to delete document'
+      error: error.response?.data?.error || "Failed to delete document",
     };
   }
 }
@@ -178,39 +212,56 @@ export async function deleteDocument(id: string) {
  */
 export async function getDocumentStats() {
   try {
-    const response = await apiClient.get(API_ENDPOINTS.DOCUMENTS.STATS, undefined, { suppressAuthRedirect: true });
+    const response = await apiClient.get(
+      API_ENDPOINTS.DOCUMENTS.STATS,
+      undefined,
+      { suppressAuthRedirect: true }
+    );
     return { data: response.data, error: null };
   } catch (error: any) {
-    console.error('Get document stats error:', error);
+    console.error("Get document stats error:", error);
     return {
       data: null,
-      error: error.response?.data?.error || 'Failed to fetch document stats'
+      error: error.response?.data?.error || "Failed to fetch document stats",
     };
   }
 }
 
 /**
- * Download a document
+ * Get document download URL via API endpoint (handles both Spaces and local files)
+ * @deprecated Use downloadDocumentInFormat() instead for proper authentication
  */
-export function getDocumentDownloadUrl(fileUrl: string): string {
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-  return `${baseUrl}${fileUrl}`;
+export function getDocumentDownloadUrl(
+  documentId: string,
+  format: string = "pdf"
+): string {
+  const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+  const token = getAuthToken();
+  const params = new URLSearchParams();
+  if (token) params.set("token", token);
+  const qs = params.toString();
+  return `${baseUrl}/api/documents/${documentId}/download/${format}${
+    qs ? `?${qs}` : ""
+  }`;
 }
 
 /**
  * Download a document in a specific format (PDF or DOCX)
  */
-export function downloadDocumentInFormat(documentId: string, format: 'pdf' | 'docx', options?: { inline?: boolean; includeToken?: boolean }): string {
+export function downloadDocumentInFormat(
+  documentId: string,
+  format: "pdf" | "docx",
+  options?: { inline?: boolean; includeToken?: boolean }
+): string {
   // Use relative path to leverage same-origin proxy in dev and avoid CSP/frame-ancestors issues
   const params = new URLSearchParams();
-  if (options?.inline) params.set('inline', '1');
+  if (options?.inline) params.set("inline", "1");
 
   if (options?.includeToken) {
     const token = getAuthToken();
-    if (token) params.set('token', token);
+    if (token) params.set("token", token);
   }
 
   const qs = params.toString();
-  return `/api/documents/${documentId}/download/${format}${qs ? `?${qs}` : ''}`;
+  return `/api/documents/${documentId}/download/${format}${qs ? `?${qs}` : ""}`;
 }
-

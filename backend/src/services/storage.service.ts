@@ -6,7 +6,6 @@ import {
   HeadObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import https from "https";
 import prisma from "../lib/db";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
@@ -42,26 +41,19 @@ class StorageService {
 
   constructor() {
     // Initialize Digital Ocean Spaces client (S3-compatible)
-    this.endpoint = process.env.DO_SPACES_ENDPOINT || "https://nyc3.digitaloceanspaces.com";
+    this.endpoint =
+      process.env.DO_SPACES_ENDPOINT || "https://nyc3.digitaloceanspaces.com";
     this.bucketName = process.env.DO_SPACES_BUCKET || "contrezz-uploads";
     this.cdnUrl = process.env.DO_SPACES_CDN_URL || null;
-
-    // Create HTTPS agent that handles SSL certificates properly
-    const httpsAgent = new https.Agent({
-      rejectUnauthorized: process.env.NODE_ENV === "production",
-    });
 
     this.s3Client = new S3Client({
       endpoint: this.endpoint,
       region: process.env.DO_SPACES_REGION || "nyc3",
       credentials: {
-        accessKeyId: process.env.DO_SPACES_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.DO_SPACES_SECRET_ACCESS_KEY!,
+        accessKeyId: process.env.DO_SPACES_ACCESS_KEY_ID || "",
+        secretAccessKey: process.env.DO_SPACES_SECRET_ACCESS_KEY || "",
       },
       forcePathStyle: false, // Digital Ocean Spaces uses virtual-hosted-style URLs
-      requestHandler: {
-        httpsAgent: httpsAgent,
-      },
     });
 
     console.log(`✅ Storage Service initialized with Digital Ocean Spaces`);
@@ -158,6 +150,15 @@ class StorageService {
     // 2. Generate storage path
     const storagePath = this.generateStoragePath(options);
 
+    console.log(`📤 [Storage] Starting upload to Digital Ocean Spaces:`, {
+      bucket: this.bucketName,
+      path: storagePath,
+      fileName: file.originalName,
+      fileSize: file.size,
+      contentType: file.mimetype,
+      customerId,
+    });
+
     try {
       // 3. Upload to Digital Ocean Spaces
       const uploadCommand = new PutObjectCommand({
@@ -175,9 +176,10 @@ class StorageService {
         },
       });
 
+      console.log(`📤 [Storage] Sending upload command...`);
       await this.s3Client.send(uploadCommand);
 
-      console.log(`✅ File uploaded: ${storagePath}`);
+      console.log(`✅ [Storage] File uploaded successfully: ${storagePath}`);
 
       // 4. Update storage usage in database
       await this.updateStorageUsage(customerId, file.size, "add");
@@ -207,9 +209,7 @@ class StorageService {
 
       // 7. Generate file URLs
       const fileUrl = await this.getFileUrl(storagePath);
-      const cdnUrl = this.cdnUrl
-        ? `${this.cdnUrl}/${storagePath}`
-        : undefined;
+      const cdnUrl = this.cdnUrl ? `${this.cdnUrl}/${storagePath}` : undefined;
 
       return {
         success: true,
@@ -294,7 +294,10 @@ class StorageService {
   /**
    * Get signed URL for file access (expires in 1 hour by default)
    */
-  async getFileUrl(filePath: string, expiresIn: number = 3600): Promise<string> {
+  async getFileUrl(
+    filePath: string,
+    expiresIn: number = 3600
+  ): Promise<string> {
     const command = new GetObjectCommand({
       Bucket: this.bucketName,
       Key: filePath,
@@ -302,6 +305,32 @@ class StorageService {
 
     const url = await getSignedUrl(this.s3Client, command, { expiresIn });
     return url;
+  }
+
+  /**
+   * Get file stream from Digital Ocean Spaces (for proxying downloads)
+   */
+  async getFileStream(filePath: string): Promise<{
+    stream: NodeJS.ReadableStream;
+    contentType?: string;
+    contentLength?: number;
+  }> {
+    const command = new GetObjectCommand({
+      Bucket: this.bucketName,
+      Key: filePath,
+    });
+
+    const response = await this.s3Client.send(command);
+
+    if (!response.Body) {
+      throw new Error("No file body returned from storage");
+    }
+
+    return {
+      stream: response.Body as NodeJS.ReadableStream,
+      contentType: response.ContentType,
+      contentLength: response.ContentLength,
+    };
   }
 
   /**
@@ -510,7 +539,10 @@ class StorageService {
       },
     });
 
-    const totalSize = transactions.reduce((sum, tx) => sum + Number(tx.file_size), 0);
+    const totalSize = transactions.reduce(
+      (sum, tx) => sum + Number(tx.file_size),
+      0
+    );
 
     await prisma.customers.update({
       where: { id: customerId },
@@ -557,4 +589,3 @@ class StorageService {
 
 export const storageService = new StorageService();
 export default storageService;
-

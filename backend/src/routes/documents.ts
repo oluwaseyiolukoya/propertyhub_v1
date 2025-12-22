@@ -16,6 +16,8 @@ import {
   UnderlineType,
 } from "docx";
 import { convert } from "html-to-text";
+import { emitToUser } from "../lib/socket";
+import storageService from "../services/storage.service";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -23,24 +25,9 @@ const prisma = new PrismaClient();
 // Apply auth middleware to all routes
 router.use(authMiddleware);
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, "../../uploads/documents");
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = crypto.randomUUID();
-    const ext = path.extname(file.originalname);
-    cb(null, `${uniqueSuffix}${ext}`);
-  },
-});
-
+// Configure multer for memory storage (files will be uploaded to Digital Ocean Spaces)
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
@@ -58,6 +45,12 @@ const upload = multer({
       "image/jpeg",
       "image/png",
       "image/jpg",
+      "image/gif",
+      "image/webp",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "text/plain",
+      "text/csv",
     ];
 
     if (allowedTypes.includes(file.mimetype)) {
@@ -67,7 +60,7 @@ const upload = multer({
       console.error("File type rejected:", file.mimetype);
       cb(
         new Error(
-          `Invalid file type: ${file.mimetype}. Only PDF, DOC, DOCX, JPG, JPEG, PNG allowed.`
+          `Invalid file type: ${file.mimetype}. Only PDF, DOC, DOCX, images, Excel, and text files allowed.`
         )
       );
     }
@@ -98,11 +91,32 @@ router.get("/", async (req: AuthRequest, res: Response) => {
       const propertyIds = ownerProperties.map((p) => p.id);
       const customerId = ownerProperties[0]?.customerId;
 
+      // Build OR conditions only if we have valid IDs
+      const orConditions: any[] = [];
+
+      if (propertyIds.length > 0) {
+        orConditions.push({ propertyId: { in: propertyIds } });
+      }
+
+      if (customerId) {
+        orConditions.push({ customerId: customerId });
+      }
+
+      // If no properties or customerId, still allow documents uploaded by this user
+      if (orConditions.length === 0) {
+        orConditions.push({ uploadedById: userId });
+      }
+
       whereClause = {
-        OR: [{ propertyId: { in: propertyIds } }, { customerId }],
+        OR: orConditions,
       };
+
+      console.log(
+        "[Document List] Owner whereClause:",
+        JSON.stringify(whereClause)
+      );
     } else if (role === "manager" || role === "property_manager") {
-      // Manager can see documents they created or are assigned to
+      // Manager can see documents they created, are assigned to, or are shared with them
       const managedProperties = await prisma.property_managers.findMany({
         where: {
           managerId: userId,
@@ -112,17 +126,57 @@ router.get("/", async (req: AuthRequest, res: Response) => {
       });
 
       const propertyIds = managedProperties.map((pm) => pm.propertyId);
-      whereClause = {
-        AND: [
-          { propertyId: { in: propertyIds } },
-          {
-            OR: [
-              { uploadedById: userId }, // Documents uploaded by this manager
-              { managerId: userId }, // Documents assigned to this manager
-            ],
+
+      // Get owner user IDs to filter shared documents
+      // Only show documents shared by owners (not by other managers or tenants)
+      const ownerUsers = await prisma.users.findMany({
+        where: {
+          role: {
+            in: ["owner", "property_owner", "property owner"],
           },
-        ],
-      };
+        },
+        select: { id: true },
+      });
+      const ownerUserIds = ownerUsers.map((u) => u.id);
+
+      // Build OR conditions for manager document access
+      const orConditions: any[] = [];
+
+      // Only add shared documents condition if there are owner users
+      if (ownerUserIds.length > 0) {
+        // Documents shared with this manager by owners only (regardless of property)
+        // Only show ACTIVE shared documents (inactive/deleted shared docs should not be visible)
+        orConditions.push({
+          AND: [
+            { isShared: true },
+            { sharedWith: { has: userId } },
+            { uploadedById: { in: ownerUserIds } }, // Only documents uploaded/shared by owners
+            { status: "active" }, // Only active shared documents
+          ],
+        });
+      }
+
+      // If manager has properties, add documents for those properties
+      if (propertyIds.length > 0) {
+        orConditions.push({
+          AND: [
+            { propertyId: { in: propertyIds } },
+            {
+              OR: [
+                { uploadedById: userId }, // Documents uploaded by this manager
+                { managerId: userId }, // Documents assigned to this manager
+              ],
+            },
+          ],
+        });
+      } else {
+        // If no properties, still allow documents uploaded by or assigned to this manager
+        orConditions.push({
+          OR: [{ uploadedById: userId }, { managerId: userId }],
+        });
+      }
+
+      whereClause = { OR: orConditions };
     } else if (role === "tenant") {
       // Tenant can see:
       // 1. Documents assigned to them (tenantId = userId) AND status = 'active'
@@ -591,15 +645,87 @@ router.post(
         select: { name: true, role: true },
       });
 
-      const fileUrl = `/uploads/documents/${file.filename}`;
       const format = path.extname(file.originalname).substring(1).toUpperCase();
 
-      console.log("File details:", {
-        filename: file.filename,
+      // Validate customerId before upload
+      if (!customerId) {
+        console.error("Upload failed: customerId is missing", {
+          userId,
+          role,
+          propertyId,
+        });
+        return res.status(400).json({
+          error: "Unable to determine customer account",
+          details:
+            "Please ensure you have a valid property or customer association",
+        });
+      }
+
+      // Validate Spaces configuration
+      if (
+        !process.env.DO_SPACES_ACCESS_KEY_ID ||
+        !process.env.DO_SPACES_SECRET_ACCESS_KEY
+      ) {
+        console.error("Upload failed: Spaces credentials not configured");
+        return res.status(500).json({
+          error: "Cloud storage not configured",
+          details:
+            "Digital Ocean Spaces credentials are missing. Please configure DO_SPACES_ACCESS_KEY_ID and DO_SPACES_SECRET_ACCESS_KEY in your environment variables.",
+        });
+      }
+
+      // Upload to Digital Ocean Spaces only (no fallback to local storage)
+      console.log("Uploading file to Digital Ocean Spaces:", {
         originalname: file.originalname,
         size: file.size,
-        fileUrl,
+        mimetype: file.mimetype,
         format,
+        customerId,
+        bucket: process.env.DO_SPACES_BUCKET || "contrezz-uploads",
+      });
+
+      let uploadResult;
+      try {
+        uploadResult = await storageService.uploadFile({
+          customerId,
+          category: "documents",
+          subcategory: type,
+          entityId: propertyId || undefined,
+          file: {
+            originalName: file.originalname,
+            buffer: file.buffer,
+            mimetype: file.mimetype,
+            size: file.size,
+          },
+          uploadedBy: userId!, // Pass user ID, not name - storage_transactions.uploaded_by is a FK to users.id
+          metadata: {
+            documentType: type,
+            documentCategory: category,
+            propertyId: propertyId || null,
+            unitId: unitId || null,
+            tenantId: tenantId || null,
+            uploaderName: uploader?.name || "System", // Store name in metadata if needed
+          },
+        });
+      } catch (uploadError: any) {
+        console.error("Spaces upload failed:", {
+          error: uploadError.message,
+          stack: uploadError.stack,
+          customerId,
+          fileName: file.originalname,
+        });
+        return res.status(500).json({
+          error: "Failed to upload file to cloud storage",
+          details:
+            uploadError.message ||
+            "Please check your Digital Ocean Spaces configuration",
+        });
+      }
+
+      const fileUrl = uploadResult.filePath;
+      console.log("✅ File uploaded to Spaces:", {
+        filePath: uploadResult.filePath,
+        fileSize: uploadResult.fileSize,
       });
 
       // If the uploader is a manager, set managerId to their ID
@@ -619,7 +745,7 @@ router.post(
           name: name || file.originalname,
           type,
           category,
-          fileUrl,
+          fileUrl, // Store Spaces file path
           fileSize: file.size,
           format,
           description: description || null,
@@ -630,6 +756,10 @@ router.post(
           sharedWith: sharedWith ? JSON.parse(sharedWith) : [],
           expiresAt: expiresAt ? new Date(expiresAt) : null,
           updatedAt: new Date(),
+          metadata: {
+            uploadedToSpaces: true,
+            storageType: "spaces",
+          },
         },
       });
 
@@ -651,9 +781,33 @@ router.post(
     } catch (error: any) {
       console.error("Upload document error:", error);
       console.error("Error stack:", error.stack);
-      return res
-        .status(500)
-        .json({ error: "Failed to upload document", details: error.message });
+
+      // Provide more specific error messages
+      let errorMessage = "Failed to upload document";
+      let errorDetails = error.message || "Unknown error";
+
+      if (error.message?.includes("Storage quota exceeded")) {
+        errorMessage = "Storage quota exceeded";
+        errorDetails = error.message;
+      } else if (
+        error.message?.includes("credentials") ||
+        error.message?.includes("AccessDenied")
+      ) {
+        errorMessage = "Cloud storage configuration error";
+        errorDetails = "Please check your Digital Ocean Spaces credentials";
+      } else if (
+        error.message?.includes("ENOTFOUND") ||
+        error.message?.includes("ECONNREFUSED")
+      ) {
+        errorMessage = "Cannot connect to cloud storage";
+        errorDetails =
+          "Please check your network connection and Spaces endpoint";
+      }
+
+      return res.status(500).json({
+        error: errorMessage,
+        details: errorDetails,
+      });
     }
   }
 );
@@ -732,6 +886,78 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
       },
     });
 
+    // Emit real-time updates to affected users
+    try {
+      const previousSharedWith = document.sharedWith || [];
+      const newSharedWith = sharedWith || document.sharedWith || [];
+      const previousStatus = document.status;
+      const newStatus = status || document.status;
+
+      // Find users who were removed from sharing
+      const removedUsers = previousSharedWith.filter(
+        (uid: string) => !newSharedWith.includes(uid)
+      );
+
+      // If document became inactive or was unshared, notify previously shared users
+      if (
+        newStatus === "inactive" ||
+        newStatus === "deleted" ||
+        isShared === false
+      ) {
+        // Notify all previously shared users
+        for (const uid of previousSharedWith) {
+          emitToUser(uid, "document:updated", {
+            documentId: id,
+            action: "removed",
+            reason:
+              newStatus === "inactive"
+                ? "document_inactive"
+                : newStatus === "deleted"
+                ? "document_deleted"
+                : "sharing_removed",
+            timestamp: new Date().toISOString(),
+          });
+        }
+      } else if (removedUsers.length > 0) {
+        // Notify users who were removed from sharing
+        for (const uid of removedUsers) {
+          emitToUser(uid, "document:updated", {
+            documentId: id,
+            action: "removed",
+            reason: "sharing_removed",
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+
+      // Notify users who still have access about the update
+      const stillSharedWith = newSharedWith.filter(
+        (uid: string) => !removedUsers.includes(uid)
+      );
+      for (const uid of stillSharedWith) {
+        emitToUser(uid, "document:updated", {
+          documentId: id,
+          action: "updated",
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Only log if there were actual updates to emit
+      if (removedUsers.length > 0 || stillSharedWith.length > 0) {
+        console.log(
+          `[Documents] Emitted real-time updates for document ${id}:`,
+          {
+            removedUsers: removedUsers.length,
+            stillShared: stillSharedWith.length,
+            statusChange: previousStatus !== newStatus,
+          }
+        );
+      }
+    } catch (socketError) {
+      // Don't fail the request if socket emission fails - silently ignore
+      // This happens when socket.io is not initialized (e.g., in development)
+    }
+
     return res.json(updatedDocument);
   } catch (error: any) {
     console.error("Update document error:", error);
@@ -773,15 +999,34 @@ router.delete("/:id", async (req: AuthRequest, res: Response) => {
       },
     });
 
-    // Delete the physical file if it exists
+    // Delete the physical file (from Spaces or local storage)
     if (document.fileUrl && document.fileUrl !== "") {
-      const filePath = path.join(__dirname, "../..", document.fileUrl);
-      if (fs.existsSync(filePath)) {
+      const isLocalFile = document.fileUrl.startsWith("/uploads/");
+
+      if (isLocalFile) {
+        // Delete local file
+        const filePath = path.join(__dirname, "../..", document.fileUrl);
+        if (fs.existsSync(filePath)) {
+          try {
+            fs.unlinkSync(filePath);
+            console.log("Local file deleted:", document.fileUrl);
+          } catch (err) {
+            console.error("Failed to delete local file:", err);
+          }
+        }
+      } else {
+        // Delete from Spaces
         try {
-          fs.unlinkSync(filePath);
+          const fileExists = await storageService.fileExists(document.fileUrl);
+          if (fileExists) {
+            await storageService.deleteFile(
+              document.customerId,
+              document.fileUrl
+            );
+            console.log("File deleted from Spaces:", document.fileUrl);
+          }
         } catch (err) {
-          console.error("Failed to delete physical file:", err);
-          // Continue with database deletion even if file deletion fails
+          console.error("Failed to delete file from Spaces:", err);
         }
       }
     }
@@ -816,12 +1061,33 @@ router.get("/stats/summary", async (req: AuthRequest, res: Response) => {
       const propertyIds = ownerProperties.map((p) => p.id);
       const customerId = ownerProperties[0]?.customerId;
 
+      // Build OR conditions only if we have valid IDs
+      const orConditions: any[] = [];
+
+      if (propertyIds.length > 0) {
+        orConditions.push({ propertyId: { in: propertyIds } });
+      }
+
+      if (customerId) {
+        orConditions.push({ customerId: customerId });
+      }
+
+      // If no properties or customerId, still allow documents uploaded by this user
+      if (orConditions.length === 0) {
+        orConditions.push({ uploadedById: userId });
+      }
+
       whereClause = {
-        OR: [{ propertyId: { in: propertyIds } }, { customerId }],
+        OR: orConditions,
         status: { not: "deleted" },
       };
+
+      console.log(
+        "[Document Stats] Owner whereClause:",
+        JSON.stringify(whereClause)
+      );
     } else if (role === "manager" || role === "property_manager") {
-      // Manager can see documents they created or are assigned to
+      // Manager can see documents they created, are assigned to, or are shared with them
       const managedProperties = await prisma.property_managers.findMany({
         where: {
           managerId: userId,
@@ -829,19 +1095,64 @@ router.get("/stats/summary", async (req: AuthRequest, res: Response) => {
         },
         select: { propertyId: true },
       });
+
       const propertyIds = managedProperties.map((pm) => pm.propertyId);
-      whereClause = {
-        AND: [
-          { propertyId: { in: propertyIds } },
-          {
-            OR: [
-              { uploadedById: userId }, // Documents uploaded by this manager
-              { managerId: userId }, // Documents assigned to this manager
-            ],
+
+      // Get owner user IDs to filter shared documents
+      // Only show documents shared by owners (not by other managers or tenants)
+      const ownerUsers = await prisma.users.findMany({
+        where: {
+          role: {
+            in: ["owner", "property_owner", "property owner"],
           },
-        ],
-        status: { in: ["active", "draft", "inactive"] },
-      };
+        },
+        select: { id: true },
+      });
+      const ownerUserIds = ownerUsers.map((u) => u.id);
+
+      // Build OR conditions for manager document access (matching the list query logic)
+      const orConditions: any[] = [];
+
+      // Only add shared documents condition if there are owner users
+      if (ownerUserIds.length > 0) {
+        // Documents shared with this manager by owners only (regardless of property)
+        orConditions.push({
+          AND: [
+            { isShared: true },
+            { sharedWith: { has: userId } },
+            { uploadedById: { in: ownerUserIds } }, // Only documents uploaded/shared by owners
+            { status: { in: ["active", "draft", "inactive"] } },
+          ],
+        });
+      }
+
+      // If manager has properties, add documents for those properties
+      if (propertyIds.length > 0) {
+        orConditions.push({
+          AND: [
+            { propertyId: { in: propertyIds } },
+            {
+              OR: [
+                { uploadedById: userId }, // Documents uploaded by this manager
+                { managerId: userId }, // Documents assigned to this manager
+              ],
+            },
+            { status: { in: ["active", "draft", "inactive"] } },
+          ],
+        });
+      } else {
+        // If no properties, still allow documents uploaded by or assigned to this manager
+        orConditions.push({
+          AND: [
+            {
+              OR: [{ uploadedById: userId }, { managerId: userId }],
+            },
+            { status: { in: ["active", "draft", "inactive"] } },
+          ],
+        });
+      }
+
+      whereClause = { OR: orConditions };
     } else if (role === "tenant") {
       // Tenant can only see their own active documents
       whereClause = {
@@ -900,10 +1211,26 @@ router.get("/:id/download/:format", async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: "Authentication required" });
     }
 
-    if (!["pdf", "docx"].includes(format.toLowerCase())) {
-      return res
-        .status(400)
-        .json({ error: 'Invalid format. Use "pdf" or "docx"' });
+    // Supported formats for download - includes images and common file types
+    const supportedFormats = [
+      "pdf",
+      "docx",
+      "doc",
+      "jpg",
+      "jpeg",
+      "png",
+      "gif",
+      "xls",
+      "xlsx",
+      "txt",
+      "csv",
+    ];
+    if (!supportedFormats.includes(format.toLowerCase())) {
+      return res.status(400).json({
+        error: `Invalid format. Supported formats: ${supportedFormats.join(
+          ", "
+        )}`,
+      });
     }
 
     const document = await prisma.documents.findUnique({
@@ -948,52 +1275,146 @@ router.get("/:id/download/:format", async (req: AuthRequest, res: Response) => {
           document.format || path.extname(document.fileUrl).substring(1)
         ).toLowerCase();
 
-        // Only stream directly if requested format matches original
+        // Only serve directly if requested format matches original
         if (requestedFormat === originalFormat) {
-          const sanitizedName = document.name
-            .replace(/[^a-z0-9]/gi, "_")
-            .toLowerCase();
-          // Handle fileUrl that may start with / (remove leading slash for path.join)
-          // __dirname in compiled code is backend/dist/routes, so ../.. goes to backend/
-          const fileUrlPath = document.fileUrl.startsWith("/")
-            ? document.fileUrl.substring(1)
-            : document.fileUrl;
-          const filePath = path.resolve(__dirname, "../..", fileUrlPath);
+          // Check if this is a local file path (backward compatibility) or Spaces path
+          const isLocalFile = document.fileUrl.startsWith("/uploads/");
 
-          console.log("[Document Download] File path resolution:", {
-            originalFileUrl: document.fileUrl,
-            fileUrlPath,
-            resolvedPath: filePath,
-            exists: fs.existsSync(filePath),
-          });
+          if (isLocalFile) {
+            // Legacy local file - serve from disk
+            console.log("[Document Download] Serving local file:", {
+              originalFileUrl: document.fileUrl,
+              format: originalFormat,
+            });
 
-          if (!fs.existsSync(filePath)) {
-            console.error("Download error: file not found at path", filePath);
-            return res.status(404).json({ error: "File not found on server" });
+            const fileUrlPath = document.fileUrl.startsWith("/")
+              ? document.fileUrl.substring(1)
+              : document.fileUrl;
+            const filePath = path.resolve(__dirname, "../..", fileUrlPath);
+
+            if (!fs.existsSync(filePath)) {
+              console.error("Download error: local file not found", filePath);
+              return res.status(404).json({
+                error: "File not found on server",
+                details:
+                  "This file may have been uploaded before migration to cloud storage",
+              });
+            }
+
+            // Set appropriate content type
+            const mimeMap: Record<string, string> = {
+              pdf: "application/pdf",
+              doc: "application/msword",
+              docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              jpg: "image/jpeg",
+              jpeg: "image/jpeg",
+              png: "image/png",
+              gif: "image/gif",
+              webp: "image/webp",
+              xls: "application/vnd.ms-excel",
+              xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              txt: "text/plain",
+              csv: "text/csv",
+            };
+            const contentType =
+              mimeMap[originalFormat] || "application/octet-stream";
+            const sanitizedName = document.name
+              .replace(/[^a-z0-9]/gi, "_")
+              .toLowerCase();
+
+            res.setHeader("Content-Type", contentType);
+            res.setHeader(
+              "Content-Disposition",
+              `${
+                inline ? "inline" : "attachment"
+              }; filename="${sanitizedName}.${originalFormat}"`
+            );
+
+            const stream = fs.createReadStream(filePath);
+            stream.pipe(res);
+            return;
+          } else {
+            // Spaces file - serve via signed URL
+            console.log(
+              "[Document Download] Generating signed URL from Spaces:",
+              {
+                originalFileUrl: document.fileUrl,
+                format: originalFormat,
+              }
+            );
+
+            try {
+              // Check if file exists in Spaces
+              const fileExists = await storageService.fileExists(
+                document.fileUrl
+              );
+              if (!fileExists) {
+                console.error(
+                  "Download error: file not found in Spaces",
+                  document.fileUrl
+                );
+                return res.status(404).json({
+                  error: "File not found in cloud storage",
+                  details: "The file may have been deleted or moved",
+                });
+              }
+
+              console.log(
+                "[Document Download] Streaming file from Spaces through backend"
+              );
+
+              // Stream file through backend to avoid CORS issues
+              const { stream, contentType, contentLength } =
+                await storageService.getFileStream(document.fileUrl);
+
+              // Set appropriate headers
+              const mimeMap: Record<string, string> = {
+                pdf: "application/pdf",
+                doc: "application/msword",
+                docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                jpg: "image/jpeg",
+                jpeg: "image/jpeg",
+                png: "image/png",
+                gif: "image/gif",
+                webp: "image/webp",
+                xls: "application/vnd.ms-excel",
+                xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                csv: "text/csv",
+                txt: "text/plain",
+                zip: "application/zip",
+                rar: "application/x-rar-compressed",
+              };
+
+              const finalContentType =
+                contentType ||
+                mimeMap[originalFormat] ||
+                "application/octet-stream";
+              const sanitizedName = document.name
+                .replace(/[^a-z0-9]/gi, "_")
+                .toLowerCase();
+
+              res.setHeader("Content-Type", finalContentType);
+              res.setHeader(
+                "Content-Disposition",
+                `${
+                  inline ? "inline" : "attachment"
+                }; filename="${sanitizedName}.${originalFormat}"`
+              );
+              if (contentLength) {
+                res.setHeader("Content-Length", contentLength);
+              }
+
+              // Pipe the stream to the response
+              stream.pipe(res);
+              return;
+            } catch (error: any) {
+              console.error("Error fetching file from Spaces:", error);
+              return res.status(500).json({
+                error: "Failed to retrieve file from cloud storage",
+                details: error.message,
+              });
+            }
           }
-
-          // Set appropriate content type
-          const mimeMap: Record<string, string> = {
-            pdf: "application/pdf",
-            doc: "application/msword",
-            docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            jpg: "image/jpeg",
-            jpeg: "image/jpeg",
-            png: "image/png",
-          };
-          const contentType =
-            mimeMap[originalFormat] || "application/octet-stream";
-          res.setHeader("Content-Type", contentType);
-          res.setHeader(
-            "Content-Disposition",
-            `${
-              inline ? "inline" : "attachment"
-            }; filename="${sanitizedName}.${originalFormat}"`
-          );
-
-          const stream = fs.createReadStream(filePath);
-          stream.pipe(res);
-          return;
         }
 
         // If formats differ, we currently don't convert uploaded binary files
@@ -1258,6 +1679,21 @@ async function checkDocumentAccess(
     // Manager can access documents they created or are assigned to
     // First check if they uploaded it or it's assigned to them
     if (document.uploadedById === userId || document.managerId === userId) {
+      return true;
+    }
+
+    // Check if the document is shared with this manager
+    if (
+      document.isShared &&
+      document.sharedWith &&
+      Array.isArray(document.sharedWith) &&
+      document.sharedWith.includes(userId)
+    ) {
+      console.log(
+        "[Document Access] Manager has access via sharing:",
+        userId,
+        document.id
+      );
       return true;
     }
 

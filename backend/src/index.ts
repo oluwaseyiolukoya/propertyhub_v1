@@ -248,18 +248,39 @@ app.use(express.urlencoded({ extended: true }));
 // Static uploads directory (ensure exists)
 const uploadsDir = path.resolve(__dirname, "../uploads");
 const logosDir = path.resolve(uploadsDir, "logos");
+const documentsDir = path.resolve(uploadsDir, "documents");
 try {
   fs.mkdirSync(logosDir, { recursive: true });
+  fs.mkdirSync(documentsDir, { recursive: true });
 } catch {}
 // Set permissive headers for static assets to load across origins
 app.use(
   "/uploads",
   (req, res, next) => {
+    // Handle preflight OPTIONS requests
+    if (req.method === "OPTIONS") {
+      res.setHeader(
+        "Access-Control-Allow-Origin",
+        process.env.FRONTEND_URL || "*"
+      );
+      res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+      res.setHeader(
+        "Access-Control-Allow-Headers",
+        "Authorization, Content-Type"
+      );
+      res.setHeader("Access-Control-Max-Age", "86400"); // 24 hours
+      return res.status(204).end();
+    }
+
     res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
     if (process.env.FRONTEND_URL) {
       res.setHeader("Access-Control-Allow-Origin", process.env.FRONTEND_URL);
     }
     res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Authorization, Content-Type"
+    );
     // Prevent aggressive browser caching for brand assets (logos/favicons)
     res.setHeader(
       "Cache-Control",
