@@ -555,7 +555,11 @@ const PropertyOwnerDocuments: React.FC = () => {
           managerId: "",
           isShared: false,
         });
-        loadDocuments();
+        // Add new document to the list immediately
+        if (data) {
+          setDocuments((prev) => [data, ...prev]);
+        }
+        // Update stats in background
         loadStats();
       }
     } catch (error) {
@@ -570,14 +574,22 @@ const PropertyOwnerDocuments: React.FC = () => {
     if (!selectedDocument) return;
 
     try {
-      const { data, error } = await deleteDocument(selectedDocument.id);
+      const previousDocuments = [...documents];
+
+      // Optimistic update - remove from UI immediately
+      setDocuments((prev) => prev.filter((d) => d.id !== selectedDocument.id));
+      toast.success("Document deleted successfully");
+      setShowDeleteDialog(false);
+      setSelectedDocument(null);
+
+      // Background API call
+      const { error } = await deleteDocument(selectedDocument.id);
       if (error) {
+        // Revert on error
+        setDocuments(previousDocuments);
         toast.error(error);
       } else {
-        toast.success("Document deleted successfully");
-        setShowDeleteDialog(false);
-        setSelectedDocument(null);
-        loadDocuments();
+        // Update stats after successful delete
         loadStats();
       }
     } catch (error) {
@@ -1110,8 +1122,12 @@ const PropertyOwnerDocuments: React.FC = () => {
         unitId: "",
       });
 
-      // Reload documents to show the new contract
-      await loadDocuments();
+      // Add new document to the list immediately
+      if (data) {
+        setDocuments((prev) => [data, ...prev]);
+      }
+      // Update stats in background
+      loadStats();
     } catch (error) {
       console.error("Generate contract error:", error);
       toast.error("Failed to generate contract");
@@ -1256,6 +1272,7 @@ ${
 
     try {
       setUploading(true);
+      const previousDoc = { ...selectedDocument };
 
       const updatedMetadata = {
         ...selectedDocument.metadata,
@@ -1263,18 +1280,27 @@ ${
         lastEdited: new Date().toISOString(),
       };
 
+      // Optimistic update - update UI immediately
+      setDocuments((prev) =>
+        prev.map((d) =>
+          d.id === selectedDocument.id ? { ...d, metadata: updatedMetadata } : d
+        )
+      );
+      toast.success("Contract updated successfully!");
+      setShowEditDialog(false);
+
+      // Background API call
       const { error } = await updateDocument(selectedDocument.id, {
         metadata: updatedMetadata,
       });
 
       if (error) {
+        // Revert on error
+        setDocuments((prev) =>
+          prev.map((d) => (d.id === selectedDocument.id ? previousDoc : d))
+        );
         toast.error("Failed to save changes");
-        return;
       }
-
-      toast.success("Contract updated successfully!");
-      setShowEditDialog(false);
-      await loadDocuments();
     } catch (error) {
       console.error("Save contract error:", error);
       toast.error("Failed to save contract");
@@ -1286,21 +1312,21 @@ ${
   const handleSendContract = async (doc: Document) => {
     try {
       setUploading(true);
+      const previousDoc = { ...doc };
+      const newMetadata = {
+        ...doc.metadata,
+        sentAt: new Date().toISOString(),
+        sentBy: localStorage.getItem("user_name") || "Owner",
+      };
 
-      // Update document status to 'pending' (sent for signature)
-      const { error } = await updateDocument(doc.id, {
-        status: "pending",
-        metadata: {
-          ...doc.metadata,
-          sentAt: new Date().toISOString(),
-          sentBy: localStorage.getItem("user_name") || "Owner",
-        },
-      });
-
-      if (error) {
-        toast.error("Failed to send contract");
-        return;
-      }
+      // Optimistic update - update UI immediately
+      setDocuments((prev) =>
+        prev.map((d) =>
+          d.id === doc.id
+            ? { ...d, status: "pending", metadata: newMetadata }
+            : d
+        )
+      );
 
       const recipientType =
         doc.metadata?.contractType === "manager-contract"
@@ -1308,7 +1334,19 @@ ${
           : "tenant";
       toast.success(`Contract sent to ${recipientType} for e-signature!`);
 
-      await loadDocuments();
+      // Background API call
+      const { error } = await updateDocument(doc.id, {
+        status: "pending",
+        metadata: newMetadata,
+      });
+
+      if (error) {
+        // Revert on error
+        setDocuments((prev) =>
+          prev.map((d) => (d.id === doc.id ? previousDoc : d))
+        );
+        toast.error("Failed to send contract");
+      }
     } catch (error) {
       console.error("Send contract error:", error);
       toast.error("Failed to send contract");
@@ -1327,19 +1365,24 @@ ${
 
     try {
       setUploading(true);
-      const { error } = await deleteDocument(selectedDocument.id);
+      const previousDocuments = [...documents];
 
-      if (error) {
-        toast.error("Failed to delete document");
-        return;
-      }
-
+      // Optimistic update - remove from UI immediately
+      setDocuments((prev) => prev.filter((d) => d.id !== selectedDocument.id));
       toast.success("Document deleted successfully!");
       setShowDeleteDialog(false);
       setSelectedDocument(null);
 
-      // Reload documents to update the list
-      await loadDocuments();
+      // Background API call
+      const { error } = await deleteDocument(selectedDocument.id);
+      if (error) {
+        // Revert on error
+        setDocuments(previousDocuments);
+        toast.error("Failed to delete document");
+      } else {
+        // Update stats after successful delete
+        loadStats();
+      }
     } catch (error) {
       console.error("Delete document error:", error);
       toast.error("Failed to delete document");
@@ -1385,22 +1428,36 @@ ${
 
     try {
       const isUnsharing = shareForm.sharedWith.length === 0;
+      const previousDoc = { ...selectedDocument };
+
+      // Optimistic update - update UI immediately
+      setDocuments((prev) =>
+        prev.map((d) =>
+          d.id === selectedDocument.id
+            ? { ...d, isShared: !isUnsharing, sharedWith: shareForm.sharedWith }
+            : d
+        )
+      );
+      toast.success(
+        isUnsharing
+          ? "Document sharing removed successfully"
+          : "Document shared successfully"
+      );
+      setShowShareDialog(false);
+      setShareForm({ sharedWith: [], message: "" });
+
+      // Background API call
       const { error } = await updateDocument(selectedDocument.id, {
         isShared: !isUnsharing,
         sharedWith: shareForm.sharedWith,
       });
 
       if (error) {
-        toast.error(error);
-      } else {
-        toast.success(
-          isUnsharing
-            ? "Document sharing removed successfully"
-            : "Document shared successfully"
+        // Revert on error
+        setDocuments((prev) =>
+          prev.map((d) => (d.id === selectedDocument.id ? previousDoc : d))
         );
-        setShowShareDialog(false);
-        setShareForm({ sharedWith: [], message: "" });
-        await loadDocuments();
+        toast.error(error);
       }
     } catch (error) {
       console.error("Share error:", error);
@@ -1854,17 +1911,32 @@ ${
                                         doc.status === "active"
                                           ? "inactive"
                                           : "active";
+                                      // Optimistic update - update UI immediately
+                                      const previousDoc = { ...doc };
+                                      setDocuments((prev) =>
+                                        prev.map((d) =>
+                                          d.id === doc.id
+                                            ? { ...d, status: newStatus }
+                                            : d
+                                        )
+                                      );
+                                      toast.success(
+                                        `Document marked as ${newStatus}`
+                                      );
+
+                                      // Background API call
                                       const { error } = await updateDocument(
                                         doc.id,
                                         { status: newStatus }
                                       );
                                       if (error) {
-                                        toast.error("Failed to update status");
-                                      } else {
-                                        toast.success(
-                                          `Document marked as ${newStatus}`
+                                        // Revert on error
+                                        setDocuments((prev) =>
+                                          prev.map((d) =>
+                                            d.id === doc.id ? previousDoc : d
+                                          )
                                         );
-                                        await loadDocuments();
+                                        toast.error("Failed to update status");
                                       }
                                     }}
                                     className="hover:bg-purple-50"

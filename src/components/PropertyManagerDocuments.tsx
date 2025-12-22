@@ -521,7 +521,7 @@ const PropertyManagerDocuments: React.FC = () => {
       if (uploadForm.tenantId) formData.append("tenantId", uploadForm.tenantId);
       formData.append("isShared", uploadForm.isShared.toString());
 
-      const { error } = await uploadDocument(formData);
+      const { data, error } = await uploadDocument(formData);
 
       if (error) {
         toast.error(error);
@@ -539,8 +539,12 @@ const PropertyManagerDocuments: React.FC = () => {
           tenantId: "",
           isShared: false,
         });
-        await loadDocuments();
-        await loadStats();
+        // Add new document to list immediately
+        if (data) {
+          setDocuments((prev) => [data, ...prev]);
+        }
+        // Update stats in background
+        loadStats();
       }
     } catch (error: any) {
       console.error("Upload error:", error);
@@ -560,13 +564,21 @@ const PropertyManagerDocuments: React.FC = () => {
     }
 
     try {
+      const previousDocuments = [...documents];
+
+      // Optimistic update - remove from UI immediately
+      setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
+      toast.success("Document deleted successfully");
+
+      // Background API call
       const { error } = await deleteDocument(doc.id);
       if (error) {
+        // Revert on error
+        setDocuments(previousDocuments);
         toast.error(error);
       } else {
-        toast.success("Document deleted successfully");
-        await loadDocuments();
-        await loadStats();
+        // Update stats after successful delete
+        loadStats();
       }
     } catch (error) {
       console.error("Delete error:", error);
@@ -677,22 +689,36 @@ const PropertyManagerDocuments: React.FC = () => {
 
     try {
       const isUnsharing = shareForm.sharedWith.length === 0;
+      const previousDoc = { ...selectedDocument };
+
+      // Optimistic update - update UI immediately
+      setDocuments((prev) =>
+        prev.map((d) =>
+          d.id === selectedDocument.id
+            ? { ...d, isShared: !isUnsharing, sharedWith: shareForm.sharedWith }
+            : d
+        )
+      );
+      toast.success(
+        isUnsharing
+          ? "Document sharing removed successfully"
+          : "Document shared successfully"
+      );
+      setShowShareDialog(false);
+      setShareForm({ sharedWith: [], message: "" });
+
+      // Background API call
       const { error } = await updateDocument(selectedDocument.id, {
         isShared: !isUnsharing,
         sharedWith: shareForm.sharedWith,
       });
 
       if (error) {
-        toast.error(error);
-      } else {
-        toast.success(
-          isUnsharing
-            ? "Document sharing removed successfully"
-            : "Document shared successfully"
+        // Revert on error
+        setDocuments((prev) =>
+          prev.map((d) => (d.id === selectedDocument.id ? previousDoc : d))
         );
-        setShowShareDialog(false);
-        setShareForm({ sharedWith: [], message: "" });
-        await loadDocuments();
+        toast.error(error);
       }
     } catch (error) {
       console.error("Share error:", error);
@@ -784,13 +810,16 @@ const PropertyManagerDocuments: React.FC = () => {
         if (doc.tenantId) formData.append("tenantId", doc.tenantId);
         formData.append("isShared", "false");
 
-        const { error } = await uploadDocument(formData);
+        const { data, error } = await uploadDocument(formData);
 
         if (error) {
           toast.error(error);
         } else {
           toast.success("Document saved successfully");
-          await loadDocuments();
+          // Add new document to list immediately
+          if (data) {
+            setDocuments((prev) => [data, ...prev]);
+          }
         }
       } else {
         // For generated contracts (no fileUrl), create a copy with same metadata
@@ -807,13 +836,16 @@ const PropertyManagerDocuments: React.FC = () => {
           isShared: false,
         };
 
-        const { error } = await createDocument(documentData);
+        const { data, error } = await createDocument(documentData);
 
         if (error) {
           toast.error(error);
         } else {
           toast.success("Document saved successfully");
-          await loadDocuments();
+          // Add new document to list immediately
+          if (data) {
+            setDocuments((prev) => [data, ...prev]);
+          }
         }
       }
     } catch (error) {
@@ -832,19 +864,32 @@ const PropertyManagerDocuments: React.FC = () => {
     if (!selectedDocument) return;
 
     try {
+      const previousDoc = { ...selectedDocument };
+      const updatedMetadata = {
+        ...selectedDocument.metadata,
+        content: editableContent,
+      };
+
+      // Optimistic update - update UI immediately
+      setDocuments((prev) =>
+        prev.map((d) =>
+          d.id === selectedDocument.id ? { ...d, metadata: updatedMetadata } : d
+        )
+      );
+      toast.success("Contract updated successfully");
+      setShowEditDialog(false);
+
+      // Background API call
       const { error } = await updateDocument(selectedDocument.id, {
-        metadata: {
-          ...selectedDocument.metadata,
-          content: editableContent,
-        },
+        metadata: updatedMetadata,
       });
 
       if (error) {
+        // Revert on error
+        setDocuments((prev) =>
+          prev.map((d) => (d.id === selectedDocument.id ? previousDoc : d))
+        );
         toast.error(error);
-      } else {
-        toast.success("Contract updated successfully");
-        setShowEditDialog(false);
-        await loadDocuments();
       }
     } catch (error) {
       console.error("Save error:", error);
@@ -862,16 +907,28 @@ const PropertyManagerDocuments: React.FC = () => {
     }
 
     try {
+      const previousDoc = { ...doc };
+
+      // Optimistic update - update UI immediately
+      setDocuments((prev) =>
+        prev.map((d) => (d.id === doc.id ? { ...d, status: "active" } : d))
+      );
+      toast.success("Contract activated successfully");
+
+      // Background API call
       const { error } = await updateDocument(doc.id, {
         status: "active",
       });
 
       if (error) {
+        // Revert on error
+        setDocuments((prev) =>
+          prev.map((d) => (d.id === doc.id ? previousDoc : d))
+        );
         toast.error(error);
       } else {
-        toast.success("Contract activated successfully");
-        await loadDocuments();
-        await loadStats();
+        // Update stats after successful change
+        loadStats();
       }
     } catch (error) {
       console.error("Activate contract error:", error);
@@ -889,16 +946,28 @@ const PropertyManagerDocuments: React.FC = () => {
     }
 
     try {
+      const previousDoc = { ...doc };
+
+      // Optimistic update - update UI immediately
+      setDocuments((prev) =>
+        prev.map((d) => (d.id === doc.id ? { ...d, status: "inactive" } : d))
+      );
+      toast.success("Document marked as inactive");
+
+      // Background API call
       const { error } = await updateDocument(doc.id, {
         status: "inactive",
       });
 
       if (error) {
+        // Revert on error
+        setDocuments((prev) =>
+          prev.map((d) => (d.id === doc.id ? previousDoc : d))
+        );
         toast.error(error);
       } else {
-        toast.success("Document marked as inactive");
-        await loadDocuments();
-        await loadStats();
+        // Update stats after successful change
+        loadStats();
       }
     } catch (error) {
       console.error("Make inactive error:", error);
@@ -1073,8 +1142,12 @@ ${
         console.log("Contract created successfully:", data);
         toast.success("Contract generated successfully");
         setShowGenerateDialog(false);
-        await loadDocuments();
-        await loadStats();
+        // Add new document to list immediately
+        if (data) {
+          setDocuments((prev) => [data, ...prev]);
+        }
+        // Update stats in background
+        loadStats();
       }
     } catch (error) {
       console.error("Generate error:", error);

@@ -511,22 +511,22 @@ export function PropertyOwnerDashboard({
             const data = resp.data;
 
             // Clean URL params immediately
-            sessionStorage.removeItem("upgrade_reference");
-            sessionStorage.removeItem("upgrade_plan_id");
-            params.delete("reference");
+          sessionStorage.removeItem("upgrade_reference");
+          sessionStorage.removeItem("upgrade_plan_id");
+          params.delete("reference");
             params.delete("trxref");
-            params.delete("payment_callback");
-            url.search = params.toString();
-            window.history.replaceState({}, document.title, url.toString());
+          params.delete("payment_callback");
+          url.search = params.toString();
+          window.history.replaceState({}, document.title, url.toString());
 
             if (data.status === "success" || data.success) {
-              toast.success(
+          toast.success(
                 data.message ||
-                  "Plan upgraded successfully! Refreshing your dashboard..."
-              );
-              // Reload the page to refresh all data and remove trial banner
-              setTimeout(() => {
-                window.location.reload();
+            "Plan upgraded successfully! Refreshing your dashboard..."
+          );
+          // Reload the page to refresh all data and remove trial banner
+          setTimeout(() => {
+            window.location.reload();
               }, 1500);
             } else if (data.status === "failed") {
               toast.error(data.message || "Payment failed. Please try again.");

@@ -327,6 +327,7 @@ export const emitToAll = (event: string, data: any) => {
  * Emit event to specific user
  */
 export const emitToUser = (userId: string, event: string, data: any) => {
+  console.log(`📤 [emitToUser] Emitting "${event}" to user:${userId}`, data);
   emitToRoom(`user:${userId}`, event, data);
 };
 

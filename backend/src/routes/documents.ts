@@ -157,6 +157,7 @@ router.get("/", async (req: AuthRequest, res: Response) => {
       }
 
       // If manager has properties, add documents for those properties
+      // For manager's OWN documents (uploaded by them or assigned to them), show active/draft/inactive
       if (propertyIds.length > 0) {
         orConditions.push({
           AND: [
@@ -167,16 +168,30 @@ router.get("/", async (req: AuthRequest, res: Response) => {
                 { managerId: userId }, // Documents assigned to this manager
               ],
             },
+            { status: { in: ["active", "draft", "inactive"] } }, // Exclude deleted for own docs
           ],
         });
       } else {
         // If no properties, still allow documents uploaded by or assigned to this manager
         orConditions.push({
-          OR: [{ uploadedById: userId }, { managerId: userId }],
+          AND: [
+            {
+              OR: [{ uploadedById: userId }, { managerId: userId }],
+            },
+            { status: { in: ["active", "draft", "inactive"] } }, // Exclude deleted for own docs
+          ],
         });
       }
 
       whereClause = { OR: orConditions };
+
+      console.log("[Document List] Manager query built:", {
+        userId,
+        propertyIdsCount: propertyIds.length,
+        ownerUserIdsCount: ownerUserIds.length,
+        orConditionsCount: orConditions.length,
+        whereClause: JSON.stringify(whereClause, null, 2),
+      });
     } else if (role === "tenant") {
       // Tenant can see:
       // 1. Documents assigned to them (tenantId = userId) AND status = 'active'
@@ -216,17 +231,25 @@ router.get("/", async (req: AuthRequest, res: Response) => {
       }
       if (type) whereClause.type = type as string;
       if (category) whereClause.category = category as string;
+
       // Status filtering rules
-      // - Owners: by default show everything except deleted
-      // - Managers: by default show active, draft, and inactive documents (their own drafts and inactive docs)
-      if (status && status !== "") {
-        whereClause.status = status as string;
-      } else {
-        if (role === "manager" || role === "property_manager") {
-          // Managers can see active, draft, and inactive documents
-          whereClause.status = { in: ["active", "draft", "inactive"] };
+      // IMPORTANT: For managers, we CANNOT add a global status filter because:
+      // - Shared documents already have { status: "active" } in their AND condition
+      // - Adding a global status filter would interfere with the OR logic
+      // - Managers should see active/draft/inactive for THEIR OWN docs, but ONLY active for shared docs
+      if (role === "manager" || role === "property_manager") {
+        // For managers, don't add global status filter - it's handled per-condition in orConditions
+        // Only filter if explicitly requested
+        if (status && status !== "") {
+          whereClause.status = status as string;
+        }
+        // Note: shared docs already filtered to status="active" in orConditions
+        // Own docs will show all statuses (active, draft, inactive) without a global filter
+      } else if (role === "owner" || role === "property_owner") {
+        // Owners can see everything except deleted
+        if (status && status !== "") {
+          whereClause.status = status as string;
         } else {
-          // Owners can see everything except deleted
           whereClause.status = { not: "deleted" };
         }
       }
@@ -893,28 +916,54 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
       const previousStatus = document.status;
       const newStatus = status || document.status;
 
+      // Debug logging
+      console.log("[Document Update] Real-time notification check:", {
+        documentId: id,
+        previousStatus,
+        newStatus,
+        statusParam: status,
+        previousSharedWith,
+        newSharedWith,
+        isSharedParam: isShared,
+        documentIsShared: document.isShared,
+      });
+
       // Find users who were removed from sharing
       const removedUsers = previousSharedWith.filter(
         (uid: string) => !newSharedWith.includes(uid)
       );
 
-      // If document became inactive or was unshared, notify previously shared users
-      if (
-        newStatus === "inactive" ||
-        newStatus === "deleted" ||
-        isShared === false
-      ) {
+      // Check if status changed to inactive or deleted (only notify on actual change)
+      const statusChangedToInactive =
+        previousStatus === "active" && newStatus === "inactive";
+      const statusChangedToDeleted =
+        previousStatus !== "deleted" && newStatus === "deleted";
+      const sharingRemoved = isShared === false && document.isShared === true;
+
+      console.log("[Document Update] Change detection:", {
+        statusChangedToInactive,
+        statusChangedToDeleted,
+        sharingRemoved,
+        removedUsers,
+      });
+
+      // If document became inactive, deleted, or was unshared, notify previously shared users
+      if (statusChangedToInactive || statusChangedToDeleted || sharingRemoved) {
+        console.log(
+          "[Document Update] Emitting removal events to:",
+          previousSharedWith
+        );
         // Notify all previously shared users
         for (const uid of previousSharedWith) {
+          console.log(`[Document Update] Emitting to user ${uid}`);
           emitToUser(uid, "document:updated", {
             documentId: id,
             action: "removed",
-            reason:
-              newStatus === "inactive"
-                ? "document_inactive"
-                : newStatus === "deleted"
-                ? "document_deleted"
-                : "sharing_removed",
+            reason: statusChangedToInactive
+              ? "document_inactive"
+              : statusChangedToDeleted
+              ? "document_deleted"
+              : "sharing_removed",
             timestamp: new Date().toISOString(),
           });
         }
@@ -1116,12 +1165,13 @@ router.get("/stats/summary", async (req: AuthRequest, res: Response) => {
       // Only add shared documents condition if there are owner users
       if (ownerUserIds.length > 0) {
         // Documents shared with this manager by owners only (regardless of property)
+        // IMPORTANT: Only count ACTIVE shared documents (matching the document list query)
         orConditions.push({
           AND: [
             { isShared: true },
             { sharedWith: { has: userId } },
             { uploadedById: { in: ownerUserIds } }, // Only documents uploaded/shared by owners
-            { status: { in: ["active", "draft", "inactive"] } },
+            { status: "active" }, // Only active shared documents - must match list query
           ],
         });
       }
@@ -1683,18 +1733,31 @@ async function checkDocumentAccess(
     }
 
     // Check if the document is shared with this manager
+    // IMPORTANT: For shared documents, only allow access if the document is ACTIVE
+    // Inactive or deleted shared documents should not be accessible
     if (
       document.isShared &&
       document.sharedWith &&
       Array.isArray(document.sharedWith) &&
       document.sharedWith.includes(userId)
     ) {
-      console.log(
-        "[Document Access] Manager has access via sharing:",
-        userId,
-        document.id
-      );
-      return true;
+      // Only allow access to active shared documents
+      if (document.status === "active") {
+        console.log(
+          "[Document Access] Manager has access via sharing:",
+          userId,
+          document.id
+        );
+        return true;
+      } else {
+        console.log(
+          "[Document Access] Manager denied - shared document is not active:",
+          userId,
+          document.id,
+          document.status
+        );
+        return false;
+      }
     }
 
     // Also check if they manage the property (for backward compatibility)
@@ -1715,10 +1778,19 @@ async function checkDocumentAccess(
     }
     return false;
   } else if (role === "tenant") {
-    // Tenant can only access their own documents or shared documents
-    return (
-      document.tenantId === userId || document.sharedWith?.includes(userId)
-    );
+    // Tenant can access their own documents
+    if (document.tenantId === userId) {
+      return true;
+    }
+    // For shared documents, only allow access if the document is ACTIVE
+    if (
+      document.isShared &&
+      document.sharedWith?.includes(userId) &&
+      document.status === "active"
+    ) {
+      return true;
+    }
+    return false;
   }
   return false;
 }
