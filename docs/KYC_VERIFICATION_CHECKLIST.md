@@ -119,5 +119,3 @@ npm run lint
 ---
 
 **Last Updated:** December 22, 2025
-
-
