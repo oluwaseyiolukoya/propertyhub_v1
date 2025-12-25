@@ -338,12 +338,26 @@ export class VerificationService {
         },
       });
 
-      // Add to verification queue
-      const jobId = await queueService.addVerificationJob(document.id, 5);
-
-      console.log(
-        `[VerificationService] ✅ Document uploaded and queued: ${document.id} (Job: ${jobId})`
-      );
+      // Add to verification queue (non-blocking - don't fail upload if Redis is down)
+      try {
+        const jobId = await Promise.race([
+          queueService.addVerificationJob(document.id, 5),
+          new Promise<string>((_, reject) => 
+            setTimeout(() => reject(new Error('Queue timeout')), 5000)
+          )
+        ]);
+        console.log(
+          `[VerificationService] ✅ Document uploaded and queued: ${document.id} (Job: ${jobId})`
+        );
+      } catch (queueError: any) {
+        // Log but don't fail the upload - queue is optional for now
+        console.warn(
+          `[VerificationService] ⚠️ Document uploaded but queue failed: ${document.id} (${queueError.message})`
+        );
+        console.log(
+          `[VerificationService] ✅ Document uploaded successfully: ${document.id} (queue skipped)`
+        );
+      }
 
       return document;
     } catch (error: any) {
