@@ -543,7 +543,7 @@ export class DojahVerificationService {
           })
         )?.customerId || "";
 
-      await prisma.audit_logs.create({
+      await prisma.activity_logs.create({
         data: {
           id: crypto.randomUUID(),
           customerId,
