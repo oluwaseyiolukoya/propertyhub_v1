@@ -204,8 +204,11 @@ export const API_ENDPOINTS = {
   },
 };
 
-// Request timeout (30 seconds)
+// Request timeout (30 seconds for regular requests)
 export const REQUEST_TIMEOUT = 30000;
+
+// Upload timeout (2 minutes for file uploads)
+export const UPLOAD_TIMEOUT = 120000;
 
 // Storage keys
 export const STORAGE_KEYS = {

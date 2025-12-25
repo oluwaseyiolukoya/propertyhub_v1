@@ -3,7 +3,7 @@
  * Centralized HTTP client for making API requests
  */
 
-import { API_BASE_URL, REQUEST_TIMEOUT, STORAGE_KEYS } from "./api-config";
+import { API_BASE_URL, REQUEST_TIMEOUT, UPLOAD_TIMEOUT, STORAGE_KEYS } from "./api-config";
 import { safeStorage } from "./safeStorage";
 
 export interface ApiError {
@@ -106,7 +106,10 @@ async function request<T>(
   };
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+  // Use longer timeout for file uploads (FormData)
+  const isUpload = options.body instanceof FormData;
+  const timeout = isUpload ? UPLOAD_TIMEOUT : REQUEST_TIMEOUT;
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
     console.log(
