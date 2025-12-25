@@ -1,4 +1,4 @@
-import { apiClient } from '../api-client';
+import { apiClient } from "../api-client";
 
 // Types
 export interface TenantVerification {
@@ -13,7 +13,7 @@ export interface TenantVerification {
   kycCompletedAt: string | null;
   kycFailureReason: string | null;
   kycLastAttemptAt: string | null;
-  ownerApprovalStatus: 'pending' | 'approved' | 'rejected';
+  ownerApprovalStatus: "pending" | "approved" | "rejected";
   ownerReviewedAt: string | null;
   ownerNotes: string | null;
   requiresKyc: boolean;
@@ -97,11 +97,11 @@ export const getTenantVerifications = async (
   search?: string
 ) => {
   const params: Record<string, any> = { page, limit };
-  if (status && status !== 'all') params.status = status;
+  if (status && status !== "all") params.status = status;
   if (search && search.trim()) params.search = search.trim();
 
   return apiClient.get<TenantVerificationListResponse>(
-    '/api/owner/tenants/verifications',
+    "/api/owner/tenants/verifications",
     params
   );
 };
@@ -111,7 +111,7 @@ export const getTenantVerifications = async (
  */
 export const getTenantVerificationAnalytics = async () => {
   return apiClient.get<TenantVerificationAnalytics>(
-    '/api/owner/tenants/verifications/analytics'
+    "/api/owner/tenants/verifications/analytics"
   );
 };
 
@@ -128,20 +128,22 @@ export const getTenantVerificationDetails = async (tenantId: string) => {
  * Approve tenant KYC (Owner action)
  */
 export const approveTenantKyc = async (tenantId: string, notes?: string) => {
-  return apiClient.post<{ success: boolean; message: string; emailSent: boolean }>(
-    `/api/owner/tenants/verifications/${tenantId}/approve`,
-    { notes }
-  );
+  return apiClient.post<{
+    success: boolean;
+    message: string;
+    emailSent: boolean;
+  }>(`/api/owner/tenants/verifications/${tenantId}/approve`, { notes });
 };
 
 /**
  * Reject tenant KYC (Owner action)
  */
 export const rejectTenantKyc = async (tenantId: string, reason: string) => {
-  return apiClient.post<{ success: boolean; message: string; emailSent: boolean }>(
-    `/api/owner/tenants/verifications/${tenantId}/reject`,
-    { reason }
-  );
+  return apiClient.post<{
+    success: boolean;
+    message: string;
+    emailSent: boolean;
+  }>(`/api/owner/tenants/verifications/${tenantId}/reject`, { reason });
 };
 
 /**
@@ -157,7 +159,10 @@ export const requestKycResubmit = async (tenantId: string, reason?: string) => {
 /**
  * Get document download URL
  */
-export const getTenantDocumentUrl = async (tenantId: string, documentId: string) => {
+export const getTenantDocumentUrl = async (
+  tenantId: string,
+  documentId: string
+) => {
   return apiClient.get<{ url: string }>(
     `/api/owner/tenants/verifications/${tenantId}/documents/${documentId}`
   );
@@ -166,10 +171,74 @@ export const getTenantDocumentUrl = async (tenantId: string, documentId: string)
 /**
  * Delete tenant verification (reset KYC status so tenant can re-submit)
  */
-export const deleteTenantVerification = async (tenantId: string, reason?: string) => {
+export const deleteTenantVerification = async (
+  tenantId: string,
+  reason?: string
+) => {
   return apiClient.delete<{ success: boolean; message: string }>(
     `/api/owner/tenants/verifications/${tenantId}`,
     { reason }
   );
 };
 
+/**
+ * KYC Verification Result Types
+ */
+export interface DojahVerificationResult {
+  success: boolean;
+  status: string;
+  confidence: number;
+  referenceId: string;
+  data: any;
+  comparison: {
+    tenantData: any;
+    dojahData: any;
+    matches: {
+      name: boolean;
+      dob: boolean | null;
+    };
+  };
+}
+
+export interface VerifyKYCResponse {
+  success: boolean;
+  result: DojahVerificationResult;
+  message: string;
+}
+
+/**
+ * Verify tenant KYC using Dojah
+ * POST /api/owner/tenants/verifications/:tenantId/verify-kyc
+ */
+export const verifyTenantKYC = async (
+  tenantId: string,
+  documentType: "nin" | "passport" | "dl" | "vin" | "bvn",
+  documentId?: string
+) => {
+  return apiClient.post<VerifyKYCResponse>(
+    `/api/owner/tenants/verifications/${tenantId}/verify-kyc`,
+    { documentType, documentId }
+  );
+};
+
+/**
+ * Request Additional Document Types
+ */
+export interface RequestAdditionalDocumentPayload {
+  documentTypes: string[];
+  message?: string;
+}
+
+/**
+ * Request additional document from tenant
+ * POST /api/owner/tenants/verifications/:tenantId/request-document
+ */
+export const requestAdditionalDocument = async (
+  tenantId: string,
+  payload: RequestAdditionalDocumentPayload
+) => {
+  return apiClient.post<{ success: boolean; message: string }>(
+    `/api/owner/tenants/verifications/${tenantId}/request-document`,
+    payload
+  );
+};

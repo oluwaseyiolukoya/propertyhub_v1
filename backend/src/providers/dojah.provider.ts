@@ -1,32 +1,32 @@
-import axios, { AxiosInstance, AxiosError } from 'axios';
-import { BaseVerificationProvider } from './base.provider';
-import { VerificationResult } from '../types/verification';
-import prisma from '../lib/db';
-import { sanitizePayload } from '../lib/encryption';
+import axios, { AxiosInstance, AxiosError } from "axios";
+import { BaseVerificationProvider } from "./base.provider";
+import { VerificationResult } from "../types/verification";
+import prisma from "../lib/db";
+import { sanitizePayload } from "../lib/encryption";
 
 /**
  * Dojah Identity Verification Provider
  * Documentation: https://docs.dojah.io/
  */
 export class DojahProvider extends BaseVerificationProvider {
-  name = 'dojah';
+  name = "dojah";
   private client: AxiosInstance;
   private apiKey: string;
   private appId: string;
 
   constructor() {
     super();
-    this.apiKey = process.env.DOJAH_API_KEY || '';
-    this.appId = process.env.DOJAH_APP_ID || '';
+    this.apiKey = process.env.DOJAH_API_KEY || "";
+    this.appId = process.env.DOJAH_APP_ID || "";
 
     // Create axios instance with default config
     this.client = axios.create({
-      baseURL: process.env.DOJAH_BASE_URL || 'https://api.dojah.io',
+      baseURL: process.env.DOJAH_BASE_URL || "https://api.dojah.io",
       timeout: 30000, // 30 seconds
       headers: {
-        'Authorization': this.apiKey,
-        'AppId': this.appId,
-        'Content-Type': 'application/json',
+        Authorization: this.apiKey,
+        AppId: this.appId,
+        "Content-Type": "application/json",
       },
     });
   }
@@ -45,18 +45,25 @@ export class DojahProvider extends BaseVerificationProvider {
     this.validateFields({ nin, firstName, lastName });
 
     const startTime = Date.now();
-    const endpoint = '/api/v1/kyc/nin';
+    const endpoint = "/api/v1/kyc/nin";
 
     try {
       console.log(`[Dojah] Verifying NIN: ${nin.substring(0, 3)}***`);
 
       // Dojah NIN lookup uses GET with query parameters
       const response = await this.client.get(endpoint, {
-        params: { nin }
+        params: { nin },
       });
 
       const duration = Date.now() - startTime;
-      await this.logProviderCall(endpoint, { nin: '***' }, response.data, response.status, duration, true);
+      await this.logProviderCall(
+        endpoint,
+        { nin: "***" },
+        response.data,
+        response.status,
+        duration,
+        true
+      );
 
       // Parse Dojah response
       const entity = response.data?.entity;
@@ -64,21 +71,21 @@ export class DojahProvider extends BaseVerificationProvider {
       if (!entity || !response.data) {
         return {
           success: false,
-          status: 'failed',
+          status: "failed",
           confidence: 0,
-          referenceId: response.data?.reference_id || '',
-          error: 'No data returned from provider',
+          referenceId: response.data?.reference_id || "",
+          error: "No data returned from provider",
         };
       }
 
       // Calculate confidence based on name matching
       const firstNameMatch = this.calculateNameMatchConfidence(
         firstName.toLowerCase(),
-        (entity.firstname || entity.first_name || '').toLowerCase()
+        (entity.firstname || entity.first_name || "").toLowerCase()
       );
       const lastNameMatch = this.calculateNameMatchConfidence(
         lastName.toLowerCase(),
-        (entity.surname || entity.last_name || '').toLowerCase()
+        (entity.surname || entity.last_name || "").toLowerCase()
       );
 
       // If DOB provided, verify it matches
@@ -89,16 +96,20 @@ export class DojahProvider extends BaseVerificationProvider {
 
       // Calculate overall confidence (weighted average)
       const confidence = dob
-        ? (firstNameMatch * 0.4 + lastNameMatch * 0.4 + dobMatch * 0.2)
+        ? firstNameMatch * 0.4 + lastNameMatch * 0.4 + dobMatch * 0.2
         : (firstNameMatch + lastNameMatch) / 2;
 
       const isVerified = confidence >= 80; // 80% threshold
 
-      console.log(`[Dojah] NIN Verification Result: ${isVerified ? 'VERIFIED' : 'FAILED'} (Confidence: ${confidence.toFixed(2)}%)`);
+      console.log(
+        `[Dojah] NIN Verification Result: ${
+          isVerified ? "VERIFIED" : "FAILED"
+        } (Confidence: ${confidence.toFixed(2)}%)`
+      );
 
       return {
         success: isVerified,
-        status: isVerified ? 'verified' : 'failed',
+        status: isVerified ? "verified" : "failed",
         confidence,
         referenceId: response.data.reference_id || `NIN-${Date.now()}`,
         data: {
@@ -114,7 +125,12 @@ export class DojahProvider extends BaseVerificationProvider {
         },
       };
     } catch (error) {
-      return this.handleError(error as AxiosError, endpoint, { nin: '***' }, startTime);
+      return this.handleError(
+        error as AxiosError,
+        endpoint,
+        { nin: "***" },
+        startTime
+      );
     }
   }
 
@@ -131,48 +147,61 @@ export class DojahProvider extends BaseVerificationProvider {
     this.validateFields({ passportNumber, firstName, lastName });
 
     const startTime = Date.now();
-    const endpoint = '/api/v1/kyc/passport';
+    const endpoint = "/api/v1/kyc/passport";
 
     try {
-      console.log(`[Dojah] Verifying Passport: ${passportNumber.substring(0, 3)}***`);
+      console.log(
+        `[Dojah] Verifying Passport: ${passportNumber.substring(0, 3)}***`
+      );
 
       // Dojah passport lookup uses GET with query parameters
       const response = await this.client.get(endpoint, {
-        params: { passport_number: passportNumber }
+        params: { passport_number: passportNumber },
       });
 
       const duration = Date.now() - startTime;
-      await this.logProviderCall(endpoint, { passport_number: '***' }, response.data, response.status, duration, true);
+      await this.logProviderCall(
+        endpoint,
+        { passport_number: "***" },
+        response.data,
+        response.status,
+        duration,
+        true
+      );
 
       const entity = response.data?.entity;
 
       if (!entity || !response.data) {
         return {
           success: false,
-          status: 'failed',
+          status: "failed",
           confidence: 0,
-          referenceId: response.data?.reference_id || '',
-          error: 'No data returned from provider',
+          referenceId: response.data?.reference_id || "",
+          error: "No data returned from provider",
         };
       }
 
       const firstNameMatch = this.calculateNameMatchConfidence(
         firstName.toLowerCase(),
-        (entity.first_name || entity.firstname || '').toLowerCase()
+        (entity.first_name || entity.firstname || "").toLowerCase()
       );
       const lastNameMatch = this.calculateNameMatchConfidence(
         lastName.toLowerCase(),
-        (entity.last_name || entity.surname || '').toLowerCase()
+        (entity.last_name || entity.surname || "").toLowerCase()
       );
       const confidence = (firstNameMatch + lastNameMatch) / 2;
 
       const isVerified = confidence >= 80;
 
-      console.log(`[Dojah] Passport Verification Result: ${isVerified ? 'VERIFIED' : 'FAILED'} (Confidence: ${confidence.toFixed(2)}%)`);
+      console.log(
+        `[Dojah] Passport Verification Result: ${
+          isVerified ? "VERIFIED" : "FAILED"
+        } (Confidence: ${confidence.toFixed(2)}%)`
+      );
 
       return {
         success: isVerified,
-        status: isVerified ? 'verified' : 'failed',
+        status: isVerified ? "verified" : "failed",
         confidence,
         referenceId: response.data.reference_id || `PASSPORT-${Date.now()}`,
         data: {
@@ -188,7 +217,12 @@ export class DojahProvider extends BaseVerificationProvider {
         },
       };
     } catch (error) {
-      return this.handleError(error as AxiosError, endpoint, { passport_number: '***' }, startTime);
+      return this.handleError(
+        error as AxiosError,
+        endpoint,
+        { passport_number: "***" },
+        startTime
+      );
     }
   }
 
@@ -207,10 +241,15 @@ export class DojahProvider extends BaseVerificationProvider {
     this.validateFields({ licenseNumber, firstName, lastName });
 
     const startTime = Date.now();
-    const endpoint = '/api/v1/kyc/drivers_license';
+    const endpoint = "/api/v1/kyc/drivers_license";
 
     try {
-      console.log(`[Dojah] Verifying Driver's License: ${licenseNumber.substring(0, 3)}***`);
+      console.log(
+        `[Dojah] Verifying Driver's License: ${licenseNumber.substring(
+          0,
+          3
+        )}***`
+      );
 
       // Dojah driver's license lookup uses GET with query parameters
       // Note: DOB is required by Dojah for driver's license verification
@@ -222,27 +261,34 @@ export class DojahProvider extends BaseVerificationProvider {
       const response = await this.client.get(endpoint, { params });
 
       const duration = Date.now() - startTime;
-      await this.logProviderCall(endpoint, { license_number: '***' }, response.data, response.status, duration, true);
+      await this.logProviderCall(
+        endpoint,
+        { license_number: "***" },
+        response.data,
+        response.status,
+        duration,
+        true
+      );
 
       const entity = response.data?.entity;
 
       if (!entity || !response.data) {
         return {
           success: false,
-          status: 'failed',
+          status: "failed",
           confidence: 0,
-          referenceId: response.data?.reference_id || '',
-          error: 'No data returned from provider',
+          referenceId: response.data?.reference_id || "",
+          error: "No data returned from provider",
         };
       }
 
       const firstNameMatch = this.calculateNameMatchConfidence(
         firstName.toLowerCase(),
-        (entity.first_name || entity.firstname || '').toLowerCase()
+        (entity.first_name || entity.firstname || "").toLowerCase()
       );
       const lastNameMatch = this.calculateNameMatchConfidence(
         lastName.toLowerCase(),
-        (entity.last_name || entity.surname || '').toLowerCase()
+        (entity.last_name || entity.surname || "").toLowerCase()
       );
 
       // If DOB provided, verify it matches
@@ -252,16 +298,20 @@ export class DojahProvider extends BaseVerificationProvider {
       }
 
       const confidence = dob
-        ? (firstNameMatch * 0.4 + lastNameMatch * 0.4 + dobMatch * 0.2)
+        ? firstNameMatch * 0.4 + lastNameMatch * 0.4 + dobMatch * 0.2
         : (firstNameMatch + lastNameMatch) / 2;
 
       const isVerified = confidence >= 80;
 
-      console.log(`[Dojah] Driver's License Verification Result: ${isVerified ? 'VERIFIED' : 'FAILED'} (Confidence: ${confidence.toFixed(2)}%)`);
+      console.log(
+        `[Dojah] Driver's License Verification Result: ${
+          isVerified ? "VERIFIED" : "FAILED"
+        } (Confidence: ${confidence.toFixed(2)}%)`
+      );
 
       return {
         success: isVerified,
-        status: isVerified ? 'verified' : 'failed',
+        status: isVerified ? "verified" : "failed",
         confidence,
         referenceId: response.data.reference_id || `DL-${Date.now()}`,
         data: {
@@ -276,7 +326,12 @@ export class DojahProvider extends BaseVerificationProvider {
         },
       };
     } catch (error) {
-      return this.handleError(error as AxiosError, endpoint, { license_number: '***' }, startTime);
+      return this.handleError(
+        error as AxiosError,
+        endpoint,
+        { license_number: "***" },
+        startTime
+      );
     }
   }
 
@@ -293,63 +348,100 @@ export class DojahProvider extends BaseVerificationProvider {
     this.validateFields({ vin, firstName, lastName });
 
     const startTime = Date.now();
-    const endpoint = '/api/v1/kyc/vin';
+    const endpoint = "/api/v1/kyc/vin";
 
     try {
       console.log(`[Dojah] Verifying Voter's Card: ${vin.substring(0, 3)}***`);
 
       // Dojah VIN lookup uses GET with query parameters
       const response = await this.client.get(endpoint, {
-        params: { vin }
+        params: { vin },
       });
 
       const duration = Date.now() - startTime;
-      await this.logProviderCall(endpoint, { vin: '***' }, response.data, response.status, duration, true);
+      await this.logProviderCall(
+        endpoint,
+        { vin: "***" },
+        response.data,
+        response.status,
+        duration,
+        true
+      );
 
       const entity = response.data?.entity;
 
       if (!entity || !response.data) {
         return {
           success: false,
-          status: 'failed',
+          status: "failed",
           confidence: 0,
-          referenceId: response.data?.reference_id || '',
-          error: 'No data returned from provider',
+          referenceId: response.data?.reference_id || "",
+          error: "No data returned from provider",
         };
+      }
+
+      // VIN API returns full_name, not first_name/last_name
+      // Handle both formats for compatibility
+      let dojahFirstName = entity.first_name || entity.firstname || "";
+      let dojahLastName = entity.last_name || entity.surname || "";
+
+      // If full_name exists but no first/last name, parse full_name
+      if (entity.full_name && !dojahFirstName && !dojahLastName) {
+        const nameParts = entity.full_name.trim().split(/\s+/);
+        if (nameParts.length >= 2) {
+          dojahFirstName = nameParts[0];
+          dojahLastName = nameParts[1];
+        } else {
+          dojahFirstName = entity.full_name;
+        }
+        console.log(
+          `[Dojah] Parsed full_name "${entity.full_name}" -> firstName: "${dojahFirstName}", lastName: "${dojahLastName}"`
+        );
       }
 
       const firstNameMatch = this.calculateNameMatchConfidence(
         firstName.toLowerCase(),
-        (entity.first_name || entity.firstname || '').toLowerCase()
+        dojahFirstName.toLowerCase()
       );
       const lastNameMatch = this.calculateNameMatchConfidence(
         lastName.toLowerCase(),
-        (entity.last_name || entity.surname || '').toLowerCase()
+        dojahLastName.toLowerCase()
       );
       const confidence = (firstNameMatch + lastNameMatch) / 2;
 
       const isVerified = confidence >= 80;
 
-      console.log(`[Dojah] Voter's Card Verification Result: ${isVerified ? 'VERIFIED' : 'FAILED'} (Confidence: ${confidence.toFixed(2)}%)`);
+      console.log(
+        `[Dojah] Voter's Card Verification Result: ${
+          isVerified ? "VERIFIED" : "FAILED"
+        } (Confidence: ${confidence.toFixed(2)}%)`
+      );
 
       return {
         success: isVerified,
-        status: isVerified ? 'verified' : 'failed',
+        status: isVerified ? "verified" : "failed",
         confidence,
         referenceId: response.data.reference_id || `VIN-${Date.now()}`,
         data: {
-          vin: entity.vin,
-          firstName: entity.first_name || entity.firstname,
-          lastName: entity.last_name || entity.surname,
+          vin: entity.vin || entity.voter_identification_number,
+          firstName: dojahFirstName,
+          lastName: dojahLastName,
+          fullName: entity.full_name,
           gender: entity.gender,
           state: entity.state,
-          lga: entity.lga,
-          pollingUnit: entity.polling_unit || entity.pu,
+          lga: entity.local_government || entity.lga,
+          pollingUnit:
+            entity.polling_unit || entity.pu || entity.polling_unit_code,
           occupation: entity.occupation,
         },
       };
     } catch (error) {
-      return this.handleError(error as AxiosError, endpoint, { vin: '***' }, startTime);
+      return this.handleError(
+        error as AxiosError,
+        endpoint,
+        { vin: "***" },
+        startTime
+      );
     }
   }
 
@@ -366,14 +458,16 @@ export class DojahProvider extends BaseVerificationProvider {
     metadata: any
   ): Promise<VerificationResult> {
     const startTime = Date.now();
-    const endpoint = '/api/v1/document/analysis';
+    const endpoint = "/api/v1/document/analysis";
 
     try {
       console.log(`[Dojah] Analyzing document: ${documentType}`);
 
       // Download the document from the file URL
-      const fileResponse = await axios.get(fileUrl, { responseType: 'arraybuffer' });
-      const base64Image = Buffer.from(fileResponse.data).toString('base64');
+      const fileResponse = await axios.get(fileUrl, {
+        responseType: "arraybuffer",
+      });
+      const base64Image = Buffer.from(fileResponse.data).toString("base64");
 
       // Map document types to Dojah's expected format
       const dojahDocType = this.mapDocumentType(documentType);
@@ -385,16 +479,25 @@ export class DojahProvider extends BaseVerificationProvider {
       });
 
       const duration = Date.now() - startTime;
-      await this.logProviderCall(endpoint, { document_type: dojahDocType }, response.data, response.status, duration, true);
+      await this.logProviderCall(
+        endpoint,
+        { document_type: dojahDocType },
+        response.data,
+        response.status,
+        duration,
+        true
+      );
 
       const entity = response.data?.entity;
 
       if (!entity || !response.data) {
         // If Dojah can't analyze, mark for manual review
-        console.log(`[Dojah] Document analysis failed, marking for manual review`);
+        console.log(
+          `[Dojah] Document analysis failed, marking for manual review`
+        );
         return {
           success: false,
-          status: 'pending',
+          status: "pending",
           confidence: 0,
           referenceId: `DOC-${Date.now()}`,
           data: {
@@ -406,14 +509,19 @@ export class DojahProvider extends BaseVerificationProvider {
       }
 
       // Extract confidence from Dojah response
-      const confidence = entity.confidence_score || entity.authenticity_score || 0;
+      const confidence =
+        entity.confidence_score || entity.authenticity_score || 0;
       const isVerified = confidence >= 70; // Lower threshold for documents
 
-      console.log(`[Dojah] Document Analysis Result: ${isVerified ? 'VERIFIED' : 'FAILED'} (Confidence: ${confidence}%)`);
+      console.log(
+        `[Dojah] Document Analysis Result: ${
+          isVerified ? "VERIFIED" : "FAILED"
+        } (Confidence: ${confidence}%)`
+      );
 
       return {
         success: isVerified,
-        status: isVerified ? 'verified' : 'pending',
+        status: isVerified ? "verified" : "pending",
         confidence,
         referenceId: response.data.reference_id || `DOC-${Date.now()}`,
         data: {
@@ -421,7 +529,9 @@ export class DojahProvider extends BaseVerificationProvider {
           extractedData: entity,
           authenticityScore: entity.authenticity_score,
           documentNumber: entity.document_number,
-          fullName: entity.full_name || `${entity.first_name || ''} ${entity.last_name || ''}`.trim(),
+          fullName:
+            entity.full_name ||
+            `${entity.first_name || ""} ${entity.last_name || ""}`.trim(),
           dateOfBirth: entity.date_of_birth,
           address: entity.address,
           issueDate: entity.issue_date,
@@ -434,7 +544,7 @@ export class DojahProvider extends BaseVerificationProvider {
       // On error, mark for manual review instead of failing
       return {
         success: false,
-        status: 'pending',
+        status: "pending",
         confidence: 0,
         referenceId: `DOC-${Date.now()}`,
         data: {
@@ -452,12 +562,12 @@ export class DojahProvider extends BaseVerificationProvider {
    */
   private mapDocumentType(documentType: string): string {
     const mapping: { [key: string]: string } = {
-      'nin': 'nin_slip',
-      'passport': 'passport',
-      'drivers_license': 'drivers_license',
-      'voters_card': 'voters_card',
-      'utility_bill': 'utility_bill',
-      'proof_of_address': 'utility_bill',
+      nin: "nin_slip",
+      passport: "passport",
+      drivers_license: "drivers_license",
+      voters_card: "voters_card",
+      utility_bill: "utility_bill",
+      proof_of_address: "utility_bill",
     };
 
     return mapping[documentType] || documentType;
@@ -476,17 +586,29 @@ export class DojahProvider extends BaseVerificationProvider {
       const response = await this.client.get(endpoint);
 
       const duration = Date.now() - startTime;
-      await this.logProviderCall(endpoint, { referenceId }, response.data, response.status, duration, true);
+      await this.logProviderCall(
+        endpoint,
+        { referenceId },
+        response.data,
+        response.status,
+        duration,
+        true
+      );
 
       return {
-        success: response.data.status === 'success',
-        status: response.data.status === 'success' ? 'verified' : 'failed',
+        success: response.data.status === "success",
+        status: response.data.status === "success" ? "verified" : "failed",
         confidence: response.data.confidence || 0,
         referenceId,
         data: response.data.entity,
       };
     } catch (error) {
-      return this.handleError(error as AxiosError, endpoint, { referenceId }, startTime);
+      return this.handleError(
+        error as AxiosError,
+        endpoint,
+        { referenceId },
+        startTime
+      );
     }
   }
 
@@ -516,7 +638,7 @@ export class DojahProvider extends BaseVerificationProvider {
         },
       });
     } catch (error) {
-      console.error('[Dojah] Failed to log provider call:', error);
+      console.error("[Dojah] Failed to log provider call:", error);
     }
   }
 
@@ -551,11 +673,10 @@ export class DojahProvider extends BaseVerificationProvider {
 
     return {
       success: false,
-      status: 'failed',
+      status: "failed",
       confidence: 0,
-      referenceId: '',
+      referenceId: "",
       error: errorMessage,
     };
   }
 }
-

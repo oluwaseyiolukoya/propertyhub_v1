@@ -442,6 +442,27 @@ router.post(
           parsedMetadata
         );
 
+        // Update user's kycStatus to in_progress if they were in pending_documents
+        if (user.role === "tenant") {
+          const currentUser = await prisma.users.findUnique({
+            where: { id: user.id },
+            select: { kycStatus: true },
+          });
+
+          if (currentUser?.kycStatus === "pending_documents") {
+            await prisma.users.update({
+              where: { id: user.id },
+              data: {
+                kycStatus: "in_progress",
+                kycLastAttemptAt: new Date(),
+              },
+            });
+            console.log(
+              `[KYC Upload] Updated user ${user.id} status from pending_documents to in_progress`
+            );
+          }
+        }
+
         res.json({
           success: true,
           documentId: document.id,
