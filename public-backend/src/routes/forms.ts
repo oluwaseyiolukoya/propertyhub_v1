@@ -106,7 +106,7 @@ router.post("/submit", async (req: Request, res: Response) => {
 
     console.log("✅ Form submitted successfully:", submission.id);
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Form submitted successfully",
       data: {
@@ -129,7 +129,7 @@ router.post("/submit", async (req: Request, res: Response) => {
       });
     }
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: "Failed to submit form",
       message:

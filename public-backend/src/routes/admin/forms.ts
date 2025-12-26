@@ -153,7 +153,7 @@ router.get(
         }))
         .sort((a, b) => a.date.getTime() - b.date.getTime());
 
-      res.json({
+      return res.json({
         success: true,
         data: {
           overall: {
@@ -172,7 +172,7 @@ router.get(
       });
     } catch (error: any) {
       console.error("❌ Error fetching form stats:", error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: "Failed to fetch statistics",
         message:
@@ -267,7 +267,7 @@ router.get(
         }),
       ]);
 
-      res.json({
+      return res.json({
         success: true,
         data: {
           submissions,
@@ -288,7 +288,7 @@ router.get(
       });
     } catch (error: any) {
       console.error("❌ Error fetching contact us submissions:", error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: "Failed to fetch submissions",
         message:
@@ -322,13 +322,13 @@ router.get(
         });
       }
 
-      res.json({
+      return res.json({
         success: true,
         data: submission,
       });
     } catch (error: any) {
       console.error("❌ Error fetching contact us submission:", error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: "Failed to fetch submission",
         message:
@@ -403,13 +403,13 @@ router.delete(
         where: { id },
       });
 
-      res.json({
+      return res.json({
         success: true,
         message: "Submission deleted successfully",
       });
     } catch (error: any) {
       console.error("❌ Error deleting contact us submission:", error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: "Failed to delete submission",
         message:
@@ -506,7 +506,7 @@ router.get(
         }),
       };
 
-      res.json({
+      return res.json({
         success: true,
         data: submissions,
         pagination: {
@@ -519,7 +519,7 @@ router.get(
       });
     } catch (error: any) {
       console.error("❌ Error fetching schedule demo submissions:", error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: "Failed to fetch submissions",
         message:
@@ -553,13 +553,13 @@ router.get(
         });
       }
 
-      res.json({
+      return res.json({
         success: true,
         data: submission,
       });
     } catch (error: any) {
       console.error("❌ Error fetching submission:", error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: "Failed to fetch submission",
         message:
@@ -610,13 +610,13 @@ router.patch(
         data: updateData,
       });
 
-      res.json({
+      return res.json({
         success: true,
         data: updated,
       });
     } catch (error: any) {
       console.error("❌ Error updating submission:", error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: "Failed to update submission",
         message:
@@ -659,13 +659,13 @@ router.delete(
         },
       });
 
-      res.json({
+      return res.json({
         success: true,
         message: "Submission deleted successfully",
       });
     } catch (error: any) {
       console.error("❌ Error deleting submission:", error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: "Failed to delete submission",
         message:

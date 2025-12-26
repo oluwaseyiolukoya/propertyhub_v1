@@ -172,7 +172,7 @@ router.post(
           message: err.message || "Invalid file type",
         });
       }
-      next();
+      return next();
     });
   },
   async (req: Request, res: Response) => {
