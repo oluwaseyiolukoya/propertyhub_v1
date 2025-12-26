@@ -43,6 +43,21 @@ services:
         value: "900000"
       - key: RATE_LIMIT_MAX_REQUESTS
         value: "100"
+      # DigitalOcean Spaces Configuration (for file uploads)
+      - key: DO_SPACES_ACCESS_KEY_ID
+        type: SECRET
+        # Set in DigitalOcean console: API → Spaces Keys → Generate New Key
+        # Copy the Access Key here
+      - key: DO_SPACES_SECRET_ACCESS_KEY
+        type: SECRET
+        # Set in DigitalOcean console: API → Spaces Keys
+        # Copy the Secret Key here (only shown once!)
+      - key: DO_SPACES_BUCKET
+        value: "contrezz-uploads"
+      - key: DO_SPACES_REGION
+        value: "nyc3"
+      - key: DO_SPACES_ENDPOINT
+        value: "https://nyc3.digitaloceanspaces.com"
 
     # Health check
     health_check:
