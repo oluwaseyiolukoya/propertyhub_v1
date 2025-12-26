@@ -192,13 +192,13 @@ class StorageService {
           `Invalid DigitalOcean Spaces Access Key. Please check DO_SPACES_ACCESS_KEY_ID environment variable.`
         );
       }
-      
+
       if (error.Code === "SignatureDoesNotMatch") {
         throw new Error(
           `Invalid DigitalOcean Spaces Secret Key. Please check DO_SPACES_SECRET_ACCESS_KEY environment variable.`
         );
       }
-      
+
       if (error.Code === "InvalidArgument") {
         throw new Error(
           `Invalid upload parameters. Please check your DigitalOcean Spaces configuration. ${
@@ -208,7 +208,9 @@ class StorageService {
       }
 
       throw new Error(
-        `Failed to upload file: ${error.message || "Unknown error"} (Code: ${error.Code || "Unknown"})`
+        `Failed to upload file: ${error.message || "Unknown error"} (Code: ${
+          error.Code || "Unknown"
+        })`
       );
     }
   }

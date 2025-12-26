@@ -17,7 +17,8 @@ services:
     # Build configuration
     # TypeScript is in dependencies (not devDependencies) so it survives pruning
     build_command: npx prisma generate && npm run build
-    run_command: npm start
+    # Run migrations before starting the server
+    run_command: bash start.sh
 
     # Resource allocation
     instance_count: 1

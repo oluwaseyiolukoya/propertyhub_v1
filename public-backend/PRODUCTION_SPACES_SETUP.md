@@ -24,13 +24,13 @@ The production deployment is failing with `InvalidAccessKeyId` error because Dig
 3. **Go to Settings → App-Level Environment Variables**
 4. **Add the following variables**:
 
-   | Key | Value | Type |
-   |-----|-------|------|
-   | `DO_SPACES_ACCESS_KEY_ID` | Your Access Key from Step 1 | **SECRET** |
-   | `DO_SPACES_SECRET_ACCESS_KEY` | Your Secret Key from Step 1 | **SECRET** |
-   | `DO_SPACES_BUCKET` | `contrezz-uploads` | Plain |
-   | `DO_SPACES_REGION` | `nyc3` | Plain |
-   | `DO_SPACES_ENDPOINT` | `https://nyc3.digitaloceanspaces.com` | Plain |
+   | Key                           | Value                                 | Type       |
+   | ----------------------------- | ------------------------------------- | ---------- |
+   | `DO_SPACES_ACCESS_KEY_ID`     | Your Access Key from Step 1           | **SECRET** |
+   | `DO_SPACES_SECRET_ACCESS_KEY` | Your Secret Key from Step 1           | **SECRET** |
+   | `DO_SPACES_BUCKET`            | `contrezz-uploads`                    | Plain      |
+   | `DO_SPACES_REGION`            | `nyc3`                                | Plain      |
+   | `DO_SPACES_ENDPOINT`          | `https://nyc3.digitaloceanspaces.com` | Plain      |
 
 ### Step 3: Verify Your Space Exists
 
@@ -63,18 +63,22 @@ After redeployment, check the logs:
 ## 🔍 Troubleshooting
 
 ### Error: `InvalidAccessKeyId`
+
 - **Cause**: Access Key is incorrect or not set
 - **Fix**: Verify `DO_SPACES_ACCESS_KEY_ID` is set correctly in App Platform
 
 ### Error: `SignatureDoesNotMatch`
+
 - **Cause**: Secret Key is incorrect
 - **Fix**: Verify `DO_SPACES_SECRET_ACCESS_KEY` is set correctly (no extra spaces)
 
 ### Error: `NoSuchBucket`
+
 - **Cause**: Bucket doesn't exist or wrong name
 - **Fix**: Verify `DO_SPACES_BUCKET=contrezz-uploads` and the Space exists
 
 ### Error: `AccessDenied`
+
 - **Cause**: Access Key doesn't have permissions
 - **Fix**: Regenerate the Spaces key and ensure it has read/write permissions
 
