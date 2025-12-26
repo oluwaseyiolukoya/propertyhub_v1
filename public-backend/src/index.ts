@@ -5,9 +5,11 @@ import morgan from "morgan";
 import dotenv from "dotenv";
 import { rateLimiter } from "./middleware/rateLimiter";
 import careerRoutes from "./routes/careers";
+import formsRoutes from "./routes/forms";
 import adminAuthRoutes from "./routes/admin/auth";
 import adminLandingPagesRoutes from "./routes/admin/landing-pages";
 import adminCareersRoutes from "./routes/admin/careers";
+import adminFormsRoutes from "./routes/admin/forms";
 
 // Load environment variables
 dotenv.config();
@@ -41,7 +43,7 @@ app.use(
       }
     },
     credentials: false, // No auth cookies needed for public API
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: [
       "Content-Type",
       "Authorization",
@@ -92,11 +94,13 @@ app.get("/health", (req, res) => {
 
 // Public API Routes
 app.use("/api/careers", careerRoutes);
+app.use("/api/forms", formsRoutes);
 
 // Admin API Routes (require authentication)
 app.use("/api/admin/auth", adminAuthRoutes);
 app.use("/api/admin/landing-pages", adminLandingPagesRoutes);
 app.use("/api/admin/careers", adminCareersRoutes);
+app.use("/api/admin/forms", adminFormsRoutes);
 
 // Root endpoint
 app.get("/", (req, res) => {
@@ -105,11 +109,13 @@ app.get("/", (req, res) => {
     version: "1.0.0",
     endpoints: {
       careers: "/api/careers",
+      forms: "/api/forms",
       health: "/health",
       admin: {
         auth: "/api/admin/auth",
         landingPages: "/api/admin/landing-pages",
         careers: "/api/admin/careers",
+        forms: "/api/admin/forms",
       },
     },
     documentation: "https://docs.contrezz.com/api",

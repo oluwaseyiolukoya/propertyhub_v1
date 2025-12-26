@@ -284,4 +284,191 @@ router.delete(
   }
 );
 
+/**
+ * GET /api/admin/careers/:id/applications
+ * Get all applications for a career posting (admin only)
+ */
+router.get(
+  "/:id/applications",
+  adminAuthMiddleware,
+  async (req: AdminAuthRequest, res: Response): Promise<Response | void> => {
+    try {
+      const { id } = req.params;
+      const { status, page, limit } = req.query;
+
+      const pageNum = page ? parseInt(page as string) : 1;
+      const limitNum = limit ? parseInt(limit as string) : 20;
+      const skip = (pageNum - 1) * limitNum;
+
+      const where: any = { postingId: id };
+      if (status && status !== "all") {
+        where.status = status as string;
+      }
+
+      const [applications, total] = await Promise.all([
+        prisma.career_applications.findMany({
+          where,
+          skip,
+          take: limitNum,
+          orderBy: { createdAt: "desc" },
+        }),
+        prisma.career_applications.count({ where }),
+      ]);
+
+      return res.json({
+        applications,
+        pagination: {
+          total,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: Math.ceil(total / limitNum),
+        },
+      });
+    } catch (error: any) {
+      console.error("Get applications error:", error);
+      return res.status(500).json({
+        error: "Failed to fetch applications",
+      });
+    }
+  }
+);
+
+/**
+ * PATCH /api/admin/careers/applications/:id
+ * Update application status (admin only)
+ */
+router.patch(
+  "/applications/:id",
+  adminAuthMiddleware,
+  requireEditor,
+  async (req: AdminAuthRequest, res: Response): Promise<Response | void> => {
+    try {
+      const { id } = req.params;
+      const { status, notes } = req.body;
+
+      const updateData: any = {};
+      if (status) updateData.status = status;
+      if (notes !== undefined) updateData.notes = notes;
+      if (status && status !== "pending") {
+        updateData.reviewedBy = req.admin?.id;
+        updateData.reviewedAt = new Date();
+      }
+
+      const application = await prisma.career_applications.update({
+        where: { id },
+        data: updateData,
+      });
+
+      // Log activity
+      if (req.admin) {
+        await adminService.logActivity(
+          req.admin.id,
+          "update",
+          "career_application",
+          id,
+          { status: application.status },
+          req.ip,
+          req.headers["user-agent"]
+        );
+      }
+
+      return res.json({
+        message: "Application updated successfully",
+        application,
+      });
+    } catch (error: any) {
+      console.error("Update application error:", error);
+      return res.status(500).json({
+        error: error.message || "Failed to update application",
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/admin/careers/applications/:id/resume
+ * Get signed URL for resume download (admin only)
+ */
+router.get(
+  "/applications/:id/resume",
+  adminAuthMiddleware,
+  async (req: AdminAuthRequest, res: Response): Promise<Response | void> => {
+    try {
+      const { id } = req.params;
+
+      const application = await prisma.career_applications.findUnique({
+        where: { id },
+        select: { resumeUrl: true },
+      });
+
+      if (!application || !application.resumeUrl) {
+        return res.status(404).json({
+          error: "Resume not found",
+        });
+      }
+
+      // Generate signed URL for the resume
+      const storageService = (await import("../../services/storage.service"))
+        .default;
+      const signedUrl = await storageService.getFileUrl(
+        application.resumeUrl,
+        3600
+      ); // 1 hour expiry
+
+      return res.json({
+        url: signedUrl,
+        expiresIn: 3600,
+      });
+    } catch (error: any) {
+      console.error("Get resume URL error:", error);
+      return res.status(500).json({
+        error: error.message || "Failed to generate resume URL",
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/admin/careers/applications/:id/cover-letter
+ * Get signed URL for cover letter download (admin only)
+ */
+router.get(
+  "/applications/:id/cover-letter",
+  adminAuthMiddleware,
+  async (req: AdminAuthRequest, res: Response): Promise<Response | void> => {
+    try {
+      const { id } = req.params;
+
+      const application = await prisma.career_applications.findUnique({
+        where: { id },
+        select: { coverLetterUrl: true },
+      });
+
+      if (!application || !application.coverLetterUrl) {
+        return res.status(404).json({
+          error: "Cover letter not found",
+        });
+      }
+
+      // Generate signed URL for the cover letter
+      const storageService = (await import("../../services/storage.service"))
+        .default;
+      const signedUrl = await storageService.getFileUrl(
+        application.coverLetterUrl,
+        3600
+      ); // 1 hour expiry
+
+      return res.json({
+        url: signedUrl,
+        expiresIn: 3600,
+      });
+    } catch (error: any) {
+      console.error("Get cover letter URL error:", error);
+      return res.status(500).json({
+        error: error.message || "Failed to generate cover letter URL",
+      });
+    }
+  }
+);
+
 export default router;

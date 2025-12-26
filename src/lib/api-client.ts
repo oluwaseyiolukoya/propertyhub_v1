@@ -3,7 +3,12 @@
  * Centralized HTTP client for making API requests
  */
 
-import { API_BASE_URL, REQUEST_TIMEOUT, UPLOAD_TIMEOUT, STORAGE_KEYS } from "./api-config";
+import {
+  API_BASE_URL,
+  REQUEST_TIMEOUT,
+  UPLOAD_TIMEOUT,
+  STORAGE_KEYS,
+} from "./api-config";
 import { safeStorage } from "./safeStorage";
 
 export interface ApiError {
@@ -276,10 +281,32 @@ async function request<T>(
       };
     }
 
+    // Handle different types of fetch errors
+    let errorMessage = "Failed to connect to the server";
+    let errorType = "Network error";
+
+    if (error.message?.includes("Failed to fetch")) {
+      errorMessage =
+        "Unable to reach the server. Please check your connection.";
+      errorType = "Connection error";
+    } else if (error.message?.includes("CORS")) {
+      errorMessage = "CORS error. Please check server configuration.";
+      errorType = "CORS error";
+    } else if (error.message) {
+      errorMessage = error.message;
+      errorType = "Network error";
+    }
+
+    console.error("[API Client] Request failed:", {
+      endpoint,
+      error: error.message,
+      errorType,
+    });
+
     return {
       error: {
-        error: error.message || "Network error",
-        message: "Failed to connect to the server",
+        error: errorType,
+        message: errorMessage,
       },
     };
   }

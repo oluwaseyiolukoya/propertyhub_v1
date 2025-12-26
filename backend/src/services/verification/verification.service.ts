@@ -342,9 +342,9 @@ export class VerificationService {
       try {
         const jobId = await Promise.race([
           queueService.addVerificationJob(document.id, 5),
-          new Promise<string>((_, reject) => 
-            setTimeout(() => reject(new Error('Queue timeout')), 5000)
-          )
+          new Promise<string>((_, reject) =>
+            setTimeout(() => reject(new Error("Queue timeout")), 5000)
+          ),
         ]);
         console.log(
           `[VerificationService] ✅ Document uploaded and queued: ${document.id} (Job: ${jobId})`

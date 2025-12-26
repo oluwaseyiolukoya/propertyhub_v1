@@ -16,6 +16,8 @@ export interface CareerPosting {
   experience: string;
   description: string;
   requirements: string[];
+  responsibilities?: string[];
+  benefits?: string[];
   salary?: string;
   status: string;
   postedBy?: string;

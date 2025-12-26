@@ -389,6 +389,296 @@ export const publicAdminApi = {
     getStats: async (): Promise<any> => {
       return apiRequest("/careers/stats");
     },
+    /**
+     * Get applications for a career posting
+     */
+    getApplications: async (
+      postingId: string,
+      params?: {
+        status?: string;
+        page?: number;
+        limit?: number;
+      }
+    ): Promise<{
+      applications: any[];
+      pagination: {
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+      };
+    }> => {
+      const query = new URLSearchParams();
+      if (params?.status) query.append("status", params.status);
+      if (params?.page) query.append("page", params.page.toString());
+      if (params?.limit) query.append("limit", params.limit.toString());
+      const queryString = query.toString();
+      return apiRequest(
+        `/careers/${postingId}/applications${
+          queryString ? `?${queryString}` : ""
+        }`
+      );
+    },
+    /**
+     * Update application status
+     */
+    updateApplication: async (
+      id: string,
+      data: {
+        status?: string;
+        notes?: string;
+      }
+    ): Promise<{
+      message: string;
+      application: any;
+    }> => {
+      return apiRequest(`/careers/applications/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      });
+    },
+    /**
+     * Get signed URL for resume download
+     */
+    getResumeUrl: async (
+      applicationId: string
+    ): Promise<{
+      url: string;
+      expiresIn: number;
+    }> => {
+      return apiRequest(`/careers/applications/${applicationId}/resume`);
+    },
+    /**
+     * Get signed URL for cover letter download
+     */
+    getCoverLetterUrl: async (
+      applicationId: string
+    ): Promise<{
+      url: string;
+      expiresIn: number;
+    }> => {
+      return apiRequest(`/careers/applications/${applicationId}/cover-letter`);
+    },
+  },
+
+  /**
+   * Forms API - Schedule Demo submissions
+   */
+  forms: {
+    /**
+     * Get Contact Us submissions
+     */
+    getContactUs: async (params?: {
+      status?: string;
+      priority?: string;
+      search?: string;
+      page?: number;
+      limit?: number;
+      dateFrom?: string;
+      dateTo?: string;
+    }): Promise<{
+      success: boolean;
+      data: {
+        submissions: any[];
+        pagination: {
+          page: number;
+          limit: number;
+          total: number;
+          totalPages: number;
+        };
+        stats: {
+          total: number;
+          new: number;
+          contacted: number;
+          qualified: number;
+          closed: number;
+        };
+      };
+    }> => {
+      const query = new URLSearchParams();
+      if (params?.status) query.append("status", params.status);
+      if (params?.priority) query.append("priority", params.priority);
+      if (params?.search) query.append("search", params.search);
+      if (params?.page) query.append("page", params.page.toString());
+      if (params?.limit) query.append("limit", params.limit.toString());
+      if (params?.dateFrom) query.append("dateFrom", params.dateFrom);
+      if (params?.dateTo) query.append("dateTo", params.dateTo);
+      const queryString = query.toString();
+      return apiRequest(
+        `/forms/contact-us${queryString ? `?${queryString}` : ""}`
+      );
+    },
+    /**
+     * Get Contact Us submission by ID
+     */
+    getContactUsById: async (
+      id: string
+    ): Promise<{
+      success: boolean;
+      data: any;
+    }> => {
+      return apiRequest(`/forms/contact-us/${id}`);
+    },
+    /**
+     * Update Contact Us submission
+     */
+    updateContactUs: async (
+      id: string,
+      data: {
+        status?: string;
+        priority?: string;
+        adminNotes?: string;
+      }
+    ): Promise<{
+      success: boolean;
+      data: any;
+      message: string;
+    }> => {
+      return apiRequest(`/forms/contact-us/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      });
+    },
+    /**
+     * Delete Contact Us submission
+     */
+    deleteContactUs: async (
+      id: string
+    ): Promise<{
+      success: boolean;
+      message: string;
+    }> => {
+      return apiRequest(`/forms/contact-us/${id}`, {
+        method: "DELETE",
+      });
+    },
+    /**
+     * Get statistics for all form types
+     */
+    getStats: async (params?: {
+      dateFrom?: string;
+      dateTo?: string;
+    }): Promise<{
+      success: boolean;
+      data: {
+        overall: {
+          total: number;
+          new: number;
+          contacted: number;
+          qualified: number;
+          closed: number;
+        };
+        byFormType: Array<{
+          formType: string;
+          total: number;
+          byStatus: {
+            new: number;
+            contacted: number;
+            qualified: number;
+            closed: number;
+          };
+          byPriority: Record<string, number>;
+          recent: any[];
+        }>;
+        trends: Array<{
+          date: string;
+          count: number;
+        }>;
+      };
+    }> => {
+      const query = new URLSearchParams();
+      if (params?.dateFrom) query.append("dateFrom", params.dateFrom);
+      if (params?.dateTo) query.append("dateTo", params.dateTo);
+      const queryString = query.toString();
+      return apiRequest(`/forms/stats${queryString ? `?${queryString}` : ""}`);
+    },
+    /**
+     * Get Schedule Demo submissions
+     */
+    getScheduleDemo: async (params?: {
+      status?: string;
+      priority?: string;
+      search?: string;
+      page?: number;
+      limit?: number;
+      dateFrom?: string;
+      dateTo?: string;
+    }): Promise<{
+      success: boolean;
+      data: any[];
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+      };
+      stats: {
+        total: number;
+        new: number;
+        contacted: number;
+        qualified: number;
+        closed: number;
+      };
+    }> => {
+      const query = new URLSearchParams();
+      if (params?.status) query.append("status", params.status);
+      if (params?.priority) query.append("priority", params.priority);
+      if (params?.search) query.append("search", params.search);
+      if (params?.page) query.append("page", String(params.page));
+      if (params?.limit) query.append("limit", String(params.limit));
+      if (params?.dateFrom) query.append("dateFrom", params.dateFrom);
+      if (params?.dateTo) query.append("dateTo", params.dateTo);
+      const queryString = query.toString();
+      return apiRequest(
+        `/forms/schedule-demo${queryString ? `?${queryString}` : ""}`
+      );
+    },
+
+    /**
+     * Get single Schedule Demo submission
+     */
+    getScheduleDemoById: async (
+      id: string
+    ): Promise<{
+      success: boolean;
+      data: any;
+    }> => {
+      return apiRequest(`/forms/schedule-demo/${id}`);
+    },
+
+    /**
+     * Update Schedule Demo submission
+     */
+    updateScheduleDemo: async (
+      id: string,
+      data: {
+        status?: string;
+        priority?: string;
+        adminNotes?: string;
+      }
+    ): Promise<{
+      success: boolean;
+      data: any;
+    }> => {
+      return apiRequest(`/forms/schedule-demo/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      });
+    },
+
+    /**
+     * Delete Schedule Demo submission
+     */
+    deleteScheduleDemo: async (
+      id: string
+    ): Promise<{
+      success: boolean;
+      message: string;
+    }> => {
+      return apiRequest(`/forms/schedule-demo/${id}`, {
+        method: "DELETE",
+      });
+    },
   },
 };
 

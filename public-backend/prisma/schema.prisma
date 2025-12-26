@@ -57,12 +57,44 @@ model career_postings {
   updatedAt        DateTime  @updatedAt
   deletedAt        DateTime?
 
+  applications career_applications[]
+
   @@index([status])
   @@index([department])
   @@index([location])
   @@index([type])
   @@index([postedAt])
   @@index([expiresAt])
+}
+
+model career_applications {
+  id             String    @id @default(uuid())
+  postingId      String
+  firstName      String
+  lastName       String
+  email          String
+  phone          String?
+  resumeUrl      String? // URL to uploaded resume file
+  coverLetter    String?   @db.Text // Text cover letter (for backward compatibility)
+  coverLetterUrl String? // URL to uploaded cover letter file
+  linkedInUrl    String?
+  portfolioUrl   String?
+  status         String    @default("pending") // "pending", "reviewing", "shortlisted", "rejected", "hired"
+  notes          String?   @db.Text // Admin notes
+  reviewedBy     String? // Admin user ID
+  reviewedAt     DateTime?
+  ipAddress      String?
+  userAgent      String?   @db.Text
+  metadata       Json? // Additional fields
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  posting career_postings @relation(fields: [postingId], references: [id], onDelete: Cascade)
+
+  @@index([postingId])
+  @@index([email])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model blog_posts {

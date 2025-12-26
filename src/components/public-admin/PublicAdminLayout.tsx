@@ -14,21 +14,39 @@ import {
   X,
   Shield,
   BarChart3,
+  ClipboardList,
+  Calendar,
+  Mail,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PublicAdminDashboard } from "./PublicAdminDashboard";
 import { LandingPageList } from "./landing-pages/LandingPageList";
 import { CareerManagement } from "./careers/CareerManagement";
 import { PublicContentAnalytics } from "./analytics/PublicContentAnalytics";
+import { FormsDashboard } from "./forms/FormsDashboard";
+import { ScheduleDemoSubmissions } from "./forms/ScheduleDemoSubmissions";
+import { ContactUsSubmissions } from "./forms/ContactUsSubmissions";
 
 interface PublicAdminLayoutProps {
   children?: React.ReactNode;
+}
+
+interface MenuItem {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  subItems?: Array<{
+    id: string;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }>;
 }
 
 export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
   const [admin, setAdmin] = useState(getAdminData());
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentPage, setCurrentPage] = useState("dashboard");
+  const [currentSubPage, setCurrentSubPage] = useState<string | null>(null);
 
   useEffect(() => {
     // Verify admin session on mount
@@ -60,12 +78,26 @@ export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
     }
   };
 
-  const menuItems = [
+  const menuItems: MenuItem[] = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "landing-pages", label: "Landing Pages", icon: FileText },
     { id: "careers", label: "Careers", icon: Briefcase },
+    {
+      id: "forms",
+      label: "Forms",
+      icon: ClipboardList,
+      subItems: [
+        { id: "contact-us", label: "Contact Us", icon: Mail },
+        { id: "schedule-demo", label: "Schedule Demo", icon: Calendar },
+      ],
+    },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
   ];
+
+  const handleMenuClick = (itemId: string, subItemId?: string) => {
+    setCurrentPage(itemId);
+    setCurrentSubPage(subItemId || null);
+  };
 
   if (!admin) {
     return (
@@ -136,19 +168,62 @@ export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
             {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentPage === item.id;
+              const hasSubItems = item.subItems && item.subItems.length > 0;
+
               return (
-                <button
-                  key={item.id}
-                  onClick={() => setCurrentPage(item.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive
-                      ? "bg-gradient-to-r from-purple-600 to-violet-600 text-white"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  <Icon className="h-5 w-5" />
-                  <span className="font-medium">{item.label}</span>
-                </button>
+                <div key={item.id}>
+                  <button
+                    onClick={() => {
+                      if (hasSubItems && currentPage === item.id) {
+                        // Toggle submenu
+                        setCurrentSubPage(null);
+                      } else {
+                        handleMenuClick(item.id);
+                      }
+                    }}
+                    className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg transition-colors ${
+                      isActive
+                        ? "bg-gradient-to-r from-purple-600 to-violet-600 text-white"
+                        : "text-gray-700 hover:bg-gray-100"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon className="h-5 w-5" />
+                      <span className="font-medium">{item.label}</span>
+                    </div>
+                    {hasSubItems && (
+                      <span
+                        className={`text-xs ${
+                          isActive ? "text-white/70" : "text-gray-400"
+                        }`}
+                      >
+                        {currentPage === item.id && currentSubPage ? "▼" : "▶"}
+                      </span>
+                    )}
+                  </button>
+                  {hasSubItems && currentPage === item.id && (
+                    <div className="ml-4 mt-1 space-y-1">
+                      {item.subItems.map((subItem) => {
+                        const SubIcon = subItem.icon;
+                        const isSubActive = currentSubPage === subItem.id;
+                        return (
+                          <button
+                            key={subItem.id}
+                            onClick={() => handleMenuClick(item.id, subItem.id)}
+                            className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-colors text-sm ${
+                              isSubActive
+                                ? "bg-purple-100 text-purple-700 font-medium"
+                                : "text-gray-600 hover:bg-gray-50"
+                            }`}
+                          >
+                            <SubIcon className="h-4 w-4" />
+                            <span>{subItem.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               );
             })}
           </nav>
@@ -159,6 +234,19 @@ export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
           {currentPage === "dashboard" && <PublicAdminDashboard />}
           {currentPage === "landing-pages" && <LandingPageList />}
           {currentPage === "careers" && <CareerManagement />}
+          {currentPage === "forms" && !currentSubPage && (
+            <FormsDashboard
+              onNavigateToForm={(formType) => {
+                setCurrentSubPage(formType);
+              }}
+            />
+          )}
+          {currentPage === "forms" && currentSubPage === "contact-us" && (
+            <ContactUsSubmissions />
+          )}
+          {currentPage === "forms" && currentSubPage === "schedule-demo" && (
+            <ScheduleDemoSubmissions />
+          )}
           {currentPage === "analytics" && <PublicContentAnalytics />}
           {children}
         </main>

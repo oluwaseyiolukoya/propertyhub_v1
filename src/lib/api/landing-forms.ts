@@ -2,10 +2,17 @@
  * Landing Page Forms API Client
  */
 
-import { apiClient } from '../api-client';
+import { apiClient } from "../api-client";
+import { publicApi } from "./publicApi";
 
 export interface SubmissionData {
-  formType: 'contact_us' | 'schedule_demo' | 'blog_inquiry' | 'community_request' | 'partnership' | 'support';
+  formType:
+    | "contact_us"
+    | "schedule_demo"
+    | "blog_inquiry"
+    | "community_request"
+    | "partnership"
+    | "support";
   name: string;
   email: string;
   phone?: string;
@@ -47,16 +54,21 @@ export interface UpdateData {
 }
 
 export interface ResponseData {
-  responseType: 'email' | 'phone' | 'meeting' | 'internal_note';
+  responseType: "email" | "phone" | "meeting" | "internal_note";
   content: string;
   attachments?: any;
 }
 
 /**
  * Public API - Form submission
+ * Uses public backend API
  */
-export const submitLandingForm = (data: SubmissionData) => {
-  return apiClient.post('/api/landing-forms/submit', data);
+export const submitLandingForm = async (data: SubmissionData) => {
+  return publicApi.post<{
+    id: string;
+    status: string;
+    submittedAt: string;
+  }>("/forms/submit", data);
 };
 
 /**
@@ -70,7 +82,7 @@ export const checkSubmissionStatus = (id: string) => {
  * Admin API - Get all submissions with filters
  */
 export const getAllSubmissions = (filters?: FilterOptions) => {
-  return apiClient.get('/api/landing-forms/admin', filters as any);
+  return apiClient.get("/api/landing-forms/admin", filters as any);
 };
 
 /**
@@ -80,7 +92,7 @@ export const getSubmissionStats = (dateFrom?: string, dateTo?: string) => {
   const params: any = {};
   if (dateFrom) params.dateFrom = dateFrom;
   if (dateTo) params.dateTo = dateTo;
-  return apiClient.get('/api/landing-forms/admin/stats', params);
+  return apiClient.get("/api/landing-forms/admin/stats", params);
 };
 
 /**
@@ -129,7 +141,7 @@ export const assignSubmission = (id: string, adminId: string) => {
  * Admin API - Bulk action
  */
 export const bulkAction = (ids: string[], action: string, value?: any) => {
-  return apiClient.post('/api/landing-forms/admin/bulk-action', {
+  return apiClient.post("/api/landing-forms/admin/bulk-action", {
     ids,
     action,
     value,
@@ -140,6 +152,5 @@ export const bulkAction = (ids: string[], action: string, value?: any) => {
  * Admin API - Export submissions
  */
 export const exportSubmissions = (filters?: FilterOptions) => {
-  return apiClient.get('/api/landing-forms/admin/export', filters as any);
+  return apiClient.get("/api/landing-forms/admin/export", filters as any);
 };
-

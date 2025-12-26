@@ -1,14 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import React, { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 import { PublicLayout } from "./PublicLayout";
 import { toast } from "sonner";
-import { submitLandingForm } from '../lib/api/landing-forms';
+import { submitLandingForm } from "../lib/api/landing-forms";
 import {
   Building,
   ArrowLeft,
@@ -23,8 +35,8 @@ import {
   Github,
   CheckCircle2,
   Zap,
-  HelpCircle
-} from 'lucide-react';
+  HelpCircle,
+} from "lucide-react";
 
 interface ContactPageProps {
   onBackToHome: () => void;
@@ -57,23 +69,23 @@ export function ContactPage({
   onNavigateToHelpCenter,
   onNavigateToCommunity,
   onNavigateToStatus,
-  onNavigateToSecurity
+  onNavigateToSecurity,
 }: ContactPageProps) {
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    company: '',
-    subject: '',
-    message: '',
-    inquiryType: ''
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    company: "",
+    subject: "",
+    message: "",
+    inquiryType: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Scroll to top when component mounts
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
   const handleInputChange = (field: string, value: string) => {
@@ -84,20 +96,26 @@ export function ContactPage({
     e.preventDefault();
 
     // Validation
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.message || !formData.inquiryType) {
-      toast.error('Please fill in all required fields');
+    if (
+      !formData.firstName ||
+      !formData.lastName ||
+      !formData.email ||
+      !formData.message ||
+      !formData.inquiryType
+    ) {
+      toast.error("Please fill in all required fields");
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      toast.error('Please enter a valid email address');
+      toast.error("Please enter a valid email address");
       return;
     }
 
     // Message must be at least 10 characters
     if (formData.message.length < 10) {
-      toast.error('Message must be at least 10 characters long');
+      toast.error("Message must be at least 10 characters long");
       return;
     }
 
@@ -106,14 +124,14 @@ export function ContactPage({
     try {
       // Prepare submission data - only include optional fields if they have values
       const submissionData: any = {
-        formType: 'contact_us',
+        formType: "contact_us",
         name: `${formData.firstName} ${formData.lastName}`,
         email: formData.email,
         message: formData.message,
-        source: 'contact_page',
+        source: "contact_page",
         customFields: {
-          inquiryType: formData.inquiryType
-        }
+          inquiryType: formData.inquiryType,
+        },
       };
 
       // Only add optional fields if they have values
@@ -130,47 +148,53 @@ export function ContactPage({
         submissionData.subject = formData.inquiryType;
       }
 
-      console.log('📤 Submitting contact form:', submissionData);
+      console.log("📤 Submitting contact form:", submissionData);
 
       // Submit to landing forms API
       const response = await submitLandingForm(submissionData);
 
-      console.log('📥 API Response:', response);
+      console.log("📥 API Response:", response);
 
-      if (response.data?.success) {
+      if (response.success && response.data) {
         // Simple thank you message
         toast.success(
           <div>
             <p className="font-semibold">Thank you for contacting us!</p>
-            <p className="text-sm mt-1">We've received your message and will get back to you shortly.</p>
+            <p className="text-sm mt-1">
+              We've received your message and will get back to you shortly.
+            </p>
           </div>,
           { duration: 5000 }
         );
 
         // Reset form
         setFormData({
-          firstName: '',
-          lastName: '',
-          email: '',
-          phone: '',
-          company: '',
-          subject: '',
-          message: '',
-          inquiryType: ''
+          firstName: "",
+          lastName: "",
+          email: "",
+          phone: "",
+          company: "",
+          subject: "",
+          message: "",
+          inquiryType: "",
         });
       } else {
-        console.error('❌ Submission failed:', response.error);
-        const errorMessage = (response.error as any)?.message || response.error?.error || 'Failed to send message. Please try again.';
+        console.error("❌ Submission failed:", response);
+        // Handle error response structure from publicApi
+        const errorMessage =
+          response.message ||
+          response.error ||
+          "Failed to send message. Please try again.";
         toast.error(errorMessage);
 
         // Log validation details if available
-        if ((response.error as any)?.details) {
-          console.error('Validation details:', (response.error as any).details);
+        if ((response as any)?.details) {
+          console.error("Validation details:", (response as any).details);
         }
       }
     } catch (error: any) {
-      console.error('❌ Contact form error:', error);
-      toast.error('Failed to send message. Please try again later.');
+      console.error("❌ Contact form error:", error);
+      toast.error("Failed to send message. Please try again later.");
     } finally {
       setIsSubmitting(false);
     }
@@ -179,55 +203,58 @@ export function ContactPage({
   const contactMethods = [
     {
       icon: Mail,
-      title: 'Email Us',
-      description: 'Our team is here to help',
-      value: 'hello@contrezz.com',
-      link: 'mailto:hello@contrezz.com',
-      color: 'blue'
+      title: "Email Us",
+      description: "Our team is here to help",
+      value: "hello@contrezz.com",
+      link: "mailto:hello@contrezz.com",
+      color: "blue",
     },
     {
       icon: Phone,
-      title: 'Call Us',
-      description: 'Mon-Fri from 9am to 6pm EST',
-      value: '+1 (555) 123-4567',
-      link: 'tel:+15551234567',
-      color: 'green'
+      title: "Call Us",
+      description: "Mon-Fri from 9am to 6pm EST",
+      value: "+1 (555) 123-4567",
+      link: "tel:+15551234567",
+      color: "green",
     },
     {
       icon: MapPin,
-      title: 'Visit Us',
-      description: 'Come say hello at our office',
-      value: '123 Market St, San Francisco, CA 94103',
-      link: 'https://maps.google.com',
-      color: 'purple'
-    }
+      title: "Visit Us",
+      description: "Come say hello at our office",
+      value: "123 Market St, San Francisco, CA 94103",
+      link: "https://maps.google.com",
+      color: "purple",
+    },
   ];
 
   const faqs = [
     {
-      question: 'How quickly will I receive a response?',
-      answer: 'We typically respond to all inquiries within 24 hours during business days.'
+      question: "How quickly will I receive a response?",
+      answer:
+        "We typically respond to all inquiries within 24 hours during business days.",
     },
     {
-      question: 'Do you offer phone support?',
-      answer: 'Yes! Our phone support is available Monday-Friday, 9am-6pm EST.'
+      question: "Do you offer phone support?",
+      answer: "Yes! Our phone support is available Monday-Friday, 9am-6pm EST.",
     },
     {
-      question: 'Can I schedule a demo?',
-      answer: 'Absolutely! You can schedule a personalized demo through our Schedule Demo page.'
+      question: "Can I schedule a demo?",
+      answer:
+        "Absolutely! You can schedule a personalized demo through our Schedule Demo page.",
     },
     {
-      question: 'What information should I include in my message?',
-      answer: 'Please include as much detail as possible about your inquiry, including your property portfolio size and specific needs.'
-    }
+      question: "What information should I include in my message?",
+      answer:
+        "Please include as much detail as possible about your inquiry, including your property portfolio size and specific needs.",
+    },
   ];
 
   const getColorClasses = (color: string) => {
     const colors: Record<string, string> = {
-      blue: 'from-blue-500 to-blue-600',
-      green: 'from-green-500 to-green-600',
-      purple: 'from-purple-500 to-purple-600',
-      orange: 'from-orange-500 to-orange-600'
+      blue: "from-blue-500 to-blue-600",
+      green: "from-green-500 to-green-600",
+      purple: "from-purple-500 to-purple-600",
+      orange: "from-orange-500 to-orange-600",
     };
     return colors[color] || colors.blue;
   };
@@ -250,7 +277,6 @@ export function ContactPage({
       onNavigateToStatus={onNavigateToStatus}
       onNavigateToSecurity={onNavigateToSecurity}
     >
-
       {/* Hero Section */}
       <section className="py-16 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -264,11 +290,14 @@ export function ContactPage({
           </Badge>
           <h1 className="text-4xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight">
             We'd Love to
-            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> Hear From You</span>
+            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              {" "}
+              Hear From You
+            </span>
           </h1>
           <p className="text-xl text-gray-600 leading-relaxed max-w-3xl mx-auto">
-            Have questions about Contrezz? Want to learn more about our platform?
-            Our team is here to help you succeed.
+            Have questions about Contrezz? Want to learn more about our
+            platform? Our team is here to help you succeed.
           </p>
         </div>
       </section>
@@ -283,11 +312,15 @@ export function ContactPage({
                 <Card
                   key={index}
                   className="group border-2 hover:border-blue-300 transition-all duration-300 hover:shadow-2xl transform hover:-translate-y-2 cursor-pointer"
-                  onClick={() => window.open(method.link, '_blank')}
+                  onClick={() => window.open(method.link, "_blank")}
                 >
                   <CardHeader className="text-center">
                     <div className="flex justify-center mb-4">
-                      <div className={`h-16 w-16 bg-gradient-to-br ${getColorClasses(method.color)} rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                      <div
+                        className={`h-16 w-16 bg-gradient-to-br ${getColorClasses(
+                          method.color
+                        )} rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}
+                      >
                         <Icon className="h-8 w-8 text-white" />
                       </div>
                     </div>
@@ -295,7 +328,9 @@ export function ContactPage({
                     <CardDescription>{method.description}</CardDescription>
                   </CardHeader>
                   <CardContent className="text-center">
-                    <p className="text-gray-900 font-semibold">{method.value}</p>
+                    <p className="text-gray-900 font-semibold">
+                      {method.value}
+                    </p>
                   </CardContent>
                 </Card>
               );
@@ -312,7 +347,10 @@ export function ContactPage({
             <Card className="border-2 shadow-xl">
               <CardHeader>
                 <CardTitle className="text-2xl">Send Us a Message</CardTitle>
-                <CardDescription>Fill out the form below and we'll get back to you as soon as possible</CardDescription>
+                <CardDescription>
+                  Fill out the form below and we'll get back to you as soon as
+                  possible
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -323,7 +361,9 @@ export function ContactPage({
                         id="firstName"
                         placeholder="John"
                         value={formData.firstName}
-                        onChange={(e) => handleInputChange('firstName', e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("firstName", e.target.value)
+                        }
                         required
                       />
                     </div>
@@ -333,7 +373,9 @@ export function ContactPage({
                         id="lastName"
                         placeholder="Doe"
                         value={formData.lastName}
-                        onChange={(e) => handleInputChange('lastName', e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("lastName", e.target.value)
+                        }
                         required
                       />
                     </div>
@@ -347,7 +389,9 @@ export function ContactPage({
                         type="email"
                         placeholder="john@example.com"
                         value={formData.email}
-                        onChange={(e) => handleInputChange('email', e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("email", e.target.value)
+                        }
                         required
                       />
                     </div>
@@ -358,7 +402,9 @@ export function ContactPage({
                         type="tel"
                         placeholder="+1 (555) 123-4567"
                         value={formData.phone}
-                        onChange={(e) => handleInputChange('phone', e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("phone", e.target.value)
+                        }
                       />
                     </div>
                   </div>
@@ -369,7 +415,9 @@ export function ContactPage({
                       id="company"
                       placeholder="Your company name"
                       value={formData.company}
-                      onChange={(e) => handleInputChange('company', e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("company", e.target.value)
+                      }
                     />
                   </div>
 
@@ -377,14 +425,18 @@ export function ContactPage({
                     <Label htmlFor="inquiryType">Inquiry Type *</Label>
                     <Select
                       value={formData.inquiryType}
-                      onValueChange={(value) => handleInputChange('inquiryType', value)}
+                      onValueChange={(value) =>
+                        handleInputChange("inquiryType", value)
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select inquiry type" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="sales">Sales Inquiry</SelectItem>
-                        <SelectItem value="support">Technical Support</SelectItem>
+                        <SelectItem value="support">
+                          Technical Support
+                        </SelectItem>
                         <SelectItem value="demo">Request Demo</SelectItem>
                         <SelectItem value="partnership">Partnership</SelectItem>
                         <SelectItem value="feedback">Feedback</SelectItem>
@@ -399,18 +451,24 @@ export function ContactPage({
                       id="subject"
                       placeholder="Brief subject of your inquiry"
                       value={formData.subject}
-                      onChange={(e) => handleInputChange('subject', e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("subject", e.target.value)
+                      }
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="message">Message * (minimum 10 characters)</Label>
+                    <Label htmlFor="message">
+                      Message * (minimum 10 characters)
+                    </Label>
                     <Textarea
                       id="message"
                       placeholder="Tell us more about your inquiry..."
                       rows={6}
                       value={formData.message}
-                      onChange={(e) => handleInputChange('message', e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("message", e.target.value)
+                      }
                       required
                     />
                     <p className="text-xs text-gray-500">
@@ -462,7 +520,9 @@ export function ContactPage({
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Saturday</span>
-                    <span className="font-semibold">10:00 AM - 2:00 PM EST</span>
+                    <span className="font-semibold">
+                      10:00 AM - 2:00 PM EST
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Sunday</span>
@@ -486,14 +546,18 @@ export function ContactPage({
                     </div>
                     <div>
                       <CardTitle>Quick Answers</CardTitle>
-                      <CardDescription>Frequently asked questions</CardDescription>
+                      <CardDescription>
+                        Frequently asked questions
+                      </CardDescription>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {faqs.map((faq, index) => (
                     <div key={index} className="space-y-1">
-                      <h4 className="font-semibold text-sm text-gray-900">{faq.question}</h4>
+                      <h4 className="font-semibold text-sm text-gray-900">
+                        {faq.question}
+                      </h4>
                       <p className="text-sm text-gray-600">{faq.answer}</p>
                     </div>
                   ))}
@@ -554,8 +618,6 @@ export function ContactPage({
           </Button>
         </div>
       </section>
-
     </PublicLayout>
   );
 }
-

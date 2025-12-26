@@ -34,9 +34,11 @@ import {
 import {
   getPublicCareerPostings,
   getCareerFilterOptions,
+  getCareerPostingById,
   type CareerPosting,
 } from "../lib/api/careers";
 import { toast } from "sonner";
+import { JobDetailDialog } from "./careers/JobDetailDialog";
 
 interface CareersPageProps {
   onBackToHome: () => void;
@@ -75,6 +77,8 @@ export function CareersPage({
     remoteOptions: [] as string[],
     experienceLevels: [] as string[],
   });
+  const [selectedJob, setSelectedJob] = useState<CareerPosting | null>(null);
+  const [jobDetailOpen, setJobDetailOpen] = useState(false);
 
   // Load filter options on mount
   useEffect(() => {
@@ -544,6 +548,25 @@ export function CareersPage({
                 <Card
                   key={job.id}
                   className="group border-2 hover:border-blue-300 transition-all duration-300 hover:shadow-xl cursor-pointer"
+                  onClick={async () => {
+                    try {
+                      // Fetch full job details
+                      const response = await getCareerPostingById(job.id);
+                      if (response.success && response.data) {
+                        setSelectedJob(response.data);
+                        setJobDetailOpen(true);
+                      } else {
+                        // Fallback to basic job data
+                        setSelectedJob(job);
+                        setJobDetailOpen(true);
+                      }
+                    } catch (error: any) {
+                      console.error("Error fetching job details:", error);
+                      // Fallback to basic job data
+                      setSelectedJob(job);
+                      setJobDetailOpen(true);
+                    }
+                  }}
                 >
                   <CardHeader>
                     <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
@@ -740,6 +763,13 @@ export function CareersPage({
           </Button>
         </div>
       </section>
+
+      {/* Job Detail Dialog */}
+      <JobDetailDialog
+        job={selectedJob}
+        open={jobDetailOpen}
+        onOpenChange={setJobDetailOpen}
+      />
     </PublicLayout>
   );
 }

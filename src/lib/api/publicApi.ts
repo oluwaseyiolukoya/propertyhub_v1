@@ -70,7 +70,8 @@ async function publicRequest<T>(
       return {
         success: false,
         error: data.error || "Request failed",
-        message: data.message || data.error,
+        message: data.message || data.error || "Request failed",
+        details: data.details, // Include validation details if available
       };
     }
 
