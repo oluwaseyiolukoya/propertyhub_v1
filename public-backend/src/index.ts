@@ -8,6 +8,7 @@ import careerRoutes from "./routes/careers";
 import formsRoutes from "./routes/forms";
 import adminAuthRoutes from "./routes/admin/auth";
 import adminLandingPagesRoutes from "./routes/admin/landing-pages";
+import landingPagesRoutes from "./routes/landing-pages";
 import adminCareersRoutes from "./routes/admin/careers";
 import adminFormsRoutes from "./routes/admin/forms";
 
@@ -102,6 +103,7 @@ app.get("/health", (req, res) => {
 // Public API Routes
 app.use("/api/careers", careerRoutes);
 app.use("/api/forms", formsRoutes);
+app.use("/api/landing-pages", landingPagesRoutes);
 
 // Admin API Routes (require authentication)
 app.use("/api/admin/auth", adminAuthRoutes);
@@ -117,6 +119,7 @@ app.get("/", (req, res) => {
     endpoints: {
       careers: "/api/careers",
       forms: "/api/forms",
+      landingPages: "/api/landing-pages",
       health: "/health",
       admin: {
         auth: "/api/admin/auth",

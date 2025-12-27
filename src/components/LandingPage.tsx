@@ -69,11 +69,105 @@ export function LandingPage({
   const [pricingLoading, setPricingLoading] = useState(true);
   const [pricingError, setPricingError] = useState<string | null>(null);
 
+  // Dynamic landing page content from database
+  const [dynamicContent, setDynamicContent] = useState<{
+    hero?: {
+      badge: string;
+      headline: string;
+      subheadline: string;
+      primaryCTA: string;
+      secondaryCTA: string;
+    };
+    stats?: Array<{ value: string; label: string }>;
+    features?: Array<{ title: string; description: string; color: string }>;
+    testimonials?: Array<{
+      name: string;
+      company: string;
+      role: string;
+      text: string;
+      rating: number;
+    }>;
+    cta?: {
+      headline: string;
+      description: string;
+      primaryCTA: string;
+      secondaryCTA: string;
+    };
+  } | null>(null);
+  const [contentLoading, setContentLoading] = useState(true);
+
   useEffect(() => {
     setIsVisible(true);
     const handleScroll = () => setScrollY(window.scrollY);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Fetch dynamic landing page content from database
+  useEffect(() => {
+    async function loadLandingPageContent() {
+      try {
+        setContentLoading(true);
+        console.log(
+          "[LandingPage] Fetching dynamic content from /api/landing-pages/slug/home"
+        );
+
+        const timestamp = new Date().getTime();
+        // Use same pattern as other API clients
+        const apiUrl =
+          import.meta.env.VITE_PUBLIC_API_URL ||
+          (import.meta.env.DEV
+            ? "http://localhost:5001/api"
+            : "https://api.contrezz.com/api");
+        const response = await fetch(
+          `${apiUrl}/landing-pages/slug/home?_t=${timestamp}`,
+          {
+            cache: "no-cache",
+            headers: {
+              "Cache-Control": "no-cache",
+              Pragma: "no-cache",
+            },
+          }
+        );
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.log(
+              "[LandingPage] No dynamic content found, using default"
+            );
+            setDynamicContent(null);
+            return;
+          }
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        if (result.success && result.page?.content) {
+          console.log("[LandingPage] Loaded dynamic content:", {
+            hasHero: !!result.page.content.hero,
+            hasStats: !!result.page.content.stats,
+            hasFeatures: !!result.page.content.features,
+            hasTestimonials: !!result.page.content.testimonials,
+            hasCTA: !!result.page.content.cta,
+          });
+          setDynamicContent(result.page.content);
+        } else {
+          console.log(
+            "[LandingPage] No valid content in response, using default"
+          );
+          setDynamicContent(null);
+        }
+      } catch (error: any) {
+        console.error("[LandingPage] Failed to load dynamic content:", error);
+        // Use default content on error
+        setDynamicContent(null);
+      } finally {
+        setContentLoading(false);
+      }
+    }
+
+    loadLandingPageContent();
   }, []);
 
   // Fetch pricing plans for landing page from public API (database is source of truth)
@@ -187,51 +281,67 @@ export function LandingPage({
       icon: Building2,
       title: "Property & Portfolio Management",
       description:
-        "Manage rental properties and development projects from a single dashboard. Track occupancy, monitor construction progress, and access real-time insights across your entire portfolio.",
+        "See everything at a glance. Manage unlimited properties, track occupancy rates, monitor construction progress, and get instant insights that help you make smarter decisions—all from one powerful dashboard.",
       color: "blue",
     },
     {
       icon: Users,
       title: "Tenant & Stakeholder Management",
       description:
-        "From application to move-out, manage the entire tenant lifecycle. Digital lease agreements, automated communication, and a portal that keeps tenants, investors, and stakeholders informed.",
+        "Turn tenant management from a headache into a breeze. Streamline applications, automate lease agreements, keep everyone informed, and build better relationships with tenants and investors.",
       color: "green",
     },
     {
       icon: CreditCard,
-      title: "Payment & Financial Management",
+      title: "Automated Payment Collection",
       description:
-        "Never chase payments again. Automated rent collection for property managers, milestone-based payments for developers. Multiple payment options via Paystack with instant notifications.",
+        "Get paid on time, every time. Automated rent reminders, multiple payment options, and instant notifications mean you'll never chase another payment. Property managers see 97% on-time collection rates.",
       color: "purple",
     },
     {
       icon: Key,
       title: "Smart Access Control",
       description:
-        "Revolutionary keycard system for rental properties and construction sites. Control who enters your properties with automated access that syncs with payment status—no more manual tracking.",
+        "Revolutionary keycard system that automatically grants or revokes access based on payment status. No more changing locks, lost keys, or unauthorized access. Your properties stay secure, automatically.",
       color: "orange",
     },
     {
       icon: Wrench,
       title: "Project & Maintenance Tracking",
       description:
-        "From construction milestones to maintenance requests, track every task from start to finish. Assign vendors, monitor progress, and keep everyone updated in real-time.",
+        "Never miss a deadline or maintenance request again. Track construction milestones, assign vendors, monitor progress in real-time, and keep your team aligned—all from one place.",
       color: "red",
     },
     {
       icon: Shield,
-      title: "Security & Compliance",
+      title: "Bank-Level Security & Compliance",
       description:
-        "Bank-level security protects your data and your tenants' information. SSL encryption, regular backups, and NDPR compliance give you peace of mind.",
+        "Your data is protected with enterprise-grade security. SSL encryption, automated backups, and full NDPR compliance ensure your business and tenant information stays safe and compliant.",
       color: "indigo",
     },
   ];
 
-  const stats = [
-    { value: "₦7.5B+", label: "Total Portfolio Value", icon: TrendingUp },
-    { value: "20 Hours", label: "Saved Per Week", icon: Zap },
-    { value: "500+", label: "Active Professionals", icon: Building2 },
+  const defaultStats = [
+    { value: "₦7.5B+", label: "Portfolio Value Managed", icon: TrendingUp },
+    { value: "20+ Hours", label: "Saved Weekly Per User", icon: Zap },
+    { value: "500+", label: "Property Professionals", icon: Building2 },
   ];
+
+  // Merge dynamic stats with icons from default stats
+  const stats = dynamicContent?.stats
+    ? dynamicContent.stats.map((stat, index) => ({
+        ...stat,
+        icon: defaultStats[index]?.icon || TrendingUp,
+      }))
+    : defaultStats;
+
+  // Merge dynamic features with icons from default features
+  const mergedFeatures = dynamicContent?.features
+    ? dynamicContent.features.map((feature, index) => ({
+        ...feature,
+        icon: features[index]?.icon || Building2,
+      }))
+    : features;
 
   const testimonials = [
     {
@@ -257,8 +367,51 @@ export function LandingPage({
     },
   ];
 
+  // ContrezztLogo component (brand guideline compliant)
+  const ContrezztLogo = ({ className = "w-8 h-8" }: { className?: string }) => (
+    <svg
+      viewBox="0 0 40 40"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <rect
+        x="4"
+        y="16"
+        width="12"
+        height="20"
+        rx="2"
+        fill="currentColor"
+        fillOpacity="0.9"
+      />
+      <rect
+        x="20"
+        y="8"
+        width="12"
+        height="28"
+        rx="2"
+        fill="currentColor"
+        fillOpacity="1"
+      />
+      <rect
+        x="12"
+        y="4"
+        width="8"
+        height="14"
+        rx="1.5"
+        fill="currentColor"
+        fillOpacity="0.7"
+      />
+      <circle cx="10" cy="22" r="1.5" fill="white" fillOpacity="0.6" />
+      <circle cx="10" cy="28" r="1.5" fill="white" fillOpacity="0.6" />
+      <circle cx="26" cy="14" r="1.5" fill="white" fillOpacity="0.6" />
+      <circle cx="26" cy="20" r="1.5" fill="white" fillOpacity="0.6" />
+      <circle cx="26" cy="26" r="1.5" fill="white" fillOpacity="0.6" />
+    </svg>
+  );
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm border-b sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -267,7 +420,9 @@ export function LandingPage({
               onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
               className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
             >
-              <Building className="h-8 w-8 text-blue-600" />
+              <div className="bg-gradient-to-br from-purple-600 to-violet-600 p-1.5 rounded-lg">
+                <ContrezztLogo className="h-6 w-6 text-white" />
+              </div>
               <h1 className="text-xl font-bold text-gray-900">Contrezz</h1>
               <Badge variant="secondary" className="ml-2">
                 SaaS
@@ -297,8 +452,8 @@ export function LandingPage({
       <section className="relative pt-24 sm:pt-32 lg:pt-40 pb-16 sm:pb-20 lg:pb-24 px-4 sm:px-6 lg:px-8 overflow-hidden">
         {/* Animated background elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-20 left-10 w-72 h-72 bg-blue-400/20 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-400/20 rounded-full blur-3xl animate-pulse delay-700"></div>
+          <div className="absolute top-20 left-10 w-72 h-72 bg-purple-400/20 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute bottom-20 right-10 w-96 h-96 bg-violet-400/20 rounded-full blur-3xl animate-pulse delay-700"></div>
         </div>
 
         <div className="max-w-7xl mx-auto relative z-10">
@@ -310,28 +465,33 @@ export function LandingPage({
                   : "opacity-0 translate-y-10"
               }`}
             >
-              <Badge className="mb-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 animate-bounce">
-                <Building2 className="h-3 w-3 mr-1" /> For Property Managers &
-                Developers
+              <Badge className="mb-4 bg-gradient-to-r from-purple-600 to-violet-600 text-white border-0 animate-bounce">
+                <Building2 className="h-3 w-3 mr-1" />{" "}
+                {dynamicContent?.hero?.badge ||
+                  "For Property Managers & Developers"}
               </Badge>
               <h1 className="text-4xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-                Property Management & Development.
-                <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  {" "}
-                  Simplified Reporting.
-                </span>
+                {dynamicContent?.hero?.headline ||
+                  "Stop Chasing Rent. Start Growing Your Portfolio."}
+                {!dynamicContent?.hero?.headline && (
+                  <span className="bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
+                    {" "}
+                    All in One Platform.
+                  </span>
+                )}
               </h1>
               <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-                Automate operations, track budgets, and collect rent on time.
-                Built for Nigerian property professionals.
+                {dynamicContent?.hero?.subheadline ||
+                  "The only property management platform built for Nigeria. Automate rent collection, track construction budgets, manage tenants, and scale your business—without the stress."}
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button
                   size="lg"
-                  className="text-lg px-8 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
+                  className="text-lg px-8 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
                   onClick={onNavigateToGetStarted || onNavigateToLogin}
                 >
-                  Get Started <ArrowRight className="ml-2 h-5 w-5" />
+                  {dynamicContent?.hero?.primaryCTA || "Start Free Trial"}{" "}
+                  <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
                 <Button
                   variant="outline"
@@ -339,7 +499,7 @@ export function LandingPage({
                   onClick={onNavigateToScheduleDemo}
                   className="text-lg px-8 border-2 hover:bg-gray-50 transform hover:scale-105 transition-all duration-200"
                 >
-                  Schedule Demo
+                  {dynamicContent?.hero?.secondaryCTA || "Schedule Demo"}
                 </Button>
               </div>
 
@@ -355,10 +515,12 @@ export function LandingPage({
                         : "opacity-0 translate-y-10"
                     }`}
                   >
-                    <div className="flex items-center justify-center mb-2">
-                      <stat.icon className="h-6 w-6 text-blue-600 mr-2" />
-                    </div>
-                    <div className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    {stat.icon && (
+                      <div className="flex items-center justify-center mb-2">
+                        <stat.icon className="h-6 w-6 text-purple-600 mr-2" />
+                      </div>
+                    )}
+                    <div className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
                       {stat.value}
                     </div>
                     <div className="text-gray-600 text-sm">{stat.label}</div>
@@ -374,12 +536,12 @@ export function LandingPage({
                   : "opacity-0 translate-x-10"
               }`}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-600 rounded-3xl transform rotate-6 animate-pulse"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-violet-600 rounded-3xl transform rotate-6 animate-pulse"></div>
               <div className="relative bg-white rounded-3xl shadow-2xl p-8 hover:shadow-3xl transition-shadow duration-300">
                 <div className="space-y-4">
-                  <div className="flex items-center space-x-3 p-3 rounded-lg hover:bg-blue-50 transition-colors duration-200 group">
-                    <div className="h-12 w-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-                      <Building2 className="h-6 w-6 text-blue-600" />
+                  <div className="flex items-center space-x-3 p-3 rounded-lg hover:bg-purple-50 transition-colors duration-200 group">
+                    <div className="h-12 w-12 bg-gradient-to-br from-purple-100 to-purple-200 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                      <Building2 className="h-6 w-6 text-purple-600" />
                     </div>
                     <div>
                       <div className="font-semibold flex items-center">
@@ -433,23 +595,26 @@ export function LandingPage({
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-blue-100 text-blue-700 hover:bg-blue-200">
+            <Badge className="mb-4 bg-purple-100 text-purple-700 hover:bg-purple-200">
               <Building2 className="h-3 w-3 mr-1" /> Built for Managers &
               Developers
             </Badge>
             <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
-              Everything You Need—From Blueprint to Bottom Line
+              Everything You Need to Run Your Property Business—From One
+              Dashboard
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Comprehensive tools for managing existing properties and
-              developing new ones. One platform, unlimited possibilities.
+              Whether you're managing rentals or building new properties, get
+              all the tools you need to save time, reduce costs, and grow
+              faster. No more juggling spreadsheets, chasing payments, or losing
+              track of projects.
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {features.map((feature, index) => {
+            {mergedFeatures.map((feature, index) => {
               const colorClasses = {
-                blue: "from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700",
+                blue: "from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700",
                 green:
                   "from-green-500 to-green-600 hover:from-green-600 hover:to-green-700",
                 purple:
@@ -478,7 +643,9 @@ export function LandingPage({
                         colorClasses[feature.color as keyof typeof colorClasses]
                       } rounded-xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300`}
                     >
-                      <feature.icon className="h-7 w-7 text-white" />
+                      {feature.icon && (
+                        <feature.icon className="h-7 w-7 text-white" />
+                      )}
                     </div>
                     <CardTitle className="text-xl group-hover:text-gray-900 transition-colors">
                       {feature.title}
@@ -488,7 +655,7 @@ export function LandingPage({
                     <p className="text-gray-600 leading-relaxed">
                       {feature.description}
                     </p>
-                    <div className="mt-4 flex items-center text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="mt-4 flex items-center text-purple-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                       <span className="text-sm font-semibold">Learn more</span>
                       <ArrowRight className="h-4 w-4 ml-1 transform group-hover:translate-x-1 transition-transform" />
                     </div>
@@ -502,7 +669,7 @@ export function LandingPage({
 
       {/* Pricing Section */}
       <section id="pricing" className="py-20 bg-white relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-96 h-96 bg-blue-200/20 rounded-full blur-3xl"></div>
+        <div className="absolute top-0 left-0 w-96 h-96 bg-purple-200/20 rounded-full blur-3xl"></div>
         <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-200/20 rounded-full blur-3xl"></div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -511,11 +678,11 @@ export function LandingPage({
               <Zap className="h-3 w-3 mr-1" /> Flexible Pricing
             </Badge>
             <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
-              Simple, Transparent Pricing
+              Pricing That Grows With Your Business
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Choose the perfect plan for your needs. All plans include a 14-day
-              free trial.
+              Start free, scale as you grow. All plans include a 14-day free
+              trial—no credit card required. Cancel anytime.
             </p>
           </div>
 
@@ -547,13 +714,14 @@ export function LandingPage({
             {/* Property Owner Plans */}
             <TabsContent value="property-owner" className="mt-0">
               <div className="mb-8 text-center">
-                <p className="text-lg text-gray-600">
+                <p className="text-lg text-gray-600 font-semibold">
                   For Property Owners & Managers
                 </p>
-                <p className="text-sm text-gray-500 mt-2">
+                <p className="text-sm text-gray-500 mt-2 max-w-2xl mx-auto">
                   Perfect for landlords, property managers, and facility
-                  management companies managing rental properties. Automate rent
-                  collection, tenant management, and maintenance tracking.
+                  management companies. Stop spending hours on admin work.
+                  Automate rent collection, streamline tenant management, and
+                  track maintenance—so you can focus on growing your portfolio.
                 </p>
               </div>
 
@@ -697,13 +865,14 @@ export function LandingPage({
             {/* Property Developer Plans */}
             <TabsContent value="property-developer" className="mt-0">
               <div className="mb-8 text-center">
-                <p className="text-lg text-gray-600">
+                <p className="text-lg text-gray-600 font-semibold">
                   For Property Developers & Builders
                 </p>
-                <p className="text-sm text-gray-500 mt-2">
-                  Designed for developers, construction companies, and real
-                  estate investors building new properties. Track project
-                  budgets, manage vendors, and monitor construction progress.
+                <p className="text-sm text-gray-500 mt-2 max-w-2xl mx-auto">
+                  Built for developers, construction companies, and real estate
+                  investors. Keep projects on budget and on schedule. Track
+                  expenses, manage vendors, monitor milestones, and deliver
+                  projects faster—without the spreadsheets.
                 </p>
               </div>
 
@@ -891,12 +1060,26 @@ export function LandingPage({
               <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
                 <CardContent className="pt-6">
                   <h4 className="font-semibold text-gray-900 mb-2">
+                    How quickly can I get started?
+                  </h4>
+                  <p className="text-gray-600">
+                    You can be up and running in minutes. Sign up for your free
+                    14-day trial, add your properties, and start managing
+                    immediately. No setup fees, no credit card required, no long
+                    onboarding process.
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+                <CardContent className="pt-6">
+                  <h4 className="font-semibold text-gray-900 mb-2">
                     Can I change plans later?
                   </h4>
                   <p className="text-gray-600">
-                    Yes! You can upgrade or downgrade your plan at any time.
-                    Changes take effect immediately, and we'll prorate the
-                    difference.
+                    Absolutely! Upgrade or downgrade anytime as your business
+                    grows. Changes take effect immediately, and we'll
+                    automatically prorate the difference—no hassle, no
+                    penalties.
                   </p>
                 </CardContent>
               </Card>
@@ -907,18 +1090,33 @@ export function LandingPage({
                   </h4>
                   <p className="text-gray-600">
                     We accept all major credit cards, debit cards, and bank
-                    transfers through our secure payment processor Paystack.
+                    transfers through Paystack—Nigeria's most trusted payment
+                    processor. All transactions are secure and encrypted.
                   </p>
                 </CardContent>
               </Card>
               <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
                 <CardContent className="pt-6">
                   <h4 className="font-semibold text-gray-900 mb-2">
-                    Is there a setup fee?
+                    Is my data safe?
                   </h4>
                   <p className="text-gray-600">
-                    No setup fees! We believe in transparent pricing. What you
-                    see is what you pay.
+                    Yes. We use bank-level security with SSL encryption,
+                    automated backups, and full NDPR compliance. Your data is
+                    protected 24/7, and we never share it with third parties.
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+                <CardContent className="pt-6">
+                  <h4 className="font-semibold text-gray-900 mb-2">
+                    What if I need help?
+                  </h4>
+                  <p className="text-gray-600">
+                    We're here for you. Get instant help from our knowledge
+                    base, join our community of property professionals, or
+                    contact our support team. We respond within 24 hours,
+                    usually much faster.
                   </p>
                 </CardContent>
               </Card>
@@ -932,21 +1130,21 @@ export function LandingPage({
         id="testimonials"
         className="py-20 bg-gradient-to-br from-gray-50 to-blue-50 relative overflow-hidden"
       >
-        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-200/30 rounded-full blur-3xl"></div>
+        <div className="absolute top-0 right-0 w-96 h-96 bg-purple-200/30 rounded-full blur-3xl"></div>
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-200/30 rounded-full blur-3xl"></div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0">
+            <Badge className="mb-4 bg-gradient-to-r from-purple-600 to-violet-600 text-white border-0">
               <Star className="h-3 w-3 mr-1 fill-current" /> Rated 4.9/5 by
               Property Professionals
             </Badge>
             <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
-              Trusted by Managers & Developers Across Nigeria
+              Join 500+ Property Professionals Who've Transformed Their Business
             </h2>
             <p className="text-xl text-gray-600">
-              See how Contrezz is transforming property management and
-              development
+              See how property managers and developers across Nigeria are saving
+              time, increasing revenue, and scaling faster with Contrezz
             </p>
           </div>
 
@@ -970,7 +1168,7 @@ export function LandingPage({
                     "{testimonial.text}"
                   </p>
                   <div className="flex items-center space-x-3 pt-4 border-t border-gray-100">
-                    <div className="h-12 w-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                    <div className="h-12 w-12 bg-gradient-to-br from-purple-500 to-violet-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
                       {testimonial.name.charAt(0)}
                     </div>
                     <div>
@@ -995,7 +1193,7 @@ export function LandingPage({
       </section>
 
       {/* CTA Section */}
-      <section className="relative py-20 bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 bg-[length:200%_100%] animate-gradient overflow-hidden">
+      <section className="relative py-20 bg-gradient-to-r from-purple-600 via-violet-600 to-purple-600 bg-[length:200%_100%] animate-gradient overflow-hidden">
         <div className="absolute inset-0 opacity-20">
           <div className="absolute top-10 left-20 w-64 h-64 bg-white rounded-full blur-3xl animate-pulse"></div>
           <div className="absolute bottom-10 right-20 w-80 h-80 bg-white rounded-full blur-3xl animate-pulse delay-500"></div>
@@ -1006,12 +1204,12 @@ export function LandingPage({
             <CheckCircle className="h-3 w-3 mr-1" /> No Credit Card Required
           </Badge>
           <h2 className="text-3xl lg:text-5xl font-bold text-white mb-6 leading-tight">
-            Start Managing Properties the Smart Way—Today
+            {dynamicContent?.cta?.headline ||
+              "Ready to Transform Your Property Business?"}
           </h2>
-          <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-            Join 500+ property professionals who've automated their operations
-            with Contrezz. Try all features free for 14 days. No credit card
-            needed.
+          <p className="text-xl text-purple-100 mb-8 max-w-2xl mx-auto">
+            {dynamicContent?.cta?.description ||
+              "Join 500+ property professionals who've automated their operations, increased on-time rent collection to 97%, and saved 20+ hours per week. Start your free 14-day trial today—no credit card required."}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
             <Button
@@ -1020,15 +1218,16 @@ export function LandingPage({
               className="text-lg px-10 py-6 bg-white text-blue-600 hover:bg-gray-100 transform hover:scale-105 transition-all duration-200 shadow-2xl"
               onClick={onNavigateToGetStarted || onNavigateToLogin}
             >
-              Start My Free 14-Day Trial <ArrowRight className="ml-2 h-5 w-5" />
+              {dynamicContent?.cta?.primaryCTA || "Start My Free 14-Day Trial"}{" "}
+              <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
             <Button
               size="lg"
               variant="outline"
-              className="text-lg px-10 py-6 bg-white/10 text-white border-2 border-white hover:bg-white hover:text-blue-600 transform hover:scale-105 transition-all duration-200 backdrop-blur-sm"
+              className="text-lg px-10 py-6 bg-white/10 text-white border-2 border-white hover:bg-white hover:text-purple-600 transform hover:scale-105 transition-all duration-200 backdrop-blur-sm"
               onClick={onNavigateToLogin}
             >
-              Sign In
+              {dynamicContent?.cta?.secondaryCTA || "Sign In"}
             </Button>
           </div>
           <div className="flex items-center justify-center space-x-8 text-white/90">
@@ -1059,9 +1258,9 @@ export function LandingPage({
               </div>
               <p className="text-gray-400">
                 Contrezz is Nigeria's leading property management and
-                development platform. Trusted by over 500 property managers and
-                developers to automate operations, track construction budgets,
-                collect rent on time, and grow their portfolios.
+                development platform. Trusted by over 500 property professionals
+                to automate operations, increase revenue, and scale their
+                businesses—all from one powerful platform.
               </p>
             </div>
 

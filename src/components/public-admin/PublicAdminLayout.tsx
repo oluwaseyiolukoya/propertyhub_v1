@@ -12,15 +12,59 @@ import {
   LogOut,
   Menu,
   X,
-  Shield,
   BarChart3,
   ClipboardList,
   Calendar,
   Mail,
+  Home,
 } from "lucide-react";
 import { toast } from "sonner";
+
+// ContrezztLogo component (brand guideline compliant)
+const ContrezztLogo = ({ className = "w-8 h-8" }: { className?: string }) => (
+  <svg
+    viewBox="0 0 40 40"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+  >
+    <rect
+      x="4"
+      y="16"
+      width="12"
+      height="20"
+      rx="2"
+      fill="currentColor"
+      fillOpacity="0.9"
+    />
+    <rect
+      x="20"
+      y="8"
+      width="12"
+      height="28"
+      rx="2"
+      fill="currentColor"
+      fillOpacity="1"
+    />
+    <rect
+      x="12"
+      y="4"
+      width="8"
+      height="14"
+      rx="1.5"
+      fill="currentColor"
+      fillOpacity="0.7"
+    />
+    <circle cx="10" cy="22" r="1.5" fill="white" fillOpacity="0.6" />
+    <circle cx="10" cy="28" r="1.5" fill="white" fillOpacity="0.6" />
+    <circle cx="26" cy="14" r="1.5" fill="white" fillOpacity="0.6" />
+    <circle cx="26" cy="20" r="1.5" fill="white" fillOpacity="0.6" />
+    <circle cx="26" cy="26" r="1.5" fill="white" fillOpacity="0.6" />
+  </svg>
+);
 import { PublicAdminDashboard } from "./PublicAdminDashboard";
 import { LandingPageList } from "./landing-pages/LandingPageList";
+import { HomePageEditor } from "./landing-pages/HomePageEditor";
 import { CareerManagement } from "./careers/CareerManagement";
 import { PublicContentAnalytics } from "./analytics/PublicContentAnalytics";
 import { FormsDashboard } from "./forms/FormsDashboard";
@@ -80,7 +124,12 @@ export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
 
   const menuItems: MenuItem[] = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "landing-pages", label: "Landing Pages", icon: FileText },
+    {
+      id: "landing-pages",
+      label: "Landing Pages",
+      icon: FileText,
+      subItems: [{ id: "home", label: "Home", icon: Home }],
+    },
     { id: "careers", label: "Careers", icon: Briefcase },
     {
       id: "forms",
@@ -129,7 +178,7 @@ export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
             </Button>
             <div className="flex items-center gap-2">
               <div className="p-2 bg-gradient-to-br from-purple-600 to-violet-600 rounded-lg">
-                <Shield className="h-5 w-5 text-white" />
+                <ContrezztLogo className="h-5 w-5 text-white" />
               </div>
               <div>
                 <h1 className="text-lg font-semibold text-gray-900">
@@ -232,7 +281,12 @@ export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
         {/* Main Content */}
         <main className="flex-1 p-6">
           {currentPage === "dashboard" && <PublicAdminDashboard />}
-          {currentPage === "landing-pages" && <LandingPageList />}
+          {currentPage === "landing-pages" && !currentSubPage && (
+            <LandingPageList />
+          )}
+          {currentPage === "landing-pages" && currentSubPage === "home" && (
+            <HomePageEditor />
+          )}
           {currentPage === "careers" && <CareerManagement />}
           {currentPage === "forms" && !currentSubPage && (
             <FormsDashboard

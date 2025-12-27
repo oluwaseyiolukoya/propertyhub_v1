@@ -134,7 +134,15 @@ const apiRequest = async <T>(
       throw new Error("Session expired. Please log in again.");
     }
 
-    const data = await response.json();
+    // Try to parse JSON, but handle cases where response might be empty
+    let data;
+    try {
+      const text = await response.text();
+      data = text ? JSON.parse(text) : {};
+    } catch (parseError) {
+      console.error("Failed to parse response:", parseError);
+      throw new Error("Invalid response from server");
+    }
 
     if (!response.ok) {
       const error: ApiError = {
@@ -147,6 +155,34 @@ const apiRequest = async <T>(
 
     return data;
   } catch (error: any) {
+    // Handle network errors (connection reset, refused, etc.)
+    if (
+      error instanceof TypeError &&
+      (error.message.includes("fetch") ||
+        error.message.includes("Failed to fetch") ||
+        error.message.includes("network"))
+    ) {
+      const networkError: ApiError = {
+        error: "Connection error. Please check if the server is running.",
+        code: "NETWORK_ERROR",
+        details: error.message,
+      };
+      throw networkError;
+    }
+    // Handle connection reset/refused errors
+    if (
+      error.message?.includes("ERR_CONNECTION_RESET") ||
+      error.message?.includes("ERR_CONNECTION_REFUSED") ||
+      error.message?.includes("ECONNRESET") ||
+      error.message?.includes("ECONNREFUSED")
+    ) {
+      const networkError: ApiError = {
+        error: "Server connection error. The server may be restarting.",
+        code: "CONNECTION_ERROR",
+        details: error.message,
+      };
+      throw networkError;
+    }
     if (error instanceof Error) {
       throw error;
     }
@@ -252,10 +288,17 @@ export const publicAdminApi = {
     },
 
     /**
-     * Get single landing page
+     * Get single landing page by ID
      */
     get: async (id: string): Promise<{ page: any }> => {
       return apiRequest(`/landing-pages/${id}`);
+    },
+
+    /**
+     * Get landing page by slug
+     */
+    getBySlug: async (slug: string): Promise<{ page: any }> => {
+      return apiRequest(`/landing-pages/slug/${slug}`);
     },
 
     /**

@@ -49,6 +49,38 @@ router.get(
 );
 
 /**
+ * GET /api/admin/landing-pages/slug/:slug
+ * Get landing page by slug
+ */
+router.get(
+  "/slug/:slug",
+  adminAuthMiddleware,
+  async (req: AdminAuthRequest, res: Response): Promise<Response | void> => {
+    try {
+      const { slug } = req.params;
+      console.log(`[Landing Pages] Getting page by slug: ${slug}`);
+
+      const page = await prisma.landing_pages.findUnique({
+        where: { slug },
+      });
+
+      if (!page) {
+        console.log(`[Landing Pages] Page with slug "${slug}" not found`);
+        return res.status(404).json({ error: "Landing page not found" });
+      }
+
+      console.log(`[Landing Pages] Found page: ${page.id} - ${page.title}`);
+      return res.json({ page });
+    } catch (error: any) {
+      console.error("Get landing page by slug error:", error);
+      return res.status(500).json({
+        error: "Failed to fetch landing page",
+      });
+    }
+  }
+);
+
+/**
  * GET /api/admin/landing-pages/:id
  * Get single landing page
  */
@@ -210,7 +242,18 @@ router.put(
       if (slug !== undefined) updateData.slug = slug;
       if (title !== undefined) updateData.title = title;
       if (subtitle !== undefined) updateData.subtitle = subtitle;
-      if (content !== undefined) updateData.content = content;
+      if (content !== undefined) {
+        updateData.content = content;
+        console.log(`[Landing Pages] Updating content for page ${id}:`, {
+          hasContent: !!content,
+          contentType: typeof content,
+          contentKeys:
+            content && typeof content === "object"
+              ? Object.keys(content)
+              : null,
+          heroHeadline: content?.hero?.headline,
+        });
+      }
       if (seoTitle !== undefined) updateData.seoTitle = seoTitle;
       if (seoDescription !== undefined)
         updateData.seoDescription = seoDescription;
@@ -229,9 +272,25 @@ router.put(
         }
       }
 
+      console.log(`[Landing Pages] Updating page ${id} with data:`, {
+        fieldsToUpdate: Object.keys(updateData),
+        hasContent: !!updateData.content,
+      });
+
       const page = await prisma.landing_pages.update({
         where: { id },
         data: updateData,
+      });
+
+      console.log(`[Landing Pages] Page ${id} updated successfully:`, {
+        pageId: page.id,
+        slug: page.slug,
+        hasContent: !!page.content,
+        contentType: typeof page.content,
+        contentKeys:
+          page.content && typeof page.content === "object"
+            ? Object.keys(page.content)
+            : null,
       });
 
       // Log activity
