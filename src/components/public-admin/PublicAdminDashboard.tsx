@@ -1,19 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import {
-  FileText,
-  Briefcase,
-  Eye,
-  TrendingUp,
-  Users,
-  Globe,
-} from "lucide-react";
+import { FileText, Briefcase, Eye, Users, Globe } from "lucide-react";
 import { publicAdminApi } from "../../lib/api/publicAdminApi";
 
 export function PublicAdminDashboard() {
   const [stats, setStats] = useState({
     landingPages: { total: 0, published: 0 },
-    careers: { total: 0, active: 0 },
+    careers: { total: 0, active: 0, totalViews: 0 },
+    forms: { total: 0 },
     loading: true,
   });
 
@@ -24,9 +18,28 @@ export function PublicAdminDashboard() {
         const pagesResponse = await publicAdminApi.landingPages.list();
         const pages = pagesResponse.pages || [];
 
-        // Load careers (will be implemented later)
-        // const careersResponse = await publicAdminApi.careers.list();
-        // const careers = careersResponse.careers || [];
+        // Load career statistics
+        const careersStatsResponse = await publicAdminApi.careers.getStats();
+        const careersStats = careersStatsResponse.data || careersStatsResponse;
+
+        // Load form statistics
+        let formsTotal = 0;
+        try {
+          const formsStatsResponse = await publicAdminApi.forms.getStats();
+          const formsStats = formsStatsResponse.data || formsStatsResponse;
+          // Sum up all form submissions
+          if (formsStats.overall) {
+            formsTotal = formsStats.overall.total || 0;
+          } else if (Array.isArray(formsStats)) {
+            formsTotal = formsStats.reduce(
+              (sum: number, form: any) => sum + (form.total || 0),
+              0
+            );
+          }
+        } catch (error) {
+          console.warn("Failed to load form stats:", error);
+          // Continue without form stats
+        }
 
         setStats({
           landingPages: {
@@ -34,8 +47,12 @@ export function PublicAdminDashboard() {
             published: pages.filter((p: any) => p.published).length,
           },
           careers: {
-            total: 0, // Will be updated when careers API is ready
-            active: 0,
+            total: careersStats.total || 0,
+            active: careersStats.active || 0,
+            totalViews: careersStats.totalViews || 0,
+          },
+          forms: {
+            total: formsTotal,
           },
           loading: false,
         });
@@ -47,6 +64,17 @@ export function PublicAdminDashboard() {
 
     loadStats();
   }, []);
+
+  // Format large numbers
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) {
+      return (num / 1000000).toFixed(1) + "M";
+    }
+    if (num >= 1000) {
+      return (num / 1000).toFixed(1) + "K";
+    }
+    return num.toString();
+  };
 
   const statCards = [
     {
@@ -65,16 +93,16 @@ export function PublicAdminDashboard() {
     },
     {
       title: "Total Views",
-      value: "0",
-      subtitle: "Last 30 days",
+      value: formatNumber(stats.careers.totalViews),
+      subtitle: "All career postings",
       icon: Eye,
       color: "from-green-600 to-emerald-600",
     },
     {
-      title: "Growth",
-      value: "+12%",
-      subtitle: "This month",
-      icon: TrendingUp,
+      title: "Form Submissions",
+      value: stats.forms.total,
+      subtitle: "All forms",
+      icon: Users,
       color: "from-orange-600 to-red-600",
     },
   ];

@@ -15,9 +15,9 @@ export interface CareerPosting {
   remote: string;
   experience: string;
   description: string;
-  requirements: string[];
-  responsibilities?: string[];
-  benefits?: string[];
+  requirements: string; // HTML string (same as description)
+  responsibilities?: string; // HTML string (same as description)
+  benefits?: string; // HTML string (same as description)
   salary?: string;
   status: string;
   postedBy?: string;

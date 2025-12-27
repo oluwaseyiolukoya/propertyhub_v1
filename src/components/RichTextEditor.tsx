@@ -1,12 +1,12 @@
-import React from 'react';
-import { useEditor, EditorContent, Extension } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import { TextStyle } from '@tiptap/extension-text-style';
-import { FontFamily } from '@tiptap/extension-font-family';
-import { Underline } from '@tiptap/extension-underline';
+import React, { useEffect } from "react";
+import { useEditor, EditorContent, Extension } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { FontFamily } from "@tiptap/extension-font-family";
+import { Underline } from "@tiptap/extension-underline";
 
 // Custom extension for font size
-declare module '@tiptap/core' {
+declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     fontSize: {
       setFontSize: (size: string) => ReturnType;
@@ -16,11 +16,11 @@ declare module '@tiptap/core' {
 }
 
 const FontSize = Extension.create({
-  name: 'fontSize',
+  name: "fontSize",
 
   addOptions() {
     return {
-      types: ['textStyle'],
+      types: ["textStyle"],
     };
   },
 
@@ -31,8 +31,8 @@ const FontSize = Extension.create({
         attributes: {
           fontSize: {
             default: null,
-            parseHTML: element => element.style.fontSize || null,
-            renderHTML: attributes => {
+            parseHTML: (element) => element.style.fontSize || null,
+            renderHTML: (attributes) => {
               if (!attributes.fontSize) {
                 return {};
               }
@@ -48,28 +48,30 @@ const FontSize = Extension.create({
 
   addCommands() {
     return {
-      setFontSize: (fontSize: string) => ({ chain }) => {
-        return chain()
-          .setMark('textStyle', { fontSize })
-          .run();
-      },
-      unsetFontSize: () => ({ chain }) => {
-        return chain()
-          .setMark('textStyle', { fontSize: null })
-          .removeEmptyTextStyle()
-          .run();
-      },
+      setFontSize:
+        (fontSize: string) =>
+        ({ chain }) => {
+          return chain().setMark("textStyle", { fontSize }).run();
+        },
+      unsetFontSize:
+        () =>
+        ({ chain }) => {
+          return chain()
+            .setMark("textStyle", { fontSize: null })
+            .removeEmptyTextStyle()
+            .run();
+        },
     };
   },
 });
-import { Button } from './ui/button';
+import { Button } from "./ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from './ui/select';
+} from "./ui/select";
 import {
   Bold,
   Italic,
@@ -81,32 +83,43 @@ import {
   Minus,
   Undo,
   Redo,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface RichTextEditorProps {
   content: string;
   onChange: (content: string) => void;
+  minHeight?: string; // Optional custom min-height
 }
 
-const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange }) => {
+const RichTextEditor: React.FC<RichTextEditorProps> = ({
+  content,
+  onChange,
+  minHeight = "500px",
+}) => {
   const editor = useEditor({
-    extensions: [
-      StarterKit,
-      TextStyle,
-      FontFamily,
-      FontSize,
-      Underline,
-    ],
+    extensions: [StarterKit, TextStyle, FontFamily, FontSize, Underline],
     content,
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none focus:outline-none min-h-[500px] p-4 border rounded-b-lg',
+        class: `prose prose-sm max-w-none focus:outline-none p-4 border rounded-b-lg`,
+        style: `min-height: ${minHeight}`,
       },
     },
   });
+
+  // Update editor content when prop changes (important for editing existing content)
+  useEffect(() => {
+    if (!editor) return;
+
+    const currentContent = editor.getHTML();
+    // Only update if content actually changed (avoid infinite loops)
+    if (content !== currentContent) {
+      editor.commands.setContent(content || "", false); // false = don't emit update event
+    }
+  }, [content, editor]);
 
   if (!editor) {
     return null;
@@ -117,7 +130,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange }) =>
   };
 
   const handleSetFontSize = (size: string) => {
-    if (size === 'default') {
+    if (size === "default") {
       editor.chain().focus().unsetFontSize().run();
     } else {
       editor.chain().focus().setFontSize(size).run();
@@ -125,28 +138,28 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange }) =>
   };
 
   const fonts = [
-    { value: 'Arial', label: 'Arial' },
-    { value: 'Times New Roman', label: 'Times New Roman' },
-    { value: 'Georgia', label: 'Georgia' },
-    { value: 'Courier New', label: 'Courier New' },
-    { value: 'Verdana', label: 'Verdana' },
-    { value: 'Helvetica', label: 'Helvetica' },
-    { value: 'Trebuchet MS', label: 'Trebuchet MS' },
-    { value: 'Comic Sans MS', label: 'Comic Sans MS' },
+    { value: "Arial", label: "Arial" },
+    { value: "Times New Roman", label: "Times New Roman" },
+    { value: "Georgia", label: "Georgia" },
+    { value: "Courier New", label: "Courier New" },
+    { value: "Verdana", label: "Verdana" },
+    { value: "Helvetica", label: "Helvetica" },
+    { value: "Trebuchet MS", label: "Trebuchet MS" },
+    { value: "Comic Sans MS", label: "Comic Sans MS" },
   ];
 
   const fontSizes = [
-    { value: '10px', label: '10' },
-    { value: '12px', label: '12' },
-    { value: '14px', label: '14' },
-    { value: '16px', label: '16' },
-    { value: '18px', label: '18' },
-    { value: '20px', label: '20' },
-    { value: '24px', label: '24' },
-    { value: '28px', label: '28' },
-    { value: '32px', label: '32' },
-    { value: '36px', label: '36' },
-    { value: '48px', label: '48' },
+    { value: "10px", label: "10" },
+    { value: "12px", label: "12" },
+    { value: "14px", label: "14" },
+    { value: "16px", label: "16" },
+    { value: "18px", label: "18" },
+    { value: "20px", label: "20" },
+    { value: "24px", label: "24" },
+    { value: "28px", label: "28" },
+    { value: "32px", label: "32" },
+    { value: "36px", label: "36" },
+    { value: "48px", label: "48" },
   ];
 
   return (
@@ -186,7 +199,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange }) =>
         {/* Text Formatting */}
         <Button
           type="button"
-          variant={editor.isActive('bold') ? 'default' : 'ghost'}
+          variant={editor.isActive("bold") ? "default" : "ghost"}
           size="sm"
           onClick={() => editor.chain().focus().toggleBold().run()}
           title="Bold (Ctrl+B)"
@@ -197,7 +210,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange }) =>
 
         <Button
           type="button"
-          variant={editor.isActive('italic') ? 'default' : 'ghost'}
+          variant={editor.isActive("italic") ? "default" : "ghost"}
           size="sm"
           onClick={() => editor.chain().focus().toggleItalic().run()}
           title="Italic (Ctrl+I)"
@@ -208,7 +221,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange }) =>
 
         <Button
           type="button"
-          variant={editor.isActive('underline') ? 'default' : 'ghost'}
+          variant={editor.isActive("underline") ? "default" : "ghost"}
           size="sm"
           onClick={() => editor.chain().focus().toggleUnderline().run()}
           title="Underline (Ctrl+U)"
@@ -222,9 +235,13 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange }) =>
         {/* Headings */}
         <Button
           type="button"
-          variant={editor.isActive('heading', { level: 1 }) ? 'default' : 'ghost'}
+          variant={
+            editor.isActive("heading", { level: 1 }) ? "default" : "ghost"
+          }
           size="sm"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+          onClick={() =>
+            editor.chain().focus().toggleHeading({ level: 1 }).run()
+          }
           title="Heading 1"
           className="h-8 px-2"
         >
@@ -233,9 +250,13 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange }) =>
 
         <Button
           type="button"
-          variant={editor.isActive('heading', { level: 2 }) ? 'default' : 'ghost'}
+          variant={
+            editor.isActive("heading", { level: 2 }) ? "default" : "ghost"
+          }
           size="sm"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+          onClick={() =>
+            editor.chain().focus().toggleHeading({ level: 2 }).run()
+          }
           title="Heading 2"
           className="h-8 px-2"
         >
@@ -247,7 +268,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange }) =>
         {/* Lists */}
         <Button
           type="button"
-          variant={editor.isActive('bulletList') ? 'default' : 'ghost'}
+          variant={editor.isActive("bulletList") ? "default" : "ghost"}
           size="sm"
           onClick={() => editor.chain().focus().toggleBulletList().run()}
           title="Bullet List"
@@ -258,7 +279,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange }) =>
 
         <Button
           type="button"
-          variant={editor.isActive('orderedList') ? 'default' : 'ghost'}
+          variant={editor.isActive("orderedList") ? "default" : "ghost"}
           size="sm"
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
           title="Numbered List"
@@ -316,4 +337,3 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange }) =>
 };
 
 export default RichTextEditor;
-

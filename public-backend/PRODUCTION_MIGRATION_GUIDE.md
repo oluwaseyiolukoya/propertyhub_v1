@@ -55,6 +55,7 @@ npx prisma migrate status
 ```
 
 You should see:
+
 ```
 Database schema is up to date!
 ```
@@ -62,14 +63,17 @@ Database schema is up to date!
 ## 🐛 Troubleshooting
 
 ### Error: "Migration already applied"
+
 - This is fine - it means the migration was already run
 - Check migration status: `npx prisma migrate status`
 
 ### Error: "Database connection failed"
+
 - Verify `PUBLIC_DATABASE_URL` is set correctly in App Platform
 - Check database is accessible from the app
 
 ### Error: "Table already exists"
+
 - The migration may have been partially applied
 - Check migration status and resolve manually if needed
 

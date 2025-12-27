@@ -42,10 +42,10 @@ model career_postings {
   remote           String // "Remote", "Hybrid", "On-site"
   experience       String // "Entry-level", "Mid-level", "Senior", etc.
   description      String    @db.Text
-  requirements     String[] // Array of requirement strings
-  responsibilities String[] // Array of responsibility strings
+  requirements     String    @db.Text // HTML string (same as description)
+  responsibilities String    @db.Text // HTML string (same as description)
   salary           String? // Salary range or "Competitive"
-  benefits         String[] // Array of benefits
+  benefits         String    @db.Text // HTML string (same as description)
   status           String    @default("active") // "active", "draft", "closed", "archived"
   postedBy         String? // Admin user ID who created the posting
   postedAt         DateTime  @default(now())

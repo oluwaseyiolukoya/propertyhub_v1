@@ -30,6 +30,8 @@ import {
   Shield,
   Rocket,
   ArrowRight,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import {
   getPublicCareerPostings,
@@ -39,6 +41,39 @@ import {
 } from "../lib/api/careers";
 import { toast } from "sonner";
 import { JobDetailDialog } from "./careers/JobDetailDialog";
+
+// Helper function to truncate HTML description to a certain character limit
+const truncateHtmlDescription = (
+  html: string,
+  maxLength: number = 150
+): string => {
+  if (!html) return "";
+
+  // Create a temporary DOM element to parse HTML
+  const tempDiv = document.createElement("div");
+  tempDiv.innerHTML = html;
+
+  // Get plain text content
+  const textContent = tempDiv.textContent || tempDiv.innerText || "";
+
+  // If text is shorter than max length, return original HTML
+  if (textContent.length <= maxLength) {
+    return html;
+  }
+
+  // Truncate text content
+  const truncatedText = textContent.substring(0, maxLength).trim();
+
+  // Find the last complete word to avoid cutting mid-word
+  const lastSpaceIndex = truncatedText.lastIndexOf(" ");
+  const finalText =
+    lastSpaceIndex > 0
+      ? truncatedText.substring(0, lastSpaceIndex)
+      : truncatedText;
+
+  // Return truncated text with ellipsis
+  return `${finalText}...`;
+};
 
 interface CareersPageProps {
   onBackToHome: () => void;
@@ -79,6 +114,7 @@ export function CareersPage({
   });
   const [selectedJob, setSelectedJob] = useState<CareerPosting | null>(null);
   const [jobDetailOpen, setJobDetailOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
 
   // Load filter options on mount
   useEffect(() => {
@@ -536,6 +572,33 @@ export function CareersPage({
             <h2 className="text-3xl font-bold text-gray-900">
               Open Positions ({filteredJobs.length})
             </h2>
+            {/* View Toggle */}
+            <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-xl">
+              <Button
+                variant={viewMode === "grid" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("grid")}
+                className={
+                  viewMode === "grid"
+                    ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md"
+                    : "text-gray-600 hover:text-gray-900"
+                }
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "list" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("list")}
+                className={
+                  viewMode === "list"
+                    ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md"
+                    : "text-gray-600 hover:text-gray-900"
+                }
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
           {loading ? (
@@ -543,97 +606,176 @@ export function CareersPage({
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             </div>
           ) : filteredJobs.length > 0 ? (
-            <div className="space-y-4">
-              {filteredJobs.map((job) => (
-                <Card
-                  key={job.id}
-                  className="group border-2 hover:border-blue-300 transition-all duration-300 hover:shadow-xl cursor-pointer"
-                  onClick={async () => {
-                    try {
-                      // Fetch full job details
-                      const response = await getCareerPostingById(job.id);
-                      if (response.success && response.data) {
-                        setSelectedJob(response.data);
-                        setJobDetailOpen(true);
-                      } else {
-                        // Fallback to basic job data
-                        setSelectedJob(job);
-                        setJobDetailOpen(true);
-                      }
-                    } catch (error: any) {
-                      console.error("Error fetching job details:", error);
-                      // Fallback to basic job data
-                      setSelectedJob(job);
-                      setJobDetailOpen(true);
-                    }
-                  }}
-                >
-                  <CardHeader>
-                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                      <div className="flex-1">
+            <>
+              {/* Grid View */}
+              {viewMode === "grid" && (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredJobs.map((job) => (
+                    <Card
+                      key={job.id}
+                      className="group border-2 hover:border-blue-300 transition-all duration-300 hover:shadow-xl cursor-pointer flex flex-col h-full"
+                      onClick={async () => {
+                        try {
+                          const response = await getCareerPostingById(job.id);
+                          if (response.success && response.data) {
+                            setSelectedJob(response.data);
+                            setJobDetailOpen(true);
+                          } else {
+                            setSelectedJob(job);
+                            setJobDetailOpen(true);
+                          }
+                        } catch (error: any) {
+                          console.error("Error fetching job details:", error);
+                          setSelectedJob(job);
+                          setJobDetailOpen(true);
+                        }
+                      }}
+                    >
+                      <CardHeader>
                         <div className="flex items-start justify-between mb-2">
-                          <CardTitle className="text-2xl group-hover:text-blue-600 transition-colors">
+                          <CardTitle className="text-xl group-hover:text-blue-600 transition-colors line-clamp-2">
                             {job.title}
                           </CardTitle>
-                          <Badge className="bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 ml-2">
+                          <Badge className="bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 ml-2 shrink-0">
                             {job.department}
                           </Badge>
                         </div>
-                        <CardDescription className="text-base leading-relaxed">
-                          {job.description}
+                        <CardDescription className="text-sm leading-relaxed line-clamp-3 text-gray-600 mt-2">
+                          {truncateHtmlDescription(job.description || "", 120)}
                         </CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-4 mb-4 text-sm text-gray-600">
-                      <div className="flex items-center">
-                        <MapPin className="h-4 w-4 mr-1 text-blue-600" />
-                        {job.location}
-                      </div>
-                      <div className="flex items-center">
-                        <Clock className="h-4 w-4 mr-1 text-purple-600" />
-                        {job.type}
-                      </div>
-                      <div className="flex items-center">
-                        <Globe className="h-4 w-4 mr-1 text-green-600" />
-                        {job.remote}
-                      </div>
-                      <div className="flex items-center">
-                        <Briefcase className="h-4 w-4 mr-1 text-orange-600" />
-                        {job.experience}
-                      </div>
-                      {job.salary && (
-                        <div className="flex items-center">
-                          <DollarSign className="h-4 w-4 mr-1 text-emerald-600" />
-                          {job.salary}
+                      </CardHeader>
+                      <CardContent className="flex-1 flex flex-col">
+                        <div className="flex flex-wrap gap-2 mb-4 text-xs text-gray-600">
+                          <div className="flex items-center">
+                            <MapPin className="h-3 w-3 mr-1 text-blue-600" />
+                            {job.location}
+                          </div>
+                          <div className="flex items-center">
+                            <Clock className="h-3 w-3 mr-1 text-purple-600" />
+                            {job.type}
+                          </div>
+                          <div className="flex items-center">
+                            <Globe className="h-3 w-3 mr-1 text-green-600" />
+                            {job.remote}
+                          </div>
                         </div>
-                      )}
-                    </div>
 
-                    <div className="border-t pt-4">
-                      <h4 className="font-semibold text-sm text-gray-900 mb-2">
-                        Requirements:
-                      </h4>
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {job.requirements.map((req, index) => (
-                          <Badge
-                            key={index}
-                            variant="outline"
-                            className="text-xs"
-                          >
-                            {req}
-                          </Badge>
-                        ))}
-                      </div>
-                      <Button className="w-full md:w-auto bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
-                        Apply Now <ArrowRight className="ml-2 h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                        {job.requirements && (
+                          <div className="mb-4 flex-1">
+                            <h4 className="font-semibold text-xs text-gray-900 mb-2">
+                              Key Requirements:
+                            </h4>
+                            <div
+                              className="text-xs text-gray-600 prose prose-sm max-w-none line-clamp-2"
+                              dangerouslySetInnerHTML={{
+                                __html: truncateHtmlDescription(
+                                  job.requirements || "",
+                                  100
+                                ),
+                              }}
+                            />
+                          </div>
+                        )}
+
+                        <Button className="w-full mt-auto bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
+                          View Details <ArrowRight className="ml-2 h-4 w-4" />
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              {/* List View */}
+              {viewMode === "list" && (
+                <div className="space-y-4">
+                  {filteredJobs.map((job) => (
+                    <Card
+                      key={job.id}
+                      className="group border-2 hover:border-blue-300 transition-all duration-300 hover:shadow-xl cursor-pointer"
+                      onClick={async () => {
+                        try {
+                          const response = await getCareerPostingById(job.id);
+                          if (response.success && response.data) {
+                            setSelectedJob(response.data);
+                            setJobDetailOpen(true);
+                          } else {
+                            setSelectedJob(job);
+                            setJobDetailOpen(true);
+                          }
+                        } catch (error: any) {
+                          console.error("Error fetching job details:", error);
+                          setSelectedJob(job);
+                          setJobDetailOpen(true);
+                        }
+                      }}
+                    >
+                      <CardHeader>
+                        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between mb-2">
+                              <CardTitle className="text-2xl group-hover:text-blue-600 transition-colors">
+                                {job.title}
+                              </CardTitle>
+                              <Badge className="bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 ml-2">
+                                {job.department}
+                              </Badge>
+                            </div>
+                            <CardDescription className="text-base leading-relaxed line-clamp-3 text-gray-600">
+                              {truncateHtmlDescription(
+                                job.description || "",
+                                150
+                              )}
+                            </CardDescription>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex flex-wrap gap-4 mb-4 text-sm text-gray-600">
+                          <div className="flex items-center">
+                            <MapPin className="h-4 w-4 mr-1 text-blue-600" />
+                            {job.location}
+                          </div>
+                          <div className="flex items-center">
+                            <Clock className="h-4 w-4 mr-1 text-purple-600" />
+                            {job.type}
+                          </div>
+                          <div className="flex items-center">
+                            <Globe className="h-4 w-4 mr-1 text-green-600" />
+                            {job.remote}
+                          </div>
+                          <div className="flex items-center">
+                            <Briefcase className="h-4 w-4 mr-1 text-orange-600" />
+                            {job.experience}
+                          </div>
+                          {job.salary && (
+                            <div className="flex items-center">
+                              <DollarSign className="h-4 w-4 mr-1 text-emerald-600" />
+                              {job.salary}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="border-t pt-4">
+                          <h4 className="font-semibold text-sm text-gray-900 mb-2">
+                            Requirements:
+                          </h4>
+                          <div
+                            className="text-xs text-gray-600 mb-4 prose prose-sm max-w-none line-clamp-2"
+                            dangerouslySetInnerHTML={{
+                              __html: job.requirements || "",
+                            }}
+                          />
+                          <Button className="w-full md:w-auto bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">
+                            Apply Now <ArrowRight className="ml-2 h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </>
           ) : (
             <div className="text-center py-16">
               <Search className="h-16 w-16 text-gray-400 mx-auto mb-4" />

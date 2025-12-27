@@ -8,10 +8,10 @@ export interface CareerPostingData {
   remote: string;
   experience: string;
   description: string;
-  requirements: string[];
-  responsibilities: string[];
+  requirements: string; // HTML string (same as description)
+  responsibilities: string; // HTML string (same as description)
   salary?: string;
-  benefits?: string[];
+  benefits?: string; // HTML string (same as description)
   status?: string;
   expiresAt?: Date;
   metadata?: any;
@@ -178,34 +178,62 @@ export class CareerService {
   }
 
   /**
-   * Get career statistics (for public display)
+   * Get career statistics (for admin dashboard)
    */
   async getPublicStatistics() {
-    const [totalActive, departments] = await Promise.all([
+    const [
+      total,
+      active,
+      draft,
+      closed,
+      archived,
+      totalViews,
+      totalApplications,
+    ] = await Promise.all([
+      prisma.career_postings.count({
+        where: { deletedAt: null },
+      }),
       prisma.career_postings.count({
         where: {
           status: "active",
           deletedAt: null,
-          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         },
       }),
-      prisma.career_postings.groupBy({
-        by: ["department"],
+      prisma.career_postings.count({
         where: {
-          status: "active",
+          status: "draft",
           deletedAt: null,
-          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         },
-        _count: true,
+      }),
+      prisma.career_postings.count({
+        where: {
+          status: "closed",
+          deletedAt: null,
+        },
+      }),
+      prisma.career_postings.count({
+        where: {
+          status: "archived",
+          deletedAt: null,
+        },
+      }),
+      prisma.career_postings.aggregate({
+        where: { deletedAt: null },
+        _sum: { viewCount: true },
+      }),
+      prisma.career_applications.count({
+        where: {},
       }),
     ]);
 
     return {
-      totalOpenings: totalActive,
-      departmentCounts: departments.map((d) => ({
-        department: d.department,
-        count: d._count,
-      })),
+      total,
+      active,
+      draft,
+      closed,
+      archived,
+      totalViews: totalViews._sum.viewCount || 0,
+      totalApplications,
     };
   }
 }

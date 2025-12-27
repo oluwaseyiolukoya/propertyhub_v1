@@ -258,46 +258,56 @@ export function JobDetailDialog({
               {/* Description */}
               <div>
                 <h3 className="text-lg font-semibold mb-2">Job Description</h3>
-                <p className="text-gray-700 whitespace-pre-wrap">
-                  {job.description}
-                </p>
+                <div
+                  className="text-gray-700 prose prose-sm max-w-none rich-text-content"
+                  dangerouslySetInnerHTML={{ __html: job.description || "" }}
+                />
               </div>
 
               {/* Responsibilities */}
-              {job.responsibilities && job.responsibilities.length > 0 && (
+              {job.responsibilities && (
                 <div>
                   <h3 className="text-lg font-semibold mb-2">
                     Key Responsibilities
                   </h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-700">
-                    {job.responsibilities.map((resp, index) => (
-                      <li key={index}>{resp}</li>
-                    ))}
-                  </ul>
+                  <div
+                    className="text-gray-700 rich-text-content"
+                    style={{
+                      fontSize: "0.875rem",
+                      lineHeight: "1.5",
+                    }}
+                    dangerouslySetInnerHTML={{ __html: job.responsibilities }}
+                  />
                 </div>
               )}
 
               {/* Requirements */}
-              {job.requirements && job.requirements.length > 0 && (
+              {job.requirements && (
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Requirements</h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-700">
-                    {job.requirements.map((req, index) => (
-                      <li key={index}>{req}</li>
-                    ))}
-                  </ul>
+                  <div
+                    className="text-gray-700 rich-text-content"
+                    style={{
+                      fontSize: "0.875rem",
+                      lineHeight: "1.5",
+                    }}
+                    dangerouslySetInnerHTML={{ __html: job.requirements }}
+                  />
                 </div>
               )}
 
               {/* Benefits */}
-              {job.benefits && job.benefits.length > 0 && (
+              {job.benefits && (
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Benefits</h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-700">
-                    {job.benefits.map((benefit, index) => (
-                      <li key={index}>{benefit}</li>
-                    ))}
-                  </ul>
+                  <div
+                    className="text-gray-700 rich-text-content"
+                    style={{
+                      fontSize: "0.875rem",
+                      lineHeight: "1.5",
+                    }}
+                    dangerouslySetInnerHTML={{ __html: job.benefits }}
+                  />
                 </div>
               )}
 

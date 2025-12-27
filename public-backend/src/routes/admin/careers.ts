@@ -84,8 +84,17 @@ router.get(
       });
     } catch (error: any) {
       console.error("List careers error:", error);
+      console.error("List careers error details:", {
+        message: error.message,
+        stack: error.stack,
+        code: error.code,
+        meta: error.meta,
+      });
       return res.status(500).json({
         error: "Failed to fetch career postings",
+        message: error.message,
+        details:
+          process.env.NODE_ENV === "development" ? error.stack : undefined,
       });
     }
   }

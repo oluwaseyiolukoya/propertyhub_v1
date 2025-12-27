@@ -78,8 +78,15 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Rate limiting
-const windowMs = parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000");
-const maxRequests = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || "100");
+// More lenient rate limiting in development
+const windowMs = parseInt(
+  process.env.RATE_LIMIT_WINDOW_MS ||
+    (process.env.NODE_ENV === "development" ? "60000" : "900000")
+); // 1 minute in dev, 15 minutes in prod
+const maxRequests = parseInt(
+  process.env.RATE_LIMIT_MAX_REQUESTS ||
+    (process.env.NODE_ENV === "development" ? "200" : "100")
+); // 200 in dev, 100 in prod
 app.use(rateLimiter(windowMs, maxRequests));
 
 // Health check endpoint

@@ -55,6 +55,7 @@ import {
 } from "../../ui/select";
 import { Label } from "../../ui/label";
 import { Textarea } from "../../ui/textarea";
+import RichTextEditor from "../../RichTextEditor";
 
 interface CareerPosting {
   id: string;
@@ -65,10 +66,10 @@ interface CareerPosting {
   remote: string;
   experience: string;
   description?: string;
-  requirements?: string[];
-  responsibilities?: string[];
+  requirements?: string; // HTML string (same as description)
+  responsibilities?: string; // HTML string (same as description)
   salary?: string;
-  benefits?: string[];
+  benefits?: string; // HTML string (same as description)
   status: string;
   expiresAt?: string;
   viewCount: number;
@@ -148,6 +149,7 @@ export function CareerManagement() {
       setPostings(response.postings || []);
       setPagination(response.pagination);
     } catch (error: any) {
+      console.error("Error loading postings:", error);
       toast.error(error.error || "Failed to load career postings");
     } finally {
       setLoading(false);
@@ -160,6 +162,16 @@ export function CareerManagement() {
       setStats(response.data || response);
     } catch (error: any) {
       console.error("Failed to load statistics:", error);
+      // Handle rate limiting - don't show error toast, just retry later
+      if (
+        error.error === "Too many requests" ||
+        error.message === "Too many requests"
+      ) {
+        // Retry after 3 seconds
+        setTimeout(() => {
+          loadStats();
+        }, 3000);
+      }
     }
   };
 
@@ -213,10 +225,11 @@ export function CareerManagement() {
       remote: posting.remote || "On-site",
       experience: posting.experience || "Mid-level",
       description: posting.description || "",
-      requirements: (posting.requirements || []).join("\n"),
-      responsibilities: (posting.responsibilities || []).join("\n"),
+      // Store as HTML strings directly (same as description)
+      requirements: posting.requirements || "",
+      responsibilities: posting.responsibilities || "",
       salary: posting.salary || "",
-      benefits: (posting.benefits || []).join("\n"),
+      benefits: posting.benefits || "",
       status: posting.status || "draft",
       expiresAt: posting.expiresAt
         ? new Date(posting.expiresAt).toISOString().split("T")[0]
@@ -232,7 +245,9 @@ export function CareerManagement() {
       return;
     }
 
-    if (!formData.description || formData.description.length < 50) {
+    // Check description length (strip HTML tags for length check)
+    const descriptionText = formData.description.replace(/<[^>]*>/g, "").trim();
+    if (!descriptionText || descriptionText.length < 50) {
       toast.error("Description must be at least 50 characters");
       return;
     }
@@ -247,27 +262,25 @@ export function CareerManagement() {
         remote: formData.remote,
         experience: formData.experience,
         description: formData.description,
-        requirements: formData.requirements
-          .split("\n")
-          .filter((r) => r.trim().length > 0),
-        responsibilities: formData.responsibilities
-          .split("\n")
-          .filter((r) => r.trim().length > 0),
+        // Store as HTML strings directly (same as description)
+        requirements: formData.requirements,
+        responsibilities: formData.responsibilities,
         status: formData.status,
       };
 
       if (formData.salary) payload.salary = formData.salary;
-      if (formData.benefits) {
-        payload.benefits = formData.benefits
-          .split("\n")
-          .filter((b) => b.trim().length > 0);
-      }
+      // Store as HTML string directly (same as description)
+      payload.benefits = formData.benefits || "";
       if (formData.expiresAt) {
         payload.expiresAt = new Date(formData.expiresAt);
       }
 
       if (editingPosting) {
-        await publicAdminApi.careers.update(editingPosting.id, payload);
+        const response = await publicAdminApi.careers.update(
+          editingPosting.id,
+          payload
+        );
+        console.log("Update response:", response);
         toast.success("Career posting updated successfully");
       } else {
         await publicAdminApi.careers.create(payload);
@@ -276,8 +289,12 @@ export function CareerManagement() {
 
       setCreateEditDialogOpen(false);
       setEditingPosting(null);
-      loadPostings();
-      loadStats();
+
+      // Add small delay to avoid rate limiting
+      setTimeout(async () => {
+        await loadPostings();
+        loadStats();
+      }, 500);
     } catch (error: any) {
       toast.error(
         error.error || error.message || "Failed to save career posting"
@@ -773,64 +790,68 @@ export function CareerManagement() {
               <Label htmlFor="description">
                 Description <span className="text-red-500">*</span>
               </Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
+              <RichTextEditor
+                key={`description-${editingPosting?.id || "new"}`}
+                content={formData.description || ""}
+                onChange={(content) =>
+                  setFormData({ ...formData, description: content })
                 }
-                placeholder="Describe the role, company culture, and what makes this position unique..."
-                rows={6}
               />
               <p className="text-xs text-gray-500 mt-1">
-                Minimum 50 characters
+                Minimum 50 characters. Use the formatting toolbar to style your
+                text.
               </p>
             </div>
 
             {/* Responsibilities */}
             <div>
-              <Label htmlFor="responsibilities">
-                Responsibilities (one per line)
-              </Label>
-              <Textarea
-                id="responsibilities"
-                value={formData.responsibilities}
-                onChange={(e) =>
-                  setFormData({ ...formData, responsibilities: e.target.value })
+              <Label htmlFor="responsibilities">Responsibilities</Label>
+              <RichTextEditor
+                key={`responsibilities-${editingPosting?.id || "new"}`}
+                content={formData.responsibilities || ""}
+                onChange={(content) =>
+                  setFormData({ ...formData, responsibilities: content })
                 }
-                placeholder="Develop and maintain web applications&#10;Collaborate with cross-functional teams&#10;Write clean, maintainable code"
-                rows={4}
+                minHeight="300px"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Use bullet points or numbered lists. Your formatting will be
+                preserved exactly.
+              </p>
             </div>
 
             {/* Requirements */}
             <div>
-              <Label htmlFor="requirements">Requirements (one per line)</Label>
-              <Textarea
-                id="requirements"
-                value={formData.requirements}
-                onChange={(e) =>
-                  setFormData({ ...formData, requirements: e.target.value })
+              <Label htmlFor="requirements">Requirements</Label>
+              <RichTextEditor
+                key={`requirements-${editingPosting?.id || "new"}`}
+                content={formData.requirements || ""}
+                onChange={(content) =>
+                  setFormData({ ...formData, requirements: content })
                 }
-                placeholder="Bachelor's degree in Computer Science&#10;3+ years of experience&#10;Proficiency in React and TypeScript"
-                rows={4}
+                minHeight="300px"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Use bullet points or numbered lists. Your formatting will be
+                preserved exactly.
+              </p>
             </div>
 
             {/* Benefits */}
             <div>
-              <Label htmlFor="benefits">
-                Benefits (one per line, optional)
-              </Label>
-              <Textarea
-                id="benefits"
-                value={formData.benefits}
-                onChange={(e) =>
-                  setFormData({ ...formData, benefits: e.target.value })
+              <Label htmlFor="benefits">Benefits (optional)</Label>
+              <RichTextEditor
+                key={`benefits-${editingPosting?.id || "new"}`}
+                content={formData.benefits || ""}
+                onChange={(content) =>
+                  setFormData({ ...formData, benefits: content })
                 }
-                placeholder="Health insurance&#10;401(k) matching&#10;Flexible work hours"
-                rows={3}
+                minHeight="300px"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Use bullet points or numbered lists. Your formatting will be
+                preserved exactly.
+              </p>
             </div>
           </div>
           <DialogFooter>
