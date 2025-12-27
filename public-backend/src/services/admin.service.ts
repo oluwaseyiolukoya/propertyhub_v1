@@ -15,6 +15,7 @@ export interface UpdateAdminData {
   role?: "admin" | "editor" | "viewer";
   isActive?: boolean;
   password?: string;
+  pagePermissions?: string[] | null;
 }
 
 export class AdminService {
