@@ -261,15 +261,16 @@ model page_analytics {
 
 // Admin users for public content management
 model public_admins {
-  id        String    @id @default(uuid())
-  email     String    @unique
-  name      String
-  password  String // bcrypt hashed
-  role      String    @default("editor") // "admin", "editor", "viewer"
-  isActive  Boolean   @default(true)
-  lastLogin DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id             String    @id @default(uuid())
+  email          String    @unique
+  name           String
+  password       String // bcrypt hashed
+  role           String    @default("editor") // "admin", "editor", "viewer"
+  isActive       Boolean   @default(true)
+  pagePermissions Json? // Array of page IDs/slugs user can access: ["landing-pages", "careers", "blog", "forms", "analytics"]
+  lastLogin      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   sessions public_admin_sessions[]
   logs     public_admin_activity_logs[]

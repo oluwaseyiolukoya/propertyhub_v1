@@ -28,6 +28,11 @@ export function PublicAdminLogin({ onLoginSuccess }: PublicAdminLoginProps) {
     e.preventDefault();
     setError("");
 
+    // Prevent multiple simultaneous login attempts
+    if (isLoading) {
+      return;
+    }
+
     if (!email || !password) {
       setError("Please enter both email and password");
       return;
@@ -41,8 +46,15 @@ export function PublicAdminLogin({ onLoginSuccess }: PublicAdminLoginProps) {
       onLoginSuccess();
     } catch (err: any) {
       const errorMessage = err.error || err.message || "Login failed";
-      setError(errorMessage);
-      toast.error(errorMessage);
+
+      // Handle rate limiting gracefully
+      if (err.error === "Too many requests" || err.message === "Too many requests") {
+        setError("Too many login attempts. Please wait a moment and try again.");
+        toast.error("Too many login attempts. Please wait a moment and try again.");
+      } else {
+        setError(errorMessage);
+        toast.error(errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }

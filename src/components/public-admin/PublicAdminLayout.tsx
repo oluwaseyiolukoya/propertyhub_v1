@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   publicAdminApi,
   getAdminData,
+  getAdminToken,
   removeAdminToken,
 } from "../../lib/api/publicAdminApi";
 import { Button } from "../ui/button";
@@ -17,6 +18,7 @@ import {
   Calendar,
   Mail,
   Home,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -70,6 +72,7 @@ import { PublicContentAnalytics } from "./analytics/PublicContentAnalytics";
 import { FormsDashboard } from "./forms/FormsDashboard";
 import { ScheduleDemoSubmissions } from "./forms/ScheduleDemoSubmissions";
 import { ContactUsSubmissions } from "./forms/ContactUsSubmissions";
+import { UserManagement } from "./users/UserManagement";
 
 interface PublicAdminLayoutProps {
   children?: React.ReactNode;
@@ -95,20 +98,65 @@ export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
   useEffect(() => {
     // Verify admin session on mount
     const verifySession = async () => {
+      // Small delay to ensure token is stored after login
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Check if token exists before making request
+      const token = getAdminToken();
+      if (!token) {
+        // No token, redirect to login
+        console.warn("No token found, redirecting to login");
+        removeAdminToken();
+        window.location.href = "/admin/login";
+        return;
+      }
+
       try {
         const response = await publicAdminApi.getMe();
         setAdmin(response.admin);
       } catch (error: any) {
-        // Session invalid, redirect to login
-        removeAdminToken();
-        window.location.href = "/admin/login";
+        // Only logout on 401 (unauthorized) - other errors might be temporary
+        if (
+          error.error === "Session expired. Please log in again." ||
+          error.error === "Not authenticated" ||
+          error.message === "Session expired. Please log in again." ||
+          error.code === "NETWORK_ERROR" // Network errors might mean server is down
+        ) {
+          // For network errors, check if we have cached admin data
+          // If we do, keep using it (server might be temporarily down)
+          if (error.code === "NETWORK_ERROR" && admin) {
+            console.warn("Network error during session verification, using cached admin data");
+            return; // Keep using cached data
+          }
+
+          // Session invalid or no cached data, redirect to login
+          console.warn("Session expired or invalid, redirecting to login");
+          removeAdminToken();
+          window.location.href = "/admin/login";
+        } else {
+          // For other errors (server errors, etc.), log but don't logout
+          // The user might still have a valid session, just can't verify right now
+          console.error("Failed to verify session (non-auth error):", error);
+          // Keep using cached admin data if available
+          if (!admin) {
+            // If no cached admin data and verification fails, redirect to login
+            removeAdminToken();
+            window.location.href = "/admin/login";
+          }
+        }
       }
     };
 
-    if (admin) {
+    // Always verify session if we have admin data or token
+    const token = getAdminToken();
+    if (admin || token) {
       verifySession();
+    } else {
+      // No admin data and no token, redirect to login
+      window.location.href = "/admin/login";
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - only run on mount
 
   const handleLogout = async () => {
     try {
@@ -122,16 +170,38 @@ export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
     }
   };
 
+  // Check if user has access to a page
+  const hasPageAccess = (pageId: string): boolean => {
+    // If user is admin, they have access to everything
+    if (admin?.role === "admin") return true;
+
+    // If no pagePermissions set, user has access to all pages (default)
+    if (!admin?.pagePermissions || admin.pagePermissions.length === 0) {
+      return true;
+    }
+
+    // Check if page is in user's permissions
+    return admin.pagePermissions.includes(pageId);
+  };
+
   const menuItems: MenuItem[] = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    {
+    hasPageAccess("dashboard") && {
+      id: "dashboard",
+      label: "Dashboard",
+      icon: LayoutDashboard,
+    },
+    hasPageAccess("landing-pages") && {
       id: "landing-pages",
       label: "Landing Pages",
       icon: FileText,
       subItems: [{ id: "home", label: "Home", icon: Home }],
     },
-    { id: "careers", label: "Careers", icon: Briefcase },
-    {
+    hasPageAccess("careers") && {
+      id: "careers",
+      label: "Careers",
+      icon: Briefcase,
+    },
+    hasPageAccess("forms") && {
       id: "forms",
       label: "Forms",
       icon: ClipboardList,
@@ -140,8 +210,17 @@ export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
         { id: "schedule-demo", label: "Schedule Demo", icon: Calendar },
       ],
     },
-    { id: "analytics", label: "Analytics", icon: BarChart3 },
-  ];
+    hasPageAccess("analytics") && {
+      id: "analytics",
+      label: "Analytics",
+      icon: BarChart3,
+    },
+    hasPageAccess("users") && admin?.role === "admin" && {
+      id: "users",
+      label: "Users",
+      icon: Users,
+    },
+  ].filter(Boolean) as MenuItem[];
 
   const handleMenuClick = (itemId: string, subItemId?: string) => {
     setCurrentPage(itemId);
@@ -280,7 +359,11 @@ export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
 
         {/* Main Content */}
         <main className="flex-1 p-6">
-          {currentPage === "dashboard" && <PublicAdminDashboard />}
+          {currentPage === "dashboard" && (
+            <PublicAdminDashboard
+              onNavigate={(page, subPage) => handleMenuClick(page, subPage)}
+            />
+          )}
           {currentPage === "landing-pages" && !currentSubPage && (
             <LandingPageList />
           )}
@@ -302,6 +385,7 @@ export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
             <ScheduleDemoSubmissions />
           )}
           {currentPage === "analytics" && <PublicContentAnalytics />}
+          {currentPage === "users" && <UserManagement />}
           {children}
         </main>
       </div>

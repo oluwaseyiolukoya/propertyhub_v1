@@ -43,6 +43,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { toast } from "sonner";
+import { canEditContent } from "../../../lib/utils/adminPermissions";
 
 interface Submission {
   id: string;
@@ -82,6 +83,7 @@ export function ContactUsSubmissions() {
     page: 1,
     limit: 20,
   });
+  const [debouncedFilters, setDebouncedFilters] = useState(filters);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -103,16 +105,16 @@ export function ContactUsSubmissions() {
       setLoading(true);
       const response = await publicAdminApi.forms.getContactUs({
         status:
-          filters.status && filters.status !== "all"
-            ? filters.status
+          debouncedFilters.status && debouncedFilters.status !== "all"
+            ? debouncedFilters.status
             : undefined,
         priority:
-          filters.priority && filters.priority !== "all"
-            ? filters.priority
+          debouncedFilters.priority && debouncedFilters.priority !== "all"
+            ? debouncedFilters.priority
             : undefined,
-        search: filters.search || undefined,
-        page: filters.page,
-        limit: filters.limit,
+        search: debouncedFilters.search || undefined,
+        page: debouncedFilters.page,
+        limit: debouncedFilters.limit,
       });
 
       if (response.success) {
@@ -130,9 +132,38 @@ export function ContactUsSubmissions() {
     }
   };
 
+  // Debounce search input (but not status/priority/page changes)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedFilters((prev) => ({
+        ...prev,
+        search: filters.search,
+        page: 1, // Reset page to 1 when search changes
+      }));
+    }, 500); // Wait 500ms after user stops typing
+
+    return () => clearTimeout(timer);
+  }, [filters.search]);
+
+  // Immediately update filters for status/priority/page (no debounce needed)
+  useEffect(() => {
+    if (filters.status !== debouncedFilters.status ||
+        filters.priority !== debouncedFilters.priority ||
+        filters.page !== debouncedFilters.page) {
+      setDebouncedFilters((prev) => ({
+        ...prev,
+        status: filters.status,
+        priority: filters.priority,
+        page: filters.page,
+      }));
+    }
+  }, [filters.status, filters.priority, filters.page]);
+
+  // Load submissions when debounced filters change
   useEffect(() => {
     loadSubmissions();
-  }, [filters]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedFilters]);
 
   const handleView = (submission: Submission) => {
     setSelectedSubmission(submission);
@@ -381,20 +412,26 @@ export function ContactUsSubmissions() {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(submission)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(submission.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
+                        {canEditContent() ? (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(submission)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(submission.id)}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </>
+                        ) : (
+                          <span className="text-sm text-gray-400">View only</span>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -553,7 +590,7 @@ export function ContactUsSubmissions() {
             <Button variant="outline" onClick={() => setViewDialogOpen(false)}>
               Close
             </Button>
-            {selectedSubmission && (
+            {selectedSubmission && canEditContent() && (
               <Button onClick={() => handleEdit(selectedSubmission)}>
                 <Edit className="h-4 w-4 mr-2" />
                 Edit
@@ -564,14 +601,15 @@ export function ContactUsSubmissions() {
       </Dialog>
 
       {/* Edit Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Submission</DialogTitle>
-            <DialogDescription>
-              Update submission status and notes
-            </DialogDescription>
-          </DialogHeader>
+      {canEditContent() && (
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Submission</DialogTitle>
+              <DialogDescription>
+                Update submission status and notes
+              </DialogDescription>
+            </DialogHeader>
           <div className="space-y-4">
             <div>
               <Label>Status</Label>
@@ -631,6 +669,7 @@ export function ContactUsSubmissions() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 }

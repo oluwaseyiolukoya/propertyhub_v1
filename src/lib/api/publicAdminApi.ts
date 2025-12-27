@@ -21,6 +21,7 @@ export interface PublicAdmin {
   name: string;
   role: "admin" | "editor" | "viewer";
   isActive: boolean;
+  pagePermissions?: string[];
   lastLogin?: string;
   createdAt: string;
   updatedAt: string;
@@ -102,8 +103,11 @@ export const isAdminAuthenticated = (): boolean => {
   return !!getAdminToken();
 };
 
+// Request deduplication cache to prevent duplicate requests (React StrictMode)
+const pendingRequests = new Map<string, Promise<any>>();
+
 /**
- * Make authenticated API request
+ * Make authenticated API request with deduplication
  */
 const apiRequest = async <T>(
   endpoint: string,
@@ -122,72 +126,99 @@ const apiRequest = async <T>(
 
   const url = `${PUBLIC_ADMIN_API_URL}${endpoint}`;
 
-  try {
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    });
+  // Create a unique key for this request (only for GET requests to avoid caching mutations)
+  const isGetRequest = !options.method || options.method === "GET";
+  const requestKey = isGetRequest ? `${options.method || "GET"}:${url}` : null;
 
-    // Handle 401 Unauthorized (token expired or invalid)
-    if (response.status === 401) {
-      removeAdminToken();
-      throw new Error("Session expired. Please log in again.");
-    }
-
-    // Try to parse JSON, but handle cases where response might be empty
-    let data;
-    try {
-      const text = await response.text();
-      data = text ? JSON.parse(text) : {};
-    } catch (parseError) {
-      console.error("Failed to parse response:", parseError);
-      throw new Error("Invalid response from server");
-    }
-
-    if (!response.ok) {
-      const error: ApiError = {
-        error: data.error || "Request failed",
-        code: data.code,
-        details: data.details,
-      };
-      throw error;
-    }
-
-    return data;
-  } catch (error: any) {
-    // Handle network errors (connection reset, refused, etc.)
-    if (
-      error instanceof TypeError &&
-      (error.message.includes("fetch") ||
-        error.message.includes("Failed to fetch") ||
-        error.message.includes("network"))
-    ) {
-      const networkError: ApiError = {
-        error: "Connection error. Please check if the server is running.",
-        code: "NETWORK_ERROR",
-        details: error.message,
-      };
-      throw networkError;
-    }
-    // Handle connection reset/refused errors
-    if (
-      error.message?.includes("ERR_CONNECTION_RESET") ||
-      error.message?.includes("ERR_CONNECTION_REFUSED") ||
-      error.message?.includes("ECONNRESET") ||
-      error.message?.includes("ECONNREFUSED")
-    ) {
-      const networkError: ApiError = {
-        error: "Server connection error. The server may be restarting.",
-        code: "CONNECTION_ERROR",
-        details: error.message,
-      };
-      throw networkError;
-    }
-    if (error instanceof Error) {
-      throw error;
-    }
-    throw new Error(error.error || "Network error");
+  // If this is a GET request and we have a pending identical request, return it
+  if (requestKey && pendingRequests.has(requestKey)) {
+    return pendingRequests.get(requestKey)!;
   }
+
+  // Create the request promise
+  const requestPromise = (async () => {
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+      });
+
+      // Handle 401 Unauthorized (token expired or invalid)
+      if (response.status === 401) {
+        removeAdminToken();
+        throw new Error("Session expired. Please log in again.");
+      }
+
+      // Try to parse JSON, but handle cases where response might be empty
+      let data;
+      try {
+        const text = await response.text();
+        data = text ? JSON.parse(text) : {};
+      } catch (parseError) {
+        console.error("Failed to parse response:", parseError);
+        throw new Error("Invalid response from server");
+      }
+
+      if (!response.ok) {
+        const error: ApiError = {
+          error: data.error || "Request failed",
+          code: data.code,
+          details: data.details,
+        };
+        throw error;
+      }
+
+      return data;
+    } catch (error: any) {
+      // Handle network errors (connection reset, refused, etc.)
+      if (
+        error instanceof TypeError &&
+        (error.message.includes("fetch") ||
+          error.message.includes("Failed to fetch") ||
+          error.message.includes("network"))
+      ) {
+        const networkError: ApiError = {
+          error: "Connection error. Please check if the server is running.",
+          code: "NETWORK_ERROR",
+          details: error.message,
+        };
+        throw networkError;
+      }
+      // Handle connection reset/refused errors
+      if (
+        error.message?.includes("ERR_CONNECTION_RESET") ||
+        error.message?.includes("ERR_CONNECTION_REFUSED") ||
+        error.message?.includes("ECONNRESET") ||
+        error.message?.includes("ECONNREFUSED")
+      ) {
+        const networkError: ApiError = {
+          error: "Server connection error. The server may be restarting.",
+          code: "CONNECTION_ERROR",
+          details: error.message,
+        };
+        throw networkError;
+      }
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error(error.error || "Network error");
+    } finally {
+      // Remove from pending requests after completion (only for GET requests)
+      if (requestKey) {
+        // Small delay to allow React StrictMode's second call to reuse the same promise
+        setTimeout(() => {
+          pendingRequests.delete(requestKey);
+        }, 100);
+      }
+    }
+  })();
+
+  // Store the promise for GET requests to enable deduplication
+  if (requestKey) {
+    pendingRequests.set(requestKey, requestPromise);
+  }
+
+  return requestPromise;
 };
 
 /**
@@ -720,6 +751,142 @@ export const publicAdminApi = {
     }> => {
       return apiRequest(`/forms/schedule-demo/${id}`, {
         method: "DELETE",
+      });
+    },
+  },
+
+  /**
+   * User Management API
+   */
+  users: {
+    /**
+     * List all admin users
+     */
+    list: async (params?: {
+      role?: string;
+      isActive?: boolean;
+      search?: string;
+    }): Promise<{ admins: PublicAdmin[] }> => {
+      const query = new URLSearchParams();
+      if (params?.role) query.append("role", params.role);
+      if (params?.isActive !== undefined)
+        query.append("isActive", String(params.isActive));
+      if (params?.search) query.append("search", params.search);
+      const queryString = query.toString();
+      return apiRequest(`/users${queryString ? `?${queryString}` : ""}`);
+    },
+
+    /**
+     * Get single admin user by ID
+     */
+    get: async (id: string): Promise<{
+      admin: PublicAdmin;
+      stats?: any;
+      recentActivity?: any[];
+    }> => {
+      return apiRequest(`/users/${id}`);
+    },
+
+    /**
+     * Create new admin user
+     */
+    create: async (data: {
+      email: string;
+      name: string;
+      password: string;
+      role?: "admin" | "editor" | "viewer";
+      pagePermissions?: string[];
+    }): Promise<{ message: string; admin: PublicAdmin }> => {
+      return apiRequest("/users", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+
+    /**
+     * Update admin user
+     */
+    update: async (
+      id: string,
+      data: {
+        name?: string;
+        email?: string;
+        role?: "admin" | "editor" | "viewer";
+        isActive?: boolean;
+        pagePermissions?: string[];
+      }
+    ): Promise<{ message: string; admin: PublicAdmin }> => {
+      return apiRequest(`/users/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      });
+    },
+
+    /**
+     * Change admin password
+     */
+    changePassword: async (
+      id: string,
+      newPassword: string
+    ): Promise<{ message: string }> => {
+      return apiRequest(`/users/${id}/password`, {
+        method: "PUT",
+        body: JSON.stringify({ newPassword }),
+      });
+    },
+
+    /**
+     * Activate admin user
+     */
+    activate: async (
+      id: string
+    ): Promise<{ message: string; admin: PublicAdmin }> => {
+      return apiRequest(`/users/${id}/activate`, {
+        method: "PUT",
+      });
+    },
+
+    /**
+     * Deactivate admin user
+     */
+    deactivate: async (
+      id: string
+    ): Promise<{ message: string; admin: PublicAdmin }> => {
+      return apiRequest(`/users/${id}/deactivate`, {
+        method: "PUT",
+      });
+    },
+
+    /**
+     * Delete admin user
+     */
+    delete: async (id: string): Promise<{ message: string }> => {
+      return apiRequest(`/users/${id}`, {
+        method: "DELETE",
+      });
+    },
+
+    /**
+     * Get admin page permissions
+     */
+    getPermissions: async (id: string): Promise<{
+      adminId: string;
+      pagePermissions: string[];
+      validPages: string[];
+    }> => {
+      return apiRequest(`/users/${id}/permissions`);
+    },
+
+    /**
+     * Update admin page permissions
+     */
+    updatePermissions: async (
+      id: string,
+      pagePermissions: string[]
+    ): Promise<{ message: string; admin: PublicAdmin }> => {
+      return apiRequest(`/users/${id}/permissions`, {
+        method: "PUT",
+        body: JSON.stringify({ pagePermissions }),
       });
     },
   },

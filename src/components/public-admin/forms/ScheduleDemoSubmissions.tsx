@@ -44,6 +44,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { canEditContent } from "../../../lib/utils/adminPermissions";
 
 interface Submission {
   id: string;
@@ -392,21 +393,27 @@ export function ScheduleDemoSubmissions() {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(submission)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(submission.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {canEditContent() ? (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(submission)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(submission.id)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </>
+                        ) : (
+                          <span className="text-sm text-gray-400">View only</span>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -565,27 +572,30 @@ export function ScheduleDemoSubmissions() {
             <Button variant="outline" onClick={() => setViewDialogOpen(false)}>
               Close
             </Button>
-            <Button
-              onClick={() => {
-                setViewDialogOpen(false);
-                if (selectedSubmission) handleEdit(selectedSubmission);
-              }}
-            >
-              Edit
-            </Button>
+            {canEditContent() && (
+              <Button
+                onClick={() => {
+                  setViewDialogOpen(false);
+                  if (selectedSubmission) handleEdit(selectedSubmission);
+                }}
+              >
+                Edit
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Edit Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Submission</DialogTitle>
-            <DialogDescription>
-              Update status, priority, and admin notes
-            </DialogDescription>
-          </DialogHeader>
+      {canEditContent() && (
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Submission</DialogTitle>
+              <DialogDescription>
+                Update status, priority, and admin notes
+              </DialogDescription>
+            </DialogHeader>
           <div className="space-y-4">
             <div>
               <Label>Status</Label>
@@ -645,6 +655,7 @@ export function ScheduleDemoSubmissions() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 }

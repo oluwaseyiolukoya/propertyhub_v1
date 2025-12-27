@@ -11,6 +11,7 @@ import adminLandingPagesRoutes from "./routes/admin/landing-pages";
 import landingPagesRoutes from "./routes/landing-pages";
 import adminCareersRoutes from "./routes/admin/careers";
 import adminFormsRoutes from "./routes/admin/forms";
+import adminUsersRoutes from "./routes/admin/users";
 
 // Load environment variables
 dotenv.config();
@@ -110,6 +111,7 @@ app.use("/api/admin/auth", adminAuthRoutes);
 app.use("/api/admin/landing-pages", adminLandingPagesRoutes);
 app.use("/api/admin/careers", adminCareersRoutes);
 app.use("/api/admin/forms", adminFormsRoutes);
+app.use("/api/admin/users", adminUsersRoutes);
 
 // Root endpoint
 app.get("/", (req, res) => {
@@ -126,6 +128,7 @@ app.get("/", (req, res) => {
         landingPages: "/api/admin/landing-pages",
         careers: "/api/admin/careers",
         forms: "/api/admin/forms",
+        users: "/api/admin/users",
       },
     },
     documentation: "https://docs.contrezz.com/api",

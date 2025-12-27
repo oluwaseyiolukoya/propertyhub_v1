@@ -2,8 +2,13 @@ import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { FileText, Briefcase, Eye, Users, Globe } from "lucide-react";
 import { publicAdminApi } from "../../lib/api/publicAdminApi";
+import { canEditContent } from "../../lib/utils/adminPermissions";
 
-export function PublicAdminDashboard() {
+interface PublicAdminDashboardProps {
+  onNavigate?: (page: string, subPage?: string) => void;
+}
+
+export function PublicAdminDashboard({ onNavigate }: PublicAdminDashboardProps) {
   const [stats, setStats] = useState({
     landingPages: { total: 0, published: 0 },
     careers: { total: 0, active: 0, totalViews: 0 },
@@ -12,6 +17,8 @@ export function PublicAdminDashboard() {
   });
 
   useEffect(() => {
+    let isMounted = true;
+
     const loadStats = async () => {
       try {
         // Load landing pages
@@ -36,33 +43,57 @@ export function PublicAdminDashboard() {
               0
             );
           }
-        } catch (error) {
-          console.warn("Failed to load form stats:", error);
+        } catch (error: any) {
+          // Handle rate limiting gracefully - don't show error
+          if (
+            error.error === "Too many requests" ||
+            error.message === "Too many requests"
+          ) {
+            console.warn("Rate limited while loading form stats");
+          } else {
+            console.warn("Failed to load form stats:", error);
+          }
           // Continue without form stats
         }
 
-        setStats({
-          landingPages: {
-            total: pages.length,
-            published: pages.filter((p: any) => p.published).length,
-          },
-          careers: {
-            total: careersStats.total || 0,
-            active: careersStats.active || 0,
-            totalViews: careersStats.totalViews || 0,
-          },
-          forms: {
-            total: formsTotal,
-          },
-          loading: false,
-        });
+        if (isMounted) {
+          setStats({
+            landingPages: {
+              total: pages.length,
+              published: pages.filter((p: any) => p.published).length,
+            },
+            careers: {
+              total: careersStats.total || 0,
+              active: careersStats.active || 0,
+              totalViews: careersStats.totalViews || 0,
+            },
+            forms: {
+              total: formsTotal,
+            },
+            loading: false,
+          });
+        }
       } catch (error: any) {
-        console.error("Failed to load dashboard stats:", error);
-        setStats((prev) => ({ ...prev, loading: false }));
+        // Handle rate limiting gracefully
+        if (
+          error.error === "Too many requests" ||
+          error.message === "Too many requests"
+        ) {
+          console.warn("Rate limited while loading dashboard stats");
+        } else {
+          console.error("Failed to load dashboard stats:", error);
+        }
+        if (isMounted) {
+          setStats((prev) => ({ ...prev, loading: false }));
+        }
       }
     };
 
     loadStats();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Format large numbers
@@ -164,21 +195,50 @@ export function PublicAdminDashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-600 hover:bg-purple-50 transition-colors text-left">
-              <FileText className="h-6 w-6 text-purple-600 mb-2" />
-              <p className="font-medium text-gray-900">Create Landing Page</p>
-              <p className="text-sm text-gray-500 mt-1">
-                Add a new landing page
-              </p>
-            </button>
-            <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-600 hover:bg-blue-50 transition-colors text-left">
-              <Briefcase className="h-6 w-6 text-blue-600 mb-2" />
-              <p className="font-medium text-gray-900">Post Job Opening</p>
-              <p className="text-sm text-gray-500 mt-1">
-                Create a new career posting
-              </p>
-            </button>
-            <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-600 hover:bg-green-50 transition-colors text-left">
+            {canEditContent() ? (
+              <button
+                onClick={() => onNavigate?.("landing-pages")}
+                className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-600 hover:bg-purple-50 transition-colors text-left cursor-pointer"
+              >
+                <FileText className="h-6 w-6 text-purple-600 mb-2" />
+                <p className="font-medium text-gray-900">Create Landing Page</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Add a new landing page
+                </p>
+              </button>
+            ) : (
+              <div className="p-4 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50 text-left opacity-60">
+                <FileText className="h-6 w-6 text-gray-400 mb-2" />
+                <p className="font-medium text-gray-500">Create Landing Page</p>
+                <p className="text-sm text-gray-400 mt-1">
+                  View only - no edit access
+                </p>
+              </div>
+            )}
+            {canEditContent() ? (
+              <button
+                onClick={() => onNavigate?.("careers")}
+                className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-600 hover:bg-blue-50 transition-colors text-left cursor-pointer"
+              >
+                <Briefcase className="h-6 w-6 text-blue-600 mb-2" />
+                <p className="font-medium text-gray-900">Post Job Opening</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Create a new career posting
+                </p>
+              </button>
+            ) : (
+              <div className="p-4 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50 text-left opacity-60">
+                <Briefcase className="h-6 w-6 text-gray-400 mb-2" />
+                <p className="font-medium text-gray-500">Post Job Opening</p>
+                <p className="text-sm text-gray-400 mt-1">
+                  View only - no edit access
+                </p>
+              </div>
+            )}
+            <button
+              onClick={() => onNavigate?.("analytics")}
+              className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-600 hover:bg-green-50 transition-colors text-left cursor-pointer"
+            >
               <Globe className="h-6 w-6 text-green-600 mb-2" />
               <p className="font-medium text-gray-900">View Analytics</p>
               <p className="text-sm text-gray-500 mt-1">

@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { publicAdminApi } from "../../../lib/api/publicAdminApi";
+import { canEditContent } from "../../../lib/utils/adminPermissions";
 import {
   Dialog,
   DialogContent,
@@ -109,16 +110,18 @@ export function LandingPageList() {
           <h2 className="text-3xl font-bold text-gray-900">Landing Pages</h2>
           <p className="text-gray-500 mt-1">Manage your landing pages</p>
         </div>
-        <Button
-          className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700"
-          onClick={() => {
-            // Navigate to create page (will be implemented)
-            toast.info("Create page feature coming soon");
-          }}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Create Page
-        </Button>
+        {canEditContent() && (
+          <Button
+            className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700"
+            onClick={() => {
+              // Navigate to create page (will be implemented)
+              toast.info("Create page feature coming soon");
+            }}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Create Page
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -218,40 +221,46 @@ export function LandingPageList() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            handlePublish(page.id, !page.published)
-                          }
-                          title={page.published ? "Unpublish" : "Publish"}
-                        >
-                          {page.published ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            toast.info("Edit feature coming soon");
-                          }}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setPageToDelete(page);
-                            setDeleteDialogOpen(true);
-                          }}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {canEditContent() ? (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                handlePublish(page.id, !page.published)
+                              }
+                              title={page.published ? "Unpublish" : "Publish"}
+                            >
+                              {page.published ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                toast.info("Edit feature coming soon");
+                              }}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setPageToDelete(page);
+                                setDeleteDialogOpen(true);
+                              }}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </>
+                        ) : (
+                          <span className="text-sm text-gray-400">View only</span>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

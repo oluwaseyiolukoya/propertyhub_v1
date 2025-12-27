@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { publicAdminApi } from "../../../lib/api/publicAdminApi";
+import { canEditContent } from "../../../lib/utils/adminPermissions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 
 interface LandingPageContent {
@@ -478,26 +479,30 @@ export function HomePageEditor() {
         <div>
           <h2 className="text-3xl font-bold text-gray-900">Home Page Editor</h2>
           <p className="text-gray-500 mt-1">
-            Manage the content of your main landing page
+            {canEditContent()
+              ? "Manage the content of your main landing page"
+              : "View the content of your main landing page (read-only)"}
           </p>
         </div>
-        <Button
-          onClick={handleSave}
-          disabled={saving}
-          className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700"
-        >
-          {saving ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Saving...
-            </>
-          ) : (
-            <>
-              <Save className="h-4 w-4 mr-2" />
-              Save Changes
-            </>
-          )}
-        </Button>
+        {canEditContent() && (
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                Save Changes
+              </>
+            )}
+          </Button>
+        )}
       </div>
 
       <Tabs defaultValue="hero" className="space-y-6">
@@ -526,6 +531,8 @@ export function HomePageEditor() {
                   value={content.hero.badge}
                   onChange={(e) => updateHero("badge", e.target.value)}
                   placeholder="For Property Managers & Developers"
+                  disabled={!canEditContent()}
+                  readOnly={!canEditContent()}
                 />
               </div>
               <div>
@@ -535,6 +542,8 @@ export function HomePageEditor() {
                   value={content.hero.headline}
                   onChange={(e) => updateHero("headline", e.target.value)}
                   placeholder="Stop Chasing Rent. Start Growing Your Portfolio."
+                  disabled={!canEditContent()}
+                  readOnly={!canEditContent()}
                 />
               </div>
               <div>
@@ -545,6 +554,8 @@ export function HomePageEditor() {
                   onChange={(e) => updateHero("subheadline", e.target.value)}
                   placeholder="The only property management platform built for Nigeria..."
                   rows={4}
+                  disabled={!canEditContent()}
+                  readOnly={!canEditContent()}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -555,6 +566,8 @@ export function HomePageEditor() {
                     value={content.hero.primaryCTA}
                     onChange={(e) => updateHero("primaryCTA", e.target.value)}
                     placeholder="Start Free Trial"
+                    disabled={!canEditContent()}
+                    readOnly={!canEditContent()}
                   />
                 </div>
                 <div>
@@ -564,6 +577,8 @@ export function HomePageEditor() {
                     value={content.hero.secondaryCTA}
                     onChange={(e) => updateHero("secondaryCTA", e.target.value)}
                     placeholder="Schedule Demo"
+                    disabled={!canEditContent()}
+                    readOnly={!canEditContent()}
                   />
                 </div>
               </div>
@@ -577,10 +592,12 @@ export function HomePageEditor() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Statistics</CardTitle>
-                <Button onClick={addStat} size="sm" variant="outline">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Stat
-                </Button>
+                {canEditContent() && (
+                  <Button onClick={addStat} size="sm" variant="outline">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Stat
+                  </Button>
+                )}
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -589,14 +606,16 @@ export function HomePageEditor() {
                   <CardContent className="pt-6">
                     <div className="flex items-start justify-between mb-4">
                       <Badge variant="outline">Stat {index + 1}</Badge>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeStat(index)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {canEditContent() && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeStat(index)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -607,6 +626,8 @@ export function HomePageEditor() {
                             updateStat(index, "value", e.target.value)
                           }
                           placeholder="₦7.5B+"
+                          disabled={!canEditContent()}
+                          readOnly={!canEditContent()}
                         />
                       </div>
                       <div>
@@ -617,6 +638,8 @@ export function HomePageEditor() {
                             updateStat(index, "label", e.target.value)
                           }
                           placeholder="Portfolio Value Managed"
+                          disabled={!canEditContent()}
+                          readOnly={!canEditContent()}
                         />
                       </div>
                     </div>
@@ -633,10 +656,12 @@ export function HomePageEditor() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Features</CardTitle>
-                <Button onClick={addFeature} size="sm" variant="outline">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Feature
-                </Button>
+                {canEditContent() && (
+                  <Button onClick={addFeature} size="sm" variant="outline">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Feature
+                  </Button>
+                )}
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -645,32 +670,34 @@ export function HomePageEditor() {
                   <CardContent className="pt-6">
                     <div className="flex items-start justify-between mb-4">
                       <Badge variant="outline">Feature {index + 1}</Badge>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => moveFeature(index, "up")}
-                          disabled={index === 0}
-                        >
-                          <ArrowUp className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => moveFeature(index, "down")}
-                          disabled={index === content.features.length - 1}
-                        >
-                          <ArrowDown className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeFeature(index)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      {canEditContent() && (
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => moveFeature(index, "up")}
+                            disabled={index === 0}
+                          >
+                            <ArrowUp className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => moveFeature(index, "down")}
+                            disabled={index === content.features.length - 1}
+                          >
+                            <ArrowDown className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeFeature(index)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-4">
                       <div>
@@ -681,6 +708,8 @@ export function HomePageEditor() {
                             updateFeature(index, "title", e.target.value)
                           }
                           placeholder="Property & Portfolio Management"
+                          disabled={!canEditContent()}
+                          readOnly={!canEditContent()}
                         />
                       </div>
                       <div>
@@ -692,6 +721,8 @@ export function HomePageEditor() {
                           }
                           placeholder="See everything at a glance..."
                           rows={4}
+                          disabled={!canEditContent()}
+                          readOnly={!canEditContent()}
                         />
                       </div>
                       <div>
@@ -702,6 +733,7 @@ export function HomePageEditor() {
                             updateFeature(index, "color", e.target.value)
                           }
                           className="w-full px-3 py-2 border rounded-md"
+                          disabled={!canEditContent()}
                         >
                           <option value="blue">Blue</option>
                           <option value="green">Green</option>
@@ -725,10 +757,12 @@ export function HomePageEditor() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Testimonials</CardTitle>
-                <Button onClick={addTestimonial} size="sm" variant="outline">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Testimonial
-                </Button>
+                {canEditContent() && (
+                  <Button onClick={addTestimonial} size="sm" variant="outline">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Testimonial
+                  </Button>
+                )}
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -737,14 +771,16 @@ export function HomePageEditor() {
                   <CardContent className="pt-6">
                     <div className="flex items-start justify-between mb-4">
                       <Badge variant="outline">Testimonial {index + 1}</Badge>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeTestimonial(index)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {canEditContent() && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeTestimonial(index)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
@@ -756,6 +792,8 @@ export function HomePageEditor() {
                               updateTestimonial(index, "name", e.target.value)
                             }
                             placeholder="Adebayo Oladipo"
+                            disabled={!canEditContent()}
+                            readOnly={!canEditContent()}
                           />
                         </div>
                         <div>
@@ -770,6 +808,8 @@ export function HomePageEditor() {
                               )
                             }
                             placeholder="Skyline Properties Lagos"
+                            disabled={!canEditContent()}
+                            readOnly={!canEditContent()}
                           />
                         </div>
                       </div>
@@ -781,6 +821,8 @@ export function HomePageEditor() {
                             updateTestimonial(index, "role", e.target.value)
                           }
                           placeholder="Managing Director | 45 Properties"
+                          disabled={!canEditContent()}
+                          readOnly={!canEditContent()}
                         />
                       </div>
                       <div>
@@ -792,6 +834,8 @@ export function HomePageEditor() {
                           }
                           placeholder="Before Contrezz, I spent 3 days..."
                           rows={4}
+                          disabled={!canEditContent()}
+                          readOnly={!canEditContent()}
                         />
                       </div>
                       <div>
@@ -808,6 +852,8 @@ export function HomePageEditor() {
                               parseInt(e.target.value) || 5
                             )
                           }
+                          disabled={!canEditContent()}
+                          readOnly={!canEditContent()}
                         />
                       </div>
                     </div>
@@ -832,6 +878,8 @@ export function HomePageEditor() {
                   value={content.cta.headline}
                   onChange={(e) => updateCTA("headline", e.target.value)}
                   placeholder="Ready to Transform Your Property Business?"
+                  disabled={!canEditContent()}
+                  readOnly={!canEditContent()}
                 />
               </div>
               <div>
@@ -842,6 +890,8 @@ export function HomePageEditor() {
                   onChange={(e) => updateCTA("description", e.target.value)}
                   placeholder="Join 500+ property professionals..."
                   rows={4}
+                  disabled={!canEditContent()}
+                  readOnly={!canEditContent()}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -852,6 +902,8 @@ export function HomePageEditor() {
                     value={content.cta.primaryCTA}
                     onChange={(e) => updateCTA("primaryCTA", e.target.value)}
                     placeholder="Start My Free 14-Day Trial"
+                    disabled={!canEditContent()}
+                    readOnly={!canEditContent()}
                   />
                 </div>
                 <div>
@@ -861,6 +913,8 @@ export function HomePageEditor() {
                     value={content.cta.secondaryCTA}
                     onChange={(e) => updateCTA("secondaryCTA", e.target.value)}
                     placeholder="Sign In"
+                    disabled={!canEditContent()}
+                    readOnly={!canEditContent()}
                   />
                 </div>
               </div>

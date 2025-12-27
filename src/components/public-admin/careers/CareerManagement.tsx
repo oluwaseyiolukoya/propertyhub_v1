@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { publicAdminApi } from "../../../lib/api/publicAdminApi";
+import { canEditContent } from "../../../lib/utils/adminPermissions";
 import {
   Dialog,
   DialogContent,
@@ -99,7 +100,9 @@ export function CareerManagement() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [rateLimited, setRateLimited] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [postingToDelete, setPostingToDelete] = useState<CareerPosting | null>(
     null
@@ -137,20 +140,34 @@ export function CareerManagement() {
 
   const loadPostings = async () => {
     setLoading(true);
+    setRateLimited(false);
     try {
       const filters: any = {
         page: 1,
         limit: 20,
       };
-      if (search) filters.search = search;
+      if (debouncedSearch) filters.search = debouncedSearch;
       if (statusFilter !== "all") filters.status = statusFilter;
 
       const response = await publicAdminApi.careers.list(filters);
       setPostings(response.postings || []);
       setPagination(response.pagination);
+      setRateLimited(false);
     } catch (error: any) {
-      console.error("Error loading postings:", error);
-      toast.error(error.error || "Failed to load career postings");
+      // Handle rate limiting gracefully
+      if (
+        error.error === "Too many requests" ||
+        error.message === "Too many requests"
+      ) {
+        console.warn("Rate limited while loading postings. Please wait a moment and refresh.");
+        setRateLimited(true);
+        // Don't show toast on initial load - just set the flag
+        // User will see the rate limit message in the UI
+      } else {
+        console.error("Error loading postings:", error);
+        toast.error(error.error || "Failed to load career postings");
+        setRateLimited(false);
+      }
     } finally {
       setLoading(false);
     }
@@ -161,24 +178,39 @@ export function CareerManagement() {
       const response = await publicAdminApi.careers.getStats();
       setStats(response.data || response);
     } catch (error: any) {
-      console.error("Failed to load statistics:", error);
-      // Handle rate limiting - don't show error toast, just retry later
+      // Handle rate limiting gracefully - don't retry (prevents loops)
       if (
         error.error === "Too many requests" ||
         error.message === "Too many requests"
       ) {
-        // Retry after 3 seconds
-        setTimeout(() => {
-          loadStats();
-        }, 3000);
+        console.warn("Rate limited while loading stats. Stats will be available after rate limit resets.");
+        // Don't show error toast for rate limiting - it's expected
+        // Don't retry - wait for user to refresh or rate limit to reset
+      } else {
+        console.error("Failed to load statistics:", error);
+        // Only show error for non-rate-limit errors
       }
     }
   };
 
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 500); // Wait 500ms after user stops typing
+
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Load postings when search or filter changes (debounced)
   useEffect(() => {
     loadPostings();
+  }, [debouncedSearch, statusFilter]);
+
+  // Load stats only once on mount and when explicitly refreshed
+  useEffect(() => {
     loadStats();
-  }, [search, statusFilter]);
+  }, []); // Only run on mount
 
   const handleDelete = async () => {
     if (!postingToDelete) return;
@@ -390,13 +422,15 @@ export function CareerManagement() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button
-            className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
-            onClick={handleCreateClick}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Create Posting
-          </Button>
+          {canEditContent() && (
+            <Button
+              className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+              onClick={handleCreateClick}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Create Posting
+            </Button>
+          )}
         </div>
       </div>
 
@@ -494,6 +528,25 @@ export function CareerManagement() {
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
             </div>
+          ) : rateLimited ? (
+            <div className="text-center py-12">
+              <AlertCircle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+              <p className="text-gray-900 font-medium">Rate Limit Exceeded</p>
+              <p className="text-sm text-gray-500 mt-2">
+                Too many requests. Please wait a moment and click Refresh to try again.
+              </p>
+              <Button
+                variant="outline"
+                className="mt-4"
+                onClick={() => {
+                  setRateLimited(false);
+                  loadPostings();
+                }}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Retry
+              </Button>
+            </div>
           ) : postings.length === 0 ? (
             <div className="text-center py-12">
               <Briefcase className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -532,26 +585,27 @@ export function CareerManagement() {
                       {posting.type}
                     </TableCell>
                     <TableCell>
-                      <Select
-                        value={posting.status}
-                        onValueChange={async (newStatus) => {
-                          if (newStatus === posting.status) return;
-                          try {
-                            await publicAdminApi.careers.update(posting.id, {
-                              status: newStatus,
-                            });
-                            toast.success(
-                              `Status updated to ${newStatus.toUpperCase()}`
-                            );
-                            // Refresh postings
-                            loadPostings();
-                          } catch (error: any) {
-                            toast.error(
-                              error.error || "Failed to update status"
-                            );
-                          }
-                        }}
-                      >
+                      {canEditContent() ? (
+                        <Select
+                          value={posting.status}
+                          onValueChange={async (newStatus) => {
+                            if (newStatus === posting.status) return;
+                            try {
+                              await publicAdminApi.careers.update(posting.id, {
+                                status: newStatus,
+                              });
+                              toast.success(
+                                `Status updated to ${newStatus.toUpperCase()}`
+                              );
+                              // Refresh postings
+                              loadPostings();
+                            } catch (error: any) {
+                              toast.error(
+                                error.error || "Failed to update status"
+                              );
+                            }
+                          }}
+                        >
                         <SelectTrigger className="w-[140px] h-8 border-0 bg-transparent hover:bg-gray-50 p-0">
                           <SelectValue>
                             {getStatusBadge(posting.status)}
@@ -584,6 +638,9 @@ export function CareerManagement() {
                           </SelectItem>
                         </SelectContent>
                       </Select>
+                      ) : (
+                        <div>{getStatusBadge(posting.status)}</div>
+                      )}
                     </TableCell>
                     <TableCell className="text-gray-500">
                       {posting.viewCount}
@@ -601,24 +658,30 @@ export function CareerManagement() {
                         >
                           <Users className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditClick(posting)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setPostingToDelete(posting);
-                            setDeleteDialogOpen(true);
-                          }}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {canEditContent() ? (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditClick(posting)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setPostingToDelete(posting);
+                                setDeleteDialogOpen(true);
+                              }}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </>
+                        ) : (
+                          <span className="text-sm text-gray-400">View only</span>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

@@ -137,16 +137,20 @@ router.post("/login", async (req: Request, res: Response) => {
       req.headers["user-agent"]
     );
 
-    return res.json({
-      message: "Login successful",
-      token,
-      admin: {
-        id: admin.id,
-        email: admin.email,
-        name: admin.name,
-        role: admin.role,
-      },
-    });
+      // Get full admin with permissions
+      const fullAdmin = await adminService.getAdminById(admin.id);
+
+      return res.json({
+        message: "Login successful",
+        token,
+        admin: {
+          id: admin.id,
+          email: admin.email,
+          name: admin.name,
+          role: admin.role,
+          pagePermissions: (fullAdmin as any)?.pagePermissions || [],
+        },
+      });
   } catch (error: any) {
     console.error("Admin login error:", error);
     return res.status(401).json({
@@ -217,7 +221,12 @@ router.get(
         return res.status(404).json({ error: "Admin not found" });
       }
 
-      return res.json({ admin });
+      return res.json({
+        admin: {
+          ...admin,
+          pagePermissions: (admin as any).pagePermissions || [],
+        },
+      });
     } catch (error: any) {
       console.error("Get admin error:", error);
       return res.status(500).json({
