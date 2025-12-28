@@ -1577,7 +1577,7 @@ export function BillingPlansAdmin() {
                           className="flex items-center justify-between"
                         >
                           <div>
-                            <p className="font-medium flex items-center space-x-2">
+                            <div className="font-medium flex items-center space-x-2">
                               <span>{plan.name}</span>
                               <Badge
                                 variant="outline"
@@ -1587,7 +1587,7 @@ export function BillingPlansAdmin() {
                                   ? "Developer plan"
                                   : "Property owner plan"}
                               </Badge>
-                            </p>
+                            </div>
                             <p className="text-sm text-gray-600">
                               {plan.activeSubscriptions} subscriptions
                             </p>

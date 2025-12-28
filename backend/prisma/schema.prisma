@@ -197,6 +197,8 @@ model customers {
   notification_templates      notification_templates[]
   notification_logs           notification_logs[]
   report_schedules            report_schedules[]
+  tax_calculations            tax_calculations[]
+  tax_settings                tax_settings?
 
   @@index([status])
   @@index([trialEndsAt])
@@ -284,6 +286,82 @@ model expenses {
   @@index([propertyId])
   @@index([status])
   @@index([visibleToManager])
+}
+
+model tax_calculations {
+  id              String  @id @default(uuid())
+  propertyId      String? // Nullable for portfolio-level calculations
+  customerId      String
+  taxYear         Int // e.g., 2026
+  calculationType String  @default("annual") // "annual" | "capital_gains" | "property_tax"
+
+  // Income Data
+  totalRentalIncome Float @default(0)
+  otherIncome       Float @default(0)
+  totalIncome       Float @default(0)
+
+  // Deductions
+  rentRelief      Float @default(0) // Lower of ₦500,000 or 20% of rent paid
+  otherDeductions Float @default(0)
+  totalDeductions Float @default(0)
+
+  // Tax Calculation
+  taxableIncome     Float @default(0)
+  personalIncomeTax Float @default(0)
+  capitalGainsTax   Float @default(0)
+  propertyTaxes     Float @default(0) // Land Use Charge, etc.
+  withholdingTax    Float @default(0) // 10% on rental income
+  totalTaxLiability Float @default(0)
+
+  // Capital Gains (if applicable)
+  propertySalePrice     Float?
+  propertyPurchasePrice Float?
+  capitalGain           Float?
+
+  // Metadata
+  calculationDate DateTime  @default(now())
+  notes           String?   @db.Text
+  isFinalized     Boolean   @default(false)
+  finalizedAt     DateTime?
+
+  // Relations
+  properties properties? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  customers  customers   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, taxYear, calculationType, propertyId])
+  @@index([customerId])
+  @@index([taxYear])
+  @@index([propertyId])
+  @@index([calculationType])
+}
+
+model tax_settings {
+  id         String @id @default(uuid())
+  customerId String @unique
+
+  // Taxpayer Information
+  taxpayerType            String  @default("individual") // "individual" | "company"
+  taxIdentificationNumber String? // TIN
+
+  // Rent Relief Settings
+  annualRentPaid   Float? // For Rent Relief calculation
+  rentReliefAmount Float? // Calculated: lower of ₦500,000 or 20% of rent
+
+  // Other Income Sources
+  otherIncomeSources Json? // Array of income sources
+
+  // Property Tax Settings
+  landUseChargeRate Float? // State-specific rate
+  stampDutyRate     Float? // Transaction rate
+
+  // Preferences
+  defaultTaxYear Int    @default(2026)
+  currency       String @default("NGN")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customers customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
 }
 
 model invoices {
@@ -497,6 +575,7 @@ model properties {
   property_managers     property_managers[]
   units                 units[]
   maintenance_requests  maintenance_requests[]
+  tax_calculations      tax_calculations[]
 
   @@index([ownerId])
   @@index([customerId])

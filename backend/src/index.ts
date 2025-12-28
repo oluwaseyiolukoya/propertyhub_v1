@@ -116,6 +116,8 @@ import cacheRoutes from "./routes/cache";
 import tenantRoutes from "./routes/tenant";
 // Financial routes
 import financialRoutes from "./routes/financial";
+// Tax calculation routes
+import taxRoutes from "./routes/tax";
 // Expense routes
 import expenseRoutes from "./routes/expenses";
 // Document routes
@@ -426,6 +428,8 @@ app.use("/api/cache", cacheRoutes);
 app.use("/api/tenant", tenantRoutes);
 // Financial routes
 app.use("/api/financial", financialRoutes);
+// Tax calculation routes
+app.use("/api/tax", taxRoutes);
 // Expense routes
 app.use("/api/expenses", expenseRoutes);
 // Document routes

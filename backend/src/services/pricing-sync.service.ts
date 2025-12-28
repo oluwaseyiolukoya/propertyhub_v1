@@ -71,6 +71,8 @@ const PROPERTY_OWNER_PLANS: PricingPlan[] = [
       { text: 'Maintenance reports', included: true },
       { text: '25GB document storage', included: true },
       { text: 'Priority support', included: true },
+      { text: 'Tax Calculator', included: true },
+      { text: 'tax_calculator', included: true },
     ],
   },
   {
@@ -97,6 +99,8 @@ const PROPERTY_OWNER_PLANS: PricingPlan[] = [
       { text: 'Document management (50GB)', included: true },
       { text: 'API access', included: true },
       { text: 'Dedicated support', included: true },
+      { text: 'Tax Calculator', included: true },
+      { text: 'tax_calculator', included: true },
     ],
   },
 ];

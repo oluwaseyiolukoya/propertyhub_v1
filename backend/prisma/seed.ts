@@ -85,7 +85,21 @@ async function main() {
 
   const enterprisePlan = await prisma.plans.upsert({
     where: { name: "Enterprise" },
-    update: {},
+    update: {
+      features: [
+        "Up to 100 properties",
+        "Up to 50 users",
+        "20GB storage",
+        "Enterprise reporting",
+        "Dedicated support",
+        "Custom branding",
+        "API access",
+        "White-label options",
+        "Tax Calculator",
+        "tax_calculator",
+      ],
+      updatedAt: new Date(),
+    },
     create: {
       id: "plan-enterprise-1",
       name: "Enterprise",
@@ -107,6 +121,8 @@ async function main() {
         "Custom branding",
         "API access",
         "White-label options",
+        "Tax Calculator",
+        "tax_calculator",
       ],
       isActive: true,
       updatedAt: new Date(),

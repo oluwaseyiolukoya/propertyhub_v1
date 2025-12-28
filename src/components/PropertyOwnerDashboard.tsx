@@ -35,6 +35,7 @@ import {
   Key,
   FileBox,
   Cog,
+  Calculator,
   ArrowLeft,
   Edit,
   MapPin,
@@ -101,6 +102,7 @@ import { Footer } from "./Footer";
 import PropertyOwnerDocuments from "./PropertyOwnerDocuments";
 import { PaymentOverview } from "./PaymentOverview";
 import { TenantVerificationManagement } from "./owner/TenantVerificationManagement";
+import { TaxManagement } from "./TaxManagement";
 import { getOwnerActivities } from "../lib/api";
 import { getProperty, updateProperty } from "../lib/api/properties";
 import { createProperty } from "../lib/api/properties";
@@ -311,6 +313,7 @@ export function PropertyOwnerDashboard({
   const [subscription, setSubscription] = useState<any>(null);
   const [recentBills, setRecentBills] = useState<any[]>([]);
   const [loadingBills, setLoadingBills] = useState(false);
+  const [billingCurrentPage, setBillingCurrentPage] = useState(1);
   const [settingsInitialTab, setSettingsInitialTab] = useState<
     string | undefined
   >(undefined);
@@ -593,6 +596,8 @@ export function PropertyOwnerDashboard({
             items
           );
           setRecentBills(items);
+          // Reset to page 1 when bills data changes
+          setBillingCurrentPage(1);
         } else {
           console.error(
             "[PropertyOwnerDashboard] Error fetching payments:",
@@ -623,13 +628,19 @@ export function PropertyOwnerDashboard({
     };
   }, [accountInfo]);
 
-  // Reload managers when switching to managers view
+  // Track previous view to avoid unnecessary refreshes
+  const prevViewRef = useRef<string | null>(null);
+
+  // Reload managers when switching to managers view (only when view actually changes)
   useEffect(() => {
-    if (currentView === "managers" && onRefreshManagers) {
+    if (currentView === "managers" && onRefreshManagers && prevViewRef.current !== "managers") {
       console.log("🔄 Reloading managers on view change...");
       onRefreshManagers();
     }
-  }, [currentView, onRefreshManagers]);
+    prevViewRef.current = currentView;
+    // Only depend on currentView - onRefreshManagers should be stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentView]);
 
   // Refresh data when window regains focus
   useEffect(() => {
@@ -893,6 +904,51 @@ export function PropertyOwnerDashboard({
     },
   ];
 
+  // Helper function to check if user has tax_calculator feature
+  const hasTaxCalculatorFeature = (): boolean => {
+    if (!accountInfo?.customer?.plan) {
+      return false; // No plan = no feature
+    }
+
+    const plan = accountInfo.customer.plan;
+    let features: string[] = [];
+
+    // Parse features (can be array, object, or string)
+    if (Array.isArray(plan.features)) {
+      features = plan.features;
+    } else if (typeof plan.features === 'object' && plan.features !== null) {
+      const featuresObj = plan.features as any;
+      if (Array.isArray(featuresObj.features)) {
+        features = featuresObj.features;
+      } else if (Array.isArray(featuresObj.list)) {
+        features = featuresObj.list;
+      } else {
+        // Extract feature names from object
+        features = Object.keys(featuresObj).filter(
+          (key) => featuresObj[key] === true || featuresObj[key] === 'enabled'
+        );
+      }
+    } else if (typeof plan.features === 'string') {
+      try {
+        const parsed = JSON.parse(plan.features);
+        if (Array.isArray(parsed)) {
+          features = parsed;
+        }
+      } catch {
+        // If parsing fails, treat as single feature string
+        features = [plan.features];
+      }
+    }
+
+    // Check if tax_calculator feature is included
+    return features.some(
+      (f) =>
+        f.toLowerCase() === 'tax_calculator' ||
+        f.toLowerCase().includes('tax_calculator') ||
+        f.toLowerCase() === 'tax calculator'
+    );
+  };
+
   const navigation = [
     { name: "Portfolio Overview", key: "dashboard", icon: Home },
     { name: "Properties", key: "properties", icon: Building },
@@ -900,6 +956,10 @@ export function PropertyOwnerDashboard({
     { name: "Tenant Verification", key: "tenant-verification", icon: Shield },
     { name: "Payments", key: "payments", icon: Wallet },
     { name: "Financial Reports", key: "financial", icon: BarChart3 },
+    // Only show Tax Calculator if user has the feature (not Starter Plan)
+    ...(hasTaxCalculatorFeature()
+      ? [{ name: "Tax Calculator", key: "tax", icon: Calculator }]
+      : []),
     { name: "Expenses", key: "expenses", icon: Receipt },
     { name: "Maintenance", key: "maintenance", icon: Wrench },
     { name: "Property Managers", key: "managers", icon: UserCog },
@@ -1914,6 +1974,12 @@ export function PropertyOwnerDashboard({
                 <FinancialReports properties={properties} user={user} />
               </div>
             </div>
+          ) : currentView === "tax" ? (
+            <div className="p-4 lg:p-8">
+              <div className="max-w-7xl mx-auto">
+                <TaxManagement user={user} properties={properties} />
+              </div>
+            </div>
           ) : currentView === "expenses" ? (
             <div className="p-4 lg:p-8">
               <div className="max-w-7xl mx-auto">
@@ -2335,43 +2401,92 @@ export function PropertyOwnerDashboard({
                           </p>
                         </div>
                       ) : (
-                        <div className="space-y-3">
-                          {recentBills.map((p: any) => (
-                            <div
-                              key={p.id}
-                              className="flex items-center justify-between p-4 border border-gray-100 rounded-xl bg-gray-50/50 hover:bg-gray-50 transition-colors"
-                            >
-                              <div className="text-sm">
-                                <div className="font-semibold text-gray-900">
-                                  {(p.type || "subscription")
-                                    .toString()
-                                    .toUpperCase()}
-                                </div>
-                                <div className="text-gray-500 text-xs mt-1">
-                                  {new Date(
-                                    p.paidAt || p.createdAt
-                                  ).toLocaleString()}
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <div className="font-semibold text-gray-900">
-                                  {p.currency || "NGN"}{" "}
-                                  {(Number(p.amount) || 0).toFixed(2)}
-                                </div>
-                                <Badge
-                                  className={`mt-1 capitalize ${
-                                    p.status === "success" ||
-                                    p.status === "completed"
-                                      ? "bg-[#10B981]/10 text-[#10B981] border-[#10B981]/30"
-                                      : "bg-gray-100 text-gray-600"
-                                  }`}
-                                >
-                                  {p.status || "success"}
-                                </Badge>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                        <>
+                          <div className="space-y-3">
+                            {(() => {
+                              // Paginate: 3 records per page
+                              const itemsPerPage = 3;
+                              const startIndex = (billingCurrentPage - 1) * itemsPerPage;
+                              const endIndex = startIndex + itemsPerPage;
+                              const paginatedBills = recentBills.slice(startIndex, endIndex);
+                              const totalPages = Math.ceil(recentBills.length / itemsPerPage);
+
+                              return (
+                                <>
+                                  {paginatedBills.map((p: any) => (
+                                    <div
+                                      key={p.id}
+                                      className="flex items-center justify-between p-4 border border-gray-100 rounded-xl bg-gray-50/50 hover:bg-gray-50 transition-colors"
+                                    >
+                                      <div className="text-sm">
+                                        <div className="font-semibold text-gray-900">
+                                          {(p.type || "subscription")
+                                            .toString()
+                                            .toUpperCase()}
+                                        </div>
+                                        <div className="text-gray-500 text-xs mt-1">
+                                          {new Date(
+                                            p.paidAt || p.createdAt
+                                          ).toLocaleString()}
+                                        </div>
+                                      </div>
+                                      <div className="text-right">
+                                        <div className="font-semibold text-gray-900">
+                                          {p.currency || "NGN"}{" "}
+                                          {(Number(p.amount) || 0).toFixed(2)}
+                                        </div>
+                                        <Badge
+                                          className={`mt-1 capitalize ${
+                                            p.status === "success" ||
+                                            p.status === "completed"
+                                              ? "bg-[#10B981]/10 text-[#10B981] border-[#10B981]/30"
+                                              : "bg-gray-100 text-gray-600"
+                                          }`}
+                                        >
+                                          {p.status || "success"}
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                  ))}
+
+                                  {/* Pagination Controls */}
+                                  {totalPages > 1 && (
+                                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+                                      <div className="text-sm text-gray-600">
+                                        Page {billingCurrentPage} of {totalPages}
+                                        <span className="text-gray-400 ml-1">
+                                          ({recentBills.length} total)
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center space-x-2">
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => setBillingCurrentPage((prev) => Math.max(1, prev - 1))}
+                                          disabled={billingCurrentPage === 1}
+                                          className="hover:bg-[#7C3AED]/10 hover:border-[#7C3AED] hover:text-[#7C3AED]"
+                                        >
+                                          <ChevronLeft className="h-4 w-4 mr-1" />
+                                          Previous
+                                        </Button>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => setBillingCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                                          disabled={billingCurrentPage === totalPages}
+                                          className="hover:bg-[#7C3AED]/10 hover:border-[#7C3AED] hover:text-[#7C3AED]"
+                                        >
+                                          Next
+                                          <ChevronRight className="h-4 w-4 ml-1" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
+                        </>
                       )}
                     </CardContent>
                   </Card>

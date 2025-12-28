@@ -202,6 +202,16 @@ export const API_ENDPOINTS = {
     CHANGE_BILLING_CYCLE: '/api/subscriptions/change-billing-cycle',
     CANCEL: '/api/subscriptions/cancel',
   },
+
+  // Tax Calculation
+  TAX: {
+    CALCULATE: '/api/tax/calculate',
+    SETTINGS: '/api/tax/settings',
+    HISTORY: '/api/tax/history',
+    AUTO_FETCH: '/api/tax/auto-fetch',
+    CALCULATION: (id: string) => `/api/tax/calculations/${id}`,
+    FINALIZE: (id: string) => `/api/tax/calculations/${id}/finalize`,
+  },
 };
 
 // Request timeout (30 seconds for regular requests)

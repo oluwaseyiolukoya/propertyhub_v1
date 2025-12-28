@@ -123,15 +123,21 @@ export const PropertyManagerManagement = ({
     canDelete: false,
   });
 
-  // Refresh managers when component mounts or when onRefreshManagers is available
+  // Track if we've already refreshed on mount to prevent infinite loops
+  const hasRefreshedOnMountRef = useRef<boolean>(false);
+
+  // Refresh managers when component mounts (only once)
   useEffect(() => {
-    if (onRefreshManagers) {
+    if (onRefreshManagers && !hasRefreshedOnMountRef.current) {
       console.log(
         "🔄 PropertyManagerManagement: Refreshing managers on mount..."
       );
+      hasRefreshedOnMountRef.current = true;
       onRefreshManagers();
     }
-  }, [onRefreshManagers]);
+    // Only run on mount - don't depend on onRefreshManagers to avoid infinite loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Track previous values to avoid unnecessary reloads
   const prevManagersLengthRef = useRef<number>(0);

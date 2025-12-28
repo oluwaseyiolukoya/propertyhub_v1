@@ -208,7 +208,7 @@ export const adminOnly = async (
 
     // Final fallback: trust JWT role when DB is unavailable
     const roleFromToken = (req.user as any)?.role?.toLowerCase?.() || '';
-    if (roleFromToken.includes('admin')) {
+    if (roleFromToken.includes('admin') || roleFromToken === 'super_admin') {
       console.log('✅ Admin access granted via token fallback role:', roleFromToken);
       return next();
     }
