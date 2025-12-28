@@ -15,11 +15,13 @@ The Tax Calculator implements **Nigeria Tax Act (NTA) 2025** calculations, effec
 **Source:** Payment transactions (cash basis accounting)
 
 **Formula:**
+
 ```
 Rental Income = Sum of all rent payments received in the tax year
 ```
 
 **Details:**
+
 - Queries the `payments` table for the selected property
 - Filters by:
   - `propertyId`: Selected property only
@@ -29,6 +31,7 @@ Rental Income = Sum of all rent payments received in the tax year
 - Sums all payment amounts to get total revenue
 
 **Example:**
+
 - Payment 1: ₦700,000 (paid Dec 2, 2025)
 - Payment 2: ₦500,000 (paid Dec 2, 2025)
 - Payment 3: ₦120,000 (paid Dec 17, 2025)
@@ -41,15 +44,18 @@ Rental Income = Sum of all rent payments received in the tax year
 ### Step 2: Calculate Total Income
 
 **Formula:**
+
 ```
 Total Income = Rental Income
 ```
 
 **Details:**
+
 - For property-specific calculations, only rental income is considered
 - Other income sources are not included (personal income, dividends, etc.)
 
 **Example:**
+
 - Rental Income: ₦1,320,000
 - **Total Income = ₦1,320,000**
 
@@ -60,11 +66,13 @@ Total Income = Rental Income
 **Source:** Expense records from the Expenses page
 
 **Formula:**
+
 ```
 Total Deductions = Sum of all property expenses paid in the tax year
 ```
 
 **Details:**
+
 - Queries the `expenses` table for the selected property
 - Filters by:
   - `propertyId`: Selected property only
@@ -74,6 +82,7 @@ Total Deductions = Sum of all property expenses paid in the tax year
 - Sums all expense amounts to get total deductions
 
 **Example:**
+
 - Maintenance: ₦200,000 (paid in 2025)
 - **Total Deductions = ₦200,000**
 
@@ -82,15 +91,18 @@ Total Deductions = Sum of all property expenses paid in the tax year
 ### Step 4: Calculate Taxable Income
 
 **Formula:**
+
 ```
 Taxable Income = max(0, Total Income - Total Deductions)
 ```
 
 **Details:**
+
 - Taxable income cannot be negative
 - If expenses exceed income, taxable income is set to 0
 
 **Example:**
+
 - Total Income: ₦1,320,000
 - Total Deductions: ₦200,000
 - **Taxable Income = ₦1,320,000 - ₦200,000 = ₦1,120,000**
@@ -112,21 +124,25 @@ Taxable Income = max(0, Total Income - Total Deductions)
 | Above ₦50,000,000 | 25% | Highest bracket |
 
 **Calculation Method:**
+
 1. Apply each bracket sequentially
 2. Calculate tax for income within each bracket
 3. Sum all bracket taxes
 
 **Formula:**
+
 ```
 PIT = Σ (Income in Bracket × Bracket Rate)
 ```
 
 **Example Calculation for ₦1,120,000:**
+
 1. **First ₦800,000** (0%): ₦800,000 × 0% = **₦0**
 2. **Next ₦320,000** (15%): ₦320,000 × 15% = **₦48,000**
 3. **Total PIT = ₦0 + ₦48,000 = ₦48,000**
 
 **Breakdown Display:**
+
 - Bracket 1: ₦800,000 at 0% = ₦0
 - Bracket 2: ₦320,000 at 15% = ₦48,000
 - **Total PIT: ₦48,000**
@@ -136,16 +152,19 @@ PIT = Σ (Income in Bracket × Bracket Rate)
 ### Step 6: Calculate Withholding Tax
 
 **Formula:**
+
 ```
 Withholding Tax = Rental Income × 10%
 ```
 
 **Details:**
+
 - Applied to all rental income (regardless of taxable income)
 - Standard rate: 10% (NTA 2025)
 - This is a separate tax from Personal Income Tax
 
 **Example:**
+
 - Rental Income: ₦1,320,000
 - **Withholding Tax = ₦1,320,000 × 10% = ₦132,000**
 
@@ -158,11 +177,13 @@ Withholding Tax = Rental Income × 10%
 **Source:** Expense records categorized as "Property Tax"
 
 **Formula:**
+
 ```
 Property Taxes = Sum of all "Property Tax" expenses paid in the tax year
 ```
 
 **Details:**
+
 - Queries the `expenses` table for expenses with `category: 'Property Tax'`
 - Filters by:
   - `propertyId`: Selected property only
@@ -170,6 +191,7 @@ Property Taxes = Sum of all "Property Tax" expenses paid in the tax year
   - `paidDate` (or `date`): Expense date within the tax year
 
 **Example:**
+
 - Property Tax expense: ₦0 (no property tax expenses recorded)
 - **Property Taxes = ₦0**
 
@@ -180,6 +202,7 @@ Property Taxes = Sum of all "Property Tax" expenses paid in the tax year
 **Note:** Currently not used in property-specific calculations (focus on rental income only).
 
 **Formula (for reference):**
+
 ```
 Total Allowable Costs = Purchase Price + Improvements + Disposal Costs
 Chargeable Gain = Sales Proceeds - Total Allowable Costs
@@ -187,11 +210,13 @@ CGT = Chargeable Gain × Rate (if gain > 0)
 ```
 
 **Rates:**
+
 - **Individuals:** Progressive rates (15-25%) - same as PIT brackets
 - **Companies:** 30% flat rate
 - **Primary Residence:** 0% (exempt)
 
 **Example:**
+
 - Not applicable for rental income calculations
 - **CGT = ₦0**
 
@@ -202,6 +227,7 @@ CGT = Chargeable Gain × Rate (if gain > 0)
 **Note:** Currently not used in property-specific calculations (focus on rental income only).
 
 **Formula (for reference):**
+
 ```
 If value < ₦10 million: Stamp Duty = 0 (exempt)
 
@@ -214,6 +240,7 @@ Lease Agreements:
 ```
 
 **Example:**
+
 - Not applicable for rental income calculations
 - **Stamp Duty = ₦0**
 
@@ -224,6 +251,7 @@ Lease Agreements:
 **Note:** Currently not used in property-specific calculations (focus on rental income only).
 
 **Formula (for reference):**
+
 ```
 LUC = Property Market Value × Applicable Rate
 
@@ -237,6 +265,7 @@ Early Payment Discount:
 ```
 
 **Example:**
+
 - Not applicable for rental income calculations
 - **LUC = ₦0**
 
@@ -245,11 +274,13 @@ Early Payment Discount:
 ### Step 11: Calculate Total Tax Liability
 
 **Formula:**
+
 ```
 Total Tax Liability = Personal Income Tax + Capital Gains Tax + Property Taxes + Stamp Duty + Land Use Charge + Withholding Tax
 ```
 
 **Example:**
+
 - Personal Income Tax: ₦48,000
 - Capital Gains Tax: ₦0
 - Property Taxes: ₦0
@@ -263,6 +294,7 @@ Total Tax Liability = Personal Income Tax + Capital Gains Tax + Property Taxes +
 ## Complete Example Calculation
 
 ### Input Data:
+
 - **Property:** Adewole Estate
 - **Tax Year:** 2025
 - **Rental Income (from payments):** ₦1,320,000
@@ -286,6 +318,7 @@ Total Tax Liability = Personal Income Tax + Capital Gains Tax + Property Taxes +
 11. **Total Tax Liability:** ₦48,000 + ₦132,000 = **₦180,000**
 
 ### Result Summary:
+
 - **Rental Income:** ₦1,320,000
 - **Property Expenses:** ₦200,000
 - **Taxable Income:** ₦1,120,000
@@ -339,5 +372,3 @@ For a taxable income of ₦1,120,000:
 
 **Last Updated:** December 2025
 **Status:** Current implementation for property-specific tax calculations
-
-
