@@ -21,7 +21,7 @@ if [ -n "$DATABASE_URL" ]; then
     
     # Extract migration names from error output
     # Pattern: "The `20251228225021_sync_schema_drift` migration"
-    FAILED_MIGRATIONS=$(echo "$MIGRATE_OUTPUT" | grep -oE "`[0-9]+_[a-z_]+`" | tr -d '`' || true)
+    FAILED_MIGRATIONS=$(echo "$MIGRATE_OUTPUT" | grep -oE '[0-9]+_[a-z_]+' | head -1 || true)
     
     if [ -n "$FAILED_MIGRATIONS" ]; then
       for migration in $FAILED_MIGRATIONS; do
