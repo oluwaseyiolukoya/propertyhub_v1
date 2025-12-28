@@ -52,8 +52,7 @@ BEGIN
     -- Update the plan if needed
     IF NOT has_tax THEN
       UPDATE plans
-      SET features = features_array,
-          updated_at = NOW()
+      SET features = features_array
       WHERE id = plan_record.id;
       
       RAISE NOTICE 'Updated plan % (%) with tax_calculator feature', plan_record.name, plan_record.id;
