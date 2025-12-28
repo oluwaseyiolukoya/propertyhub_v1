@@ -1,13 +1,19 @@
 # Production Tax Calculator Feature Setup
 
-## Problem
-The Tax Calculator module is not visible in production because the `tax_calculator` feature hasn't been added to the user's plan.
+## ✅ Automatic Setup (Recommended)
 
-## Solution
+**The tax_calculator feature is now automatically added to plans via database migration!**
 
-### Step 1: Run the Script to Add Feature to Plans
+When you deploy to production, the migration `20251229000000_add_tax_calculator_to_plans` will automatically:
+- Add `tax_calculator` feature to Professional, Business, and Enterprise plans
+- Run as part of the standard `prisma migrate deploy` process
+- No manual intervention needed - just deploy!
 
-In your production environment, run:
+## Manual Setup (If Needed)
+
+If for some reason the migration didn't run, you can manually add the feature:
+
+### Option 1: Run the Script
 
 ```bash
 cd backend
