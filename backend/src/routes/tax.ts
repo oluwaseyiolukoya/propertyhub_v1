@@ -6,193 +6,85 @@ import prisma from '../lib/db';
 
 const router = express.Router();
 
-// Apply authentication and feature access to all routes
+// Apply authentication to all routes
 router.use(authMiddleware);
-router.use(requireFeature('tax_calculator'));
 
-/**
- * POST /api/tax/calculate
- * Calculate tax for a property
- */
-router.post('/calculate', async (req: AuthRequest, res: Response) => {
+// Diagnostic endpoint to check feature access (before feature middleware)
+router.get('/check-access', async (req: AuthRequest, res: Response) => {
   try {
     const customerId = req.user?.customerId;
-    const {
-      taxYear,
-      propertyId,
-      rentalIncome, // Use auto-fetched rental income from payment transactions
-      otherIncome,
-      annualRentPaid,
-      otherDeductions,
-      propertySalePrice,
-      propertyPurchasePrice,
-      costOfImprovements,
-      disposalCosts,
-      isPrimaryResidence,
-      propertyTaxes,
-      // Stamp Duty (NTA 2025)
-      stampDutyValue,
-      stampDutyType,
-      leaseDuration,
-      // Land Use Charge (NTA 2025)
-      lucState,
-      lucUsageType,
-      lucPaymentDate,
-    } = req.body;
-
     if (!customerId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    if (!taxYear) {
-      return res.status(400).json({
-        error: 'Tax year is required',
-        message: 'Please provide a tax year for the calculation',
-      });
-    }
-
-    const currentYear = new Date().getFullYear();
-    if (taxYear < 2020 || taxYear > currentYear + 1) {
-      return res.status(400).json({
-        error: 'Invalid tax year',
-        message: `Tax year must be between 2020 and ${currentYear + 1}`,
-      });
-    }
-
-    // If propertyId is provided, verify it belongs to the customer
-    if (propertyId) {
-      const property = await prisma.properties.findFirst({
-        where: {
-          id: propertyId,
-          customerId,
+    const customer = await prisma.customers.findUnique({
+      where: { id: customerId },
+      include: {
+        plans: {
+          select: {
+            id: true,
+            name: true,
+            features: true,
+          },
         },
-      });
+      },
+    });
 
-      if (!property) {
-        return res.status(404).json({
-          error: 'Property not found',
-          message: 'The specified property does not exist or does not belong to you',
-        });
+    if (!customer) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    // Parse features
+    let features: string[] = [];
+    if (Array.isArray(customer.plans?.features)) {
+      features = customer.plans.features;
+    } else if (typeof customer.plans?.features === 'object' && customer.plans?.features !== null) {
+      const featuresObj = customer.plans.features as any;
+      if (Array.isArray(featuresObj.features)) {
+        features = featuresObj.features;
+      } else if (Array.isArray(featuresObj.list)) {
+        features = featuresObj.list;
+      } else {
+        features = Object.keys(featuresObj).filter(
+          (key) => featuresObj[key] === true || featuresObj[key] === 'enabled'
+        );
+      }
+    } else if (typeof customer.plans?.features === 'string') {
+      try {
+        const parsed = JSON.parse(customer.plans.features);
+        if (Array.isArray(parsed)) {
+          features = parsed;
+        }
+      } catch {
+        features = [customer.plans.features];
       }
     }
 
-    // Prepare calculation input
-    const input: TaxCalculationInput = {
-      customerId,
-      propertyId,
-      taxYear: parseInt(taxYear),
-      rentalIncome: rentalIncome ? parseFloat(rentalIncome) : undefined, // Use auto-fetched rental income
-      otherIncome: otherIncome ? parseFloat(otherIncome) : undefined,
-      annualRentPaid: annualRentPaid ? parseFloat(annualRentPaid) : undefined,
-      otherDeductions: otherDeductions ? parseFloat(otherDeductions) : undefined,
-      propertySalePrice: propertySalePrice ? parseFloat(propertySalePrice) : undefined,
-      propertyPurchasePrice: propertyPurchasePrice
-        ? parseFloat(propertyPurchasePrice)
-        : undefined,
-      costOfImprovements: costOfImprovements ? parseFloat(costOfImprovements) : undefined,
-      disposalCosts: disposalCosts ? parseFloat(disposalCosts) : undefined,
-      isPrimaryResidence: isPrimaryResidence === true || isPrimaryResidence === 'true',
-      propertyTaxes: propertyTaxes ? parseFloat(propertyTaxes) : undefined,
-      // Stamp Duty (NTA 2025)
-      stampDutyValue: stampDutyValue ? parseFloat(stampDutyValue) : undefined,
-      stampDutyType: stampDutyType as 'lease' | 'sale' | undefined,
-      leaseDuration: leaseDuration ? parseInt(leaseDuration) : undefined,
-      // Land Use Charge (NTA 2025)
-      lucState: lucState as string | undefined,
-      lucUsageType: lucUsageType as 'owner_occupied' | 'rented_residential' | 'commercial' | undefined,
-      lucPaymentDate: lucPaymentDate ? new Date(lucPaymentDate) : undefined,
-    };
-
-    // Calculate tax
-    const result = await calculateAnnualTax(input);
-
-    // Calculate capital gain if sale/purchase prices provided
-    let capitalGain: number | null = null;
-    if (input.propertySalePrice && input.propertyPurchasePrice) {
-      const totalCost =
-        (input.propertyPurchasePrice || 0) +
-        (input.costOfImprovements || 0) +
-        (input.disposalCosts || 0);
-      capitalGain = input.propertySalePrice - totalCost;
-    }
-
-    // Save calculation to database (update if exists, create if not)
-    // Note: taxBreakdown is stored in notes as JSON string (prefixed with "BREAKDOWN:") since schema doesn't have a dedicated field
-    // This allows us to distinguish between breakdown data and user-entered notes
-    const breakdownJson = JSON.stringify(result.breakdown);
-
-    // Check if calculation already exists (using unique constraint fields)
-    const existingCalculation = await prisma.tax_calculations.findFirst({
-      where: {
-        customerId,
-        taxYear: input.taxYear,
-        calculationType: 'annual',
-        propertyId: propertyId || null,
-      },
+    // Normalize feature name for comparison (handle "Tax Calculator", "tax_calculator", etc.)
+    const normalizedFeatureName = 'tax_calculator'.toLowerCase().replace(/[_\s]/g, '');
+    const hasTaxCalculator = features.some((f) => {
+      const normalizedF = f.toLowerCase().replace(/[_\s]/g, '');
+      return (
+        normalizedF === normalizedFeatureName ||
+        normalizedF.includes(normalizedFeatureName) ||
+        normalizedFeatureName.includes(normalizedF)
+      );
     });
 
-    const calculationData = {
-        totalRentalIncome: result.totalRentalIncome,
-        otherIncome: result.otherIncome,
-        totalIncome: result.totalIncome,
-        rentRelief: result.rentRelief,
-        otherDeductions: result.otherDeductions,
-        totalDeductions: result.totalDeductions,
-        taxableIncome: result.taxableIncome,
-        personalIncomeTax: result.personalIncomeTax,
-        capitalGainsTax: result.capitalGainsTax || 0,
-        propertyTaxes: result.propertyTaxes,
-        withholdingTax: result.withholdingTax,
-        totalTaxLiability: result.totalTaxLiability,
-        notes: `BREAKDOWN:${breakdownJson}`, // Prefix with "BREAKDOWN:" to identify it
-        // Store CGT details if applicable
-        propertySalePrice: input.propertySalePrice || null,
-        propertyPurchasePrice: input.propertyPurchasePrice || null,
-        capitalGain: capitalGain && capitalGain > 0 ? capitalGain : null,
-    };
-
-    const now = new Date();
-    let calculation;
-    if (existingCalculation) {
-      // Update existing calculation (preserve isFinalized status if already finalized)
-      // Update calculationDate to show when it was last generated
-      calculation = await prisma.tax_calculations.update({
-        where: { id: existingCalculation.id },
-        data: {
-          ...calculationData,
-          calculationDate: now, // Update date to show when report was last generated
-          // Don't update isFinalized if it's already finalized
-          isFinalized: existingCalculation.isFinalized,
-        },
-      });
-    } else {
-      // Create new calculation
-      calculation = await prisma.tax_calculations.create({
-        data: {
-          propertyId: propertyId || null,
-          customerId,
-          taxYear: input.taxYear,
-          calculationType: 'annual',
-          calculationDate: now, // Explicitly set generation date
-          ...calculationData,
-          isFinalized: false,
-        },
-      });
-    }
-
-    res.json({
-      success: true,
-      calculation: {
-        id: calculation.id,
-        ...result,
-      },
+    return res.json({
+      customerId,
+      plan: customer.plans ? {
+        id: customer.plans.id,
+        name: customer.plans.name,
+        features: customer.plans.features,
+        parsedFeatures: features,
+      } : null,
+      hasTaxCalculator,
+      requiredFeature: 'tax_calculator',
     });
   } catch (error: any) {
-    console.error('[Tax Calculate] Error:', error);
-    res.status(500).json({
-      error: 'Calculation failed',
-      details: error.message,
-    });
+    console.error('[Tax Check Access] Error:', error);
+    return res.status(500).json({ error: 'Failed to check access', details: error.message });
   }
 });
 
@@ -200,6 +92,8 @@ router.post('/calculate', async (req: AuthRequest, res: Response) => {
  * GET /api/tax/auto-fetch
  * Auto-fetch tax calculation data from financial reports
  * Fetches revenue and expenses using the same logic as financial reports
+ * NOTE: This endpoint is before the feature middleware to allow data fetching
+ * even if the user's plan doesn't have the feature (for diagnostic purposes)
  */
 router.get('/auto-fetch', async (req: AuthRequest, res: Response) => {
   try {
@@ -517,6 +411,195 @@ router.get('/auto-fetch', async (req: AuthRequest, res: Response) => {
     console.error('[Tax Auto-Fetch] Error:', error);
     res.status(500).json({
       error: 'Failed to auto-fetch tax data from financial reports',
+      details: error.message,
+    });
+  }
+});
+
+// Apply feature access to all other routes
+router.use(requireFeature('tax_calculator'));
+
+/**
+ * POST /api/tax/calculate
+ * Calculate tax for a property
+ */
+router.post('/calculate', async (req: AuthRequest, res: Response) => {
+  try {
+    const customerId = req.user?.customerId;
+    const {
+      taxYear,
+      propertyId,
+      rentalIncome, // Use auto-fetched rental income from payment transactions
+      otherIncome,
+      annualRentPaid,
+      otherDeductions,
+      propertySalePrice,
+      propertyPurchasePrice,
+      costOfImprovements,
+      disposalCosts,
+      isPrimaryResidence,
+      propertyTaxes,
+      // Stamp Duty (NTA 2025)
+      stampDutyValue,
+      stampDutyType,
+      leaseDuration,
+      // Land Use Charge (NTA 2025)
+      lucState,
+      lucUsageType,
+      lucPaymentDate,
+    } = req.body;
+
+    if (!customerId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (!taxYear) {
+      return res.status(400).json({
+        error: 'Tax year is required',
+        message: 'Please provide a tax year for the calculation',
+      });
+    }
+
+    const currentYear = new Date().getFullYear();
+    if (taxYear < 2020 || taxYear > currentYear + 1) {
+      return res.status(400).json({
+        error: 'Invalid tax year',
+        message: `Tax year must be between 2020 and ${currentYear + 1}`,
+      });
+    }
+
+    // If propertyId is provided, verify it belongs to the customer
+    if (propertyId) {
+      const property = await prisma.properties.findFirst({
+        where: {
+          id: propertyId,
+          customerId,
+        },
+      });
+
+      if (!property) {
+        return res.status(404).json({
+          error: 'Property not found',
+          message: 'The specified property does not exist or does not belong to you',
+        });
+      }
+    }
+
+    // Prepare calculation input
+    const input: TaxCalculationInput = {
+      customerId,
+      propertyId,
+      taxYear: parseInt(taxYear),
+      rentalIncome: rentalIncome ? parseFloat(rentalIncome) : undefined, // Use auto-fetched rental income
+      otherIncome: otherIncome ? parseFloat(otherIncome) : undefined,
+      annualRentPaid: annualRentPaid ? parseFloat(annualRentPaid) : undefined,
+      otherDeductions: otherDeductions ? parseFloat(otherDeductions) : undefined,
+      propertySalePrice: propertySalePrice ? parseFloat(propertySalePrice) : undefined,
+      propertyPurchasePrice: propertyPurchasePrice
+        ? parseFloat(propertyPurchasePrice)
+        : undefined,
+      costOfImprovements: costOfImprovements ? parseFloat(costOfImprovements) : undefined,
+      disposalCosts: disposalCosts ? parseFloat(disposalCosts) : undefined,
+      isPrimaryResidence: isPrimaryResidence === true || isPrimaryResidence === 'true',
+      propertyTaxes: propertyTaxes ? parseFloat(propertyTaxes) : undefined,
+      // Stamp Duty (NTA 2025)
+      stampDutyValue: stampDutyValue ? parseFloat(stampDutyValue) : undefined,
+      stampDutyType: stampDutyType as 'lease' | 'sale' | undefined,
+      leaseDuration: leaseDuration ? parseInt(leaseDuration) : undefined,
+      // Land Use Charge (NTA 2025)
+      lucState: lucState as string | undefined,
+      lucUsageType: lucUsageType as 'owner_occupied' | 'rented_residential' | 'commercial' | undefined,
+      lucPaymentDate: lucPaymentDate ? new Date(lucPaymentDate) : undefined,
+    };
+
+    // Calculate tax
+    const result = await calculateAnnualTax(input);
+
+    // Calculate capital gain if sale/purchase prices provided
+    let capitalGain: number | null = null;
+    if (input.propertySalePrice && input.propertyPurchasePrice) {
+      const totalCost =
+        (input.propertyPurchasePrice || 0) +
+        (input.costOfImprovements || 0) +
+        (input.disposalCosts || 0);
+      capitalGain = input.propertySalePrice - totalCost;
+    }
+
+    // Save calculation to database (update if exists, create if not)
+    // Note: taxBreakdown is stored in notes as JSON string (prefixed with "BREAKDOWN:") since schema doesn't have a dedicated field
+    // This allows us to distinguish between breakdown data and user-entered notes
+    const breakdownJson = JSON.stringify(result.breakdown);
+
+    // Check if calculation already exists (using unique constraint fields)
+    const existingCalculation = await prisma.tax_calculations.findFirst({
+      where: {
+        customerId,
+        taxYear: input.taxYear,
+        calculationType: 'annual',
+        propertyId: propertyId || null,
+      },
+    });
+
+    const calculationData = {
+        totalRentalIncome: result.totalRentalIncome,
+        otherIncome: result.otherIncome,
+        totalIncome: result.totalIncome,
+        rentRelief: result.rentRelief,
+        otherDeductions: result.otherDeductions,
+        totalDeductions: result.totalDeductions,
+        taxableIncome: result.taxableIncome,
+        personalIncomeTax: result.personalIncomeTax,
+        capitalGainsTax: result.capitalGainsTax || 0,
+        propertyTaxes: result.propertyTaxes,
+        withholdingTax: result.withholdingTax,
+        totalTaxLiability: result.totalTaxLiability,
+        notes: `BREAKDOWN:${breakdownJson}`, // Prefix with "BREAKDOWN:" to identify it
+        // Store CGT details if applicable
+        propertySalePrice: input.propertySalePrice || null,
+        propertyPurchasePrice: input.propertyPurchasePrice || null,
+        capitalGain: capitalGain && capitalGain > 0 ? capitalGain : null,
+    };
+
+    const now = new Date();
+    let calculation;
+    if (existingCalculation) {
+      // Update existing calculation (preserve isFinalized status if already finalized)
+      // Update calculationDate to show when it was last generated
+      calculation = await prisma.tax_calculations.update({
+        where: { id: existingCalculation.id },
+        data: {
+          ...calculationData,
+          calculationDate: now, // Update date to show when report was last generated
+          // Don't update isFinalized if it's already finalized
+          isFinalized: existingCalculation.isFinalized,
+        },
+      });
+    } else {
+      // Create new calculation
+      calculation = await prisma.tax_calculations.create({
+        data: {
+          propertyId: propertyId || null,
+          customerId,
+          taxYear: input.taxYear,
+          calculationType: 'annual',
+          calculationDate: now, // Explicitly set generation date
+          ...calculationData,
+          isFinalized: false,
+        },
+      });
+    }
+
+    res.json({
+      success: true,
+      calculation: {
+        id: calculation.id,
+        ...result,
+      },
+    });
+  } catch (error: any) {
+    console.error('[Tax Calculate] Error:', error);
+    res.status(500).json({
+      error: 'Calculation failed',
       details: error.message,
     });
   }

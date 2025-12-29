@@ -36,7 +36,7 @@ if [ -n "$DATABASE_URL" ]; then
       echo "[start] Attempting to resolve known failed migrations..."
       npx prisma migrate resolve --rolled-back "20251228225021_sync_schema_drift" 2>/dev/null || \
       npx prisma migrate resolve --applied "20251228225021_sync_schema_drift" 2>/dev/null || true
-      
+
       # Also handle the tax calculator migration if it failed
       npx prisma migrate resolve --rolled-back "20251229000000_add_tax_calculator_to_plans" 2>/dev/null || \
       npx prisma migrate resolve --applied "20251229000000_add_tax_calculator_to_plans" 2>/dev/null || true

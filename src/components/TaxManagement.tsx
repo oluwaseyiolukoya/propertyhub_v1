@@ -63,6 +63,7 @@ import {
   finalizeTaxCalculation,
   deleteTaxCalculation,
   autoFetchTaxData,
+  checkTaxAccess,
   type TaxCalculationInput,
   type TaxCalculationResult,
   type TaxSettings,
@@ -136,6 +137,27 @@ export const TaxManagement: React.FC<TaxManagementProps> = ({
     if (!propsFromParent || propsFromParent.length === 0) {
       loadProperties();
     }
+  }, []);
+
+  // Diagnostic check for feature access
+  useEffect(() => {
+    const checkAccess = async () => {
+      try {
+        const response = await checkTaxAccess();
+        if (response.data) {
+          console.log('[Tax Calculator] Feature Access Check:', response.data);
+          if (!response.data.hasTaxCalculator) {
+            console.warn('[Tax Calculator] Feature not available:', {
+              plan: response.data.plan?.name,
+              features: response.data.plan?.parsedFeatures,
+            });
+          }
+        }
+      } catch (error: any) {
+        console.error('[Tax Calculator] Failed to check access:', error);
+      }
+    };
+    checkAccess();
   }, []);
 
   // Load tax settings
@@ -275,9 +297,12 @@ export const TaxManagement: React.FC<TaxManagementProps> = ({
     } catch (error: any) {
       console.error("Failed to load tax settings:", error);
       if (error.response?.status === 403) {
-        toast.error(
-          "Tax Calculator is not available in your current plan. Please upgrade to Professional or Business plan."
-        );
+        const errorData = error.response?.data;
+        console.error("[Tax Calculator] 403 Error Details:", errorData);
+        const planName = errorData?.currentPlan || "your current plan";
+        const message = errorData?.message || 
+          `Tax Calculator is not available in ${planName}. Please upgrade to Professional, Business, or Enterprise plan.`;
+        toast.error(message);
       }
     } finally {
       setSettingsLoading(false);
@@ -293,6 +318,11 @@ export const TaxManagement: React.FC<TaxManagementProps> = ({
       }
     } catch (error: any) {
       console.error("Failed to load tax history:", error);
+      // Don't show error toast for history - it's less critical than settings
+      // The 403 will be logged in console for debugging
+      if (error.response?.status === 403) {
+        console.warn("[Tax Calculator] History access denied:", error.response?.data);
+      }
     } finally {
       setLoading(false);
     }

@@ -85,19 +85,42 @@ export function requireFeature(featureName: string) {
       }
 
       // Check if feature is included
-      const hasFeature = features.some(
-        (f) =>
-          f.toLowerCase() === featureName.toLowerCase() ||
-          f.toLowerCase().includes(featureName.toLowerCase())
-      );
+      // Normalize both feature name and available features for comparison
+      // Handle variations: "Tax Calculator", "tax_calculator", "tax calculator"
+      const normalizedFeatureName = featureName.toLowerCase().replace(/[_\s]/g, '');
+      const hasFeature = features.some((f) => {
+        const normalizedF = f.toLowerCase().replace(/[_\s]/g, '');
+        return (
+          normalizedF === normalizedFeatureName ||
+          normalizedF.includes(normalizedFeatureName) ||
+          normalizedFeatureName.includes(normalizedF)
+        );
+      });
+
+      // Debug logging
+      console.log('[Feature Access] Checking feature access:', {
+        customerId: customer.id,
+        planName: customer.plans.name,
+        planId: customer.plans.id,
+        requiredFeature: featureName,
+        availableFeatures: features,
+        hasFeature,
+      });
 
       if (!hasFeature) {
+        console.warn('[Feature Access] Feature not available:', {
+          customerId: customer.id,
+          planName: customer.plans.name,
+          requiredFeature: featureName,
+          availableFeatures: features,
+        });
         return res.status(403).json({
           error: 'Feature not available',
           message: `This feature is not included in your current plan (${customer.plans.name}). Please upgrade to a plan that includes ${featureName}.`,
           code: 'FEATURE_NOT_AVAILABLE',
           requiredFeature: featureName,
           currentPlan: customer.plans.name,
+          availableFeatures: features, // Include for debugging
         });
       }
 
@@ -150,11 +173,17 @@ export async function hasFeature(
       }
     }
 
-    return features.some(
-      (f) =>
-        f.toLowerCase() === featureName.toLowerCase() ||
-        f.toLowerCase().includes(featureName.toLowerCase())
-    );
+    // Normalize both feature name and available features for comparison
+    // Handle variations: "Tax Calculator", "tax_calculator", "tax calculator"
+    const normalizedFeatureName = featureName.toLowerCase().replace(/[_\s]/g, '');
+    return features.some((f) => {
+      const normalizedF = f.toLowerCase().replace(/[_\s]/g, '');
+      return (
+        normalizedF === normalizedFeatureName ||
+        normalizedF.includes(normalizedFeatureName) ||
+        normalizedFeatureName.includes(normalizedF)
+      );
+    });
   } catch (error) {
     console.error('[hasFeature] Error:', error);
     return false;

@@ -231,3 +231,20 @@ export const autoFetchTaxData = async (params: {
   );
 };
 
+/**
+ * Check tax calculator feature access (diagnostic endpoint)
+ */
+export const checkTaxAccess = async (): Promise<ApiResponse<{
+  customerId: string;
+  plan: {
+    id: string;
+    name: string;
+    features: any;
+    parsedFeatures: string[];
+  } | null;
+  hasTaxCalculator: boolean;
+  requiredFeature: string;
+}>> => {
+  return apiClient.get('/api/tax/check-access');
+};
+

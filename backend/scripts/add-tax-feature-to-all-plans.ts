@@ -1,7 +1,7 @@
 /**
  * Script to add tax_calculator feature to all appropriate plans
  * Run this in production to ensure all plans that should have tax calculator get it
- * 
+ *
  * Usage:
  *   cd backend
  *   npx tsx scripts/add-tax-feature-to-all-plans.ts
