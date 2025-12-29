@@ -134,32 +134,47 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       trialDurationDays
     } = req.body;
 
+    console.log('[Plans] Updating plan:', id, 'with data:', {
+      monthlyPrice,
+      annualPrice,
+      name,
+      category
+    });
+
     // Validate category if provided
     if (category && category !== 'property_management' && category !== 'development') {
       return res.status(400).json({ error: 'Invalid plan category. Must be property_management or development' });
     }
 
+    // Build update data object, only including fields that are provided (not undefined)
+    const updateData: any = {
+      updatedAt: new Date()
+    };
+
+    if (name !== undefined) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (category !== undefined) updateData.category = category;
+    if (monthlyPrice !== undefined) updateData.monthlyPrice = parseFloat(monthlyPrice);
+    if (annualPrice !== undefined) updateData.annualPrice = parseFloat(annualPrice);
+    if (currency !== undefined) updateData.currency = currency;
+    if (propertyLimit !== undefined) updateData.propertyLimit = propertyLimit ? parseInt(String(propertyLimit)) : null;
+    if (projectLimit !== undefined) updateData.projectLimit = projectLimit ? parseInt(String(projectLimit)) : null;
+    if (unitLimit !== undefined) updateData.unitLimit = unitLimit ? parseInt(String(unitLimit)) : null;
+    if (userLimit !== undefined) updateData.userLimit = parseInt(String(userLimit));
+    if (storageLimit !== undefined) updateData.storageLimit = parseInt(String(storageLimit));
+    if (features !== undefined) updateData.features = features;
+    if (isActive !== undefined) updateData.isActive = isActive;
+    if (isPopular !== undefined) updateData.isPopular = isPopular;
+    if (trialDurationDays !== undefined) updateData.trialDurationDays = trialDurationDays ? parseInt(String(trialDurationDays)) : null;
+
+    console.log('[Plans] Update data prepared:', updateData);
+
     const plan = await prisma.plans.update({
       where: { id },
-      data: {
-        name,
-        description,
-        category,
-        monthlyPrice,
-        annualPrice,
-        currency,
-        propertyLimit: propertyLimit !== undefined ? (propertyLimit ? parseInt(propertyLimit) : null) : undefined,
-        projectLimit: projectLimit !== undefined ? (projectLimit ? parseInt(projectLimit) : null) : undefined,
-        unitLimit: unitLimit !== undefined ? (unitLimit ? parseInt(unitLimit) : null) : undefined,
-        userLimit,
-        storageLimit,
-        features,
-        isActive,
-        isPopular,
-        trialDurationDays: trialDurationDays !== undefined ? trialDurationDays : undefined,
-        updatedAt: new Date()
-      }
+      data: updateData
     });
+
+    console.log('[Plans] Plan updated successfully:', plan.id, 'New price:', plan.monthlyPrice);
 
     // Emit real-time event to all admins
     try {
@@ -203,7 +218,16 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
       return res.json({ plan, mrrRecalculated: 0, warning: 'Failed to recalculate some customer MRR values' });
     }
   } catch (error: any) {
-    return res.status(500).json({ error: 'Failed to update plan' });
+    console.error('[Plans] Failed to update plan:', error);
+    console.error('[Plans] Error details:', {
+      message: error.message,
+      code: error.code,
+      meta: error.meta
+    });
+    return res.status(500).json({
+      error: 'Failed to update plan',
+      details: error.message
+    });
   }
 });
 

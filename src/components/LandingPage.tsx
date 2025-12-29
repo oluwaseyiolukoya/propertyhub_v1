@@ -74,6 +74,7 @@ export function LandingPage({
     hero?: {
       badge: string;
       headline: string;
+      highlightText?: string;
       subheadline: string;
       primaryCTA: string;
       secondaryCTA: string;
@@ -237,9 +238,57 @@ export function LandingPage({
     dbPlan: any,
     userType: UserType
   ): PricingPlan => {
-    const features = Array.isArray(dbPlan.features)
-      ? dbPlan.features.map((text: string) => ({ text, included: true }))
-      : [];
+    // Handle features in different formats from database
+    let features: Array<{ text: string; included: boolean }> = [];
+
+    if (Array.isArray(dbPlan.features)) {
+      // Features is already an array
+      features = dbPlan.features
+        .filter((f: any) => f !== null && f !== undefined && f !== "")
+        .map((text: string) => ({
+          text: String(text).trim(),
+          included: true
+        }));
+    } else if (typeof dbPlan.features === "string") {
+      // Features is a JSON string or newline-separated string
+      try {
+        const parsed = JSON.parse(dbPlan.features);
+        if (Array.isArray(parsed)) {
+          features = parsed
+            .filter((f: any) => f !== null && f !== undefined && f !== "")
+            .map((text: string) => ({
+              text: String(text).trim(),
+              included: true
+            }));
+        } else {
+          // If parsed is not an array, treat the original string as newline-separated
+          features = dbPlan.features
+            .split("\n")
+            .filter((f: string) => f.trim() !== "")
+            .map((text: string) => ({
+              text: text.trim(),
+              included: true
+            }));
+        }
+      } catch {
+        // If JSON parse fails, treat as newline-separated string
+        features = dbPlan.features
+          .split("\n")
+          .filter((f: string) => f.trim() !== "")
+          .map((text: string) => ({
+            text: text.trim(),
+            included: true
+          }));
+      }
+    } else if (dbPlan.features && typeof dbPlan.features === "object") {
+      // Features is an object, convert to array
+      features = Object.values(dbPlan.features)
+        .filter((f: any) => f !== null && f !== undefined && f !== "")
+        .map((text: string) => ({
+          text: String(text).trim(),
+          included: true
+        }));
+    }
 
     const storageGB =
       typeof dbPlan.storageLimit === "number"
@@ -473,7 +522,13 @@ export function LandingPage({
               <h1 className="text-4xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight">
                 {dynamicContent?.hero?.headline ||
                   "Stop Chasing Rent. Start Growing Your Portfolio."}
-                {!dynamicContent?.hero?.headline && (
+                {dynamicContent?.hero?.highlightText && (
+                  <span className="bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
+                    {" "}
+                    {dynamicContent.hero.highlightText}
+                  </span>
+                )}
+                {!dynamicContent?.hero?.headline && !dynamicContent?.hero?.highlightText && (
                   <span className="bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
                     {" "}
                     All in One Platform.
@@ -818,7 +873,7 @@ export function LandingPage({
 
                       <CardContent className="flex-1">
                         <ul className="space-y-3">
-                          {plan.features.slice(0, 6).map((feature, index) => (
+                          {plan.features.map((feature, index) => (
                             <li key={index} className="flex items-start gap-3">
                               {feature.included ? (
                                 <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
@@ -969,7 +1024,7 @@ export function LandingPage({
 
                       <CardContent className="flex-1">
                         <ul className="space-y-3">
-                          {plan.features.slice(0, 6).map((feature, index) => (
+                          {plan.features.map((feature, index) => (
                             <li key={index} className="flex items-start gap-3">
                               {feature.included ? (
                                 <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />

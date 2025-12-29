@@ -988,8 +988,29 @@ export function BillingPlansAdmin() {
   };
 
   const handleEditPlan = (plan: any) => {
-    setSelectedPlan(plan);
-    setPlanCategory(plan.category || "property_management");
+    // Normalize features to ensure it's always an array
+    const normalizedPlan = {
+      ...plan,
+      features: Array.isArray(plan.features)
+        ? plan.features
+        : typeof plan.features === "string"
+        ? (() => {
+            try {
+              const parsed = JSON.parse(plan.features);
+              return Array.isArray(parsed) ? parsed : [plan.features];
+            } catch {
+              // If it's a plain string, split by newlines or return as single item
+              return plan.features.includes("\n")
+                ? plan.features.split("\n").filter((f: string) => f.trim())
+                : [plan.features];
+            }
+          })()
+        : plan.features && typeof plan.features === "object"
+        ? Object.values(plan.features)
+        : []
+    };
+    setSelectedPlan(normalizedPlan);
+    setPlanCategory(normalizedPlan.category || "property_management");
     setIsCreatePlanOpen(true);
   };
 
@@ -1334,10 +1355,29 @@ export function BillingPlansAdmin() {
           id="features"
           name="features"
           placeholder="Property Management&#10;Tenant Management&#10;Payment Processing"
-          defaultValue={selectedPlan?.features?.join("\n") || ""}
-          rows={5}
+          defaultValue={
+            selectedPlan?.features
+              ? Array.isArray(selectedPlan.features)
+                ? selectedPlan.features.join("\n")
+                : typeof selectedPlan.features === "string"
+                ? selectedPlan.features
+                : JSON.stringify(selectedPlan.features, null, 2)
+              : ""
+          }
+          rows={
+            selectedPlan?.features && Array.isArray(selectedPlan.features)
+              ? Math.min(Math.max(selectedPlan.features.length + 2, 8), 20)
+              : 8
+          }
+          className="resize-y min-h-[120px]"
+          style={{ overflowY: "auto" }}
           required
         />
+        <p className="text-xs text-gray-500 mt-1">
+          {selectedPlan?.features && Array.isArray(selectedPlan.features)
+            ? `${selectedPlan.features.length} feature${selectedPlan.features.length !== 1 ? "s" : ""}`
+            : "Enter one feature per line"}
+        </p>
       </div>
 
       <div className="flex items-center space-x-4">
@@ -3275,8 +3315,8 @@ export function BillingPlansAdmin() {
 
       {/* Create/Edit Plan Dialog */}
       <Dialog open={isCreatePlanOpen} onOpenChange={setIsCreatePlanOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 flex-shrink-0 border-b">
             <DialogTitle>
               {selectedPlan ? "Edit Plan" : "Create New Plan"}
             </DialogTitle>
@@ -3286,8 +3326,10 @@ export function BillingPlansAdmin() {
                 : "Set up a new subscription plan for your customers."}
             </DialogDescription>
           </DialogHeader>
-          <PlanForm />
-          <div className="flex justify-end space-x-2 pt-4">
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            <PlanForm />
+          </div>
+          <div className="flex justify-end space-x-2 pt-4 pb-6 px-6 flex-shrink-0 border-t bg-gray-50">
             <Button
               type="button"
               variant="outline"

@@ -23,6 +23,7 @@ interface LandingPageContent {
   hero: {
     badge: string;
     headline: string;
+    highlightText?: string;
     subheadline: string;
     primaryCTA: string;
     secondaryCTA: string;
@@ -59,6 +60,7 @@ export function HomePageEditor() {
     hero: {
       badge: "For Property Managers & Developers",
       headline: "Stop Chasing Rent. Start Growing Your Portfolio.",
+      highlightText: "All in One Platform.",
       subheadline:
         "The only property management platform built for Nigeria. Automate rent collection, track construction budgets, manage tenants, and scale your business—without the stress.",
       primaryCTA: "Start Free Trial",
@@ -343,7 +345,7 @@ export function HomePageEditor() {
 
   const updateHero = (
     field: keyof LandingPageContent["hero"],
-    value: string
+    value: string | undefined
   ) => {
     setContent((prev) => ({
       ...prev,
@@ -545,6 +547,20 @@ export function HomePageEditor() {
                   disabled={!canEditContent()}
                   readOnly={!canEditContent()}
                 />
+              </div>
+              <div>
+                <Label htmlFor="hero-highlight-text">Highlight Text (e.g., "All in One Platform.")</Label>
+                <Input
+                  id="hero-highlight-text"
+                  value={content.hero.highlightText || ""}
+                  onChange={(e) => updateHero("highlightText", e.target.value)}
+                  placeholder="All in One Platform."
+                  disabled={!canEditContent()}
+                  readOnly={!canEditContent()}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  This text appears after the headline with gradient styling
+                </p>
               </div>
               <div>
                 <Label htmlFor="hero-subheadline">Subheadline</Label>
