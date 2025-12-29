@@ -12,6 +12,10 @@ export class QueueService {
    * @param priority - Job priority (1-10, higher = more important)
    */
   async addVerificationJob(documentId: string, priority: number = 5): Promise<string> {
+    if (!verificationQueue) {
+      throw new Error('Redis queue is not available. Verification will be processed immediately.');
+    }
+    
     try {
       const job = await verificationQueue.add(
         'verify-document',

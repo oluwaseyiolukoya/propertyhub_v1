@@ -494,9 +494,14 @@ export const KYCVerificationPage: React.FC<KYCVerificationPageProps> = ({
 
       // Reload status to check verification result
       await loadKYCStatus();
+      
+      // Always reset submitting state after successful upload
+      setSubmitting(false);
     } catch (error: any) {
       console.error("[KYC] Submit error:", error);
       toast.error(error.message || "Failed to submit documents");
+    } finally {
+      // Always reset submitting state, even if there's an error
       setSubmitting(false);
     }
   };
