@@ -317,13 +317,48 @@ export const KYCVerificationPage: React.FC<KYCVerificationPageProps> = ({
         }
       }
 
-      // If in progress, load existing request
+      // If in progress, load existing request and documents
       // BUT: If rejected, don't reuse the old request (user needs to create new one)
       if (
         data.verificationDetails?.requestId &&
         data.kycStatus !== "rejected"
       ) {
         setRequestId(data.verificationDetails.requestId);
+        
+        // Load existing uploaded documents from verificationDetails
+        if (data.verificationDetails.documents && data.verificationDetails.documents.length > 0) {
+          const uploadedDocs = data.verificationDetails.documents.map((doc: any, index: number) => ({
+            id: doc.id || `doc-${index}`,
+            type: doc.documentType,
+            typeName: getDocumentLabel(doc.documentType),
+            file: null, // File object not available from API
+            documentNumber: "", // Document number is encrypted, not returned
+            uploaded: true, // Mark as uploaded
+            uploading: false,
+            status: doc.status,
+            fileName: doc.fileName,
+          }));
+          
+          // If we have uploaded documents, update the documents state
+          // Keep at least 2 slots, but show uploaded ones
+          if (uploadedDocs.length >= 2) {
+            setDocuments(uploadedDocs);
+          } else {
+            // Mix uploaded docs with empty slots
+            const emptySlots = Array.from({ length: 2 - uploadedDocs.length }, (_, i) => ({
+              id: `empty-${i}`,
+              type: "",
+              typeName: "",
+              file: null,
+              documentNumber: "",
+              uploaded: false,
+              uploading: false,
+            }));
+            setDocuments([...uploadedDocs, ...emptySlots]);
+          }
+          
+          console.log("[KYC] Loaded existing documents:", uploadedDocs);
+        }
       } else if (data.kycStatus === "rejected") {
         // Clear old request ID so user can create a new request
         setRequestId(null);

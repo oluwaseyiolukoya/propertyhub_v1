@@ -442,14 +442,34 @@ router.post(
           parsedMetadata
         );
 
-        // Update user's kycStatus to in_progress if they were in pending_documents
+        // Update user's kycStatus to in_progress and set kycVerificationId
         if (user.role === "tenant") {
           const currentUser = await prisma.users.findUnique({
             where: { id: user.id },
-            select: { kycStatus: true },
+            select: { kycStatus: true, kycVerificationId: true },
           });
 
-          if (currentUser?.kycStatus === "pending_documents") {
+          // Update status to in_progress if it's pending or pending_documents
+          // Also ensure kycVerificationId is set
+          if (
+            !currentUser?.kycVerificationId ||
+            currentUser.kycVerificationId !== requestId
+          ) {
+            await prisma.users.update({
+              where: { id: user.id },
+              data: {
+                kycStatus: "in_progress",
+                kycVerificationId: requestId,
+                kycLastAttemptAt: new Date(),
+              },
+            });
+            console.log(
+              `[KYC Upload] Updated user ${user.id}: set kycVerificationId=${requestId}, status=in_progress`
+            );
+          } else if (
+            currentUser?.kycStatus === "pending" ||
+            currentUser?.kycStatus === "pending_documents"
+          ) {
             await prisma.users.update({
               where: { id: user.id },
               data: {
@@ -458,7 +478,7 @@ router.post(
               },
             });
             console.log(
-              `[KYC Upload] Updated user ${user.id} status from pending_documents to in_progress`
+              `[KYC Upload] Updated user ${user.id} status from ${currentUser.kycStatus} to in_progress`
             );
           }
         }
@@ -504,8 +524,11 @@ router.get(
     const isTenant = user.role === "tenant";
 
     // Get KYC status from user or customer
+    let userData, customerData;
+    let kycVerificationId: string | null = null;
+
     if (isTenant) {
-      const userData = await prisma.users.findUnique({
+      userData = await prisma.users.findUnique({
         where: { id: user.id },
         select: {
           kycStatus: true,
@@ -515,34 +538,81 @@ router.get(
           requiresKyc: true,
         },
       });
+      kycVerificationId = userData?.kycVerificationId || null;
+    } else {
+      customerData = await prisma.customers.findUnique({
+        where: { id: customerId },
+        select: {
+          kycStatus: true,
+          kycVerificationId: true,
+          kycCompletedAt: true,
+          kycFailureReason: true,
+          requiresKyc: true,
+        },
+      });
+      kycVerificationId = customerData?.kycVerificationId || null;
+    }
 
+    const kycStatus = userData?.kycStatus || customerData?.kycStatus || "pending";
+
+    // Get verification request details if it exists
+    let verificationDetails = null;
+    if (kycVerificationId) {
+      try {
+        const verificationRequest = await prisma.verification_requests.findUnique({
+          where: { id: kycVerificationId },
+          include: {
+            documents: {
+              select: {
+                id: true,
+                documentType: true,
+                status: true,
+                confidence: true,
+                verifiedAt: true,
+                failureReason: true,
+                fileName: true,
+                uploadedAt: true,
+              },
+              orderBy: { uploadedAt: "desc" },
+            },
+          },
+        });
+
+        if (verificationRequest) {
+          verificationDetails = {
+            requestId: verificationRequest.id,
+            status: verificationRequest.status,
+            submittedAt: verificationRequest.submittedAt,
+            completedAt: verificationRequest.completedAt,
+            rejectionReason: verificationRequest.rejectionReason,
+            documents: verificationRequest.documents,
+          };
+        }
+      } catch (error) {
+        console.error("[KYC Status] Error fetching verification details:", error);
+        // Continue without verification details
+      }
+    }
+
+    if (isTenant) {
       return res.json({
-        kycStatus: userData?.kycStatus || "pending",
+        kycStatus,
         kycVerificationId: userData?.kycVerificationId,
         kycCompletedAt: userData?.kycCompletedAt,
         kycFailureReason: userData?.kycFailureReason,
         requiresKyc: userData?.requiresKyc ?? true,
+        verificationDetails,
       });
     }
 
     // For owners/developers
-    const customer = await prisma.customers.findUnique({
-      where: { id: customerId },
-      select: {
-        kycStatus: true,
-        kycVerificationId: true,
-        kycCompletedAt: true,
-        kycFailureReason: true,
-        requiresKyc: true,
-      },
-    });
-
     res.json({
-      kycStatus: customer?.kycStatus || "pending",
-      kycVerificationId: customer?.kycVerificationId,
-      kycCompletedAt: customer?.kycCompletedAt,
-      kycFailureReason: customer?.kycFailureReason,
-      requiresKyc: customer?.requiresKyc ?? true,
+      kycStatus,
+      kycVerificationId: customerData?.kycVerificationId,
+      kycCompletedAt: customerData?.kycCompletedAt,
+      kycFailureReason: customerData?.kycFailureReason,
+      requiresKyc: customerData?.requiresKyc ?? true,
+      verificationDetails,
     });
   })
 );
