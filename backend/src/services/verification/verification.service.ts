@@ -1,9 +1,11 @@
 import prisma from "../../lib/db";
 import { queueService } from "./queue.service";
-import { encrypt } from "../../lib/encryption";
+import { encrypt, decrypt } from "../../lib/encryption";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import https from "https";
 import crypto from "crypto";
+import { ProviderFactory } from "../../providers";
+import { notificationService } from "./notification.service";
 
 /**
  * Verification Service
@@ -338,7 +340,7 @@ export class VerificationService {
         },
       });
 
-      // Add to verification queue (non-blocking - don't fail upload if Redis is down)
+      // Try to add to verification queue (non-blocking - don't fail upload if Redis is down)
       try {
         const jobId = await Promise.race([
           queueService.addVerificationJob(document.id, 5),
@@ -350,13 +352,21 @@ export class VerificationService {
           `[VerificationService] ✅ Document uploaded and queued: ${document.id} (Job: ${jobId})`
         );
       } catch (queueError: any) {
-        // Log but don't fail the upload - queue is optional for now
+        // Queue failed - process verification immediately
         console.warn(
           `[VerificationService] ⚠️ Document uploaded but queue failed: ${document.id} (${queueError.message})`
         );
         console.log(
-          `[VerificationService] ✅ Document uploaded successfully: ${document.id} (queue skipped)`
+          `[VerificationService] 🔄 Processing verification immediately (Redis unavailable)`
         );
+
+        // Process verification immediately in the background (don't block the response)
+        this.processVerificationImmediately(document.id).catch((error) => {
+          console.error(
+            `[VerificationService] ❌ Immediate verification failed for document ${document.id}:`,
+            error
+          );
+        });
       }
 
       return document;
@@ -472,6 +482,331 @@ export class VerificationService {
     } catch (error) {
       console.error("[VerificationService] Failed to get history:", error);
       throw new Error("Failed to get verification history");
+    }
+  }
+
+  /**
+   * Process verification immediately (synchronous processing when Redis is unavailable)
+   * @param documentId - Document ID to verify
+   */
+  private async processVerificationImmediately(documentId: string): Promise<void> {
+    try {
+      console.log(
+        `[VerificationService] 🔄 Processing verification immediately for document ${documentId}`
+      );
+
+      // Fetch document with request details
+      const document = await prisma.verification_documents.findUnique({
+        where: { id: documentId },
+        include: {
+          request: true,
+        },
+      });
+
+      if (!document) {
+        throw new Error(`Document ${documentId} not found`);
+      }
+
+      console.log(
+        `[VerificationService] Document type: ${document.documentType}, Status: ${document.status}`
+      );
+
+      // Check if already processed (idempotency)
+      if (document.status === "verified" || document.status === "failed") {
+        console.log(
+          `[VerificationService] ⚠️  Document already processed with status: ${document.status}`
+        );
+        return;
+      }
+
+      // Update status to in_progress
+      await prisma.verification_documents.update({
+        where: { id: documentId },
+        data: { status: "in_progress" },
+      });
+
+      // Log history
+      await prisma.verification_history.create({
+        data: {
+          requestId: document.requestId,
+          action: "verification_started",
+          performedBy: "system",
+          details: {
+            documentId,
+            documentType: document.documentType,
+            provider: "dojah",
+            mode: "immediate",
+          },
+        },
+      });
+
+      // Get verification provider
+      const provider = ProviderFactory.getProvider("dojah");
+
+      console.log(`[VerificationService] Using provider: ${provider.name}`);
+
+      // Verify based on document type
+      let result;
+
+      switch (document.documentType) {
+        case "nin": {
+          // Decrypt document number
+          const nin = decrypt(document.documentNumber!);
+
+          // Extract metadata (firstName, lastName, dob should be in verificationData or request)
+          const metadata = (document.verificationData as any) || {};
+          const firstName = metadata.firstName || "";
+          const lastName = metadata.lastName || "";
+          const dob = metadata.dob || "";
+
+          if (!firstName || !lastName || !dob) {
+            throw new Error(
+              "Missing required fields: firstName, lastName, or dob"
+            );
+          }
+
+          result = await provider.verifyNIN(nin, firstName, lastName, dob);
+          break;
+        }
+
+        case "passport": {
+          const passportNumber = decrypt(document.documentNumber!);
+          const metadata = (document.verificationData as any) || {};
+          const firstName = metadata.firstName || "";
+          const lastName = metadata.lastName || "";
+
+          if (!firstName || !lastName) {
+            throw new Error("Missing required fields: firstName or lastName");
+          }
+
+          result = await provider.verifyPassport(
+            passportNumber,
+            firstName,
+            lastName
+          );
+          break;
+        }
+
+        case "drivers_license": {
+          const licenseNumber = decrypt(document.documentNumber!);
+          const metadata = (document.verificationData as any) || {};
+          const firstName = metadata.firstName || "";
+          const lastName = metadata.lastName || "";
+
+          if (!firstName || !lastName) {
+            throw new Error("Missing required fields: firstName or lastName");
+          }
+
+          result = await provider.verifyDriversLicense(
+            licenseNumber,
+            firstName,
+            lastName
+          );
+          break;
+        }
+
+        case "voters_card": {
+          const vin = decrypt(document.documentNumber!);
+          const metadata = (document.verificationData as any) || {};
+          const firstName = metadata.firstName || "";
+          const lastName = metadata.lastName || "";
+
+          if (!firstName || !lastName) {
+            throw new Error("Missing required fields: firstName or lastName");
+          }
+
+          result = await provider.verifyVotersCard(vin, firstName, lastName);
+          break;
+        }
+
+        case "utility_bill":
+        case "proof_of_address": {
+          // These require manual review
+          result = await provider.verifyDocument(
+            document.documentType,
+            document.fileUrl,
+            document.verificationData
+          );
+
+          // Notify admin for manual review
+          await notificationService.notifyAdminManualReview(
+            document.requestId,
+            document.documentType
+          );
+          break;
+        }
+
+        default:
+          throw new Error(
+            `Unsupported document type: ${document.documentType}`
+          );
+      }
+
+      console.log(`[VerificationService] Verification result:`, {
+        success: result.success,
+        status: result.status,
+        confidence: result.confidence,
+      });
+
+      // Update document with results
+      await prisma.verification_documents.update({
+        where: { id: documentId },
+        data: {
+          status:
+            result.status === "verified"
+              ? "verified"
+              : result.status === "pending"
+              ? "pending"
+              : "failed",
+          provider: provider.name,
+          providerReference: result.referenceId,
+          verificationData: result.data,
+          confidence: result.confidence,
+          verifiedAt: result.status === "verified" ? new Date() : null,
+          failureReason: result.error,
+        },
+      });
+
+      // Log history
+      await prisma.verification_history.create({
+        data: {
+          requestId: document.requestId,
+          action:
+            result.status === "verified"
+              ? "document_verified"
+              : "document_failed",
+          performedBy: "system",
+          details: {
+            documentId,
+            documentType: document.documentType,
+            provider: provider.name,
+            confidence: result.confidence,
+            status: result.status,
+            mode: "immediate",
+          },
+        },
+      });
+
+      // Check if all documents in the request are processed
+      const allDocuments = await prisma.verification_documents.findMany({
+        where: { requestId: document.requestId },
+      });
+
+      const pendingDocuments = allDocuments.filter(
+        (d) => d.status === "pending" || d.status === "in_progress"
+      );
+      const verifiedDocuments = allDocuments.filter(
+        (d) => d.status === "verified"
+      );
+      const failedDocuments = allDocuments.filter(
+        (d) => d.status === "failed"
+      );
+
+      console.log(
+        `[VerificationService] Request status: ${verifiedDocuments.length} verified, ${failedDocuments.length} failed, ${pendingDocuments.length} pending`
+      );
+
+      // If all documents are processed
+      if (pendingDocuments.length === 0) {
+        const allVerified = allDocuments.every((d) => d.status === "verified");
+        const newStatus = allVerified ? "approved" : "rejected";
+
+        // Update request status
+        await prisma.verification_requests.update({
+          where: { id: document.requestId },
+          data: {
+            status: newStatus,
+            completedAt: new Date(),
+          },
+        });
+
+        // Log history
+        await prisma.verification_history.create({
+          data: {
+            requestId: document.requestId,
+            action: allVerified ? "request_approved" : "request_rejected",
+            performedBy: "system",
+            details: {
+              totalDocuments: allDocuments.length,
+              verifiedDocuments: verifiedDocuments.length,
+              failedDocuments: failedDocuments.length,
+              autoApproved: allVerified,
+              mode: "immediate",
+            },
+          },
+        });
+
+        // Send notification to customer
+        await notificationService.notifyVerificationComplete(
+          document.request.customerId,
+          newStatus,
+          {
+            requestId: document.requestId,
+            totalDocuments: allDocuments.length,
+            verifiedDocuments: verifiedDocuments.length,
+          }
+        );
+
+        console.log(
+          `[VerificationService] ✅ Request ${document.requestId} completed with status: ${newStatus}`
+        );
+      } else if (result.status === "failed") {
+        // Notify customer about failed document
+        await notificationService.notifyDocumentFailed(
+          document.request.customerId,
+          document.documentType,
+          result.error || "Verification failed"
+        );
+      }
+
+      console.log(
+        `[VerificationService] ✅ Immediate verification completed for document ${documentId}`
+      );
+    } catch (error: any) {
+      console.error(
+        `[VerificationService] ❌ Immediate verification failed for document ${documentId}:`,
+        error.message
+      );
+
+      // Update document status to failed
+      try {
+        await prisma.verification_documents.update({
+          where: { id: documentId },
+          data: {
+            status: "failed",
+            failureReason: error.message,
+          },
+        });
+
+        // Log error in history
+        await prisma.verification_history.create({
+          data: {
+            requestId:
+              (
+                await prisma.verification_documents.findUnique({
+                  where: { id: documentId },
+                  select: { requestId: true },
+                })
+              )?.requestId || "unknown",
+            action: "verification_error",
+            performedBy: "system",
+            details: {
+              documentId,
+              error: error.message,
+              stack: error.stack,
+              mode: "immediate",
+            },
+          },
+        });
+      } catch (dbError) {
+        console.error(
+          "[VerificationService] Failed to update document status:",
+          dbError
+        );
+      }
+
+      // Re-throw to allow caller to handle if needed
+      throw error;
     }
   }
 }
