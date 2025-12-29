@@ -340,34 +340,23 @@ export class VerificationService {
         },
       });
 
-      // Try to add to verification queue (non-blocking - don't fail upload if Redis is down)
-      try {
-        const jobId = await Promise.race([
-          queueService.addVerificationJob(document.id, 5),
-          new Promise<string>((_, reject) =>
-            setTimeout(() => reject(new Error("Queue timeout")), 5000)
-          ),
-        ]);
+      // Process verification immediately in background (Redis-free approach)
+      // Use setImmediate to process in next event loop tick, allowing response to return first
+      setImmediate(() => {
         console.log(
-          `[VerificationService] ✅ Document uploaded and queued: ${document.id} (Job: ${jobId})`
+          `[VerificationService] 🔄 Processing verification in background for document ${document.id}`
         );
-      } catch (queueError: any) {
-        // Queue failed - process verification immediately
-        console.warn(
-          `[VerificationService] ⚠️ Document uploaded but queue failed: ${document.id} (${queueError.message})`
-        );
-        console.log(
-          `[VerificationService] 🔄 Processing verification immediately (Redis unavailable)`
-        );
-
-        // Process verification immediately in the background (don't block the response)
         this.processVerificationImmediately(document.id).catch((error) => {
           console.error(
-            `[VerificationService] ❌ Immediate verification failed for document ${document.id}:`,
+            `[VerificationService] ❌ Background verification failed for document ${document.id}:`,
             error
           );
         });
-      }
+      });
+
+      console.log(
+        `[VerificationService] ✅ Document uploaded successfully: ${document.id} (verification processing in background)`
+      );
 
       return document;
     } catch (error: any) {
