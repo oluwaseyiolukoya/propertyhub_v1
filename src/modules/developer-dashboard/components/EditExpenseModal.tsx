@@ -49,6 +49,7 @@ interface EditExpenseModalProps {
   onClose: () => void;
   expense: Expense | null;
   projectId: string;
+  projectCurrency?: string;
   onSuccess: () => void;
 }
 
@@ -57,6 +58,7 @@ export function EditExpenseModal({
   onClose,
   expense,
   projectId,
+  projectCurrency = "NGN",
   onSuccess,
 }: EditExpenseModalProps) {
   const [loading, setLoading] = useState(false);
@@ -155,6 +157,7 @@ export function EditExpenseModal({
             description: formData.description,
             amount: parseFloat(formData.amount),
             taxAmount: parseFloat(formData.taxAmount || "0"),
+            currency: projectCurrency,
             paidDate: formData.paidDate,
             paymentStatus: formData.paymentStatus,
             status: formData.paymentStatus === "paid" ? "paid" : "pending",
@@ -209,18 +212,14 @@ export function EditExpenseModal({
   };
 
   const getCurrencySymbol = (currency: string) => {
-    switch (currency) {
-      case "NGN":
-        return "₦";
-      case "USD":
-        return "$";
-      case "GBP":
-        return "£";
-      case "EUR":
-        return "€";
-      default:
-        return currency;
-    }
+    const symbols: Record<string, string> = {
+      NGN: "₦",
+      XOF: "CFA",
+      USD: "$",
+      EUR: "€",
+      GBP: "£",
+    };
+    return symbols[currency] || currency;
   };
 
   const selectedCategory = EXPENSE_CATEGORIES.find(
@@ -311,7 +310,7 @@ export function EditExpenseModal({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="amount">
-                Amount ({getCurrencySymbol(expense.currency)}){" "}
+                Amount ({getCurrencySymbol(projectCurrency)}){" "}
                 <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -337,7 +336,7 @@ export function EditExpenseModal({
 
             <div className="space-y-2">
               <Label htmlFor="taxAmount">
-                Tax Amount ({getCurrencySymbol(expense.currency)})
+                Tax Amount ({getCurrencySymbol(projectCurrency)})
               </Label>
               <Input
                 id="taxAmount"
@@ -368,15 +367,15 @@ export function EditExpenseModal({
                 Total Amount:
               </span>
               <span className="text-2xl font-bold text-blue-600">
-                {getCurrencySymbol(expense.currency)}
+                {getCurrencySymbol(projectCurrency)}
                 {totalAmount.toLocaleString()}
               </span>
             </div>
             {parseFloat(formData.taxAmount || "0") > 0 && (
               <div className="mt-2 text-xs text-gray-600">
-                Base: {getCurrencySymbol(expense.currency)}
+                Base: {getCurrencySymbol(projectCurrency)}
                 {parseFloat(formData.amount || "0").toLocaleString()} + Tax:{" "}
-                {getCurrencySymbol(expense.currency)}
+                {getCurrencySymbol(projectCurrency)}
                 {parseFloat(formData.taxAmount || "0").toLocaleString()}
               </div>
             )}

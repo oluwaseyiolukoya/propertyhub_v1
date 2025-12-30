@@ -223,12 +223,13 @@ model mrr_snapshots {
 }
 
 model documents {
-  id                                  String      @id
+  id                                  String            @id
   customerId                          String
   propertyId                          String?
   unitId                              String?
   tenantId                            String?
   managerId                           String?
+  projectId                           String?
   name                                String
   type                                String
   category                            String
@@ -238,19 +239,22 @@ model documents {
   description                         String?
   uploadedBy                          String
   uploadedById                        String
-  status                              String      @default("active")
+  status                              String            @default("active")
   metadata                            Json?
-  isShared                            Boolean     @default(false)
-  sharedWith                          String[]    @default([])
+  isShared                            Boolean           @default(false)
+  sharedWith                          String[]          @default([])
   expiresAt                           DateTime?
-  createdAt                           DateTime    @default(now())
+  createdAt                           DateTime          @default(now())
   updatedAt                           DateTime
-  customers                           customers   @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  users_documents_managerIdTousers    users?      @relation("documents_managerIdTousers", fields: [managerId], references: [id])
-  properties                          properties? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  users_documents_tenantIdTousers     users?      @relation("documents_tenantIdTousers", fields: [tenantId], references: [id], onDelete: Cascade)
-  units                               units?      @relation(fields: [unitId], references: [id])
-  users_documents_uploadedByIdTousers users       @relation("documents_uploadedByIdTousers", fields: [uploadedById], references: [id])
+  customers                           customers         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  users_documents_managerIdTousers    users?           @relation("documents_managerIdTousers", fields: [managerId], references: [id])
+  properties                          properties?       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  users_documents_tenantIdTousers     users?           @relation("documents_tenantIdTousers", fields: [tenantId], references: [id], onDelete: Cascade)
+  units                               units?           @relation(fields: [unitId], references: [id])
+  users_documents_uploadedByIdTousers users            @relation("documents_uploadedByIdTousers", fields: [uploadedById], references: [id])
+  developer_projects                  developer_projects? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
 }
 
 model expenses {
@@ -1044,6 +1048,7 @@ model developer_projects {
   project_cash_flow_snapshots project_cash_flow_snapshots[]
   purchase_orders             purchase_orders[]
   project_stages              project_stages[]
+  documents                   documents[]
 
   @@index([customerId])
   @@index([developerId])

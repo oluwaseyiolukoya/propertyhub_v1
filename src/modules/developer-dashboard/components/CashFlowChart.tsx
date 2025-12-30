@@ -30,6 +30,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { toast } from 'sonner';
+import { getCurrencySymbol as getCurrencySymbolFromLib } from '../../../lib/currency';
 
 interface CashFlowData {
   month: string;
@@ -59,6 +60,7 @@ interface CashFlowChartProps {
   periodType?: 'daily' | 'weekly' | 'monthly' | 'quarterly';
   showBreakdown?: boolean;
   height?: number;
+  currency?: string;
 }
 
 export const CashFlowChart: React.FC<CashFlowChartProps> = ({
@@ -66,6 +68,7 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
   periodType: initialPeriodType = 'monthly',
   showBreakdown: initialShowBreakdown = false,
   height = 300,
+  currency = 'NGN',
 }) => {
   const [data, setData] = useState<CashFlowData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -181,13 +184,19 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
     }
   };
 
+  // Use centralized currency symbol function
+  const getCurrencySymbol = (currencyCode: string) => {
+    return getCurrencySymbolFromLib(currencyCode);
+  };
+
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
+    // Use centralized currency symbol to avoid "F CFA" issue with Intl.NumberFormat
+    const symbol = getCurrencySymbolFromLib(currency);
+    const formatted = value.toLocaleString('en-US', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(value);
+    });
+    return `${symbol}${formatted}`;
   };
 
   const calculateTotals = () => {
@@ -456,7 +465,7 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis dataKey="month" stroke="#6b7280" />
-              <YAxis stroke="#6b7280" tickFormatter={(value) => `₦${(value / 1000000).toFixed(0)}M`} />
+              <YAxis stroke="#6b7280" tickFormatter={(value) => `${getCurrencySymbol(currency)}${(value / 1000000).toFixed(0)}M`} />
               <Tooltip
                 contentStyle={{
                   backgroundColor: '#fff',
@@ -503,7 +512,7 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
                   <BarChart data={inflowBreakdownData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis dataKey="category" angle={-45} textAnchor="end" height={80} />
-                    <YAxis tickFormatter={(value) => `₦${(value / 1000000).toFixed(0)}M`} />
+                    <YAxis tickFormatter={(value) => `${getCurrencySymbol(currency)}${(value / 1000000).toFixed(0)}M`} />
                     <Tooltip formatter={(value: number) => formatCurrency(value)} />
                     <Bar dataKey="amount" fill="#14b8a6" />
                   </BarChart>
@@ -523,7 +532,7 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
                   <BarChart data={outflowBreakdownData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis dataKey="category" angle={-45} textAnchor="end" height={80} />
-                    <YAxis tickFormatter={(value) => `₦${(value / 1000000).toFixed(0)}M`} />
+                    <YAxis tickFormatter={(value) => `${getCurrencySymbol(currency)}${(value / 1000000).toFixed(0)}M`} />
                     <Tooltip formatter={(value: number) => formatCurrency(value)} />
                     <Bar dataKey="amount" fill="#ef4444" />
                   </BarChart>

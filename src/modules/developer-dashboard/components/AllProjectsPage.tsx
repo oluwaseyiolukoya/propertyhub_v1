@@ -48,6 +48,7 @@ import KPICard from './KPICard';
 import ProjectCard from './ProjectCard';
 import { usePortfolioOverview, useProjects, useDebounce } from '../hooks/useDeveloperDashboardData';
 import type { ProjectFilters, ProjectSortOptions } from '../types';
+import { getCurrencySymbol } from '../../../lib/currency';
 
 interface AllProjectsPageProps {
   onViewProject: (projectId: string) => void;
@@ -93,13 +94,15 @@ export const AllProjectsPage: React.FC<AllProjectsPageProps> = ({
     12
   );
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: overview?.currency || 'NGN',
+  const formatCurrency = (amount: number, currencyCode?: string) => {
+    const currency = currencyCode || overview?.currency || 'NGN';
+    // Use centralized currency symbol to avoid "F CFA" issue with Intl.NumberFormat
+    const symbol = getCurrencySymbol(currency);
+    const formatted = amount.toLocaleString('en-US', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount);
+    });
+    return `${symbol}${formatted}`;
   };
 
   const getHealthBadge = (variance: number) => {
@@ -324,11 +327,11 @@ export const AllProjectsPage: React.FC<AllProjectsPageProps> = ({
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-600">Budget:</span>
-                      <span className="font-semibold text-gray-900">{formatCurrency(project.totalBudget)}</span>
+                      <span className="font-semibold text-gray-900">{formatCurrency(project.totalBudget, project.currency)}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-600">Actual:</span>
-                      <span className="font-semibold text-gray-900">{formatCurrency(project.actualSpend)}</span>
+                      <span className="font-semibold text-gray-900">{formatCurrency(project.actualSpend, project.currency)}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-600">Variance:</span>
@@ -414,10 +417,10 @@ export const AllProjectsPage: React.FC<AllProjectsPageProps> = ({
                       <TableCell className="text-gray-700">{project.location || project.city || 'N/A'}</TableCell>
                       <TableCell className="capitalize text-gray-700">{project.stage}</TableCell>
                       <TableCell className="text-right font-medium text-gray-900">
-                        {formatCurrency(project.totalBudget)}
+                        {formatCurrency(project.totalBudget, project.currency)}
                       </TableCell>
                       <TableCell className="text-right font-medium text-gray-900">
-                        {formatCurrency(project.actualSpend)}
+                        {formatCurrency(project.actualSpend, project.currency)}
                       </TableCell>
                       <TableCell
                         className={`text-right font-medium ${

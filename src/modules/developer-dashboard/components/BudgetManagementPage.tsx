@@ -56,10 +56,12 @@ import {
 import { Textarea } from '../../../components/ui/textarea';
 import { toast } from 'sonner';
 import { useBudgetLineItems } from '../hooks/useDeveloperDashboardData';
+import { getCurrencySymbol as getCurrencySymbolFromLib } from '../../../lib/currency';
 import {
   createBudgetLineItem,
   updateBudgetLineItem,
   deleteBudgetLineItem,
+  getProjectById,
 } from '../services/developerDashboard.api';
 import type { BudgetLineItem } from '../types';
 
@@ -85,6 +87,7 @@ type BudgetStatus = 'on-track' | 'warning' | 'over-budget' | 'under-budget' | 'n
 
 export const BudgetManagementPage: React.FC<BudgetManagementPageProps> = ({ projectId }) => {
   const { data: budgetItems, loading, error, refetch } = useBudgetLineItems(projectId);
+  const [projectCurrency, setProjectCurrency] = useState<string>('NGN');
 
   const [selectedBudget, setSelectedBudget] = useState<BudgetLineItem | null>(null);
   const [filterCategory, setFilterCategory] = useState('all');
@@ -116,12 +119,33 @@ export const BudgetManagementPage: React.FC<BudgetManagementPageProps> = ({ proj
     notes: '',
   });
 
+  // Fetch project currency
+  useEffect(() => {
+    const fetchProjectCurrency = async () => {
+      try {
+        const response = await getProjectById(projectId);
+        if (response.success && response.data) {
+          setProjectCurrency(response.data.currency || 'NGN');
+        }
+      } catch (error) {
+        console.error('Failed to fetch project currency:', error);
+        // Keep default 'NGN' if fetch fails
+      }
+    };
+
+    if (projectId) {
+      fetchProjectCurrency();
+    }
+  }, [projectId]);
+
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
+    // Use centralized currency symbol to avoid "F CFA" issue with Intl.NumberFormat
+    const symbol = getCurrencySymbolFromLib(projectCurrency);
+    const formatted = value.toLocaleString('en-US', {
       minimumFractionDigits: 0,
-    }).format(value);
+      maximumFractionDigits: 0,
+    });
+    return `${symbol}${formatted}`;
   };
 
   const formatCategoryName = (category: string) => {

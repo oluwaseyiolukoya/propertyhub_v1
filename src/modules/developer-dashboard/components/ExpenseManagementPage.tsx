@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Plus, ArrowLeft, Download, Filter } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { ExpensesList } from "./ExpensesList";
 import { AddExpenseModal } from "./AddExpenseModal";
 import { EditExpenseModal } from "./EditExpenseModal";
+import { getProjectById } from "../services/developerDashboard.api";
 
 interface ExpenseManagementPageProps {
   projectId: string;
@@ -15,13 +16,33 @@ interface ExpenseManagementPageProps {
 export function ExpenseManagementPage({
   projectId,
   projectName,
-  projectCurrency = "NGN",
+  projectCurrency: propProjectCurrency = "NGN",
   onBack,
 }: ExpenseManagementPageProps) {
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [showEditExpense, setShowEditExpense] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<any>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [projectCurrency, setProjectCurrency] = useState<string>(propProjectCurrency);
+
+  // Fetch project currency
+  useEffect(() => {
+    const fetchProjectCurrency = async () => {
+      try {
+        const response = await getProjectById(projectId);
+        if (response.success && response.data) {
+          setProjectCurrency(response.data.currency || propProjectCurrency);
+        }
+      } catch (error) {
+        console.error('Failed to fetch project currency:', error);
+        // Keep prop currency if fetch fails
+      }
+    };
+
+    if (projectId) {
+      fetchProjectCurrency();
+    }
+  }, [projectId, propProjectCurrency]);
 
   const handleEditExpense = (expense: any) => {
     setSelectedExpense(expense);
@@ -101,6 +122,7 @@ export function ExpenseManagementPage({
         }}
         expense={selectedExpense}
         projectId={projectId}
+        projectCurrency={projectCurrency}
         onSuccess={handleSuccess}
       />
     </div>

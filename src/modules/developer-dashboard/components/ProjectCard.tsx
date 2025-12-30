@@ -11,6 +11,7 @@ import {
   TooltipTrigger,
 } from '../../../components/ui/tooltip';
 import type { DeveloperProject, ProjectStage, ProjectStatus } from '../types';
+import { getCurrencySymbol } from '../../../lib/currency';
 
 interface ProjectCardProps {
   project: DeveloperProject;
@@ -21,16 +22,20 @@ interface ProjectCardProps {
 export const ProjectCard: React.FC<ProjectCardProps> = ({
   project,
   onView,
-  currency = 'NGN',
+  currency,
 }) => {
+  // Use project's currency if available, otherwise fall back to prop or default
+  const projectCurrency = currency || project.currency || 'NGN';
+
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: currency,
+    // Use centralized currency symbol to avoid "F CFA" issue with Intl.NumberFormat
+    const symbol = getCurrencySymbol(projectCurrency);
+    const formatted = amount.toLocaleString('en-US', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
       notation: 'compact',
-    }).format(amount);
+    });
+    return `${symbol}${formatted}`;
   };
 
   const getStatusBadge = (status: ProjectStatus) => {

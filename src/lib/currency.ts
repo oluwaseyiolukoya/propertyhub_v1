@@ -12,6 +12,7 @@ export interface CurrencyConfig {
 
 export const CURRENCIES: Record<string, CurrencyConfig> = {
   NGN: { code: 'NGN', name: 'Nigerian Naira', symbol: '₦', decimals: 2 },
+  XOF: { code: 'XOF', name: 'West African CFA Franc', symbol: 'CFA', decimals: 0 },
   USD: { code: 'USD', name: 'US Dollar', symbol: '$', decimals: 2 },
   EUR: { code: 'EUR', name: 'Euro', symbol: '€', decimals: 2 },
   GBP: { code: 'GBP', name: 'British Pound', symbol: '£', decimals: 2 },

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Building2, DollarSign, Users, CheckCircle2, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Building2, DollarSign, Users, CheckCircle2, ArrowLeft, ArrowRight, X, Check } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
@@ -14,7 +14,8 @@ import {
 } from '../../../components/ui/select';
 import { toast } from 'sonner';
 import type { DeveloperProject } from '../types';
-import { NIGERIAN_CITIES, NIGERIAN_STATES, COUNTRIES } from '../../../constants/nigeria-locations';
+import { NIGERIAN_CITIES, NIGERIAN_STATES, COUNTRIES, IVORY_COAST_REGIONS, IVORY_COAST_CITIES } from '../../../constants/nigeria-locations';
+import { getCurrencySymbol } from '../../../lib/currency';
 
 interface EditProjectPageProps {
   projectId: string;
@@ -54,6 +55,22 @@ export const EditProjectPage: React.FC<EditProjectPageProps> = ({
     fetchProjectData();
   }, [projectId]);
 
+  // Get states/regions based on selected country
+  const getStatesForCountry = () => {
+    if (projectData.country === "Abidjan, Côte d'Ivoire" || projectData.country === "Côte d'Ivoire") {
+      return IVORY_COAST_REGIONS;
+    }
+    return NIGERIAN_STATES; // Default to Nigerian states
+  };
+
+  // Get cities based on selected country
+  const getCitiesForCountry = () => {
+    if (projectData.country === "Abidjan, Côte d'Ivoire" || projectData.country === "Côte d'Ivoire") {
+      return IVORY_COAST_CITIES;
+    }
+    return NIGERIAN_CITIES; // Default to Nigerian cities
+  };
+
   const fetchProjectData = async () => {
     try {
       setLoading(true);
@@ -70,6 +87,13 @@ export const EditProjectPage: React.FC<EditProjectPageProps> = ({
       }
 
       const project: DeveloperProject = await response.json();
+
+      console.log('[EditProject] Fetched project data:', {
+        currency: project.currency,
+        city: project.city,
+        state: project.state,
+        country: project.country
+      });
 
       // Pre-populate form with existing data
       setProjectData({
@@ -133,6 +157,7 @@ export const EditProjectPage: React.FC<EditProjectPageProps> = ({
           location: projectData.location,
           city: projectData.city,
           state: projectData.state,
+          country: projectData.country,
           description: projectData.description,
           currency: projectData.currency,
           totalBudget: parseFloat(projectData.totalBudget) || 0,
@@ -207,19 +232,21 @@ export const EditProjectPage: React.FC<EditProjectPageProps> = ({
     { number: 4, title: 'Review & Confirm', icon: CheckCircle2 },
   ];
 
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: projectData.currency || 'NGN',
+  const formatCurrency = (amount: number) => {
+    // Use centralized currency symbol to avoid "F CFA" issue with Intl.NumberFormat
+    const symbol = getCurrencySymbol(projectData.currency || 'NGN');
+    const formatted = amount.toLocaleString('en-US', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount);
+    });
+    return `${symbol}${formatted}`;
+  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading project data...</p>
         </div>
       </div>
@@ -227,61 +254,112 @@ export const EditProjectPage: React.FC<EditProjectPageProps> = ({
   }
 
   return (
-    <div className="max-w-5xl mx-auto py-8 px-4">
-      <div className="mb-8">
-        <Button variant="ghost" className="gap-2 -ml-2 mb-4" onClick={onCancel}>
-          <ArrowLeft className="w-4 h-4" />
-          Back to Project
-        </Button>
-
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Edit Project</h1>
-            <p className="text-gray-600 mt-1">Update your project information</p>
-          </div>
-        </div>
-
-        {/* Progress Steps */}
-        <div className="mt-8 flex items-center justify-between">
-          {steps.map((step, index) => (
-            <React.Fragment key={step.number}>
-              <div className="flex flex-col items-center flex-1">
-                <div
-                  className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                    currentStep >= step.number
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 text-gray-600'
-                  }`}
-                >
-                  {currentStep > step.number ? (
-                    <CheckCircle2 className="w-6 h-6" />
-                  ) : (
-                    <step.icon className="w-6 h-6" />
-                  )}
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Enhanced Header with Purple Gradient */}
+        <Card className="border-0 shadow-lg overflow-hidden mb-8">
+          <div className="bg-gradient-to-r from-purple-600 via-violet-600 to-purple-700 p-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <Building2 className="h-8 w-8 text-white" />
                 </div>
-                <p
-                  className={`mt-2 text-sm font-medium ${
-                    currentStep >= step.number ? 'text-blue-600' : 'text-gray-600'
-                  }`}
-                >
-                  {step.title}
-                </p>
+                <div>
+                  <h1 className="text-3xl font-bold text-white">
+                    Edit Project
+                  </h1>
+                  <p className="text-purple-100 mt-1">
+                    Update your project information
+                  </p>
+                </div>
               </div>
-              {index < steps.length - 1 && (
-                <div
-                  className={`flex-1 h-1 mx-4 ${
-                    currentStep > step.number ? 'bg-blue-600' : 'bg-gray-200'
-                  }`}
-                />
-              )}
-            </React.Fragment>
-          ))}
-        </div>
-      </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onCancel}
+                className="text-white hover:bg-white/20 h-10 w-10"
+              >
+                <X className="h-6 w-6" />
+              </Button>
+            </div>
+          </div>
 
-      {/* Step Content */}
-      <Card className="mb-6">
-        <CardContent className="p-8">
+          {/* Enhanced Progress Steps */}
+          <div className="bg-white p-6">
+            <div className="flex items-center justify-between">
+              {steps.map((step, index) => {
+                const StepIcon = step.icon;
+                const isActive = currentStep === step.number;
+                const isCompleted = currentStep > step.number;
+
+                return (
+                  <div key={step.number} className="flex items-center flex-1">
+                    <div className="flex flex-col items-center">
+                      <div
+                        className={`w-14 h-14 rounded-xl flex items-center justify-center transition-all duration-300 shadow-md ${
+                          isCompleted
+                            ? "bg-gradient-to-br from-green-500 to-emerald-600 text-white"
+                            : isActive
+                            ? "bg-gradient-to-br from-purple-600 to-violet-600 text-white shadow-lg shadow-purple-500/30"
+                            : "bg-gray-100 text-gray-400"
+                        }`}
+                      >
+                        {isCompleted ? (
+                          <Check className="w-7 h-7" />
+                        ) : (
+                          <StepIcon className="w-7 h-7" />
+                        )}
+                      </div>
+                      <p
+                        className={`text-sm mt-2 font-medium text-center ${
+                          isActive
+                            ? "text-purple-600"
+                            : isCompleted
+                            ? "text-green-600"
+                            : "text-gray-500"
+                        }`}
+                      >
+                        {step.title}
+                      </p>
+                    </div>
+                    {index < steps.length - 1 && (
+                      <div
+                        className={`flex-1 h-2 mx-4 rounded-full transition-all duration-300 ${
+                          currentStep > step.number
+                            ? "bg-gradient-to-r from-green-500 to-emerald-500"
+                            : "bg-gray-200"
+                        }`}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </Card>
+
+        {/* Enhanced Step Content */}
+        <Card className="mb-6 border-0 shadow-lg">
+          <div className="bg-gradient-to-r from-purple-50 to-violet-50 border-b border-purple-100 px-8 py-4">
+            <div className="flex items-center gap-2">
+              {currentStep === 1 && (
+                <Building2 className="h-5 w-5 text-purple-600" />
+              )}
+              {currentStep === 2 && (
+                <DollarSign className="h-5 w-5 text-purple-600" />
+              )}
+              {currentStep === 3 && (
+                <Users className="h-5 w-5 text-purple-600" />
+              )}
+              {currentStep === 4 && (
+                <CheckCircle2 className="h-5 w-5 text-purple-600" />
+              )}
+              <h2 className="text-xl font-semibold text-gray-900">
+                {steps.find((s) => s.number === currentStep)?.title}
+              </h2>
+            </div>
+          </div>
+          <CardContent className="p-8">
           {/* Step 1: Project Info */}
           {currentStep === 1 && (
             <div className="space-y-6">
@@ -336,54 +414,6 @@ export const EditProjectPage: React.FC<EditProjectPageProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="city">
-                    City <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={projectData.city}
-                    onValueChange={(value) =>
-                      setProjectData({ ...projectData, city: value })
-                    }
-                  >
-                    <SelectTrigger id="city">
-                      <SelectValue placeholder="Select city" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {NIGERIAN_CITIES.map((city) => (
-                        <SelectItem key={city} value={city}>
-                          {city}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="state">
-                    State <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={projectData.state}
-                    onValueChange={(value) =>
-                      setProjectData({ ...projectData, state: value })
-                    }
-                  >
-                    <SelectTrigger id="state">
-                      <SelectValue placeholder="Select state" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {NIGERIAN_STATES.map((state) => (
-                        <SelectItem key={state} value={state}>
-                          {state}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
               <div className="space-y-2">
                 <Label htmlFor="country">Country</Label>
                 <Select
@@ -403,6 +433,52 @@ export const EditProjectPage: React.FC<EditProjectPageProps> = ({
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="state">State</Label>
+                  <Select
+                    value={projectData.state}
+                    onValueChange={(value) =>
+                      setProjectData({ ...projectData, state: value })
+                    }
+                  >
+                    <SelectTrigger id="state">
+                      <SelectValue placeholder="Select state" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getStatesForCountry().map((state) => (
+                        <SelectItem key={state} value={state}>
+                          {state}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="city">
+                    City/Town <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={projectData.city}
+                    onValueChange={(value) =>
+                      setProjectData({ ...projectData, city: value })
+                    }
+                  >
+                    <SelectTrigger id="city">
+                      <SelectValue placeholder="Select city/town" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getCitiesForCountry().map((city) => (
+                        <SelectItem key={city} value={city}>
+                          {city}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -436,10 +512,11 @@ export const EditProjectPage: React.FC<EditProjectPageProps> = ({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="NGN">Nigerian Naira (₦)</SelectItem>
-                      <SelectItem value="USD">US Dollar ($)</SelectItem>
-                      <SelectItem value="GBP">British Pound (£)</SelectItem>
-                      <SelectItem value="EUR">Euro (€)</SelectItem>
+                      <SelectItem value="NGN">NGN - Nigerian Naira</SelectItem>
+                      <SelectItem value="XOF">XOF - West African CFA Franc</SelectItem>
+                      <SelectItem value="USD">USD - US Dollar</SelectItem>
+                      <SelectItem value="EUR">EUR - Euro</SelectItem>
+                      <SelectItem value="GBP">GBP - British Pound</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -637,32 +714,38 @@ export const EditProjectPage: React.FC<EditProjectPageProps> = ({
         </CardContent>
       </Card>
 
-      {/* Navigation Buttons */}
-      <div className="flex justify-between">
-        <Button
-          variant="outline"
-          onClick={currentStep === 1 ? onCancel : handleBack}
-          disabled={saving}
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          {currentStep === 1 ? 'Cancel' : 'Back'}
-        </Button>
-
-        {currentStep < 4 ? (
-          <Button onClick={handleNext} disabled={!isStepValid()}>
-            Continue
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
-        ) : (
+        {/* Navigation Buttons */}
+        <div className="flex justify-between mt-6">
           <Button
-            onClick={handleUpdate}
-            disabled={!isStepValid() || saving}
-            className="bg-blue-600 hover:bg-blue-700"
+            variant="outline"
+            onClick={currentStep === 1 ? onCancel : handleBack}
+            disabled={saving}
+            className="border-gray-300 hover:bg-gray-50"
           >
-            {saving ? 'Updating...' : 'Update Project'}
-            <CheckCircle2 className="w-4 h-4 ml-2" />
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            {currentStep === 1 ? 'Cancel' : 'Back'}
           </Button>
-        )}
+
+          {currentStep < 4 ? (
+            <Button
+              onClick={handleNext}
+              disabled={!isStepValid()}
+              className="bg-black hover:bg-gray-900 text-white"
+            >
+              Continue
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          ) : (
+            <Button
+              onClick={handleUpdate}
+              disabled={!isStepValid() || saving}
+              className="bg-black hover:bg-gray-900 text-white"
+            >
+              {saving ? 'Updating...' : 'Update Project'}
+              <CheckCircle2 className="w-4 h-4 ml-2" />
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );

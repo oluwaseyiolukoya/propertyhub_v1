@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ArrowRight,
   ArrowLeft,
@@ -29,7 +29,10 @@ import {
   NIGERIAN_CITIES,
   NIGERIAN_STATES,
   COUNTRIES,
+  IVORY_COAST_REGIONS,
+  IVORY_COAST_CITIES,
 } from "../../../constants/nigeria-locations";
+import { getCurrencySymbol } from "../../../lib/currency";
 
 interface CreateProjectPageProps {
   onCancel: () => void;
@@ -98,6 +101,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
           location: projectData.location,
           city: projectData.city,
           state: projectData.state,
+          country: projectData.country,
           description: projectData.description,
           currency: projectData.currency,
           totalBudget: parseFloat(projectData.totalBudget) || 0,
@@ -132,6 +136,35 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
     }
   };
 
+  // Auto-select state and city when "Abidjan, Côte d'Ivoire" is selected
+  useEffect(() => {
+    if (projectData.country === "Abidjan, Côte d'Ivoire") {
+      setProjectData((prev) => ({
+        ...prev,
+        state: "Lagunes", // Abidjan is in the Lagunes region
+        city: "Abidjan",
+      }));
+    }
+    // Note: We don't clear state/city when switching to other countries
+    // to allow users to keep their selections if they switch back
+  }, [projectData.country]);
+
+  // Get states/regions based on selected country
+  const getStatesForCountry = () => {
+    if (projectData.country === "Abidjan, Côte d'Ivoire" || projectData.country === "Côte d'Ivoire") {
+      return IVORY_COAST_REGIONS;
+    }
+    return NIGERIAN_STATES; // Default to Nigerian states
+  };
+
+  // Get cities based on selected country
+  const getCitiesForCountry = () => {
+    if (projectData.country === "Abidjan, Côte d'Ivoire" || projectData.country === "Côte d'Ivoire") {
+      return IVORY_COAST_CITIES;
+    }
+    return NIGERIAN_CITIES; // Default to Nigerian cities
+  };
+
   const isStepValid = () => {
     switch (currentStep) {
       case 1:
@@ -155,11 +188,13 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
   ];
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-NG", {
-      style: "currency",
-      currency: projectData.currency,
+    // Use centralized currency symbol to avoid "F CFA" issue with Intl.NumberFormat
+    const symbol = getCurrencySymbol(projectData.currency);
+    const formatted = amount.toLocaleString("en-US", {
       minimumFractionDigits: 0,
-    }).format(amount);
+      maximumFractionDigits: 0,
+    });
+    return `${symbol}${formatted}`;
   };
 
   return (
@@ -351,52 +386,6 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="city">
-                      City <span className="text-red-500">*</span>
-                    </Label>
-                    <Select
-                      value={projectData.city}
-                      onValueChange={(value) =>
-                        setProjectData({ ...projectData, city: value })
-                      }
-                    >
-                      <SelectTrigger id="city">
-                        <SelectValue placeholder="Select city" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {NIGERIAN_CITIES.map((city) => (
-                          <SelectItem key={city} value={city}>
-                            {city}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="state">State</Label>
-                    <Select
-                      value={projectData.state}
-                      onValueChange={(value) =>
-                        setProjectData({ ...projectData, state: value })
-                      }
-                    >
-                      <SelectTrigger id="state">
-                        <SelectValue placeholder="Select state" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {NIGERIAN_STATES.map((state) => (
-                          <SelectItem key={state} value={state}>
-                            {state}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="country">Country</Label>
                   <Select
@@ -416,6 +405,52 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="state">State</Label>
+                    <Select
+                      value={projectData.state}
+                      onValueChange={(value) =>
+                        setProjectData({ ...projectData, state: value })
+                      }
+                    >
+                      <SelectTrigger id="state">
+                        <SelectValue placeholder="Select state" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getStatesForCountry().map((state) => (
+                          <SelectItem key={state} value={state}>
+                            {state}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="city">
+                      City/Town <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                      value={projectData.city}
+                      onValueChange={(value) =>
+                        setProjectData({ ...projectData, city: value })
+                      }
+                    >
+                      <SelectTrigger id="city">
+                        <SelectValue placeholder="Select city" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getCitiesForCountry().map((city) => (
+                          <SelectItem key={city} value={city}>
+                            {city}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -472,6 +507,7 @@ export const CreateProjectPage: React.FC<CreateProjectPageProps> = ({
                         <SelectItem value="NGN">
                           NGN - Nigerian Naira
                         </SelectItem>
+                        <SelectItem value="XOF">XOF - West African CFA Franc</SelectItem>
                         <SelectItem value="USD">USD - US Dollar</SelectItem>
                         <SelectItem value="EUR">EUR - Euro</SelectItem>
                         <SelectItem value="GBP">GBP - British Pound</SelectItem>

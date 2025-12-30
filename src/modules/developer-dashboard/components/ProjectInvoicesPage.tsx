@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Receipt,
   Plus,
@@ -52,6 +52,8 @@ import {
   rejectProjectInvoice,
   markInvoiceAsPaid
 } from '../../../lib/api/invoices';
+import { getProjectById } from '../services/developerDashboard.api';
+import { getCurrencySymbol as getCurrencySymbolFromLib } from '../../../lib/currency';
 
 interface ProjectInvoicesPageProps {
   projectId: string;
@@ -76,12 +78,13 @@ const statusToBadge = (status: InvoiceStatus) => {
 };
 
 const formatCurrency = (amount: number, currency: string = 'NGN') => {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency,
+  // Use centralized currency symbol to avoid "F CFA" issue with Intl.NumberFormat
+  const symbol = getCurrencySymbolFromLib(currency);
+  const formatted = amount.toLocaleString('en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount);
+  });
+  return `${symbol}${formatted}`;
 };
 
 const formatDateShort = (dateString?: string) => {
@@ -105,8 +108,28 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showMarkAsPaidModal, setShowMarkAsPaidModal] = useState(false);
   const [invoiceToMarkAsPaid, setInvoiceToMarkAsPaid] = useState<ProjectInvoice | null>(null);
+  const [projectCurrency, setProjectCurrency] = useState<string>('NGN');
 
   const invoices = data || [];
+
+  // Fetch project currency
+  useEffect(() => {
+    const fetchProjectCurrency = async () => {
+      try {
+        const response = await getProjectById(projectId);
+        if (response.success && response.data) {
+          setProjectCurrency(response.data.currency || 'NGN');
+        }
+      } catch (error) {
+        console.error('Failed to fetch project currency:', error);
+        // Keep default 'NGN' if fetch fails
+      }
+    };
+
+    if (projectId) {
+      fetchProjectCurrency();
+    }
+  }, [projectId]);
 
   const filteredInvoices = useMemo(() => {
     return invoices.filter((invoice) => {
@@ -240,20 +263,20 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
         <Card>
           <CardContent className="p-6">
             <p className="text-sm text-gray-500">Total Amount</p>
-            <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalAmount)}</p>
+            <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalAmount, projectCurrency)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-6">
             <p className="text-sm text-gray-500">Paid Amount</p>
-            <p className="text-2xl font-bold text-gray-900">{formatCurrency(paidAmount)}</p>
+            <p className="text-2xl font-bold text-gray-900">{formatCurrency(paidAmount, projectCurrency)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-6">
             <p className="text-sm text-gray-500">Pending</p>
             <p className="text-2xl font-bold text-gray-900">
-              {formatCurrency(totalAmount - paidAmount)}
+              {formatCurrency(totalAmount - paidAmount, projectCurrency)}
             </p>
           </CardContent>
         </Card>

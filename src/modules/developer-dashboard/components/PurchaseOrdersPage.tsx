@@ -67,6 +67,8 @@ import {
   type CreateVendorData,
 } from "../../../lib/api/vendors";
 import { apiClient } from "../../../lib/api-client";
+import { getProjectById } from "../services/developerDashboard.api";
+import { getCurrencySymbol as getCurrencySymbolFromLib } from "../../../lib/currency";
 
 interface PurchaseOrder {
   id: string;
@@ -160,6 +162,7 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
   const [loading, setLoading] = useState(true);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [budgetCategories, setBudgetCategories] = useState<string[]>([]);
+  const [projectCurrency, setProjectCurrency] = useState<string>('NGN');
 
   // Vendor management state
   const [isVendorDialogOpen, setIsVendorDialogOpen] = useState(false);
@@ -186,7 +189,7 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
     description: '',
     category: '',
     totalAmount: '',
-    currency: 'NGN',
+    currency: projectCurrency,
     terms: '',
     notes: '',
     expiryDate: '',
@@ -208,7 +211,7 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
     description: '',
     category: '',
     amount: '',
-    currency: 'NGN',
+    currency: projectCurrency,
     dueDate: '',
     paymentMethod: '',
     notes: '',
@@ -414,6 +417,29 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
     return { paths, failed };
   };
 
+  // Fetch project currency
+  useEffect(() => {
+    const fetchProjectCurrency = async () => {
+      try {
+        const response = await getProjectById(projectId);
+        if (response.success && response.data) {
+          const currency = response.data.currency || 'NGN';
+          setProjectCurrency(currency);
+          // Update form defaults with project currency
+          setPoFormData(prev => ({ ...prev, currency }));
+          setInvoiceFormData(prev => ({ ...prev, currency }));
+        }
+      } catch (error) {
+        console.error('Failed to fetch project currency:', error);
+        // Keep default 'NGN' if fetch fails
+      }
+    };
+
+    if (projectId) {
+      fetchProjectCurrency();
+    }
+  }, [projectId]);
+
   // Fetch budget categories from project budget
   useEffect(() => {
     const fetchBudgetCategories = async () => {
@@ -610,13 +636,26 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
     }
   };
 
+  // Get currency symbol for labels
+  const getCurrencySymbol = (currencyCode: string) => {
+    const symbols: Record<string, string> = {
+      NGN: '₦',
+      XOF: 'CFA',
+      USD: '$',
+      EUR: '€',
+      GBP: '£',
+    };
+    return symbols[currencyCode] || currencyCode;
+  };
+
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
+    // Use centralized currency symbol to avoid "F CFA" issue with Intl.NumberFormat
+    const symbol = getCurrencySymbolFromLib(projectCurrency);
+    const formatted = value.toLocaleString('en-US', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(value);
+    });
+    return `${symbol}${formatted}`;
   };
 
   const filteredPOs = purchaseOrders.filter(po => {
@@ -1800,7 +1839,7 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="po-amount">
-                    Total Amount (₦) <span className="text-red-500">*</span>
+                    Total Amount ({getCurrencySymbol(projectCurrency)}) <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="po-amount"
@@ -1972,7 +2011,7 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs">Unit Price (₦)</Label>
+                          <Label className="text-xs">Unit Price ({getCurrencySymbol(projectCurrency)})</Label>
                           <Input
                             type="number"
                             placeholder="0.00"
@@ -2121,7 +2160,7 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="inv-amount">
-                    Amount (₦) <span className="text-red-500">*</span>
+                    Amount ({getCurrencySymbol(projectCurrency)}) <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="inv-amount"
@@ -2329,7 +2368,7 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-po-amount">
-                    Total Amount (₦) <span className="text-red-500">*</span>
+                    Total Amount ({getCurrencySymbol(projectCurrency)}) <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="edit-po-amount"
@@ -2501,7 +2540,7 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs">Unit Price (₦)</Label>
+                          <Label className="text-xs">Unit Price ({getCurrencySymbol(projectCurrency)})</Label>
                           <Input
                             type="number"
                             placeholder="0.00"

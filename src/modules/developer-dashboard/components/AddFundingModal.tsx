@@ -99,6 +99,7 @@ export function AddFundingModal({
   const getCurrencySymbol = (currency: string) => {
     const symbols: Record<string, string> = {
       NGN: "₦",
+      XOF: "CFA",
       USD: "$",
       EUR: "€",
       GBP: "£",
@@ -157,7 +158,7 @@ export function AddFundingModal({
         expectedDate: formData.expectedDate || undefined,
         receivedDate: formData.receivedDate || undefined,
         status: formData.status,
-        referenceNumber: formData.referenceNumber || undefined,
+        referenceNumber: formData.referenceNumber?.trim() || undefined,
         description: formData.description,
         notes: formData.notes || undefined,
       };
@@ -176,7 +177,20 @@ export function AddFundingModal({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Failed to create funding record");
+        const errorMessage = error.error || error.details || "Failed to create funding record";
+
+        // Handle duplicate reference number error specifically
+        if (errorMessage.includes("Duplicate") && errorMessage.includes("reference")) {
+          setErrors({ ...errors, referenceNumber: "This reference number already exists. Please use a different one." });
+          throw new Error("A funding record with this reference number already exists. Please use a different reference number.");
+        }
+
+        // Handle other field-specific errors
+        if (error.field && error.field.includes("referenceNumber")) {
+          setErrors({ ...errors, referenceNumber: error.details || errorMessage });
+        }
+
+        throw new Error(errorMessage);
       }
 
       toast.success("Funding record created successfully!");
@@ -379,14 +393,23 @@ export function AddFundingModal({
             <Input
               id="referenceNumber"
               value={formData.referenceNumber}
-              onChange={(e) =>
-                setFormData({ ...formData, referenceNumber: e.target.value })
-              }
+              onChange={(e) => {
+                setFormData({ ...formData, referenceNumber: e.target.value });
+                setErrors({ ...errors, referenceNumber: "" }); // Clear error when user types
+              }}
               placeholder="e.g., REF-2025-001, TXN-123456"
+              className={errors.referenceNumber ? "border-red-500" : ""}
             />
-            <p className="text-xs text-gray-500">
-              Transaction reference, invoice number, or tracking ID
-            </p>
+            {errors.referenceNumber ? (
+              <p className="text-xs text-red-500 flex items-center space-x-1">
+                <AlertCircle className="h-3 w-3" />
+                <span>{errors.referenceNumber}</span>
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500">
+                Transaction reference, invoice number, or tracking ID (optional, must be unique)
+              </p>
+            )}
           </div>
 
           {/* Description */}

@@ -33,6 +33,7 @@ import { useProjectDashboard } from '../hooks/useDeveloperDashboardData';
 import { CashFlowChart } from './CashFlowChart';
 import { ProjectStagesChecklist } from './ProjectStagesChecklist';
 import { apiClient } from '../../../lib/api-client';
+import { getCurrencySymbol } from '../../../lib/currency';
 import {
   LineChart,
   Line,
@@ -158,12 +159,13 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
 
   // Helper function to format currency
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: project.currency,
+    // Use centralized currency symbol to avoid "F CFA" issue with Intl.NumberFormat
+    const symbol = getCurrencySymbol(project.currency);
+    const formatted = amount.toLocaleString('en-US', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount);
+    });
+    return `${symbol}${formatted}`;
   };
 
   // Helper function to format category names
@@ -502,6 +504,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
         projectId={projectId}
         periodType="monthly"
         height={350}
+        currency={project.currency}
       />
 
       {/* Alerts and Recent Activity */}

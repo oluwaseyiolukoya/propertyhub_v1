@@ -78,11 +78,16 @@ function calculateMonthlyCashFlow(invoices: any[], projectStartDate: Date | null
   });
 
   // Convert to array format for charts
-  return months.map(month => ({
-    month: month.name,
-    inflow: Math.round(monthlyData[month.key].inflow),
-    outflow: Math.round(monthlyData[month.key].outflow),
-  }));
+  return months.map(month => {
+    const inflow = Math.round(monthlyData[month.key].inflow);
+    const outflow = Math.round(monthlyData[month.key].outflow);
+    return {
+      month: month.name,
+      inflow,
+      outflow,
+      net: inflow - outflow,
+    };
+  });
 }
 
 // ============================================
@@ -985,7 +990,18 @@ router.get('/projects/:projectId/dashboard', async (req: Request, res: Response)
 
     // If no budget line items exist, use the project's initial totalBudget
     // Otherwise, use the sum of budget line items (more accurate breakdown)
-    const totalBudget = budgetLineItemsTotal > 0 ? budgetLineItemsTotal : (project.totalBudget || 0);
+    // Ensure we properly handle the project's totalBudget value
+    const projectTotalBudget = Number(project.totalBudget) || 0;
+    const totalBudget = budgetLineItemsTotal > 0 ? budgetLineItemsTotal : projectTotalBudget;
+
+    // Log for debugging
+    console.log('[Project Dashboard] Budget calculation:', {
+      projectId,
+      projectTotalBudget,
+      budgetLineItemsTotal,
+      finalTotalBudget: totalBudget,
+      budgetLineItemsCount: budgetLineItems.length
+    });
 
     // Calculate Gross Spend (total expenses)
     const grossSpend = expenses.reduce((sum, expense) => {
@@ -1191,9 +1207,20 @@ router.post('/projects', async (req: Request, res: Response) => {
       city,
       state,
       country = 'Nigeria',
-      totalBudget,
+      totalBudget: totalBudgetRaw,
       currency = 'NGN',
     } = req.body;
+
+    // Properly parse totalBudget - handle string, number, or undefined
+    const totalBudget = totalBudgetRaw !== undefined && totalBudgetRaw !== null && totalBudgetRaw !== ''
+      ? parseFloat(String(totalBudgetRaw))
+      : 0;
+
+    console.log('[Create Project] Budget values:', {
+      raw: totalBudgetRaw,
+      parsed: totalBudget,
+      type: typeof totalBudgetRaw
+    });
 
     // Validate required fields
     if (!name || !projectType) {
@@ -1218,9 +1245,15 @@ router.post('/projects', async (req: Request, res: Response) => {
         city,
         state,
         country,
-        totalBudget: parseFloat(totalBudget) || 0,
+        totalBudget,
         currency,
       },
+    });
+
+    console.log('[Create Project] Project created with budget:', {
+      projectId: project.id,
+      totalBudget: project.totalBudget,
+      currency: project.currency
     });
 
     console.log('✅ [SUCCESS] Project created:', {
@@ -3544,7 +3577,24 @@ router.get('/projects/:projectId/reports', async (req: Request, res: Response) =
     console.log(`💰 Expenses found: ${expenses.length}`);
 
     // Calculate summary
-    const totalBudget = budgetItems.reduce((sum, item) => sum + item.plannedAmount, 0);
+    // Use budget line items total if available, otherwise use project's totalBudget
+    const budgetLineItemsTotal = budgetItems.reduce((sum, item) => {
+      const amount = Number(item.plannedAmount) || 0;
+      return sum + amount;
+    }, 0);
+
+    // If no budget line items exist, use the project's initial totalBudget
+    // Otherwise, use the sum of budget line items (more accurate breakdown)
+    const projectTotalBudget = Number(project.totalBudget) || 0;
+    const totalBudget = budgetLineItemsTotal > 0 ? budgetLineItemsTotal : projectTotalBudget;
+
+    console.log(`📊 Budget calculation:`, {
+      projectTotalBudget,
+      budgetLineItemsTotal,
+      finalTotalBudget: totalBudget,
+      budgetLineItemsCount: budgetItems.length
+    });
+
     const totalSpent = expenses
       .filter(e => e.paymentStatus === 'paid')
       .reduce((sum, e) => sum + e.totalAmount, 0);
@@ -3564,15 +3614,88 @@ router.get('/projects/:projectId/reports', async (req: Request, res: Response) =
       }).length,
     };
 
-    // Calculate cash flow (last 6 months) - convert expenses to invoice format
-    const expensesAsInvoices = expenses.map(expense => ({
-      amount: expense.totalAmount,
-      status: expense.paymentStatus === 'paid' ? 'paid' : (expense.status === 'approved' ? 'approved' : 'pending'),
-      paidDate: expense.paidDate,
-      dueDate: expense.dueDate,
-      createdAt: expense.createdAt,
-    }));
-    const cashFlow = calculateMonthlyCashFlow(expensesAsInvoices, project.startDate);
+    // Calculate cash flow based on selected period - use real funding and expense data
+    let endDate = new Date();
+    endDate.setHours(23, 59, 59, 999); // End of today
+
+    let startDate = new Date();
+
+    // Calculate start date based on selected period
+    switch (period) {
+      case 'last-month':
+        // Show the previous complete month
+        startDate = new Date(endDate.getFullYear(), endDate.getMonth() - 1, 1);
+        startDate.setHours(0, 0, 0, 0);
+        // End date is last day of previous month
+        endDate = new Date(endDate.getFullYear(), endDate.getMonth(), 0);
+        endDate.setHours(23, 59, 59, 999);
+        break;
+      case 'last-3-months':
+        // Last 3 months including current month (October, November, December if today is Dec 30)
+        // Go back 2 months from current month, then set to first day
+        startDate = new Date(endDate.getFullYear(), endDate.getMonth() - 2, 1);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 'last-6-months':
+        // Last 6 months including current month
+        // Go back 5 months from current month, then set to first day
+        startDate = new Date(endDate.getFullYear(), endDate.getMonth() - 5, 1);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 'year-to-date':
+        // From January 1st of current year to today
+        startDate = new Date(endDate.getFullYear(), 0, 1); // January 1st of current year
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 'custom':
+        // For custom, we'd need additional query params - default to last 6 months for now
+        startDate = new Date(endDate.getFullYear(), endDate.getMonth() - 5, 1);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      default:
+        // Default to last 6 months
+        startDate = new Date(endDate.getFullYear(), endDate.getMonth() - 5, 1);
+        startDate.setHours(0, 0, 0, 0);
+    }
+
+    // Note: We don't override the calculated start date with project start date
+    // because the user explicitly selected a period (e.g., "Last 3 Months")
+    // and we should respect that selection. If they want to see data from project start,
+    // they can select "Year to Date" or a custom range.
+
+    console.log(`📊 Calculating cash flow for period "${period}" from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    console.log(`📅 Date range: ${Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))} days`);
+
+    let cashFlow: any[] = [];
+    try {
+      // Use the real cash flow calculation service
+      const realCashFlow = await calculateProjectCashFlow(
+        projectId,
+        startDate,
+        endDate,
+        'monthly'
+      );
+
+      // Convert to the format expected by the frontend (simplified format)
+      cashFlow = realCashFlow.map(item => ({
+        month: item.month,
+        inflow: Math.round(item.inflow),
+        outflow: Math.round(item.outflow),
+        net: Math.round(item.netCashFlow),
+      }));
+
+      console.log(`✅ Cash flow calculated: ${cashFlow.length} months`);
+      console.log(`📊 Cash flow data:`, cashFlow.map(cf => ({
+        month: cf.month,
+        inflow: cf.inflow,
+        outflow: cf.outflow,
+        net: cf.net
+      })));
+    } catch (error: any) {
+      console.error('❌ Error calculating cash flow:', error);
+      // Fallback to empty array if calculation fails
+      cashFlow = [];
+    }
 
     // Calculate cost breakdown by category
     const categoryTotals: { [key: string]: number } = {};
@@ -3718,19 +3841,35 @@ router.get('/projects/:projectId/reports', async (req: Request, res: Response) =
 
     console.log(`👥 Vendor performance calculated for ${vendorPerformance.length} vendors`);
 
-    // Calculate phase spending
-    const phaseSpending = budgetItems.map(item => {
-      const actualAmount = expenses
-        .filter(e => e.category === item.category && e.paymentStatus === 'paid')
-        .reduce((sum, e) => sum + e.totalAmount, 0);
+    // Calculate phase spending - aggregate by category
+    const phaseSpendingMap: { [key: string]: { budget: number; actual: number } } = {};
 
-      const variance = actualAmount - item.plannedAmount;
-      const variancePercent = item.plannedAmount > 0 ? (variance / item.plannedAmount) * 100 : 0;
+    // Aggregate budget by category
+    budgetItems.forEach(item => {
+      if (!phaseSpendingMap[item.category]) {
+        phaseSpendingMap[item.category] = { budget: 0, actual: 0 };
+      }
+      phaseSpendingMap[item.category].budget += item.plannedAmount;
+    });
+
+    // Aggregate actual spending by category (only paid expenses)
+    expenses
+      .filter(e => e.paymentStatus === 'paid')
+      .forEach(expense => {
+        if (phaseSpendingMap[expense.category]) {
+          phaseSpendingMap[expense.category].actual += expense.totalAmount;
+        }
+      });
+
+    // Convert to array format
+    const phaseSpending = Object.entries(phaseSpendingMap).map(([category, data]) => {
+      const variance = data.actual - data.budget;
+      const variancePercent = data.budget > 0 ? (variance / data.budget) * 100 : 0;
 
       return {
-        phase: item.category,
-        budget: item.plannedAmount,
-        actual: actualAmount,
+        phase: category,
+        budget: data.budget,
+        actual: data.actual,
         variance,
         variancePercent,
       };
@@ -3753,6 +3892,12 @@ router.get('/projects/:projectId/reports', async (req: Request, res: Response) =
       remaining: summary?.remaining || 0,
       totalExpenses: summary?.totalExpenses || 0,
       cashFlowMonths: cashFlow?.length || 0,
+      cashFlowSample: cashFlow?.length > 0 ? {
+        month: cashFlow[0].month,
+        inflow: cashFlow[0].inflow,
+        outflow: cashFlow[0].outflow,
+        net: cashFlow[0].net
+      } : null,
       costCategories: costBreakdown?.length || 0,
       vendors: vendorPerformance?.length || 0,
       phases: phaseSpending?.length || 0,

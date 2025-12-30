@@ -8,6 +8,7 @@ export interface Document {
   unitId?: string | null;
   tenantId?: string | null;
   managerId?: string | null;
+  projectId?: string | null;
   name: string;
   type: string;
   category: string;
@@ -33,6 +34,10 @@ export interface Document {
     id: string;
     unitNumber: string;
     type: string;
+  } | null;
+  developer_projects?: {
+    id: string;
+    name: string;
   } | null;
   tenant?: {
     id: string;
@@ -62,6 +67,7 @@ export interface DocumentFilters {
   propertyId?: string;
   unitId?: string;
   tenantId?: string;
+  projectId?: string;
   type?: string;
   category?: string;
   status?: string;
@@ -134,6 +140,10 @@ export async function createDocument(data: Partial<Document>) {
  * Upload a new document
  */
 export async function uploadDocument(formData: FormData) {
+  // Emit storage update event after successful upload
+  const emitStorageUpdate = () => {
+    window.dispatchEvent(new CustomEvent("storage:updated", { detail: { action: "upload" } }));
+  };
   console.log("[uploadDocument] Starting upload...");
   console.log("[uploadDocument] FormData entries:");
   for (const [key, value] of formData.entries()) {
@@ -165,6 +175,10 @@ export async function uploadDocument(formData: FormData) {
   }
 
   console.log("[uploadDocument] Upload successful:", response.data);
+
+  // Emit storage update event after successful upload
+  window.dispatchEvent(new CustomEvent("storage:updated", { detail: { action: "upload" } }));
+
   return { data: response.data, error: null };
 }
 
@@ -197,6 +211,12 @@ export async function deleteDocument(id: string) {
       API_ENDPOINTS.DOCUMENTS.DELETE(id),
       { suppressAuthRedirect: true }
     );
+
+    // Emit storage update event after successful delete
+    if (!response.error) {
+      window.dispatchEvent(new CustomEvent("storage:updated", { detail: { action: "delete" } }));
+    }
+
     return { data: response.data, error: null };
   } catch (error: any) {
     console.error("Delete document error:", error);

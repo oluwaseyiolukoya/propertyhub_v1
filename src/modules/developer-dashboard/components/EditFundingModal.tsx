@@ -120,6 +120,7 @@ export const EditFundingModal: React.FC<EditFundingModalProps> = ({
           },
           body: JSON.stringify({
             amount: parseFloat(formData.amount),
+            currency: projectCurrency,
             fundingType: formData.fundingType,
             fundingSource: formData.fundingSource || null,
             expectedDate: formData.expectedDate || null,
@@ -148,6 +149,17 @@ export const EditFundingModal: React.FC<EditFundingModalProps> = ({
     }
   };
 
+  const getCurrencySymbol = (currency: string) => {
+    const symbols: Record<string, string> = {
+      NGN: "₦",
+      XOF: "CFA",
+      USD: "$",
+      EUR: "€",
+      GBP: "£",
+    };
+    return symbols[currency] || currency;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -159,7 +171,7 @@ export const EditFundingModal: React.FC<EditFundingModalProps> = ({
           {/* Amount */}
           <div className="space-y-2">
             <Label htmlFor="amount">
-              Amount ({projectCurrency}) <span className="text-red-500">*</span>
+              Amount ({getCurrencySymbol(projectCurrency)}) <span className="text-red-500">*</span>
             </Label>
             <Input
               id="amount"

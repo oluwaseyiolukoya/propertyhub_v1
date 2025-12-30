@@ -41,6 +41,8 @@ import {
   PhaseSpendData,
   ReportSummary
 } from "../../../lib/api/developer-reports";
+import { getCurrencySymbol } from "../../../lib/currency";
+import { getProjectById } from "../services/developerDashboard.api";
 
 interface ReportsPageProps {
   projectId: string;
@@ -60,6 +62,25 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
   const [phaseSpendData, setPhaseSpendData] = useState<PhaseSpendData[]>([]);
   const [summary, setSummary] = useState<ReportSummary | null>(null);
   const [currency, setCurrency] = useState<string>('NGN'); // Default to NGN
+
+  // Fetch project currency
+  useEffect(() => {
+    const fetchProjectCurrency = async () => {
+      try {
+        const response = await getProjectById(projectId);
+        if (response.success && response.data) {
+          setCurrency(response.data.currency || 'NGN');
+        }
+      } catch (error) {
+        console.error('Failed to fetch project currency:', error);
+        // Keep default 'NGN' if fetch fails
+      }
+    };
+
+    if (projectId) {
+      fetchProjectCurrency();
+    }
+  }, [projectId]);
 
   // Fetch real data from API
   useEffect(() => {
@@ -81,7 +102,10 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
         setCostBreakdownData(data.costBreakdown || []);
         setVendorPerformanceData(data.vendorPerformance || []);
         setPhaseSpendData(data.phaseSpend || []);
-        setCurrency(data.currency || 'NGN'); // Set currency from API response
+        // Update currency from API response if available, otherwise keep existing
+        if (data.currency) {
+          setCurrency(data.currency);
+        }
       } catch (err: any) {
         console.error('❌ Error fetching reports data:', err);
         setError(err.message || 'Failed to load reports data');
@@ -95,21 +119,13 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
   }, [projectId, selectedPeriod]);
 
   const formatCurrency = (value: number) => {
-    // Map currency codes to their locales for better formatting
-    const localeMap: { [key: string]: string } = {
-      'NGN': 'en-NG',
-      'USD': 'en-US',
-      'EUR': 'en-EU',
-      'GBP': 'en-GB',
-    };
-
-    const locale = localeMap[currency] || 'en-US';
-
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: currency,
+    // Use centralized currency symbol to avoid "F CFA" issue with Intl.NumberFormat
+    const symbol = getCurrencySymbol(currency);
+    const formatted = value.toLocaleString('en-US', {
       minimumFractionDigits: 0,
-    }).format(value);
+      maximumFractionDigits: 0,
+    });
+    return `${symbol}${formatted}`;
   };
 
   const handleGenerateReport = (reportType: string) => {
@@ -219,7 +235,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
               <div>
                 <p className="text-sm text-gray-600 mb-1">Total Budget</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(summary.totalBudget)}
+                  {formatCurrency(summary.totalBudget || 0)}
                 </p>
               </div>
               <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
@@ -235,10 +251,10 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
               <div>
                 <p className="text-sm text-gray-600 mb-1">Total Spent</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(summary.totalSpent)}
+                  {formatCurrency(summary.totalSpent || 0)}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  {summary.percentageUsed.toFixed(1)}% of budget
+                  {(summary.percentageUsed || 0).toFixed(1)}% of budget
                 </p>
               </div>
               <div className="h-12 w-12 rounded-full bg-orange-100 flex items-center justify-center">
@@ -254,10 +270,10 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
               <div>
                 <p className="text-sm text-gray-600 mb-1">Remaining</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(summary.remaining)}
+                  {formatCurrency(summary.remaining || 0)}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  {(100 - summary.percentageUsed).toFixed(1)}% available
+                  {(100 - (summary.percentageUsed || 0)).toFixed(1)}% available
                 </p>
               </div>
               <div className={`h-12 w-12 rounded-full flex items-center justify-center ${
@@ -277,13 +293,13 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
               <div>
                 <p className="text-sm text-gray-600 mb-1">Expenses</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {summary.totalExpenses}
+                  {summary.totalExpenses || 0}
                 </p>
                 <div className="flex gap-2 mt-1">
                   <Badge variant="outline" className="text-xs">
-                    {summary.paidExpenses} Paid
+                    {summary.paidExpenses || 0} Paid
                   </Badge>
-                  {summary.overdueExpenses > 0 && (
+                  {(summary.overdueExpenses || 0) > 0 && (
                     <Badge variant="destructive" className="text-xs">
                       {summary.overdueExpenses} Overdue
                     </Badge>
@@ -339,11 +355,22 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
           </div>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={cashFlowData}>
+          {cashFlowData && cashFlowData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={cashFlowData} margin={{ left: 20, right: 20, top: 10, bottom: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis dataKey="month" stroke="#6b7280" />
-              <YAxis stroke="#6b7280" />
+              <YAxis
+                stroke="#6b7280"
+                width={80}
+                tickFormatter={(value: number) => {
+                  // Format large numbers with K, M, B suffixes for better readability
+                  if (value >= 1000000000) return `${(value / 1000000000).toFixed(1)}B`;
+                  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+                  if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
+                  return value.toString();
+                }}
+              />
               <Tooltip
                 contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
                 formatter={(value: number) => formatCurrency(value)}
@@ -367,8 +394,13 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
                 fillOpacity={0.6}
                 name="Outflow"
               />
-            </AreaChart>
-          </ResponsiveContainer>
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[300px] text-gray-500">
+              No cash flow data available
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -380,10 +412,12 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
             <CardTitle>Cost Breakdown by Category</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={costBreakdownData}
+            {costBreakdownData && costBreakdownData.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={costBreakdownData}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
@@ -395,15 +429,15 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
                   {costBreakdownData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value: number) => formatCurrency(value)}
-                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="mt-4 space-y-2">
-              {costBreakdownData.map((item) => (
+                    </Pie>
+                    <Tooltip
+                      formatter={(value: number) => formatCurrency(value)}
+                      contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="mt-4 space-y-2">
+                  {costBreakdownData.map((item) => (
                 <div key={item.name} className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
@@ -411,10 +445,16 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
                   </div>
                   <span className="font-medium text-gray-900">
                     {formatCurrency(item.value)}
-                  </span>
+                    </span>
+                  </div>
+                ))}
                 </div>
-              ))}
-            </div>
+              </>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-gray-500">
+                No cost breakdown data available
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -424,8 +464,9 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
             <CardTitle>Budget vs Actual by Phase</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={phaseSpendData}>
+            {phaseSpendData && phaseSpendData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={phaseSpendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="phase" stroke="#6b7280" />
                 <YAxis stroke="#6b7280" />
@@ -434,10 +475,15 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
                   formatter={(value: number) => formatCurrency(value)}
                 />
                 <Legend />
-                <Bar dataKey="budget" fill="#3b82f6" radius={[8, 8, 0, 0]} name="Budget" />
-                <Bar dataKey="actual" fill="#14b8a6" radius={[8, 8, 0, 0]} name="Actual" />
-              </BarChart>
-            </ResponsiveContainer>
+                  <Bar dataKey="budget" fill="#3b82f6" radius={[8, 8, 0, 0]} name="Budget" />
+                  <Bar dataKey="actual" fill="#14b8a6" radius={[8, 8, 0, 0]} name="Actual" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-gray-500">
+                No phase spending data available
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -464,8 +510,9 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
           </div>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={vendorPerformanceData} layout="vertical">
+          {vendorPerformanceData && vendorPerformanceData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={vendorPerformanceData} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis type="number" domain={[0, 100]} stroke="#6b7280" />
               <YAxis dataKey="vendor" type="category" width={150} stroke="#6b7280" />
@@ -474,11 +521,16 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
                 formatter={(value: number) => `${value}%`}
               />
               <Legend />
-              <Bar dataKey="onTime" fill="#3b82f6" radius={[0, 4, 4, 0]} name="On-Time" />
-              <Bar dataKey="quality" fill="#14b8a6" radius={[0, 4, 4, 0]} name="Quality" />
-              <Bar dataKey="cost" fill="#f59e0b" radius={[0, 4, 4, 0]} name="Cost" />
-            </BarChart>
-          </ResponsiveContainer>
+                <Bar dataKey="onTime" fill="#3b82f6" radius={[0, 4, 4, 0]} name="On-Time" />
+                <Bar dataKey="quality" fill="#14b8a6" radius={[0, 4, 4, 0]} name="Quality" />
+                <Bar dataKey="cost" fill="#f59e0b" radius={[0, 4, 4, 0]} name="Cost" />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[300px] text-gray-500">
+              No vendor performance data available
+            </div>
+          )}
         </CardContent>
       </Card>
 

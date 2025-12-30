@@ -4,7 +4,6 @@ import {
   Wallet,
   Receipt,
   BarChart3,
-  TrendingUp,
   Settings,
   FolderKanban,
   Building2,
@@ -16,6 +15,7 @@ import {
   Bell,
   DollarSign,
   Shield,
+  FileText,
 } from "lucide-react";
 
 // Exact Contrezz logo from Figma Brand Guidelines
@@ -81,10 +81,10 @@ import InvoicesPage from "./InvoicesPage";
 import { BudgetManagementPage } from "./BudgetManagementPage";
 import { PurchaseOrdersPage } from "./PurchaseOrdersPage";
 import { ReportsPage } from "./ReportsPage";
-import { ForecastsPage } from "./ForecastsPage";
 import { ExpenseManagementPage } from "./ExpenseManagementPage";
 import ProjectFundingPage from "./ProjectFundingPage";
 import ProjectInvoicesPage from "./ProjectInvoicesPage";
+import { ProjectDocumentsPage } from "./ProjectDocumentsPage";
 import { useProjects } from "../hooks/useDeveloperDashboardData";
 import { Footer } from "../../../components/Footer";
 import { toast } from "sonner";
@@ -110,13 +110,13 @@ type Page =
   | "purchase-orders"
   | "project-invoices"
   | "reports"
-  | "forecasts"
   | "settings"
   | "profile"
   | "create-project"
   | "edit-project"
   | "expense-management"
-  | "project-funding";
+  | "project-funding"
+  | "documents";
 
 export const DeveloperDashboardRefactored: React.FC<
   DeveloperDashboardRefactoredProps
@@ -477,6 +477,12 @@ export const DeveloperDashboardRefactored: React.FC<
       visible: true, // Everyone can view POs
     },
     {
+      id: "documents" as Page,
+      label: "Documents",
+      icon: FileText,
+      visible: true, // Everyone can view documents
+    },
+    {
       id: "expense-management" as Page,
       label: "Expenses",
       icon: Receipt,
@@ -495,12 +501,6 @@ export const DeveloperDashboardRefactored: React.FC<
       label: "Reports",
       icon: BarChart3,
       visible: canViewReports, // Everyone except Viewer (limited)
-    },
-    {
-      id: "forecasts" as Page,
-      label: "Forecasts",
-      icon: TrendingUp,
-      visible: true, // Everyone can view forecasts
     },
   ];
 
@@ -645,6 +645,16 @@ export const DeveloperDashboardRefactored: React.FC<
             </p>
           </div>
         );
+      case "documents":
+        return selectedProjectId ? (
+          <ProjectDocumentsPage projectId={selectedProjectId} />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-gray-500">
+              Please select a project to view documents
+            </p>
+          </div>
+        );
       case "reports":
         return selectedProjectId ? (
           <ReportsPage projectId={selectedProjectId} />
@@ -652,16 +662,6 @@ export const DeveloperDashboardRefactored: React.FC<
           <div className="flex items-center justify-center h-full">
             <p className="text-gray-500">
               Please select a project to view reports
-            </p>
-          </div>
-        );
-      case "forecasts":
-        return selectedProjectId ? (
-          <ForecastsPage projectId={selectedProjectId} />
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-gray-500">
-              Please select a project to view forecasts
             </p>
           </div>
         );

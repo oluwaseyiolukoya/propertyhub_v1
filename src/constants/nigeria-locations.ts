@@ -107,6 +107,7 @@ export const COUNTRIES = [
   'Ghana',
   'South Africa',
   'Kenya',
+  'Abidjan, Côte d\'Ivoire',
   'United Arab Emirates',
   'Saudi Arabia',
   'Germany',
@@ -118,7 +119,80 @@ export const COUNTRIES = [
   'Others'
 ] as const;
 
+// Côte d'Ivoire States/Regions
+export const IVORY_COAST_REGIONS = [
+  'Lagunes',
+  'Haut-Sassandra',
+  'Savanes',
+  'Vallée du Bandama',
+  'Moyen-Comoe',
+  'Gbêkê',
+  'Woroba',
+  'Sud-Comoe',
+  'Marahoué',
+  'Fromager',
+  'N\'zi-Comoe',
+  'Mé',
+  'Indénié-Djuablin',
+  'Sud-Bandama',
+  'Agnéby-Tiassa',
+  'Gôh',
+  'Lôh-Djiboua',
+  'Gbôklé',
+  'Cavally',
+  'Guémon',
+  'Tonkpi',
+  'Bagoué',
+  'Poro',
+  'Tchologo',
+  'Gboklè',
+  'Bafing',
+  'Worodougou',
+  'Béré',
+  'Iffou',
+  'Moronou',
+  'Nawa',
+  'Others'
+] as const;
+
+// Côte d'Ivoire Cities
+export const IVORY_COAST_CITIES = [
+  'Abidjan',
+  'Bouaké',
+  'Daloa',
+  'Yamoussoukro',
+  'San-Pédro',
+  'Korhogo',
+  'Man',
+  'Divo',
+  'Gagnoa',
+  'Abengourou',
+  'Agboville',
+  'Dabou',
+  'Grand-Bassam',
+  'Bondoukou',
+  'Odienné',
+  'Séguéla',
+  'Katiola',
+  'Bingerville',
+  'Adzopé',
+  'Issia',
+  'Soubré',
+  'Duékoué',
+  'Danané',
+  'Ferkessédougou',
+  'Boundiali',
+  'Oumé',
+  'Toumodi',
+  'Vavoua',
+  'Zuenoula',
+  'Tiassalé',
+  'Others'
+] as const;
+
 export type NigerianState = typeof NIGERIAN_STATES[number];
 export type NigerianCity = typeof NIGERIAN_CITIES[number];
 export type Country = typeof COUNTRIES[number];
+export type IvoryCoastRegion = typeof IVORY_COAST_REGIONS[number];
+export type IvoryCoastCity = typeof IVORY_COAST_CITIES[number];
 

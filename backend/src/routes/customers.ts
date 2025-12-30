@@ -755,6 +755,21 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
         ? parsedStorageLimit
         : plan?.storageLimit ?? existingCustomer.storageLimit ?? DEFAULT_TRIAL_LIMITS.storageMb;
 
+    // Convert storageLimit (MB) to storage_limit (bytes) for the new storage system
+    // Always update storage_limit when storageLimit is explicitly provided or when plan changes
+    let finalStorageLimitBytes: BigInt | undefined;
+    if (parsedStorageLimit !== undefined) {
+      // Admin explicitly updated storageLimit, convert to bytes
+      finalStorageLimitBytes = BigInt(parsedStorageLimit * 1024 * 1024);
+    } else if (plan?.storageLimit) {
+      // Plan has storage limit, use it
+      finalStorageLimitBytes = BigInt(plan.storageLimit * 1024 * 1024);
+    } else if (finalStorageLimit !== existingCustomer.storageLimit) {
+      // storageLimit changed (even if not explicitly provided), convert to bytes
+      finalStorageLimitBytes = BigInt(finalStorageLimit * 1024 * 1024);
+    }
+    // If undefined, Prisma will keep the existing value
+
     // Handle subscription date changes based on status
     let subscriptionStartDate = existingCustomer.subscriptionStartDate;
     let finalTrialStartsAt = existingCustomer.trialStartsAt;
@@ -819,7 +834,8 @@ router.put("/:id", async (req: AuthRequest, res: Response) => {
         propertyLimit: finalPropertyLimit,
         projectLimit: finalProjectLimit, // Update project limit
         userLimit: finalUserLimit,
-        storageLimit: finalStorageLimit,
+        storageLimit: finalStorageLimit, // Legacy field (MB)
+        ...(finalStorageLimitBytes !== undefined && { storage_limit: finalStorageLimitBytes }), // New storage system field (bytes) - only update if changed
         propertiesCount: properties !== undefined ? properties : existingCustomer.propertiesCount, // Update properties count
         projectsCount: planCategoryResolved === "development" && properties !== undefined ? properties : (existingCustomer.projectsCount || 0), // Update projects count
         unitsCount: units !== undefined ? units : existingCustomer.unitsCount, // Update units count

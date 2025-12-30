@@ -53,6 +53,7 @@ import { toast } from 'sonner';
 import { apiClient } from '../../../lib/api-client';
 import { approveProjectInvoice, rejectProjectInvoice, markInvoiceAsPaid } from '../../../lib/api/invoices';
 import MarkAsPaidModal, { type PaymentDetails } from './MarkAsPaidModal';
+import { getCurrencySymbol } from '../../../lib/currency';
 
 interface InvoicesPageProps {
   onViewProject?: (projectId: string) => void;
@@ -283,13 +284,14 @@ export const InvoicesPage: React.FC<InvoicesPageProps> = ({ onViewProject, canAp
     .filter((inv) => inv.status === 'pending' || inv.status === 'approved')
     .reduce((sum, inv) => sum + inv.amount, 0);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
+  const formatCurrency = (amount: number, currency: string = 'NGN') => {
+    // Use centralized currency symbol to avoid "F CFA" issue with Intl.NumberFormat
+    const symbol = getCurrencySymbol(currency);
+    const formatted = amount.toLocaleString('en-US', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount);
+    });
+    return `${symbol}${formatted}`;
   };
 
   const formatDate = (dateString?: string) => {
@@ -603,7 +605,7 @@ export const InvoicesPage: React.FC<InvoicesPageProps> = ({ onViewProject, canAp
                     </TableCell>
                     <TableCell>{getCategoryBadge(invoice.category)}</TableCell>
                     <TableCell className="text-right font-semibold text-gray-900">
-                      {formatCurrency(invoice.amount)}
+                      {formatCurrency(invoice.amount, invoice.currency)}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1 text-gray-700">

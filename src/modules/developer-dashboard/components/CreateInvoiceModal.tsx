@@ -43,6 +43,7 @@ import {
   updateProjectInvoice,
   createProjectInvoice,
 } from "../../../lib/api/invoices";
+import { getProjectById } from "../services/developerDashboard.api";
 
 interface CreateInvoiceModalProps {
   open: boolean;
@@ -105,6 +106,19 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
   const [vendors, setVendors] = useState<Array<{ id: string; name: string }>>(
     []
   );
+  const [projectCurrency, setProjectCurrency] = useState<string>('NGN');
+
+  // Get currency symbol for labels
+  const getCurrencySymbol = (currencyCode: string) => {
+    const symbols: Record<string, string> = {
+      NGN: '₦',
+      XOF: 'CFA',
+      USD: '$',
+      EUR: '€',
+      GBP: '£',
+    };
+    return symbols[currencyCode] || currencyCode;
+  };
 
   // Mock data - will be replaced with API calls
   const projects = [
@@ -142,6 +156,28 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
       setLoadingExistingAttachments(false);
     }
   };
+
+  // Fetch project currency
+  useEffect(() => {
+    const fetchProjectCurrency = async () => {
+      const targetProjectId = projectId || selectedProject || invoiceToEdit?.projectId;
+      if (!targetProjectId) return;
+
+      try {
+        const response = await getProjectById(targetProjectId);
+        if (response.success && response.data) {
+          setProjectCurrency(response.data.currency || 'NGN');
+        }
+      } catch (error) {
+        console.error('Failed to fetch project currency:', error);
+        // Keep default 'NGN' if fetch fails
+      }
+    };
+
+    if (open) {
+      fetchProjectCurrency();
+    }
+  }, [open, projectId, selectedProject, invoiceToEdit?.projectId]);
 
   // Populate form data when in edit mode
   useEffect(() => {
@@ -426,7 +462,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
           description: formData.description,
           category: formData.category,
           amount: formData.amount,
-          currency: "NGN",
+          currency: projectCurrency,
           dueDate: dueDate?.toISOString(),
           notes: formData.notes,
           vendorId: formData.vendorId,
@@ -484,7 +520,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
           description: formData.description,
           category: formData.category,
           amount: formData.amount,
-          // Let backend default currency to NGN if omitted
+          currency: projectCurrency,
           dueDate: dueDate ? dueDate.toISOString() : undefined,
           notes: formData.notes,
           attachments: attachmentPaths,
@@ -696,7 +732,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
 
             <div className="space-y-2">
               <Label htmlFor="amount">
-                Amount (₦) <span className="text-red-500">*</span>
+                Amount ({getCurrencySymbol(projectCurrency)}) <span className="text-red-500">*</span>
               </Label>
               <Input
                 id="amount"

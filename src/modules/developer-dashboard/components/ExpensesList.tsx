@@ -167,18 +167,14 @@ export function ExpensesList({
   };
 
   const getCurrencySymbol = (currency: string) => {
-    switch (currency) {
-      case "NGN":
-        return "₦";
-      case "USD":
-        return "$";
-      case "GBP":
-        return "£";
-      case "EUR":
-        return "€";
-      default:
-        return currency;
-    }
+    const symbols: Record<string, string> = {
+      NGN: "₦",
+      XOF: "CFA",
+      USD: "$",
+      EUR: "€",
+      GBP: "£",
+    };
+    return symbols[currency] || currency;
   };
 
   const getCategoryLabel = (category: string) => {

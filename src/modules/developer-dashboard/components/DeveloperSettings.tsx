@@ -144,7 +144,96 @@ export function DeveloperSettings({
     fetchPlans();
     fetchBillingHistory();
     fetchStorageQuota();
+  }, []);
 
+  // Set up periodic refresh for storage quota when storage tab is active
+  useEffect(() => {
+    if (activeTab === "storage") {
+      const interval = setInterval(() => {
+        fetchStorageQuota();
+      }, 30000); // Refresh every 30 seconds
+
+      return () => {
+        clearInterval(interval);
+      };
+    }
+  }, [activeTab]);
+
+  // Refresh storage quota when window regains focus (if storage tab is active)
+  useEffect(() => {
+    if (activeTab === "storage") {
+      const handleFocus = () => {
+        fetchStorageQuota();
+      };
+
+      window.addEventListener("focus", handleFocus);
+
+      return () => {
+        window.removeEventListener("focus", handleFocus);
+      };
+    }
+  }, [activeTab]);
+
+  // Listen to document events to refresh storage quota when documents are uploaded/deleted
+  useEffect(() => {
+    if (activeTab === "storage") {
+      const token = localStorage.getItem("token");
+      if (token) {
+        try {
+          const { initializeSocket } = require("../../../lib/socket");
+          initializeSocket(token);
+        } catch (e) {
+          console.warn("Socket init failed for storage updates:", e);
+        }
+      }
+
+      const handleDocumentUpdate = (data: {
+        documentId: string;
+        action: string;
+        reason?: string;
+        timestamp: string;
+      }) => {
+        // Refresh storage quota when documents are uploaded, updated, or deleted
+        if (data.action === "updated" || data.action === "removed" || data.action === "deleted") {
+          console.log("[Storage] Document event received, refreshing storage quota:", data.action);
+          fetchStorageQuota();
+        }
+      };
+
+      const handleDocumentDeleted = (data: { documentId: string; timestamp: string }) => {
+        console.log("[Storage] Document deleted, refreshing storage quota");
+        fetchStorageQuota();
+      };
+
+      try {
+        const {
+          subscribeToDocumentEvents,
+          unsubscribeFromDocumentEvents,
+        } = require("../../../lib/socket");
+        subscribeToDocumentEvents({
+          onUpdated: handleDocumentUpdate,
+          onDeleted: handleDocumentDeleted,
+        });
+
+        // Also listen to custom browser events for storage updates
+        const handleStorageUpdate = () => {
+          console.log("[Storage] Storage update event received, refreshing quota");
+          fetchStorageQuota();
+        };
+
+        window.addEventListener("storage:updated", handleStorageUpdate);
+
+        return () => {
+          unsubscribeFromDocumentEvents();
+          window.removeEventListener("storage:updated", handleStorageUpdate);
+        };
+      } catch (e) {
+        console.warn("Failed to subscribe to document events:", e);
+      }
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
     // Check for payment callback
     const urlParams = new URLSearchParams(window.location.search);
     const reference =
@@ -819,7 +908,7 @@ export function DeveloperSettings({
         className="w-full"
       >
         <TabsList
-          className={`grid w-full ${isOwner ? "grid-cols-4" : "grid-cols-3"}`}
+          className={`grid w-full ${isOwner ? "grid-cols-5" : "grid-cols-4"}`}
         >
           <TabsTrigger value="organization" className="gap-2">
             <Building2 className="w-4 h-4" />
@@ -832,6 +921,10 @@ export function DeveloperSettings({
           <TabsTrigger value="billing" className="gap-2">
             <CreditCard className="w-4 h-4" />
             Billing
+          </TabsTrigger>
+          <TabsTrigger value="storage" className="gap-2">
+            <HardDrive className="w-4 h-4" />
+            Storage Space
           </TabsTrigger>
           {isOwner && (
             <TabsTrigger value="team" className="gap-2">
@@ -1032,6 +1125,176 @@ export function DeveloperSettings({
           <NotificationPreferencesTab />
         </TabsContent>
 
+        {/* Storage Space Tab */}
+        <TabsContent value="storage" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <HardDrive className="w-5 h-5" />
+                Storage Space
+              </CardTitle>
+              <CardDescription>
+                Monitor your file storage usage and available space
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {loadingQuota ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">Loading storage quota...</p>
+                </div>
+              ) : storageQuota ? (
+                <>
+                  <div className="space-y-3">
+                    {/* Usage Stats */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">
+                          Storage Used
+                        </p>
+                        <p className="text-2xl font-bold text-gray-900">
+                          {storageQuota.usedFormatted}
+                          <span className="text-sm font-normal text-gray-500">
+                            {" "}
+                            / {storageQuota.limitFormatted}
+                          </span>
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-gray-700">
+                          Available
+                        </p>
+                        <p className="text-lg font-semibold text-green-600">
+                          {storageQuota.availableFormatted}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="space-y-2">
+                      <Progress
+                        value={storageQuota.percentage}
+                        className={`h-3 ${
+                          storageQuota.percentage > 90
+                            ? "bg-red-100"
+                            : storageQuota.percentage > 75
+                            ? "bg-yellow-100"
+                            : "bg-green-100"
+                        }`}
+                      />
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>{storageQuota.percentage.toFixed(1)}% used</span>
+                        <span>
+                          {storageQuota.percentage > 90 && (
+                            <span className="flex items-center gap-1 text-red-600 font-medium">
+                              <AlertCircle className="w-3 h-3" />
+                              Almost full
+                            </span>
+                          )}
+                          {storageQuota.percentage > 75 &&
+                            storageQuota.percentage <= 90 && (
+                              <span className="flex items-center gap-1 text-yellow-600 font-medium">
+                                <AlertCircle className="w-3 h-3" />
+                                Running low
+                              </span>
+                            )}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Warning Message */}
+                    {storageQuota.percentage > 90 && (
+                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-red-900">
+                              Storage almost full
+                            </p>
+                            <p className="text-xs text-red-700 mt-1">
+                              You're running out of storage space. Consider
+                              upgrading your plan or deleting unused files.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Info Box */}
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm font-medium text-blue-900 mb-2">
+                        What counts towards storage?
+                      </p>
+                      <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
+                        <li>Uploaded documents and files</li>
+                        <li>Invoice attachments and receipts</li>
+                        <li>Property images and media</li>
+                        <li>Project documents and architecture plans</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 pt-4">
+                    {storageQuota.percentage > 75 && (
+                      <Button
+                        size="sm"
+                        className="bg-blue-600 hover:bg-blue-700"
+                        onClick={() => setActiveTab("billing")}
+                      >
+                        Upgrade Plan
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          setLoadingQuota(true);
+                          // Recalculate storage usage
+                          await apiClient.post("/api/storage/recalculate");
+                          // Then fetch updated quota
+                          await fetchStorageQuota();
+                          toast.success("Storage usage recalculated");
+                        } catch (error) {
+                          console.error("Failed to recalculate storage:", error);
+                          toast.error("Failed to recalculate storage");
+                        } finally {
+                          setLoadingQuota(false);
+                        }
+                      }}
+                      disabled={loadingQuota}
+                    >
+                      {loadingQuota ? "Recalculating..." : "Recalculate"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={fetchStorageQuota}
+                      disabled={loadingQuota}
+                    >
+                      Refresh
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-8">
+                  <AlertCircle className="h-8 w-8 mx-auto mb-4 text-gray-400" />
+                  <p className="text-gray-500 mb-4">
+                    Failed to load storage quota
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={fetchStorageQuota}
+                  >
+                    Retry
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* Billing Settings */}
         <TabsContent value="billing" className="space-y-6">
           <Card>
@@ -1157,152 +1420,6 @@ export function DeveloperSettings({
             </CardContent>
           </Card>
 
-          {/* Storage Quota Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <HardDrive className="w-5 h-5" />
-                Storage Quota
-              </CardTitle>
-              <CardDescription>
-                Monitor your file storage usage and available space
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {loadingQuota ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">Loading storage quota...</p>
-                </div>
-              ) : storageQuota ? (
-                <>
-                  <div className="space-y-3">
-                    {/* Usage Stats */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-700">
-                          Storage Used
-                        </p>
-                        <p className="text-2xl font-bold text-gray-900">
-                          {storageQuota.usedFormatted}
-                          <span className="text-sm font-normal text-gray-500">
-                            {" "}
-                            / {storageQuota.limitFormatted}
-                          </span>
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium text-gray-700">
-                          Available
-                        </p>
-                        <p className="text-lg font-semibold text-green-600">
-                          {storageQuota.availableFormatted}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="space-y-2">
-                      <Progress
-                        value={storageQuota.percentage}
-                        className={`h-3 ${
-                          storageQuota.percentage > 90
-                            ? "bg-red-100"
-                            : storageQuota.percentage > 75
-                            ? "bg-yellow-100"
-                            : "bg-green-100"
-                        }`}
-                      />
-                      <div className="flex items-center justify-between text-xs text-gray-500">
-                        <span>{storageQuota.percentage.toFixed(1)}% used</span>
-                        <span>
-                          {storageQuota.percentage > 90 && (
-                            <span className="flex items-center gap-1 text-red-600 font-medium">
-                              <AlertCircle className="w-3 h-3" />
-                              Almost full
-                            </span>
-                          )}
-                          {storageQuota.percentage > 75 &&
-                            storageQuota.percentage <= 90 && (
-                              <span className="flex items-center gap-1 text-yellow-600 font-medium">
-                                <AlertCircle className="w-3 h-3" />
-                                Running low
-                              </span>
-                            )}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Warning Message */}
-                    {storageQuota.percentage > 90 && (
-                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <div className="flex items-start gap-2">
-                          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-red-900">
-                              Storage almost full
-                            </p>
-                            <p className="text-xs text-red-700 mt-1">
-                              You're running out of storage space. Consider
-                              upgrading your plan or deleting unused files.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Info Box */}
-                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-sm text-blue-900">
-                        <strong>What counts towards storage?</strong>
-                      </p>
-                      <ul className="text-xs text-blue-800 mt-2 space-y-1 ml-4 list-disc">
-                        <li>Invoice attachments (receipts, documents)</li>
-                        <li>Project documents and files</li>
-                        <li>Uploaded images and media</li>
-                      </ul>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex gap-2 pt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        // Navigate to storage test page or files page
-                        window.location.href = "/storage-test";
-                      }}
-                    >
-                      View Files
-                    </Button>
-                    {storageQuota.percentage > 75 && (
-                      <Button
-                        size="sm"
-                        className="bg-blue-600 hover:bg-blue-700"
-                        onClick={() => setShowChangePlanDialog(true)}
-                      >
-                        Upgrade Plan
-                      </Button>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">
-                    Storage quota information unavailable
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-4"
-                    onClick={fetchStorageQuota}
-                  >
-                    Retry
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
 
           <Card>
             <CardHeader>

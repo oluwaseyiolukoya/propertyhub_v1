@@ -77,10 +77,11 @@ router.get(
         },
       });
     } catch (error: any) {
-      console.error("Error fetching storage quota:", error);
+      console.error("[Storage Quota] Error fetching storage quota:", error);
+      console.error("[Storage Quota] Error stack:", error.stack);
       res.status(500).json({
         success: false,
-        error: error.message,
+        error: error.message || "Failed to fetch storage quota",
       });
     }
   }

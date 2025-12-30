@@ -51,6 +51,8 @@ import {
 import { toast } from "sonner";
 import { AddFundingModal } from "./AddFundingModal";
 import { EditFundingModal } from "./EditFundingModal";
+import { getProjectById } from "../services/developerDashboard.api";
+import { getCurrencySymbol as getCurrencySymbolFromLib } from "../../../lib/currency";
 
 interface FundingRecord {
   id: string;
@@ -101,7 +103,7 @@ const FUNDING_TYPE_LABELS: Record<string, string> = {
 export const ProjectFundingPage: React.FC<ProjectFundingPageProps> = ({
   projectId,
   projectName,
-  projectCurrency = "NGN",
+  projectCurrency: propProjectCurrency = "NGN",
   onBack,
 }) => {
   const [fundingRecords, setFundingRecords] = useState<FundingRecord[]>([]);
@@ -111,6 +113,26 @@ export const ProjectFundingPage: React.FC<ProjectFundingPageProps> = ({
   const [selectedFunding, setSelectedFunding] = useState<FundingRecord | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [projectCurrency, setProjectCurrency] = useState<string>(propProjectCurrency);
+
+  // Fetch project currency
+  useEffect(() => {
+    const fetchProjectCurrency = async () => {
+      try {
+        const response = await getProjectById(projectId);
+        if (response.success && response.data) {
+          setProjectCurrency(response.data.currency || propProjectCurrency);
+        }
+      } catch (error) {
+        console.error('Failed to fetch project currency:', error);
+        // Keep prop currency if fetch fails
+      }
+    };
+
+    if (projectId) {
+      fetchProjectCurrency();
+    }
+  }, [projectId, propProjectCurrency]);
 
   useEffect(() => {
     fetchFunding();
@@ -152,6 +174,7 @@ export const ProjectFundingPage: React.FC<ProjectFundingPageProps> = ({
   const getCurrencySymbol = (currency: string) => {
     const symbols: Record<string, string> = {
       NGN: "₦",
+      XOF: "CFA",
       USD: "$",
       EUR: "€",
       GBP: "£",
@@ -160,12 +183,13 @@ export const ProjectFundingPage: React.FC<ProjectFundingPageProps> = ({
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-NG", {
-      style: "currency",
-      currency: projectCurrency,
+    // Use centralized currency symbol to avoid "F CFA" issue with Intl.NumberFormat
+    const symbol = getCurrencySymbolFromLib(projectCurrency);
+    const formatted = amount.toLocaleString("en-US", {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount);
+    });
+    return `${symbol}${formatted}`;
   };
 
   const formatDate = (dateString: string | null) => {

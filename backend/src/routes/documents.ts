@@ -72,7 +72,7 @@ router.get("/", async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     const role = req.user?.role;
-    const { propertyId, unitId, tenantId, type, category, status } = req.query;
+    const { propertyId, unitId, tenantId, projectId, type, category, status } = req.query;
 
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
@@ -212,45 +212,168 @@ router.get("/", async (req: AuthRequest, res: Response) => {
           { status: tenantStatus },
         ],
       };
+    } else if (role === "developer") {
+      // Developer can see documents for their projects and customer-level documents
+      const user = await prisma.users.findUnique({
+        where: { id: userId },
+        select: { customerId: true },
+      });
+
+      if (!user?.customerId) {
+        return res.status(403).json({ error: "Developer customer not found" });
+      }
+
+      // If projectId filter is provided, verify access and use simpler query
+      if (projectId) {
+        // Verify the developer has access to this project
+        const project = await prisma.developer_projects.findFirst({
+          where: {
+            id: projectId as string,
+            OR: [
+              { developerId: userId },
+              { customerId: user.customerId },
+            ],
+          },
+        });
+
+        if (!project) {
+          return res.status(403).json({ error: "Access denied to this project" });
+        }
+
+        // Simple query: documents for this project and customer
+        whereClause = {
+          projectId: projectId as string,
+          customerId: user.customerId,
+        };
+      } else {
+        // Get all projects for this developer
+        const developerProjects = await prisma.developer_projects.findMany({
+          where: {
+            OR: [
+              { developerId: userId },
+              { customerId: user.customerId },
+            ],
+          },
+          select: { id: true },
+        });
+
+        const projectIds = developerProjects.map((p) => p.id);
+
+        // Build OR conditions
+        const orConditions: any[] = [];
+
+        // Documents linked to developer's projects
+        if (projectIds.length > 0) {
+          orConditions.push({ projectId: { in: projectIds } });
+        }
+
+        // Customer-level documents (no projectId)
+        orConditions.push({
+          AND: [
+            { customerId: user.customerId },
+            { projectId: null },
+          ],
+        });
+
+        whereClause = {
+          OR: orConditions,
+        };
+      }
+
+      console.log("[Document List] Developer whereClause:", {
+        userId,
+        customerId: user.customerId,
+        projectId: projectId || "all",
+        whereClause: JSON.stringify(whereClause),
+      });
     } else {
       return res.status(403).json({ error: "Access denied" });
     }
 
     // Add additional filters (only for non-tenant roles, as tenant query is already complete)
     if (role !== "tenant") {
-      if (propertyId) whereClause.propertyId = propertyId as string;
-      if (unitId) whereClause.unitId = unitId as string;
-      if (
-        tenantId &&
-        (role === "owner" ||
-          role === "property_owner" ||
-          role === "manager" ||
-          role === "property_manager")
-      ) {
-        whereClause.tenantId = tenantId as string;
-      }
-      if (type) whereClause.type = type as string;
-      if (category) whereClause.category = category as string;
+      // For developer role, handle filters based on query structure
+      if (role === "developer") {
+        // If whereClause has OR (no projectId filter was provided), add filters to OR conditions
+        if (whereClause.OR) {
+          // Add other filters (type, category) to each OR condition
+          const additionalFilters: any = {};
+          if (type) additionalFilters.type = type as string;
+          if (category) additionalFilters.category = category as string;
 
-      // Status filtering rules
-      // IMPORTANT: For managers, we CANNOT add a global status filter because:
-      // - Shared documents already have { status: "active" } in their AND condition
-      // - Adding a global status filter would interfere with the OR logic
-      // - Managers should see active/draft/inactive for THEIR OWN docs, but ONLY active for shared docs
-      if (role === "manager" || role === "property_manager") {
-        // For managers, don't add global status filter - it's handled per-condition in orConditions
-        // Only filter if explicitly requested
-        if (status && status !== "") {
-          whereClause.status = status as string;
+          if (Object.keys(additionalFilters).length > 0) {
+            whereClause = {
+              AND: [
+                {
+                  OR: whereClause.OR.map((condition: any) => ({
+                    ...condition,
+                    ...additionalFilters,
+                  })),
+                },
+              ],
+            };
+          }
         }
-        // Note: shared docs already filtered to status="active" in orConditions
-        // Own docs will show all statuses (active, draft, inactive) without a global filter
-      } else if (role === "owner" || role === "property_owner") {
-        // Owners can see everything except deleted
+
+        // Add status filter (works for both simple whereClause and OR-based)
         if (status && status !== "") {
-          whereClause.status = status as string;
+          if (whereClause.AND) {
+            whereClause.AND.push({ status: status as string });
+          } else {
+            whereClause.status = status as string;
+          }
         } else {
-          whereClause.status = { not: "deleted" };
+          // Default: exclude deleted documents
+          if (whereClause.AND) {
+            whereClause.AND.push({ status: { not: "deleted" } });
+          } else {
+            whereClause.status = { not: "deleted" };
+          }
+        }
+
+        // Add type and category filters if not already handled above (for simple whereClause)
+        if (!whereClause.OR && type) {
+          whereClause.type = type as string;
+        }
+        if (!whereClause.OR && category) {
+          whereClause.category = category as string;
+        }
+      } else {
+        // For other roles, add filters directly
+        if (propertyId) whereClause.propertyId = propertyId as string;
+        if (unitId) whereClause.unitId = unitId as string;
+        if (
+          tenantId &&
+          (role === "owner" ||
+            role === "property_owner" ||
+            role === "manager" ||
+            role === "property_manager")
+        ) {
+          whereClause.tenantId = tenantId as string;
+        }
+        if (type) whereClause.type = type as string;
+        if (category) whereClause.category = category as string;
+
+        // Status filtering rules
+        // IMPORTANT: For managers, we CANNOT add a global status filter because:
+        // - Shared documents already have { status: "active" } in their AND condition
+        // - Adding a global status filter would interfere with the OR logic
+        // - Managers should see active/draft/inactive for THEIR OWN docs, but ONLY active for shared docs
+        if (role === "manager" || role === "property_manager") {
+          // For managers, don't add global status filter - it's handled per-condition in orConditions
+          // Only filter if explicitly requested
+          if (status && status !== "") {
+            whereClause.status = status as string;
+          }
+          // Note: shared docs already filtered to status="active" in orConditions
+          // Own docs will show all statuses (active, draft, inactive) without a global filter
+        } else if (role === "owner" || role === "property_owner") {
+          // Owners can see everything except deleted
+          if (status && status !== "") {
+            whereClause.status = status as string;
+          } else {
+            whereClause.status = { not: "deleted" };
+          }
         }
       }
     } else {
@@ -297,6 +420,12 @@ router.get("/", async (req: AuthRequest, res: Response) => {
             id: true,
             unitNumber: true,
             type: true,
+          },
+        },
+        developer_projects: {
+          select: {
+            id: true,
+            name: true,
           },
         },
         users_documents_tenantIdTousers: {
@@ -573,6 +702,7 @@ router.post(
         unitId,
         tenantId,
         managerId,
+        projectId,
         isShared,
         sharedWith,
         expiresAt,
@@ -656,6 +786,35 @@ router.post(
             .json({ error: "Access denied to this property" });
         }
         customerId = assignment.properties.customerId;
+      } else if (role === "developer") {
+        // Developer can upload documents for their projects or customer-level
+        const user = await prisma.users.findUnique({
+          where: { id: userId },
+          select: { customerId: true },
+        });
+
+        if (!user?.customerId) {
+          return res.status(403).json({ error: "Developer customer not found" });
+        }
+
+        customerId = user.customerId;
+
+        // If projectId is provided, verify the developer has access to it
+        if (projectId) {
+          const project = await prisma.developer_projects.findFirst({
+            where: {
+              id: projectId as string,
+              OR: [
+                { developerId: userId },
+                { customerId: user.customerId },
+              ],
+            },
+          });
+
+          if (!project) {
+            return res.status(403).json({ error: "Access denied to this project" });
+          }
+        }
       } else {
         return res.status(403).json({ error: "Access denied" });
       }
@@ -713,7 +872,7 @@ router.post(
           customerId,
           category: "documents",
           subcategory: type,
-          entityId: propertyId || undefined,
+          entityId: projectId || propertyId || undefined,
           file: {
             originalName: file.originalname,
             buffer: file.buffer,
@@ -727,6 +886,7 @@ router.post(
             propertyId: propertyId || null,
             unitId: unitId || null,
             tenantId: tenantId || null,
+            projectId: projectId || null,
             uploaderName: uploader?.name || "System", // Store name in metadata if needed
           },
         });
@@ -737,6 +897,16 @@ router.post(
           customerId,
           fileName: file.originalname,
         });
+
+        // Handle storage quota exceeded error with proper status code
+        if (uploadError.message?.includes("Storage quota exceeded") ||
+            uploadError.message?.includes("quota exceeded")) {
+          return res.status(413).json({
+            error: "Storage quota exceeded",
+            details: uploadError.message,
+          });
+        }
+
         return res.status(500).json({
           error: "Failed to upload file to cloud storage",
           details:
@@ -764,7 +934,8 @@ router.post(
           propertyId: propertyId || null,
           unitId: unitId || null,
           tenantId: tenantId || null,
-          managerId: finalManagerId,
+          managerId: finalManagerId || null,
+          projectId: projectId || null,
           name: name || file.originalname,
           type,
           category,
@@ -779,6 +950,7 @@ router.post(
           sharedWith: sharedWith ? JSON.parse(sharedWith) : [],
           expiresAt: expiresAt ? new Date(expiresAt) : null,
           updatedAt: new Date(),
+          createdAt: new Date(),
           metadata: {
             uploadedToSpaces: true,
             storageType: "spaces",
@@ -808,10 +980,13 @@ router.post(
       // Provide more specific error messages
       let errorMessage = "Failed to upload document";
       let errorDetails = error.message || "Unknown error";
+      let statusCode = 500;
 
-      if (error.message?.includes("Storage quota exceeded")) {
+      if (error.message?.includes("Storage quota exceeded") ||
+          error.message?.includes("quota exceeded")) {
         errorMessage = "Storage quota exceeded";
         errorDetails = error.message;
+        statusCode = 413; // Payload Too Large - appropriate for quota exceeded
       } else if (
         error.message?.includes("credentials") ||
         error.message?.includes("AccessDenied")
@@ -827,7 +1002,7 @@ router.post(
           "Please check your network connection and Spaces endpoint";
       }
 
-      return res.status(500).json({
+      return res.status(statusCode).json({
         error: errorMessage,
         details: errorDetails,
       });
@@ -1791,6 +1966,45 @@ async function checkDocumentAccess(
       return true;
     }
     return false;
+  } else if (role === "developer") {
+    // Developer can access documents they uploaded
+    if (document.uploadedById === userId) {
+      return true;
+    }
+
+    // Get developer's customerId
+    const user = await prisma.users.findUnique({
+      where: { id: userId },
+      select: { customerId: true },
+    });
+
+    if (!user?.customerId) {
+      return false;
+    }
+
+    // Check if document belongs to the developer's customer
+    if (document.customerId !== user.customerId) {
+      return false;
+    }
+
+    // If document is linked to a project, verify developer has access to that project
+    if (document.projectId) {
+      const project = await prisma.developer_projects.findFirst({
+        where: {
+          id: document.projectId,
+          OR: [
+            { developerId: userId },
+            { customerId: user.customerId },
+          ],
+        },
+      });
+      if (!project) {
+        return false;
+      }
+    }
+
+    // Developer has access if customerId matches and (no projectId or project access verified)
+    return true;
   }
   return false;
 }

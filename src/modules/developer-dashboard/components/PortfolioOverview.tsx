@@ -63,6 +63,7 @@ import {
   useDebounce,
 } from "../hooks/useDeveloperDashboardData";
 import type { ProjectFilters, ProjectSortOptions } from "../types";
+import { getCurrencySymbol } from "../../../lib/currency";
 
 interface PortfolioOverviewProps {
   onViewProject: (projectId: string) => void;
@@ -109,13 +110,15 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
     loading: projectsLoading,
   } = useProjects(filters, sortBy, currentPage, 12);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-NG", {
-      style: "currency",
-      currency: overview?.currency || "NGN",
+  const formatCurrency = (amount: number, currencyCode?: string) => {
+    const currency = currencyCode || overview?.currency || "NGN";
+    // Use centralized currency symbol to avoid "F CFA" issue with Intl.NumberFormat
+    const symbol = getCurrencySymbol(currency);
+    const formatted = amount.toLocaleString("en-US", {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount);
+    });
+    return `${symbol}${formatted}`;
   };
 
   const getHealthBadge = (variance: number) => {
@@ -698,10 +701,10 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
                         {project.location || project.city || "N/A"}
                       </TableCell>
                       <TableCell className="text-right font-medium text-gray-900">
-                        {formatCurrency(project.totalBudget)}
+                        {formatCurrency(project.totalBudget, project.currency)}
                       </TableCell>
                       <TableCell className="text-right font-medium text-gray-900">
-                        {formatCurrency(project.actualSpend)}
+                        {formatCurrency(project.actualSpend, project.currency)}
                       </TableCell>
                       <TableCell
                         className={`text-right font-medium ${
@@ -802,6 +805,7 @@ export const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({
             <ProjectCard
               key={project.id}
               project={project}
+              currency={project.currency}
               onView={() => onViewProject(project.id)}
             />
           ))}

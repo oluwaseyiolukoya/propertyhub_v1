@@ -107,11 +107,28 @@ class StorageService {
       throw new Error("Customer not found");
     }
 
-    const used = Number(customer.storage_used) || 0;
+    let used = customer.storage_used !== null ? Number(customer.storage_used) : 0;
+
+    // Only auto-recalculate if storage_used is NULL (not if it's 0, which is valid)
+    // Recalculation is expensive, so we only do it when explicitly needed
+    if (customer.storage_used === null) {
+      try {
+        console.log(`[Storage] Auto-recalculating storage for customer ${customerId} (was NULL)`);
+        const recalculated = await this.recalculateStorageUsage(customerId);
+        used = recalculated;
+      } catch (error: any) {
+        console.error(`[Storage] Failed to auto-recalculate storage for customer ${customerId}:`, error);
+        // Continue with 0 if recalculation fails
+        used = 0;
+      }
+    }
+
     // Default to 1GB (trial limit) if storage_limit is not set
-    const limit = Number(customer.storage_limit) || 1073741824; // 1GB default (trial)
+    const limit = customer.storage_limit !== null
+      ? Number(customer.storage_limit)
+      : 5368709120; // 5GB default
     const available = limit - used;
-    const percentage = (used / limit) * 100;
+    const percentage = limit > 0 ? (used / limit) * 100 : 0;
     const canUpload = available >= fileSize;
 
     return {
@@ -530,19 +547,63 @@ class StorageService {
 
   /**
    * Recalculate storage usage (for maintenance/audit)
+   * Calculates from storage_transactions: uploads add, deletes subtract
+   * Also includes documents that may have been uploaded before storage tracking
    */
   async recalculateStorageUsage(customerId: string): Promise<number> {
+    let totalSize = 0;
+
+    // First, calculate from storage_transactions (most accurate)
     const transactions = await prisma.storage_transactions.findMany({
       where: {
         customer_id: customerId,
-        action: "upload",
+      },
+      orderBy: {
+        created_at: "asc", // Process in chronological order
       },
     });
 
-    const totalSize = transactions.reduce(
-      (sum, tx) => sum + Number(tx.file_size),
-      0
-    );
+    // Process transactions: uploads add, deletes subtract
+    for (const tx of transactions) {
+      if (tx.action === "upload") {
+        totalSize += Number(tx.file_size);
+      } else if (tx.action === "delete") {
+        totalSize -= Number(tx.file_size);
+        // Ensure we don't go negative
+        if (totalSize < 0) {
+          console.warn(`[Storage] Warning: Storage usage went negative for customer ${customerId}, resetting to 0`);
+          totalSize = 0;
+        }
+      }
+    }
+
+    // If no transactions found, try calculating from documents table
+    // This handles cases where documents were uploaded before storage tracking was implemented
+    if (transactions.length === 0) {
+      try {
+        console.log(`[Storage] No transactions found, calculating from documents table for customer ${customerId}`);
+        const documents = await prisma.documents.findMany({
+          where: {
+            customerId: customerId,
+            fileUrl: { not: null },
+            fileSize: { not: null },
+          },
+          select: {
+            fileSize: true,
+          },
+        });
+
+        totalSize = documents.reduce((sum, doc) => {
+          return sum + (doc.fileSize ? Number(doc.fileSize) : 0);
+        }, 0);
+
+        console.log(`[Storage] Calculated ${totalSize} bytes from ${documents.length} documents`);
+      } catch (error: any) {
+        console.error(`[Storage] Error calculating from documents table:`, error);
+        // If documents query fails, just use the transaction total (which is 0)
+        console.log(`[Storage] Falling back to transaction-based calculation`);
+      }
+    }
 
     await prisma.customers.update({
       where: { id: customerId },
@@ -552,6 +613,7 @@ class StorageService {
       },
     });
 
+    console.log(`[Storage] Recalculated storage for customer ${customerId}: ${totalSize} bytes (${this.formatBytes(totalSize)})`);
     return totalSize;
   }
 
