@@ -10,6 +10,9 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  optimizeDeps: {
+    include: ["html2canvas", "jspdf"],
+  },
   build: {
     outDir: "dist",
     sourcemap: false,

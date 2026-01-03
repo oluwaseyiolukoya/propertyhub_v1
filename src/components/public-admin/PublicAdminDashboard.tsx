@@ -1,14 +1,25 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { FileText, Briefcase, Eye, Users, Globe } from "lucide-react";
 import { publicAdminApi } from "../../lib/api/publicAdminApi";
 import { canEditContent } from "../../lib/utils/adminPermissions";
+import { generateRoute } from "./routes";
 
 interface PublicAdminDashboardProps {
   onNavigate?: (page: string, subPage?: string) => void;
 }
 
 export function PublicAdminDashboard({ onNavigate }: PublicAdminDashboardProps) {
+  const navigate = useNavigate();
+
+  // Use React Router navigation if available, fallback to callback for backward compatibility
+  const handleNavigate = (page: string, subPage?: string) => {
+    const route = generateRoute(page, subPage);
+    navigate(route);
+    // Also call callback if provided for backward compatibility
+    onNavigate?.(page, subPage);
+  };
   const [stats, setStats] = useState({
     landingPages: { total: 0, published: 0 },
     careers: { total: 0, active: 0, totalViews: 0 },
@@ -197,7 +208,7 @@ export function PublicAdminDashboard({ onNavigate }: PublicAdminDashboardProps) 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {canEditContent() ? (
               <button
-                onClick={() => onNavigate?.("landing-pages")}
+                onClick={() => handleNavigate("landing-pages")}
                 className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-600 hover:bg-purple-50 transition-colors text-left cursor-pointer"
               >
                 <FileText className="h-6 w-6 text-purple-600 mb-2" />
@@ -217,7 +228,7 @@ export function PublicAdminDashboard({ onNavigate }: PublicAdminDashboardProps) 
             )}
             {canEditContent() ? (
               <button
-                onClick={() => onNavigate?.("careers")}
+                onClick={() => handleNavigate("careers")}
                 className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-600 hover:bg-blue-50 transition-colors text-left cursor-pointer"
               >
                 <Briefcase className="h-6 w-6 text-blue-600 mb-2" />
@@ -236,7 +247,7 @@ export function PublicAdminDashboard({ onNavigate }: PublicAdminDashboardProps) 
               </div>
             )}
             <button
-              onClick={() => onNavigate?.("analytics")}
+              onClick={() => handleNavigate("analytics")}
               className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-600 hover:bg-green-50 transition-colors text-left cursor-pointer"
             >
               <Globe className="h-6 w-6 text-green-600 mb-2" />

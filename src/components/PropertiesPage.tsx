@@ -71,6 +71,7 @@ import {
 } from "../lib/api/financial";
 import { formatCurrency, getSmartBaseCurrency } from "../lib/currency";
 import { usePersistentState } from "../lib/usePersistentState";
+import { apiClient } from "../lib/api-client";
 import {
   getExpenses,
   createExpense,
@@ -133,6 +134,16 @@ import {
   Maximize,
 } from "lucide-react";
 import { createProperty } from "../lib/api/properties";
+import {
+  getReportSchedules,
+  createReportSchedule,
+  updateReportSchedule,
+  deleteReportSchedule,
+  sendScheduledReport,
+  toggleScheduleStatus,
+  type ReportSchedule,
+  type CreateScheduleRequest,
+} from "../services/reportSchedules.api";
 
 interface PropertiesPageProps {
   user: any;
@@ -690,9 +701,48 @@ export function PropertiesPage({
   const [reportGenerating, setReportGenerating] = useState(false);
   const reportPreviewRef = useRef<HTMLDivElement | null>(null);
 
+  // Track generated reports history
+  const [generatedReportsHistory, setGeneratedReportsHistory] = useState<
+    Array<{
+      id: string;
+      type: ReportType;
+      propertyLabel: string;
+      generatedAt: string;
+      filters: any;
+      data: any;
+    }>
+  >([]);
+
+  // Pagination state for Recent Reports
+  const [reportsCurrentPage, setReportsCurrentPage] = useState(1);
+  const reportsPerPage = 5;
+
   // Email report dialog state
-  const [, setShowEmailDialog] = useState(false);
-  const [, setEmailReportTo] = useState(user?.email || "");
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [emailReportTo, setEmailReportTo] = useState(user?.email || "");
+  const [emailSending, setEmailSending] = useState(false);
+
+  // Scheduled reports state
+  const [scheduledReports, setScheduledReports] = useState<ReportSchedule[]>([]);
+  const [loadingSchedules, setLoadingSchedules] = useState(false);
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState<ReportSchedule | null>(null);
+  const [scheduleForm, setScheduleForm] = useState<CreateScheduleRequest>({
+    name: "",
+    reportType: "financial",
+    propertyId: "all",
+    frequency: "monthly",
+    dayOfWeek: undefined,
+    dayOfMonth: 1,
+    time: "09:00",
+    email: user?.email || "",
+    filters: {
+      propertyId: "all",
+      startDate: null,
+      endDate: null,
+    },
+  });
+  const [savingSchedule, setSavingSchedule] = useState(false);
 
   const [financialStats, setFinancialStats] = useState<{
     gross?: number;
@@ -808,73 +858,275 @@ export function PropertiesPage({
     }
   }, []);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const [uRes, mRes, dRes, fRes, expRes, expStatsRes, monthlyRevenueRes] =
-          await Promise.all([
-            getUnits(),
-            getMaintenanceRequests(),
-            getOwnerDashboardOverview(),
-            getFinancialOverview(),
-            getExpenses(),
-            getExpenseStats(),
-            getMonthlyRevenue(6),
-          ]);
-        if (!uRes.error && Array.isArray(uRes.data)) setUnitsData(uRes.data);
-        if (!mRes.error && Array.isArray(mRes.data))
-          setMaintenanceData(mRes.data);
-        if (!dRes.error && dRes.data?.recentActivity)
-          setRecentActivity(dRes.data.recentActivity);
-        if (!fRes.error && fRes.data) {
-          // Backend returns totalRevenue as monthly equivalent (annual rent / 12)
-          // But we need to calculate gross income based on property frequencies
-          // Calculate gross income from properties directly to account for annual vs monthly
-          const calculatedGross = properties
-            .filter((p) => !deletedPropertyIds.has(p.id))
-            .reduce((sum, p) => sum + getPropertyRevenue(p), 0);
+  // Function to refresh all data for Reports Tab
+  const refreshReportsData = useCallback(async () => {
+    try {
+      const [uRes, mRes, dRes, fRes, expRes, expStatsRes, monthlyRevenueRes] =
+        await Promise.all([
+          getUnits(),
+          getMaintenanceRequests(),
+          getOwnerDashboardOverview(),
+          getFinancialOverview(),
+          getExpenses(),
+          getExpenseStats(),
+          getMonthlyRevenue(6),
+        ]);
+      if (!uRes.error && Array.isArray(uRes.data)) setUnitsData(uRes.data);
+      if (!mRes.error && Array.isArray(mRes.data))
+        setMaintenanceData(mRes.data);
+      if (!dRes.error && dRes.data?.recentActivity)
+        setRecentActivity(dRes.data.recentActivity);
+      if (!fRes.error && fRes.data) {
+        // Backend returns totalRevenue as monthly equivalent (annual rent / 12)
+        // But we need to calculate gross income based on property frequencies
+        // Calculate gross income from properties directly to account for annual vs monthly
+        const calculatedGross = properties
+          .filter((p) => !deletedPropertyIds.has(p.id))
+          .reduce((sum, p) => sum + getPropertyRevenue(p), 0);
 
-          // Use calculated gross if we have properties, otherwise fall back to backend value
-          const gross =
-            calculatedGross > 0
-              ? calculatedGross
-              : Number(fRes.data.totalRevenue || 0);
-          const expenses = Number(fRes.data.estimatedExpenses || 0);
+        // Use calculated gross if we have properties, otherwise fall back to backend value
+        const gross =
+          calculatedGross > 0
+            ? calculatedGross
+            : Number(fRes.data.totalRevenue || 0);
+        const expenses = Number(fRes.data.estimatedExpenses || 0);
 
-          // Recalculate net income based on the adjusted gross
-          const net = gross - expenses;
+        // Recalculate net income based on the adjusted gross
+        const net = gross - expenses;
 
-          const capRate = Number(fRes.data.portfolioCapRate || 0);
-          const occupancyRate = Number(fRes.data.occupancyRate || 0);
-          const operatingMargin = Number(gross > 0 ? (net / gross) * 100 : 0);
-          setFinancialStats({
-            gross,
-            net,
-            expenses,
-            capRate,
-            occupancyRate,
-            operatingMargin,
-          });
-        }
-        if (
-          !expRes.error &&
-          expRes.data?.data &&
-          Array.isArray(expRes.data.data)
-        ) {
-          setExpenses(expRes.data.data);
-        }
-        if (!expStatsRes.error && expStatsRes.data) {
-          setExpenseStats(expStatsRes.data);
-        }
-        if (!monthlyRevenueRes.error && Array.isArray(monthlyRevenueRes.data)) {
-          setMonthlyRevenueData(monthlyRevenueRes.data);
-        }
-      } catch (e: any) {
-        // Non-blocking: show a toast once
-        toast.error("Failed to load financial data");
+        const capRate = Number(fRes.data.portfolioCapRate || 0);
+        const occupancyRate = Number(fRes.data.occupancyRate || 0);
+        const operatingMargin = Number(gross > 0 ? (net / gross) * 100 : 0);
+        setFinancialStats({
+          gross,
+          net,
+          expenses,
+          capRate,
+          occupancyRate,
+          operatingMargin,
+        });
       }
-    })();
-  }, [properties.length, refreshMaintenanceRequests]);
+      if (
+        !expRes.error &&
+        expRes.data?.data &&
+        Array.isArray(expRes.data.data)
+      ) {
+        setExpenses(expRes.data.data);
+      }
+      if (!expStatsRes.error && expStatsRes.data) {
+        setExpenseStats(expStatsRes.data);
+      }
+      if (!monthlyRevenueRes.error && Array.isArray(monthlyRevenueRes.data)) {
+        setMonthlyRevenueData(monthlyRevenueRes.data);
+      }
+    } catch (e: any) {
+      // Non-blocking: show a toast once
+      toast.error("Failed to load financial data");
+    }
+  }, [properties, deletedPropertyIds]);
+
+  useEffect(() => {
+    refreshReportsData();
+  }, [properties.length, refreshMaintenanceRequests, refreshReportsData]);
+
+  // Refresh data when Reports tab is active
+  useEffect(() => {
+    if (activeTab === "reports") {
+      refreshReportsData();
+    }
+  }, [activeTab, refreshReportsData]);
+
+  // Load report history from localStorage on mount
+  useEffect(() => {
+    try {
+      const storedReports = localStorage.getItem("propertyOwnerReportsHistory");
+      if (storedReports) {
+        const parsedReports = JSON.parse(storedReports);
+        setGeneratedReportsHistory(Array.isArray(parsedReports) ? parsedReports : []);
+      }
+    } catch (error) {
+      console.error("Failed to load report history:", error);
+      setGeneratedReportsHistory([]);
+    }
+  }, []);
+
+  // Fetch scheduled reports
+  const fetchScheduledReports = useCallback(async () => {
+    setLoadingSchedules(true);
+    try {
+      const response = await getReportSchedules();
+      if (response.success && response.data) {
+        setScheduledReports(response.data);
+      } else {
+        toast.error(response.error || "Failed to load scheduled reports");
+      }
+    } catch (error: any) {
+      console.error("Failed to fetch scheduled reports:", error);
+      toast.error("Failed to load scheduled reports");
+    } finally {
+      setLoadingSchedules(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "reports") {
+      fetchScheduledReports();
+    }
+  }, [activeTab, fetchScheduledReports]);
+
+  // Handle schedule form submission
+  const handleSaveSchedule = async () => {
+    if (!scheduleForm.name || !scheduleForm.email || !scheduleForm.time) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    if (scheduleForm.frequency === "weekly" && !scheduleForm.dayOfWeek) {
+      toast.error("Please select a day of the week for weekly schedules");
+      return;
+    }
+
+    if (scheduleForm.frequency === "monthly" && !scheduleForm.dayOfMonth) {
+      toast.error("Please select a day of the month for monthly schedules");
+      return;
+    }
+
+    setSavingSchedule(true);
+    try {
+      // Prepare form data - convert "all" to undefined for propertyId
+      const formData: CreateScheduleRequest = {
+        ...scheduleForm,
+        propertyId: scheduleForm.propertyId === "all" ? undefined : scheduleForm.propertyId,
+        filters: {
+          ...scheduleForm.filters,
+          propertyId: scheduleForm.propertyId === "all" ? "all" : scheduleForm.propertyId,
+        },
+      };
+
+      if (editingSchedule) {
+        // Update existing schedule
+        const response = await updateReportSchedule(editingSchedule.id, formData);
+        if (response.success) {
+          toast.success("Schedule updated successfully");
+          setShowScheduleDialog(false);
+          setEditingSchedule(null);
+          fetchScheduledReports();
+        } else {
+          toast.error(response.error || "Failed to update schedule");
+        }
+      } else {
+        // Create new schedule
+        const response = await createReportSchedule(formData);
+        if (response.success) {
+          toast.success("Schedule created successfully");
+          setShowScheduleDialog(false);
+          resetScheduleForm();
+          fetchScheduledReports();
+        } else {
+          toast.error(response.error || "Failed to create schedule");
+        }
+      }
+    } catch (error: any) {
+      console.error("Failed to save schedule:", error);
+      toast.error("Failed to save schedule");
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
+
+  // Reset schedule form
+  const resetScheduleForm = () => {
+    setScheduleForm({
+      name: "",
+      reportType: "financial",
+      propertyId: "all",
+      frequency: "monthly",
+      dayOfWeek: undefined,
+      dayOfMonth: 1,
+      time: "09:00",
+      email: user?.email || "",
+      filters: {
+        propertyId: "all",
+        startDate: null,
+        endDate: null,
+      },
+    });
+    setEditingSchedule(null);
+  };
+
+  // Handle edit schedule
+  const handleEditSchedule = (schedule: ReportSchedule) => {
+    setEditingSchedule(schedule);
+    setScheduleForm({
+      name: schedule.name,
+      reportType: schedule.reportType,
+      propertyId: schedule.propertyId || "all",
+      frequency: schedule.frequency,
+      dayOfWeek: schedule.dayOfWeek || undefined,
+      dayOfMonth: schedule.dayOfMonth || undefined,
+      time: schedule.time,
+      email: schedule.email,
+      filters: schedule.filters || {
+        propertyId: schedule.propertyId || "all",
+        startDate: null,
+        endDate: null,
+      },
+    });
+    setShowScheduleDialog(true);
+  };
+
+  // Handle delete schedule
+  const handleDeleteSchedule = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this schedule?")) {
+      return;
+    }
+
+    try {
+      const response = await deleteReportSchedule(id);
+      if (response.success) {
+        toast.success("Schedule deleted successfully");
+        fetchScheduledReports();
+      } else {
+        toast.error(response.error || "Failed to delete schedule");
+      }
+    } catch (error: any) {
+      console.error("Failed to delete schedule:", error);
+      toast.error("Failed to delete schedule");
+    }
+  };
+
+  // Handle toggle schedule status
+  const handleToggleSchedule = async (schedule: ReportSchedule) => {
+    const newStatus = schedule.status === "active" ? "paused" : "active";
+    try {
+      const response = await toggleScheduleStatus(schedule.id, newStatus);
+      if (response.success) {
+        toast.success(`Schedule ${newStatus === "active" ? "activated" : "paused"}`);
+        fetchScheduledReports();
+      } else {
+        toast.error(response.error || "Failed to update schedule");
+      }
+    } catch (error: any) {
+      console.error("Failed to toggle schedule:", error);
+      toast.error("Failed to update schedule");
+    }
+  };
+
+  // Handle send test email
+  const handleSendTestEmail = async (schedule: ReportSchedule) => {
+    try {
+      toast.info("Sending test email...");
+      const response = await sendScheduledReport(schedule.id);
+      if (response.success) {
+        toast.success("Test email sent successfully");
+      } else {
+        toast.error(response.error || "Failed to send test email");
+      }
+    } catch (error: any) {
+      console.error("Failed to send test email:", error);
+      toast.error("Failed to send test email");
+    }
+  };
 
   // Handle delete unit
   const handleDeleteUnit = async () => {
@@ -1768,6 +2020,12 @@ export function PropertiesPage({
               .sort((a, b) => b.amount - a.amount)
               .slice(0, 5);
 
+            // Determine currency: use property currency if single property, otherwise use smart base currency
+            const reportCurrency =
+              reportPropertyFilter === "all"
+                ? smartBaseCurrency
+                : targetProperties[0]?.currency || smartBaseCurrency;
+
             return {
               portfolio: {
                 totalProperties: targetProperties.length,
@@ -1778,10 +2036,14 @@ export function PropertiesPage({
                 totalRevenue,
                 totalExpenses: totalExpensesAmount,
                 netOperatingIncome: totalRevenue - totalExpensesAmount,
+                currency: reportCurrency, // Include currency for PDF generation
               },
               expenses: {
                 total: totalExpensesAmount,
-                categories: expenseCategories,
+                categories: expenseCategories.map(cat => ({
+                  ...cat,
+                  currency: reportCurrency, // Include currency for each category
+                })),
               },
               revenueTrends: monthlyRevenueData.slice(-6),
               recentExpenses: sortedExpenses.slice(0, 6),
@@ -1865,6 +2127,12 @@ export function PropertiesPage({
               )
               .slice(0, 5);
 
+            // Determine currency: use property currency if single property, otherwise use smart base currency
+            const maintenanceCurrency =
+              reportPropertyFilter === "all"
+                ? smartBaseCurrency
+                : targetProperties[0]?.currency || smartBaseCurrency;
+
             return {
               summary: {
                 totalRequests,
@@ -1872,6 +2140,7 @@ export function PropertiesPage({
                 open: Math.max(totalRequests - completed, 0),
                 highPriority,
                 averageCost: totalRequests ? costTotal / totalRequests : 0,
+                currency: maintenanceCurrency, // Include currency for PDF generation
               },
               highPriorityRequests: filteredMaintenance
                 .filter(
@@ -1947,6 +2216,36 @@ export function PropertiesPage({
       };
 
       setReportPreview(payload);
+
+      // Save to report history
+      const reportHistoryItem = {
+        id: `report-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        type: reportType,
+        propertyLabel: reportPropertyFilter === "all"
+          ? "All Properties"
+          : visibleProperties.find((p) => String(p.id) === reportPropertyFilter)?.name || "Unknown Property",
+        generatedAt: payload.generatedAt,
+        filters,
+        data,
+      };
+
+      // Load existing reports from localStorage
+      const existingReports = JSON.parse(
+        localStorage.getItem("propertyOwnerReportsHistory") || "[]"
+      );
+
+      // Add new report at the beginning and keep only last 50
+      const updatedReports = [reportHistoryItem, ...existingReports].slice(0, 50);
+
+      // Save to localStorage
+      localStorage.setItem("propertyOwnerReportsHistory", JSON.stringify(updatedReports));
+
+      // Update state
+      setGeneratedReportsHistory(updatedReports);
+
+      // Reset to page 1 when a new report is generated
+      setReportsCurrentPage(1);
+
       toast.success("Report generated");
     } catch (error) {
       console.error("Failed to generate report", error);
@@ -1975,8 +2274,20 @@ export function PropertiesPage({
     }
 
     try {
-      const html2canvas = (await import("html2canvas")).default;
-      const { jsPDF } = await import("jspdf");
+      let html2canvas, jsPDF;
+      try {
+        html2canvas = (await import("html2canvas")).default;
+        const jspdfModule = await import("jspdf");
+        jsPDF = jspdfModule.jsPDF || jspdfModule.default;
+      } catch (importError: any) {
+        console.error("Failed to import PDF libraries:", importError);
+        if (importError.message?.includes("Failed to fetch") || importError.message?.includes("504")) {
+          toast.error("PDF libraries not loaded. Please restart the dev server and try again.");
+        } else {
+          toast.error("Failed to load PDF libraries. Please try again.");
+        }
+        return;
+      }
 
       const canvas = await html2canvas(reportPreviewRef.current, {
         scale: Math.max(window.devicePixelRatio, 2),
@@ -2043,6 +2354,66 @@ export function PropertiesPage({
     // Set default email and show dialog
     setEmailReportTo(user?.email || "");
     setShowEmailDialog(true);
+  };
+
+  const handleSendReportEmail = async () => {
+    if (!reportPreview) {
+      toast.error("No report to send");
+      return;
+    }
+
+    if (!emailReportTo || !emailReportTo.trim()) {
+      toast.error("Please enter a recipient email address");
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailReportTo.trim())) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    try {
+      setEmailSending(true);
+
+      // Get property label
+      const propertyLabel = reportPropertyFilter === "all"
+        ? "All Properties"
+        : visibleProperties.find((p) => String(p.id) === reportPropertyFilter)?.name || "Unknown Property";
+
+      // Prepare report payload for backend
+      const reportPayload = {
+        type: reportPreview.type,
+        generatedAt: reportPreview.generatedAt,
+        propertyLabel,
+        filters: reportPreview.filters,
+        data: reportPreview.data,
+      };
+
+      // Call backend API to send email with PDF attachment
+      const result = await apiClient.post<{ success: boolean; message: string }>(
+        "/api/dashboard/reports/scheduled/send",
+        {
+          email: emailReportTo.trim(),
+          subject: `${REPORT_TYPE_LABELS[reportPreview.type]} Report - ${propertyLabel}`,
+          report: reportPayload,
+        }
+      );
+
+      if (result.error) {
+        throw new Error(result.error.error || result.error.message || "Failed to send email");
+      }
+
+      toast.success(`Report sent successfully to ${emailReportTo.trim()}`);
+      setShowEmailDialog(false);
+      setEmailReportTo(user?.email || "");
+    } catch (error: any) {
+      console.error("Failed to send report email:", error);
+      toast.error(error.message || "Failed to send report email");
+    } finally {
+      setEmailSending(false);
+    }
   };
 
   const handleOpenFinancialDetails = (property: any) => {
@@ -2156,6 +2527,76 @@ export function PropertiesPage({
       avgResponseHours,
     };
   }, [maintenanceRequests]);
+
+  // Compute real-time Reports Tab statistics
+  const reportsStats = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    // Count reports generated this month from actual generatedReportsHistory
+    const reportsThisMonth = generatedReportsHistory.filter((report) => {
+      const reportDate = new Date(report.generatedAt);
+      return reportDate.getMonth() === currentMonth && reportDate.getFullYear() === currentYear;
+    }).length;
+
+    // Count actual reports by type from generatedReportsHistory
+    const financialReportsCount = generatedReportsHistory.filter(r => r.type === "financial").length;
+    const occupancyReportsCount = generatedReportsHistory.filter(r => r.type === "occupancy").length;
+    const maintenanceReportsCount = generatedReportsHistory.filter(r => r.type === "maintenance").length;
+    const tenantReportsCount = generatedReportsHistory.filter(r => r.type === "tenant").length;
+    const portfolioReportsCount = generatedReportsHistory.filter(r => r.type === "all").length;
+
+    const totalReports = generatedReportsHistory.length;
+
+    // Calculate percentages for distribution
+    const financialPercent = totalReports > 0 ? (financialReportsCount / totalReports) * 100 : 0;
+    const occupancyPercent = totalReports > 0 ? (occupancyReportsCount / totalReports) * 100 : 0;
+    const maintenancePercent = totalReports > 0 ? (maintenanceReportsCount / totalReports) * 100 : 0;
+    const tenantPercent = totalReports > 0 ? (tenantReportsCount / totalReports) * 100 : 0;
+
+    // Get last generated dates for each report type from actual generatedReportsHistory
+    const getLastGeneratedDate = (type: string): Date | null => {
+      const reportsOfType = generatedReportsHistory.filter(r => r.type === type);
+      if (reportsOfType.length === 0) return null;
+
+      const dates = reportsOfType
+        .map(r => new Date(r.generatedAt).getTime())
+        .filter(t => !isNaN(t));
+
+      return dates.length > 0 ? new Date(Math.max(...dates)) : null;
+    };
+
+    const formatLastGenerated = (date: Date | null) => {
+      if (!date) return "Never";
+      const diffMs = now.getTime() - date.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      if (diffDays === 0) return "Today";
+      if (diffDays === 1) return "Yesterday";
+      if (diffDays < 7) return `${diffDays} days ago`;
+      if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+      return `${Math.floor(diffDays / 30)} months ago`;
+    };
+
+    return {
+      totalReportsThisMonth: reportsThisMonth,
+      scheduledReports: scheduledReports.filter(s => s.status === "active").length,
+      totalDownloads: 0, // This would come from a downloads tracking API
+      reportTypeDistribution: {
+        financial: { count: financialReportsCount, percent: financialPercent },
+        occupancy: { count: occupancyReportsCount, percent: occupancyPercent },
+        maintenance: { count: maintenanceReportsCount, percent: maintenancePercent },
+        tenant: { count: tenantReportsCount, percent: tenantPercent },
+        total: totalReports,
+      },
+      lastGenerated: {
+        financial: formatLastGenerated(getLastGeneratedDate("financial")),
+        occupancy: formatLastGenerated(getLastGeneratedDate("occupancy")),
+        maintenance: formatLastGenerated(getLastGeneratedDate("maintenance")),
+        tenant: formatLastGenerated(getLastGeneratedDate("tenant")),
+      },
+    };
+  }, [generatedReportsHistory, scheduledReports]);
 
   const scheduledMaintenanceList = useMemo(() => {
     const now = Date.now();
@@ -7742,16 +8183,16 @@ export function PropertiesPage({
                       <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20">
                         <p className="text-purple-100 text-xs">This Month</p>
                         <p className="text-white font-bold text-lg">
-                          47 Reports
+                          {reportsStats.totalReportsThisMonth} Reports
                         </p>
                       </div>
                       <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20">
                         <p className="text-purple-100 text-xs">Scheduled</p>
-                        <p className="text-white font-bold text-lg">2 Active</p>
+                        <p className="text-white font-bold text-lg">{reportsStats.scheduledReports} Active</p>
                       </div>
                       <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/20">
                         <p className="text-purple-100 text-xs">Downloads</p>
-                        <p className="text-white font-bold text-lg">156</p>
+                        <p className="text-white font-bold text-lg">{reportsStats.totalDownloads}</p>
                       </div>
                     </div>
                   </div>
@@ -7763,43 +8204,47 @@ export function PropertiesPage({
                         Report Type Distribution
                       </span>
                       <span className="text-white font-semibold text-sm">
-                        47 Total
+                        {reportsStats.reportTypeDistribution.total} Total
                       </span>
                     </div>
                     <div className="flex gap-1 h-3 rounded-full overflow-hidden">
                       <div
-                        className="bg-green-400 w-[30%]"
-                        title="Financial: 12"
+                        className="bg-green-400"
+                        style={{ width: `${reportsStats.reportTypeDistribution.financial.percent}%` }}
+                        title={`Financial: ${reportsStats.reportTypeDistribution.financial.count}`}
                       ></div>
                       <div
-                        className="bg-purple-300 w-[20%]"
-                        title="Occupancy: 8"
+                        className="bg-purple-300"
+                        style={{ width: `${reportsStats.reportTypeDistribution.occupancy.percent}%` }}
+                        title={`Occupancy: ${reportsStats.reportTypeDistribution.occupancy.count}`}
                       ></div>
                       <div
-                        className="bg-orange-400 w-[35%]"
-                        title="Maintenance: 15"
+                        className="bg-orange-400"
+                        style={{ width: `${reportsStats.reportTypeDistribution.maintenance.percent}%` }}
+                        title={`Maintenance: ${reportsStats.reportTypeDistribution.maintenance.count}`}
                       ></div>
                       <div
-                        className="bg-blue-400 w-[15%]"
-                        title="Tenant: 12"
+                        className="bg-blue-400"
+                        style={{ width: `${reportsStats.reportTypeDistribution.tenant.percent}%` }}
+                        title={`Tenant: ${reportsStats.reportTypeDistribution.tenant.count}`}
                       ></div>
                     </div>
                     <div className="flex flex-wrap items-center gap-4 mt-3">
                       <span className="flex items-center gap-1.5 text-xs text-purple-100">
                         <span className="h-2 w-2 rounded-full bg-green-400"></span>
-                        Financial (12)
+                        Financial ({reportsStats.reportTypeDistribution.financial.count})
                       </span>
                       <span className="flex items-center gap-1.5 text-xs text-purple-100">
                         <span className="h-2 w-2 rounded-full bg-purple-300"></span>
-                        Occupancy (8)
+                        Occupancy ({reportsStats.reportTypeDistribution.occupancy.count})
                       </span>
                       <span className="flex items-center gap-1.5 text-xs text-purple-100">
                         <span className="h-2 w-2 rounded-full bg-orange-400"></span>
-                        Maintenance (15)
+                        Maintenance ({reportsStats.reportTypeDistribution.maintenance.count})
                       </span>
                       <span className="flex items-center gap-1.5 text-xs text-purple-100">
                         <span className="h-2 w-2 rounded-full bg-blue-400"></span>
-                        Tenant (12)
+                        Tenant ({reportsStats.reportTypeDistribution.tenant.count})
                       </span>
                     </div>
                   </div>
@@ -7824,7 +8269,7 @@ export function PropertiesPage({
                       <p className="text-green-100 text-xs font-medium">
                         Financial Reports
                       </p>
-                      <p className="text-3xl font-bold text-white mt-1">12</p>
+                      <p className="text-3xl font-bold text-white mt-1">{reportsStats.reportTypeDistribution.financial.count}</p>
                       <p className="text-green-100 text-xs mt-2">
                         P&L, Revenue, Expenses
                       </p>
@@ -7833,7 +8278,7 @@ export function PropertiesPage({
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-green-100">Last generated</span>
                         <span className="text-white font-medium">
-                          2 days ago
+                          {reportsStats.lastGenerated.financial}
                         </span>
                       </div>
                     </div>
@@ -7856,7 +8301,7 @@ export function PropertiesPage({
                       <p className="text-purple-100 text-xs font-medium">
                         Occupancy Reports
                       </p>
-                      <p className="text-3xl font-bold text-white mt-1">8</p>
+                      <p className="text-3xl font-bold text-white mt-1">{reportsStats.reportTypeDistribution.occupancy.count}</p>
                       <p className="text-purple-100 text-xs mt-2">
                         Vacancy, Turnover rates
                       </p>
@@ -7864,7 +8309,7 @@ export function PropertiesPage({
                     <div className="mt-3 pt-3 border-t border-white/20">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-purple-100">Last generated</span>
-                        <span className="text-white font-medium">Today</span>
+                        <span className="text-white font-medium">{reportsStats.lastGenerated.occupancy}</span>
                       </div>
                     </div>
                   </div>
@@ -7886,7 +8331,7 @@ export function PropertiesPage({
                       <p className="text-orange-100 text-xs font-medium">
                         Maintenance Reports
                       </p>
-                      <p className="text-3xl font-bold text-white mt-1">15</p>
+                      <p className="text-3xl font-bold text-white mt-1">{reportsStats.reportTypeDistribution.maintenance.count}</p>
                       <p className="text-orange-100 text-xs mt-2">
                         Work orders, Costs
                       </p>
@@ -7895,7 +8340,7 @@ export function PropertiesPage({
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-orange-100">Last generated</span>
                         <span className="text-white font-medium">
-                          Yesterday
+                          {reportsStats.lastGenerated.maintenance}
                         </span>
                       </div>
                     </div>
@@ -7918,7 +8363,7 @@ export function PropertiesPage({
                       <p className="text-blue-100 text-xs font-medium">
                         Tenant Reports
                       </p>
-                      <p className="text-3xl font-bold text-white mt-1">12</p>
+                      <p className="text-3xl font-bold text-white mt-1">{reportsStats.reportTypeDistribution.tenant.count}</p>
                       <p className="text-blue-100 text-xs mt-2">
                         Leases, Payments
                       </p>
@@ -7927,7 +8372,7 @@ export function PropertiesPage({
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-blue-100">Last generated</span>
                         <span className="text-white font-medium">
-                          3 days ago
+                          {reportsStats.lastGenerated.tenant}
                         </span>
                       </div>
                     </div>
@@ -8098,7 +8543,7 @@ export function PropertiesPage({
               </Card>
 
               {reportPreview && (
-                <Card className="border-0 shadow-xl overflow-hidden">
+                <Card className="border-0 shadow-xl overflow-hidden" data-report-preview>
                   <div className="bg-gradient-to-r from-[#7C3AED] via-purple-600 to-[#5B21B6] px-6 py-5">
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div className="flex items-start gap-4">
@@ -8185,7 +8630,8 @@ export function PropertiesPage({
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge className="bg-blue-100 text-blue-700 border-blue-200">
-                        <FileText className="h-3 w-3 mr-1" />3 Reports
+                        <FileText className="h-3 w-3 mr-1" />
+                        {generatedReportsHistory.length} {generatedReportsHistory.length === 1 ? "Report" : "Reports"}
                       </Badge>
                     </div>
                   </div>
@@ -8216,158 +8662,361 @@ export function PropertiesPage({
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        <TableRow className="bg-white hover:bg-purple-50/50 transition-colors border-b border-gray-100">
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <div className="h-9 w-9 rounded-lg bg-green-100 flex items-center justify-center">
-                                <DollarSign className="h-4 w-4 text-green-600" />
+                        {generatedReportsHistory.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-12">
+                              <div className="flex flex-col items-center gap-3">
+                                <div className="h-16 w-16 rounded-2xl bg-blue-100 flex items-center justify-center">
+                                  <FileText className="h-8 w-8 text-blue-600" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-gray-900">
+                                    No reports generated yet
+                                  </p>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Generate your first report using the form above
+                                  </p>
+                                </div>
                               </div>
-                              <span className="font-semibold text-gray-900">
-                                March 2024 Financial Report
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">
-                              Financial
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-gray-700">
-                            All Properties
-                          </TableCell>
-                          <TableCell className="text-gray-600">
-                            March 21, 2024
-                          </TableCell>
-                          <TableCell className="text-gray-600">
-                            2.3 MB
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center justify-end space-x-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  toast.success("Downloading report...")
-                                }
-                                className="border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg h-8 w-8 p-0"
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  toast.info("Opening report in new tab...")
-                                }
-                                className="border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg h-8 w-8 p-0"
-                              >
-                                <ExternalLink className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
+                            </TableCell>
+                          </TableRow>
+                        ) : (() => {
+                          // Pagination logic
+                          const totalReports = generatedReportsHistory.length;
+                          const totalPages = Math.ceil(totalReports / reportsPerPage);
+                          const startIndex = (reportsCurrentPage - 1) * reportsPerPage;
+                          const endIndex = startIndex + reportsPerPage;
+                          const paginatedReports = generatedReportsHistory.slice(startIndex, endIndex);
 
-                        <TableRow className="bg-gray-50/50 hover:bg-purple-50/50 transition-colors border-b border-gray-100">
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <div className="h-9 w-9 rounded-lg bg-purple-100 flex items-center justify-center">
-                                <PieChart className="h-4 w-4 text-[#7C3AED]" />
-                              </div>
-                              <span className="font-semibold text-gray-900">
-                                Q1 2024 Occupancy Analysis
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className="bg-purple-100 text-[#7C3AED] hover:bg-purple-100 border-purple-200">
-                              Occupancy
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-gray-700">
-                            Portfolio
-                          </TableCell>
-                          <TableCell className="text-gray-600">
-                            March 20, 2024
-                          </TableCell>
-                          <TableCell className="text-gray-600">
-                            1.8 MB
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center justify-end space-x-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  toast.success("Downloading report...")
-                                }
-                                className="border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg h-8 w-8 p-0"
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  toast.info("Opening report in new tab...")
-                                }
-                                className="border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg h-8 w-8 p-0"
-                              >
-                                <ExternalLink className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
+                          return (
+                            <>
+                              {paginatedReports.map((report, index) => {
+                            const reportDate = new Date(report.generatedAt);
+                            const formattedDate = reportDate.toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            });
 
-                        <TableRow className="bg-white hover:bg-purple-50/50 transition-colors">
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <div className="h-9 w-9 rounded-lg bg-orange-100 flex items-center justify-center">
-                                <Wrench className="h-4 w-4 text-orange-600" />
+                            // Get report type icon and badge styling
+                            const getReportTypeIcon = (type: ReportType) => {
+                              switch (type) {
+                                case "financial":
+                                  return <DollarSign className="h-4 w-4 text-green-600" />;
+                                case "occupancy":
+                                  return <PieChart className="h-4 w-4 text-[#7C3AED]" />;
+                                case "maintenance":
+                                  return <Wrench className="h-4 w-4 text-orange-600" />;
+                                case "tenant":
+                                  return <Users className="h-4 w-4 text-blue-600" />;
+                                default:
+                                  return <FileText className="h-4 w-4 text-gray-600" />;
+                              }
+                            };
+
+                            const getReportTypeBadge = (type: ReportType) => {
+                              switch (type) {
+                                case "financial":
+                                  return "bg-green-100 text-green-700 hover:bg-green-100 border-green-200";
+                                case "occupancy":
+                                  return "bg-purple-100 text-[#7C3AED] hover:bg-purple-100 border-purple-200";
+                                case "maintenance":
+                                  return "bg-orange-100 text-orange-700 hover:bg-orange-100 border-orange-200";
+                                case "tenant":
+                                  return "bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200";
+                                default:
+                                  return "bg-gray-100 text-gray-700 hover:bg-gray-100 border-gray-200";
+                              }
+                            };
+
+                            const getReportTypeBg = (type: ReportType) => {
+                              switch (type) {
+                                case "financial":
+                                  return "bg-green-100";
+                                case "occupancy":
+                                  return "bg-purple-100";
+                                case "maintenance":
+                                  return "bg-orange-100";
+                                case "tenant":
+                                  return "bg-blue-100";
+                                default:
+                                  return "bg-gray-100";
+                              }
+                            };
+
+                            // Estimate file size (rough calculation based on data size)
+                            const dataSize = JSON.stringify(report.data).length;
+                            const estimatedSizeMB = (dataSize / 1024 / 1024).toFixed(1);
+
+                            // Generate report name
+                            const reportName = `${REPORT_TYPE_LABELS[report.type]} Report - ${formattedDate}`;
+
+                            const handleViewReport = () => {
+                              // Set this report as the preview
+                              setReportPreview({
+                                type: report.type,
+                                generatedAt: report.generatedAt,
+                                filters: report.filters,
+                                data: report.data,
+                              });
+                              // Scroll to preview section
+                              setTimeout(() => {
+                                const previewElement = document.querySelector('[data-report-preview]');
+                                if (previewElement) {
+                                  previewElement.scrollIntoView({ behavior: "smooth", block: "start" });
+                                }
+                              }, 100);
+                            };
+
+                            const handleDownloadReport = async () => {
+                              try {
+                                toast.info("Preparing report for download...");
+
+                                // Create a temporary preview to use the download function
+                                const tempPreview: GeneratedReport = {
+                                  type: report.type,
+                                  generatedAt: report.generatedAt,
+                                  filters: report.filters,
+                                  data: report.data,
+                                };
+                                setReportPreview(tempPreview);
+
+                                // Wait for the preview to render (check multiple times)
+                                let attempts = 0;
+                                while (!reportPreviewRef.current && attempts < 10) {
+                                  await new Promise(resolve => setTimeout(resolve, 200));
+                                  attempts++;
+                                }
+
+                                if (!reportPreviewRef.current) {
+                                  toast.error("Report preview not available. Please try viewing the report first.");
+                                  return;
+                                }
+
+                                // Use the existing download handler
+                                let html2canvas, jsPDF;
+                                try {
+                                  html2canvas = (await import("html2canvas")).default;
+                                  const jspdfModule = await import("jspdf");
+                                  jsPDF = jspdfModule.jsPDF || jspdfModule.default;
+                                } catch (importError: any) {
+                                  console.error("Failed to import PDF libraries:", importError);
+                                  if (importError.message?.includes("Failed to fetch") || importError.message?.includes("504")) {
+                                    toast.error("PDF libraries not loaded. Please restart the dev server and try again.");
+                                  } else {
+                                    toast.error("Failed to load PDF libraries. Please try again.");
+                                  }
+                                  return;
+                                }
+
+                                const canvas = await html2canvas(reportPreviewRef.current, {
+                                  scale: Math.max(window.devicePixelRatio, 2),
+                                  backgroundColor: "#ffffff",
+                                  useCORS: true,
+                                  logging: false,
+                                });
+
+                                const imgData = canvas.toDataURL("image/png");
+                                const pdf = new jsPDF("p", "pt", "a4");
+                                const pageWidth = pdf.internal.pageSize.getWidth();
+                                const pageHeight = pdf.internal.pageSize.getHeight();
+                                const margin = 36;
+                                const usableWidth = pageWidth - margin * 2;
+                                const imgHeight = (canvas.height * usableWidth) / canvas.width;
+
+                                pdf.setFontSize(14);
+                                pdf.text("Portfolio Report", margin, margin - 6);
+                                pdf.setFontSize(10);
+                                pdf.text(
+                                  `Type: ${REPORT_TYPE_LABELS[report.type]} | Property: ${report.propertyLabel}`,
+                                  margin,
+                                  margin + 8
+                                );
+                                pdf.text(
+                                  `Generated: ${formattedDate}`,
+                                  margin,
+                                  margin + 20
+                                );
+
+                                let position = margin + 32;
+                                pdf.addImage(imgData, "PNG", margin, position, usableWidth, imgHeight);
+
+                                let heightLeft = imgHeight - (pageHeight - position - margin);
+                                let offset = position - imgHeight;
+
+                                while (heightLeft > 0) {
+                                  pdf.addPage();
+                                  pdf.addImage(imgData, "PNG", margin, offset, usableWidth, imgHeight);
+                                  heightLeft -= pageHeight - margin * 2;
+                                  offset -= pageHeight - margin * 2;
+                                }
+
+                                const suffix = reportDate.toISOString().split("T")[0];
+                                const filename = `portfolio-report-${report.type}-${suffix}.pdf`;
+                                pdf.save(filename);
+                                toast.success("PDF downloaded");
+                              } catch (error: any) {
+                                console.error("PDF download failed", error);
+                                if (error.message?.includes("Failed to fetch") || error.message?.includes("504")) {
+                                  toast.error("PDF libraries not loaded. Please restart the dev server and try again.");
+                                } else {
+                                  toast.error("Failed to generate PDF. Please try again.");
+                                }
+                              }
+                            };
+
+                            return (
+                              <TableRow
+                                key={report.id}
+                                className={`${index % 2 === 0 ? "bg-white" : "bg-gray-50/50"} hover:bg-purple-50/50 transition-colors border-b border-gray-100`}
+                              >
+                                <TableCell>
+                                  <div className="flex items-center gap-3">
+                                    <div className={`h-9 w-9 rounded-lg ${getReportTypeBg(report.type)} flex items-center justify-center`}>
+                                      {getReportTypeIcon(report.type)}
+                                    </div>
+                                    <span className="font-semibold text-gray-900">
+                                      {reportName}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge className={getReportTypeBadge(report.type)}>
+                                    {REPORT_TYPE_LABELS[report.type]}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-gray-700">
+                                  {report.propertyLabel}
+                                </TableCell>
+                                <TableCell className="text-gray-600">
+                                  {formattedDate}
+                                </TableCell>
+                                <TableCell className="text-gray-600">
+                                  {estimatedSizeMB} MB
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center justify-end">
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="border-gray-200 text-gray-700 hover:bg-gray-50 rounded-lg h-8 w-8 p-0"
+                                        >
+                                          <MoreVertical className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end" className="w-48">
+                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                          onClick={handleViewReport}
+                                          className="cursor-pointer"
+                                        >
+                                          <ExternalLink className="mr-2 h-4 w-4" />
+                                          View Report
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onClick={handleDownloadReport}
+                                          className="cursor-pointer"
+                                        >
+                                          <Download className="mr-2 h-4 w-4" />
+                                          Download PDF
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onClick={() => {
+                                            try {
+                                              // Set report preview for email
+                                              setReportPreview({
+                                                type: report.type,
+                                                generatedAt: report.generatedAt,
+                                                filters: report.filters,
+                                                data: report.data,
+                                              });
+
+                                              // Use the existing email handler
+                                              handleEmailReport();
+                                            } catch (error) {
+                                              console.error("Failed to open email dialog", error);
+                                              toast.error("Failed to open email dialog");
+                                            }
+                                          }}
+                                          className="cursor-pointer"
+                                        >
+                                          <Send className="mr-2 h-4 w-4" />
+                                          Email Report
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                          onClick={() => {
+                                            if (window.confirm(`Are you sure you want to delete this ${REPORT_TYPE_LABELS[report.type]} report?`)) {
+                                              try {
+                                                // Remove from state
+                                                const updatedReports = generatedReportsHistory.filter(r => r.id !== report.id);
+                                                setGeneratedReportsHistory(updatedReports);
+
+                                                // Update localStorage
+                                                localStorage.setItem("propertyOwnerReportsHistory", JSON.stringify(updatedReports));
+
+                                                // Reset to page 1 if current page becomes empty
+                                                const totalPages = Math.ceil(updatedReports.length / reportsPerPage);
+                                                if (reportsCurrentPage > totalPages && totalPages > 0) {
+                                                  setReportsCurrentPage(totalPages);
+                                                } else if (totalPages === 0) {
+                                                  setReportsCurrentPage(1);
+                                                }
+
+                                                toast.success("Report deleted from history");
+                                              } catch (error) {
+                                                console.error("Failed to delete report", error);
+                                                toast.error("Failed to delete report");
+                                              }
+                                            }
+                                          }}
+                                          className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                                        >
+                                          <Trash2 className="mr-2 h-4 w-4" />
+                                          Delete Report
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+
+                          {/* Pagination Controls */}
+                          {totalPages > 1 && (
+                            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50/50">
+                              <div className="text-sm text-gray-600 font-medium">
+                                Page {reportsCurrentPage} of {totalPages} • {totalReports} {totalReports === 1 ? "Report" : "Reports"}
                               </div>
-                              <span className="font-semibold text-gray-900">
-                                Sunset Apartments Maintenance
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={reportsCurrentPage <= 1}
+                                  onClick={() => setReportsCurrentPage((p) => Math.max(1, p - 1))}
+                                  className="font-semibold"
+                                >
+                                  Previous
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={reportsCurrentPage >= totalPages}
+                                  onClick={() => setReportsCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                  className="font-semibold"
+                                >
+                                  Next
+                                </Button>
+                              </div>
                             </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 border-orange-200">
-                              Maintenance
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-gray-700">
-                            Sunset Apartments
-                          </TableCell>
-                          <TableCell className="text-gray-600">
-                            March 19, 2024
-                          </TableCell>
-                          <TableCell className="text-gray-600">
-                            0.9 MB
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center justify-end space-x-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  toast.success("Downloading report...")
-                                }
-                                className="border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg h-8 w-8 p-0"
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  toast.info("Opening report in new tab...")
-                                }
-                                className="border-gray-200 text-gray-700 hover:bg-gray-100 rounded-lg h-8 w-8 p-0"
-                              >
-                                <ExternalLink className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
+                          )}
+                            </>
+                          );
+                        })()}
                       </TableBody>
                     </Table>
                   </div>
@@ -8392,9 +9041,10 @@ export function PropertiesPage({
                       </div>
                     </div>
                     <Button
-                      onClick={() =>
-                        toast.info("Report scheduling coming soon...")
-                      }
+                      onClick={() => {
+                        resetScheduleForm();
+                        setShowScheduleDialog(true);
+                      }}
                       className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25 rounded-xl"
                     >
                       <Plus className="h-4 w-4 mr-2" />
@@ -8403,122 +9053,223 @@ export function PropertiesPage({
                   </div>
                 </div>
                 <CardContent className="p-5">
-                  <div className="space-y-3">
-                    {/* Monthly Financial Report */}
-                    <div className="group flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 hover:shadow-md hover:border-blue-200 transition-all duration-200">
-                      <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                          <Calendar className="h-6 w-6 text-white" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-bold text-gray-900">
-                              Monthly Financial Report
-                            </h4>
-                            <Badge className="bg-green-100 text-green-700 border-green-200">
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Active
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-gray-500 mt-0.5">
-                            Generated on the 1st of each month
-                          </p>
-                          <div className="flex items-center gap-4 mt-2">
-                            <span className="text-xs text-gray-400 flex items-center gap-1">
-                              <Send className="h-3 w-3" />
-                              Sent to owner@company.com
-                            </span>
-                            <span className="text-xs text-gray-400 flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              Next: Apr 1, 2024
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-gray-200 text-gray-700 hover:bg-white rounded-lg h-9"
-                        >
-                          <Edit className="h-4 w-4 mr-1" />
-                          Edit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-gray-200 text-gray-700 hover:bg-white rounded-lg h-9 w-9 p-0"
-                        >
-                          <Settings className="h-4 w-4" />
-                        </Button>
-                      </div>
+                  {loadingSchedules ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                      <span className="ml-2 text-sm text-gray-500">Loading schedules...</span>
                     </div>
+                  ) : scheduledReports.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12">
+                      <div className="h-16 w-16 rounded-2xl bg-amber-100 flex items-center justify-center mb-4">
+                        <Clock className="h-8 w-8 text-amber-600" />
+                      </div>
+                      <p className="text-sm font-medium text-gray-900 mb-1">No scheduled reports</p>
+                      <p className="text-xs text-gray-500 mb-4">Create your first scheduled report to get started</p>
+                      <Button
+                        onClick={() => {
+                          resetScheduleForm();
+                          setShowScheduleDialog(true);
+                        }}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Schedule
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {scheduledReports.map((schedule) => {
+                        const getReportTypeIcon = (type: string) => {
+                          switch (type) {
+                            case "financial":
+                              return <DollarSign className="h-6 w-6 text-white" />;
+                            case "occupancy":
+                              return <PieChart className="h-6 w-6 text-white" />;
+                            case "maintenance":
+                              return <Wrench className="h-6 w-6 text-white" />;
+                            case "tenant":
+                              return <Users className="h-6 w-6 text-white" />;
+                            default:
+                              return <FileText className="h-6 w-6 text-white" />;
+                          }
+                        };
 
-                    {/* Weekly Occupancy Update */}
-                    <div className="group flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100 hover:shadow-md hover:border-green-200 transition-all duration-200">
-                      <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/30">
-                          <Activity className="h-6 w-6 text-white" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-bold text-gray-900">
-                              Weekly Occupancy Update
-                            </h4>
-                            <Badge className="bg-green-100 text-green-700 border-green-200">
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Active
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-gray-500 mt-0.5">
-                            Generated every Monday at 9:00 AM
-                          </p>
-                          <div className="flex items-center gap-4 mt-2">
-                            <span className="text-xs text-gray-400 flex items-center gap-1">
-                              <Send className="h-3 w-3" />
-                              Sent to team@company.com
-                            </span>
-                            <span className="text-xs text-gray-400 flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              Next: Monday, Mar 25
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-gray-200 text-gray-700 hover:bg-white rounded-lg h-9"
-                        >
-                          <Edit className="h-4 w-4 mr-1" />
-                          Edit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-gray-200 text-gray-700 hover:bg-white rounded-lg h-9 w-9 p-0"
-                        >
-                          <Settings className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
+                        const getReportTypeColor = (type: string) => {
+                          switch (type) {
+                            case "financial":
+                              return "from-blue-500 to-blue-600 shadow-blue-500/30";
+                            case "occupancy":
+                              return "from-purple-500 to-purple-600 shadow-purple-500/30";
+                            case "maintenance":
+                              return "from-orange-500 to-orange-600 shadow-orange-500/30";
+                            case "tenant":
+                              return "from-green-500 to-green-600 shadow-green-500/30";
+                            default:
+                              return "from-gray-500 to-gray-600 shadow-gray-500/30";
+                          }
+                        };
 
-                    {/* Add More Hint */}
-                    <div
-                      className="flex items-center justify-center p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-[#7C3AED]/40 hover:bg-purple-50/30 transition-all cursor-pointer group"
-                      onClick={() =>
-                        toast.info("Report scheduling coming soon...")
-                      }
-                    >
-                      <div className="flex items-center gap-3 text-gray-400 group-hover:text-[#7C3AED] transition-colors">
-                        <Plus className="h-5 w-5" />
-                        <span className="font-medium">
-                          Add another scheduled report
-                        </span>
+                        const getReportTypeBg = (type: string) => {
+                          switch (type) {
+                            case "financial":
+                              return "from-blue-50 to-indigo-50 border-blue-100 hover:border-blue-200";
+                            case "occupancy":
+                              return "from-purple-50 to-purple-50 border-purple-100 hover:border-purple-200";
+                            case "maintenance":
+                              return "from-orange-50 to-orange-50 border-orange-100 hover:border-orange-200";
+                            case "tenant":
+                              return "from-green-50 to-emerald-50 border-green-100 hover:border-green-200";
+                            default:
+                              return "from-gray-50 to-gray-50 border-gray-100 hover:border-gray-200";
+                          }
+                        };
+
+                        const formatScheduleDescription = (schedule: ReportSchedule) => {
+                          if (schedule.frequency === "weekly") {
+                            const day = schedule.dayOfWeek || "Monday";
+                            return `Generated every ${day} at ${schedule.time}`;
+                          } else {
+                            const day = schedule.dayOfMonth || 1;
+                            const suffix = day === 1 ? "st" : day === 2 ? "nd" : day === 3 ? "rd" : "th";
+                            return `Generated on the ${day}${suffix} of each month at ${schedule.time}`;
+                          }
+                        };
+
+                        const formatNextRun = (nextRun: string) => {
+                          const date = new Date(nextRun);
+                          return date.toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          });
+                        };
+
+                        const propertyLabel = schedule.propertyId
+                          ? visibleProperties.find((p) => String(p.id) === schedule.propertyId)?.name || "Selected Property"
+                          : "All Properties";
+
+                        return (
+                          <div
+                            key={schedule.id}
+                            className={`group flex items-center justify-between p-4 rounded-xl bg-gradient-to-r ${getReportTypeBg(schedule.reportType)} border hover:shadow-md transition-all duration-200`}
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${getReportTypeColor(schedule.reportType)} flex items-center justify-center shadow-lg`}>
+                                {getReportTypeIcon(schedule.reportType)}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-bold text-gray-900">{schedule.name}</h4>
+                                  <Badge
+                                    className={
+                                      schedule.status === "active"
+                                        ? "bg-green-100 text-green-700 border-green-200"
+                                        : "bg-gray-100 text-gray-700 border-gray-200"
+                                    }
+                                  >
+                                    {schedule.status === "active" ? (
+                                      <>
+                                        <CheckCircle className="h-3 w-3 mr-1" />
+                                        Active
+                                      </>
+                                    ) : (
+                                      "Paused"
+                                    )}
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-gray-500 mt-0.5">
+                                  {formatScheduleDescription(schedule)}
+                                </p>
+                                <div className="flex items-center gap-4 mt-2">
+                                  <span className="text-xs text-gray-400 flex items-center gap-1">
+                                    <Send className="h-3 w-3" />
+                                    {schedule.email}
+                                  </span>
+                                  <span className="text-xs text-gray-400 flex items-center gap-1">
+                                    <Clock className="h-3 w-3" />
+                                    Next: {formatNextRun(schedule.nextRun)}
+                                  </span>
+                                  <span className="text-xs text-gray-400">
+                                    {REPORT_TYPE_LABELS[schedule.reportType]} • {propertyLabel}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-gray-200 text-gray-700 hover:bg-white rounded-lg h-9 w-9 p-0"
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => handleEditSchedule(schedule)}
+                                    className="cursor-pointer"
+                                  >
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleSendTestEmail(schedule)}
+                                    className="cursor-pointer"
+                                  >
+                                    <Send className="mr-2 h-4 w-4" />
+                                    Send Test Email
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleToggleSchedule(schedule)}
+                                    className="cursor-pointer"
+                                  >
+                                    {schedule.status === "active" ? (
+                                      <>
+                                        <Clock className="mr-2 h-4 w-4" />
+                                        Pause
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Zap className="mr-2 h-4 w-4" />
+                                        Activate
+                                      </>
+                                    )}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => handleDeleteSchedule(schedule.id)}
+                                    className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Add More Hint */}
+                      <div
+                        className="flex items-center justify-center p-4 rounded-xl border-2 border-dashed border-gray-200 hover:border-[#7C3AED]/40 hover:bg-purple-50/30 transition-all cursor-pointer group"
+                        onClick={() => {
+                          resetScheduleForm();
+                          setShowScheduleDialog(true);
+                        }}
+                      >
+                        <div className="flex items-center gap-3 text-gray-400 group-hover:text-[#7C3AED] transition-colors">
+                          <Plus className="h-5 w-5" />
+                          <span className="font-medium">Add another scheduled report</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -11279,6 +12030,287 @@ export function PropertiesPage({
                 )}
               </Button>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Email Report Dialog */}
+      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="h-5 w-5 text-[#7C3AED]" />
+              Send Report via Email
+            </DialogTitle>
+            <DialogDescription>
+              Enter the recipient email address. The report will be sent as a PDF attachment.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="email-recipient">Recipient Email Address</Label>
+              <Input
+                id="email-recipient"
+                type="email"
+                placeholder="recipient@example.com"
+                value={emailReportTo}
+                onChange={(e) => setEmailReportTo(e.target.value)}
+                disabled={emailSending}
+                className="w-full"
+              />
+              <p className="text-xs text-gray-500">
+                You can send to any email address, including external recipients.
+              </p>
+            </div>
+
+            {reportPreview && (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-2">
+                <p className="text-sm font-medium text-gray-900">Report Details:</p>
+                <div className="text-xs text-gray-600 space-y-1">
+                  <p>Type: {REPORT_TYPE_LABELS[reportPreview.type]}</p>
+                  <p>Property: {reportPreviewPropertyLabel || "All Properties"}</p>
+                  <p>Generated: {new Date(reportPreview.generatedAt).toLocaleString()}</p>
+                </div>
+                <div className="mt-2 flex items-center gap-2 text-xs text-blue-600">
+                  <FileText className="h-3 w-3" />
+                  <span>PDF attachment will be included</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowEmailDialog(false);
+                setEmailReportTo(user?.email || "");
+              }}
+              disabled={emailSending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSendReportEmail}
+              disabled={emailSending || !emailReportTo.trim()}
+              className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white"
+            >
+              {emailSending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="mr-2 h-4 w-4" />
+                  Send Email
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule Report Dialog */}
+      <Dialog open={showScheduleDialog} onOpenChange={(open) => {
+        setShowScheduleDialog(open);
+        if (!open) {
+          resetScheduleForm();
+        }
+      }}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-[#7C3AED]" />
+              {editingSchedule ? "Edit Scheduled Report" : "Schedule New Report"}
+            </DialogTitle>
+            <DialogDescription>
+              Configure when and how often to automatically generate and send reports.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="schedule-name">Schedule Name *</Label>
+              <Input
+                id="schedule-name"
+                placeholder="e.g., Monthly Financial Report"
+                value={scheduleForm.name}
+                onChange={(e) => setScheduleForm({ ...scheduleForm, name: e.target.value })}
+                disabled={savingSchedule}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="schedule-report-type">Report Type *</Label>
+                <Select
+                  value={scheduleForm.reportType}
+                  onValueChange={(value: any) => setScheduleForm({ ...scheduleForm, reportType: value })}
+                  disabled={savingSchedule}
+                >
+                  <SelectTrigger id="schedule-report-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="financial">Financial</SelectItem>
+                    <SelectItem value="occupancy">Occupancy</SelectItem>
+                    <SelectItem value="maintenance">Maintenance</SelectItem>
+                    <SelectItem value="tenant">Tenant</SelectItem>
+                    <SelectItem value="all">Portfolio (All)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="schedule-property">Property</Label>
+                <Select
+                  value={scheduleForm.propertyId || "all"}
+                  onValueChange={(value) => setScheduleForm({ ...scheduleForm, propertyId: value === "all" ? "all" : value })}
+                  disabled={savingSchedule}
+                >
+                  <SelectTrigger id="schedule-property">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Properties</SelectItem>
+                    {visibleProperties.map((property) => (
+                      <SelectItem key={property.id} value={String(property.id)}>
+                        {property.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="schedule-frequency">Frequency *</Label>
+              <Select
+                value={scheduleForm.frequency}
+                onValueChange={(value: "weekly" | "monthly") => {
+                  setScheduleForm({
+                    ...scheduleForm,
+                    frequency: value,
+                    dayOfWeek: value === "weekly" ? "monday" : undefined,
+                    dayOfMonth: value === "monthly" ? 1 : undefined,
+                  });
+                }}
+                disabled={savingSchedule}
+              >
+                <SelectTrigger id="schedule-frequency">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {scheduleForm.frequency === "weekly" && (
+              <div className="space-y-2">
+                <Label htmlFor="schedule-day-of-week">Day of Week *</Label>
+                <Select
+                  value={scheduleForm.dayOfWeek || "monday"}
+                  onValueChange={(value) => setScheduleForm({ ...scheduleForm, dayOfWeek: value })}
+                  disabled={savingSchedule}
+                >
+                  <SelectTrigger id="schedule-day-of-week">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="monday">Monday</SelectItem>
+                    <SelectItem value="tuesday">Tuesday</SelectItem>
+                    <SelectItem value="wednesday">Wednesday</SelectItem>
+                    <SelectItem value="thursday">Thursday</SelectItem>
+                    <SelectItem value="friday">Friday</SelectItem>
+                    <SelectItem value="saturday">Saturday</SelectItem>
+                    <SelectItem value="sunday">Sunday</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {scheduleForm.frequency === "monthly" && (
+              <div className="space-y-2">
+                <Label htmlFor="schedule-day-of-month">Day of Month *</Label>
+                <Select
+                  value={String(scheduleForm.dayOfMonth || 1)}
+                  onValueChange={(value) => setScheduleForm({ ...scheduleForm, dayOfMonth: parseInt(value) })}
+                  disabled={savingSchedule}
+                >
+                  <SelectTrigger id="schedule-day-of-month">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                      <SelectItem key={day} value={String(day)}>
+                        {day}
+                        {day === 1 ? "st" : day === 2 ? "nd" : day === 3 ? "rd" : "th"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="schedule-time">Time *</Label>
+              <Input
+                id="schedule-time"
+                type="time"
+                value={scheduleForm.time}
+                onChange={(e) => setScheduleForm({ ...scheduleForm, time: e.target.value })}
+                disabled={savingSchedule}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="schedule-email">Recipient Email *</Label>
+              <Input
+                id="schedule-email"
+                type="email"
+                placeholder="recipient@example.com"
+                value={scheduleForm.email}
+                onChange={(e) => setScheduleForm({ ...scheduleForm, email: e.target.value })}
+                disabled={savingSchedule}
+              />
+              <p className="text-xs text-gray-500">
+                Reports will be automatically sent to this email address
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowScheduleDialog(false);
+                resetScheduleForm();
+              }}
+              disabled={savingSchedule}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveSchedule}
+              disabled={savingSchedule}
+              className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white"
+            >
+              {savingSchedule ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {editingSchedule ? "Updating..." : "Creating..."}
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  {editingSchedule ? "Update Schedule" : "Create Schedule"}
+                </>
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

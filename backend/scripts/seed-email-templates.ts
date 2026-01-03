@@ -587,6 +587,130 @@ This is an automated email. Please do not reply to this message.
       is_system: true,
       is_active: true,
     },
+    {
+      name: 'Report Email',
+      type: 'report',
+      category: 'Reports',
+      subject: '{{reportLabel}} Report - {{propertyLabel}}',
+      body_html: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{reportLabel}} Report - {{propertyLabel}}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%); color: white; padding: 40px 20px; text-align: center; border-radius: 10px 10px 0 0; }
+    .header h1 { margin: 0; font-size: 28px; font-weight: 600; }
+    .header p { margin: 10px 0 0; opacity: 0.9; font-size: 16px; }
+    .content { background-color: #ffffff; padding: 40px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .report-info { background-color: #f8f9fa; border-left: 4px solid #7C3AED; padding: 20px; margin: 0 0 30px; border-radius: 4px; }
+    .button { display: inline-block; background: linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%); color: white !important; padding: 14px 35px; text-decoration: none; border-radius: 6px; margin: 10px 0; font-weight: bold; }
+    .button:hover { opacity: 0.9; }
+    .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; background-color: #f9fafb; border-radius: 0 0 10px 10px; }
+    .badge { display: inline-block; background: linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%); color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>{{reportIcon}} {{reportLabel}} Report</h1>
+      <p>Property Analytics & Insights</p>
+    </div>
+    <div class="content">
+      <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+        Your requested <strong>{{reportLabel}}</strong> report has been generated and is ready for review.
+      </p>
+
+      <div class="report-info">
+        <h2 style="color: #7C3AED; margin: 0 0 15px; font-size: 18px; font-weight: 600;">📋 Report Details</h2>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 8px 0; color: #666666; font-size: 14px; width: 40%;">Report Type:</td>
+            <td style="padding: 8px 0;"><span class="badge">{{reportLabel}}</span></td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #666666; font-size: 14px;">Property:</td>
+            <td style="padding: 8px 0; color: #333333; font-size: 14px; font-weight: 500;">{{propertyLabel}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #666666; font-size: 14px;">Date Range:</td>
+            <td style="padding: 8px 0; color: #333333; font-size: 14px; font-weight: 500;">{{dateRange}}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #666666; font-size: 14px;">Generated:</td>
+            <td style="padding: 8px 0; color: #333333; font-size: 14px; font-weight: 500;">{{generatedAt}}</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="background-color: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 20px; margin: 20px 0; border-radius: 4px;">
+        <p style="margin: 0; color: #0369a1;"><strong>📎 PDF Attached:</strong><br>
+        Your complete report is attached to this email as a PDF document with detailed analytics and visualizations.</p>
+      </div>
+
+      <center>
+        <a href="{{dashboardUrl}}" class="button">📊 View in Dashboard</a>
+      </center>
+
+      <p style="margin-top: 30px; color: #333333; font-size: 14px;">
+        If you have any questions about this report, please contact support.
+      </p>
+
+      <p style="color: #333333;">Best regards,<br>
+      <strong>Contrezz Platform Team</strong><br>
+      Property Management System</p>
+    </div>
+    <div class="footer">
+      <p>This email was sent from Contrezz Property Management Platform.</p>
+      <p>You requested this report from your dashboard.</p>
+      <p style="margin-top: 10px;">
+        <a href="{{dashboardUrl}}" style="color: #7C3AED; text-decoration: none;">Access Your Dashboard</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>`,
+      body_text: `{{reportIcon}} {{reportLabel}} Report - {{propertyLabel}}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Your requested {{reportLabel}} report has been generated and is ready for review.
+
+📋 REPORT DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Report Type:    {{reportLabel}}
+Property:       {{propertyLabel}}
+Date Range:     {{dateRange}}
+Generated:      {{generatedAt}}
+
+💡 ACCESS FULL REPORT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Log in to your dashboard to download the complete PDF version with detailed
+analytics and visualizations.
+
+Dashboard: {{dashboardUrl}}
+
+If you have any questions about this report, please contact support.
+
+Best regards,
+Contrezz Platform Team
+Property Management System
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+This email was sent from Contrezz Property Management Platform.
+You requested this report from your dashboard.`,
+      variables: [
+        { name: 'reportLabel', description: 'Type of report (e.g., Financial, Occupancy, Maintenance, Tenant)', required: true },
+        { name: 'propertyLabel', description: 'Property name or "All Properties"', required: true },
+        { name: 'dateRange', description: 'Date range for the report (e.g., "Jan 1, 2024 - Dec 31, 2024")', required: true },
+        { name: 'generatedAt', description: 'Date and time when the report was generated', required: true },
+        { name: 'reportIcon', description: 'Icon/emoji for the report type (e.g., 💰, 📊, 🔧, 👥)', required: false },
+        { name: 'dashboardUrl', description: 'URL to the dashboard (e.g., https://app.contrezz.com)', required: true },
+      ],
+      is_system: true,
+      is_active: true,
+    },
   ];
 
   for (const template of templates) {

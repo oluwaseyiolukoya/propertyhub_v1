@@ -369,9 +369,9 @@ export function HelpCenterPage({
                       </div>
                     </div>
                     <CardTitle className="text-lg">{category.name}</CardTitle>
-                    <CardDescription>
-                      <Badge variant="secondary" className="mt-2">{count} articles</Badge>
-                    </CardDescription>
+                    <div className="mt-2">
+                      <Badge variant="secondary">{count} articles</Badge>
+                    </div>
                   </CardHeader>
                 </Card>
               );

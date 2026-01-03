@@ -21,7 +21,7 @@ interface EmailConfig {
 }
 
 // Get email configuration from environment variables
-function getEmailConfig(): EmailConfig {
+export function getEmailConfig(): EmailConfig {
   const host = process.env.SMTP_HOST || 'mail.privateemail.com'; // Namecheap default
   const port = parseInt(process.env.SMTP_PORT || '465');
   const secure = process.env.SMTP_SECURE !== 'false'; // Default to true for port 465

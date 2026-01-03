@@ -5,21 +5,34 @@ import prisma from "../lib/db";
 import { emitToAdmins, emitToCustomer } from "../lib/socket";
 import { sendEmail, getTransporter } from "../lib/email";
 import PDFDocument from "pdfkit";
+import { formatCurrency as formatCurrencyUtil, getCurrencySymbol } from "../lib/currency";
 
 const router = express.Router();
 
 router.use(authMiddleware);
 router.use(requireKycVerification);
 
-// Helper function to format currency
+// Helper function to format currency for PDF (Microsoft-style approach)
+// Ensures proper symbol rendering with fallback to currency code
 function formatCurrency(amount: number, currency: string = "NGN"): string {
   if (typeof amount !== "number" || isNaN(amount)) return "N/A";
-  return new Intl.NumberFormat("en-NG", {
-    style: "currency",
-    currency: currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
+
+  // Format number with thousand separators
+  // For whole numbers, show no decimals; for decimals, show 2 places
+  const isWholeNumber = amount % 1 === 0;
+  const formattedAmount = Math.abs(amount).toLocaleString("en-US", {
+    minimumFractionDigits: isWholeNumber ? 0 : 2,
+    maximumFractionDigits: isWholeNumber ? 0 : 2,
+  });
+
+  // Microsoft-style approach: Use currency code format for maximum PDF compatibility
+  // This ensures consistent rendering across all PDF viewers and fonts
+  // Format: "NGN 1,000,000" - universally supported and professional
+  // Currency symbols (₦, €, £) may not render correctly in all PDF viewers/fonts
+  // Using currency code is the Microsoft standard for PDF exports
+  const currencyCode = currency.toUpperCase();
+
+  return `${currencyCode} ${formattedAmount}`;
 }
 
 type ReportType = "financial" | "occupancy" | "maintenance" | "tenant" | "all";
@@ -1407,244 +1420,529 @@ This email was sent from Contrezz Property Management Platform.
 You requested this report from your dashboard.
     `.trim();
 
-      // Generate PDF
+      // Generate PDF with professional formatting
       const pdfBuffer = await new Promise<Buffer>((resolve, reject) => {
-        const doc = new PDFDocument({ margin: 50 });
+        // Microsoft approach: Simple PDFDocument initialization
+        // Auto-pagination is disabled when using explicit coordinates with lineBreak: false
+        const doc = new PDFDocument({
+          margin: 40,
+          size: 'A4',
+          autoFirstPage: true,  // Ensure only one page is created initially
+          bufferPages: false,   // Don't buffer pages - write directly
+          info: {
+            Title: `${reportLabel} Report - ${propertyLabel}`,
+            Author: 'Contrezz Property Management',
+            Subject: 'Property Management Report',
+            Creator: 'Contrezz Platform'
+          }
+        });
         const chunks: Buffer[] = [];
 
         doc.on("data", (chunk) => chunks.push(chunk));
         doc.on("end", () => resolve(Buffer.concat(chunks)));
         doc.on("error", reject);
 
-        // PDF Header
-        doc
-          .fontSize(24)
-          .fillColor("#7C3AED")
-          .text(`${reportIcon} ${reportLabel} Report`, { align: "center" });
-        doc.moveDown(0.5);
-        doc
-          .fontSize(12)
-          .fillColor("#666666")
-          .text(propertyLabel, { align: "center" });
-        doc.moveDown(2);
+        // Set default font
+        doc.font('Helvetica');
 
-        // Report Details Section
-        doc.fontSize(16).fillColor("#7C3AED").text("📋 Report Details");
-        doc.moveDown(0.5);
-        doc.fontSize(11).fillColor("#333333");
-        doc.text(`Report Type: ${reportLabel}`);
-        doc.text(`Property: ${propertyLabel}`);
-        doc.text(`Date Range: ${dateRange}`);
-        doc.text(`Generated: ${generatedAt}`);
-        doc.moveDown(2);
+        // Helper function to draw a horizontal line
+        const drawLine = (y: number, width: number = 515) => {
+          doc.moveTo(40, y).lineTo(40 + width, y).strokeColor('#E5E7EB').lineWidth(1).stroke();
+        };
+
+        // Helper function to draw a colored box
+        const drawColoredBox = (x: number, y: number, width: number, height: number, color: string) => {
+          doc.rect(x, y, width, height).fillColor(color).fill();
+        };
+
+        // Helper function to add section header
+        // Word Processing Approach: Absolute positioning, no width parameter
+        const addSectionHeader = (text: string, y: number) => {
+          doc.fontSize(16)
+             .fillColor('#1F2937')
+             .font('Helvetica-Bold')
+             .text(text, 40, y, { lineBreak: false });
+          drawLine(y + 25);
+          return y + 35;
+        };
+
+        // Helper function to add key-value pair
+        // Word Processing Approach: Absolute positioning, no width parameter
+        const addKeyValue = (key: string, value: string, y: number, indent: number = 0) => {
+          const x = 40 + indent;
+          doc.fontSize(10)
+             .fillColor('#6B7280')
+             .font('Helvetica')
+             .text(key + ':', x, y, { lineBreak: false });
+          doc.fontSize(10)
+             .fillColor('#111827')
+             .font('Helvetica-Bold')
+             .text(value, x + 160, y, { lineBreak: false });
+          return y + 18;
+        };
+
+        // Professional Header with gradient effect (simulated with colored box)
+        const headerHeight = 80;
+        doc.rect(0, 0, 595, headerHeight)
+           .fillColor('#7C3AED')
+           .fill();
+
+        // White text on purple background - Professional header without emoji
+        // Word Processing Approach: Absolute positioning, no width/align parameters
+        doc.fontSize(28)
+           .fillColor('#FFFFFF')
+           .font('Helvetica-Bold')
+           .text(`${reportLabel} Report`, 40, 25, { lineBreak: false });
+
+        doc.fontSize(12)
+           .fillColor('#E9D5FF')
+           .font('Helvetica')
+           .text(propertyLabel, 40, 55, { lineBreak: false });
+
+        // Add a subtle accent line below the property label
+        doc.moveTo(40, 70)
+           .lineTo(555, 70)
+           .strokeColor('#A78BFA')
+           .lineWidth(1)
+           .stroke();
+
+        let currentY = headerHeight + 30;
+
+        // Microsoft approach: Manual page control with lineBreak: false on all text
+        // This prevents PDFKit from auto-creating pages
+
+        // Helper function to draw a table
+        const drawTable = (headers: string[], rows: string[][], startY: number, colWidths: number[]) => {
+          const rowHeight = 25;
+          const headerHeight = 30;
+          let y = startY;
+
+          // Draw header background
+          doc.rect(40, y, 515, headerHeight)
+             .fillColor('#F3F4F6')
+             .fill();
+
+          // Draw header text
+          // Word Processing Approach: Absolute positioning, no width parameter
+          let x = 40;
+          doc.fontSize(10)
+             .fillColor('#1F2937')
+             .font('Helvetica-Bold');
+          headers.forEach((header, i) => {
+            // Add left padding for Amount column header to match data alignment
+            const isAmountColumn = header?.toLowerCase() === 'amount';
+            const leftPadding = isAmountColumn ? 10 : 0;
+            doc.text(header, x + leftPadding, y + 8, { lineBreak: false });
+            x += colWidths[i];
+          });
+
+          // Draw header border
+          doc.rect(40, y, 515, headerHeight)
+             .strokeColor('#D1D5DB')
+             .lineWidth(1)
+             .stroke();
+
+          y += headerHeight;
+
+          // Draw rows
+          rows.forEach((row, rowIndex) => {
+            const bgColor = rowIndex % 2 === 0 ? '#FFFFFF' : '#F9FAFB';
+            doc.rect(40, y, 515, rowHeight)
+               .fillColor(bgColor)
+               .fill();
+
+            x = 40;
+            doc.fontSize(9)
+               .fillColor('#111827')
+               .font('Helvetica');
+            row.forEach((cell, i) => {
+              // Add left padding for Amount column
+              // Word Processing Approach: Absolute positioning, no width parameter
+              const isAmountColumn = headers[i]?.toLowerCase() === 'amount';
+              const leftPadding = isAmountColumn ? 10 : 0;
+              doc.text(cell, x + leftPadding, y + 7, { lineBreak: false });
+              x += colWidths[i];
+            });
+
+            doc.rect(40, y, 515, rowHeight)
+               .strokeColor('#E5E7EB')
+               .lineWidth(0.5)
+               .stroke();
+
+            y += rowHeight;
+          });
+
+          return y + 10;
+        };
+
+        // Helper function to add a metric card
+        const addMetricCard = (label: string, value: string, x: number, y: number, width: number = 160) => {
+          const cardHeight = 60;
+
+          // Card background
+          doc.rect(x, y, width, cardHeight)
+             .fillColor('#FFFFFF')
+             .fill();
+
+          // Card border
+          doc.rect(x, y, width, cardHeight)
+             .strokeColor('#E5E7EB')
+             .lineWidth(1)
+             .stroke();
+
+          // Top accent bar
+          doc.rect(x, y, width, 4)
+             .fillColor('#7C3AED')
+             .fill();
+
+          // Label
+          // Word Processing Approach: Absolute positioning, no width parameter
+          doc.fontSize(9)
+             .fillColor('#6B7280')
+             .font('Helvetica')
+             .text(label, x + 10, y + 12, { lineBreak: false });
+
+          // Value
+          doc.fontSize(18)
+             .fillColor('#111827')
+             .font('Helvetica-Bold')
+             .text(value, x + 10, y + 28, { lineBreak: false });
+        };
+
+        let pageNumber = 1;
+
+        // Helper function to add footer to current page
+        // Word Processing Approach: Use absolute positioning, no width parameter
+        // This prevents PDFKit from calculating text flow and creating pages
+        const addFooter = () => {
+          const pageHeight = 842; // A4 height in points
+          const footerY = pageHeight - 60;
+          const pageWidth = 595; // A4 width in points
+          const centerX = pageWidth / 2;
+          const rightX = pageWidth - 40; // Right margin
+
+          // Footer line
+          drawLine(footerY, 515);
+
+          // Word Processing Rule: Calculate text width manually, position absolutely
+          // This prevents PDFKit from doing any internal calculations
+          doc.fontSize(9)
+             .fillColor('#6B7280')
+             .font('Helvetica');
+          const footerText = "Generated by Contrezz Property Management Platform";
+          const footerTextWidth = doc.widthOfString(footerText);
+          doc.text(footerText, centerX - footerTextWidth / 2, footerY + 10, { lineBreak: false });
+
+          doc.fontSize(8)
+             .fillColor('#9CA3AF');
+          const urlText = `${process.env.FRONTEND_URL || "https://app.contrezz.com"}`;
+          const urlTextWidth = doc.widthOfString(urlText);
+          doc.text(urlText, centerX - urlTextWidth / 2, footerY + 25, { lineBreak: false });
+
+          // Page number - right aligned
+          const pageText = `Page ${pageNumber}`;
+          const pageTextWidth = doc.widthOfString(pageText);
+          doc.text(pageText, rightX - pageTextWidth, footerY + 25, { lineBreak: false });
+        };
+
+        // Microsoft approach: Simple page break check for very large content only
+        // With lineBreak: false on all text, PDFKit won't auto-create pages
+        const checkPageBreak = (requiredHeight: number) => {
+          const pageHeight = 842; // A4 height in points
+          const footerHeight = 80;
+          const topMargin = 40;
+          const maxY = pageHeight - footerHeight;
+
+          // Only create new page for VERY large content (tables with many rows)
+          if (requiredHeight > 400 && currentY + requiredHeight > maxY) {
+            addFooter();
+            doc.addPage();
+            pageNumber++;
+            currentY = topMargin;
+          }
+        };
+
+        // Report Details Section with professional formatting
+        // Microsoft approach: Don't check page break for small sections
+        currentY = addSectionHeader("Report Information", currentY);
+
+        // Details in a styled box
+        const detailsBoxY = currentY;
+        doc.rect(40, detailsBoxY, 515, 80)
+           .fillColor('#F9FAFB')
+           .fill()
+           .strokeColor('#E5E7EB')
+           .lineWidth(1)
+           .stroke();
+
+        currentY = addKeyValue("Report Type", reportLabel, detailsBoxY + 15);
+        currentY = addKeyValue("Property", propertyLabel, currentY);
+        currentY = addKeyValue("Date Range", dateRange, currentY);
+        currentY = addKeyValue("Generated", generatedAt, currentY);
+
+        currentY += 20;
 
         // Report Data Section
         if (report.data) {
-          doc.fontSize(16).fillColor("#7C3AED").text("📊 Report Summary");
-          doc.moveDown(0.5);
-          doc.fontSize(11).fillColor("#333333");
-
           // Add report data based on type
           if (report.type === "financial" && report.data.portfolio) {
             const portfolio = report.data.portfolio;
-            doc.fontSize(14).fillColor("#7C3AED").text("Portfolio Overview");
-            doc.moveDown(0.3);
-            doc.fontSize(11).fillColor("#333333");
-            doc.text(`Total Properties: ${portfolio.totalProperties || 0}`);
-            doc.text(`Total Units: ${portfolio.totalUnits || 0}`);
-            doc.text(`Occupied Units: ${portfolio.occupiedUnits || 0}`);
-            doc.text(
-              `Occupancy Rate: ${(portfolio.occupancyRate || 0).toFixed(1)}%`
-            );
-            doc.moveDown(0.5);
-            doc.fontSize(14).fillColor("#7C3AED").text("Financial Summary");
-            doc.moveDown(0.3);
-            doc.fontSize(11).fillColor("#333333");
-            doc.text(
-              `Total Revenue: ${formatCurrency(portfolio.totalRevenue || 0)}`
-            );
-            doc.text(
-              `Total Expenses: ${formatCurrency(portfolio.totalExpenses || 0)}`
-            );
-            doc.text(
-              `Net Operating Income: ${formatCurrency(
-                portfolio.netOperatingIncome || 0
-              )}`
-            );
+            // Get currency from portfolio data (set by frontend based on property selection)
+            const reportCurrency = portfolio.currency || "NGN";
 
-            // Expense breakdown
+            // Key Metrics Section
+            // Microsoft: Don't force page break for small sections
+            currentY = addSectionHeader("Key Performance Metrics", currentY);
+
+            const metricsStartY = currentY;
+            const cardWidth = 120;
+            const cardSpacing = 10;
+            let cardX = 40;
+
+            // Metric cards in a row (4 cards)
+            addMetricCard("Total Properties", String(portfolio.totalProperties || 0), cardX, metricsStartY, cardWidth);
+            cardX += cardWidth + cardSpacing;
+            addMetricCard("Total Units", String(portfolio.totalUnits || 0), cardX, metricsStartY, cardWidth);
+            cardX += cardWidth + cardSpacing;
+            addMetricCard("Occupied", String(portfolio.occupiedUnits || 0), cardX, metricsStartY, cardWidth);
+            cardX += cardWidth + cardSpacing;
+            addMetricCard("Occupancy", `${(portfolio.occupancyRate || 0).toFixed(1)}%`, cardX, metricsStartY, cardWidth);
+
+            currentY = metricsStartY + 80;
+
+            // Financial Summary Section
+            // Microsoft: Don't force page break for small tables
+            currentY = addSectionHeader("Financial Summary", currentY);
+
+            const financialTableHeaders = ["Metric", "Amount"];
+            const financialRows = [
+              ["Total Revenue", formatCurrency(portfolio.totalRevenue || 0, reportCurrency)],
+              ["Total Expenses", formatCurrency(portfolio.totalExpenses || 0, reportCurrency)],
+              ["Net Operating Income", formatCurrency(portfolio.netOperatingIncome || 0, reportCurrency)],
+            ];
+            currentY = drawTable(financialTableHeaders, financialRows, currentY, [300, 215]);
+
+            // Expense Categories Section
             if (report.data.expenses?.categories?.length > 0) {
-              doc.moveDown(0.5);
-              doc.fontSize(14).fillColor("#7C3AED").text("Expense Categories");
-              doc.moveDown(0.3);
-              doc.fontSize(11).fillColor("#333333");
-              report.data.expenses.categories.forEach((cat: any) => {
-                doc.text(
-                  `• ${cat.label || cat.category}: ${formatCurrency(
-                    cat.amount
-                  )} (${cat.count} items)`
-                );
-              });
+              // Microsoft: Only check page break for large tables
+              const tableHeight = 50 + (report.data.expenses.categories.length * 25);
+              if (tableHeight > 300) {
+                checkPageBreak(tableHeight);
+              }
+              currentY = addSectionHeader("Expense Breakdown by Category", currentY);
+
+              const expenseHeaders = ["Category", "Amount", "Items"];
+              const expenseRows = report.data.expenses.categories.map((cat: any) => [
+                cat.label || cat.category,
+                formatCurrency(cat.amount, cat.currency || reportCurrency),
+                String(cat.count || 0)
+              ]);
+              currentY = drawTable(expenseHeaders, expenseRows, currentY, [250, 150, 115]);
             }
           } else if (report.type === "occupancy" && report.data.summary) {
             const summary = report.data.summary;
-            doc.fontSize(14).fillColor("#7C3AED").text("Occupancy Overview");
-            doc.moveDown(0.3);
-            doc.fontSize(11).fillColor("#333333");
-            doc.text(`Total Properties: ${summary.totalProperties || 0}`);
-            doc.text(`Total Units: ${summary.totalUnits || 0}`);
-            doc.text(`Occupied Units: ${summary.occupiedUnits || 0}`);
-            doc.text(`Vacant Units: ${summary.vacantUnits || 0}`);
-            doc.text(
-              `Occupancy Rate: ${(summary.occupancyRate || 0).toFixed(1)}%`
-            );
 
-            // Property breakdown
+            // Occupancy Overview Section
+            // Microsoft: Don't force page break
+            currentY = addSectionHeader("Occupancy Overview", currentY);
+
+            const occupancyHeaders = ["Metric", "Value"];
+            const occupancyRows = [
+              ["Total Properties", String(summary.totalProperties || 0)],
+              ["Total Units", String(summary.totalUnits || 0)],
+              ["Occupied Units", String(summary.occupiedUnits || 0)],
+              ["Vacant Units", String(summary.vacantUnits || 0)],
+              ["Occupancy Rate", `${(summary.occupancyRate || 0).toFixed(1)}%`],
+            ];
+            currentY = drawTable(occupancyHeaders, occupancyRows, currentY, [300, 215]);
+
+            // Property Breakdown Section
             if (report.data.propertyBreakdown?.length > 0) {
-              doc.moveDown(0.5);
-              doc.fontSize(14).fillColor("#7C3AED").text("Property Breakdown");
-              doc.moveDown(0.3);
-              doc.fontSize(11).fillColor("#333333");
-              report.data.propertyBreakdown.forEach((prop: any) => {
-                doc.text(
-                  `• ${prop.name}: ${prop.occupiedUnits}/${
-                    prop.totalUnits
-                  } units (${(prop.occupancyRate || 0).toFixed(1)}%)`
-                );
-              });
+              // Microsoft: Only check for very large tables
+              const tableHeight = 50 + (report.data.propertyBreakdown.length * 25);
+              if (tableHeight > 300) {
+                checkPageBreak(tableHeight);
+              }
+              currentY = addSectionHeader("Property Breakdown", currentY);
+
+              const propertyHeaders = ["Property", "Occupied", "Total", "Occupancy Rate", "Revenue"];
+              const propertyRows = report.data.propertyBreakdown.map((prop: any) => [
+                prop.name || "Unknown",
+                String(prop.occupiedUnits || 0),
+                String(prop.totalUnits || 0),
+                `${(prop.occupancyRate || 0).toFixed(1)}%`,
+                formatCurrency(prop.monthlyRevenue || 0, prop.currency || "NGN")
+              ]);
+              currentY = drawTable(propertyHeaders, propertyRows, currentY, [180, 80, 80, 100, 75]);
             }
           } else if (report.type === "maintenance" && report.data.summary) {
             const summary = report.data.summary;
-            doc.fontSize(14).fillColor("#7C3AED").text("Maintenance Overview");
-            doc.moveDown(0.3);
-            doc.fontSize(11).fillColor("#333333");
-            doc.text(`Total Requests: ${summary.totalRequests || 0}`);
-            doc.text(`Completed: ${summary.completed || 0}`);
-            doc.text(`Open: ${summary.open || 0}`);
-            doc.text(`High Priority: ${summary.highPriority || 0}`);
-            doc.text(
-              `Average Cost: ${formatCurrency(summary.averageCost || 0)}`
-            );
+            // Get currency from summary data (set by frontend based on property selection)
+            const maintenanceCurrency = summary.currency || "NGN";
 
-            // High priority requests
+            // Maintenance Overview Section
+            // Microsoft: Don't force page break
+            currentY = addSectionHeader("Maintenance Overview", currentY);
+
+            const maintenanceHeaders = ["Metric", "Value"];
+            const maintenanceRows = [
+              ["Total Requests", String(summary.totalRequests || 0)],
+              ["Completed", String(summary.completed || 0)],
+              ["Open Requests", String(summary.open || 0)],
+              ["High Priority", String(summary.highPriority || 0)],
+              ["Average Cost", formatCurrency(summary.averageCost || 0, maintenanceCurrency)],
+            ];
+            currentY = drawTable(maintenanceHeaders, maintenanceRows, currentY, [300, 215]);
+
+            // High Priority Requests Section
             if (report.data.highPriorityRequests?.length > 0) {
-              doc.moveDown(0.5);
-              doc
-                .fontSize(14)
-                .fillColor("#7C3AED")
-                .text("High Priority Requests");
-              doc.moveDown(0.3);
-              doc.fontSize(11).fillColor("#333333");
-              report.data.highPriorityRequests
-                .slice(0, 5)
-                .forEach((req: any) => {
-                  doc.text(
-                    `• ${req.title || req.description || "Request"} - ${
-                      req.status || "Pending"
-                    }`
-                  );
-                });
+              // Microsoft: Only check for very large tables
+              const tableHeight = 50 + (report.data.highPriorityRequests.length * 25);
+              if (tableHeight > 300) {
+                checkPageBreak(tableHeight);
+              }
+              currentY = addSectionHeader("High Priority Requests", currentY);
+
+              const requestHeaders = ["Request", "Status", "Priority"];
+              const requestRows = report.data.highPriorityRequests
+                .slice(0, 10)
+                .map((req: any) => [
+                  (req.title || req.description || "Request").substring(0, 40),
+                  req.status || "Pending",
+                  (req.priority || "Medium").toUpperCase()
+                ]);
+              currentY = drawTable(requestHeaders, requestRows, currentY, [300, 100, 115]);
             }
           } else if (report.type === "tenant") {
-            doc.fontSize(14).fillColor("#7C3AED").text("Tenant Overview");
-            doc.moveDown(0.3);
-            doc.fontSize(11).fillColor("#333333");
-            doc.text(`Total Tenants: ${report.data.totalTenants || 0}`);
-            doc.text(
-              `Leases Expiring Soon (30 days): ${report.data.expiringSoon || 0}`
-            );
+            // Tenant Overview Section
+            // Microsoft: Don't force page break
+            currentY = addSectionHeader("Tenant Overview", currentY);
 
-            // Tenant list
+            const tenantHeaders = ["Metric", "Value"];
+            const tenantRows = [
+              ["Total Tenants", String(report.data.totalTenants || 0)],
+              ["Leases Expiring Soon (30 days)", String(report.data.expiringSoon || 0)],
+            ];
+            currentY = drawTable(tenantHeaders, tenantRows, currentY, [300, 215]);
+
+            // Tenant List Section
             if (report.data.tenants?.length > 0) {
-              doc.moveDown(0.5);
-              doc.fontSize(14).fillColor("#7C3AED").text("Tenant List");
-              doc.moveDown(0.3);
-              doc.fontSize(11).fillColor("#333333");
-              report.data.tenants.slice(0, 10).forEach((tenant: any) => {
-                doc.text(
-                  `• ${tenant.tenantName} - Unit ${tenant.unitNumber} (${
-                    tenant.status || "Active"
-                  })`
-                );
-              });
+              // Microsoft: Only check for very large tables
+              const tableHeight = 50 + (Math.min(report.data.tenants.length, 15) * 25);
+              if (tableHeight > 300) {
+                checkPageBreak(tableHeight);
+              }
+              currentY = addSectionHeader("Tenant List", currentY);
+
+              const tenantListHeaders = ["Tenant Name", "Unit", "Status", "Lease End"];
+              const tenantListRows = report.data.tenants.slice(0, 15).map((tenant: any) => [
+                tenant.tenantName || "Unknown",
+                tenant.unitNumber || "N/A",
+                tenant.status || "Active",
+                tenant.leaseEnd ? new Date(tenant.leaseEnd).toLocaleDateString() : "N/A"
+              ]);
+              currentY = drawTable(tenantListHeaders, tenantListRows, currentY, [200, 80, 100, 135]);
             }
           } else if (report.type === "all") {
-            // Portfolio report - show overview from each section
-            doc
-              .fontSize(14)
-              .fillColor("#7C3AED")
-              .text("Complete Portfolio Overview");
-            doc.moveDown(0.3);
-            doc.fontSize(11).fillColor("#333333");
+            // Complete Portfolio Overview
+            // Microsoft: Don't force page break
+            currentY = addSectionHeader("Complete Portfolio Overview", currentY);
+
+            const portfolioData: string[][] = [];
 
             if (report.data.financial?.portfolio) {
               const portfolio = report.data.financial.portfolio;
-              doc.text(`Total Properties: ${portfolio.totalProperties || 0}`);
-              doc.text(`Total Units: ${portfolio.totalUnits || 0}`);
-              doc.text(
-                `Total Revenue: ${formatCurrency(portfolio.totalRevenue || 0)}`
-              );
-              doc.text(
-                `Net Operating Income: ${formatCurrency(
-                  portfolio.netOperatingIncome || 0
-                )}`
-              );
+              const portfolioCurrency = portfolio.currency || "NGN";
+              portfolioData.push(["Total Properties", String(portfolio.totalProperties || 0)]);
+              portfolioData.push(["Total Units", String(portfolio.totalUnits || 0)]);
+              portfolioData.push(["Total Revenue", formatCurrency(portfolio.totalRevenue || 0, portfolioCurrency)]);
+              portfolioData.push(["Net Operating Income", formatCurrency(portfolio.netOperatingIncome || 0, portfolioCurrency)]);
             }
 
             if (report.data.occupancy?.summary) {
-              doc.moveDown(0.3);
-              doc.text(
-                `Occupancy Rate: ${(
-                  report.data.occupancy.summary.occupancyRate || 0
-                ).toFixed(1)}%`
-              );
+              portfolioData.push(["Occupancy Rate", `${(report.data.occupancy.summary.occupancyRate || 0).toFixed(1)}%`]);
             }
 
             if (report.data.maintenance?.summary) {
-              doc.text(
-                `Open Maintenance Requests: ${
-                  report.data.maintenance.summary.open || 0
-                }`
-              );
+              portfolioData.push(["Open Maintenance Requests", String(report.data.maintenance.summary.open || 0)]);
             }
 
             if (report.data.tenant) {
-              doc.text(
-                `Total Tenants: ${report.data.tenant.totalTenants || 0}`
-              );
+              portfolioData.push(["Total Tenants", String(report.data.tenant.totalTenants || 0)]);
+            }
+
+            if (portfolioData.length > 0) {
+              currentY = drawTable(["Metric", "Value"], portfolioData, currentY, [300, 215]);
             }
           } else {
-            doc.text(
-              "Report data included. View detailed analysis in your dashboard."
-            );
+            currentY = addSectionHeader("Report Summary", currentY);
+            doc.fontSize(11)
+               .fillColor('#6B7280')
+               .font('Helvetica')
+               .text("Report data included. View detailed analysis in your dashboard.", 40, currentY, { lineBreak: false });
+            currentY += 30;
           }
         }
 
-        doc.moveDown(2);
+        // Word Processing Approach: Check content boundaries before adding footer
+        // This prevents blank pages by ensuring footer is only on pages with content
+        const pageHeight = 842; // A4 height in points
+        const footerY = pageHeight - 60; // Footer starts at Y=782
+        const footerEndY = footerY + 40; // Footer ends at Y=822 (within page 842)
+        const topMargin = 40;
 
-        // Footer
-        doc.fontSize(10).fillColor("#999999");
-        doc.text("━".repeat(80), { align: "center" });
-        doc.moveDown(0.5);
-        doc.text("Generated by Contrezz Property Management Platform", {
-          align: "center",
-        });
-        doc.text(`${process.env.FRONTEND_URL || "https://app.contrezz.com"}`, {
-          align: "center",
-        });
+        // Get current page information
+        const pageRange = doc.bufferedPageRange();
+        const totalPages = pageRange ? pageRange.count : 1;
 
+        // Word Processing Rule: Only add footer if content exists on the page
+        // Check if currentY is within valid content area (above footer)
+        if (currentY > topMargin && currentY < footerY) {
+          // Content exists on current page - add footer
+          addFooter();
+        } else if (currentY <= topMargin && totalPages > 1) {
+          // Current page appears empty (cursor at top) and we have multiple pages
+          // Go back to previous page to add footer there
+          doc.switchToPage(pageRange.start + totalPages - 2);
+          addFooter();
+        } else if (currentY >= footerY) {
+          // Content extends into footer area - this shouldn't happen, but handle it
+          // Move content up or create new page
+          if (totalPages > 1) {
+            // Go to previous page
+            doc.switchToPage(pageRange.start + totalPages - 2);
+            addFooter();
+          } else {
+            // Only one page, add footer anyway (content might be overlapping)
+            addFooter();
+          }
+        } else {
+          // Single page with content - add footer
+          addFooter();
+        }
+
+        // Word Processing Rule: Finalize document properly
+        // Word Processing Approach: Finalize document properly
+        // Reset any internal cursor state to prevent blank page creation
+        const finalPageRange = doc.bufferedPageRange();
+        if (finalPageRange && finalPageRange.count > 0) {
+          // Switch to the last page to ensure we're on a valid page
+          doc.switchToPage(finalPageRange.start + finalPageRange.count - 1);
+        }
+
+        // End document - this should not create new pages if we've positioned everything correctly
         doc.end();
       });
 
       // Send email with PDF attachment
       try {
-        const config = await import("../lib/email").then((m) => ({
-          from: process.env.SMTP_FROM || process.env.SMTP_USER,
-        }));
+        // Get email config with properly formatted sender name
+        const { getEmailConfig } = await import("../lib/email");
+        const emailConfig = getEmailConfig();
         const transporter = getTransporter();
 
         await transporter.sendMail({
-          from: config.from,
+          from: emailConfig.from, // Already formatted as "Sender Name" <email@example.com>
           to: email.trim(),
           subject: subjectLine,
           html,

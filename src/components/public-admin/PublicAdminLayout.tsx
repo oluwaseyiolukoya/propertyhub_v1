@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import {
   publicAdminApi,
   getAdminData,
   getAdminToken,
   removeAdminToken,
 } from "../../lib/api/publicAdminApi";
+import { parseRoute, generateRoute, ADMIN_ROUTES } from "./routes";
 import { Button } from "../ui/button";
 import {
   LayoutDashboard,
@@ -92,8 +94,11 @@ interface MenuItem {
 export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
   const [admin, setAdmin] = useState(getAdminData());
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [currentPage, setCurrentPage] = useState("dashboard");
-  const [currentSubPage, setCurrentSubPage] = useState<string | null>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Parse current route from URL
+  const { pageId, subPageId } = parseRoute(location.pathname);
 
   useEffect(() => {
     // Verify admin session on mount
@@ -107,7 +112,7 @@ export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
         // No token, redirect to login
         console.warn("No token found, redirecting to login");
         removeAdminToken();
-        window.location.href = "/admin/login";
+        navigate("/admin/login", { replace: true });
         return;
       }
 
@@ -132,7 +137,7 @@ export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
           // Session invalid or no cached data, redirect to login
           console.warn("Session expired or invalid, redirecting to login");
           removeAdminToken();
-          window.location.href = "/admin/login";
+          navigate("/admin/login", { replace: true });
         } else {
           // For other errors (server errors, etc.), log but don't logout
           // The user might still have a valid session, just can't verify right now
@@ -141,7 +146,7 @@ export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
           if (!admin) {
             // If no cached admin data and verification fails, redirect to login
             removeAdminToken();
-            window.location.href = "/admin/login";
+            navigate("/admin/login", { replace: true });
           }
         }
       }
@@ -153,7 +158,7 @@ export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
       verifySession();
     } else {
       // No admin data and no token, redirect to login
-      window.location.href = "/admin/login";
+      navigate("/admin/login", { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty deps - only run on mount
@@ -162,11 +167,11 @@ export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
     try {
       await publicAdminApi.logout();
       toast.success("Logged out successfully");
-      window.location.href = "/admin/login";
+      navigate("/admin/login", { replace: true });
     } catch (error: any) {
       // Even if API call fails, remove token locally
       removeAdminToken();
-      window.location.href = "/admin/login";
+      navigate("/admin/login", { replace: true });
     }
   };
 
@@ -223,8 +228,8 @@ export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
   ].filter(Boolean) as MenuItem[];
 
   const handleMenuClick = (itemId: string, subItemId?: string) => {
-    setCurrentPage(itemId);
-    setCurrentSubPage(subItemId || null);
+    const route = generateRoute(itemId, subItemId);
+    navigate(route);
   };
 
   if (!admin) {
@@ -295,16 +300,18 @@ export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
           <nav className="p-4 space-y-2">
             {menuItems.map((item) => {
               const Icon = item.icon;
-              const isActive = currentPage === item.id;
+              const itemRoute = generateRoute(item.id);
+              const isActive = pageId === item.id;
               const hasSubItems = item.subItems && item.subItems.length > 0;
+              const isSubMenuOpen = isActive && hasSubItems;
 
               return (
                 <div key={item.id}>
                   <button
                     onClick={() => {
-                      if (hasSubItems && currentPage === item.id) {
-                        // Toggle submenu
-                        setCurrentSubPage(null);
+                      if (hasSubItems && isActive) {
+                        // Toggle submenu - navigate to parent route
+                        navigate(itemRoute);
                       } else {
                         handleMenuClick(item.id);
                       }
@@ -325,15 +332,16 @@ export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
                           isActive ? "text-white/70" : "text-gray-400"
                         }`}
                       >
-                        {currentPage === item.id && currentSubPage ? "▼" : "▶"}
+                        {isSubMenuOpen && subPageId ? "▼" : "▶"}
                       </span>
                     )}
                   </button>
-                  {hasSubItems && currentPage === item.id && (
+                  {hasSubItems && isSubMenuOpen && (
                     <div className="ml-4 mt-1 space-y-1">
                       {item.subItems.map((subItem) => {
                         const SubIcon = subItem.icon;
-                        const isSubActive = currentSubPage === subItem.id;
+                        const subRoute = generateRoute(item.id, subItem.id);
+                        const isSubActive = pageId === item.id && subPageId === subItem.id;
                         return (
                           <button
                             key={subItem.id}
@@ -359,33 +367,47 @@ export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
 
         {/* Main Content */}
         <main className="flex-1 p-6">
-          {currentPage === "dashboard" && (
-            <PublicAdminDashboard
-              onNavigate={(page, subPage) => handleMenuClick(page, subPage)}
+          <Routes>
+            <Route
+              path="dashboard"
+              element={
+                <PublicAdminDashboard
+                  onNavigate={(page, subPage) => handleMenuClick(page, subPage)}
+                />
+              }
             />
-          )}
-          {currentPage === "landing-pages" && !currentSubPage && (
-            <LandingPageList />
-          )}
-          {currentPage === "landing-pages" && currentSubPage === "home" && (
-            <HomePageEditor />
-          )}
-          {currentPage === "careers" && <CareerManagement />}
-          {currentPage === "forms" && !currentSubPage && (
-            <FormsDashboard
-              onNavigateToForm={(formType) => {
-                setCurrentSubPage(formType);
-              }}
+            <Route path="landing-pages" element={<LandingPageList />} />
+            <Route path="landing-pages/home" element={<HomePageEditor />} />
+            <Route path="careers" element={<CareerManagement />} />
+            <Route
+              path="forms"
+              element={
+                <FormsDashboard
+                  onNavigateToForm={(formType) => {
+                    navigate(generateRoute("forms", formType));
+                  }}
+                />
+              }
             />
-          )}
-          {currentPage === "forms" && currentSubPage === "contact-us" && (
-            <ContactUsSubmissions />
-          )}
-          {currentPage === "forms" && currentSubPage === "schedule-demo" && (
-            <ScheduleDemoSubmissions />
-          )}
-          {currentPage === "analytics" && <PublicContentAnalytics />}
-          {currentPage === "users" && <UserManagement />}
+            <Route
+              path="forms/contact-us"
+              element={<ContactUsSubmissions />}
+            />
+            <Route
+              path="forms/schedule-demo"
+              element={<ScheduleDemoSubmissions />}
+            />
+            <Route path="analytics" element={<PublicContentAnalytics />} />
+            <Route path="users" element={<UserManagement />} />
+            <Route
+              index
+              element={<Navigate to="/admin/dashboard" replace />}
+            />
+            <Route
+              path="*"
+              element={<Navigate to="/admin/dashboard" replace />}
+            />
+          </Routes>
           {children}
         </main>
       </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { LandingPage } from "./components/LandingPage";
 import { GetStartedPage } from "./components/GetStartedPage";
 import { AccountUnderReviewPage } from "./components/AccountUnderReviewPage";
@@ -57,6 +58,40 @@ import { isAdminAuthenticated } from "./lib/api/publicAdminApi";
 function App() {
   // Load platform branding (logo and favicon)
   usePlatformBranding();
+
+  // React Router hooks
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Helper function to navigate and scroll to top
+  const navigateToPage = (path: string) => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    // Check if we're currently on public domain (has ?public=true)
+    const currentUrlParams = new URLSearchParams(window.location.search);
+    const isCurrentlyPublic = currentUrlParams.get("public") === "true";
+
+    // If on app domain (localhost without ?public) and navigating to public pages,
+    // add ?public=true to show public routes
+    const publicPages = ["/", "/about", "/contact", "/schedule-demo", "/blog", "/careers",
+                         "/help", "/community", "/status", "/security", "/api-docs",
+                         "/integrations", "/get-started", "/login"];
+
+    if (isAppDomain && publicPages.includes(path)) {
+      const url = new URL(window.location.origin + path);
+      url.searchParams.set("public", "true");
+      window.location.href = url.toString();
+      return;
+    }
+
+    // If currently on public domain, preserve the ?public=true query parameter
+    if (isCurrentlyPublic && publicPages.includes(path)) {
+      navigate(`${path}?public=true`);
+      return;
+    }
+
+    navigate(path);
+  };
 
   // Detect domain for routing
   const hostname = window.location.hostname;
@@ -815,8 +850,14 @@ function App() {
 
   const handleBackToHome = () => {
     // Redirect to public landing page (contrezz.com)
-    // If already on public domain, show landing page
-    if (isPublicDomain) {
+    // If already on public domain, use React Router
+    if (isPublicDomain && !currentUser) {
+      navigateToPage("/");
+      setCurrentUser(null);
+      setUserType("");
+      setSignupData(null);
+    } else if (isPublicDomain) {
+      // Legacy state-based for authenticated users
       window.scrollTo({ top: 0, behavior: "smooth" });
       setCurrentUser(null);
       setUserType("");
@@ -849,27 +890,11 @@ function App() {
       // In local dev, show login in place (same hostname, no redirect needed)
       // In production, redirect to app domain (different hostname)
       if (isLocalDev) {
-        // Same hostname in local dev, just show login page without redirect
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        setShowLanding(false);
-        setShowGetStarted(false);
-        setShowAccountReview(false);
-        setShowApplicationStatus(false);
-        setShowAPIDocumentation(false);
-        setShowIntegrations(false);
-        setShowAbout(false);
-        setShowContact(false);
-        setShowScheduleDemo(false);
-        setShowBlog(false);
-        setShowCareers(false);
-        setShowHelpCenter(false);
-        setShowCommunity(false);
-        setShowNewDiscussion(false);
-        setShowStatus(false);
-        setShowSecurity(false);
-        // Update URL to /login without full page reload
-        window.history.pushState({}, "", "/login");
-        return;
+        // Same hostname in local dev, use React Router
+        if (!currentUser) {
+          navigateToPage("/login");
+          return;
+        }
       } else {
         // Different hostnames in production, redirect to app domain
         window.location.href = `${getAppUrl()}/login`;
@@ -897,23 +922,27 @@ function App() {
   };
 
   const handleNavigateToGetStarted = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    setShowLanding(false);
-    setShowGetStarted(true);
-    setShowAccountReview(false);
-    setShowApplicationStatus(false);
-    setShowAPIDocumentation(false);
-    setShowIntegrations(false);
-    setShowAbout(false);
-    setShowContact(false);
-    setShowScheduleDemo(false);
-    setShowBlog(false);
-    setShowCareers(false);
-    setShowHelpCenter(false);
-    setShowCommunity(false);
-    setShowNewDiscussion(false);
-    setShowStatus(false);
-    setShowSecurity(false);
+    if (!currentUser && !isAppDomain) {
+      navigateToPage("/get-started");
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setShowLanding(false);
+      setShowGetStarted(true);
+      setShowAccountReview(false);
+      setShowApplicationStatus(false);
+      setShowAPIDocumentation(false);
+      setShowIntegrations(false);
+      setShowAbout(false);
+      setShowContact(false);
+      setShowScheduleDemo(false);
+      setShowBlog(false);
+      setShowCareers(false);
+      setShowHelpCenter(false);
+      setShowCommunity(false);
+      setShowNewDiscussion(false);
+      setShowStatus(false);
+      setShowSecurity(false);
+    }
   };
 
   const handleNavigateToApplicationStatus = () => {
@@ -976,22 +1005,26 @@ function App() {
   };
 
   const handleNavigateToAbout = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    setShowLanding(false);
-    setShowGetStarted(false);
-    setShowAccountReview(false);
-    setShowAPIDocumentation(false);
-    setShowIntegrations(false);
-    setShowAbout(true);
-    setShowContact(false);
-    setShowScheduleDemo(false);
-    setShowBlog(false);
-    setShowCareers(false);
-    setShowHelpCenter(false);
-    setShowCommunity(false);
-    setShowNewDiscussion(false);
-    setShowStatus(false);
-    setShowSecurity(false);
+    if (!currentUser && !isAppDomain) {
+      navigateToPage("/about");
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setShowLanding(false);
+      setShowGetStarted(false);
+      setShowAccountReview(false);
+      setShowAPIDocumentation(false);
+      setShowIntegrations(false);
+      setShowAbout(true);
+      setShowContact(false);
+      setShowScheduleDemo(false);
+      setShowBlog(false);
+      setShowCareers(false);
+      setShowHelpCenter(false);
+      setShowCommunity(false);
+      setShowNewDiscussion(false);
+      setShowStatus(false);
+      setShowSecurity(false);
+    }
   };
 
   const handleNavigateToContact = () => {
@@ -1000,28 +1033,7 @@ function App() {
       // In local dev, show contact page in place (same hostname, no redirect needed)
       // In production, redirect to public domain (different hostname)
       if (isLocalDev) {
-        // Same hostname in local dev, just show contact page without redirect
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        setShowLanding(false);
-        setShowGetStarted(false);
-        setShowAccountReview(false);
-        setShowApplicationStatus(false);
-        setShowAPIDocumentation(false);
-        setShowIntegrations(false);
-        setShowAbout(false);
-        setShowContact(true);
-        setShowScheduleDemo(false);
-        setShowBlog(false);
-        setShowCareers(false);
-        setShowHelpCenter(false);
-        setShowCommunity(false);
-        setShowNewDiscussion(false);
-        setShowStatus(false);
-        setShowSecurity(false);
-        // Update URL to /contact?public=true without full page reload
-        window.history.pushState({}, "", "/contact?public=true");
-        // Note: We've already set showContact(true) above, so no need to call detectAndSetPageFromPathname()
-        // The helper function is useful for direct navigation or browser back/forward
+        navigateToPage("/contact?public=true");
         return;
       } else {
         // Different hostnames in production, redirect to public domain
@@ -1029,173 +1041,210 @@ function App() {
         return;
       }
     }
-    // If on public domain, show contact page
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    setShowLanding(false);
-    setShowGetStarted(false);
-    setShowAccountReview(false);
-    setShowAPIDocumentation(false);
-    setShowIntegrations(false);
-    setShowAbout(false);
-    setShowContact(true);
-    setShowScheduleDemo(false);
-    setShowBlog(false);
-    setShowCareers(false);
-    setShowHelpCenter(false);
-    setShowCommunity(false);
-    setShowNewDiscussion(false);
-    setShowStatus(false);
-    setShowSecurity(false);
+    // If on public domain, use React Router
+    if (!currentUser) {
+      navigateToPage("/contact");
+    } else {
+      // Legacy state-based for authenticated users
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setShowLanding(false);
+      setShowGetStarted(false);
+      setShowAccountReview(false);
+      setShowAPIDocumentation(false);
+      setShowIntegrations(false);
+      setShowAbout(false);
+      setShowContact(true);
+      setShowScheduleDemo(false);
+      setShowBlog(false);
+      setShowCareers(false);
+      setShowHelpCenter(false);
+      setShowCommunity(false);
+      setShowNewDiscussion(false);
+      setShowStatus(false);
+      setShowSecurity(false);
+    }
   };
 
   const handleNavigateToScheduleDemo = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    setShowLanding(false);
-    setShowGetStarted(false);
-    setShowAccountReview(false);
-    setShowAPIDocumentation(false);
-    setShowIntegrations(false);
-    setShowAbout(false);
-    setShowContact(false);
-    setShowScheduleDemo(true);
-    setShowBlog(false);
-    setShowCareers(false);
-    setShowHelpCenter(false);
-    setShowCommunity(false);
-    setShowNewDiscussion(false);
-    setShowStatus(false);
-    setShowSecurity(false);
+    if (!currentUser && !isAppDomain) {
+      navigateToPage("/schedule-demo");
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setShowLanding(false);
+      setShowGetStarted(false);
+      setShowAccountReview(false);
+      setShowAPIDocumentation(false);
+      setShowIntegrations(false);
+      setShowAbout(false);
+      setShowContact(false);
+      setShowScheduleDemo(true);
+      setShowBlog(false);
+      setShowCareers(false);
+      setShowHelpCenter(false);
+      setShowCommunity(false);
+      setShowNewDiscussion(false);
+      setShowStatus(false);
+      setShowSecurity(false);
+    }
   };
 
   const handleNavigateToBlog = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    setShowLanding(false);
-    setShowGetStarted(false);
-    setShowAccountReview(false);
-    setShowAPIDocumentation(false);
-    setShowIntegrations(false);
-    setShowAbout(false);
-    setShowContact(false);
-    setShowScheduleDemo(false);
-    setShowBlog(true);
-    setShowCareers(false);
-    setShowHelpCenter(false);
-    setShowCommunity(false);
-    setShowNewDiscussion(false);
-    setShowStatus(false);
-    setShowSecurity(false);
+    if (!currentUser && !isAppDomain) {
+      navigateToPage("/blog");
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setShowLanding(false);
+      setShowGetStarted(false);
+      setShowAccountReview(false);
+      setShowAPIDocumentation(false);
+      setShowIntegrations(false);
+      setShowAbout(false);
+      setShowContact(false);
+      setShowScheduleDemo(false);
+      setShowBlog(true);
+      setShowCareers(false);
+      setShowHelpCenter(false);
+      setShowCommunity(false);
+      setShowNewDiscussion(false);
+      setShowStatus(false);
+      setShowSecurity(false);
+    }
   };
 
   const handleNavigateToCareers = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    setShowLanding(false);
-    setShowGetStarted(false);
-    setShowAccountReview(false);
-    setShowAPIDocumentation(false);
-    setShowIntegrations(false);
-    setShowAbout(false);
-    setShowContact(false);
-    setShowScheduleDemo(false);
-    setShowBlog(false);
-    setShowCareers(true);
-    setShowHelpCenter(false);
-    setShowCommunity(false);
-    setShowNewDiscussion(false);
-    setShowStatus(false);
-    setShowSecurity(false);
+    if (!currentUser && !isAppDomain) {
+      navigateToPage("/careers");
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setShowLanding(false);
+      setShowGetStarted(false);
+      setShowAccountReview(false);
+      setShowAPIDocumentation(false);
+      setShowIntegrations(false);
+      setShowAbout(false);
+      setShowContact(false);
+      setShowScheduleDemo(false);
+      setShowBlog(false);
+      setShowCareers(true);
+      setShowHelpCenter(false);
+      setShowCommunity(false);
+      setShowNewDiscussion(false);
+      setShowStatus(false);
+      setShowSecurity(false);
+    }
   };
 
   const handleNavigateToHelpCenter = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    setShowLanding(false);
-    setShowGetStarted(false);
-    setShowAccountReview(false);
-    setShowAPIDocumentation(false);
-    setShowIntegrations(false);
-    setShowAbout(false);
-    setShowContact(false);
-    setShowScheduleDemo(false);
-    setShowBlog(false);
-    setShowCareers(false);
-    setShowHelpCenter(true);
-    setShowCommunity(false);
-    setShowNewDiscussion(false);
-    setShowStatus(false);
-    setShowSecurity(false);
+    if (!currentUser && !isAppDomain) {
+      navigateToPage("/help");
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setShowLanding(false);
+      setShowGetStarted(false);
+      setShowAccountReview(false);
+      setShowAPIDocumentation(false);
+      setShowIntegrations(false);
+      setShowAbout(false);
+      setShowContact(false);
+      setShowScheduleDemo(false);
+      setShowBlog(false);
+      setShowCareers(false);
+      setShowHelpCenter(true);
+      setShowCommunity(false);
+      setShowNewDiscussion(false);
+      setShowStatus(false);
+      setShowSecurity(false);
+    }
   };
 
   const handleNavigateToCommunity = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    setShowLanding(false);
-    setShowGetStarted(false);
-    setShowAccountReview(false);
-    setShowAPIDocumentation(false);
-    setShowIntegrations(false);
-    setShowAbout(false);
-    setShowContact(false);
-    setShowScheduleDemo(false);
-    setShowBlog(false);
-    setShowCareers(false);
-    setShowHelpCenter(false);
-    setShowCommunity(true);
-    setShowNewDiscussion(false);
-    setShowStatus(false);
-    setShowSecurity(false);
+    if (!currentUser && !isAppDomain) {
+      navigateToPage("/community");
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setShowLanding(false);
+      setShowGetStarted(false);
+      setShowAccountReview(false);
+      setShowAPIDocumentation(false);
+      setShowIntegrations(false);
+      setShowAbout(false);
+      setShowContact(false);
+      setShowScheduleDemo(false);
+      setShowBlog(false);
+      setShowCareers(false);
+      setShowHelpCenter(false);
+      setShowCommunity(true);
+      setShowNewDiscussion(false);
+      setShowStatus(false);
+      setShowSecurity(false);
+    }
   };
 
   const handleNavigateToNewDiscussion = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    setShowLanding(false);
-    setShowGetStarted(false);
-    setShowAccountReview(false);
-    setShowAPIDocumentation(false);
-    setShowIntegrations(false);
-    setShowAbout(false);
-    setShowContact(false);
-    setShowScheduleDemo(false);
-    setShowBlog(false);
-    setShowCareers(false);
-    setShowHelpCenter(false);
-    setShowCommunity(false);
-    setShowNewDiscussion(true);
-    setShowStatus(false);
-    setShowSecurity(false);
+    if (!currentUser && !isAppDomain) {
+      navigateToPage("/community/new");
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setShowLanding(false);
+      setShowGetStarted(false);
+      setShowAccountReview(false);
+      setShowAPIDocumentation(false);
+      setShowIntegrations(false);
+      setShowAbout(false);
+      setShowContact(false);
+      setShowScheduleDemo(false);
+      setShowBlog(false);
+      setShowCareers(false);
+      setShowHelpCenter(false);
+      setShowCommunity(false);
+      setShowNewDiscussion(true);
+      setShowStatus(false);
+      setShowSecurity(false);
+    }
   };
 
   const handleNavigateToStatus = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    setShowLanding(false);
-    setShowGetStarted(false);
-    setShowAccountReview(false);
-    setShowAPIDocumentation(false);
-    setShowIntegrations(false);
-    setShowAbout(false);
-    setShowContact(false);
-    setShowScheduleDemo(false);
-    setShowBlog(false);
-    setShowCareers(false);
-    setShowHelpCenter(false);
-    setShowCommunity(false);
-    setShowStatus(true);
-    setShowSecurity(false);
+    if (!currentUser && !isAppDomain) {
+      navigateToPage("/status");
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setShowLanding(false);
+      setShowGetStarted(false);
+      setShowAccountReview(false);
+      setShowAPIDocumentation(false);
+      setShowIntegrations(false);
+      setShowAbout(false);
+      setShowContact(false);
+      setShowScheduleDemo(false);
+      setShowBlog(false);
+      setShowCareers(false);
+      setShowHelpCenter(false);
+      setShowCommunity(false);
+      setShowStatus(true);
+      setShowSecurity(false);
+    }
   };
 
   const handleNavigateToSecurity = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    setShowLanding(false);
-    setShowGetStarted(false);
-    setShowAccountReview(false);
-    setShowAPIDocumentation(false);
-    setShowIntegrations(false);
-    setShowAbout(false);
-    setShowContact(false);
-    setShowScheduleDemo(false);
-    setShowBlog(false);
-    setShowCareers(false);
-    setShowHelpCenter(false);
-    setShowCommunity(false);
-    setShowStatus(false);
-    setShowSecurity(true);
+    if (!currentUser && !isAppDomain) {
+      navigateToPage("/security");
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setShowLanding(false);
+      setShowGetStarted(false);
+      setShowAccountReview(false);
+      setShowAPIDocumentation(false);
+      setShowIntegrations(false);
+      setShowAbout(false);
+      setShowContact(false);
+      setShowScheduleDemo(false);
+      setShowBlog(false);
+      setShowCareers(false);
+      setShowHelpCenter(false);
+      setShowCommunity(false);
+      setShowStatus(false);
+      setShowSecurity(true);
+    }
   };
 
   const handleSignupComplete = (role: string, email: string, name: string) => {
@@ -1367,27 +1416,49 @@ function App() {
 
   // Public Admin Interface (admin subdomain or /admin path) - Check before other routing
   if (shouldShowAdmin) {
-    const pathname = window.location.pathname;
-
-    // Show login if not authenticated
-    if (!publicAdminAuthenticated && pathname !== "/admin/login") {
-      return (
-        <PublicAdminLogin
-          onLoginSuccess={() => setPublicAdminAuthenticated(true)}
-        />
-      );
-    }
-
-    // Show admin interface if authenticated
-    if (publicAdminAuthenticated) {
-      return <PublicAdminLayout />;
-    }
-
-    // Show login page
     return (
-      <PublicAdminLogin
-        onLoginSuccess={() => setPublicAdminAuthenticated(true)}
-      />
+      <Routes>
+        <Route
+          path="/admin/login"
+          element={
+            publicAdminAuthenticated ? (
+              <Navigate to="/admin/dashboard" replace />
+            ) : (
+              <PublicAdminLogin
+                onLoginSuccess={() => setPublicAdminAuthenticated(true)}
+              />
+            )
+          }
+        />
+        <Route
+          path="/admin/*"
+          element={
+            publicAdminAuthenticated ? (
+              <PublicAdminLayout />
+            ) : (
+              <Navigate to="/admin/login" replace />
+            )
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <Navigate
+              to={publicAdminAuthenticated ? "/admin/dashboard" : "/admin/login"}
+              replace
+            />
+          }
+        />
+        <Route
+          path="*"
+          element={
+            <Navigate
+              to={publicAdminAuthenticated ? "/admin/dashboard" : "/admin/login"}
+              replace
+            />
+          }
+        />
+      </Routes>
     );
   }
 
@@ -1403,365 +1474,396 @@ function App() {
     );
   }
 
-  // Show API Documentation if requested (public domain only)
-  if (!currentUser && showAPIDocumentation && !isAppDomain) {
+  // App domain (localhost without ?public) - show login or authenticated dashboards
+  if (isAppDomain && !currentUser) {
     return (
-      <>
-        <APIDocumentation
-          onBackToHome={handleBackToHome}
-          onNavigateToStatus={handleNavigateToStatus}
-        />
-        <Toaster />
-      </>
-    );
-  }
-
-  // Show Integrations page if requested (public domain only)
-  if (!currentUser && showIntegrations && !isAppDomain) {
-    return (
-      <>
-        <IntegrationsPage
-          onBackToHome={handleBackToHome}
-          onNavigateToHelpCenter={handleNavigateToHelpCenter}
-          onNavigateToCommunity={handleNavigateToCommunity}
-          onNavigateToStatus={handleNavigateToStatus}
-          onNavigateToSecurity={handleNavigateToSecurity}
-        />
-        <Toaster />
-      </>
-    );
-  }
-
-  // Show About page if requested (public domain only)
-  if (!currentUser && showAbout && !isAppDomain) {
-    return (
-      <>
-        <AboutPage
-          onBackToHome={handleBackToHome}
-          onNavigateToContact={handleNavigateToContact}
-          onNavigateToScheduleDemo={handleNavigateToScheduleDemo}
-          onNavigateToCareers={handleNavigateToCareers}
-        />
-        <Toaster />
-      </>
-    );
-  }
-
-  // Show Contact page if requested (public domain only)
-  if (!currentUser && showContact && !isAppDomain) {
-    return (
-      <>
-        <ContactPage
-          onBackToHome={handleBackToHome}
-          onNavigateToLogin={handleNavigateToLogin}
-          onNavigateToGetStarted={handleNavigateToGetStarted}
-          onNavigateToAbout={handleNavigateToAbout}
-          onNavigateToBlog={handleNavigateToBlog}
-          onNavigateToContact={handleNavigateToContact}
-          onNavigateToScheduleDemo={handleNavigateToScheduleDemo}
-          onNavigateToAPIDocumentation={handleNavigateToAPIDocumentation}
-          onNavigateToIntegrations={handleNavigateToIntegrations}
-          onNavigateToCareers={handleNavigateToCareers}
-          onNavigateToHelpCenter={handleNavigateToHelpCenter}
-          onNavigateToCommunity={handleNavigateToCommunity}
-          onNavigateToStatus={handleNavigateToStatus}
-          onNavigateToSecurity={handleNavigateToSecurity}
-        />
-        <Toaster />
-      </>
-    );
-  }
-
-  // Show Schedule Demo page if requested (public domain only)
-  if (!currentUser && showScheduleDemo && !isAppDomain) {
-    return (
-      <>
-        <ScheduleDemoPage
-          onBackToHome={handleBackToHome}
-          onNavigateToContact={handleNavigateToContact}
-          onNavigateToCareers={handleNavigateToCareers}
-          onNavigateToHelpCenter={handleNavigateToHelpCenter}
-          onNavigateToCommunity={handleNavigateToCommunity}
-          onNavigateToStatus={handleNavigateToStatus}
-          onNavigateToSecurity={handleNavigateToSecurity}
-        />
-        <Toaster />
-      </>
-    );
-  }
-
-  // Show Blog page if requested (public domain only)
-  if (!currentUser && showBlog && !isAppDomain) {
-    return (
-      <>
-        <BlogPage
-          onBackToHome={handleBackToHome}
-          onNavigateToCareers={handleNavigateToCareers}
-          onNavigateToHelpCenter={handleNavigateToHelpCenter}
-          onNavigateToCommunity={handleNavigateToCommunity}
-          onNavigateToStatus={handleNavigateToStatus}
-          onNavigateToSecurity={handleNavigateToSecurity}
-        />
-        <Toaster />
-      </>
-    );
-  }
-
-  // Show Careers page if requested (public domain only)
-  if (!currentUser && showCareers && !isAppDomain) {
-    return (
-      <>
-        <CareersPage
-          onBackToHome={handleBackToHome}
-          onNavigateToLogin={handleNavigateToLogin}
-          onNavigateToGetStarted={handleNavigateToGetStarted}
-          onNavigateToAbout={handleNavigateToAbout}
-          onNavigateToBlog={handleNavigateToBlog}
-          onNavigateToContact={handleNavigateToContact}
-          onNavigateToScheduleDemo={handleNavigateToScheduleDemo}
-          onNavigateToAPIDocumentation={handleNavigateToAPIDocumentation}
-          onNavigateToIntegrations={handleNavigateToIntegrations}
-          onNavigateToHelpCenter={handleNavigateToHelpCenter}
-        />
-        <Toaster />
-      </>
-    );
-  }
-
-  // Show Help Center page if requested (public domain only)
-  if (!currentUser && showHelpCenter && !isAppDomain) {
-    return (
-      <>
-        <HelpCenterPage
-          onBackToHome={handleBackToHome}
-          onNavigateToLogin={handleNavigateToLogin}
-          onNavigateToGetStarted={handleNavigateToGetStarted}
-          onNavigateToAbout={handleNavigateToAbout}
-          onNavigateToBlog={handleNavigateToBlog}
-          onNavigateToContact={handleNavigateToContact}
-          onNavigateToScheduleDemo={handleNavigateToScheduleDemo}
-          onNavigateToAPIDocumentation={handleNavigateToAPIDocumentation}
-          onNavigateToIntegrations={handleNavigateToIntegrations}
-          onNavigateToCareers={handleNavigateToCareers}
-          onNavigateToHelpCenter={handleNavigateToHelpCenter}
-          onNavigateToCommunity={handleNavigateToCommunity}
-          onNavigateToStatus={handleNavigateToStatus}
-          onNavigateToSecurity={handleNavigateToSecurity}
-        />
-        <Toaster />
-      </>
-    );
-  }
-
-  // Show Community page if requested (public domain only)
-  if (!currentUser && showCommunity && !isAppDomain) {
-    return (
-      <>
-        <CommunityPage
-          onBackToHome={handleBackToHome}
-          onNavigateToLogin={handleNavigateToLogin}
-          onNavigateToGetStarted={handleNavigateToGetStarted}
-          onNavigateToAbout={handleNavigateToAbout}
-          onNavigateToBlog={handleNavigateToBlog}
-          onNavigateToContact={handleNavigateToContact}
-          onNavigateToScheduleDemo={handleNavigateToScheduleDemo}
-          onNavigateToAPIDocumentation={handleNavigateToAPIDocumentation}
-          onNavigateToIntegrations={handleNavigateToIntegrations}
-          onNavigateToCareers={handleNavigateToCareers}
-          onNavigateToHelpCenter={handleNavigateToHelpCenter}
-          onNavigateToCommunity={handleNavigateToCommunity}
-          onNavigateToStatus={handleNavigateToStatus}
-          onNavigateToSecurity={handleNavigateToSecurity}
-          onNavigateToNewDiscussion={handleNavigateToNewDiscussion}
-        />
-        <Toaster />
-      </>
-    );
-  }
-
-  // Show New Discussion page if requested (public domain only)
-  if (!currentUser && showNewDiscussion && !isAppDomain) {
-    return (
-      <>
-        <NewDiscussionPage
-          onBackToCommunity={handleNavigateToCommunity}
-          onNavigateToHome={handleBackToHome}
-          onNavigateToLogin={handleNavigateToLogin}
-          onNavigateToGetStarted={handleNavigateToGetStarted}
-          onNavigateToAbout={handleNavigateToAbout}
-          onNavigateToBlog={handleNavigateToBlog}
-          onNavigateToContact={handleNavigateToContact}
-          onNavigateToScheduleDemo={handleNavigateToScheduleDemo}
-          onNavigateToAPIDocumentation={handleNavigateToAPIDocumentation}
-          onNavigateToIntegrations={handleNavigateToIntegrations}
-          onNavigateToCareers={handleNavigateToCareers}
-          onNavigateToHelpCenter={handleNavigateToHelpCenter}
-        />
-        <Toaster />
-      </>
-    );
-  }
-
-  // Show Status page if requested (public domain only)
-  if (!currentUser && showStatus && !isAppDomain) {
-    return (
-      <>
-        <StatusPage
-          onBackToHome={handleBackToHome}
-          onNavigateToLogin={handleNavigateToLogin}
-          onNavigateToGetStarted={handleNavigateToGetStarted}
-          onNavigateToAbout={handleNavigateToAbout}
-          onNavigateToBlog={handleNavigateToBlog}
-          onNavigateToContact={handleNavigateToContact}
-          onNavigateToScheduleDemo={handleNavigateToScheduleDemo}
-          onNavigateToAPIDocumentation={handleNavigateToAPIDocumentation}
-          onNavigateToIntegrations={handleNavigateToIntegrations}
-          onNavigateToCareers={handleNavigateToCareers}
-          onNavigateToHelpCenter={handleNavigateToHelpCenter}
-          onNavigateToCommunity={handleNavigateToCommunity}
-          onNavigateToStatus={handleNavigateToStatus}
-          onNavigateToSecurity={handleNavigateToSecurity}
-        />
-        <Toaster />
-      </>
-    );
-  }
-
-  // Show Security page if requested (public domain only)
-  if (!currentUser && showSecurity && !isAppDomain) {
-    return (
-      <>
-        <SecurityPage
-          onBackToHome={handleBackToHome}
-          onNavigateToLogin={handleNavigateToLogin}
-          onNavigateToGetStarted={handleNavigateToGetStarted}
-          onNavigateToAbout={handleNavigateToAbout}
-          onNavigateToBlog={handleNavigateToBlog}
-          onNavigateToContact={handleNavigateToContact}
-          onNavigateToScheduleDemo={handleNavigateToScheduleDemo}
-          onNavigateToAPIDocumentation={handleNavigateToAPIDocumentation}
-          onNavigateToIntegrations={handleNavigateToIntegrations}
-          onNavigateToCareers={handleNavigateToCareers}
-          onNavigateToHelpCenter={handleNavigateToHelpCenter}
-          onNavigateToCommunity={handleNavigateToCommunity}
-          onNavigateToStatus={handleNavigateToStatus}
-          onNavigateToSecurity={handleNavigateToSecurity}
-        />
-        <Toaster />
-      </>
-    );
-  }
-
-  // On app domain, show login by default if not authenticated
-  if (isAppDomain && !currentUser && !showGetStarted && !showAccountReview) {
-    return (
-      <>
-        <LoginPage
-          onLogin={handleLogin}
-          onBackToHome={handleBackToHome}
-          onNavigateToScheduleDemo={handleNavigateToScheduleDemo}
-          onNavigateToContact={handleNavigateToContact}
-        />
-        <Toaster />
-      </>
-    );
-  }
-
-  // Show landing page if no user and showLanding is true (public domain only)
-  if (!currentUser && showLanding && !showGetStarted && !isAppDomain) {
-    return (
-      <>
-        <LandingPage
-          onNavigateToLogin={handleNavigateToLogin}
-          onNavigateToGetStarted={handleNavigateToGetStarted}
-          onNavigateToAPIDocumentation={handleNavigateToAPIDocumentation}
-          onNavigateToIntegrations={handleNavigateToIntegrations}
-          onNavigateToAbout={handleNavigateToAbout}
-          onNavigateToContact={handleNavigateToContact}
-          onNavigateToScheduleDemo={handleNavigateToScheduleDemo}
-          onNavigateToBlog={handleNavigateToBlog}
-          onNavigateToCareers={handleNavigateToCareers}
-          onNavigateToHelpCenter={handleNavigateToHelpCenter}
-          onNavigateToCommunity={handleNavigateToCommunity}
-          onNavigateToStatus={handleNavigateToStatus}
-          onNavigateToSecurity={handleNavigateToSecurity}
-        />
-        <Toaster />
-      </>
-    );
-  }
-
-  // Show account under review page if signup completed
-  if (!currentUser && showAccountReview && signupData) {
-    return (
-      <>
-        <AccountUnderReviewPage
-          onBackToHome={handleBackToHome}
-          userRole={
-            signupData.role as "property-owner" | "property-manager" | "tenant"
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <>
+              <LoginPage
+                onLogin={handleLogin}
+                onBackToHome={() => {
+                  // Navigate to public landing page
+                  if (isLocalDev) {
+                    // On localhost, add ?public=true to show landing page
+                    const url = new URL(window.location.href);
+                    url.searchParams.set("public", "true");
+                    window.location.href = url.toString();
+                  } else {
+                    // On production, navigate to public domain
+                    window.location.href = "https://contrezz.com";
+                  }
+                }}
+                onNavigateToScheduleDemo={() => window.open("https://contrezz.com/schedule-demo", "_blank")}
+                onNavigateToContact={() => window.open("https://contrezz.com/contact", "_blank")}
+              />
+              <Toaster />
+            </>
           }
-          userEmail={signupData.email}
-          userName={signupData.name}
         />
-        <Toaster />
-      </>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     );
   }
 
-  // Show application status page if requested
-  if (!currentUser && showApplicationStatus) {
+  // Public routes wrapper - only show on public domain when not authenticated
+  if (!currentUser && !isAppDomain) {
     return (
-      <>
-        <ApplicationStatusPage onBackToHome={handleBackToHome} />
-        <Toaster />
-      </>
-    );
-  }
-
-  // Show get started page if no user and showGetStarted is true
-  if (!currentUser && showGetStarted) {
-    return (
-      <>
-        <GetStartedPage
-          onBackToHome={handleBackToHome}
-          onNavigateToLogin={handleNavigateToLogin}
-          onSignupComplete={handleSignupComplete}
+      <Routes>
+        {/* Landing page */}
+        <Route
+          path="/"
+          element={
+            <>
+              <LandingPage
+                onNavigateToLogin={() => navigateToPage("/login")}
+                onNavigateToGetStarted={() => navigateToPage("/get-started")}
+                onNavigateToAPIDocumentation={() => navigateToPage("/api-docs")}
+                onNavigateToIntegrations={() => navigateToPage("/integrations")}
+                onNavigateToAbout={() => navigateToPage("/about")}
+                onNavigateToContact={() => navigateToPage("/contact")}
+                onNavigateToScheduleDemo={() => navigateToPage("/schedule-demo")}
+                onNavigateToBlog={() => navigateToPage("/blog")}
+                onNavigateToCareers={() => navigateToPage("/careers")}
+                onNavigateToHelpCenter={() => navigateToPage("/help")}
+                onNavigateToCommunity={() => navigateToPage("/community")}
+                onNavigateToStatus={() => navigateToPage("/status")}
+                onNavigateToSecurity={() => navigateToPage("/security")}
+              />
+              <Toaster />
+            </>
+          }
         />
-        <Toaster />
-      </>
-    );
-  }
 
-  // Show login if no user but landing is dismissed (public domain only)
-  if (
-    !isAppDomain &&
-    !currentUser &&
-    !showLanding &&
-    !showGetStarted &&
-    !showAccountReview &&
-    !showAPIDocumentation &&
-    !showIntegrations &&
-    !showAbout &&
-    !showContact &&
-    !showScheduleDemo &&
-    !showBlog &&
-    !showCareers &&
-    !showHelpCenter &&
-    !showCommunity &&
-    !showNewDiscussion &&
-    !showStatus &&
-    !showSecurity
-  ) {
-    return (
-      <>
-        <LoginPage
-          onLogin={handleLogin}
-          onBackToHome={handleBackToHome}
-          onNavigateToScheduleDemo={handleNavigateToScheduleDemo}
-          onNavigateToContact={handleNavigateToContact}
+        {/* Public pages */}
+        <Route
+          path="/about"
+          element={
+            <>
+              <AboutPage
+                onBackToHome={() => navigateToPage("/")}
+                onNavigateToContact={() => navigateToPage("/contact")}
+                onNavigateToScheduleDemo={() => navigateToPage("/schedule-demo")}
+                onNavigateToCareers={() => navigateToPage("/careers")}
+              />
+              <Toaster />
+            </>
+          }
         />
-        <Toaster />
-      </>
+
+        <Route
+          path="/contact"
+          element={
+            <>
+              <ContactPage
+                onBackToHome={() => navigateToPage("/")}
+                onNavigateToLogin={() => navigateToPage("/login")}
+                onNavigateToGetStarted={() => navigateToPage("/get-started")}
+                onNavigateToAbout={() => navigateToPage("/about")}
+                onNavigateToBlog={() => navigateToPage("/blog")}
+                onNavigateToContact={() => navigateToPage("/contact")}
+                onNavigateToScheduleDemo={() => navigateToPage("/schedule-demo")}
+                onNavigateToAPIDocumentation={() => navigateToPage("/api-docs")}
+                onNavigateToIntegrations={() => navigateToPage("/integrations")}
+                onNavigateToCareers={() => navigateToPage("/careers")}
+                onNavigateToHelpCenter={() => navigateToPage("/help")}
+                onNavigateToCommunity={() => navigateToPage("/community")}
+                onNavigateToStatus={() => navigateToPage("/status")}
+                onNavigateToSecurity={() => navigateToPage("/security")}
+              />
+              <Toaster />
+            </>
+          }
+        />
+
+        <Route
+          path="/schedule-demo"
+          element={
+            <>
+              <ScheduleDemoPage
+                onBackToHome={() => navigateToPage("/")}
+                onNavigateToContact={() => navigateToPage("/contact")}
+                onNavigateToCareers={() => navigateToPage("/careers")}
+                onNavigateToHelpCenter={() => navigateToPage("/help")}
+                onNavigateToCommunity={() => navigateToPage("/community")}
+                onNavigateToStatus={() => navigateToPage("/status")}
+                onNavigateToSecurity={() => navigateToPage("/security")}
+              />
+              <Toaster />
+            </>
+          }
+        />
+
+        <Route
+          path="/blog"
+          element={
+            <>
+              <BlogPage
+                onBackToHome={() => navigateToPage("/")}
+                onNavigateToCareers={() => navigateToPage("/careers")}
+                onNavigateToHelpCenter={() => navigateToPage("/help")}
+                onNavigateToCommunity={() => navigateToPage("/community")}
+                onNavigateToStatus={() => navigateToPage("/status")}
+                onNavigateToSecurity={() => navigateToPage("/security")}
+              />
+              <Toaster />
+            </>
+          }
+        />
+
+        <Route
+          path="/careers"
+          element={
+            <>
+              <CareersPage
+                onBackToHome={() => navigateToPage("/")}
+                onNavigateToLogin={() => navigateToPage("/login")}
+                onNavigateToGetStarted={() => navigateToPage("/get-started")}
+                onNavigateToAbout={() => navigateToPage("/about")}
+                onNavigateToBlog={() => navigateToPage("/blog")}
+                onNavigateToContact={() => navigateToPage("/contact")}
+                onNavigateToScheduleDemo={() => navigateToPage("/schedule-demo")}
+                onNavigateToAPIDocumentation={() => navigateToPage("/api-docs")}
+                onNavigateToIntegrations={() => navigateToPage("/integrations")}
+                onNavigateToHelpCenter={() => navigateToPage("/help")}
+              />
+              <Toaster />
+            </>
+          }
+        />
+
+        <Route
+          path="/help"
+          element={
+            <>
+              <HelpCenterPage
+                onBackToHome={() => navigateToPage("/")}
+                onNavigateToLogin={() => navigateToPage("/login")}
+                onNavigateToGetStarted={() => navigateToPage("/get-started")}
+                onNavigateToAbout={() => navigateToPage("/about")}
+                onNavigateToBlog={() => navigateToPage("/blog")}
+                onNavigateToContact={() => navigateToPage("/contact")}
+                onNavigateToScheduleDemo={() => navigateToPage("/schedule-demo")}
+                onNavigateToAPIDocumentation={() => navigateToPage("/api-docs")}
+                onNavigateToIntegrations={() => navigateToPage("/integrations")}
+                onNavigateToCareers={() => navigateToPage("/careers")}
+                onNavigateToHelpCenter={() => navigateToPage("/help")}
+                onNavigateToCommunity={() => navigateToPage("/community")}
+                onNavigateToStatus={() => navigateToPage("/status")}
+                onNavigateToSecurity={() => navigateToPage("/security")}
+              />
+              <Toaster />
+            </>
+          }
+        />
+
+        <Route
+          path="/help-center"
+          element={<Navigate to="/help" replace />}
+        />
+
+        <Route
+          path="/community"
+          element={
+            <>
+              <CommunityPage
+                onBackToHome={() => navigateToPage("/")}
+                onNavigateToLogin={() => navigateToPage("/login")}
+                onNavigateToGetStarted={() => navigateToPage("/get-started")}
+                onNavigateToAbout={() => navigateToPage("/about")}
+                onNavigateToBlog={() => navigateToPage("/blog")}
+                onNavigateToContact={() => navigateToPage("/contact")}
+                onNavigateToScheduleDemo={() => navigateToPage("/schedule-demo")}
+                onNavigateToAPIDocumentation={() => navigateToPage("/api-docs")}
+                onNavigateToIntegrations={() => navigateToPage("/integrations")}
+                onNavigateToCareers={() => navigateToPage("/careers")}
+                onNavigateToHelpCenter={() => navigateToPage("/help")}
+                onNavigateToCommunity={() => navigateToPage("/community")}
+                onNavigateToStatus={() => navigateToPage("/status")}
+                onNavigateToSecurity={() => navigateToPage("/security")}
+                onNavigateToNewDiscussion={() => navigateToPage("/community/new")}
+              />
+              <Toaster />
+            </>
+          }
+        />
+
+        <Route
+          path="/community/new"
+          element={
+            <>
+              <NewDiscussionPage
+                onBackToCommunity={() => navigateToPage("/community")}
+                onNavigateToHome={() => navigateToPage("/")}
+                onNavigateToLogin={() => navigateToPage("/login")}
+                onNavigateToGetStarted={() => navigateToPage("/get-started")}
+                onNavigateToAbout={() => navigateToPage("/about")}
+                onNavigateToBlog={() => navigateToPage("/blog")}
+                onNavigateToContact={() => navigateToPage("/contact")}
+                onNavigateToScheduleDemo={() => navigateToPage("/schedule-demo")}
+                onNavigateToAPIDocumentation={() => navigateToPage("/api-docs")}
+                onNavigateToIntegrations={() => navigateToPage("/integrations")}
+                onNavigateToCareers={() => navigateToPage("/careers")}
+                onNavigateToHelpCenter={() => navigateToPage("/help")}
+              />
+              <Toaster />
+            </>
+          }
+        />
+
+        <Route
+          path="/status"
+          element={
+            <>
+              <StatusPage
+                onBackToHome={() => navigateToPage("/")}
+                onNavigateToLogin={() => navigateToPage("/login")}
+                onNavigateToGetStarted={() => navigateToPage("/get-started")}
+                onNavigateToAbout={() => navigateToPage("/about")}
+                onNavigateToBlog={() => navigateToPage("/blog")}
+                onNavigateToContact={() => navigateToPage("/contact")}
+                onNavigateToScheduleDemo={() => navigateToPage("/schedule-demo")}
+                onNavigateToAPIDocumentation={() => navigateToPage("/api-docs")}
+                onNavigateToIntegrations={() => navigateToPage("/integrations")}
+                onNavigateToCareers={() => navigateToPage("/careers")}
+                onNavigateToHelpCenter={() => navigateToPage("/help")}
+                onNavigateToCommunity={() => navigateToPage("/community")}
+                onNavigateToStatus={() => navigateToPage("/status")}
+                onNavigateToSecurity={() => navigateToPage("/security")}
+              />
+              <Toaster />
+            </>
+          }
+        />
+
+        <Route
+          path="/security"
+          element={
+            <>
+              <SecurityPage
+                onBackToHome={() => navigateToPage("/")}
+                onNavigateToLogin={() => navigateToPage("/login")}
+                onNavigateToGetStarted={() => navigateToPage("/get-started")}
+                onNavigateToAbout={() => navigateToPage("/about")}
+                onNavigateToBlog={() => navigateToPage("/blog")}
+                onNavigateToContact={() => navigateToPage("/contact")}
+                onNavigateToScheduleDemo={() => navigateToPage("/schedule-demo")}
+                onNavigateToAPIDocumentation={() => navigateToPage("/api-docs")}
+                onNavigateToIntegrations={() => navigateToPage("/integrations")}
+                onNavigateToCareers={() => navigateToPage("/careers")}
+                onNavigateToHelpCenter={() => navigateToPage("/help")}
+                onNavigateToCommunity={() => navigateToPage("/community")}
+                onNavigateToStatus={() => navigateToPage("/status")}
+                onNavigateToSecurity={() => navigateToPage("/security")}
+              />
+              <Toaster />
+            </>
+          }
+        />
+
+        <Route
+          path="/api-docs"
+          element={
+            <>
+              <APIDocumentation
+                onBackToHome={() => navigateToPage("/")}
+                onNavigateToStatus={() => navigateToPage("/status")}
+              />
+              <Toaster />
+            </>
+          }
+        />
+
+        <Route
+          path="/integrations"
+          element={
+            <>
+              <IntegrationsPage
+                onBackToHome={() => navigateToPage("/")}
+                onNavigateToHelpCenter={() => navigateToPage("/help")}
+                onNavigateToCommunity={() => navigateToPage("/community")}
+                onNavigateToStatus={() => navigateToPage("/status")}
+                onNavigateToSecurity={() => navigateToPage("/security")}
+              />
+              <Toaster />
+            </>
+          }
+        />
+
+        {/* Get Started page */}
+        <Route
+          path="/get-started"
+          element={
+            <>
+              <GetStartedPage
+                onBackToHome={() => navigateToPage("/")}
+                onNavigateToLogin={() => navigateToPage("/login")}
+                onSignupComplete={handleSignupComplete}
+              />
+              <Toaster />
+            </>
+          }
+        />
+
+        {/* Account under review */}
+        <Route
+          path="/account-review"
+          element={
+            <>
+              {signupData ? (
+                <>
+                  <AccountUnderReviewPage
+                    onBackToHome={() => navigateToPage("/")}
+                    userRole={
+                      signupData.role as "property-owner" | "property-manager" | "tenant"
+                    }
+                    userEmail={signupData.email}
+                    userName={signupData.name}
+                  />
+                  <Toaster />
+                </>
+              ) : (
+                <Navigate to="/" replace />
+              )}
+            </>
+          }
+        />
+
+        {/* Application status */}
+        <Route
+          path="/application-status"
+          element={
+            <>
+              <ApplicationStatusPage onBackToHome={() => navigateToPage("/")} />
+              <Toaster />
+            </>
+          }
+        />
+
+        {/* Login page for public domain */}
+        <Route
+          path="/login"
+          element={
+            <>
+              <LoginPage
+                onLogin={handleLogin}
+                onBackToHome={() => navigateToPage("/")}
+                onNavigateToScheduleDemo={() => navigateToPage("/schedule-demo")}
+                onNavigateToContact={() => navigateToPage("/contact")}
+              />
+              <Toaster />
+            </>
+          }
+        />
+
+        {/* Fallback - redirect to landing */}
+        <Route
+          path="*"
+          element={<Navigate to="/" replace />}
+        />
+      </Routes>
     );
   }
 
@@ -1913,7 +2015,7 @@ function App() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">
-            Dashboard for {currentUser.role}
+            Dashboard for {currentUser?.role || "Unknown"}
           </h1>
           <p className="text-gray-600 mb-4">Coming soon!</p>
           <button

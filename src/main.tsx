@@ -1,5 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import { BrowserRouter } from 'react-router-dom'
 import App from './App.tsx'
 import './index.css'
 import { CurrencyProvider } from './lib/CurrencyContext.tsx'
@@ -10,7 +11,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <CurrencyProvider>
-        <App />
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
       </CurrencyProvider>
     </QueryClientProvider>
   </React.StrictMode>,

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { publicAdminApi } from "../../../lib/api/publicAdminApi";
+import { generateRoute } from "../routes";
 import { Button } from "../../ui/button";
 import {
   Card,
@@ -107,6 +109,15 @@ const formTypeConfig: Record<
 };
 
 export function FormsDashboard({ onNavigateToForm }: FormsDashboardProps = {}) {
+  const navigate = useNavigate();
+
+  // Use React Router navigation if available, fallback to callback for backward compatibility
+  const handleNavigateToForm = (formType: string) => {
+    const route = generateRoute("forms", formType);
+    navigate(route);
+    // Also call callback if provided for backward compatibility
+    onNavigateToForm?.(formType);
+  };
   const [stats, setStats] = useState<FormStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<{ from?: string; to?: string }>(
@@ -285,12 +296,10 @@ export function FormsDashboard({ onNavigateToForm }: FormsDashboardProps = {}) {
               };
               const Icon = config.icon;
               const handleClick = () => {
-                if (onNavigateToForm) {
-                  if (formType.formType === "demo") {
-                    onNavigateToForm("schedule-demo");
-                  } else if (formType.formType === "contact") {
-                    onNavigateToForm("contact-us");
-                  }
+                if (formType.formType === "demo") {
+                  handleNavigateToForm("schedule-demo");
+                } else if (formType.formType === "contact") {
+                  handleNavigateToForm("contact-us");
                 }
               };
               const isClickable =

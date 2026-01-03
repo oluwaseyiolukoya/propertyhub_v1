@@ -79,6 +79,7 @@ export function EmailTemplateManagement({
     { value: 'password_reset', label: 'Password Reset' },
     { value: 'invitation', label: 'Invitation' },
     { value: 'welcome', label: 'Welcome' },
+    { value: 'report', label: 'Report' },
     { value: 'custom', label: 'Custom' },
   ];
 
