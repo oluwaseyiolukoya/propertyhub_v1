@@ -223,7 +223,7 @@ model mrr_snapshots {
 }
 
 model documents {
-  id                                  String            @id
+  id                                  String              @id
   customerId                          String
   propertyId                          String?
   unitId                              String?
@@ -239,19 +239,19 @@ model documents {
   description                         String?
   uploadedBy                          String
   uploadedById                        String
-  status                              String            @default("active")
+  status                              String              @default("active")
   metadata                            Json?
-  isShared                            Boolean           @default(false)
-  sharedWith                          String[]          @default([])
+  isShared                            Boolean             @default(false)
+  sharedWith                          String[]            @default([])
   expiresAt                           DateTime?
-  createdAt                           DateTime          @default(now())
+  createdAt                           DateTime            @default(now())
   updatedAt                           DateTime
-  customers                           customers         @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  users_documents_managerIdTousers    users?           @relation("documents_managerIdTousers", fields: [managerId], references: [id])
-  properties                          properties?       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  users_documents_tenantIdTousers     users?           @relation("documents_tenantIdTousers", fields: [tenantId], references: [id], onDelete: Cascade)
-  units                               units?           @relation(fields: [unitId], references: [id])
-  users_documents_uploadedByIdTousers users            @relation("documents_uploadedByIdTousers", fields: [uploadedById], references: [id])
+  customers                           customers           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  users_documents_managerIdTousers    users?              @relation("documents_managerIdTousers", fields: [managerId], references: [id])
+  properties                          properties?         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  users_documents_tenantIdTousers     users?              @relation("documents_tenantIdTousers", fields: [tenantId], references: [id], onDelete: Cascade)
+  units                               units?              @relation(fields: [unitId], references: [id])
+  users_documents_uploadedByIdTousers users               @relation("documents_uploadedByIdTousers", fields: [uploadedById], references: [id])
   developer_projects                  developer_projects? @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
@@ -924,6 +924,8 @@ model users {
   email_queue                                                                   email_queue[]
   notification_templates                                                        notification_templates[]
   notification_logs                                                             notification_logs[]
+  email_templates_created                                                       email_templates[]            @relation("EmailTemplateCreator")
+  email_templates_updated                                                       email_templates[]            @relation("EmailTemplateUpdater")
   sessions                                                                      sessions[]
   // Admin relations for onboarding applications
   reviewed_applications                                                         onboarding_applications[]    @relation("reviewed_by")
@@ -1727,6 +1729,32 @@ model notification_templates {
   @@index([customer_id])
   @@index([type])
   @@index([is_active])
+}
+
+model email_templates {
+  id         String   @id @default(uuid())
+  name       String   @db.VarChar(100)
+  type       String   @db.VarChar(50)
+  category   String?  @db.VarChar(50)
+  subject    String   @db.VarChar(500)
+  body_html  String   @db.Text
+  body_text  String?  @db.Text
+  variables  Json     @default("[]")
+  is_system  Boolean  @default(false)
+  is_active  Boolean  @default(true)
+  version    Int      @default(1)
+  created_by String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  updated_by String?
+
+  creator users? @relation("EmailTemplateCreator", fields: [created_by], references: [id], onDelete: SetNull)
+  updater users? @relation("EmailTemplateUpdater", fields: [updated_by], references: [id], onDelete: SetNull)
+
+  @@unique([type])
+  @@index([type])
+  @@index([is_active])
+  @@index([category])
 }
 
 model notification_logs {

@@ -30,6 +30,9 @@ export const PERMISSIONS = {
   USER_DELETE: 'user_delete',
   USER_RESET_PASSWORD: 'user_reset_password',
 
+  // Email Template Management
+  EMAIL_TEMPLATE_MANAGEMENT: 'email_template_management',
+
   // Role & Permission Management
   ROLE_VIEW: 'role_view',
   ROLE_CREATE: 'role_create',
@@ -115,22 +118,33 @@ export function hasAllPermissions(userPermissions: string[], permissions: Permis
 
 /**
  * Get user permissions from user object
+ *
+ * IMPORTANT: Admin and Super Admin roles ALWAYS get all permissions,
+ * regardless of what's stored in the permissions array.
  */
 export function getUserPermissions(user: any): string[] {
+  if (!user) {
+    return [];
+  }
+
   const roleName: string | undefined = user?.role;
-  const roleLower = roleName ? String(roleName).toLowerCase() : '';
+  const roleLower = roleName ? String(roleName).toLowerCase().trim() : '';
 
   // Super Admin/Admin should have all permissions regardless of stored values
-  // This check must come FIRST before checking stored permissions
+  // This check MUST come FIRST before checking stored permissions
+  // Check for various admin role formats
   const isAdminLike =
     roleLower === 'super admin' ||
     roleLower === 'superadmin' ||
     roleLower === 'super_admin' ||
     roleLower === 'admin' ||
+    roleLower === 'administrator' ||
     (roleLower.includes('super') && roleLower.includes('admin'));
 
   if (isAdminLike) {
-    // Admin and Super Admin always get all permissions, regardless of stored permissions
+    // Admin and Super Admin ALWAYS get all permissions, regardless of stored permissions
+    // This ensures Admin users can perform all actions even if their stored permissions
+    // array is incomplete or missing certain permissions
     return Object.values(PERMISSIONS);
   }
 

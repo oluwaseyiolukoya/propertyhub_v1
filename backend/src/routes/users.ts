@@ -4,6 +4,7 @@ import { authMiddleware, adminOnly, AuthRequest } from '../middleware/auth';
 import prisma from '../lib/db';
 import { emitToAdmins, forceUserReauth } from '../lib/socket';
 import { v4 as uuidv4 } from 'uuid';
+import { sendInternalAdminCredentials } from '../lib/email';
 
 const router = express.Router();
 
@@ -74,10 +75,21 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       });
 
       // Remove passwords and add isSuperAdmin flag based on role
-      const usersWithoutPassword = internalUsers.map(({ password, ...user }) => ({
-        ...user,
-        isSuperAdmin: ['super_admin', 'admin'].includes(user.role?.toLowerCase() || '')
-      }));
+      // IMPORTANT: Only Super Admin users should have isSuperAdmin = true
+      // Regular Admin users should NOT have this flag, so they can be edited/deleted by other admins
+      const usersWithoutPassword = internalUsers.map(({ password, ...user }) => {
+        const roleLower = user.role?.toLowerCase() || '';
+        // Only true Super Admins should be protected from editing/deletion
+        const isSuperAdmin =
+          roleLower === 'super_admin' ||
+          roleLower === 'super admin' ||
+          roleLower === 'superadmin';
+
+        return {
+          ...user,
+          isSuperAdmin
+        };
+      });
 
       console.log('✅ Internal admin users fetched:', usersWithoutPassword.length);
 
@@ -148,6 +160,31 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Missing required fields: name, email, role' });
     }
 
+    // Log the incoming request for debugging
+    console.log('📥 Creating internal admin user:', {
+      email,
+      name,
+      role,
+      sendInvite: sendInvite !== undefined ? sendInvite : 'undefined (will default to false)',
+      sendInviteType: typeof sendInvite,
+      isActive: isActive !== undefined ? isActive : 'undefined (will default to true)'
+    });
+
+    // For internal admin users, default sendInvite to false if not provided
+    // This ensures credentials are always sent unless explicitly requested otherwise
+    // IMPORTANT: Only treat as true if explicitly set to boolean true or string 'true'
+    // This prevents any falsy values (undefined, null, false, 0, '') from being treated as true
+    const shouldSendInvite = sendInvite === true || sendInvite === 'true';
+
+    // Log the decision for debugging
+    console.log('🔍 sendInvite decision:', {
+      received: sendInvite,
+      type: typeof sendInvite,
+      shouldSendInvite,
+      willSendCredentials: !shouldSendInvite,
+      action: !shouldSendInvite ? '✅ WILL SEND CREDENTIALS' : '❌ WILL CREATE AS PENDING (NO EMAIL)'
+    });
+
     // Check if email already exists in users table
     const existingUser = await prisma.users.findUnique({ where: { email } });
 
@@ -156,26 +193,28 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     }
 
     // Generate temporary password if not sending invite
-    const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-2).toUpperCase();
+    const tempPassword = Math.random().toString(36).slice(-10) + Math.random().toString(36).slice(-10).toUpperCase();
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
     let user;
     try {
       user = await prisma.users.create({
         data: {
-        id: uuidv4(),
-        customerId: null, // INTERNAL ADMIN USER - not associated with any customer
-        name,
-        email,
-        password: sendInvite ? null : hashedPassword,
-        phone,
-        role: role || 'admin', // Default to admin role for internal users
-        department,
-        company: company || 'Contrezz Admin', // Internal admin company
-        permissions,
-        isActive: isActive !== undefined ? isActive : true,
-        status: sendInvite ? 'pending' : 'active',
-        invitedAt: sendInvite ? new Date() : null
+          id: uuidv4(),
+          customerId: null, // INTERNAL ADMIN USER - not associated with any customer
+          name,
+          email,
+          password: shouldSendInvite ? null : hashedPassword,
+          phone,
+          role: role || 'admin', // Default to admin role for internal users
+          department,
+          company: company || 'Contrezz Admin', // Internal admin company
+          permissions,
+          // Always set isActive to true for new internal admin users (they should be able to login immediately)
+          isActive: true,
+          // If sending invite, status is 'pending', otherwise 'active' (so they can login immediately)
+          status: shouldSendInvite ? 'pending' : 'active',
+          invitedAt: shouldSendInvite ? new Date() : null
         }
       });
     } catch (e: any) {
@@ -187,10 +226,72 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     }
 
     console.log('✅ Internal admin user created:', user.email);
+    console.log('📊 User status:', user.status, '| isActive:', user.isActive, '| Has password:', !!user.password);
+    console.log('📧 Send invite was:', shouldSendInvite, '| Will send credentials:', !shouldSendInvite);
 
     // Note: No activity log for internal users since they don't belong to a customer
 
-    // TODO: Send invitation email if sendInvite is true
+    // CRITICAL: Always send credentials email for internal admin users unless explicitly set to send invite
+    // This is a safeguard to ensure users can always login immediately
+    if (!shouldSendInvite) {
+      console.log('📧 Preparing to send credentials email...');
+      // Ensure user is active and status is 'active' when credentials are sent
+      // This is a safeguard in case the user was created with wrong status
+      if (user.status !== 'active' || !user.isActive) {
+        console.log('⚠️ Fixing user status/active state for immediate login...');
+        await prisma.users.update({
+          where: { id: user.id },
+          data: {
+            isActive: true,
+            status: 'active'
+          }
+        });
+        user.isActive = true;
+        user.status = 'active';
+        console.log('✅ User status fixed:', user.status, '| isActive:', user.isActive);
+      }
+      try {
+        console.log('📧 Calling sendInternalAdminCredentials for:', email);
+        console.log('📧 Email parameters:', {
+          adminName: name,
+          adminEmail: email,
+          role: role || 'admin',
+          department: department || 'N/A',
+          hasTempPassword: !!tempPassword
+        });
+
+        const emailSent = await sendInternalAdminCredentials({
+          adminName: name,
+          adminEmail: email,
+          tempPassword: tempPassword,
+          role: role || 'admin',
+          department: department,
+          isPasswordReset: false
+        });
+
+        if (emailSent) {
+          console.log('✅ Login credentials email sent successfully to:', email);
+          console.log('📬 Temporary password generated (first 4 chars):', tempPassword.substring(0, 4) + '****');
+        } else {
+          console.warn('⚠️ Failed to send login credentials email to:', email);
+          console.warn('⚠️ Email function returned false - check SMTP configuration');
+          console.warn('⚠️ User can still login with password:', tempPassword.substring(0, 4) + '****');
+        }
+      } catch (emailError: any) {
+        console.error('❌ Error sending login credentials email:', emailError);
+        console.error('❌ Error details:', {
+          message: emailError?.message,
+          code: emailError?.code,
+          stack: emailError?.stack?.substring(0, 200)
+        });
+        console.warn('⚠️ User created but email failed. Password:', tempPassword.substring(0, 4) + '****');
+        // Don't fail user creation if email fails, but log it clearly
+      }
+    } else {
+      console.log('⚠️ User created with sendInvite=true - NO credentials email will be sent');
+      console.log('⚠️ User status is "pending" - they cannot login until password is set');
+      console.log('⚠️ Use "Reset Password" action to generate password and send credentials');
+    }
 
     const { password, ...userWithoutPassword } = user;
 
@@ -199,10 +300,20 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       user: userWithoutPassword
     });
 
-    return res.status(201).json({
+    // Build response with email status
+    const response: any = {
       ...userWithoutPassword,
-      ...(!sendInvite && { tempPassword })
-    });
+    };
+
+    // Include tempPassword if credentials were sent (so admin can manually share if email fails)
+    if (!shouldSendInvite) {
+      response.tempPassword = tempPassword;
+      response.emailSent = true; // Indicate that email was attempted
+    } else {
+      response.emailSent = false; // No email sent for invites
+    }
+
+    return res.status(201).json(response);
 
   } catch (error: any) {
     console.error('Create user error:', error);
@@ -319,15 +430,125 @@ router.post('/:id/reset-password', async (req: AuthRequest, res: Response) => {
 
     console.log('✅ Password reset for internal user:', user.email);
 
-    // Return the temporary password (for admin to give to user)
-    return res.json({
-      message: 'Password reset successfully',
-      tempPassword: tempPassword
-    });
+    // Send password reset email with new credentials
+    try {
+      const emailSent = await sendInternalAdminCredentials({
+        adminName: user.name || 'Admin',
+        adminEmail: user.email,
+        tempPassword: tempPassword,
+        role: user.role || 'admin',
+        department: user.department || undefined,
+        isPasswordReset: true
+      });
+
+      if (emailSent) {
+        console.log('✅ Password reset email sent to:', user.email);
+        return res.json({
+          message: 'Password reset successfully. Email sent to user.',
+          emailSent: true
+        });
+      } else {
+        console.warn('⚠️ Failed to send password reset email to:', user.email);
+        return res.json({
+          message: 'Password reset successfully, but email failed to send',
+          tempPassword: tempPassword,
+          emailSent: false
+        });
+      }
+    } catch (emailError: any) {
+      console.error('❌ Error sending password reset email:', emailError);
+      // Return temp password if email fails
+      return res.json({
+        message: 'Password reset successfully, but email failed to send',
+        tempPassword: tempPassword,
+        emailSent: false
+      });
+    }
 
   } catch (error: any) {
     console.error('Reset password error:', error);
     return res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+// Resend login credentials email to internal user
+router.post('/:id/resend-credentials', async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Find the user
+    const user = await prisma.users.findUnique({
+      where: { id }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if user has a password (not pending invite)
+    if (!user.password) {
+      return res.status(400).json({
+        error: 'User does not have a password set. This user may be pending invitation.'
+      });
+    }
+
+    // Generate a new temporary password
+    const tempPassword = Math.random().toString(36).slice(-10) + Math.random().toString(36).slice(-10).toUpperCase();
+
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+    // Update user's password in the database
+    await prisma.users.update({
+      where: { id },
+      data: {
+        password: hashedPassword
+      }
+    });
+
+    console.log('✅ Password reset for resending credentials to:', user.email);
+
+    // Send credentials email
+    try {
+      const emailSent = await sendInternalAdminCredentials({
+        adminName: user.name || 'Admin',
+        adminEmail: user.email,
+        tempPassword: tempPassword,
+        role: user.role || 'admin',
+        department: user.department || undefined,
+        isPasswordReset: false
+      });
+
+      if (emailSent) {
+        console.log('✅ Login credentials email sent to:', user.email);
+        return res.json({
+          message: 'Login credentials email sent successfully.',
+          emailSent: true,
+          email: user.email
+        });
+      } else {
+        console.warn('⚠️ Failed to send login credentials email to:', user.email);
+        return res.json({
+          message: 'Email failed to send. Please check SMTP configuration.',
+          tempPassword: tempPassword,
+          emailSent: false,
+          email: user.email
+        });
+      }
+    } catch (emailError: any) {
+      console.error('❌ Error sending login credentials email:', emailError);
+      return res.json({
+        message: 'Email failed to send. Please check SMTP configuration.',
+        tempPassword: tempPassword,
+        emailSent: false,
+        email: user.email,
+        error: emailError.message
+      });
+    }
+
+  } catch (error: any) {
+    console.error('Resend credentials error:', error);
+    return res.status(500).json({ error: 'Failed to resend credentials' });
   }
 });
 

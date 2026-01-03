@@ -195,6 +195,19 @@ export const API_ENDPOINTS = {
     DELETE: (id: string) => `/api/roles/${id}`,
   },
 
+  // Email Templates (Admin)
+  EMAIL_TEMPLATES: {
+    LIST: '/api/admin/email-templates',
+    GET: (id: string) => `/api/admin/email-templates/${id}`,
+    GET_BY_TYPE: (type: string) => `/api/admin/email-templates/type/${type}`,
+    CREATE: '/api/admin/email-templates',
+    UPDATE: (id: string) => `/api/admin/email-templates/${id}`,
+    DELETE: (id: string) => `/api/admin/email-templates/${id}`,
+    PREVIEW: (id: string) => `/api/admin/email-templates/${id}/preview`,
+    TEST: (id: string) => `/api/admin/email-templates/${id}/test`,
+    DUPLICATE: (id: string) => `/api/admin/email-templates/${id}/duplicate`,
+  },
+
   // Subscriptions (Owner)
   SUBSCRIPTIONS: {
     PLANS: '/api/subscriptions/plans',

@@ -17,6 +17,7 @@ interface EmailConfig {
     pass: string;
   };
   from: string;
+  fromName: string;
 }
 
 // Get email configuration from environment variables
@@ -26,15 +27,34 @@ function getEmailConfig(): EmailConfig {
   const secure = process.env.SMTP_SECURE !== 'false'; // Default to true for port 465
   const user = process.env.SMTP_USER || '';
   const pass = process.env.SMTP_PASS || '';
-  const from = process.env.SMTP_FROM || user;
+  const fromEmail = process.env.SMTP_FROM || user;
+  const fromName = process.env.SMTP_FROM_NAME || 'Contrezz Platform';
+
+  // Format: "Sender Name" <email@example.com>
+  const from = `"${fromName}" <${fromEmail}>`;
 
   return {
     host,
     port,
     secure,
     auth: { user, pass },
-    from
+    from,
+    fromName
   };
+}
+
+// Helper function to get just the email address from config
+function getFromEmail(): string {
+  const config = getEmailConfig();
+  // Extract email from "Name" <email@example.com> format
+  const match = config.from.match(/<(.+)>/);
+  return match ? match[1] : config.from;
+}
+
+// Helper function to format sender with custom name
+function formatSender(name: string): string {
+  const email = getFromEmail();
+  return `"${name}" <${email}>`;
 }
 
 // Create transporter (singleton)
@@ -101,7 +121,7 @@ export async function sendEmail(params: {
     const transporter = getTransporter();
 
     const mailOptions = {
-      from: config.from,
+      from: config.from, // Already formatted as "Sender Name" <email@example.com>
       to: params.to,
       subject: params.subject,
       html: params.html,
@@ -109,10 +129,41 @@ export async function sendEmail(params: {
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ Email sent successfully to ${params.to}: ${info.messageId}`);
+
+    // Validate email was actually sent
+    if (!info || !info.messageId) {
+      console.error(`❌ Email send failed - no message ID returned for ${params.to}`);
+      console.error('📧 Response:', info);
+      return false;
+    }
+
+    // Check for rejection
+    if (info.rejected && info.rejected.length > 0) {
+      console.error(`❌ Email rejected by server for ${params.to}`);
+      console.error('📧 Rejected addresses:', info.rejected);
+      return false;
+    }
+
+    // Check that at least one recipient was accepted
+    if (!info.accepted || info.accepted.length === 0) {
+      console.error(`❌ Email not accepted by any recipient for ${params.to}`);
+      console.error('📧 Accepted list is empty or undefined:', info.accepted);
+      return false;
+    }
+
+    console.log(`✅ Email sent successfully to ${params.to}`);
+    console.log(`📬 Message ID: ${info.messageId}`);
+    console.log(`📧 Response: ${info.response || 'No response'}`);
+    console.log(`📧 Accepted: ${info.accepted?.join(', ') || 'N/A'}`);
+
     return true;
-  } catch (error) {
+  } catch (error: any) {
     console.error(`❌ Failed to send email to ${params.to}:`, error);
+    console.error(`❌ Error code: ${error.code}`);
+    console.error(`❌ Error message: ${error.message}`);
+    if (error.response) {
+      console.error(`❌ SMTP Response: ${error.response}`);
+    }
     return false;
   }
 }
@@ -182,7 +233,7 @@ export async function sendTestEmail(to: string): Promise<{ success: boolean; mes
     const transporter = getTransporter();
 
     const info = await transporter.sendMail({
-      from: `"Contrezz Platform" <${config.from}>`,
+      from: config.from,
       to: to,
       subject: '✅ Test Email from Contrezz Platform',
       text: `
@@ -411,7 +462,7 @@ This is an automated email. Please do not reply to this message.
     }
 
     const info = await transporter.sendMail({
-      from: `"${invitedBy}" <${config.from}>`,
+      from: formatSender(invitedBy),
       to: tenantEmail,
       subject: emailSubject,
       text: emailBody,
@@ -688,7 +739,7 @@ This is an automated email. Please do not reply to this message.
     const transporter = getTransporter();
 
     const info = await transporter.sendMail({
-      from: `"Contrezz Platform" <${config.from}>`,
+      from: config.from,
       to: customerEmail,
       subject: emailSubject,
       text: emailBody,
@@ -952,7 +1003,7 @@ Application ID: ${applicationId}
       // Use the fresh transporter for sending
       console.log('📧 [Onboarding Email] Step 3: Sending email with fresh connection...');
       const info = await freshTransporter.sendMail({
-        from: `"Contrezz Platform" <${config.from}>`,
+        from: config.from,
         to: applicantEmail,
         subject: emailSubject,
         text: emailBody,
@@ -968,7 +1019,7 @@ Application ID: ${applicationId}
 
     console.log('📧 [Onboarding Email] Step 3: Sending email with verified connection...');
     const info = await transporter.sendMail({
-      from: `"Contrezz Platform" <${config.from}>`,
+      from: config.from,
       to: applicantEmail,
       subject: emailSubject,
       text: emailBody,
@@ -1166,7 +1217,7 @@ export async function sendContactFormConfirmation(params: ContactFormConfirmatio
 
   try {
     const mailOptions = {
-      from: `"Contrezz Support" <${config.from}>`,
+      from: formatSender('Contrezz Support'),
       to: params.to,
       subject: `Confirmation: We received your ${formTypeLabel}`,
       html: generateContactFormConfirmationEmail(params, formTypeLabel),
@@ -1373,7 +1424,7 @@ export async function sendPasswordResetEmail(params: {
 
       try {
         const info = await freshTransporter.sendMail({
-          from: `"Contrezz Security" <${config.from}>`,
+          from: formatSender('Contrezz Security'),
           to: params.to,
           subject: 'Password Reset - Temporary Password',
           html: generatePasswordResetEmailHTML(params),
@@ -1407,7 +1458,7 @@ export async function sendPasswordResetEmail(params: {
     // Send with verified connection
     try {
       const info = await transporter.sendMail({
-        from: `"Contrezz Security" <${config.from}>`,
+        from: formatSender('Contrezz Security'),
         to: params.to,
         subject: 'Password Reset - Temporary Password',
         html: generatePasswordResetEmailHTML(params),
@@ -1581,9 +1632,432 @@ export interface AccountActivationParams {
   applicationType: string;
 }
 
+/**
+ * Send templated email using template system
+ * Falls back to hardcoded templates if template not found
+ */
+export async function sendTemplatedEmail(
+  templateType: string,
+  variables: Record<string, any>,
+  recipient: { email: string; name?: string }
+): Promise<boolean> {
+  try {
+    const { emailTemplateService } = require('../services/email-template.service');
+    const { templateRendererService } = require('../services/template-renderer.service');
+
+    // Get active template by type
+    const template = await emailTemplateService.getTemplateByType(templateType);
+
+    if (!template) {
+      console.warn(`⚠️ No active template found for type: ${templateType}, falling back to hardcoded template`);
+      return false; // Fallback to hardcoded templates
+    }
+
+    // Validate variables
+    const validation = emailTemplateService.validateVariables(template, variables);
+    if (!validation.valid) {
+      console.error(`❌ Missing required variables for template ${templateType}:`, validation.missing);
+      return false;
+    }
+
+    // Render template
+    const renderedSubject = templateRendererService.renderSubject(template.subject, variables);
+    const renderedHtml = templateRendererService.renderHtmlBody(template.body_html, variables);
+    const renderedText = template.body_text
+      ? templateRendererService.renderTemplate(template.body_text, variables)
+      : templateRendererService.generatePlainText(renderedHtml, variables);
+
+    // Send email
+    return await sendEmail({
+      to: recipient.email,
+      subject: renderedSubject,
+      html: renderedHtml,
+      text: renderedText,
+    });
+  } catch (error: any) {
+    console.error(`❌ Error sending templated email (${templateType}):`, error);
+    return false;
+  }
+}
+
+/**
+ * Internal Admin Credentials Email Parameters
+ */
+interface InternalAdminCredentialsParams {
+  adminName: string;
+  adminEmail: string;
+  tempPassword: string;
+  role?: string;
+  department?: string;
+  isPasswordReset?: boolean;
+}
+
+/**
+ * Send login credentials email to internal admin user
+ */
+export async function sendInternalAdminCredentials(params: InternalAdminCredentialsParams): Promise<boolean> {
+  const {
+    adminName,
+    adminEmail,
+    tempPassword,
+    role,
+    department,
+    isPasswordReset = false
+  } = params;
+
+  const config = getEmailConfig();
+  const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, '');
+  const loginUrl = `${frontendBase}/signin`;
+
+  // Try to use template from database first
+  try {
+    const { emailTemplateService } = require('../services/email-template.service');
+    const { templateRendererService } = require('../services/template-renderer.service');
+
+    const template = await emailTemplateService.getTemplateByType('internal_admin');
+
+    if (template && template.is_active) {
+      // Prepare variables for template
+      const emailSubject = isPasswordReset
+        ? '🔐 Your Admin Account Password Has Been Reset - Contrezz Platform'
+        : '🎉 Welcome to Contrezz Admin Platform - Your Account is Ready!';
+
+      const roleRow = role ? `<tr>
+            <td style="padding: 8px 0; color: #666666; font-size: 14px;">Role:</td>
+            <td style="padding: 8px 0; color: #333333; font-size: 14px; font-weight: 500;">${role}</td>
+          </tr>` : '';
+      const roleText = role ? `Role: ${role}` : '';
+
+      const departmentRow = department ? `<tr>
+            <td style="padding: 8px 0; color: #666666; font-size: 14px;">Department:</td>
+            <td style="padding: 8px 0; color: #333333; font-size: 14px; font-weight: 500;">${department}</td>
+          </tr>` : '';
+      const departmentText = department ? `Department: ${department}` : '';
+
+      const featuresBox = !isPasswordReset ? `<div style="background-color: #eff6ff; padding: 20px; margin: 0 0 30px; border-radius: 4px;">
+        <h3 style="color: #1e40af; margin: 0 0 10px; font-size: 16px; font-weight: 600;">What You Can Do</h3>
+        <ul style="color: #1e40af; font-size: 14px; line-height: 1.8; margin: 0; padding-left: 20px;">
+          <li style="margin-bottom: 8px;">Access the Admin Dashboard</li>
+          <li style="margin-bottom: 8px;">Manage users and permissions</li>
+          <li style="margin-bottom: 8px;">View system reports and analytics</li>
+          <li style="margin-bottom: 8px;">Configure platform settings</li>
+          <li>Monitor customer accounts</li>
+        </ul>
+      </div>` : '';
+
+      const featuresText = !isPasswordReset ? `WHAT YOU CAN DO:
+
+• Access the Admin Dashboard
+• Manage users and permissions
+• View system reports and analytics
+• Configure platform settings
+• Monitor customer accounts` : '';
+
+      const templateVariables = {
+        adminName,
+        adminEmail,
+        tempPassword,
+        loginUrl,
+        emailSubject,
+        emailTitle: isPasswordReset ? 'Password Reset' : 'Welcome',
+        headerTitle: isPasswordReset ? '🔐 Password Reset' : '🎉 Welcome to Contrezz Admin!',
+        headerSubtitle: isPasswordReset ? 'Your password has been reset' : 'Your admin account is ready',
+        introText: isPasswordReset
+          ? 'Your admin account password has been reset. Here are your new login credentials:'
+          : 'Your admin account has been created and is ready to use. Here are your login credentials:',
+        securityNotice: `If you did not request this ${isPasswordReset ? 'password reset' : 'account'}, please contact support immediately`,
+        role: role || '',
+        roleRow,
+        roleText,
+        department: department || '',
+        departmentRow,
+        departmentText,
+        featuresBox,
+        featuresText,
+      };
+
+      // Validate variables
+      const validation = emailTemplateService.validateVariables(template, templateVariables);
+      if (validation.valid) {
+        // Render template
+        const renderedSubject = templateRendererService.renderSubject(template.subject, templateVariables);
+        const renderedHtml = templateRendererService.renderHtmlBody(template.body_html, templateVariables);
+        const renderedText = template.body_text
+          ? templateRendererService.renderTemplate(template.body_text, templateVariables)
+          : templateRendererService.generatePlainText(renderedHtml, templateVariables);
+
+        // Send email using template
+        const emailSent = await sendEmail({
+          to: adminEmail,
+          subject: renderedSubject,
+          html: renderedHtml,
+          text: renderedText,
+        });
+
+        if (emailSent) {
+          console.log(`✅ [Internal Admin Credentials] Email sent successfully using template to: ${adminEmail}`);
+          return true;
+        }
+      } else {
+        console.warn(`⚠️ [Internal Admin Credentials] Template validation failed, falling back to hardcoded template:`, validation.missing);
+      }
+    }
+  } catch (templateError: any) {
+    console.warn(`⚠️ [Internal Admin Credentials] Error using template, falling back to hardcoded template:`, templateError.message);
+  }
+
+  // Fallback to hardcoded template
+  const emailSubject = isPasswordReset
+    ? '🔐 Your Admin Account Password Has Been Reset - Contrezz Platform'
+    : '🎉 Welcome to Contrezz Admin Platform - Your Account is Ready!';
+
+  const emailBody = `
+Hello ${adminName},
+
+${isPasswordReset
+  ? 'Your admin account password has been reset. Here are your new login credentials:'
+  : 'Your admin account has been created and is ready to use. Here are your login credentials:'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+YOUR LOGIN CREDENTIALS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Email: ${adminEmail}
+Temporary Password: ${tempPassword}
+Admin Portal: ${loginUrl}
+${role ? `Role: ${role}` : ''}
+${department ? `Department: ${department}` : ''}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+IMPORTANT SECURITY STEPS:
+
+1. Log in using your credentials above
+2. Change your password immediately after first login
+3. Do not share your credentials with anyone
+4. If you did not request this ${isPasswordReset ? 'password reset' : 'account'}, please contact support immediately
+
+${!isPasswordReset ? `
+WHAT YOU CAN DO:
+
+• Access the Admin Dashboard
+• Manage users and permissions
+• View system reports and analytics
+• Configure platform settings
+• Monitor customer accounts
+` : ''}
+
+If you have any questions or need assistance, please contact our support team at support@contrezz.com.
+
+Best regards,
+Contrezz Platform Team
+
+---
+This is an automated email. Please do not reply to this message.
+  `.trim();
+
+  const html = generateInternalAdminCredentialsHtml(params, loginUrl);
+
+  try {
+    console.log(`📧 [Internal Admin Credentials] Sending ${isPasswordReset ? 'password reset' : 'welcome'} email to: ${adminEmail}`);
+
+    const transporter = getTransporter();
+
+    // Verify connection before sending
+    try {
+      await transporter.verify();
+      console.log('✅ [Internal Admin Credentials] SMTP connection verified');
+    } catch (verifyError: any) {
+      console.error('❌ [Internal Admin Credentials] SMTP verification failed:', verifyError.message);
+      console.error('🔄 [Internal Admin Credentials] Creating fresh transporter...');
+
+      const freshTransporter = nodemailer.createTransport({
+        host: config.host,
+        port: config.port,
+        secure: config.secure,
+        auth: {
+          user: config.auth.user,
+          pass: config.auth.pass,
+        },
+        pool: false,
+        tls: {
+          rejectUnauthorized: false,
+          minVersion: 'TLSv1.2'
+        },
+        connectionTimeout: 10000,
+        greetingTimeout: 5000,
+        socketTimeout: 30000,
+      });
+
+      const info = await freshTransporter.sendMail({
+        from: config.from,
+        to: adminEmail,
+        subject: emailSubject,
+        text: emailBody,
+        html: html
+      });
+
+      console.log('✅ [Internal Admin Credentials] Email sent successfully!');
+      console.log('📬 Message ID:', info.messageId);
+      return true;
+    }
+
+    const info = await transporter.sendMail({
+      from: config.from,
+      to: adminEmail,
+      subject: emailSubject,
+      text: emailBody,
+      html: html
+    });
+
+    console.log('✅ [Internal Admin Credentials] Email sent successfully!');
+    console.log('📬 Message ID:', info.messageId);
+    return true;
+  } catch (error: any) {
+    console.error('❌ [Internal Admin Credentials] Failed to send email:', error);
+    console.error('📧 Email error details:', {
+      code: error?.code,
+      command: error?.command,
+      response: error?.response,
+      responseCode: error?.responseCode,
+      message: error?.message
+    });
+    return false;
+  }
+}
+
+/**
+ * Generate HTML version of internal admin credentials email
+ */
+function generateInternalAdminCredentialsHtml(params: InternalAdminCredentialsParams, loginUrl: string): string {
+  const {
+    adminName,
+    adminEmail,
+    tempPassword,
+    role,
+    department,
+    isPasswordReset = false
+  } = params;
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${isPasswordReset ? 'Password Reset' : 'Welcome'} - Contrezz Admin Platform</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <!-- Header -->
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; text-align: center; border-radius: 10px 10px 0 0;">
+      <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600;">
+        ${isPasswordReset ? '🔐 Password Reset' : '🎉 Welcome to Contrezz Admin!'}
+      </h1>
+      <p style="color: #ffffff; margin: 10px 0 0; font-size: 16px; opacity: 0.9;">
+        ${isPasswordReset ? 'Your password has been reset' : 'Your admin account is ready'}
+      </p>
+    </div>
+
+    <!-- Main Content -->
+    <div style="background-color: #ffffff; padding: 40px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+      <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+        Hello <strong>${adminName}</strong>,
+      </p>
+
+      <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 30px;">
+        ${isPasswordReset
+          ? 'Your admin account password has been reset. Here are your new login credentials:'
+          : 'Your admin account has been created and is ready to use. Here are your login credentials:'}
+      </p>
+
+      <!-- Login Credentials Box -->
+      <div style="background-color: #f8f9fa; border-left: 4px solid #667eea; padding: 20px; margin: 0 0 30px; border-radius: 4px;">
+        <h2 style="color: #667eea; margin: 0 0 15px; font-size: 18px; font-weight: 600;">Your Login Credentials</h2>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 8px 0; color: #666666; font-size: 14px; width: 40%;">Email:</td>
+            <td style="padding: 8px 0;">
+              <span style="background-color: #f3f4f6; color: #333333; padding: 6px 12px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 14px; font-weight: 500;">${adminEmail}</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #666666; font-size: 14px;">Temporary Password:</td>
+            <td style="padding: 8px 0;">
+              <span style="background-color: #f3f4f6; color: #333333; padding: 6px 12px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 14px; font-weight: 500;">${tempPassword}</span>
+            </td>
+          </tr>
+          ${role ? `
+          <tr>
+            <td style="padding: 8px 0; color: #666666; font-size: 14px;">Role:</td>
+            <td style="padding: 8px 0; color: #333333; font-size: 14px; font-weight: 500;">${role}</td>
+          </tr>
+          ` : ''}
+          ${department ? `
+          <tr>
+            <td style="padding: 8px 0; color: #666666; font-size: 14px;">Department:</td>
+            <td style="padding: 8px 0; color: #333333; font-size: 14px; font-weight: 500;">${department}</td>
+          </tr>
+          ` : ''}
+        </table>
+      </div>
+
+      <!-- Security Warning -->
+      <div style="background-color: #fef3c7; border: 1px solid #fbbf24; padding: 20px; margin: 0 0 30px; border-radius: 4px;">
+        <h3 style="color: #92400e; margin: 0 0 10px; font-size: 16px; font-weight: 600;">⚠️ Important Security Steps</h3>
+        <ol style="color: #92400e; font-size: 14px; line-height: 1.6; margin: 0; padding-left: 20px;">
+          <li style="margin-bottom: 8px;">Log in using your credentials above</li>
+          <li style="margin-bottom: 8px;">Change your password immediately after first login</li>
+          <li style="margin-bottom: 8px;">Do not share your credentials with anyone</li>
+          <li>If you did not request this ${isPasswordReset ? 'password reset' : 'account'}, contact support immediately</li>
+        </ol>
+      </div>
+
+      ${!isPasswordReset ? `
+      <!-- Features Box -->
+      <div style="background-color: #eff6ff; padding: 20px; margin: 0 0 30px; border-radius: 4px;">
+        <h3 style="color: #1e40af; margin: 0 0 10px; font-size: 16px; font-weight: 600;">What You Can Do</h3>
+        <ul style="color: #1e40af; font-size: 14px; line-height: 1.8; margin: 0; padding-left: 20px;">
+          <li style="margin-bottom: 8px;">Access the Admin Dashboard</li>
+          <li style="margin-bottom: 8px;">Manage users and permissions</li>
+          <li style="margin-bottom: 8px;">View system reports and analytics</li>
+          <li style="margin-bottom: 8px;">Configure platform settings</li>
+          <li>Monitor customer accounts</li>
+        </ul>
+      </div>
+      ` : ''}
+
+      <!-- Login Button -->
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${loginUrl}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff !important; padding: 14px 35px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+          Access Admin Dashboard
+        </a>
+      </div>
+
+      <p style="color: #666666; font-size: 14px; line-height: 1.6; margin: 30px 0 20px;">
+        If you have any questions or need assistance, please contact our support team at
+        <a href="mailto:support@contrezz.com" style="color: #667eea; text-decoration: none; font-weight: 500;">support@contrezz.com</a>.
+      </p>
+
+      <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0;">
+        Best regards,<br>
+        <strong>Contrezz Platform Team</strong>
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="text-align: center; padding: 20px; color: #999999; font-size: 12px;">
+      <p style="margin: 0 0 5px;">This is an automated email. Please do not reply to this message.</p>
+      <p style="margin: 0;">© ${new Date().getFullYear()} Contrezz. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
 export async function sendAccountActivationEmail(params: AccountActivationParams): Promise<boolean> {
   try {
-    const config = getEmailConfig();
     const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, '');
     const loginUrl = params.loginUrl || `${frontendBase}/signin`;
 
@@ -1593,6 +2067,35 @@ export async function sendAccountActivationEmail(params: AccountActivationParams
     console.log('📧 [Account Activation] Company:', params.companyName);
     console.log('📧 [Account Activation] Login URL:', loginUrl);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    // Try to use template system first
+    try {
+      const templateSent = await sendTemplatedEmail(
+        'activation',
+        {
+          customerName: params.customerName,
+          customerEmail: params.customerEmail,
+          companyName: params.companyName,
+          temporaryPassword: params.temporaryPassword,
+          loginUrl: loginUrl,
+          applicationType: params.applicationType,
+        },
+        {
+          email: params.customerEmail,
+          name: params.customerName,
+        }
+      );
+
+      if (templateSent) {
+        console.log('✅ [Account Activation] Email sent using template system');
+        return true;
+      }
+    } catch (templateError: any) {
+      console.warn('⚠️ [Account Activation] Template system failed, using hardcoded template:', templateError.message);
+    }
+
+    // Fallback to hardcoded template
+    const config = getEmailConfig();
 
     const accountType = params.applicationType === 'property-developer' || params.applicationType === 'developer'
       ? 'Developer'
@@ -1747,7 +2250,7 @@ If you did not apply for an account, please contact us immediately at support@co
     console.log('📧 [Account Activation] Step 3: Sending email with verified connection...');
 
     const info = await freshTransporter.sendMail({
-      from: `"Contrezz" <${config.from}>`,
+      from: formatSender('Contrezz'),
       to: params.customerEmail,
       subject: `🎉 Your ${params.companyName} Account is Now Active!`,
       text,
@@ -2005,7 +2508,7 @@ Questions? Contact us at support@contrezz.com
     console.log('📧 [Plan Upgrade] Step 3: Sending email with verified connection...');
 
     const info = await freshTransporter.sendMail({
-      from: `"Contrezz" <${config.from}>`,
+      from: formatSender('Contrezz'),
       to: params.customerEmail,
       subject: `🚀 Your ${params.companyName} Plan Has Been Upgraded!`,
       text,
@@ -2162,7 +2665,7 @@ This is an automated email. Please do not reply to this message.
       // Use the fresh transporter for sending
       console.log('📧 [Team Invitation] Step 3: Sending email with fresh connection...');
       const info = await freshTransporter.sendMail({
-        from: `"${params.companyName}" <${config.from}>`,
+        from: formatSender(params.companyName),
         to: params.memberEmail,
         subject: emailSubject,
         text: emailBody,
@@ -2178,7 +2681,7 @@ This is an automated email. Please do not reply to this message.
 
     console.log('📧 [Team Invitation] Step 3: Sending email with verified connection...');
     const info = await transporter.sendMail({
-      from: `"${params.companyName}" <${config.from}>`,
+      from: formatSender(params.companyName),
       to: params.memberEmail,
       subject: emailSubject,
       text: emailBody,
@@ -2410,7 +2913,7 @@ If you did not apply for an account, please contact us immediately at support@co
 
     const transporter = getTransporter();
     const info = await transporter.sendMail({
-      from: `"Contrezz" <${config.from}>`,
+      from: formatSender('Contrezz'),
       to: params.customerEmail,
       subject: '✅ Identity Verification Complete - Welcome to Contrezz!',
       html,
@@ -2514,7 +3017,7 @@ If you did not apply for an account, please contact us immediately at support@co
 
     const transporter = getTransporter();
     const info = await transporter.sendMail({
-      from: `"Contrezz" <${config.from}>`,
+      from: formatSender('Contrezz'),
       to: params.customerEmail,
       subject: '✅ Account Verified - Welcome to Contrezz!',
       html,
@@ -2631,7 +3134,7 @@ This is an automated message from Contrezz.`;
 
     const transporter = getTransporter();
     const info = await transporter.sendMail({
-      from: `"Contrezz" <${config.from}>`,
+      from: formatSender('Contrezz'),
       to: params.customerEmail,
       subject: '❌ Identity Verification Not Approved',
       html,
@@ -2755,7 +3258,7 @@ Property Management Team
 
     const transporter = getTransporter();
     const info = await transporter.sendMail({
-      from: `"${params.propertyName}" <${config.from}>`,
+      from: formatSender(params.propertyName),
       to: params.tenantEmail,
       subject: '✅ KYC Verification Approved - Full Access Granted!',
       html,
@@ -2874,7 +3377,7 @@ Property Management Team
 
     const transporter = getTransporter();
     const info = await transporter.sendMail({
-      from: `"${params.propertyName}" <${config.from}>`,
+      from: formatSender(params.propertyName),
       to: params.tenantEmail,
       subject: '❌ KYC Verification - Action Required',
       html,
@@ -2904,4 +3407,7 @@ export default {
   sendKYCRejectionEmail,
   sendTenantKycApprovedEmail,
   sendTenantKycRejectedEmail,
+  sendAccountActivationEmail,
+  sendTemplatedEmail,
+  sendInternalAdminCredentials,
 };

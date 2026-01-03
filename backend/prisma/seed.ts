@@ -663,6 +663,7 @@ async function main() {
         "user_edit",
         "user_delete",
         "user_view",
+        "user_reset_password", // Critical: ensure this is included
         "role_management",
         "role_create",
         "role_edit",
@@ -751,7 +752,41 @@ async function main() {
   // Additional Internal Roles
   await prisma.roles.upsert({
     where: { name: "Admin" },
-    update: {},
+    update: {
+      // Ensure user_reset_password is included when updating
+      permissions: [
+        "customer_management",
+        "customer_create",
+        "customer_edit",
+        "customer_delete",
+        "customer_view",
+        "user_management",
+        "user_create",
+        "user_edit",
+        "user_delete",
+        "user_view",
+        "user_reset_password", // Critical: ensure this is included
+        "role_management",
+        "role_create",
+        "role_edit",
+        "role_delete",
+        "billing_management",
+        "plan_management",
+        "invoice_management",
+        "payment_view",
+        "analytics_view",
+        "analytics_reports",
+        "analytics_export",
+        "system_health",
+        "platform_settings",
+        "support_tickets",
+        "support_view",
+        "support_respond",
+        "support_close",
+        "activity_logs",
+        "audit_reports",
+      ],
+    },
     create: {
       id: "role-admin",
       name: "Admin",
@@ -767,6 +802,7 @@ async function main() {
         "user_edit",
         "user_delete",
         "user_view",
+        "user_reset_password", // Critical: ensure this is included
         "role_management",
         "role_create",
         "role_edit",

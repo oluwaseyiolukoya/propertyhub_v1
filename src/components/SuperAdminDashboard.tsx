@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { UserManagement } from "./UserManagement";
+import { EmailTemplateManagement } from "./EmailTemplateManagement";
 import {
   Card,
   CardContent,
@@ -1177,6 +1178,11 @@ export function SuperAdminDashboard({
     },
     { id: "verifications", name: "Verifications", permission: null }, // Available to all admins
     {
+      id: "email-templates",
+      name: "Email Templates",
+      permission: [PERMISSIONS.EMAIL_TEMPLATE_MANAGEMENT],
+    },
+    {
       id: "billing",
       name: "Billing & Plans",
       permission: [
@@ -1297,6 +1303,8 @@ export function SuperAdminDashboard({
         setUsers((prev) => [...prev, response.data]);
         toast.success("User added successfully!");
         await fetchUsersData();
+        // Refresh roles to update userCount in real-time
+        await fetchRolesData();
       }
     } catch (error) {
       toast.error("Failed to create user");
@@ -1328,6 +1336,8 @@ export function SuperAdminDashboard({
         );
         toast.success("User updated successfully!");
         await fetchUsersData();
+        // Refresh roles to update userCount in real-time (especially if role changed)
+        await fetchRolesData();
       }
     } catch (error) {
       toast.error("Failed to update user");
@@ -1342,6 +1352,8 @@ export function SuperAdminDashboard({
       } else {
         setUsers((prev) => prev.filter((u) => u.id !== userId));
         toast.success("User deleted successfully!");
+        // Refresh roles to update userCount in real-time
+        await fetchRolesData();
       }
     } catch (error) {
       toast.error("Failed to delete user");
@@ -3051,6 +3063,11 @@ export function SuperAdminDashboard({
                   )}
                 </Card>
               </div>
+            )}
+
+            {/* Email Templates Tab */}
+            {activeTab === "email-templates" && (
+              <EmailTemplateManagement user={user} />
             )}
 
             {/* User Management Tab */}

@@ -13,8 +13,41 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     const roles = await prisma.roles.findMany({
       orderBy: { createdAt: 'desc' }
     });
-    return res.json(roles);
+
+    // Calculate userCount for each role in real-time
+    const rolesWithUserCount = await Promise.all(
+      roles.map(async (role) => {
+        // Normalize role name for matching (handle case-insensitive and underscore/space variations)
+        const normalizedRoleName = role.name.toLowerCase().replace(/[\s_-]/g, '');
+
+        // Get all internal admin users to match flexibly
+        const allInternalUsers = await prisma.users.findMany({
+          where: {
+            customerId: null, // Only internal admin users
+            isActive: true // Only count active users
+          },
+          select: {
+            role: true
+          }
+        });
+
+        // Count users whose role matches (case-insensitive, handles underscores/spaces)
+        const userCount = allInternalUsers.filter(user => {
+          if (!user.role) return false;
+          const normalizedUserRole = user.role.toLowerCase().replace(/[\s_-]/g, '');
+          return normalizedUserRole === normalizedRoleName;
+        }).length;
+
+        return {
+          ...role,
+          userCount
+        };
+      })
+    );
+
+    return res.json(rolesWithUserCount);
   } catch (error: any) {
+    console.error('❌ Error fetching roles:', error);
     return res.status(500).json({ error: 'Failed to fetch roles' });
   }
 });

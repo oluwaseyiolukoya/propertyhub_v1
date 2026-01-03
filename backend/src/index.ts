@@ -173,6 +173,8 @@ import forgotPasswordRoutes from "./routes/forgot-password";
 import storageRoutes from "./routes/storage";
 // Report Schedules routes
 import reportSchedulesRoutes from "./routes/report-schedules";
+// Email Templates routes
+import emailTemplatesRoutes from "./routes/email-templates";
 // Cron jobs
 import { initializeCronJobs } from "./lib/cron-jobs";
 
@@ -405,6 +407,7 @@ app.use("/api/admin/billing", adminBillingRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/roles", roleRoutes);
+app.use("/api/admin/email-templates", emailTemplatesRoutes);
 app.use("/api/plans", planRoutes);
 app.use("/api/available-plans", availablePlansRoutes);
 app.use("/api/pricing-sync", pricingSyncRoutes);

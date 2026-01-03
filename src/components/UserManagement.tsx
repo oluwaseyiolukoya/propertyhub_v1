@@ -91,8 +91,36 @@ export function UserManagement({
   onDeleteRole,
   onBack,
 }: UserManagementProps) {
-  // Get current user's permissions
+  // Check if logged-in user is Admin or Super Admin
+  // This is the PRIMARY check - role-based, not permission-based
+  const loggedInUserRole = user?.role ? String(user.role).toLowerCase().trim() : '';
+  const isLoggedInUserAdmin =
+    loggedInUserRole === 'admin' ||
+    loggedInUserRole === 'super admin' ||
+    loggedInUserRole === 'super_admin' ||
+    loggedInUserRole === 'superadmin' ||
+    loggedInUserRole === 'administrator' ||
+    (loggedInUserRole.includes('super') && loggedInUserRole.includes('admin'));
+
+  // Get current user's permissions (for non-admin users)
   const userPermissions = getUserPermissions(user);
+
+  // For Admin/Super Admin users, they ALWAYS have full permissions
+  // This bypasses any issues with stored permissions or getUserPermissions logic
+  const canEditUsers = isLoggedInUserAdmin || hasPermission(userPermissions, PERMISSIONS.USER_EDIT);
+  const canDeleteUsers = isLoggedInUserAdmin || hasPermission(userPermissions, PERMISSIONS.USER_DELETE);
+  const canResetPasswords = isLoggedInUserAdmin || hasPermission(userPermissions, PERMISSIONS.USER_RESET_PASSWORD);
+
+  // Debug logging
+  console.log('🔍 UserManagement - Permission Check:', {
+    userRole: user?.role,
+    loggedInUserRole,
+    isLoggedInUserAdmin,
+    userPermissionsCount: userPermissions.length,
+    canEditUsers,
+    canDeleteUsers,
+    canResetPasswords,
+  });
 
   const [activeTab, setActiveTab] = useState("users");
   const [searchTerm, setSearchTerm] = useState("");
@@ -121,7 +149,7 @@ export function UserManagement({
     company: "Contrezz Admin", // Internal admin company
     department: "",
     isActive: true,
-    sendInvite: true,
+    sendInvite: false, // Default to false - credentials will be sent immediately
   });
 
   const [newRole, setNewRole] = useState({
@@ -669,7 +697,7 @@ export function UserManagement({
     // Send data to backend API
     onAddUser(newUser);
 
-    // Reset form
+    // Reset form - Keep sendInvite as false so credentials are always sent
     setNewUser({
       name: "",
       email: "",
@@ -678,7 +706,7 @@ export function UserManagement({
       company: "Contrezz Admin", // Internal admin company
       department: "",
       isActive: true,
-      sendInvite: true,
+      sendInvite: false, // Always default to false so credentials are sent immediately
     });
     setShowAddUser(false);
   };
@@ -1060,15 +1088,26 @@ export function UserManagement({
                       <Switch
                         id="sendInvite"
                         checked={newUser.sendInvite}
-                        onCheckedChange={(checked) =>
+                        onCheckedChange={(checked) => {
+                          console.log('🔄 sendInvite checkbox changed:', checked);
                           setNewUser((prev) => ({
                             ...prev,
                             sendInvite: checked,
-                          }))
-                        }
+                          }));
+                        }}
                       />
-                      <Label htmlFor="sendInvite">Send invitation email</Label>
+                      <Label htmlFor="sendInvite" className="text-sm text-gray-600">
+                        {newUser.sendInvite
+                          ? "If checked, User will not receive invitation email"
+                          : "Send credentials email immediately (default)"}
+                      </Label>
                     </div>
+                    {newUser.sendInvite && (
+                      <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                        ⚠️ User will be created as "pending" with no password.
+                        Credentials will NOT be sent automatically.
+                      </div>
+                    )}
 
                     <div className="flex gap-2 justify-end pt-4 border-t border-gray-200">
                       <Button
@@ -1222,9 +1261,8 @@ export function UserManagement({
                                     View Details
                                   </DropdownMenuItem>
 
-                                  {/* Edit User - requires user_edit permission and user must not be super admin */}
-                                  {hasPermission(userPermissions, PERMISSIONS.USER_EDIT) &&
-                                   !(userItem as any).isSuperAdmin && (
+                                  {/* Edit User - Admin/Super Admin can edit, but not other Super Admins */}
+                                  {canEditUsers && !(userItem as any).isSuperAdmin && (
                                     <DropdownMenuItem
                                       onClick={() => {
                                         setSelectedUser(userItem);
@@ -1236,8 +1274,8 @@ export function UserManagement({
                                     </DropdownMenuItem>
                                   )}
 
-                                  {/* Reset Password - requires user_reset_password permission */}
-                                  {hasPermission(userPermissions, PERMISSIONS.USER_RESET_PASSWORD) && (
+                                  {/* Reset Password - Admin/Super Admin can reset passwords */}
+                                  {canResetPasswords && (
                                     <>
                                       <DropdownMenuSeparator />
                                       <DropdownMenuItem
@@ -1255,9 +1293,8 @@ export function UserManagement({
                                     </>
                                   )}
 
-                                  {/* Deactivate/Activate - requires user_edit permission and user must not be super admin */}
-                                  {hasPermission(userPermissions, PERMISSIONS.USER_EDIT) &&
-                                   !(userItem as any).isSuperAdmin && (
+                                  {/* Deactivate/Activate - Admin/Super Admin can toggle, but not other Super Admins */}
+                                  {canEditUsers && !(userItem as any).isSuperAdmin && (
                                     <>
                                       <DropdownMenuSeparator />
                                       <DropdownMenuItem
@@ -1283,9 +1320,8 @@ export function UserManagement({
                                     </>
                                   )}
 
-                                  {/* Delete User - requires user_delete permission and user must not be super admin */}
-                                  {hasPermission(userPermissions, PERMISSIONS.USER_DELETE) &&
-                                   !(userItem as any).isSuperAdmin && (
+                                  {/* Delete User - Admin/Super Admin can delete, but not other Super Admins */}
+                                  {canDeleteUsers && !(userItem as any).isSuperAdmin && (
                                     <>
                                       <DropdownMenuSeparator />
                                       <DropdownMenuItem
@@ -1768,12 +1804,23 @@ export function UserManagement({
               <Switch
                 id="sendInvite"
                 checked={newUser.sendInvite}
-                onCheckedChange={(checked) =>
-                  setNewUser((prev) => ({ ...prev, sendInvite: checked }))
-                }
+                onCheckedChange={(checked) => {
+                  console.log('🔄 sendInvite checkbox changed:', checked);
+                  setNewUser((prev) => ({ ...prev, sendInvite: checked }));
+                }}
               />
-              <Label htmlFor="sendInvite">Send invitation email</Label>
+              <Label htmlFor="sendInvite" className="text-sm text-gray-600">
+                {newUser.sendInvite
+                  ? "If checked, User will not receive invitation email"
+                  : "Send credentials email immediately (default)"}
+              </Label>
             </div>
+            {newUser.sendInvite && (
+              <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                ⚠️ User will be created as "pending" with no password.
+                Credentials will NOT be sent automatically.
+              </div>
+            )}
 
             <div className="flex space-x-2">
               <Button

@@ -161,6 +161,14 @@ router.post("/login", async (req: Request, res: Response) => {
         );
 
         if (internalUser && internalUser.customerId === null) {
+          // Check if user has a password set
+          if (!internalUser.password) {
+            console.log("❌ Internal Admin User has no password set");
+            return res.status(401).json({
+              error: "Invalid credentials. Please contact your administrator to set up your account."
+            });
+          }
+
           const isValidPassword = await bcrypt.compare(
             password,
             internalUser.password
@@ -183,13 +191,30 @@ router.post("/login", async (req: Request, res: Response) => {
             });
           }
 
-          // Block inactive or non-active internal admin users
-          if (
-            internalUser.isActive === false ||
-            (internalUser.status && internalUser.status !== "active")
-          ) {
-            console.log("❌ Internal Admin account inactive");
-            return res.status(403).json({ error: "Account is inactive" });
+          // Block inactive internal admin users
+          // Note: Users with status 'pending' can still login if they have a password set (credentials were sent)
+          if (internalUser.isActive === false) {
+            console.log("❌ Internal Admin account inactive (isActive = false)");
+            return res.status(403).json({
+              error: "Your account has been deactivated. Please contact your administrator."
+            });
+          }
+
+          // Block users with status other than 'active' or 'pending' (pending users with password can login)
+          if (internalUser.status && internalUser.status !== "active" && internalUser.status !== "pending") {
+            console.log("❌ Internal Admin account has invalid status:", internalUser.status);
+            return res.status(403).json({
+              error: "Your account has been deactivated. Please contact your administrator."
+            });
+          }
+
+          // If status is 'pending' but user has a password, allow login (credentials were sent)
+          // This handles the case where user was created with sendInvite=false but status might still be pending
+          if (internalUser.status === "pending" && !internalUser.password) {
+            console.log("❌ Internal Admin account pending but no password set");
+            return res.status(403).json({
+              error: "Your account is pending activation. Please check your email for activation instructions."
+            });
           }
 
           // Update last login
@@ -198,30 +223,86 @@ router.post("/login", async (req: Request, res: Response) => {
             data: { lastLogin: new Date() },
           });
 
-          // Resolve effective permissions: prefer user's stored permissions; fallback to role's permissions
+          // Resolve effective permissions: Admin and Super Admin ALWAYS get all permissions
+          // This ensures Admin users have full access even if stored permissions are incomplete
+          const roleLower = internalUser.role?.toLowerCase() || '';
+          const isAdminLike =
+            roleLower === 'super admin' ||
+            roleLower === 'superadmin' ||
+            roleLower === 'super_admin' ||
+            roleLower === 'admin' ||
+            roleLower === 'administrator' ||
+            (roleLower.includes('super') && roleLower.includes('admin'));
+
           let userPermissions: string[] = [];
-          if (
-            Array.isArray(internalUser.permissions) &&
-            (internalUser.permissions as any[]).length > 0
-          ) {
-            userPermissions = internalUser.permissions as string[];
+
+          if (isAdminLike) {
+            // Admin and Super Admin always get all permissions
+            // This is critical because stored permissions arrays may be incomplete
+            console.log(
+              "✅ Admin user detected - granting all permissions regardless of stored values"
+            );
+            // Return a comprehensive list - in production, this would be all available permissions
+            // For now, ensure critical user management permissions are included
+            userPermissions = [
+              "customer_management",
+              "customer_create",
+              "customer_edit",
+              "customer_delete",
+              "customer_view",
+              "user_management",
+              "user_create",
+              "user_edit",
+              "user_delete",
+              "user_view",
+              "user_reset_password", // Critical: ensure this is included
+              "role_management",
+              "role_create",
+              "role_edit",
+              "role_delete",
+              "billing_management",
+              "plan_management",
+              "invoice_management",
+              "payment_view",
+              "analytics_view",
+              "analytics_reports",
+              "analytics_export",
+              "system_health",
+              "system_settings",
+              "platform_settings",
+              "system_logs",
+              "support_tickets",
+              "support_view",
+              "support_respond",
+              "support_close",
+              "activity_logs",
+              "audit_reports",
+            ];
           } else {
-            try {
-              const roleRecord = await prisma.roles.findUnique({
-                where: { name: internalUser.role },
-              });
-              if (
-                roleRecord &&
-                Array.isArray(roleRecord.permissions as any[])
-              ) {
-                userPermissions = roleRecord.permissions as string[];
+            // For non-admin users, use stored permissions or role permissions
+            if (
+              Array.isArray(internalUser.permissions) &&
+              (internalUser.permissions as any[]).length > 0
+            ) {
+              userPermissions = internalUser.permissions as string[];
+            } else {
+              try {
+                const roleRecord = await prisma.roles.findUnique({
+                  where: { name: internalUser.role },
+                });
+                if (
+                  roleRecord &&
+                  Array.isArray(roleRecord.permissions as any[])
+                ) {
+                  userPermissions = roleRecord.permissions as string[];
+                }
+              } catch (e) {
+                console.warn(
+                  "⚠️ Could not fetch role permissions for",
+                  internalUser.role,
+                  e
+                );
               }
-            } catch (e) {
-              console.warn(
-                "⚠️ Could not fetch role permissions for",
-                internalUser.role,
-                e
-              );
             }
           }
 
@@ -276,6 +357,13 @@ router.post("/login", async (req: Request, res: Response) => {
 
       if (!user || !user.password) {
         return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      // Check if user has a password set
+      if (!user.password) {
+        return res.status(401).json({
+          error: "Invalid credentials. Please contact your administrator to set up your account."
+        });
       }
 
       const isValidPassword = await bcrypt.compare(password, user.password);
@@ -884,13 +972,73 @@ router.get(
       // Handle internal admin users (customerId = null)
       // Internal admin roles: super_admin, admin, support, finance, operations
       if (!user.customerId) {
+        const roleLower = user.role?.toLowerCase() || '';
         const isInternalAdmin = [
           "super_admin",
           "admin",
           "support",
           "finance",
           "operations",
-        ].includes(user.role?.toLowerCase() || "");
+        ].includes(roleLower);
+
+        // Admin and Super Admin ALWAYS get all permissions, regardless of stored values
+        // This ensures Admin users have full access even if stored permissions are incomplete
+        const isAdminLike =
+          roleLower === 'super admin' ||
+          roleLower === 'superadmin' ||
+          roleLower === 'super_admin' ||
+          roleLower === 'admin' ||
+          roleLower === 'administrator' ||
+          (roleLower.includes('super') && roleLower.includes('admin'));
+
+        let userPermissions: string[] = [];
+
+        if (isAdminLike) {
+          // Admin and Super Admin always get all permissions
+          console.log(
+            "✅ [/account] Admin user detected - granting all permissions regardless of stored values"
+          );
+          userPermissions = [
+            "customer_management",
+            "customer_create",
+            "customer_edit",
+            "customer_delete",
+            "customer_view",
+            "user_management",
+            "user_create",
+            "user_edit",
+            "user_delete",
+            "user_view",
+            "user_reset_password", // Critical: ensure this is included
+            "role_management",
+            "role_create",
+            "role_edit",
+            "role_delete",
+            "billing_management",
+            "plan_management",
+            "invoice_management",
+            "payment_view",
+            "analytics_view",
+            "analytics_reports",
+            "analytics_export",
+            "system_health",
+            "system_settings",
+            "platform_settings",
+            "system_logs",
+            "support_tickets",
+            "support_view",
+            "support_respond",
+            "support_close",
+            "activity_logs",
+            "audit_reports",
+          ];
+        } else {
+          // For non-admin internal users, use stored permissions
+          userPermissions = Array.isArray(user.permissions)
+            ? (user.permissions as string[])
+            : [];
+        }
+
         return res.json({
           user: {
             id: user.id,
@@ -899,10 +1047,11 @@ router.get(
             role: user.role,
             status: user.isActive ? "active" : "inactive",
             userType: isInternalAdmin ? "admin" : user.role,
+            permissions: userPermissions, // Use resolved permissions, not raw stored permissions
+            rolePermissions: userPermissions, // Also include as rolePermissions for compatibility
           },
           customer: null,
           isOwner: false,
-          permissions: user.permissions || {},
         });
       }
 
@@ -1348,6 +1497,10 @@ router.post(
       }
 
       // Verify current password
+      if (!user.password) {
+        return res.status(401).json({ error: "No password set for this account" });
+      }
+
       const isValidPassword = await bcrypt.compare(
         currentPassword,
         user.password
@@ -1524,6 +1677,10 @@ router.post(
 
       if (!user) {
         return res.status(404).json({ error: "User not found" });
+      }
+
+      if (!user.password) {
+        return res.status(401).json({ error: "No password set for this account" });
       }
 
       const isValidPassword = await bcrypt.compare(password, user.password);
@@ -1738,6 +1895,10 @@ router.post(
       }
 
       // Verify password
+      if (!user.password) {
+        return res.status(401).json({ error: "No password set for this account" });
+      }
+
       const isValidPassword = await bcrypt.compare(
         confirmPassword,
         user.password
