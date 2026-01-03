@@ -93,14 +93,26 @@ export function EmailTemplateManagement({
       if (searchTerm) filters.search = searchTerm;
 
       const response = await getEmailTemplates(filters);
+      console.log('Email templates response:', response);
+
       if (response.error) {
+        console.error('Email templates error:', response.error);
         toast.error(response.error.error || 'Failed to load email templates');
+        setTemplates([]);
       } else if (response.data) {
-        setTemplates(response.data);
+        // Ensure response.data is an array
+        const templatesArray = Array.isArray(response.data) ? response.data : [];
+        console.log('Setting templates:', templatesArray.length, 'templates');
+        setTemplates(templatesArray);
+      } else {
+        // Handle case where response.data is undefined or null
+        console.warn('No data in response, setting empty array');
+        setTemplates([]);
       }
     } catch (error) {
       console.error('Error fetching templates:', error);
       toast.error('Failed to load email templates');
+      setTemplates([]);
     } finally {
       setLoading(false);
     }

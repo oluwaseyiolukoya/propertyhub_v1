@@ -16,6 +16,14 @@ router.use(adminOnly);
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
     const { type, category, is_active, search } = req.query;
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+
+    console.log('📧 Fetching email templates:', {
+      userId,
+      userRole,
+      filters: { type, category, is_active, search }
+    });
 
     const filters: any = {};
     if (type) filters.type = type as string;
@@ -24,9 +32,15 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     if (search) filters.search = search as string;
 
     const templates = await emailTemplateService.getAllTemplates(filters);
-    return res.json(templates);
+
+    // Ensure we always return an array
+    const templatesArray = Array.isArray(templates) ? templates : [];
+
+    console.log(`✅ Found ${templatesArray.length} email templates`);
+
+    return res.json(templatesArray);
   } catch (error: any) {
-    console.error('Error fetching email templates:', error);
+    console.error('❌ Error fetching email templates:', error);
     console.error('Error stack:', error.stack);
     return res.status(500).json({
       error: 'Failed to fetch email templates',

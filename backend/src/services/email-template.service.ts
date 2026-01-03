@@ -24,37 +24,47 @@ export class EmailTemplateService {
    * Get all email templates with optional filters
    */
   async getAllTemplates(filters?: EmailTemplateFilters) {
-    const where: any = {};
+    try {
+      const where: any = {};
 
-    if (filters?.type) {
-      where.type = filters.type;
+      if (filters?.type) {
+        where.type = filters.type;
+      }
+
+      if (filters?.category) {
+        where.category = filters.category;
+      }
+
+      if (filters?.is_active !== undefined) {
+        where.is_active = filters.is_active;
+      }
+
+      if (filters?.search) {
+        where.OR = [
+          { name: { contains: filters.search, mode: 'insensitive' } },
+          { subject: { contains: filters.search, mode: 'insensitive' } },
+          { type: { contains: filters.search, mode: 'insensitive' } },
+        ];
+      }
+
+      // Fetch templates without relations for now (relations may not be set up)
+      const templates = await prisma.email_templates.findMany({
+        where,
+        orderBy: [
+          { is_system: 'desc' },
+          { type: 'asc' },
+          { name: 'asc' },
+        ],
+      });
+
+      // Ensure we always return an array
+      return Array.isArray(templates) ? templates : [];
+    } catch (error: any) {
+      console.error('Error in getAllTemplates:', error);
+      console.error('Error stack:', error.stack);
+      // Return empty array on error instead of throwing
+      return [];
     }
-
-    if (filters?.category) {
-      where.category = filters.category;
-    }
-
-    if (filters?.is_active !== undefined) {
-      where.is_active = filters.is_active;
-    }
-
-    if (filters?.search) {
-      where.OR = [
-        { name: { contains: filters.search, mode: 'insensitive' } },
-        { subject: { contains: filters.search, mode: 'insensitive' } },
-        { type: { contains: filters.search, mode: 'insensitive' } },
-      ];
-    }
-
-    // Fetch templates without relations for now (relations may not be set up)
-    return await prisma.email_templates.findMany({
-      where,
-      orderBy: [
-        { is_system: 'desc' },
-        { type: 'asc' },
-        { name: 'asc' },
-      ],
-    });
   }
 
   /**
