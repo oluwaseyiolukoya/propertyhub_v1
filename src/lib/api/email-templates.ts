@@ -99,6 +99,16 @@ export const getEmailTemplateByType = async (type: string) => {
 };
 
 /**
+ * Seed default email templates
+ */
+export const seedEmailTemplates = async () => {
+  return apiClient.post<{ message: string; created: number; updated: number; total: number }>(
+    `${API_ENDPOINTS.EMAIL_TEMPLATES.LIST}/seed`,
+    {}
+  );
+};
+
+/**
  * Create email template
  */
 export const createEmailTemplate = async (data: CreateEmailTemplateData) => {

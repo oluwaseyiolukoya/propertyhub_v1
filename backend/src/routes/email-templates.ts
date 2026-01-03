@@ -3,6 +3,7 @@ import { authMiddleware, adminOnly, AuthRequest } from '../middleware/auth';
 import { emailTemplateService } from '../services/email-template.service';
 import { templateRendererService } from '../services/template-renderer.service';
 import { sendEmail } from '../lib/email';
+import { seedEmailTemplates } from '../services/email-template-seed.service';
 
 const router = express.Router();
 
@@ -343,6 +344,27 @@ router.post('/:id/test', async (req: AuthRequest, res: Response) => {
   } catch (error: any) {
     console.error('Error sending test email:', error);
     return res.status(500).json({ error: 'Failed to send test email' });
+  }
+});
+
+/**
+ * POST /api/admin/email-templates/seed
+ * Seed default email templates
+ */
+router.post('/seed', async (req: AuthRequest, res: Response) => {
+  try {
+    console.log('🌱 Seeding email templates via API...');
+    const result = await seedEmailTemplates();
+    return res.json({
+      message: 'Email templates seeded successfully',
+      ...result,
+    });
+  } catch (error: any) {
+    console.error('❌ Error seeding email templates:', error);
+    return res.status(500).json({
+      error: 'Failed to seed email templates',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
   }
 });
 

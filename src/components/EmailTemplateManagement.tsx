@@ -6,6 +6,7 @@ import {
   deleteEmailTemplate,
   duplicateEmailTemplate,
   testEmailTemplate,
+  seedEmailTemplates,
   type EmailTemplate,
   type EmailTemplateFilters,
 } from '../lib/api/email-templates';
@@ -70,6 +71,7 @@ export function EmailTemplateManagement({
   const [showEditor, setShowEditor] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
+  const [seeding, setSeeding] = useState(false);
 
   // Template types
   const templateTypes = [
@@ -328,9 +330,48 @@ export function EmailTemplateManagement({
         <CardContent>
           {loading ? (
             <div className="text-center py-8">Loading templates...</div>
+          ) : filteredTemplates.length === 0 && templates.length === 0 ? (
+            <div className="text-center py-12">
+              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500 mb-2">No email templates found.</p>
+              <p className="text-sm text-gray-400 mb-6">
+                Seed default templates or create your first template to get started.
+              </p>
+              <div className="flex gap-3 justify-center">
+                <Button
+                  onClick={async () => {
+                    try {
+                      setSeeding(true);
+                      const response = await seedEmailTemplates();
+                      if (response.error) {
+                        toast.error(response.error.error || 'Failed to seed templates');
+                      } else {
+                        toast.success(
+                          `Successfully seeded ${response.data?.created || 0} template(s)`
+                        );
+                        fetchTemplates();
+                      }
+                    } catch (error) {
+                      console.error('Error seeding templates:', error);
+                      toast.error('Failed to seed templates');
+                    } finally {
+                      setSeeding(false);
+                    }
+                  }}
+                  disabled={seeding}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  {seeding ? 'Seeding...' : 'Seed Default Templates'}
+                </Button>
+                <Button onClick={handleCreate} variant="outline">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Template
+                </Button>
+              </div>
+            </div>
           ) : filteredTemplates.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
-              No templates found. Create your first template to get started.
+              No templates match your filters. Try adjusting your search or filters.
             </div>
           ) : (
             <Table>
