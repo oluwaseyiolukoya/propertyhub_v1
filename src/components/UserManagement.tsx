@@ -64,6 +64,7 @@ import {
   Building,
   Clipboard,
 } from "lucide-react";
+import { getUserPermissions, hasPermission, PERMISSIONS } from "../lib/permissions";
 
 interface UserManagementProps {
   user: any;
@@ -90,6 +91,9 @@ export function UserManagement({
   onDeleteRole,
   onBack,
 }: UserManagementProps) {
+  // Get current user's permissions
+  const userPermissions = getUserPermissions(user);
+
   const [activeTab, setActiveTab] = useState("users");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -1218,8 +1222,9 @@ export function UserManagement({
                                     View Details
                                   </DropdownMenuItem>
 
-                                  {/* Disable edit for Super Admins */}
-                                  {!(userItem as any).isSuperAdmin && (
+                                  {/* Edit User - requires user_edit permission and user must not be super admin */}
+                                  {hasPermission(userPermissions, PERMISSIONS.USER_EDIT) &&
+                                   !(userItem as any).isSuperAdmin && (
                                     <DropdownMenuItem
                                       onClick={() => {
                                         setSelectedUser(userItem);
@@ -1231,46 +1236,56 @@ export function UserManagement({
                                     </DropdownMenuItem>
                                   )}
 
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      openResetConfirmation(
-                                        userItem.id,
-                                        userItem.name,
-                                        userItem.email
-                                      )
-                                    }
-                                  >
-                                    <Lock className="h-4 w-4 mr-2" />
-                                    Reset Password
-                                  </DropdownMenuItem>
-
-                                  {/* Disable deactivate for Super Admins */}
-                                  {!(userItem as any).isSuperAdmin && (
-                                    <DropdownMenuItem
-                                      onClick={() =>
-                                        toggleUserStatus(
-                                          userItem.id,
-                                          userItem.status
-                                        )
-                                      }
-                                    >
-                                      {userItem.status === "active" ? (
-                                        <>
-                                          <XCircle className="h-4 w-4 mr-2" />
-                                          Deactivate
-                                        </>
-                                      ) : (
-                                        <>
-                                          <CheckCircle className="h-4 w-4 mr-2" />
-                                          Activate
-                                        </>
-                                      )}
-                                    </DropdownMenuItem>
+                                  {/* Reset Password - requires user_reset_password permission */}
+                                  {hasPermission(userPermissions, PERMISSIONS.USER_RESET_PASSWORD) && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        onClick={() =>
+                                          openResetConfirmation(
+                                            userItem.id,
+                                            userItem.name,
+                                            userItem.email
+                                          )
+                                        }
+                                      >
+                                        <Lock className="h-4 w-4 mr-2" />
+                                        Reset Password
+                                      </DropdownMenuItem>
+                                    </>
                                   )}
 
-                                  {/* Disable delete for Super Admins */}
-                                  {!(userItem as any).isSuperAdmin && (
+                                  {/* Deactivate/Activate - requires user_edit permission and user must not be super admin */}
+                                  {hasPermission(userPermissions, PERMISSIONS.USER_EDIT) &&
+                                   !(userItem as any).isSuperAdmin && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        onClick={() =>
+                                          toggleUserStatus(
+                                            userItem.id,
+                                            userItem.status
+                                          )
+                                        }
+                                      >
+                                        {userItem.status === "active" ? (
+                                          <>
+                                            <XCircle className="h-4 w-4 mr-2" />
+                                            Deactivate
+                                          </>
+                                        ) : (
+                                          <>
+                                            <CheckCircle className="h-4 w-4 mr-2" />
+                                            Activate
+                                          </>
+                                        )}
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+
+                                  {/* Delete User - requires user_delete permission and user must not be super admin */}
+                                  {hasPermission(userPermissions, PERMISSIONS.USER_DELETE) &&
+                                   !(userItem as any).isSuperAdmin && (
                                     <>
                                       <DropdownMenuSeparator />
                                       <DropdownMenuItem
