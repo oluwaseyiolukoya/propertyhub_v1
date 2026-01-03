@@ -759,7 +759,7 @@ You requested this report from your dashboard.`,
   }
 
   console.log(`✅ Email templates seeding completed! Created: ${createdCount}, Updated: ${updatedCount}`);
-  
+
   return {
     success: true,
     created: createdCount,

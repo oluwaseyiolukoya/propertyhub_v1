@@ -353,14 +353,25 @@ router.post('/:id/test', async (req: AuthRequest, res: Response) => {
  */
 router.post('/seed', async (req: AuthRequest, res: Response) => {
   try {
-    console.log('🌱 Seeding email templates via API...');
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+    
+    console.log('🌱 Seeding email templates via API...', {
+      userId,
+      userRole,
+    });
+    
     const result = await seedEmailTemplates();
+    
+    console.log('✅ Seed result:', result);
+    
     return res.json({
-      message: 'Email templates seeded successfully',
+      message: `Email templates seeded successfully. Created: ${result.created}, Updated: ${result.updated}`,
       ...result,
     });
   } catch (error: any) {
     console.error('❌ Error seeding email templates:', error);
+    console.error('Error stack:', error.stack);
     return res.status(500).json({
       error: 'Failed to seed email templates',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,

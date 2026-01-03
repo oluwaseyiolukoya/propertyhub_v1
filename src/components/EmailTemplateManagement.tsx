@@ -346,9 +346,25 @@ export function EmailTemplateManagement({
                       if (response.error) {
                         toast.error(response.error.error || 'Failed to seed templates');
                       } else {
-                        toast.success(
-                          `Successfully seeded ${response.data?.created || 0} template(s)`
-                        );
+                        const created = response.data?.created || 0;
+                        const updated = response.data?.updated || 0;
+                        const total = response.data?.total || 0;
+                        
+                        if (created > 0 && updated > 0) {
+                          toast.success(
+                            `Successfully seeded templates: ${created} created, ${updated} updated (${total} total)`
+                          );
+                        } else if (created > 0) {
+                          toast.success(
+                            `Successfully created ${created} template(s)`
+                          );
+                        } else if (updated > 0) {
+                          toast.success(
+                            `Successfully updated ${updated} template(s)`
+                          );
+                        } else {
+                          toast.info('All templates are already up to date');
+                        }
                         fetchTemplates();
                       }
                     } catch (error) {
