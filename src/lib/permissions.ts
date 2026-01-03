@@ -121,6 +121,7 @@ export function getUserPermissions(user: any): string[] {
   const roleLower = roleName ? String(roleName).toLowerCase() : '';
 
   // Super Admin/Admin should have all permissions regardless of stored values
+  // This check must come FIRST before checking stored permissions
   const isAdminLike =
     roleLower === 'super admin' ||
     roleLower === 'superadmin' ||
@@ -129,10 +130,12 @@ export function getUserPermissions(user: any): string[] {
     (roleLower.includes('super') && roleLower.includes('admin'));
 
   if (isAdminLike) {
+    // Admin and Super Admin always get all permissions, regardless of stored permissions
     return Object.values(PERMISSIONS);
   }
 
   // If user has direct permissions array (internal admin users)
+  // Only use stored permissions if user is NOT an admin (admins already handled above)
   if (Array.isArray(user?.permissions) && user.permissions.length > 0) {
     return user.permissions as string[];
   }
