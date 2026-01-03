@@ -135,6 +135,7 @@ export function UserManagement({
   const [showResetConfirmation, setShowResetConfirmation] = useState(false);
   const [userToReset, setUserToReset] = useState<any>(null);
   const [generatedPassword, setGeneratedPassword] = useState("");
+  const [emailSent, setEmailSent] = useState(false);
   const [roleViewMode, setRoleViewMode] = useState<"grid" | "list">("grid");
   const [selectedRole, setSelectedRole] = useState<any>(null);
   const [showRoleDetails, setShowRoleDetails] = useState(false);
@@ -769,6 +770,7 @@ export function UserManagement({
       if (response.data?.tempPassword) {
         console.log("🔑 Temp password:", response.data.tempPassword);
         setGeneratedPassword(response.data.tempPassword);
+        setEmailSent(response.data.emailSent || false);
         setShowResetConfirmation(false);
         setShowResetPassword(true);
       } else {
@@ -2349,6 +2351,22 @@ export function UserManagement({
           </DialogHeader>
 
           <div className="space-y-4">
+            {emailSent && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <Mail className="h-5 w-5 text-green-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-green-900 mb-1">
+                      Email Sent Successfully
+                    </p>
+                    <p className="text-sm text-green-800">
+                      The user should receive an email with the temporary password.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm font-medium text-blue-900 mb-2">
                 Temporary Password:
@@ -2387,7 +2405,15 @@ export function UserManagement({
           </div>
 
           <div className="flex justify-end">
-            <Button onClick={() => setShowResetPassword(false)}>Close</Button>
+            <Button
+              onClick={() => {
+                setShowResetPassword(false);
+                setEmailSent(false);
+                setGeneratedPassword("");
+              }}
+            >
+              Close
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

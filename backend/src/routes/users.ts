@@ -445,6 +445,7 @@ router.post('/:id/reset-password', async (req: AuthRequest, res: Response) => {
         console.log('✅ Password reset email sent to:', user.email);
         return res.json({
           message: 'Password reset successfully. Email sent to user.',
+          tempPassword: tempPassword,
           emailSent: true
         });
       } else {

@@ -12,6 +12,7 @@ import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { Switch } from "./ui/switch";
 import {
   Select,
   SelectContent,
@@ -67,7 +68,8 @@ import { Documentation } from "./admin/Documentation";
 import { Footer } from "./Footer";
 import { PlatformLogo } from "./PlatformLogo";
 import { toast } from "sonner";
-import { changePassword } from "../lib/api/auth";
+import { changePassword, getAccountInfo, initializeTwoFactor, verifyTwoFactorSetup, disableTwoFactor } from "../lib/api/auth";
+import QRCode from "qrcode";
 import {
   initializeSocket,
   disconnectSocket,
@@ -140,6 +142,7 @@ import {
   MapPin,
   Calendar,
   Clock,
+  Loader2,
 } from "lucide-react";
 
 // Exact Contrezz logo from Figma Brand Guidelines
@@ -243,6 +246,25 @@ export function SuperAdminDashboard({
   const [refreshing, setRefreshing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  // Two-Factor Authentication state
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [twoFactorDialogOpen, setTwoFactorDialogOpen] = useState(false);
+  const [twoFactorDisableDialogOpen, setTwoFactorDisableDialogOpen] = useState(false);
+  const [twoFactorSetup, setTwoFactorSetup] = useState<{
+    secret: string;
+    otpauthUrl: string;
+    qrCode: string;
+  }>({
+    secret: "",
+    otpauthUrl: "",
+    qrCode: "",
+  });
+  const [twoFactorCodeInput, setTwoFactorCodeInput] = useState("");
+  const [twoFactorDisablePassword, setTwoFactorDisablePassword] = useState("");
+  const [initializingTwoFactor, setInitializingTwoFactor] = useState(false);
+  const [twoFactorDialogLoading, setTwoFactorDialogLoading] = useState(false);
+  const [disableTwoFactorLoading, setDisableTwoFactorLoading] = useState(false);
 
   // Users data from API
   const [users, setUsers] = useState<any[]>([]);
@@ -750,6 +772,129 @@ export function SuperAdminDashboard({
       cleanupSessionValidation();
     };
   }, []);
+
+  // Fetch security settings when profile tab is active
+  useEffect(() => {
+    const fetchSecuritySettings = async () => {
+      if (activeTab === "profile") {
+        try {
+          const response = await apiClient.get("/api/auth/security-settings");
+          if (response.data) {
+            setTwoFactorEnabled(response.data.twoFactorEnabled ?? false);
+          }
+        } catch (error) {
+          console.error("Failed to fetch security settings:", error);
+        }
+      }
+    };
+
+    fetchSecuritySettings();
+  }, [activeTab]);
+
+  // Two-Factor Authentication functions
+  const startTwoFactorSetup = async () => {
+    try {
+      setInitializingTwoFactor(true);
+      const response = await initializeTwoFactor();
+
+      if (response.error) {
+        toast.error(
+          response.error.error ||
+            "Failed to initialize two-factor authentication"
+        );
+        return;
+      }
+
+      const secret = response.data?.secret;
+      const otpauthUrl = response.data?.otpauthUrl;
+      if (!secret || !otpauthUrl) {
+        toast.error("Invalid response from server");
+        return;
+      }
+
+      const qrCode = await QRCode.toDataURL(otpauthUrl);
+      setTwoFactorSetup({ secret, otpauthUrl, qrCode });
+      setTwoFactorCodeInput("");
+      setTwoFactorDialogOpen(true);
+    } catch (error: any) {
+      console.error("Initialize 2FA error:", error);
+      toast.error(
+        error?.message || "Failed to initialize two-factor authentication"
+      );
+    } finally {
+      setInitializingTwoFactor(false);
+    }
+  };
+
+  const confirmTwoFactorSetup = async () => {
+    if (!twoFactorCodeInput) {
+      toast.error("Enter the 6-digit code from your authenticator app");
+      return;
+    }
+
+    try {
+      setTwoFactorDialogLoading(true);
+      const response = await verifyTwoFactorSetup(twoFactorCodeInput);
+
+      if (response.error) {
+        toast.error(response.error.error || "Failed to verify code");
+        return;
+      }
+
+      setTwoFactorEnabled(true);
+      toast.success("Two-factor authentication enabled");
+      setTwoFactorDialogOpen(false);
+      setTwoFactorCodeInput("");
+    } catch (error: any) {
+      console.error("Verify 2FA error:", error);
+      toast.error(error?.message || "Failed to verify code");
+    } finally {
+      setTwoFactorDialogLoading(false);
+    }
+  };
+
+  const copyTwoFactorSecret = async () => {
+    if (!twoFactorSetup.secret) return;
+    try {
+      await navigator.clipboard.writeText(twoFactorSetup.secret);
+      toast.success("Secret copied to clipboard");
+    } catch {
+      toast.error("Failed to copy secret");
+    }
+  };
+
+  const confirmDisableTwoFactor = async () => {
+    if (!twoFactorDisablePassword) {
+      toast.error(
+        "Please enter your password to disable two-factor authentication"
+      );
+      return;
+    }
+
+    try {
+      setDisableTwoFactorLoading(true);
+      const response = await disableTwoFactor(twoFactorDisablePassword);
+
+      if (response.error) {
+        toast.error(
+          response.error.error || "Failed to disable two-factor authentication"
+        );
+        return;
+      }
+
+      setTwoFactorEnabled(false);
+      toast.success("Two-factor authentication disabled");
+      setTwoFactorDisablePassword("");
+      setTwoFactorDisableDialogOpen(false);
+    } catch (error: any) {
+      console.error("Disable 2FA error:", error);
+      toast.error(
+        error?.message || "Failed to disable two-factor authentication"
+      );
+    } finally {
+      setDisableTwoFactorLoading(false);
+    }
+  };
 
   // Re-fetch customers when search term changes
   useEffect(() => {
@@ -1896,22 +2041,63 @@ export function SuperAdminDashboard({
                 )}
               </button>
 
-              <div className="flex items-center space-x-3">
-                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center ring-2 ring-white/20">
-                  <span className="text-white text-sm font-semibold">
-                    {user.name
-                      .split(" ")
-                      .map((n: string) => n[0])
-                      .join("")}
-                  </span>
-                </div>
-                <div className="hidden sm:block">
-                  <div className="text-sm font-medium text-white">
-                    {user.name}
-                  </div>
-                  <div className="text-xs text-white/60">{user.role}</div>
-                </div>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="flex items-center gap-2 hover:bg-white/10 text-white"
+                  >
+                    <Avatar className="w-9 h-9 ring-2 ring-white/20">
+                      <AvatarFallback className="bg-gradient-to-br from-red-500 to-red-600 text-white text-sm font-semibold">
+                        {user.name
+                          .split(" ")
+                          .map((n: string) => n[0])
+                          .join("")}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="hidden sm:block text-left">
+                      <div className="text-sm font-medium text-white">
+                        {user.name}
+                      </div>
+                      <div className="text-xs text-white/60">{user.role}</div>
+                    </div>
+                    <ChevronDown className="w-4 h-4 text-white/60" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col space-y-1">
+                      <p className="font-medium">{user.name}</p>
+                      <p className="text-xs text-gray-500 font-normal">
+                        {user.email}
+                      </p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer"
+                    onClick={() => setActiveTab("profile")}
+                  >
+                    <User className="w-4 h-4" />
+                    <span>Profile</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer"
+                    onClick={() => setActiveTab("change-password")}
+                  >
+                    <Shield className="w-4 h-4" />
+                    <span>Change Password</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                    onClick={onLogout}
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Logout</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
@@ -3436,6 +3622,44 @@ export function SuperAdminDashboard({
                         </div>
                       </div>
                     </div>
+
+                    {/* Two-Factor Authentication */}
+                    <div className="p-4 border rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Shield className="w-4 h-4 text-gray-500" />
+                            <h4 className="text-sm font-semibold text-gray-900">
+                              Two-Factor Authentication
+                            </h4>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-2">
+                            Add an extra layer of security to your account
+                          </p>
+                          {twoFactorEnabled && (
+                            <div className="flex items-center gap-2 text-green-600">
+                              <CheckCircle className="w-4 h-4" />
+                              <span className="text-sm font-medium">Enabled</span>
+                            </div>
+                          )}
+                        </div>
+                        <Switch
+                          checked={twoFactorEnabled}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              startTwoFactorSetup();
+                            } else {
+                              setTwoFactorDisableDialogOpen(true);
+                            }
+                          }}
+                          disabled={
+                            initializingTwoFactor ||
+                            twoFactorDialogLoading ||
+                            disableTwoFactorLoading
+                          }
+                        />
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
@@ -3573,6 +3797,180 @@ export function SuperAdminDashboard({
       </div>
 
       {/* Footer */}
+      {/* Two-Factor Authentication Dialogs */}
+      <Dialog
+        open={twoFactorDialogOpen}
+        onOpenChange={(open) => {
+          setTwoFactorDialogOpen(open);
+          if (!open) {
+            setTwoFactorCodeInput("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enable Two-Factor Authentication</DialogTitle>
+            <DialogDescription>
+              Scan the QR code below with Google Authenticator, Authy, or any
+              compatible app.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {twoFactorSetup.qrCode && (
+              <div className="flex flex-col items-center space-y-2">
+                <div className="p-4 bg-white border-2 border-gray-200 rounded-lg">
+                  <img
+                    src={twoFactorSetup.qrCode}
+                    alt="Two-factor QR code"
+                    className="w-48 h-48"
+                  />
+                </div>
+                <p className="text-sm text-gray-600 text-center">
+                  After scanning, enter the 6-digit code generated by your
+                  authenticator app.
+                </p>
+              </div>
+            )}
+
+            {twoFactorSetup.secret && (
+              <div className="bg-gray-50 border rounded-lg p-4">
+                <p className="text-sm font-medium text-gray-700 mb-2">
+                  Can't scan the QR code? Enter this key manually:
+                </p>
+                <div className="flex items-center justify-between gap-2">
+                  <code className="font-mono text-sm text-gray-800 break-all">
+                    {twoFactorSetup.secret}
+                  </code>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={copyTwoFactorSecret}
+                    className="flex-shrink-0"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <Label htmlFor="twoFactorCodeInput" className="text-sm font-medium">
+                Authenticator Code
+              </Label>
+              <Input
+                id="twoFactorCodeInput"
+                placeholder="123456"
+                maxLength={6}
+                inputMode="numeric"
+                value={twoFactorCodeInput}
+                onChange={(e) => setTwoFactorCodeInput(e.target.value)}
+                className="mt-2 text-center text-lg tracking-widest font-mono"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setTwoFactorDialogOpen(false);
+                setTwoFactorCodeInput("");
+              }}
+              disabled={twoFactorDialogLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmTwoFactorSetup}
+              disabled={twoFactorDialogLoading}
+            >
+              {twoFactorDialogLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                "Enable 2FA"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={twoFactorDisableDialogOpen}
+        onOpenChange={(open) => {
+          setTwoFactorDisableDialogOpen(open);
+          if (!open) {
+            setTwoFactorDisablePassword("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Disable Two-Factor Authentication</DialogTitle>
+            <DialogDescription>
+              Enter your password to disable two-factor authentication. You can
+              re-enable it at any time.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-800 font-medium">
+                  Disabling two-factor authentication will make your account
+                  less secure.
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="disableTwoFactorPassword" className="text-sm font-medium">
+                Password
+              </Label>
+              <Input
+                id="disableTwoFactorPassword"
+                type="password"
+                placeholder="Enter your password"
+                value={twoFactorDisablePassword}
+                onChange={(e) => setTwoFactorDisablePassword(e.target.value)}
+                className="mt-2"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setTwoFactorDisableDialogOpen(false);
+                setTwoFactorDisablePassword("");
+              }}
+              disabled={disableTwoFactorLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDisableTwoFactor}
+              disabled={disableTwoFactorLoading}
+            >
+              {disableTwoFactorLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Disabling...
+                </>
+              ) : (
+                "Disable 2FA"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Footer />
 
       {/* Confirmation Dialogs */}
