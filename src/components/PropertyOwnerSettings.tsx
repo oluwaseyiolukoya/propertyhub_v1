@@ -671,6 +671,10 @@ export function PropertyOwnerSettings({
   // Billing history (loaded from backend)
   const [billingHistory, setBillingHistory] = useState<any[]>([]);
 
+  // Storage quota state
+  const [loadingQuota, setLoadingQuota] = useState(false);
+  const [storageQuota, setStorageQuota] = useState<any>(null);
+
   // Load billing history when Billing tab is active
   useEffect(() => {
     const loadBilling = async () => {

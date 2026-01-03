@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Building2, User, Briefcase, MapPin, TrendingUp } from "lucide-react";
+import { COUNTRIES, NIGERIAN_STATES, NIGERIAN_CITIES, IVORY_COAST_REGIONS, IVORY_COAST_CITIES } from "@/constants/nigeria-locations";
 
 interface PropertyFormData {
   // Personal Information
@@ -278,34 +279,22 @@ export function PropertyCustomerForm({ formData, onChange }: PropertyCustomerFor
         <CardContent className="space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="city">City *</Label>
-              <Input
-                id="city"
-                placeholder="Lagos"
-                value={formData.city}
-                onChange={(e) => onChange('city', e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="state">State *</Label>
-              <Input
-                id="state"
-                placeholder="Lagos State"
-                value={formData.state}
-                onChange={(e) => onChange('state', e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-2">
               <Label htmlFor="country">Country *</Label>
-              <Input
-                id="country"
-                placeholder="Nigeria"
+              <Select
                 value={formData.country}
-                onChange={(e) => onChange('country', e.target.value)}
-              />
+                onValueChange={(value) => onChange('country', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select country" />
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRIES.map((country) => (
+                    <SelectItem key={country} value={country}>
+                      {country}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="zipCode">ZIP/Postal Code</Label>
@@ -316,6 +305,109 @@ export function PropertyCustomerForm({ formData, onChange }: PropertyCustomerFor
                 onChange={(e) => onChange('zipCode', e.target.value)}
               />
             </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            {formData.country === 'Nigeria' ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="state">State *</Label>
+                  <Select
+                    value={formData.state}
+                    onValueChange={(value) => onChange('state', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select state" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {NIGERIAN_STATES.map((state) => (
+                        <SelectItem key={state} value={state}>
+                          {state}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="city">City *</Label>
+                  <Select
+                    value={formData.city}
+                    onValueChange={(value) => onChange('city', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select city" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {NIGERIAN_CITIES.map((city) => (
+                        <SelectItem key={city} value={city}>
+                          {city}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            ) : formData.country === "Abidjan, Côte d'Ivoire" || formData.country === "Côte d'Ivoire" ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="state">State/Region *</Label>
+                  <Select
+                    value={formData.state}
+                    onValueChange={(value) => onChange('state', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select region" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {IVORY_COAST_REGIONS.map((region) => (
+                        <SelectItem key={region} value={region}>
+                          {region}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="city">City *</Label>
+                  <Select
+                    value={formData.city}
+                    onValueChange={(value) => onChange('city', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select city" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {IVORY_COAST_CITIES.map((city) => (
+                        <SelectItem key={city} value={city}>
+                          {city}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="state">State *</Label>
+                  <Input
+                    id="state"
+                    placeholder="State/Province"
+                    value={formData.state}
+                    onChange={(e) => onChange('state', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="city">City *</Label>
+                  <Input
+                    id="city"
+                    placeholder="City"
+                    value={formData.city}
+                    onChange={(e) => onChange('city', e.target.value)}
+                  />
+                </div>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>

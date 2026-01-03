@@ -1877,7 +1877,12 @@ async function checkDocumentAccess(
   document: any
 ): Promise<boolean> {
   if (role === "owner" || role === "property_owner") {
-    // Check if user owns the property or the customer
+    // Owner can always access documents they uploaded
+    if (document.uploadedById === userId) {
+      return true;
+    }
+
+    // Check if user owns the property
     if (document.propertyId) {
       const property = await prisma.properties.findFirst({
         where: {
@@ -1890,13 +1895,25 @@ async function checkDocumentAccess(
 
     // If no propertyId or property not found, check if user owns any property with this customerId
     if (document.customerId) {
+      // First, get the owner's customerId
+      const owner = await prisma.users.findUnique({
+        where: { id: userId },
+        select: { customerId: true },
+      });
+
+      // If document belongs to owner's customer, allow access
+      if (owner?.customerId && document.customerId === owner.customerId) {
+        return true;
+      }
+
+      // Also check if owner owns any property with this customerId (backward compatibility)
       const ownerProperty = await prisma.properties.findFirst({
         where: {
           customerId: document.customerId,
           ownerId: userId,
         },
       });
-      return !!ownerProperty;
+      if (ownerProperty) return true;
     }
 
     return false;

@@ -6,7 +6,7 @@ import prisma from "../lib/db";
 import { emitToAdmins, emitToCustomer } from "../lib/socket";
 import { captureSnapshotOnChange } from "../lib/mrr-snapshot";
 import { calculateTrialEndDate } from "../lib/trial-config";
-import { sendCustomerInvitation, sendEmail } from "../lib/email";
+import { sendAccountActivationEmail, sendEmail } from "../lib/email";
 import { calculateNextPaymentDate } from "../utils/billing";
 
 const router = express.Router();
@@ -553,64 +553,73 @@ router.post("/", async (req: AuthRequest, res: Response) => {
       // Continue anyway - don't fail customer creation
     }
 
-    // Send invitation email if requested
-    if (sendInvitation) {
-      try {
-        // Validate email configuration before attempting to send
-        if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-          console.error(
-            "❌ Email configuration missing: SMTP_USER or SMTP_PASS not set"
-          );
-          console.error(
-            "⚠️ Customer created but invitation email NOT sent. Please configure SMTP settings."
+    // Send activation email (same template as Get Started signup)
+    try {
+      // Validate email configuration before attempting to send
+      if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        console.error(
+          "❌ Email configuration missing: SMTP_USER or SMTP_PASS not set"
+        );
+        console.error(
+          "⚠️ Customer created but activation email NOT sent. Please configure SMTP settings."
+        );
+      } else {
+        console.log("📧 Attempting to send activation email to:", email);
+        console.log(
+          "🔐 Password being sent in email:",
+          tempPassword.substring(0, 4) + "****"
+        );
+        console.log("📋 Customer type:", customerType || "property_owner");
+        console.log(
+          "📧 SMTP Host:",
+          process.env.SMTP_HOST || "mail.privateemail.com"
+        );
+        console.log("📧 SMTP Port:", process.env.SMTP_PORT || "465");
+
+        // Map customerType to applicationType format
+        let applicationType = "property-owner";
+        if (customerType === "property_developer") {
+          applicationType = "property-developer";
+        } else if (customerType === "property_manager") {
+          applicationType = "property-manager";
+        } else if (customerType === "property_owner") {
+          applicationType = "property-owner";
+        }
+
+        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+        const emailSent = await sendAccountActivationEmail({
+          customerName: owner,
+          customerEmail: email,
+          companyName: company,
+          temporaryPassword: tempPassword,
+          loginUrl: `${frontendUrl}/signin`,
+          applicationType: applicationType,
+        });
+
+        if (emailSent) {
+          console.log(
+            "✅ Customer activation email sent successfully to:",
+            email
           );
         } else {
-          console.log("📧 Attempting to send invitation email to:", email);
-          console.log(
-            "🔐 Password being sent in email:",
-            tempPassword.substring(0, 4) + "****"
-          );
-          console.log("📋 Customer type:", customerType || "property_owner");
-          console.log(
-            "📧 SMTP Host:",
-            process.env.SMTP_HOST || "mail.privateemail.com"
-          );
-          console.log("📧 SMTP Port:", process.env.SMTP_PORT || "465");
-
-          const emailSent = await sendCustomerInvitation({
-            customerName: owner,
-            customerEmail: email,
-            companyName: company,
-            tempPassword: tempPassword,
-            planName: plan?.name,
-            customerType: customerType || "property_owner",
-          });
-
-          if (emailSent) {
-            console.log(
-              "✅ Customer invitation email sent successfully to:",
-              email
-            );
-          } else {
-            console.error("❌ Email function returned false for:", email);
-          }
+          console.error("❌ Email function returned false for:", email);
         }
-      } catch (emailError: any) {
-        console.error(
-          "❌ Failed to send customer invitation email to:",
-          email,
-          "Error:",
-          emailError?.message || emailError
-        );
-        console.error("📧 Email error details:", {
-          code: emailError?.code,
-          command: emailError?.command,
-          response: emailError?.response,
-          responseCode: emailError?.responseCode,
-          stack: emailError?.stack,
-        });
-        // Don't fail customer creation if email fails
       }
+    } catch (emailError: any) {
+      console.error(
+        "❌ Failed to send customer activation email to:",
+        email,
+        "Error:",
+        emailError?.message || emailError
+      );
+      console.error("📧 Email error details:", {
+        code: emailError?.code,
+        command: emailError?.command,
+        response: emailError?.response,
+        responseCode: emailError?.responseCode,
+        stack: emailError?.stack,
+      });
+      // Don't fail customer creation if email fails
     }
 
     // Emit real-time event to all admins

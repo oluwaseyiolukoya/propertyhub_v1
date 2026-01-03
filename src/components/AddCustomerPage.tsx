@@ -1040,7 +1040,7 @@ This is an automated message. Please do not reply to this email.
                           </div>
                         )}
 
-                        <div>
+                        <div className="pt-4">
                           <Label htmlFor="plan">Select Plan *</Label>
                           <Select
                             value={newCustomer.plan}

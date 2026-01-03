@@ -60,6 +60,13 @@ export const validateSession = async (): Promise<ValidationResponse> => {
           forceLogout: true
         };
       }
+      // For 403 errors, don't log as error since they're handled gracefully
+      // (account deactivated, role changed, etc. - these are expected scenarios)
+      if (error.statusCode === 403) {
+        // Silently handle 403 - session is still considered valid for UI purposes
+        return { valid: true };
+      }
+      // Only log non-403 errors
       console.error('Session validation error (response):', error);
       return { valid: true };
     }
@@ -69,13 +76,19 @@ export const validateSession = async (): Promise<ValidationResponse> => {
   } catch (error: any) {
     isValidating = false;
 
-    // If we get 401 or 403, session is invalid
+    // If we get 401, session is invalid
     if (error.status === 401) {
       return {
         valid: false,
         reason: error.message || 'Session expired',
         forceLogout: true
       };
+    }
+
+    // For 403 errors, don't log as error - they're handled gracefully
+    // (account deactivated, role changed, etc.)
+    if (error.status === 403) {
+      return { valid: true };
     }
 
     // Network errors or other issues - don't force logout

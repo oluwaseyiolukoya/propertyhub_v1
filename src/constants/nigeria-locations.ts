@@ -107,6 +107,7 @@ export const COUNTRIES = [
   'Ghana',
   'South Africa',
   'Kenya',
+  'Côte d\'Ivoire',
   'Abidjan, Côte d\'Ivoire',
   'United Arab Emirates',
   'Saudi Arabia',
