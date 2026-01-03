@@ -43,6 +43,7 @@ import {
   Mail,
   FileText,
   Filter,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -138,7 +139,12 @@ export function EmailTemplateManagement({
 
   // Handle delete
   const handleDelete = async (template: EmailTemplate) => {
-    if (!confirm(`Are you sure you want to delete "${template.name}"?`)) {
+    const isSystemTemplate = template.is_system;
+    const confirmMessage = isSystemTemplate
+      ? `Are you sure you want to delete the system template "${template.name}"? This is a default template and can be recreated by seeding.`
+      : `Are you sure you want to delete "${template.name}"? This action cannot be undone.`;
+
+    if (!confirm(confirmMessage)) {
       return;
     }
 
@@ -151,6 +157,7 @@ export function EmailTemplateManagement({
         fetchTemplates();
       }
     } catch (error) {
+      console.error('Error deleting template:', error);
       toast.error('Failed to delete template');
     }
   };
@@ -272,10 +279,64 @@ export function EmailTemplateManagement({
             Manage email templates for onboarding, activation, and more
           </p>
         </div>
-        <Button onClick={handleCreate} className="bg-purple-600 hover:bg-purple-700">
-          <Plus className="h-4 w-4 mr-2" />
-          Create Template
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={async () => {
+              try {
+                setSeeding(true);
+                const response = await seedEmailTemplates();
+                if (response.error) {
+                  toast.error(response.error.error || 'Failed to seed templates');
+                } else {
+                  const created = response.data?.created || 0;
+                  const updated = response.data?.updated || 0;
+                  const total = response.data?.total || 0;
+
+                  if (created > 0 && updated > 0) {
+                    toast.success(
+                      `Successfully seeded templates: ${created} created, ${updated} updated (${total} total)`
+                    );
+                  } else if (created > 0) {
+                    toast.success(
+                      `Successfully created ${created} template(s)`
+                    );
+                  } else if (updated > 0) {
+                    toast.success(
+                      `Successfully updated ${updated} template(s)`
+                    );
+                  } else {
+                    toast.info('All templates are already up to date');
+                  }
+                  fetchTemplates();
+                }
+              } catch (error) {
+                console.error('Error seeding templates:', error);
+                toast.error('Failed to seed templates');
+              } finally {
+                setSeeding(false);
+              }
+            }}
+            disabled={seeding}
+            variant="outline"
+            className="border-purple-600 text-purple-600 hover:bg-purple-50"
+          >
+            {seeding ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Seeding...
+              </>
+            ) : (
+              <>
+                <FileText className="h-4 w-4 mr-2" />
+                Seed Default Templates
+              </>
+            )}
+          </Button>
+          <Button onClick={handleCreate} className="bg-purple-600 hover:bg-purple-700">
+            <Plus className="h-4 w-4 mr-2" />
+            Create Template
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -349,7 +410,7 @@ export function EmailTemplateManagement({
                         const created = response.data?.created || 0;
                         const updated = response.data?.updated || 0;
                         const total = response.data?.total || 0;
-                        
+
                         if (created > 0 && updated > 0) {
                           toast.success(
                             `Successfully seeded templates: ${created} created, ${updated} updated (${total} total)`
@@ -449,18 +510,17 @@ export function EmailTemplateManagement({
                             <Copy className="h-4 w-4 mr-2" />
                             Duplicate
                           </DropdownMenuItem>
-                          {!template.is_system && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-red-600"
-                                onClick={() => handleDelete(template)}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </>
-                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                            onClick={() => handleDelete(template)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                            {template.is_system && (
+                              <span className="ml-2 text-xs opacity-75">(System)</span>
+                            )}
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

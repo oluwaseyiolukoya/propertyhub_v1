@@ -355,16 +355,16 @@ router.post('/seed', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     const userRole = req.user?.role;
-    
+
     console.log('🌱 Seeding email templates via API...', {
       userId,
       userRole,
     });
-    
+
     const result = await seedEmailTemplates();
-    
+
     console.log('✅ Seed result:', result);
-    
+
     return res.json({
       message: `Email templates seeded successfully. Created: ${result.created}, Updated: ${result.updated}`,
       ...result,

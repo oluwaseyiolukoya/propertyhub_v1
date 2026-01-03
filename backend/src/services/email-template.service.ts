@@ -164,7 +164,7 @@ export class EmailTemplateService {
   }
 
   /**
-   * Delete template (if not system)
+   * Delete template
    */
   async deleteTemplate(id: string) {
     const template = await prisma.email_templates.findUnique({
@@ -175,10 +175,8 @@ export class EmailTemplateService {
       throw new Error(`Template with id "${id}" not found`);
     }
 
-    if (template.is_system) {
-      throw new Error('Cannot delete system template');
-    }
-
+    // Allow deletion of all templates, including system templates
+    // Admin can always delete templates if needed
     return await prisma.email_templates.delete({
       where: { id },
     });
