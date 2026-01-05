@@ -8,6 +8,10 @@ import {
   HardDrive,
   Loader2,
   ExternalLink,
+  Plus,
+  Receipt,
+  Edit,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
@@ -27,6 +31,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "../../../components/ui/dialog";
 import { Calendar } from "../../../components/ui/calendar";
 import {
@@ -576,17 +581,18 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {isEditMode ? "Edit Invoice" : "Create New Invoice"}
+      <DialogContent className="max-w-2xl border-0 shadow-2xl p-0 max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-lg">
+          <DialogTitle className="text-white text-2xl font-bold flex items-center space-x-2">
+            <Receipt className="h-6 w-6 text-white" />
+            <span>{isEditMode ? "Edit Invoice" : "Create New Invoice"}</span>
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-purple-100 mt-2">
             Add a new invoice for project expenses and vendor payments
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form id="invoice-form" onSubmit={handleSubmit} className="space-y-6 p-6 pl-8">
           {/* Storage Quota Display */}
           {quota && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -646,25 +652,26 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
 
           {/* Invoice Number (Auto-generated) */}
           <div className="space-y-2">
-            <Label htmlFor="invoiceNumber">Invoice Number (auto)</Label>
+            <Label htmlFor="invoiceNumber" className="text-sm font-semibold text-gray-700">Invoice Number (auto)</Label>
             <Input
               id="invoiceNumber"
               value={formData.invoiceNumber || "Will be assigned automatically"}
               readOnly
               disabled
+              className="h-11"
             />
           </div>
 
           {/* Vendor (from vendor list) */}
           <div className="space-y-2">
-            <Label htmlFor="vendor">Vendor</Label>
+            <Label htmlFor="vendor" className="text-sm font-semibold text-gray-700">Vendor</Label>
             <Select
               value={formData.vendorId}
               onValueChange={(value) =>
                 setFormData({ ...formData, vendorId: value })
               }
             >
-              <SelectTrigger>
+              <SelectTrigger className="h-11">
                 <SelectValue placeholder="Select vendor" />
               </SelectTrigger>
               <SelectContent>
@@ -685,24 +692,25 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
 
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description">
+            <Label htmlFor="description" className="text-sm font-semibold text-gray-700">
               Description <span className="text-red-500">*</span>
             </Label>
             <Textarea
               id="description"
               placeholder="Describe the invoice items or services..."
-              rows={3}
+              rows={4}
               value={formData.description}
               onChange={(e) =>
                 setFormData({ ...formData, description: e.target.value })
               }
+              className="resize-none"
             />
           </div>
 
           {/* Category and Amount */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="category">
+              <Label htmlFor="category" className="text-sm font-semibold text-gray-700">
                 Category <span className="text-red-500">*</span>
               </Label>
               <Select
@@ -711,7 +719,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                   setFormData({ ...formData, category: value })
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-11">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -731,7 +739,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="amount">
+              <Label htmlFor="amount" className="text-sm font-semibold text-gray-700">
                 Amount ({getCurrencySymbol(projectCurrency)}) <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -745,23 +753,24 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                     amount: parseFloat(e.target.value) || 0,
                   })
                 }
+                className="h-11"
               />
             </div>
           </div>
 
           {/* Due Date */}
           <div className="space-y-2">
-            <Label>Due Date</Label>
+            <Label className="text-sm font-semibold text-gray-700">Due Date</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
                   className={cn(
-                    "w-full justify-start text-left font-normal",
+                    "w-full justify-start text-left font-normal h-11",
                     !dueDate && "text-muted-foreground"
                   )}
                 >
-                  <FileText className="mr-2 h-4 w-4" />
+                  <CalendarIcon className="mr-2 h-4 w-4" />
                   {dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}
                 </Button>
               </PopoverTrigger>
@@ -784,21 +793,22 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
 
           {/* Notes */}
           <div className="space-y-2">
-            <Label htmlFor="notes">Additional Notes</Label>
+            <Label htmlFor="notes" className="text-sm font-semibold text-gray-700">Additional Notes</Label>
             <Textarea
               id="notes"
               placeholder="Any additional information or notes..."
-              rows={2}
+              rows={3}
               value={formData.notes || ""}
               onChange={(e) =>
                 setFormData({ ...formData, notes: e.target.value })
               }
+              className="resize-none"
             />
           </div>
 
           {/* Attachments */}
           <div className="space-y-2">
-            <Label>Attachments (Optional)</Label>
+            <Label className="text-sm font-semibold text-gray-700">Attachments (Optional)</Label>
 
             {/* Existing Attachments (Edit Mode) */}
             {isEditMode && (
@@ -950,26 +960,42 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
             )}
           </div>
 
-          {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={!isValid() || loading}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              {loading
-                ? isEditMode
-                  ? "Updating..."
-                  : "Creating..."
-                : isEditMode
-                ? "Update Invoice"
-                : "Create Invoice"}
-            </Button>
-          </div>
         </form>
+        <DialogFooter className="px-6 py-4 bg-gray-50 border-t">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            className="border-gray-300 hover:bg-gray-100"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={(e) => {
+              e.preventDefault();
+              handleSubmit(e as any);
+            }}
+            disabled={!isValid() || loading}
+            className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md hover:shadow-lg transition-all duration-200"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                {isEditMode ? "Updating..." : "Creating..."}
+              </>
+            ) : isEditMode ? (
+              <>
+                <Edit className="h-4 w-4 mr-2" />
+                Update Invoice
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Invoice
+              </>
+            )}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

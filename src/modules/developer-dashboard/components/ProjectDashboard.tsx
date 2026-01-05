@@ -124,26 +124,52 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="h-12 bg-gray-200 animate-pulse rounded" />
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="space-y-5 md:space-y-6 animate-in fade-in duration-500">
+        {/* Hero Skeleton */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 h-32 animate-pulse">
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+        </div>
+
+        {/* KPI Cards Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-32 bg-gray-200 animate-pulse rounded" />
+            <Card key={i} className="border-0 shadow-xl overflow-hidden animate-in fade-in duration-500" style={{ animationDelay: `${i * 50}ms` }}>
+              <CardContent className="p-6">
+                <div className="space-y-3">
+                  <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-3 w-40 bg-gray-200 rounded animate-pulse" />
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
-        <div className="h-96 bg-gray-200 animate-pulse rounded" />
+
+        {/* Chart Skeleton */}
+        <Card className="border-0 shadow-xl overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-gray-200 to-gray-300 h-16 animate-pulse" />
+          <CardContent className="p-6">
+            <div className="h-80 bg-gray-100 rounded-lg animate-pulse" />
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="text-center py-12">
-        <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to load project</h3>
-        <p className="text-gray-600 mb-6">{error || 'Project not found'}</p>
-        <Button onClick={onBack} variant="outline">
-          <ArrowLeft className="h-4 w-4 mr-2" />
+      <div className="flex flex-col items-center justify-center min-h-[400px] animate-in fade-in duration-500">
+        <div className="bg-red-50 rounded-full p-4 mb-4">
+          <AlertTriangle className="h-12 w-12 text-red-500" />
+        </div>
+        <h3 className="text-xl font-semibold text-gray-900 mb-2">Failed to load project</h3>
+        <p className="text-gray-600 mb-6 max-w-md text-center">{error || 'Project not found'}</p>
+        <Button
+          onClick={onBack}
+          variant="outline"
+          className="gap-2 hover:bg-[#7C3AED]/10 hover:border-[#7C3AED] hover:text-[#7C3AED] transition-all duration-200"
+        >
+          <ArrowLeft className="h-4 w-4" />
           Back to Portfolio
         </Button>
       </div>
@@ -225,148 +251,173 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
 
   return (
     <TooltipProvider>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="space-y-4">
+      <div className="space-y-5 md:space-y-6">
+        {/* Back Button */}
         <Button variant="ghost" className="gap-2 -ml-2" onClick={onBack}>
           <ArrowLeft className="w-4 h-4" />
           Back to Portfolio
         </Button>
 
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl font-bold text-gray-900">{project.name}</h1>
-              <Badge variant="outline" className="capitalize">
-                {project.stage}
-              </Badge>
+        {/* Hero Header */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#7C3AED] via-[#6D28D9] to-[#5B21B6] p-6 md:p-8 shadow-xl">
+          <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.6))]"></div>
+          <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+          <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-purple-900/20 rounded-full blur-3xl"></div>
+          <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <h1 className="text-2xl md:text-3xl font-bold text-white">{project.name}</h1>
+                <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm capitalize">
+                  {project.stage}
+                </Badge>
+              </div>
+              <p className="text-white/80 font-medium">Track your project performance and financial metrics</p>
             </div>
-            <p className="text-gray-600">Track your project performance and financial metrics</p>
-          </div>
-
-          <div className="flex gap-2">
-            {onMarkAsCompleted && project.status !== 'completed' && (
+            <div className="flex flex-wrap gap-2">
+              {onMarkAsCompleted && project.status !== 'completed' && (
+                <Button
+                  className="gap-2 bg-white hover:bg-gray-50 text-gray-900 font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+                  onClick={onMarkAsCompleted}
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Mark as Completed
+                </Button>
+              )}
+              {onReactivateProject && project.status === 'completed' && (
+                <Button
+                  className="gap-2 bg-white hover:bg-gray-50 text-gray-900 font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+                  onClick={onReactivateProject}
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Reactivate Project
+                </Button>
+              )}
               <Button
-                variant="default"
-                className="gap-2 bg-green-600 hover:bg-green-700"
-                onClick={onMarkAsCompleted}
+                variant="outline"
+                className="gap-2 bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 font-semibold"
               >
-                <CheckCircle className="w-4 h-4" />
-                Mark as Completed
+                <Share2 className="w-4 h-4" />
+                Share
               </Button>
-            )}
-            {onReactivateProject && project.status === 'completed' && (
               <Button
-                variant="default"
-                className="gap-2 bg-blue-600 hover:bg-blue-700"
-                onClick={onReactivateProject}
+                variant="outline"
+                className="gap-2 bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 font-semibold"
+                onClick={onEditProject}
               >
-                <RotateCcw className="w-4 h-4" />
-                Reactivate Project
+                <Edit className="w-4 h-4" />
+                Edit Project
               </Button>
-            )}
-            <Button variant="outline" className="gap-2">
-              <Share2 className="w-4 h-4" />
-              Share
-            </Button>
-            <Button variant="outline" className="gap-2" onClick={onEditProject}>
-              <Edit className="w-4 h-4" />
-              Edit Project
-            </Button>
-            <Button className="gap-2 bg-blue-600 hover:bg-blue-700" onClick={onGenerateReport}>
-              <Download className="w-4 h-4" />
-              Export Report
-            </Button>
+              <Button
+                className="gap-2 bg-white hover:bg-gray-50 text-[#7C3AED] font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+                onClick={onGenerateReport}
+              >
+                <Download className="w-4 h-4" />
+                Export Report
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
 
       {/* KPI Cards - Row 1 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <KPICard
-          title="Total Budget"
-          value={formatCurrency(totalBudget)}
-          subtitle="From budget line items"
-          icon={DollarSign}
-          tooltip="Total planned budget for this project. Shows sum of budget line items if available, otherwise shows the initial project budget."
-        />
-        <KPICard
-          title="Gross Spend"
-          value={formatCurrency(grossSpend)}
-          subtitle="Total expenses paid"
-          icon={TrendingUp}
-          trend={{
-            value: parseFloat(Math.abs(variancePercent).toFixed(1)),
-            direction: variance < 0 ? 'up' : 'down',
-            label: variance < 0 ? 'under budget' : 'over budget',
-          }}
-          tooltip="Total amount spent from paid expenses. Only expenses marked as 'Paid' are included in this calculation"
-        />
-        <KPICard
-          title="Funding Received"
-          value={formatCurrency(totalFundingReceived)}
-          subtitle="Total funding"
-          icon={DollarSign}
-          tooltip="Total funding received for this project. Only funding with status 'received' is included"
-        />
-        <KPICard
-          title="Net Spend"
-          value={formatCurrency(Math.abs(netSpend))}
-          subtitle={netSpend >= 0 ? 'After funding' : 'Net positive'}
-          icon={netSpend >= 0 ? TrendingUp : TrendingDown}
-          trend={{
-            value: parseFloat(Math.abs(netVariancePercent).toFixed(1)),
-            direction: netSpend >= 0 ? 'up' : 'down',
-            label: netSpend >= 0 ? 'net outflow' : 'net inflow',
-          }}
-          tooltip="Net spend after deducting funding received. Calculated as Gross Spend - Funding Received"
-        />
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '0ms' }}>
+          <KPICard
+            title="Total Budget"
+            value={formatCurrency(totalBudget)}
+            subtitle="From budget line items"
+            icon={DollarSign}
+            tooltip="Total planned budget for this project. Shows sum of budget line items if available, otherwise shows the initial project budget."
+          />
+        </div>
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '50ms' }}>
+          <KPICard
+            title="Gross Spend"
+            value={formatCurrency(grossSpend)}
+            subtitle="Total expenses paid"
+            icon={TrendingUp}
+            trend={{
+              value: parseFloat(Math.abs(variancePercent).toFixed(1)),
+              direction: variance < 0 ? 'up' : 'down',
+              label: variance < 0 ? 'under budget' : 'over budget',
+            }}
+            tooltip="Total amount spent from paid expenses. Only expenses marked as 'Paid' are included in this calculation"
+          />
+        </div>
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '100ms' }}>
+          <KPICard
+            title="Funding Received"
+            value={formatCurrency(totalFundingReceived)}
+            subtitle="Total funding"
+            icon={DollarSign}
+            tooltip="Total funding received for this project. Only funding with status 'received' is included"
+          />
+        </div>
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '150ms' }}>
+          <KPICard
+            title="Net Spend"
+            value={formatCurrency(Math.abs(netSpend))}
+            subtitle={netSpend >= 0 ? 'After funding' : 'Net positive'}
+            icon={netSpend >= 0 ? TrendingUp : TrendingDown}
+            trend={{
+              value: parseFloat(Math.abs(netVariancePercent).toFixed(1)),
+              direction: netSpend >= 0 ? 'up' : 'down',
+              label: netSpend >= 0 ? 'net outflow' : 'net inflow',
+            }}
+            tooltip="Net spend after deducting funding received. Calculated as Gross Spend - Funding Received"
+          />
+        </div>
       </div>
 
       {/* KPI Cards - Row 2 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <KPICard
-          title="Available Budget"
-          value={formatCurrency(Math.abs(availableBudget))}
-          subtitle={availableBudget >= 0 ? 'Remaining' : 'Over budget'}
-          icon={DollarSign}
-          trend={{
-            value: Math.abs((availableBudget / totalBudget) * 100),
-            direction: availableBudget >= 0 ? 'up' : 'down',
-            label: availableBudget >= 0 ? 'available' : 'exceeded',
-          }}
-          tooltip="Available budget including funding. Calculated as Total Budget + Funding Received - Gross Spend"
-        />
-        <KPICard
-          title="Net Variance"
-          value={`${netVariance >= 0 ? '+' : ''}${formatCurrency(Math.abs(netVariance))}`}
-          subtitle={`${netVariancePercent >= 0 ? '+' : ''}${netVariancePercent.toFixed(1)}%`}
-          icon={AlertTriangle}
-          trend={{
-            value: Math.abs(netVariancePercent),
-            direction: netVariance > 0 ? 'down' : 'up',
-            label: netVariance > 0 ? 'over budget' : 'under budget',
-          }}
-          tooltip="Net variance after funding. Calculated as Net Spend - Total Budget. Negative values indicate under budget"
-        />
-        <KPICard
-          title="Forecasted Completion"
-          value={formatCurrency(forecastedCompletion)}
-          subtitle={
-            forecastVariance > 0
-              ? `${forecastVariancePercent.toFixed(1)}% over budget`
-              : forecastVariance < 0
-              ? `${Math.abs(forecastVariancePercent).toFixed(1)}% under budget`
-              : 'on budget'
-          }
-          icon={Target}
-          trend={{
-            value: Math.abs(forecastVariancePercent),
-            direction: forecastVariance > 0 ? 'down' : 'up',
-            label: forecastVariance > 0 ? 'over forecast' : 'under forecast',
-          }}
-          tooltip="Projected total cost at project completion based on current progress and spend rate. Calculated as (Gross Spend ÷ Progress) × 100"
-        />
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '200ms' }}>
+          <KPICard
+            title="Available Budget"
+            value={formatCurrency(Math.abs(availableBudget))}
+            subtitle={availableBudget >= 0 ? 'Remaining' : 'Over budget'}
+            icon={DollarSign}
+            trend={{
+              value: Math.abs((availableBudget / totalBudget) * 100),
+              direction: availableBudget >= 0 ? 'up' : 'down',
+              label: availableBudget >= 0 ? 'available' : 'exceeded',
+            }}
+            tooltip="Available budget including funding. Calculated as Total Budget + Funding Received - Gross Spend"
+          />
+        </div>
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '250ms' }}>
+          <KPICard
+            title="Net Variance"
+            value={`${netVariance >= 0 ? '+' : ''}${formatCurrency(Math.abs(netVariance))}`}
+            subtitle={`${netVariancePercent >= 0 ? '+' : ''}${netVariancePercent.toFixed(1)}%`}
+            icon={AlertTriangle}
+            trend={{
+              value: Math.abs(netVariancePercent),
+              direction: netVariance > 0 ? 'down' : 'up',
+              label: netVariance > 0 ? 'over budget' : 'under budget',
+            }}
+            tooltip="Net variance after funding. Calculated as Net Spend - Total Budget. Negative values indicate under budget"
+          />
+        </div>
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '300ms' }}>
+          <KPICard
+            title="Forecasted Completion"
+            value={formatCurrency(forecastedCompletion)}
+            subtitle={
+              forecastVariance > 0
+                ? `${forecastVariancePercent.toFixed(1)}% over budget`
+                : forecastVariance < 0
+                ? `${Math.abs(forecastVariancePercent).toFixed(1)}% under budget`
+                : 'on budget'
+            }
+            icon={Target}
+            trend={{
+              value: Math.abs(forecastVariancePercent),
+              direction: forecastVariance > 0 ? 'down' : 'up',
+              label: forecastVariance > 0 ? 'over forecast' : 'under forecast',
+            }}
+            tooltip="Projected total cost at project completion based on current progress and spend rate. Calculated as (Gross Spend ÷ Progress) × 100"
+          />
+        </div>
       </div>
 
       {/* Project Stages Checklist */}
@@ -384,13 +435,13 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
       {/* Charts Row 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Budget vs Actual Chart */}
-        <Card>
-          <CardHeader>
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '350ms' }}>
+          <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white">
             <div className="flex items-center justify-between">
-              <CardTitle>Budget vs Actual Spend</CardTitle>
+              <CardTitle className="text-white font-bold">Budget vs Actual Spend</CardTitle>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Info className="w-4 h-4 text-gray-400 cursor-help" />
+                  <Info className="w-4 h-4 text-white/80 cursor-help hover:text-white" />
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
                   <p>Cumulative comparison of planned budget vs actual expenses over time. Helps track spending trends and identify budget deviations early</p>
@@ -400,8 +451,9 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="flex items-center justify-center h-[300px]">
-                <div className="text-gray-500">Loading budget data...</div>
+              <div className="flex flex-col items-center justify-center h-[300px]">
+                <div className="animate-spin rounded-full h-10 w-10 border-4 border-[#7C3AED]/20 border-t-[#7C3AED] mb-4"></div>
+                <p className="text-gray-500 text-sm">Loading budget data...</p>
               </div>
             ) : data.budgetVsActual && data.budgetVsActual.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
@@ -437,22 +489,25 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex flex-col items-center justify-center h-[300px] text-gray-500">
-                <p className="mb-2">No budget data available</p>
-                <p className="text-sm">Add budget line items to see budget vs actual</p>
+              <div className="flex flex-col items-center justify-center h-[300px] text-gray-500 animate-in fade-in duration-500">
+                <div className="bg-gray-100 rounded-full p-4 mb-4">
+                  <TrendingUp className="h-8 w-8 text-gray-400" />
+                </div>
+                <p className="font-medium text-gray-900 mb-1">No budget data available</p>
+                <p className="text-sm text-gray-600">Add budget line items to see budget vs actual comparison</p>
               </div>
             )}
           </CardContent>
         </Card>
 
         {/* Spend by Category Chart */}
-        <Card>
-          <CardHeader>
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '400ms' }}>
+          <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white">
             <div className="flex items-center justify-between">
-              <CardTitle>Spend by Category</CardTitle>
+              <CardTitle className="text-white font-bold">Spend by Category</CardTitle>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Info className="w-4 h-4 text-gray-400 cursor-help" />
+                  <Info className="w-4 h-4 text-white/80 cursor-help hover:text-white" />
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
                   <p>Breakdown of total paid expenses by category (Labor, Materials, Equipment, etc.). Only includes expenses with 'Paid' status</p>
@@ -462,8 +517,9 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="flex items-center justify-center h-[300px]">
-                <div className="text-gray-500">Loading spend data...</div>
+              <div className="flex flex-col items-center justify-center h-[300px]">
+                <div className="animate-spin rounded-full h-10 w-10 border-4 border-[#7C3AED]/20 border-t-[#7C3AED] mb-4"></div>
+                <p className="text-gray-500 text-sm">Loading spend data...</p>
               </div>
             ) : formattedSpendByCategory.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
@@ -490,9 +546,12 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex flex-col items-center justify-center h-[300px] text-gray-500">
-                <p className="mb-2">No spend data available</p>
-                <p className="text-sm">Add expenses to see spend by category</p>
+              <div className="flex flex-col items-center justify-center h-[300px] text-gray-500 animate-in fade-in duration-500">
+                <div className="bg-gray-100 rounded-full p-4 mb-4">
+                  <DollarSign className="h-8 w-8 text-gray-400" />
+                </div>
+                <p className="font-medium text-gray-900 mb-1">No spend data available</p>
+                <p className="text-sm text-gray-600">Add expenses to see spending breakdown by category</p>
               </div>
             )}
           </CardContent>
@@ -510,16 +569,16 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
       {/* Alerts and Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Alerts */}
-        <Card className="lg:col-span-1">
-          <CardHeader>
+        <Card className="lg:col-span-1 border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '450ms' }}>
+          <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white">
             <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-amber-500" />
+              <CardTitle className="flex items-center gap-2 text-white font-bold">
+                <AlertTriangle className="w-5 h-5 text-white" />
                 Budget Alerts
               </CardTitle>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Info className="w-4 h-4 text-gray-400 cursor-help" />
+                  <Info className="w-4 h-4 text-white/80 cursor-help hover:text-white" />
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
                   <p>Critical notifications about budget overruns, pending approvals, and other important project financial events</p>
@@ -568,7 +627,11 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
                       : 'Good';
 
                   return (
-                    <div key={alert.id} className={`p-3 border rounded-lg ${bgColor}`}>
+                    <div
+                      key={alert.id}
+                      className={`p-4 border rounded-xl ${bgColor} hover:shadow-md transition-all duration-200 animate-in fade-in slide-in-from-right-2`}
+                      style={{ animationDelay: `${alerts.slice(0, 3).indexOf(alert) * 50}ms` }}
+                    >
                       <div className="flex items-start justify-between mb-1">
                         <span className={`font-medium ${textColor}`}>{alert.title}</span>
                         <Badge variant={badgeVariant} className={badgeClass}>
@@ -581,35 +644,42 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
                     </div>
                   );
                 })}
-                <Button variant="outline" className="w-full gap-2">
+                <Button
+                  variant="outline"
+                  className="w-full gap-2 hover:bg-[#7C3AED]/10 hover:border-[#7C3AED] hover:text-[#7C3AED] transition-colors"
+                >
                   View All Alerts
                   <ArrowRight className="w-4 h-4" />
                 </Button>
               </>
             ) : (
-              <div className="text-center py-8">
-                <p className="text-gray-500 text-sm">No active alerts</p>
+              <div className="text-center py-12 animate-in fade-in duration-500">
+                <div className="bg-green-50 rounded-full p-3 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                  <CheckCircle className="h-8 w-8 text-green-500" />
+                </div>
+                <p className="font-medium text-gray-900 mb-1">No active alerts</p>
+                <p className="text-sm text-gray-600">All systems are running smoothly</p>
               </div>
             )}
           </CardContent>
         </Card>
 
         {/* Recent Activity */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
+        <Card className="lg:col-span-2 border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '500ms' }}>
+          <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <CardTitle>Recent Activity</CardTitle>
+                <CardTitle className="text-white font-bold">Recent Activity</CardTitle>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Info className="w-4 h-4 text-gray-400 cursor-help" />
+                    <Info className="w-4 h-4 text-white/80 cursor-help hover:text-white" />
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
                     <p>Latest financial transactions and activities on this project, including invoices, purchase orders, and approvals</p>
                   </TooltipContent>
                 </Tooltip>
               </div>
-              <Button variant="link" className="gap-1">
+              <Button variant="link" className="gap-1 text-white hover:text-white/80 hover:underline">
                 View All
                 <ArrowRight className="w-4 h-4" />
               </Button>
@@ -619,7 +689,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
             {activityLoading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-20 bg-gray-200 animate-pulse rounded" />
+                  <div key={i} className="h-20 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 rounded-xl animate-pulse" style={{ backgroundSize: '200% 100%' }} />
                 ))}
               </div>
             ) : recentActivity.length > 0 ? (
@@ -642,7 +712,8 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
                   return (
                     <div
                       key={activity.id}
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+                      className="flex items-center justify-between p-4 border border-gray-200 rounded-xl hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm transition-all duration-200 animate-in fade-in slide-in-from-left-2"
+                      style={{ animationDelay: `${recentActivity.indexOf(activity) * 30}ms` }}
                     >
                       <div className="flex-1">
                         <p className="font-medium text-gray-900 mb-1">{activity.description}</p>
@@ -663,8 +734,12 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({
                 })}
               </div>
             ) : (
-              <div className="text-center py-8">
-                <p className="text-gray-500 text-sm">No recent activity</p>
+              <div className="text-center py-12 animate-in fade-in duration-500">
+                <div className="bg-gray-100 rounded-full p-3 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                  <Clock className="h-8 w-8 text-gray-400" />
+                </div>
+                <p className="font-medium text-gray-900 mb-1">No recent activity</p>
+                <p className="text-sm text-gray-600">Activity will appear here as actions are performed</p>
               </div>
             )}
 

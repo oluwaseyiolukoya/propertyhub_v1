@@ -1,10 +1,12 @@
 import React, { useState } from "react";
-import { DollarSign, AlertCircle } from "lucide-react";
+import { DollarSign, AlertCircle, Plus, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "../../../components/ui/dialog";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
@@ -220,18 +222,21 @@ export function AddExpenseModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center space-x-2">
-            <DollarSign className="h-5 w-5 text-blue-600" />
+      <DialogContent className="max-w-2xl border-0 shadow-2xl p-0 max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-lg">
+          <DialogTitle className="text-white text-2xl font-bold flex items-center space-x-2">
+            <DollarSign className="h-6 w-6 text-white" />
             <span>Add New Expense</span>
           </DialogTitle>
+          <DialogDescription className="text-purple-100 mt-2">
+            Add a new expense to track project costs and payments
+          </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6 p-6 pl-8">
           {/* Category Selection */}
           <div className="space-y-2">
-            <Label htmlFor="category">
+            <Label htmlFor="category" className="text-sm font-semibold text-gray-700">
               Category <span className="text-red-500">*</span>
             </Label>
             <Select
@@ -241,7 +246,7 @@ export function AddExpenseModal({
                 setErrors({ ...errors, category: "" });
               }}
             >
-              <SelectTrigger className={errors.category ? "border-red-500" : ""}>
+              <SelectTrigger className={`h-11 ${errors.category ? "border-red-500" : ""}`}>
                 <SelectValue placeholder="Select expense category" />
               </SelectTrigger>
               <SelectContent>
@@ -275,7 +280,7 @@ export function AddExpenseModal({
 
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description">
+            <Label htmlFor="description" className="text-sm font-semibold text-gray-700">
               Description <span className="text-red-500">*</span>
             </Label>
             <Input
@@ -286,7 +291,7 @@ export function AddExpenseModal({
                 setErrors({ ...errors, description: "" });
               }}
               placeholder="e.g., Construction crew - Phase 2"
-              className={errors.description ? "border-red-500" : ""}
+              className={`h-11 ${errors.description ? "border-red-500" : ""}`}
             />
             {errors.description && (
               <p className="text-xs text-red-500 flex items-center space-x-1">
@@ -302,7 +307,7 @@ export function AddExpenseModal({
           {/* Amount Fields */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="amount">
+              <Label htmlFor="amount" className="text-sm font-semibold text-gray-700">
                 Amount ({getCurrencySymbol(projectCurrency)}){" "}
                 <span className="text-red-500">*</span>
               </Label>
@@ -317,7 +322,7 @@ export function AddExpenseModal({
                   setErrors({ ...errors, amount: "" });
                 }}
                 placeholder="0.00"
-                className={errors.amount ? "border-red-500" : ""}
+                className={`h-11 ${errors.amount ? "border-red-500" : ""}`}
               />
               {errors.amount && (
                 <p className="text-xs text-red-500 flex items-center space-x-1">
@@ -328,7 +333,7 @@ export function AddExpenseModal({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="taxAmount">
+              <Label htmlFor="taxAmount" className="text-sm font-semibold text-gray-700">
                 Tax Amount ({getCurrencySymbol(projectCurrency)})
               </Label>
               <Input
@@ -342,7 +347,7 @@ export function AddExpenseModal({
                   setErrors({ ...errors, taxAmount: "" });
                 }}
                 placeholder="0.00"
-                className={errors.taxAmount ? "border-red-500" : ""}
+                className={`h-11 ${errors.taxAmount ? "border-red-500" : ""}`}
               />
               {errors.taxAmount && (
                 <p className="text-xs text-red-500 flex items-center space-x-1">
@@ -354,18 +359,23 @@ export function AddExpenseModal({
           </div>
 
           {/* Total Display */}
-          <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 p-4 rounded-xl">
             <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-700">
-                Total Amount:
-              </span>
-              <span className="text-2xl font-bold text-blue-600">
+              <div className="flex items-center space-x-2">
+                <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+                  <DollarSign className="h-5 w-5 text-green-600" />
+                </div>
+                <span className="text-sm font-semibold text-gray-700">
+                  Total Amount:
+                </span>
+              </div>
+              <span className="text-2xl font-bold text-[#7C3AED]">
                 {getCurrencySymbol(projectCurrency)}
                 {totalAmount.toLocaleString()}
               </span>
             </div>
             {parseFloat(formData.taxAmount || "0") > 0 && (
-              <div className="mt-2 text-xs text-gray-600">
+              <div className="mt-3 pt-3 border-t border-green-200 text-xs text-gray-600">
                 Base: {getCurrencySymbol(projectCurrency)}
                 {parseFloat(formData.amount || "0").toLocaleString()} + Tax:{" "}
                 {getCurrencySymbol(projectCurrency)}
@@ -376,7 +386,7 @@ export function AddExpenseModal({
 
           {/* Payment Date */}
           <div className="space-y-2">
-            <Label htmlFor="paidDate">
+            <Label htmlFor="paidDate" className="text-sm font-semibold text-gray-700">
               Payment Date <span className="text-red-500">*</span>
             </Label>
             <Input
@@ -387,7 +397,7 @@ export function AddExpenseModal({
                 setFormData({ ...formData, paidDate: e.target.value });
                 setErrors({ ...errors, paidDate: "" });
               }}
-              className={errors.paidDate ? "border-red-500" : ""}
+              className={`h-11 ${errors.paidDate ? "border-red-500" : ""}`}
               max={new Date().toISOString().split("T")[0]}
             />
             {errors.paidDate && (
@@ -403,7 +413,7 @@ export function AddExpenseModal({
 
           {/* Payment Status */}
           <div className="space-y-2">
-            <Label>
+            <Label className="text-sm font-semibold text-gray-700">
               Payment Status <span className="text-red-500">*</span>
             </Label>
             <RadioGroup
@@ -443,7 +453,7 @@ export function AddExpenseModal({
 
           {/* Notes */}
           <div className="space-y-2">
-            <Label htmlFor="notes">Notes (Optional)</Label>
+            <Label htmlFor="notes" className="text-sm font-semibold text-gray-700">Notes (Optional)</Label>
             <Textarea
               id="notes"
               value={formData.notes}
@@ -459,31 +469,38 @@ export function AddExpenseModal({
             </p>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex justify-end space-x-3 pt-4 border-t">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleClose}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? (
-                <>
-                  <span className="animate-spin mr-2">⏳</span>
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <DollarSign className="h-4 w-4 mr-2" />
-                  Create Expense
-                </>
-              )}
-            </Button>
-          </div>
         </form>
+        <DialogFooter className="px-6 py-4 bg-gray-50 border-t">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleClose}
+            disabled={loading}
+            className="border-gray-300 hover:bg-gray-100"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={(e) => {
+              e.preventDefault();
+              handleSubmit(e as any);
+            }}
+            disabled={loading}
+            className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md hover:shadow-lg transition-all duration-200"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Expense
+              </>
+            )}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

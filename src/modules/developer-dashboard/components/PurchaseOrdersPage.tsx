@@ -20,7 +20,10 @@ import {
   Calendar,
   DollarSign,
   Calculator,
-  X
+  X,
+  Edit,
+  Loader2,
+  Building2
 } from "lucide-react";
 import {
   Select,
@@ -1272,65 +1275,150 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-gray-500">Loading purchase orders...</div>
+      <div className="space-y-5 md:space-y-6 animate-in fade-in duration-500">
+        {/* Hero Skeleton */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 h-32 animate-pulse">
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+        </div>
+
+        {/* Summary Cards Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="border-0 shadow-xl overflow-hidden animate-in fade-in duration-500" style={{ animationDelay: `${i * 50}ms` }}>
+              <CardContent className="p-6">
+                <div className="space-y-3">
+                  <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Purchase Orders</h1>
-          <p className="text-gray-600">Manage purchase orders and track invoice approvals</p>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={() => handleOpenVendorDialog()} variant="outline" className="gap-2">
-            <Plus className="w-4 h-4" />
-            Add Vendor
-          </Button>
-          <Button onClick={() => setIsCreatePOOpen(true)} className="gap-2 bg-orange-500 hover:bg-orange-600">
-            <Plus className="w-4 h-4" />
-            New Purchase Order
-          </Button>
+    <div className="space-y-5 md:space-y-6">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#7C3AED] via-[#6D28D9] to-[#5B21B6] p-6 md:p-8 shadow-xl animate-in fade-in duration-500">
+        <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.6))]"></div>
+        <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-purple-900/20 rounded-full blur-3xl"></div>
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex-1">
+            <h1 className="text-2xl md:text-3xl font-bold text-white mb-2 flex items-center gap-3">
+              <FileText className="h-8 w-8 text-white" />
+              Purchase Orders
+            </h1>
+            <p className="text-white/80 font-medium">Manage purchase orders and track invoice approvals</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={() => handleOpenVendorDialog()}
+              variant="outline"
+              className="gap-2 bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 font-semibold"
+            >
+              <Plus className="w-4 h-4" />
+              Add Vendor
+            </Button>
+            <Button
+              onClick={() => setIsCreatePOOpen(true)}
+              className="gap-2 bg-white hover:bg-gray-50 text-[#7C3AED] font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              <Plus className="w-4 h-4" />
+              New Purchase Order
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <KPICard
-          title="Total PO Value"
-          value={formatCurrency(totalPOValue)}
-          icon={DollarSign}
-        />
-        <KPICard
-          title="Approved POs"
-          value={approvedPOs.toString()}
-          subtitle={`of ${purchaseOrders.length} total`}
-          icon={CheckCircle}
-        />
-        <KPICard
-          title="Pending Approval"
-          value={pendingPOs.toString()}
-          subtitle="requires action"
-          icon={Clock}
-        />
-        <KPICard
-          title="Total Invoiced"
-          value={formatCurrency(totalInvoiceValue)}
-          subtitle={`${invoices.length} invoices`}
-          icon={FileText}
-        />
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl transition-all duration-300" style={{ animationDelay: '0ms' }}>
+          <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-white/90">Total PO Value</CardTitle>
+              <DollarSign className="h-5 w-5 text-white/80" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="space-y-1">
+              <p className="text-3xl font-bold text-gray-900">
+                {formatCurrency(totalPOValue)}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl transition-all duration-300" style={{ animationDelay: '50ms' }}>
+          <CardHeader className="bg-gradient-to-r from-green-500 to-emerald-600 text-white pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-white/90">Approved POs</CardTitle>
+              <CheckCircle className="h-5 w-5 text-white/80" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="space-y-1">
+              <p className="text-3xl font-bold text-gray-900">
+                {approvedPOs}
+              </p>
+              <p className="text-xs text-gray-600">
+                of {purchaseOrders.length} total
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl transition-all duration-300" style={{ animationDelay: '100ms' }}>
+          <CardHeader className="bg-gradient-to-r from-yellow-500 to-amber-600 text-white pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-white/90">Pending Approval</CardTitle>
+              <Clock className="h-5 w-5 text-white/80" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="space-y-1">
+              <p className="text-3xl font-bold text-gray-900">
+                {pendingPOs}
+              </p>
+              <p className="text-xs text-gray-600">
+                requires action
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl transition-all duration-300" style={{ animationDelay: '150ms' }}>
+          <CardHeader className="bg-gradient-to-r from-blue-500 to-cyan-600 text-white pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-white/90">Total Invoiced</CardTitle>
+              <FileText className="h-5 w-5 text-white/80" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="space-y-1">
+              <p className="text-3xl font-bold text-gray-900">
+                {formatCurrency(totalInvoiceValue)}
+              </p>
+              <p className="text-xs text-gray-600">
+                {invoices.length} invoices
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Vendors Section */}
-      <Card>
-        <CardHeader>
+      <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '200ms' }}>
+        <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white">
           <div className="flex items-center justify-between">
-            <CardTitle>Vendors</CardTitle>
-            <Button onClick={() => handleOpenVendorDialog()} size="sm" variant="outline" className="gap-2">
+            <CardTitle className="text-white font-bold">Vendors</CardTitle>
+            <Button
+              onClick={() => handleOpenVendorDialog()}
+              size="sm"
+              className="bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 font-semibold gap-2"
+            >
               <Plus className="w-4 h-4" />
               Add Vendor
             </Button>
@@ -1338,9 +1426,12 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
         </CardHeader>
         <CardContent>
           {vendors.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <p className="mb-2">No vendors found</p>
-              <p className="text-sm">Click "Add Vendor" to create your first vendor</p>
+            <div className="text-center py-16 animate-in fade-in duration-500">
+              <div className="bg-gray-100 rounded-full p-4 w-20 h-20 mx-auto mb-6 flex items-center justify-center">
+                <FileText className="h-10 w-10 text-gray-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No vendors found</h3>
+              <p className="text-gray-600 mb-6 max-w-md mx-auto">Click "Add Vendor" to create your first vendor</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -1357,8 +1448,12 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
                   </tr>
                 </thead>
                 <tbody>
-                  {vendors.map((vendor) => (
-                    <tr key={vendor.id} className="border-b hover:bg-gray-50">
+                  {vendors.map((vendor, index) => (
+                    <tr
+                      key={vendor.id}
+                      className="border-b hover:bg-gray-50 transition-colors duration-200 animate-in fade-in slide-in-from-left-2"
+                      style={{ animationDelay: `${index * 30}ms` }}
+                    >
                       <td className="py-3 px-4">
                         <div className="font-medium text-gray-900">{vendor.name}</div>
                         {vendor.specialization && (
@@ -1423,24 +1518,24 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
       </Card>
 
       {/* Purchase Orders Table */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between mb-4">
-            <CardTitle>Purchase Orders</CardTitle>
+      <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '250ms' }}>
+        <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-white font-bold">Purchase Orders</CardTitle>
             <div className="flex gap-2">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/70 w-4 h-4" />
                 <Input
                   placeholder="Search POs..."
-                  className="pl-10 w-64"
+                  className="pl-10 w-64 bg-white/10 backdrop-blur-sm border-white/30 text-white placeholder:text-white/60"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-40">
-                  <Filter className="w-4 h-4 mr-2" />
-                  <SelectValue />
+                <SelectTrigger className="w-40 bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20">
+                  <Filter className="w-4 h-4 mr-2 text-white/80" />
+                  <SelectValue className="text-white" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
@@ -1469,10 +1564,11 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
                 </tr>
               </thead>
               <tbody>
-                {filteredPOs.map((po) => (
+                {filteredPOs.map((po, index) => (
                   <tr
                     key={po.id}
-                    className="border-b hover:bg-gray-50 cursor-pointer transition-colors"
+                    className="border-b hover:bg-gray-50 cursor-pointer transition-colors duration-200 animate-in fade-in slide-in-from-left-2"
+                    style={{ animationDelay: `${index * 30}ms` }}
                     onClick={() => { setSelectedPO(po); setIsPODetailOpen(true); }}
                   >
                     <td className="py-3 px-4">
@@ -1500,7 +1596,11 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
                       <div className="flex items-center justify-center">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 hover:bg-[#7C3AED]/10 hover:text-[#7C3AED] transition-colors duration-200"
+                            >
                               <MoreVertical className="w-4 h-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -1536,9 +1636,16 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
                 ))}
                 {filteredPOs.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="text-center py-12 text-gray-500">
-                      <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                      <p>No purchase orders found</p>
+                    <td colSpan={8} className="text-center py-16 animate-in fade-in duration-500">
+                      <div className="bg-gray-100 rounded-full p-4 w-20 h-20 mx-auto mb-6 flex items-center justify-center">
+                        <FileText className="h-10 w-10 text-gray-400" />
+                      </div>
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">No purchase orders found</h3>
+                      <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                        {searchTerm || statusFilter !== "all"
+                          ? "Try adjusting your search or filters to see more results"
+                          : "Click 'New Purchase Order' to create your first purchase order"}
+                      </p>
                     </td>
                   </tr>
                 )}
@@ -1779,20 +1886,23 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
 
       {/* Create PO Dialog */}
       <Dialog open={isCreatePOOpen} onOpenChange={setIsCreatePOOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Create New Purchase Order</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-3xl border-0 shadow-2xl p-0 max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-lg">
+            <DialogTitle className="text-white text-2xl font-bold flex items-center space-x-2">
+              <FileText className="h-6 w-6 text-white" />
+              <span>Create New Purchase Order</span>
+            </DialogTitle>
+            <DialogDescription className="text-purple-100 mt-2">
               Create a new purchase order for this project
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[60vh]">
-            <div className="space-y-4 p-6">
+            <div className="space-y-4 p-6 pl-8">
               {/* Vendor and Amount */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="po-vendor">
+                    <Label htmlFor="po-vendor" className="text-sm font-semibold text-gray-700">
                       Vendor <span className="text-red-500">*</span>
                     </Label>
                     <Button
@@ -1800,7 +1910,7 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
                       variant="ghost"
                       size="sm"
                       onClick={() => handleOpenVendorDialog()}
-                      className="h-6 text-xs text-orange-600 hover:text-orange-700"
+                      className="h-6 text-xs text-[#7C3AED] hover:text-[#6D28D9] hover:bg-[#7C3AED]/10"
                     >
                       <Plus className="w-3 h-3 mr-1" />
                       New Vendor
@@ -1817,7 +1927,7 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
                       });
                     }}
                   >
-                    <SelectTrigger id="po-vendor" className={poFormErrors.vendor ? 'border-red-500' : ''}>
+                    <SelectTrigger id="po-vendor" className={`h-11 ${poFormErrors.vendor ? 'border-red-500' : ''}`}>
                       <SelectValue placeholder="Select vendor" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1838,7 +1948,7 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="po-amount">
+                  <Label htmlFor="po-amount" className="text-sm font-semibold text-gray-700">
                     Total Amount ({getCurrencySymbol(projectCurrency)}) <span className="text-red-500">*</span>
                   </Label>
                   <Input
@@ -1847,7 +1957,7 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
                     placeholder="0.00"
                     value={poFormData.totalAmount}
                     onChange={(e) => setPoFormData({ ...poFormData, totalAmount: e.target.value })}
-                    className={poFormErrors.totalAmount ? 'border-red-500' : ''}
+                    className={`h-11 ${poFormErrors.totalAmount ? 'border-red-500' : ''}`}
                   />
                   {poFormErrors.totalAmount && (
                     <p className="text-sm text-red-500">{poFormErrors.totalAmount}</p>
@@ -1857,14 +1967,14 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
 
               {/* Budget Category */}
               <div className="space-y-2">
-                <Label htmlFor="po-budget-line">
+                <Label htmlFor="po-budget-line" className="text-sm font-semibold text-gray-700">
                   Budget Category <span className="text-red-500">*</span>
                 </Label>
                 <Select
                   value={poFormData.category}
                   onValueChange={(value) => setPoFormData({ ...poFormData, category: value })}
                 >
-                  <SelectTrigger id="po-budget-line" className={poFormErrors.category ? 'border-red-500' : ''}>
+                  <SelectTrigger id="po-budget-line" className={`h-11 ${poFormErrors.category ? 'border-red-500' : ''}`}>
                     <SelectValue placeholder="Select budget category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1882,16 +1992,16 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
 
               {/* Description */}
               <div className="space-y-2">
-                <Label htmlFor="po-description">
+                <Label htmlFor="po-description" className="text-sm font-semibold text-gray-700">
                   Description <span className="text-red-500">*</span>
                 </Label>
                 <Textarea
                   id="po-description"
                   placeholder="Enter purchase order description"
-                  rows={3}
+                  rows={4}
                   value={poFormData.description}
                   onChange={(e) => setPoFormData({ ...poFormData, description: e.target.value })}
-                  className={poFormErrors.description ? 'border-red-500' : ''}
+                  className={`resize-none ${poFormErrors.description ? 'border-red-500' : ''}`}
                 />
                 {poFormErrors.description && (
                   <p className="text-sm text-red-500">{poFormErrors.description}</p>
@@ -1901,45 +2011,49 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
               {/* Dates */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="po-delivery-date">Delivery Date</Label>
+                  <Label htmlFor="po-delivery-date" className="text-sm font-semibold text-gray-700">Delivery Date</Label>
                   <Input
                     id="po-delivery-date"
                     type="date"
                     value={poFormData.deliveryDate}
                     onChange={(e) => setPoFormData({ ...poFormData, deliveryDate: e.target.value })}
+                    className="h-11"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="po-expiry-date">Expiry Date</Label>
+                  <Label htmlFor="po-expiry-date" className="text-sm font-semibold text-gray-700">Expiry Date</Label>
                   <Input
                     id="po-expiry-date"
                     type="date"
                     value={poFormData.expiryDate}
                     onChange={(e) => setPoFormData({ ...poFormData, expiryDate: e.target.value })}
+                    className="h-11"
                   />
                 </div>
               </div>
 
               {/* Payment Terms */}
               <div className="space-y-2">
-                <Label htmlFor="po-terms">Payment Terms</Label>
+                <Label htmlFor="po-terms" className="text-sm font-semibold text-gray-700">Payment Terms</Label>
                 <Input
                   id="po-terms"
                   placeholder="e.g., Net 30, 50% upfront"
                   value={poFormData.terms}
                   onChange={(e) => setPoFormData({ ...poFormData, terms: e.target.value })}
+                  className="h-11"
                 />
               </div>
 
               {/* Notes */}
               <div className="space-y-2">
-                <Label htmlFor="po-notes">Notes</Label>
+                <Label htmlFor="po-notes" className="text-sm font-semibold text-gray-700">Notes</Label>
                 <Textarea
                   id="po-notes"
                   placeholder="Additional notes or instructions"
-                  rows={2}
+                  rows={3}
                   value={poFormData.notes}
                   onChange={(e) => setPoFormData({ ...poFormData, notes: e.target.value })}
+                  className="resize-none"
                 />
               </div>
 
@@ -2054,16 +2168,31 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
               </div>
             </div>
           </ScrollArea>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreatePOOpen(false)} disabled={isSubmittingPO}>
+          <DialogFooter className="px-6 py-4 bg-gray-50 border-t">
+            <Button
+              variant="outline"
+              onClick={() => setIsCreatePOOpen(false)}
+              disabled={isSubmittingPO}
+              className="border-gray-300 hover:bg-gray-100"
+            >
               Cancel
             </Button>
             <Button
-              className="bg-orange-500 hover:bg-orange-600"
+              className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md hover:shadow-lg transition-all duration-200"
               onClick={handleCreatePO}
               disabled={isSubmittingPO}
             >
-              {isSubmittingPO ? 'Creating...' : 'Create Purchase Order'}
+              {isSubmittingPO ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Purchase Order
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2851,18 +2980,21 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
 
       {/* Vendor Management Dialog */}
       <Dialog open={isVendorDialogOpen} onOpenChange={setIsVendorDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{editingVendor ? 'Edit Vendor' : 'Create New Vendor'}</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-2xl border-0 shadow-2xl p-0 max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-lg">
+            <DialogTitle className="text-white text-2xl font-bold flex items-center space-x-2">
+              <Building2 className="h-6 w-6 text-white" />
+              <span>{editingVendor ? 'Edit Vendor' : 'Create New Vendor'}</span>
+            </DialogTitle>
+            <DialogDescription className="text-purple-100 mt-2">
               {editingVendor ? 'Update vendor information' : 'Add a new vendor to your list'}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 p-6">
+          <div className="space-y-4 p-6 pl-8">
             {/* Vendor Name and Type */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="vendor-name">
+                <Label htmlFor="vendor-name" className="text-sm font-semibold text-gray-700">
                   Vendor Name <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -2870,21 +3002,21 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
                   placeholder="Enter vendor name"
                   value={vendorFormData.name}
                   onChange={(e) => setVendorFormData({ ...vendorFormData, name: e.target.value })}
-                  className={vendorFormErrors.name ? 'border-red-500' : ''}
+                  className={`h-11 ${vendorFormErrors.name ? 'border-red-500' : ''}`}
                 />
                 {vendorFormErrors.name && (
                   <p className="text-sm text-red-500">{vendorFormErrors.name}</p>
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="vendor-type">
+                <Label htmlFor="vendor-type" className="text-sm font-semibold text-gray-700">
                   Vendor Type <span className="text-red-500">*</span>
                 </Label>
                 <Select
                   value={vendorFormData.vendorType}
                   onValueChange={(value: any) => setVendorFormData({ ...vendorFormData, vendorType: value })}
                 >
-                  <SelectTrigger id="vendor-type" className={vendorFormErrors.vendorType ? 'border-red-500' : ''}>
+                  <SelectTrigger id="vendor-type" className={`h-11 ${vendorFormErrors.vendorType ? 'border-red-500' : ''}`}>
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -2903,23 +3035,24 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
             {/* Contact Person and Email */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="vendor-contact">Contact Person</Label>
+                <Label htmlFor="vendor-contact" className="text-sm font-semibold text-gray-700">Contact Person</Label>
                 <Input
                   id="vendor-contact"
                   placeholder="Enter contact person"
                   value={vendorFormData.contactPerson}
                   onChange={(e) => setVendorFormData({ ...vendorFormData, contactPerson: e.target.value })}
+                  className="h-11"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="vendor-email">Email</Label>
+                <Label htmlFor="vendor-email" className="text-sm font-semibold text-gray-700">Email</Label>
                 <Input
                   id="vendor-email"
                   type="email"
                   placeholder="vendor@example.com"
                   value={vendorFormData.email}
                   onChange={(e) => setVendorFormData({ ...vendorFormData, email: e.target.value })}
-                  className={vendorFormErrors.email ? 'border-red-500' : ''}
+                  className={`h-11 ${vendorFormErrors.email ? 'border-red-500' : ''}`}
                 />
                 {vendorFormErrors.email && (
                   <p className="text-sm text-red-500">{vendorFormErrors.email}</p>
@@ -2930,41 +3063,44 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
             {/* Phone and Specialization */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="vendor-phone">Phone</Label>
+                <Label htmlFor="vendor-phone" className="text-sm font-semibold text-gray-700">Phone</Label>
                 <Input
                   id="vendor-phone"
                   placeholder="+234 XXX XXX XXXX"
                   value={vendorFormData.phone}
                   onChange={(e) => setVendorFormData({ ...vendorFormData, phone: e.target.value })}
+                  className="h-11"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="vendor-specialization">Specialization</Label>
+                <Label htmlFor="vendor-specialization" className="text-sm font-semibold text-gray-700">Specialization</Label>
                 <Input
                   id="vendor-specialization"
                   placeholder="e.g., Electrical, Plumbing"
                   value={vendorFormData.specialization}
                   onChange={(e) => setVendorFormData({ ...vendorFormData, specialization: e.target.value })}
+                  className="h-11"
                 />
               </div>
             </div>
 
             {/* Address */}
             <div className="space-y-2">
-              <Label htmlFor="vendor-address">Address</Label>
+              <Label htmlFor="vendor-address" className="text-sm font-semibold text-gray-700">Address</Label>
               <Textarea
                 id="vendor-address"
                 placeholder="Enter vendor address"
-                rows={2}
+                rows={3}
                 value={vendorFormData.address}
                 onChange={(e) => setVendorFormData({ ...vendorFormData, address: e.target.value })}
+                className="resize-none"
               />
             </div>
 
             {/* Rating and Status */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="vendor-rating">Rating (0-5)</Label>
+                <Label htmlFor="vendor-rating" className="text-sm font-semibold text-gray-700">Rating (0-5)</Label>
                 <Input
                   id="vendor-rating"
                   type="number"
@@ -2977,19 +3113,19 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
                     ...vendorFormData,
                     rating: e.target.value ? parseFloat(e.target.value) : undefined
                   })}
-                  className={vendorFormErrors.rating ? 'border-red-500' : ''}
+                  className={`h-11 ${vendorFormErrors.rating ? 'border-red-500' : ''}`}
                 />
                 {vendorFormErrors.rating && (
                   <p className="text-sm text-red-500">{vendorFormErrors.rating}</p>
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="vendor-status">Status</Label>
+                <Label htmlFor="vendor-status" className="text-sm font-semibold text-gray-700">Status</Label>
                 <Select
                   value={vendorFormData.status}
                   onValueChange={(value: any) => setVendorFormData({ ...vendorFormData, status: value })}
                 >
-                  <SelectTrigger id="vendor-status">
+                  <SelectTrigger id="vendor-status" className="h-11">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -3003,26 +3139,47 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
 
             {/* Notes */}
             <div className="space-y-2">
-              <Label htmlFor="vendor-notes">Notes</Label>
+              <Label htmlFor="vendor-notes" className="text-sm font-semibold text-gray-700">Notes</Label>
               <Textarea
                 id="vendor-notes"
                 placeholder="Additional notes about the vendor"
-                rows={2}
+                rows={3}
                 value={vendorFormData.notes}
                 onChange={(e) => setVendorFormData({ ...vendorFormData, notes: e.target.value })}
+                className="resize-none"
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsVendorDialogOpen(false)} disabled={isSubmittingVendor}>
+          <DialogFooter className="px-6 py-4 bg-gray-50 border-t">
+            <Button
+              variant="outline"
+              onClick={() => setIsVendorDialogOpen(false)}
+              disabled={isSubmittingVendor}
+              className="border-gray-300 hover:bg-gray-100"
+            >
               Cancel
             </Button>
             <Button
-              className="bg-orange-500 hover:bg-orange-600"
+              className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md hover:shadow-lg transition-all duration-200"
               onClick={handleSaveVendor}
               disabled={isSubmittingVendor}
             >
-              {isSubmittingVendor ? 'Saving...' : editingVendor ? 'Update Vendor' : 'Create Vendor'}
+              {isSubmittingVendor ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : editingVendor ? (
+                <>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Update Vendor
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Vendor
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

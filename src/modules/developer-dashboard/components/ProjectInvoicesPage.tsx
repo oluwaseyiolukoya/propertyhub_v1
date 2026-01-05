@@ -14,6 +14,8 @@ import {
   Trash2,
   Calendar,
   FileText,
+  Loader2,
+  DollarSign,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -232,72 +234,116 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Invoices</h1>
-          <p className="text-gray-600 mt-1">Manage and track invoices for this project</p>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setShowCreateModal(true)} className="gap-2 bg-blue-600 hover:bg-blue-700">
+    <div className="space-y-5 md:space-y-6">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#7C3AED] via-[#6D28D9] to-[#5B21B6] p-6 md:p-8 shadow-xl animate-in fade-in duration-500">
+        <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.6))]"></div>
+        <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-purple-900/20 rounded-full blur-3xl"></div>
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex-1">
+            <h1 className="text-2xl md:text-3xl font-bold text-white mb-2 flex items-center gap-3">
+              <Receipt className="h-8 w-8 text-white" />
+              Invoices
+            </h1>
+            <p className="text-white/80 font-medium">Manage and track invoices for this project</p>
+          </div>
+          <Button
+            onClick={() => setShowCreateModal(true)}
+            className="gap-2 bg-white hover:bg-gray-50 text-[#7C3AED] font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+          >
             <Plus className="h-4 w-4" />
             New Invoice
           </Button>
         </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardContent className="p-6">
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl transition-all duration-300" style={{ animationDelay: '0ms' }}>
+          <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white pb-3">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Total Invoices</p>
-                <p className="text-2xl font-bold text-gray-900">{filteredInvoices.length}</p>
-              </div>
-              <Receipt className="w-6 h-6 text-gray-400" />
+              <CardTitle className="text-sm font-medium text-white/90">Total Invoices</CardTitle>
+              <Receipt className="h-5 w-5 text-white/80" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="space-y-1">
+              <p className="text-3xl font-bold text-gray-900">
+                {filteredInvoices.length}
+              </p>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-sm text-gray-500">Total Amount</p>
-            <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalAmount, projectCurrency)}</p>
+
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl transition-all duration-300" style={{ animationDelay: '50ms' }}>
+          <CardHeader className="bg-gradient-to-r from-blue-500 to-cyan-600 text-white pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-white/90">Total Amount</CardTitle>
+              <DollarSign className="h-5 w-5 text-white/80" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="space-y-1">
+              <p className="text-3xl font-bold text-gray-900">
+                {formatCurrency(totalAmount, projectCurrency)}
+              </p>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-sm text-gray-500">Paid Amount</p>
-            <p className="text-2xl font-bold text-gray-900">{formatCurrency(paidAmount, projectCurrency)}</p>
+
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl transition-all duration-300" style={{ animationDelay: '100ms' }}>
+          <CardHeader className="bg-gradient-to-r from-green-500 to-emerald-600 text-white pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-white/90">Paid Amount</CardTitle>
+              <CheckCircle className="h-5 w-5 text-white/80" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="space-y-1">
+              <p className="text-3xl font-bold text-gray-900">
+                {formatCurrency(paidAmount, projectCurrency)}
+              </p>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-sm text-gray-500">Pending</p>
-            <p className="text-2xl font-bold text-gray-900">
-              {formatCurrency(totalAmount - paidAmount, projectCurrency)}
-            </p>
+
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl transition-all duration-300" style={{ animationDelay: '150ms' }}>
+          <CardHeader className="bg-gradient-to-r from-yellow-500 to-amber-600 text-white pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-white/90">Pending</CardTitle>
+              <Clock className="h-5 w-5 text-white/80" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="space-y-1">
+              <p className="text-3xl font-bold text-gray-900">
+                {formatCurrency(totalAmount - paidAmount, projectCurrency)}
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
-      <Card>
+      <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '200ms' }}>
+        <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white">
+          <CardTitle className="text-white font-bold">Filters</CardTitle>
+        </CardHeader>
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center gap-4">
             <div className="relative flex-1 min-w-[250px]">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
                 placeholder="Search by invoice number, description, or vendor..."
-                className="pl-10"
+                className="pl-10 h-11"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
 
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-40 h-11">
                 <Filter className="w-4 h-4 mr-2" />
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
@@ -311,7 +357,7 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
             </Select>
 
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-40 h-11">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
@@ -333,7 +379,7 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
 
       {/* Invoices Table */}
       {loading ? (
-        <Card>
+        <Card className="border-0 shadow-xl overflow-hidden">
           <CardContent className="p-12">
             <div className="space-y-4">
               {[1, 2, 3, 4, 5].map((i) => (
@@ -343,21 +389,32 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
           </CardContent>
         </Card>
       ) : filteredInvoices.length === 0 ? (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <Receipt className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No invoices found</h3>
-            <p className="text-gray-600 mb-6">Create your first invoice to get started</p>
-            <Button onClick={() => setShowCreateModal(true)} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Create Invoice
-            </Button>
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in duration-500">
+          <CardContent className="p-16 text-center">
+            <div className="bg-gray-100 rounded-full p-4 w-20 h-20 mx-auto mb-6 flex items-center justify-center">
+              <Receipt className="h-10 w-10 text-gray-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No invoices found</h3>
+            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+              {searchTerm || statusFilter !== "all" || categoryFilter !== "all"
+                ? "Try adjusting your filters to see more results"
+                : "Create your first invoice to get started"}
+            </p>
+            {!searchTerm && statusFilter === "all" && categoryFilter === "all" && (
+              <Button
+                onClick={() => setShowCreateModal(true)}
+                className="gap-2 bg-[#7C3AED] hover:bg-[#6D28D9] text-white"
+              >
+                <Plus className="h-4 w-4" />
+                Create Invoice
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Project Invoices ({filteredInvoices.length})</CardTitle>
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '250ms' }}>
+          <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white">
+            <CardTitle className="text-white font-bold">Project Invoices ({filteredInvoices.length})</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
@@ -374,10 +431,11 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredInvoices.map((invoice) => (
+                {filteredInvoices.map((invoice, index) => (
                   <TableRow
                     key={invoice.id}
-                    className="cursor-pointer hover:bg-gray-50"
+                    className="cursor-pointer hover:bg-gray-50 transition-colors duration-200 animate-in fade-in slide-in-from-left-2"
+                    style={{ animationDelay: `${index * 30}ms` }}
                     onClick={() => handleViewInvoice(invoice)}
                   >
                     <TableCell>
@@ -411,7 +469,11 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="hover:bg-[#7C3AED]/10 hover:text-[#7C3AED] transition-colors duration-200"
+                          >
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>

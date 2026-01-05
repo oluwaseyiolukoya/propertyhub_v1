@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Edit, Trash2, Eye, Filter, Search, Download, MoreVertical } from "lucide-react";
+import { Edit, Trash2, Eye, Filter, Search, Download, MoreVertical, Loader2, Receipt, DollarSign, TrendingUp, AlertCircle } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Badge } from "../../../components/ui/badge";
@@ -220,15 +220,24 @@ export function ExpensesList({
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Project Expenses</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-16 bg-gray-200 animate-pulse rounded" />
-            ))}
+      <Card className="border-0 shadow-xl">
+        <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-lg">
+          <CardTitle className="text-white text-lg font-semibold">Project Expenses</CardTitle>
+        </div>
+        <CardContent className="p-6">
+          <div className="space-y-4">
+            {/* Summary cards skeleton */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-24 bg-gray-200 rounded-lg animate-shimmer" />
+              ))}
+            </div>
+            {/* Table skeleton */}
+            <div className="space-y-3">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="h-16 bg-gray-200 rounded animate-shimmer" />
+              ))}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -236,126 +245,170 @@ export function ExpensesList({
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="border-0 shadow-xl">
+      <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-lg">
         <div className="flex items-center justify-between">
-          <CardTitle>Project Expenses</CardTitle>
+          <CardTitle className="text-white text-lg font-semibold">Project Expenses</CardTitle>
           <Button
             variant="outline"
             size="sm"
             onClick={fetchExpenses}
-            className="gap-2"
+            className="gap-2 bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20"
           >
             <Download className="h-4 w-4" />
             Refresh
           </Button>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
+      </div>
+      <CardContent className="p-6 space-y-6">
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-            <p className="text-sm text-gray-600 mb-1">Total Expenses</p>
-            <p className="text-2xl font-bold text-blue-600">
-              {getCurrencySymbol(projectCurrency)}
-              {totalAmount.toLocaleString()}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              {filteredExpenses.length} expense(s)
-            </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
+          {/* Total Expenses */}
+          <div className="border-0 shadow-xl overflow-hidden hover:shadow-2xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-4 rounded-xl" style={{ animationDelay: '0ms' }}>
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-white/90 text-sm font-medium">Total Expenses</p>
+                <div className="h-10 w-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                  <DollarSign className="h-5 w-5 text-white" />
+                </div>
+              </div>
+            </div>
+            <div className="p-6 bg-white">
+              <p className="text-3xl font-bold text-gray-900 mb-1">
+                {getCurrencySymbol(projectCurrency)}
+                {totalAmount.toLocaleString()}
+              </p>
+              <p className="text-sm text-gray-500">
+                {filteredExpenses.length} expense(s)
+              </p>
+            </div>
           </div>
-          <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
-            <p className="text-sm text-gray-600 mb-1">Paid</p>
-            <p className="text-2xl font-bold text-green-600">
-              {getCurrencySymbol(projectCurrency)}
-              {paidAmount.toLocaleString()}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              {filteredExpenses.filter((e) => e.paymentStatus === "paid").length}{" "}
-              expense(s)
-            </p>
+
+          {/* Paid */}
+          <div className="border-0 shadow-xl overflow-hidden hover:shadow-2xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-4 rounded-xl" style={{ animationDelay: '50ms' }}>
+            <div className="bg-gradient-to-r from-green-500 to-green-600 p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-white/90 text-sm font-medium">Paid</p>
+                <div className="h-10 w-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                  <TrendingUp className="h-5 w-5 text-white" />
+                </div>
+              </div>
+            </div>
+            <div className="p-6 bg-white">
+              <p className="text-3xl font-bold text-gray-900 mb-1">
+                {getCurrencySymbol(projectCurrency)}
+                {paidAmount.toLocaleString()}
+              </p>
+              <p className="text-sm text-gray-500">
+                {filteredExpenses.filter((e) => e.paymentStatus === "paid").length} expense(s)
+              </p>
+            </div>
           </div>
-          <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
-            <p className="text-sm text-gray-600 mb-1">Pending</p>
-            <p className="text-2xl font-bold text-yellow-600">
-              {getCurrencySymbol(projectCurrency)}
-              {pendingAmount.toLocaleString()}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              {
-                filteredExpenses.filter((e) => e.paymentStatus === "pending")
-                  .length
-              }{" "}
-              expense(s)
-            </p>
+
+          {/* Pending */}
+          <div className="border-0 shadow-xl overflow-hidden hover:shadow-2xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-4 rounded-xl" style={{ animationDelay: '100ms' }}>
+            <div className="bg-gradient-to-r from-amber-500 to-amber-600 p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-white/90 text-sm font-medium">Pending</p>
+                <div className="h-10 w-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                  <AlertCircle className="h-5 w-5 text-white" />
+                </div>
+              </div>
+            </div>
+            <div className="p-6 bg-white">
+              <p className="text-3xl font-bold text-gray-900 mb-1">
+                {getCurrencySymbol(projectCurrency)}
+                {pendingAmount.toLocaleString()}
+              </p>
+              <p className="text-sm text-gray-500">
+                {filteredExpenses.filter((e) => e.paymentStatus === "pending").length} expense(s)
+              </p>
+            </div>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search expenses..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+        <Card className="border-0 shadow-xl">
+          <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-4 rounded-t-lg">
+            <CardTitle className="text-white text-sm font-semibold">Filters</CardTitle>
           </div>
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-full md:w-[200px]">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              {EXPENSE_CATEGORIES.map((cat) => (
-                <SelectItem key={cat.value} value={cat.value}>
-                  {cat.icon ? `${cat.icon} ` : ""}
-                  {cat.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full md:w-[150px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="partial">Partial</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+          <CardContent className="p-4">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search expenses..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 h-11"
+                  />
+                </div>
+              </div>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-full md:w-[200px] h-11">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {EXPENSE_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat.value} value={cat.value}>
+                      {cat.icon ? `${cat.icon} ` : ""}
+                      {cat.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full md:w-[150px] h-11">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="partial">Partial</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Expenses Table */}
-        {filteredExpenses.length === 0 ? (
-          <div className="text-center py-12 border rounded-lg">
-            <p className="text-gray-500 mb-2">No expenses found</p>
-            <p className="text-sm text-gray-400">
-              {searchTerm || categoryFilter !== "all" || statusFilter !== "all"
-                ? "Try adjusting your filters"
-                : "Create your first expense to get started"}
-            </p>
+        <Card className="border-0 shadow-xl">
+          <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-lg">
+            <CardTitle className="text-white text-lg font-semibold">Expense Records</CardTitle>
           </div>
-        ) : (
-          <div className="border rounded-lg overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredExpenses.map((expense) => (
-                  <TableRow key={expense.id} className="hover:bg-gray-50">
+          <CardContent className="p-0">
+            {filteredExpenses.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-gray-500 bg-gray-50">
+                <Receipt className="h-16 w-16 text-gray-400 mb-4" />
+                <p className="font-medium text-lg mb-2">No expenses found</p>
+                <p className="text-sm text-gray-400">
+                  {searchTerm || categoryFilter !== "all" || statusFilter !== "all"
+                    ? "Try adjusting your filters"
+                    : "Create your first expense to get started"}
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-50/50">
+                      <TableHead className="font-semibold">Date</TableHead>
+                      <TableHead className="font-semibold">Description</TableHead>
+                      <TableHead className="font-semibold">Category</TableHead>
+                      <TableHead className="text-right font-semibold">Amount</TableHead>
+                      <TableHead className="font-semibold">Status</TableHead>
+                      <TableHead className="text-right font-semibold">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredExpenses.map((expense, index) => (
+                      <TableRow
+                        key={expense.id}
+                        className="hover:bg-gray-50 transition-colors animate-in fade-in slide-in-from-bottom-2"
+                        style={{ animationDelay: `${index * 30}ms` }}
+                      >
                     <TableCell className="font-medium">
                       {expense.paidDate
                         ? new Date(expense.paidDate).toLocaleDateString("en-US", {
@@ -397,41 +450,43 @@ export function ExpensesList({
                       </div>
                     </TableCell>
                     <TableCell>{getStatusBadge(expense.paymentStatus)}</TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => onEdit(expense)}
-                            className="cursor-pointer"
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleDeleteClick(expense)}
-                            className="cursor-pointer text-red-600 focus:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 hover:bg-gray-100"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => onEdit(expense)}
+                              className="cursor-pointer"
+                            >
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteClick(expense)}
+                              className="cursor-pointer text-red-600 focus:text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </CardContent>
 
       {/* Delete Confirmation Dialog */}

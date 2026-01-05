@@ -15,7 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../../../components/ui/dropdown-menu";
-import { Calendar, Download, Mail, FileText, ChevronDown, AlertCircle } from "lucide-react";
+import { Calendar, Download, Mail, FileText, ChevronDown, AlertCircle, BarChart3, Loader2, TrendingUp, DollarSign, TrendingDown } from "lucide-react";
 import {
   AreaChart,
   Area,
@@ -145,10 +145,28 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
-          <div className="text-gray-500">Loading reports data...</div>
+      <div className="space-y-6 p-6">
+        {/* Header Skeleton */}
+        <div className="bg-gradient-to-r from-[#7C3AED] via-[#6D28D9] to-[#5B21B6] rounded-xl p-8 text-white">
+          <div className="h-8 w-64 bg-white/20 rounded-lg mb-2 animate-shimmer"></div>
+          <div className="h-4 w-96 bg-white/20 rounded-lg animate-shimmer"></div>
+        </div>
+
+        {/* Summary Cards Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-white rounded-xl border-0 shadow-xl p-6 animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: `${i * 50}ms` }}>
+              <div className="h-4 w-24 bg-gray-200 rounded mb-4 animate-shimmer"></div>
+              <div className="h-8 w-32 bg-gray-200 rounded mb-2 animate-shimmer"></div>
+              <div className="h-3 w-20 bg-gray-200 rounded animate-shimmer"></div>
+            </div>
+          ))}
+        </div>
+
+        {/* Chart Skeleton */}
+        <div className="bg-white rounded-xl border-0 shadow-xl p-6">
+          <div className="h-6 w-48 bg-gray-200 rounded mb-6 animate-shimmer"></div>
+          <div className="h-64 bg-gray-100 rounded animate-shimmer"></div>
         </div>
       </div>
     );
@@ -157,11 +175,13 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
   if (error) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="flex flex-col items-center gap-4 max-w-md text-center">
-          <AlertCircle className="h-12 w-12 text-red-500" />
-          <div className="text-gray-900 font-semibold">Failed to Load Reports</div>
-          <div className="text-gray-500">{error}</div>
-          <Button onClick={() => window.location.reload()} variant="outline">
+        <div className="flex flex-col items-center gap-4 max-w-md text-center p-6 bg-white rounded-xl border-0 shadow-xl">
+          <div className="h-16 w-16 rounded-full bg-red-100 flex items-center justify-center">
+            <AlertCircle className="h-8 w-8 text-red-600" />
+          </div>
+          <div className="text-gray-900 font-semibold text-lg">Failed to Load Reports</div>
+          <div className="text-gray-500 text-sm">{error}</div>
+          <Button onClick={() => window.location.reload()} variant="outline" className="mt-2">
             Retry
           </Button>
         </div>
@@ -173,10 +193,12 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
   if (!summary) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="flex flex-col items-center gap-4 max-w-md text-center">
-          <FileText className="h-12 w-12 text-gray-400" />
-          <div className="text-gray-900 font-semibold">No Reports Data Available</div>
-          <div className="text-gray-500">
+        <div className="flex flex-col items-center gap-4 max-w-md text-center p-6 bg-white rounded-xl border-0 shadow-xl">
+          <div className="h-16 w-16 rounded-full bg-purple-100 flex items-center justify-center">
+            <FileText className="h-8 w-8 text-[#7C3AED]" />
+          </div>
+          <div className="text-gray-900 font-semibold text-lg">No Reports Data Available</div>
+          <div className="text-gray-500 text-sm">
             Start adding expenses and budget items to see reports and analytics.
           </div>
         </div>
@@ -185,141 +207,159 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-5 md:space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Reports & Analytics</h1>
-          <p className="text-gray-600">Comprehensive project insights and performance metrics</p>
-        </div>
-        <div className="flex gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="gap-2">
-                <FileText className="w-4 h-4" />
-                Generate Report
-                <ChevronDown className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleGenerateReport('investor')}>
-                Investor Report
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleGenerateReport('management')}>
-                Management Report
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleGenerateReport('executive')}>
-                Executive Summary
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleGenerateReport('cost-analysis')}>
-                Cost Analysis Report
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button className="gap-2 bg-orange-500 hover:bg-orange-600" onClick={handleDownloadPDF}>
-            <Download className="w-4 h-4" />
-            Download PDF
-          </Button>
-          <Button variant="outline" className="gap-2" onClick={handleScheduleEmail}>
-            <Mail className="w-4 h-4" />
-            Schedule Email
-          </Button>
+      <div className="relative bg-gradient-to-r from-[#7C3AED] via-[#6D28D9] to-[#5B21B6] rounded-xl p-8 text-white overflow-hidden animate-in fade-in slide-in-from-bottom-4">
+        {/* Decorative elements */}
+        <div className="absolute inset-0 bg-grid-white/[0.05] bg-[size:20px_20px]"></div>
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
+
+        <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold mb-2 flex items-center space-x-2">
+              <BarChart3 className="h-8 w-8 text-white" />
+              <span>Reports & Analytics</span>
+            </h1>
+            <p className="text-purple-100">Comprehensive project insights and performance metrics</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="gap-2 bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20">
+                  <FileText className="w-4 h-4" />
+                  Generate Report
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleGenerateReport('investor')}>
+                  Investor Report
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleGenerateReport('management')}>
+                  Management Report
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleGenerateReport('executive')}>
+                  Executive Summary
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleGenerateReport('cost-analysis')}>
+                  Cost Analysis Report
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button className="gap-2 bg-white text-[#7C3AED] hover:bg-gray-50 shadow-md hover:shadow-lg transition-all duration-200" onClick={handleDownloadPDF}>
+              <Download className="w-4 h-4" />
+              Download PDF
+            </Button>
+            <Button variant="outline" className="gap-2 bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20" onClick={handleScheduleEmail}>
+              <Mail className="w-4 h-4" />
+              Schedule Email
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardContent className="p-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-6">
+        {/* Total Budget */}
+        <Card className="border-0 shadow-xl overflow-hidden hover:shadow-2xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '0ms' }}>
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Total Budget</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(summary.totalBudget || 0)}
-                </p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-                <FileText className="h-6 w-6 text-blue-600" />
+              <p className="text-white/90 text-sm font-medium">Total Budget</p>
+              <div className="h-10 w-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <FileText className="h-5 w-5 text-white" />
               </div>
             </div>
+          </div>
+          <CardContent className="p-6">
+            <p className="text-3xl font-bold text-gray-900 mb-1">
+              {formatCurrency(summary.totalBudget || 0)}
+            </p>
+            <p className="text-sm text-gray-500">Project budget allocation</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6">
+        {/* Total Spent */}
+        <Card className="border-0 shadow-xl overflow-hidden hover:shadow-2xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '50ms' }}>
+          <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-4">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Total Spent</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(summary.totalSpent || 0)}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {(summary.percentageUsed || 0).toFixed(1)}% of budget
-                </p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-orange-100 flex items-center justify-center">
-                <Download className="h-6 w-6 text-orange-600" />
+              <p className="text-white/90 text-sm font-medium">Total Spent</p>
+              <div className="h-10 w-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <TrendingDown className="h-5 w-5 text-white" />
               </div>
             </div>
+          </div>
+          <CardContent className="p-6">
+            <p className="text-3xl font-bold text-gray-900 mb-1">
+              {formatCurrency(summary.totalSpent || 0)}
+            </p>
+            <p className="text-sm text-gray-500">
+              {(summary.percentageUsed || 0).toFixed(1)}% of budget used
+            </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6">
+        {/* Remaining */}
+        <Card className="border-0 shadow-xl overflow-hidden hover:shadow-2xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '100ms' }}>
+          <div className={`p-4 ${summary.remaining >= 0 ? 'bg-gradient-to-r from-green-500 to-green-600' : 'bg-gradient-to-r from-red-500 to-red-600'}`}>
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Remaining</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(summary.remaining || 0)}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {(100 - (summary.percentageUsed || 0)).toFixed(1)}% available
-                </p>
-              </div>
-              <div className={`h-12 w-12 rounded-full flex items-center justify-center ${
-                summary.remaining >= 0 ? 'bg-green-100' : 'bg-red-100'
-              }`}>
-                <Calendar className={`h-6 w-6 ${
-                  summary.remaining >= 0 ? 'text-green-600' : 'text-red-600'
-                }`} />
+              <p className="text-white/90 text-sm font-medium">Remaining</p>
+              <div className="h-10 w-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                {summary.remaining >= 0 ? (
+                  <TrendingUp className="h-5 w-5 text-white" />
+                ) : (
+                  <AlertCircle className="h-5 w-5 text-white" />
+                )}
               </div>
             </div>
+          </div>
+          <CardContent className="p-6">
+            <p className={`text-3xl font-bold mb-1 ${summary.remaining >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
+              {formatCurrency(summary.remaining || 0)}
+            </p>
+            <p className="text-sm text-gray-500">
+              {(100 - (summary.percentageUsed || 0)).toFixed(1)}% available
+            </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6">
+        {/* Expenses */}
+        <Card className="border-0 shadow-xl overflow-hidden hover:shadow-2xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '150ms' }}>
+          <div className="bg-gradient-to-r from-[#7C3AED] to-[#6D28D9] p-4">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Expenses</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {summary.totalExpenses || 0}
-                </p>
-                <div className="flex gap-2 mt-1">
-                  <Badge variant="outline" className="text-xs">
-                    {summary.paidExpenses || 0} Paid
-                  </Badge>
-                  {(summary.overdueExpenses || 0) > 0 && (
-                    <Badge variant="destructive" className="text-xs">
-                      {summary.overdueExpenses} Overdue
-                    </Badge>
-                  )}
-                </div>
+              <p className="text-white/90 text-sm font-medium">Expenses</p>
+              <div className="h-10 w-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <DollarSign className="h-5 w-5 text-white" />
               </div>
-              <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center">
-                <Mail className="h-6 w-6 text-purple-600" />
-              </div>
+            </div>
+          </div>
+          <CardContent className="p-6">
+            <p className="text-3xl font-bold text-gray-900 mb-2">
+              {summary.totalExpenses || 0}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                {summary.paidExpenses || 0} Paid
+              </Badge>
+              {(summary.overdueExpenses || 0) > 0 && (
+                <Badge variant="destructive" className="text-xs">
+                  {summary.overdueExpenses} Overdue
+                </Badge>
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
-      <Card>
+      <Card className="border-0 shadow-xl">
+        <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-4 rounded-t-lg">
+          <CardTitle className="text-white text-lg font-semibold">Filters</CardTitle>
+        </div>
         <CardContent className="p-4">
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-48 h-11">
                 <Calendar className="w-4 h-4 mr-2" />
                 <SelectValue />
               </SelectTrigger>
@@ -332,7 +372,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
               </SelectContent>
             </Select>
             <Select value={selectedPhase} onValueChange={setSelectedPhase}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-48 h-11">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -347,14 +387,14 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
       </Card>
 
       {/* Cash Flow Forecast */}
-      <Card>
-        <CardHeader>
+      <Card className="border-0 shadow-xl">
+        <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-lg">
           <div className="flex items-center justify-between">
-            <CardTitle>Cash Flow Forecast</CardTitle>
-            <Badge variant="outline">7-Month Trend</Badge>
+            <CardTitle className="text-white text-lg font-semibold">Cash Flow Forecast</CardTitle>
+            <Badge variant="outline" className="bg-white/10 backdrop-blur-sm border-white/30 text-white">7-Month Trend</Badge>
           </div>
-        </CardHeader>
-        <CardContent>
+        </div>
+        <CardContent className="p-6">
           {cashFlowData && cashFlowData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <AreaChart data={cashFlowData} margin={{ left: 20, right: 20, top: 10, bottom: 10 }}>
@@ -397,21 +437,23 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
               </AreaChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex items-center justify-center h-[300px] text-gray-500">
-              No cash flow data available
+            <div className="flex flex-col items-center justify-center h-[300px] text-gray-500 bg-gray-50 rounded-lg">
+              <BarChart3 className="h-12 w-12 text-gray-400 mb-3" />
+              <p className="font-medium">No cash flow data available</p>
+              <p className="text-sm text-gray-400 mt-1">Add expenses and funding to see cash flow trends</p>
             </div>
           )}
         </CardContent>
       </Card>
 
       {/* Cost Breakdown and Phase Spend */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
         {/* Cost Breakdown by Category */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Cost Breakdown by Category</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <Card className="border-0 shadow-xl">
+          <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-lg">
+            <CardTitle className="text-white text-lg font-semibold">Cost Breakdown by Category</CardTitle>
+          </div>
+          <CardContent className="p-6">
             {costBreakdownData && costBreakdownData.length > 0 ? (
               <>
                 <ResponsiveContainer width="100%" height={300}>
@@ -438,12 +480,12 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
                 </ResponsiveContainer>
                 <div className="mt-4 space-y-2">
                   {costBreakdownData.map((item) => (
-                <div key={item.name} className="flex items-center justify-between text-sm">
+                <div key={item.name} className="flex items-center justify-between text-sm p-2 rounded-lg hover:bg-gray-50 transition-colors">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
-                    <span className="text-gray-700">{item.name}</span>
+                    <span className="text-gray-700 font-medium">{item.name}</span>
                   </div>
-                  <span className="font-medium text-gray-900">
+                  <span className="font-semibold text-gray-900">
                     {formatCurrency(item.value)}
                     </span>
                   </div>
@@ -451,19 +493,21 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
                 </div>
               </>
             ) : (
-              <div className="flex items-center justify-center h-[300px] text-gray-500">
-                No cost breakdown data available
+              <div className="flex flex-col items-center justify-center h-[300px] text-gray-500 bg-gray-50 rounded-lg">
+                <BarChart3 className="h-12 w-12 text-gray-400 mb-3" />
+                <p className="font-medium">No cost breakdown data available</p>
+                <p className="text-sm text-gray-400 mt-1">Add expenses to see category breakdown</p>
               </div>
             )}
           </CardContent>
         </Card>
 
         {/* Phase Spend Analysis */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Budget vs Actual by Phase</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <Card className="border-0 shadow-xl">
+          <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-lg">
+            <CardTitle className="text-white text-lg font-semibold">Budget vs Actual by Phase</CardTitle>
+          </div>
+          <CardContent className="p-6">
             {phaseSpendData && phaseSpendData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={phaseSpendData}>
@@ -480,8 +524,10 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-[300px] text-gray-500">
-                No phase spending data available
+              <div className="flex flex-col items-center justify-center h-[300px] text-gray-500 bg-gray-50 rounded-lg">
+                <BarChart3 className="h-12 w-12 text-gray-400 mb-3" />
+                <p className="font-medium">No phase spending data available</p>
+                <p className="text-sm text-gray-400 mt-1">Add budget and expenses to see phase analysis</p>
               </div>
             )}
           </CardContent>
@@ -489,27 +535,27 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
       </div>
 
       {/* Vendor Performance Metrics */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Vendor Performance Metrics</CardTitle>
-            <div className="flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-2">
+      <Card className="border-0 shadow-xl">
+        <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-lg">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <CardTitle className="text-white text-lg font-semibold">Vendor Performance Metrics</CardTitle>
+            <div className="flex flex-wrap items-center gap-4 text-sm">
+              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-lg">
                 <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                <span className="text-gray-600">On-Time Delivery</span>
+                <span className="text-white">On-Time Delivery</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-lg">
                 <div className="w-3 h-3 rounded-full bg-teal-500"></div>
-                <span className="text-gray-600">Quality Score</span>
+                <span className="text-white">Quality Score</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-lg">
                 <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-                <span className="text-gray-600">Cost Efficiency</span>
+                <span className="text-white">Cost Efficiency</span>
               </div>
             </div>
           </div>
-        </CardHeader>
-        <CardContent>
+        </div>
+        <CardContent className="p-6">
           {vendorPerformanceData && vendorPerformanceData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={vendorPerformanceData} layout="vertical">
@@ -527,39 +573,47 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ projectId }) => {
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex items-center justify-center h-[300px] text-gray-500">
-              No vendor performance data available
+            <div className="flex flex-col items-center justify-center h-[300px] text-gray-500 bg-gray-50 rounded-lg">
+              <BarChart3 className="h-12 w-12 text-gray-400 mb-3" />
+              <p className="font-medium">No vendor performance data available</p>
+              <p className="text-sm text-gray-400 mt-1">Add vendors and purchases to see performance metrics</p>
             </div>
           )}
         </CardContent>
       </Card>
 
       {/* Report Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => handleGenerateReport('executive')}>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
+        <Card className="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer group animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '0ms' }} onClick={() => handleGenerateReport('executive')}>
           <CardContent className="p-6">
-            <FileText className="w-8 h-8 text-blue-600 mb-3" />
-            <h3 className="font-semibold text-gray-900 mb-2">Monthly Executive Report</h3>
+            <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center mb-4 group-hover:bg-blue-200 transition-colors">
+              <FileText className="w-6 h-6 text-blue-600" />
+            </div>
+            <h3 className="font-semibold text-gray-900 mb-2 text-lg">Monthly Executive Report</h3>
             <p className="text-sm text-gray-600 mb-4">Comprehensive overview for stakeholders</p>
-            <Button variant="outline" size="sm" className="w-full">Generate</Button>
+            <Button variant="outline" size="sm" className="w-full border-gray-300 hover:bg-gray-50">Generate</Button>
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => handleGenerateReport('investor')}>
+        <Card className="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer group animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '50ms' }} onClick={() => handleGenerateReport('investor')}>
           <CardContent className="p-6">
-            <FileText className="w-8 h-8 text-teal-600 mb-3" />
-            <h3 className="font-semibold text-gray-900 mb-2">Investor Update</h3>
+            <div className="h-12 w-12 rounded-lg bg-teal-100 flex items-center justify-center mb-4 group-hover:bg-teal-200 transition-colors">
+              <FileText className="w-6 h-6 text-teal-600" />
+            </div>
+            <h3 className="font-semibold text-gray-900 mb-2 text-lg">Investor Update</h3>
             <p className="text-sm text-gray-600 mb-4">Financial performance and forecasts</p>
-            <Button variant="outline" size="sm" className="w-full">Generate</Button>
+            <Button variant="outline" size="sm" className="w-full border-gray-300 hover:bg-gray-50">Generate</Button>
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => handleGenerateReport('cost-analysis')}>
+        <Card className="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer group animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '100ms' }} onClick={() => handleGenerateReport('cost-analysis')}>
           <CardContent className="p-6">
-            <FileText className="w-8 h-8 text-amber-600 mb-3" />
-            <h3 className="font-semibold text-gray-900 mb-2">Cost Analysis Report</h3>
+            <div className="h-12 w-12 rounded-lg bg-amber-100 flex items-center justify-center mb-4 group-hover:bg-amber-200 transition-colors">
+              <FileText className="w-6 h-6 text-amber-600" />
+            </div>
+            <h3 className="font-semibold text-gray-900 mb-2 text-lg">Cost Analysis Report</h3>
             <p className="text-sm text-gray-600 mb-4">Detailed breakdown by category</p>
-            <Button variant="outline" size="sm" className="w-full">Generate</Button>
+            <Button variant="outline" size="sm" className="w-full border-gray-300 hover:bg-gray-50">Generate</Button>
           </CardContent>
         </Card>
       </div>

@@ -253,23 +253,35 @@ export const ProjectDocumentsPage: React.FC<ProjectDocumentsPageProps> = ({
   });
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Documents</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Manage and view project documents
-          </p>
+    <div className="space-y-5 md:space-y-6">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#7C3AED] via-[#6D28D9] to-[#5B21B6] p-6 md:p-8 shadow-xl animate-in fade-in duration-500">
+        <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.6))]"></div>
+        <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-purple-900/20 rounded-full blur-3xl"></div>
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex-1">
+            <h1 className="text-2xl md:text-3xl font-bold text-white mb-2 flex items-center gap-3">
+              <FileText className="h-8 w-8 text-white" />
+              Documents
+            </h1>
+            <p className="text-white/80 font-medium">Manage and view project documents</p>
+          </div>
+          <Button
+            onClick={() => setIsUploadDialogOpen(true)}
+            className="bg-white hover:bg-gray-50 text-[#7C3AED] font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Upload Document
+          </Button>
         </div>
-        <Button onClick={() => setIsUploadDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Upload Document
-        </Button>
       </div>
 
       {/* Filters */}
-      <Card>
+      <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '100ms' }}>
+        <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white">
+          <CardTitle className="text-white font-bold">Filters</CardTitle>
+        </CardHeader>
         <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
@@ -315,27 +327,46 @@ export const ProjectDocumentsPage: React.FC<ProjectDocumentsPageProps> = ({
 
       {/* Documents List */}
       {loading ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-gray-500">Loading documents...</p>
+        <Card className="border-0 shadow-xl overflow-hidden">
+          <CardContent className="py-16">
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-32 bg-gray-200 rounded-lg animate-pulse" />
+              ))}
+            </div>
           </CardContent>
         </Card>
       ) : filteredDocuments.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500 mb-2">No documents found</p>
-            <p className="text-sm text-gray-400">
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in duration-500">
+          <CardContent className="py-16 text-center">
+            <div className="bg-gray-100 rounded-full p-4 w-20 h-20 mx-auto mb-6 flex items-center justify-center">
+              <FileText className="h-10 w-10 text-gray-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No documents found</h3>
+            <p className="text-gray-600 mb-6 max-w-md mx-auto">
               {searchTerm || categoryFilter !== "all" || typeFilter !== "all"
-                ? "Try adjusting your filters"
+                ? "Try adjusting your filters to see more results"
                 : "Upload your first document to get started"}
             </p>
+            {!searchTerm && categoryFilter === "all" && typeFilter === "all" && (
+              <Button
+                onClick={() => setIsUploadDialogOpen(true)}
+                className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Upload Document
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredDocuments.map((document) => (
-            <Card key={document.id} className="hover:shadow-md transition-shadow">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredDocuments.map((document, index) => (
+            <Card
+              key={document.id}
+              className="border-0 shadow-xl hover:shadow-2xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-4"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -358,7 +389,11 @@ export const ProjectDocumentsPage: React.FC<ProjectDocumentsPageProps> = ({
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 hover:bg-[#7C3AED]/10 hover:text-[#7C3AED] transition-colors duration-200"
+                      >
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -404,21 +439,25 @@ export const ProjectDocumentsPage: React.FC<ProjectDocumentsPageProps> = ({
 
       {/* Upload Dialog */}
       <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Upload Document</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-2xl border-0 shadow-2xl p-0 max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-lg">
+            <DialogTitle className="text-white text-2xl font-bold flex items-center space-x-2">
+              <Upload className="h-6 w-6 text-white" />
+              <span>Upload Document</span>
+            </DialogTitle>
+            <DialogDescription className="text-purple-100 mt-2">
               Upload a new document for this project
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 p-6 pl-8">
             <div>
-              <Label htmlFor="file">File</Label>
+              <Label htmlFor="file" className="text-sm font-semibold text-gray-700">File</Label>
               <Input
                 id="file"
                 type="file"
                 onChange={handleFileSelect}
                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.webp,.xls,.xlsx,.txt,.csv"
+                className="h-11"
               />
               {uploadForm.file && (
                 <p className="text-sm text-gray-600 mt-2">
@@ -428,7 +467,7 @@ export const ProjectDocumentsPage: React.FC<ProjectDocumentsPageProps> = ({
               )}
             </div>
             <div>
-              <Label htmlFor="name">Document Name</Label>
+              <Label htmlFor="name" className="text-sm font-semibold text-gray-700">Document Name</Label>
               <Input
                 id="name"
                 value={uploadForm.name}
@@ -436,18 +475,19 @@ export const ProjectDocumentsPage: React.FC<ProjectDocumentsPageProps> = ({
                   setUploadForm({ ...uploadForm, name: e.target.value })
                 }
                 placeholder="Enter document name"
+                className="h-11"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="category">Category</Label>
+                <Label htmlFor="category" className="text-sm font-semibold text-gray-700">Category</Label>
                 <Select
                   value={uploadForm.category}
                   onValueChange={(value) =>
                     setUploadForm({ ...uploadForm, category: value })
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -460,14 +500,14 @@ export const ProjectDocumentsPage: React.FC<ProjectDocumentsPageProps> = ({
                 </Select>
               </div>
               <div>
-                <Label htmlFor="type">Type</Label>
+                <Label htmlFor="type" className="text-sm font-semibold text-gray-700">Type</Label>
                 <Select
                   value={uploadForm.type}
                   onValueChange={(value) =>
                     setUploadForm({ ...uploadForm, type: value })
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -481,7 +521,7 @@ export const ProjectDocumentsPage: React.FC<ProjectDocumentsPageProps> = ({
               </div>
             </div>
             <div>
-              <Label htmlFor="description">Description (Optional)</Label>
+              <Label htmlFor="description" className="text-sm font-semibold text-gray-700">Description (Optional)</Label>
               <Textarea
                 id="description"
                 value={uploadForm.description}
@@ -489,20 +529,36 @@ export const ProjectDocumentsPage: React.FC<ProjectDocumentsPageProps> = ({
                   setUploadForm({ ...uploadForm, description: e.target.value })
                 }
                 placeholder="Enter document description"
-                rows={3}
+                rows={4}
+                className="resize-none"
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="px-6 py-4 bg-gray-50 border-t">
             <Button
               variant="outline"
               onClick={() => setIsUploadDialogOpen(false)}
               disabled={uploading}
+              className="border-gray-300 hover:bg-gray-100"
             >
               Cancel
             </Button>
-            <Button onClick={handleUpload} disabled={uploading}>
-              {uploading ? "Uploading..." : "Upload"}
+            <Button
+              onClick={handleUpload}
+              disabled={uploading}
+              className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md hover:shadow-lg transition-all duration-200"
+            >
+              {uploading ? (
+                <>
+                  <Upload className="h-4 w-4 mr-2 animate-pulse" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

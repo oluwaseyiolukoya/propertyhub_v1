@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { DollarSign, AlertCircle } from "lucide-react";
+import { DollarSign, AlertCircle, Plus, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "../../../components/ui/dialog";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
@@ -223,21 +224,21 @@ export function AddFundingModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center space-x-2">
-            <DollarSign className="h-5 w-5 text-green-600" />
+      <DialogContent className="max-w-2xl border-0 shadow-2xl p-0 max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-lg">
+          <DialogTitle className="text-white text-2xl font-bold flex items-center space-x-2">
+            <DollarSign className="h-6 w-6 text-white" />
             <span>Add Project Funding</span>
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-purple-100 mt-2">
             Record new funding received or expected for this project
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6 p-6 pl-8">
           {/* Funding Type */}
           <div className="space-y-2">
-            <Label htmlFor="fundingType">
+            <Label htmlFor="fundingType" className="text-sm font-semibold text-gray-700">
               Funding Type <span className="text-red-500">*</span>
             </Label>
             <Select
@@ -248,7 +249,7 @@ export function AddFundingModal({
               }}
             >
               <SelectTrigger
-                className={errors.fundingType ? "border-red-500" : ""}
+                className={`h-11 ${errors.fundingType ? "border-red-500" : ""}`}
               >
                 <SelectValue placeholder="Select funding type" />
               </SelectTrigger>
@@ -283,7 +284,7 @@ export function AddFundingModal({
 
           {/* Funding Source */}
           <div className="space-y-2">
-            <Label htmlFor="fundingSource">Funding Source</Label>
+            <Label htmlFor="fundingSource" className="text-sm font-semibold text-gray-700">Funding Source</Label>
             <Input
               id="fundingSource"
               value={formData.fundingSource}
@@ -291,6 +292,7 @@ export function AddFundingModal({
                 setFormData({ ...formData, fundingSource: e.target.value })
               }
               placeholder="e.g., ABC Bank, John Investor, XYZ Client"
+              className="h-11"
             />
             <p className="text-xs text-gray-500">
               Name of bank, investor, client, or funding source
@@ -300,7 +302,7 @@ export function AddFundingModal({
           {/* Amount and Status */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="amount">
+              <Label htmlFor="amount" className="text-sm font-semibold text-gray-700">
                 Amount ({getCurrencySymbol(projectCurrency)}){" "}
                 <span className="text-red-500">*</span>
               </Label>
@@ -315,7 +317,7 @@ export function AddFundingModal({
                   setErrors({ ...errors, amount: "" });
                 }}
                 placeholder="0.00"
-                className={errors.amount ? "border-red-500" : ""}
+                className={`h-11 ${errors.amount ? "border-red-500" : ""}`}
               />
               {errors.amount && (
                 <p className="text-xs text-red-500 flex items-center space-x-1">
@@ -326,14 +328,14 @@ export function AddFundingModal({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
+              <Label htmlFor="status" className="text-sm font-semibold text-gray-700">Status</Label>
               <Select
                 value={formData.status}
                 onValueChange={(value) =>
                   setFormData({ ...formData, status: value })
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-11">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -350,7 +352,7 @@ export function AddFundingModal({
           {/* Dates */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="expectedDate">Expected Date</Label>
+              <Label htmlFor="expectedDate" className="text-sm font-semibold text-gray-700">Expected Date</Label>
               <Input
                 id="expectedDate"
                 type="date"
@@ -358,11 +360,12 @@ export function AddFundingModal({
                 onChange={(e) =>
                   setFormData({ ...formData, expectedDate: e.target.value })
                 }
+                className="h-11"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="receivedDate">
+              <Label htmlFor="receivedDate" className="text-sm font-semibold text-gray-700">
                 Received Date
                 {formData.status === "received" && (
                   <span className="text-red-500"> *</span>
@@ -376,7 +379,7 @@ export function AddFundingModal({
                   setFormData({ ...formData, receivedDate: e.target.value });
                   setErrors({ ...errors, receivedDate: "" });
                 }}
-                className={errors.receivedDate ? "border-red-500" : ""}
+                className={`h-11 ${errors.receivedDate ? "border-red-500" : ""}`}
               />
               {errors.receivedDate && (
                 <p className="text-xs text-red-500 flex items-center space-x-1">
@@ -389,7 +392,7 @@ export function AddFundingModal({
 
           {/* Reference Number */}
           <div className="space-y-2">
-            <Label htmlFor="referenceNumber">Reference Number</Label>
+            <Label htmlFor="referenceNumber" className="text-sm font-semibold text-gray-700">Reference Number</Label>
             <Input
               id="referenceNumber"
               value={formData.referenceNumber}
@@ -398,7 +401,7 @@ export function AddFundingModal({
                 setErrors({ ...errors, referenceNumber: "" }); // Clear error when user types
               }}
               placeholder="e.g., REF-2025-001, TXN-123456"
-              className={errors.referenceNumber ? "border-red-500" : ""}
+              className={`h-11 ${errors.referenceNumber ? "border-red-500" : ""}`}
             />
             {errors.referenceNumber ? (
               <p className="text-xs text-red-500 flex items-center space-x-1">
@@ -414,7 +417,7 @@ export function AddFundingModal({
 
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description">
+            <Label htmlFor="description" className="text-sm font-semibold text-gray-700">
               Description <span className="text-red-500">*</span>
             </Label>
             <Textarea
@@ -425,8 +428,8 @@ export function AddFundingModal({
                 setErrors({ ...errors, description: "" });
               }}
               placeholder="Describe the funding source and purpose..."
-              rows={3}
-              className={errors.description ? "border-red-500" : ""}
+              rows={4}
+              className={`resize-none ${errors.description ? "border-red-500" : ""}`}
             />
             {errors.description && (
               <p className="text-xs text-red-500 flex items-center space-x-1">
@@ -438,7 +441,7 @@ export function AddFundingModal({
 
           {/* Notes */}
           <div className="space-y-2">
-            <Label htmlFor="notes">Additional Notes</Label>
+            <Label htmlFor="notes" className="text-sm font-semibold text-gray-700">Additional Notes</Label>
             <Textarea
               id="notes"
               value={formData.notes}
@@ -446,16 +449,17 @@ export function AddFundingModal({
                 setFormData({ ...formData, notes: e.target.value })
               }
               placeholder="Any additional information or notes..."
-              rows={2}
+              rows={3}
+              className="resize-none"
             />
           </div>
 
           {/* Summary */}
-          <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 p-5 rounded-xl">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Funding Amount</p>
-                <p className="text-2xl font-bold text-green-600">
+                <p className="text-sm font-medium text-gray-700">Total Funding Amount</p>
+                <p className="text-3xl font-bold text-[#7C3AED] mt-1">
                   {getCurrencySymbol(projectCurrency)}
                   {parseFloat(formData.amount || "0").toLocaleString("en-NG", {
                     minimumFractionDigits: 2,
@@ -463,39 +467,43 @@ export function AddFundingModal({
                   })}
                 </p>
               </div>
-              <DollarSign className="h-12 w-12 text-green-300" />
+              <div className="bg-green-100 rounded-full p-3">
+                <DollarSign className="h-8 w-8 text-green-600" />
+              </div>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex justify-end space-x-3 pt-4 border-t">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={loading}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {loading ? (
-                <>
-                  <span className="animate-spin mr-2">⏳</span>
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <DollarSign className="h-4 w-4 mr-2" />
-                  Add Funding
-                </>
-              )}
-            </Button>
-          </div>
         </form>
+        <DialogFooter className="px-6 py-4 bg-gray-50 border-t">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={loading}
+            className="border-gray-300 hover:bg-gray-100"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={(e) => {
+              e.preventDefault();
+              handleSubmit(e as any);
+            }}
+            disabled={loading}
+            className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md hover:shadow-lg transition-all duration-200"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Funding
+              </>
+            )}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

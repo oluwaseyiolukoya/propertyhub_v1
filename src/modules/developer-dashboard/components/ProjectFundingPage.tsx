@@ -336,43 +336,68 @@ export const ProjectFundingPage: React.FC<ProjectFundingPageProps> = ({
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="h-12 bg-gray-200 animate-pulse rounded" />
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="space-y-5 md:space-y-6 animate-in fade-in duration-500">
+        {/* Hero Skeleton */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 h-32 animate-pulse">
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+        </div>
+
+        {/* Summary Cards Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-32 bg-gray-200 animate-pulse rounded" />
+            <Card key={i} className="border-0 shadow-xl overflow-hidden animate-in fade-in duration-500" style={{ animationDelay: `${i * 50}ms` }}>
+              <CardContent className="p-6">
+                <div className="space-y-3">
+                  <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
-        <div className="h-96 bg-gray-200 animate-pulse rounded" />
+
+        {/* Chart Skeleton */}
+        <Card className="border-0 shadow-xl overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-gray-200 to-gray-300 h-16 animate-pulse" />
+          <CardContent className="p-6">
+            <div className="h-80 bg-gray-100 rounded-lg animate-pulse" />
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="space-y-4">
-        <Button variant="ghost" className="gap-2 -ml-2" onClick={onBack}>
-          <ArrowLeft className="w-4 h-4" />
-          Back to Dashboard
-        </Button>
+    <div className="space-y-5 md:space-y-6">
+      {/* Back Button */}
+      <Button variant="ghost" className="gap-2 -ml-2" onClick={onBack}>
+        <ArrowLeft className="w-4 h-4" />
+        Back to Dashboard
+      </Button>
 
-        <div className="flex items-start justify-between">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#7C3AED] via-[#6D28D9] to-[#5B21B6] p-6 md:p-8 shadow-xl animate-in fade-in duration-500">
+        <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.6))]"></div>
+        <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-purple-900/20 rounded-full blur-3xl"></div>
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex-1">
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-              <DollarSign className="h-8 w-8 text-green-600" />
+            <h1 className="text-2xl md:text-3xl font-bold text-white mb-2 flex items-center gap-3">
+              <DollarSign className="h-8 w-8 text-white" />
               Project Funding
             </h1>
-            <p className="text-gray-600 mt-1">{projectName}</p>
+            <p className="text-white/80 font-medium">{projectName}</p>
           </div>
-
-          <div className="flex gap-2">
-            <Button variant="outline" className="gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              className="gap-2 bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 font-semibold"
+            >
               <Download className="w-4 h-4" />
               Export
             </Button>
             <Button
-              className="gap-2 bg-green-600 hover:bg-green-700"
+              className="gap-2 bg-white hover:bg-gray-50 text-[#7C3AED] font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
               onClick={() => setIsAddModalOpen(true)}
             >
               <Plus className="w-4 h-4" />
@@ -384,78 +409,78 @@ export const ProjectFundingPage: React.FC<ProjectFundingPageProps> = ({
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl transition-all duration-300" style={{ animationDelay: '0ms' }}>
+          <CardHeader className="bg-gradient-to-r from-green-500 to-emerald-600 text-white pb-3">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Received</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {formatCurrency(totalReceived)}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {fundingRecords.filter((r) => r.status === "received").length} transactions
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
-                <CheckCircle className="h-6 w-6 text-green-600" />
-              </div>
+              <CardTitle className="text-sm font-medium text-white/90">Total Received</CardTitle>
+              <CheckCircle className="h-5 w-5 text-white/80" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="space-y-1">
+              <p className="text-3xl font-bold text-gray-900">
+                {formatCurrency(totalReceived)}
+              </p>
+              <p className="text-xs text-gray-600">
+                {fundingRecords.filter((r) => r.status === "received").length} transactions
+              </p>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl transition-all duration-300" style={{ animationDelay: '50ms' }}>
+          <CardHeader className="bg-gradient-to-r from-yellow-500 to-amber-600 text-white pb-3">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Pending</p>
-                <p className="text-2xl font-bold text-yellow-600">
-                  {formatCurrency(totalPending)}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {fundingRecords.filter((r) => r.status === "pending").length} expected
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-yellow-100 rounded-full flex items-center justify-center">
-                <Clock className="h-6 w-6 text-yellow-600" />
-              </div>
+              <CardTitle className="text-sm font-medium text-white/90">Pending</CardTitle>
+              <Clock className="h-5 w-5 text-white/80" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="space-y-1">
+              <p className="text-3xl font-bold text-gray-900">
+                {formatCurrency(totalPending)}
+              </p>
+              <p className="text-xs text-gray-600">
+                {fundingRecords.filter((r) => r.status === "pending").length} expected
+              </p>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl transition-all duration-300" style={{ animationDelay: '100ms' }}>
+          <CardHeader className="bg-gradient-to-r from-blue-500 to-cyan-600 text-white pb-3">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Funding</p>
-                <p className="text-2xl font-bold text-blue-600">
-                  {formatCurrency(totalFunding)}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Received + Pending
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-blue-600" />
-              </div>
+              <CardTitle className="text-sm font-medium text-white/90">Total Funding</CardTitle>
+              <DollarSign className="h-5 w-5 text-white/80" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="space-y-1">
+              <p className="text-3xl font-bold text-gray-900">
+                {formatCurrency(totalFunding)}
+              </p>
+              <p className="text-xs text-gray-600">
+                Received + Pending
+              </p>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl transition-all duration-300" style={{ animationDelay: '150ms' }}>
+          <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white pb-3">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Funding Sources</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {fundingByType.length}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Active funding types
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-purple-100 rounded-full flex items-center justify-center">
-                <TrendingUp className="h-6 w-6 text-purple-600" />
-              </div>
+              <CardTitle className="text-sm font-medium text-white/90">Funding Sources</CardTitle>
+              <TrendingUp className="h-5 w-5 text-white/80" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="space-y-1">
+              <p className="text-3xl font-bold text-gray-900">
+                {fundingByType.length}
+              </p>
+              <p className="text-xs text-gray-600">
+                Active funding types
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -464,9 +489,9 @@ export const ProjectFundingPage: React.FC<ProjectFundingPageProps> = ({
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Funding Over Time */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Funding Over Time</CardTitle>
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '200ms' }}>
+          <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white">
+            <CardTitle className="text-white font-bold">Funding Over Time</CardTitle>
           </CardHeader>
           <CardContent>
             {fundingOverTime.length > 0 ? (
@@ -507,21 +532,21 @@ export const ProjectFundingPage: React.FC<ProjectFundingPageProps> = ({
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-[300px] text-gray-500">
-                <div className="text-center">
-                  <DollarSign className="h-12 w-12 mx-auto mb-2 text-gray-400" />
-                  <p>No funding data yet</p>
-                  <p className="text-sm mt-1">Add funding records to see trends</p>
+              <div className="flex flex-col items-center justify-center h-[300px] text-gray-500 animate-in fade-in duration-500">
+                <div className="bg-gray-100 rounded-full p-4 mb-4">
+                  <DollarSign className="h-8 w-8 text-gray-400" />
                 </div>
+                <p className="font-medium text-gray-900 mb-1">No funding data yet</p>
+                <p className="text-sm text-gray-600">Add funding records to see trends over time</p>
               </div>
             )}
           </CardContent>
         </Card>
 
         {/* Funding by Type */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Funding by Type</CardTitle>
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '250ms' }}>
+          <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white">
+            <CardTitle className="text-white font-bold">Funding by Type</CardTitle>
           </CardHeader>
           <CardContent>
             {fundingByType.length > 0 ? (
@@ -549,12 +574,12 @@ export const ProjectFundingPage: React.FC<ProjectFundingPageProps> = ({
                 </ResponsiveContainer>
               </div>
             ) : (
-              <div className="flex items-center justify-center h-[300px] text-gray-500">
-                <div className="text-center">
-                  <TrendingUp className="h-12 w-12 mx-auto mb-2 text-gray-400" />
-                  <p>No funding breakdown yet</p>
-                  <p className="text-sm mt-1">Add funding to see distribution</p>
+              <div className="flex flex-col items-center justify-center h-[300px] text-gray-500 animate-in fade-in duration-500">
+                <div className="bg-gray-100 rounded-full p-4 mb-4">
+                  <TrendingUp className="h-8 w-8 text-gray-400" />
                 </div>
+                <p className="font-medium text-gray-900 mb-1">No funding breakdown yet</p>
+                <p className="text-sm text-gray-600">Add funding to see distribution by type</p>
               </div>
             )}
           </CardContent>
@@ -563,9 +588,9 @@ export const ProjectFundingPage: React.FC<ProjectFundingPageProps> = ({
 
       {/* Status Distribution - Card Grid */}
       {statusDistribution.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Funding Status Distribution</CardTitle>
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '300ms' }}>
+          <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white">
+            <CardTitle className="text-white font-bold">Funding Status Distribution</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -636,14 +661,14 @@ export const ProjectFundingPage: React.FC<ProjectFundingPageProps> = ({
 
       {/* Funding Records Table - Full Width */}
       <div className="w-full">
-        <Card>
-        <CardHeader>
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '350ms' }}>
+        <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white">
           <div className="flex items-center justify-between">
-            <CardTitle>Funding Records</CardTitle>
+            <CardTitle className="text-white font-bold">Funding Records</CardTitle>
             <div className="flex gap-2">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
+                <SelectTrigger className="w-32 bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20">
+                  <SelectValue className="text-white" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
@@ -655,8 +680,8 @@ export const ProjectFundingPage: React.FC<ProjectFundingPageProps> = ({
               </Select>
 
               <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
+                <SelectTrigger className="w-40 bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20">
+                  <SelectValue className="text-white" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
@@ -700,8 +725,12 @@ export const ProjectFundingPage: React.FC<ProjectFundingPageProps> = ({
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredRecords.map((record) => (
-                    <tr key={record.id} className="hover:bg-gray-50 transition-colors">
+                  {filteredRecords.map((record, index) => (
+                    <tr
+                      key={record.id}
+                      className="hover:bg-gray-50 transition-colors duration-200 animate-in fade-in slide-in-from-left-2"
+                      style={{ animationDelay: `${index * 30}ms` }}
+                    >
                       {/* Type */}
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
@@ -767,7 +796,11 @@ export const ProjectFundingPage: React.FC<ProjectFundingPageProps> = ({
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 hover:bg-[#7C3AED]/10 hover:text-[#7C3AED] transition-colors duration-200"
+                            >
                               <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -830,13 +863,15 @@ export const ProjectFundingPage: React.FC<ProjectFundingPageProps> = ({
               </table>
             </div>
           ) : (
-            <div className="text-center py-12 text-gray-500">
-              <DollarSign className="h-12 w-12 mx-auto mb-2 text-gray-400" />
-              <p>No funding records found</p>
-              <p className="text-sm mt-1">
+            <div className="text-center py-16 animate-in fade-in duration-500">
+              <div className="bg-gray-100 rounded-full p-4 w-20 h-20 mx-auto mb-6 flex items-center justify-center">
+                <DollarSign className="h-10 w-10 text-gray-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No funding records found</h3>
+              <p className="text-gray-600 mb-6 max-w-md mx-auto">
                 {statusFilter !== "all" || typeFilter !== "all"
-                  ? "Try adjusting your filters"
-                  : "Click 'Add Funding' to create your first record"}
+                  ? "Try adjusting your filters to see more results"
+                  : "Click 'Add Funding' to create your first funding record"}
               </p>
             </div>
           )}

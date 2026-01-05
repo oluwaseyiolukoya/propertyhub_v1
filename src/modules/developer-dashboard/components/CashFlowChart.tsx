@@ -226,9 +226,9 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Monthly Cash Flow</CardTitle>
+      <Card className="border-0 shadow-xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white">
+          <CardTitle className="text-white font-bold">Monthly Cash Flow</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-[300px]">
@@ -243,14 +243,14 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="border-0 shadow-xl overflow-hidden">
+      <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <CardTitle>Cash Flow Analysis</CardTitle>
+              <CardTitle className="text-white font-bold">Cash Flow Analysis</CardTitle>
               {source === 'snapshot' && (
-                <Badge variant="secondary" className="text-xs">
+                <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm text-xs">
                   <Info className="h-3 w-3 mr-1" />
                   Cached
                 </Badge>
@@ -258,8 +258,8 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
             </div>
             <div className="flex items-center space-x-2">
               <Select value={periodType} onValueChange={(value: any) => setPeriodType(value)}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
+                <SelectTrigger className="w-32 bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20">
+                  <SelectValue className="text-white" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="daily">Daily</SelectItem>
@@ -273,6 +273,9 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
                 variant={viewMode === 'chart' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setViewMode('chart')}
+                className={viewMode === 'chart'
+                  ? 'bg-white text-[#7C3AED] hover:bg-gray-50 font-semibold'
+                  : 'bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20'}
               >
                 Chart
               </Button>
@@ -280,6 +283,9 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
                 variant={viewMode === 'breakdown' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setViewMode('breakdown')}
+                className={viewMode === 'breakdown'
+                  ? 'bg-white text-[#7C3AED] hover:bg-gray-50 font-semibold'
+                  : 'bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20'}
               >
                 Breakdown
               </Button>
@@ -287,15 +293,18 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
           </div>
 
           {/* Date Range Filter */}
-          <div className="flex items-center space-x-2 bg-gray-50 p-3 rounded-lg">
-            <Calendar className="h-4 w-4 text-gray-500" />
-            <span className="text-sm text-gray-600">Date Range:</span>
+          <div className="flex items-center space-x-2 bg-white/10 backdrop-blur-sm p-3 rounded-lg border border-white/20">
+            <Calendar className="h-4 w-4 text-white/80" />
+            <span className="text-sm text-white font-medium">Date Range:</span>
 
             <div className="flex items-center space-x-2 flex-1">
               <Button
                 variant={dateRange === 'last3months' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setDateRange('last3months')}
+                className={dateRange === 'last3months'
+                  ? 'bg-white text-[#7C3AED] hover:bg-gray-50 font-semibold'
+                  : 'bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20'}
               >
                 Last 3 Months
               </Button>
@@ -303,6 +312,9 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
                 variant={dateRange === 'last6months' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setDateRange('last6months')}
+                className={dateRange === 'last6months'
+                  ? 'bg-white text-[#7C3AED] hover:bg-gray-50 font-semibold'
+                  : 'bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20'}
               >
                 Last 6 Months
               </Button>
@@ -310,6 +322,9 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
                 variant={dateRange === 'last12months' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setDateRange('last12months')}
+                className={dateRange === 'last12months'
+                  ? 'bg-white text-[#7C3AED] hover:bg-gray-50 font-semibold'
+                  : 'bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20'}
               >
                 Last 12 Months
               </Button>
@@ -320,6 +335,9 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
                   <Button
                     variant={dateRange === 'custom' ? 'default' : 'outline'}
                     size="sm"
+                    className={dateRange === 'custom'
+                      ? 'bg-white text-[#7C3AED] hover:bg-gray-50 font-semibold'
+                      : 'bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20'}
                   >
                     Custom Range
                   </Button>

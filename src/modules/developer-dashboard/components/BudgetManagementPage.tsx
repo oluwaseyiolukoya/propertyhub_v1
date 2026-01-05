@@ -8,6 +8,10 @@ import {
   MoreVertical,
   Loader2,
   AlertCircle,
+  DollarSign,
+  TrendingUp,
+  TrendingDown,
+  FileText,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -351,86 +355,144 @@ export const BudgetManagementPage: React.FC<BudgetManagementPageProps> = ({ proj
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-        <span className="ml-2 text-gray-600">Loading budget data...</span>
+      <div className="space-y-5 md:space-y-6 animate-in fade-in duration-500">
+        {/* Hero Skeleton */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 h-32 animate-pulse">
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+        </div>
+
+        {/* Summary Cards Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="border-0 shadow-xl overflow-hidden animate-in fade-in duration-500" style={{ animationDelay: `${i * 50}ms` }}>
+              <CardContent className="p-6">
+                <div className="space-y-3">
+                  <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Table Skeleton */}
+        <Card className="border-0 shadow-xl overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-gray-200 to-gray-300 h-16 animate-pulse" />
+          <CardContent className="p-6">
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-16 bg-gray-100 rounded-lg animate-pulse" />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to load budget data</h3>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <Button onClick={() => refetch()}>Try Again</Button>
+      <div className="flex flex-col items-center justify-center min-h-[400px] animate-in fade-in duration-500">
+        <div className="bg-red-50 rounded-full p-4 mb-4">
+          <AlertCircle className="h-12 w-12 text-red-500" />
         </div>
+        <h3 className="text-xl font-semibold text-gray-900 mb-2">Failed to load budget data</h3>
+        <p className="text-gray-600 mb-6 max-w-md text-center">{error}</p>
+        <Button
+          onClick={() => refetch()}
+          className="gap-2 bg-[#7C3AED] hover:bg-[#6D28D9] text-white"
+        >
+          <Loader2 className="h-4 w-4" />
+          Try Again
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Budget Management</h1>
-          <p className="text-gray-600 mt-1">Track and manage project budget allocations</p>
+    <div className="space-y-5 md:space-y-6">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#7C3AED] via-[#6D28D9] to-[#5B21B6] p-6 md:p-8 shadow-xl animate-in fade-in duration-500">
+        <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.6))]"></div>
+        <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-purple-900/20 rounded-full blur-3xl"></div>
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex-1">
+            <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Budget Management</h1>
+            <p className="text-white/80 font-medium">Track and manage project budget allocations</p>
+          </div>
+          <Button
+            onClick={() => setIsAddDialogOpen(true)}
+            className="gap-2 bg-white hover:bg-gray-50 text-[#7C3AED] font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+          >
+            <Plus className="h-4 w-4" />
+            Add Budget Line
+          </Button>
         </div>
-        <Button onClick={() => setIsAddDialogOpen(true)} className="bg-blue-600 hover:bg-blue-700">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Budget Line
-        </Button>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Budget</CardTitle>
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl transition-all duration-300" style={{ animationDelay: '0ms' }}>
+          <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-white/90">Total Budget</CardTitle>
+              <DollarSign className="h-5 w-5 text-white/80" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{formatCurrency(totalPlanned)}</div>
+          <CardContent className="pt-6">
+            <div className="text-3xl font-bold text-gray-900">{formatCurrency(totalPlanned)}</div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Actual Spend</CardTitle>
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl transition-all duration-300" style={{ animationDelay: '50ms' }}>
+          <CardHeader className="bg-gradient-to-r from-blue-500 to-blue-600 text-white pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-white/90">Actual Spend</CardTitle>
+              <TrendingUp className="h-5 w-5 text-white/80" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{formatCurrency(totalActual)}</div>
+          <CardContent className="pt-6">
+            <div className="text-3xl font-bold text-gray-900">{formatCurrency(totalActual)}</div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Variance</CardTitle>
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl transition-all duration-300" style={{ animationDelay: '100ms' }}>
+          <CardHeader className={`pb-3 ${totalVariance > 0 ? 'bg-gradient-to-r from-red-500 to-red-600' : 'bg-gradient-to-r from-green-500 to-green-600'} text-white`}>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-white/90">Variance</CardTitle>
+              {totalVariance > 0 ? (
+                <TrendingUp className="h-5 w-5 text-white/80" />
+              ) : (
+                <TrendingDown className="h-5 w-5 text-white/80" />
+              )}
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${totalVariance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+          <CardContent className="pt-6">
+            <div className={`text-3xl font-bold ${totalVariance > 0 ? 'text-red-600' : 'text-green-600'}`}>
               {totalVariance > 0 ? '+' : ''}{formatCurrency(totalVariance)}
             </div>
-            <p className={`text-sm ${totalVariancePercent > 0 ? 'text-red-600' : 'text-green-600'}`}>
+            <p className={`text-sm mt-1 ${totalVariancePercent > 0 ? 'text-red-600' : 'text-green-600'}`}>
               {totalVariancePercent > 0 ? '+' : ''}{totalVariancePercent.toFixed(1)}%
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Budget Items</CardTitle>
+        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl transition-all duration-300" style={{ animationDelay: '150ms' }}>
+          <CardHeader className="bg-gradient-to-r from-purple-500 to-purple-600 text-white pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-white/90">Budget Items</CardTitle>
+              <FileText className="h-5 w-5 text-white/80" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{budgetItems.length}</div>
+          <CardContent className="pt-6">
+            <div className="text-3xl font-bold text-gray-900">{budgetItems.length}</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
-      <Card>
+      <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '200ms' }}>
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
@@ -465,23 +527,28 @@ export const BudgetManagementPage: React.FC<BudgetManagementPageProps> = ({ proj
       </Card>
 
       {/* Budget Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Budget Line Items</CardTitle>
+      <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '250ms' }}>
+        <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white">
+          <CardTitle className="text-white font-bold">Budget Line Items</CardTitle>
         </CardHeader>
         <CardContent>
           {filteredData.length === 0 ? (
-            <div className="text-center py-12">
-              <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No budget items found</h3>
-              <p className="text-gray-600 mb-4">
+            <div className="text-center py-16 animate-in fade-in duration-500">
+              <div className="bg-gray-100 rounded-full p-4 w-20 h-20 mx-auto mb-6 flex items-center justify-center">
+                <FileText className="h-10 w-10 text-gray-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No budget items found</h3>
+              <p className="text-gray-600 mb-6 max-w-md mx-auto">
                 {searchTerm || filterCategory !== 'all'
-                  ? 'Try adjusting your filters'
-                  : 'Get started by adding your first budget line item'}
+                  ? 'Try adjusting your filters to see more results'
+                  : 'Get started by adding your first budget line item to track project expenses'}
               </p>
               {!searchTerm && filterCategory === 'all' && (
-                <Button onClick={() => setIsAddDialogOpen(true)} className="bg-blue-600 hover:bg-blue-700">
-                  <Plus className="h-4 w-4 mr-2" />
+                <Button
+                  onClick={() => setIsAddDialogOpen(true)}
+                  className="gap-2 bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                >
+                  <Plus className="h-4 w-4" />
                   Add Budget Line
                 </Button>
               )}
@@ -501,8 +568,12 @@ export const BudgetManagementPage: React.FC<BudgetManagementPageProps> = ({ proj
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredData.map((item) => (
-                    <TableRow key={item.id}>
+                  {filteredData.map((item, index) => (
+                    <TableRow
+                      key={item.id}
+                      className="hover:bg-gray-50 transition-colors duration-200 animate-in fade-in slide-in-from-left-2"
+                      style={{ animationDelay: `${index * 30}ms` }}
+                    >
                       <TableCell>
                         <div>
                           <div className="font-medium">{formatCategoryName(item.category)}</div>
@@ -537,7 +608,11 @@ export const BudgetManagementPage: React.FC<BudgetManagementPageProps> = ({ proj
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="hover:bg-[#7C3AED]/10 hover:text-[#7C3AED] transition-colors duration-200"
+                            >
                               <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -567,22 +642,22 @@ export const BudgetManagementPage: React.FC<BudgetManagementPageProps> = ({ proj
 
       {/* Add Budget Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Add Budget Line Item</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-2xl border-0 shadow-2xl p-0 max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-lg">
+            <DialogTitle className="text-white text-2xl font-bold">Add Budget Line Item</DialogTitle>
+            <DialogDescription className="text-purple-100 mt-2">
               Create a new budget line item for this project
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-6 p-6 pl-8">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="category">Category *</Label>
+                <Label htmlFor="category" className="text-sm font-semibold text-gray-700">Category *</Label>
                 <Select
                   value={newBudgetLine.category}
                   onValueChange={(value) => setNewBudgetLine({ ...newBudgetLine, category: value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -595,77 +670,95 @@ export const BudgetManagementPage: React.FC<BudgetManagementPageProps> = ({ proj
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="subcategory">Subcategory</Label>
+                <Label htmlFor="subcategory" className="text-sm font-semibold text-gray-700">Subcategory</Label>
                 <Input
                   id="subcategory"
                   value={newBudgetLine.subcategory}
                   onChange={(e) => setNewBudgetLine({ ...newBudgetLine, subcategory: e.target.value })}
                   placeholder="e.g., Skilled labor"
+                  className="h-11"
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description">Description *</Label>
+              <Label htmlFor="description" className="text-sm font-semibold text-gray-700">Description *</Label>
               <Input
                 id="description"
                 value={newBudgetLine.description}
                 onChange={(e) => setNewBudgetLine({ ...newBudgetLine, description: e.target.value })}
                 placeholder="e.g., Construction labor costs"
+                className="h-11"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="plannedAmount">Planned Amount *</Label>
+              <Label htmlFor="plannedAmount" className="text-sm font-semibold text-gray-700">Planned Amount *</Label>
               <Input
                 id="plannedAmount"
                 type="number"
                 value={newBudgetLine.plannedAmount}
                 onChange={(e) => setNewBudgetLine({ ...newBudgetLine, plannedAmount: e.target.value })}
                 placeholder="0"
+                className="h-11"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="startDate">Start Date</Label>
+                <Label htmlFor="startDate" className="text-sm font-semibold text-gray-700">Start Date</Label>
                 <Input
                   id="startDate"
                   type="date"
                   value={newBudgetLine.startDate}
                   onChange={(e) => setNewBudgetLine({ ...newBudgetLine, startDate: e.target.value })}
+                  className="h-11"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="endDate">End Date</Label>
+                <Label htmlFor="endDate" className="text-sm font-semibold text-gray-700">End Date</Label>
                 <Input
                   id="endDate"
                   type="date"
                   value={newBudgetLine.endDate}
                   onChange={(e) => setNewBudgetLine({ ...newBudgetLine, endDate: e.target.value })}
+                  className="h-11"
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
+              <Label htmlFor="notes" className="text-sm font-semibold text-gray-700">Notes</Label>
               <Textarea
                 id="notes"
                 value={newBudgetLine.notes}
                 onChange={(e) => setNewBudgetLine({ ...newBudgetLine, notes: e.target.value })}
                 placeholder="Additional notes..."
-                rows={3}
+                rows={4}
+                className="resize-none"
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={submitting}>
+          <DialogFooter className="px-6 py-4 bg-gray-50 border-t">
+            <Button
+              variant="outline"
+              onClick={() => setIsAddDialogOpen(false)}
+              disabled={submitting}
+              className="border-gray-300 hover:bg-gray-100"
+            >
               Cancel
             </Button>
-            <Button onClick={handleAddBudget} disabled={submitting}>
+            <Button
+              onClick={handleAddBudget}
+              disabled={submitting}
+              className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md hover:shadow-lg transition-all duration-200"
+            >
               {submitting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Creating...
                 </>
               ) : (
-                'Create Budget Line'
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Budget Line
+                </>
               )}
             </Button>
           </DialogFooter>
@@ -674,22 +767,22 @@ export const BudgetManagementPage: React.FC<BudgetManagementPageProps> = ({ proj
 
       {/* Edit Budget Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Edit Budget Line Item</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-2xl border-0 shadow-2xl p-0 max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-lg">
+            <DialogTitle className="text-white text-2xl font-bold">Edit Budget Line Item</DialogTitle>
+            <DialogDescription className="text-purple-100 mt-2">
               Update the budget line item details
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-6 p-6 pl-8">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-category">Category *</Label>
+                <Label htmlFor="edit-category" className="text-sm font-semibold text-gray-700">Category *</Label>
                 <Select
                   value={editBudgetLine.category}
                   onValueChange={(value) => setEditBudgetLine({ ...editBudgetLine, category: value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -702,45 +795,48 @@ export const BudgetManagementPage: React.FC<BudgetManagementPageProps> = ({ proj
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-subcategory">Subcategory</Label>
+                <Label htmlFor="edit-subcategory" className="text-sm font-semibold text-gray-700">Subcategory</Label>
                 <Input
                   id="edit-subcategory"
                   value={editBudgetLine.subcategory}
                   onChange={(e) => setEditBudgetLine({ ...editBudgetLine, subcategory: e.target.value })}
                   placeholder="e.g., Skilled labor"
+                  className="h-11"
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-description">Description *</Label>
+              <Label htmlFor="edit-description" className="text-sm font-semibold text-gray-700">Description *</Label>
               <Input
                 id="edit-description"
                 value={editBudgetLine.description}
                 onChange={(e) => setEditBudgetLine({ ...editBudgetLine, description: e.target.value })}
                 placeholder="e.g., Construction labor costs"
+                className="h-11"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-plannedAmount">Planned Amount *</Label>
+              <Label htmlFor="edit-plannedAmount" className="text-sm font-semibold text-gray-700">Planned Amount *</Label>
               <Input
                 id="edit-plannedAmount"
                 type="number"
                 value={editBudgetLine.plannedAmount}
                 onChange={(e) => setEditBudgetLine({ ...editBudgetLine, plannedAmount: e.target.value })}
                 placeholder="0"
+                className="h-11"
               />
             </div>
             {selectedBudget && (
               <div className="space-y-2">
-                <Label>Actual Amount (Auto-calculated from Expenses)</Label>
-                <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                <Label className="text-sm font-semibold text-gray-700">Actual Amount (Auto-calculated from Expenses)</Label>
+                <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Current Actual Spend:</span>
-                    <span className="text-lg font-semibold text-gray-900">
+                    <span className="text-sm font-medium text-gray-700">Current Actual Spend:</span>
+                    <span className="text-xl font-bold text-[#7C3AED]">
                       {formatCurrency(selectedBudget.actualAmount)}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
+                  <p className="text-xs text-gray-600 mt-2">
                     This amount is automatically calculated from paid expenses in the "{formatCategoryName(selectedBudget.category)}" category.
                   </p>
                 </div>
@@ -748,47 +844,62 @@ export const BudgetManagementPage: React.FC<BudgetManagementPageProps> = ({ proj
             )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-startDate">Start Date</Label>
+                <Label htmlFor="edit-startDate" className="text-sm font-semibold text-gray-700">Start Date</Label>
                 <Input
                   id="edit-startDate"
                   type="date"
                   value={editBudgetLine.startDate}
                   onChange={(e) => setEditBudgetLine({ ...editBudgetLine, startDate: e.target.value })}
+                  className="h-11"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-endDate">End Date</Label>
+                <Label htmlFor="edit-endDate" className="text-sm font-semibold text-gray-700">End Date</Label>
                 <Input
                   id="edit-endDate"
                   type="date"
                   value={editBudgetLine.endDate}
                   onChange={(e) => setEditBudgetLine({ ...editBudgetLine, endDate: e.target.value })}
+                  className="h-11"
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-notes">Notes</Label>
+              <Label htmlFor="edit-notes" className="text-sm font-semibold text-gray-700">Notes</Label>
               <Textarea
                 id="edit-notes"
                 value={editBudgetLine.notes}
                 onChange={(e) => setEditBudgetLine({ ...editBudgetLine, notes: e.target.value })}
                 placeholder="Additional notes..."
-                rows={3}
+                rows={4}
+                className="resize-none"
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={submitting}>
+          <DialogFooter className="px-6 py-4 bg-gray-50 border-t">
+            <Button
+              variant="outline"
+              onClick={() => setIsEditDialogOpen(false)}
+              disabled={submitting}
+              className="border-gray-300 hover:bg-gray-100"
+            >
               Cancel
             </Button>
-            <Button onClick={handleEditBudget} disabled={submitting}>
+            <Button
+              onClick={handleEditBudget}
+              disabled={submitting}
+              className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md hover:shadow-lg transition-all duration-200"
+            >
               {submitting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Updating...
                 </>
               ) : (
-                'Update Budget Line'
+                <>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Update Budget Line
+                </>
               )}
             </Button>
           </DialogFooter>
