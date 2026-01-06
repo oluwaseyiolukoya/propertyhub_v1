@@ -471,7 +471,7 @@ router.post('/admin/payment-gateway', adminOnly, async (req: AuthRequest, res: R
     }
 
     const key = `payments.${provider}`;
-    
+
     // Get existing setting to preserve verifyToken if it exists
     const existing = await prisma.system_settings.findUnique({ where: { key } });
     let verifyToken = (existing?.value as any)?.verifyToken;
@@ -535,6 +535,41 @@ router.post('/admin/payment-gateway', adminOnly, async (req: AuthRequest, res: R
   } catch (error: any) {
     console.error('[Admin Payment Gateway] Save error:', error);
     return res.status(500).json({ error: 'Failed to save payment gateway configuration' });
+  }
+});
+
+// Get platform payment gateway status (read-only, for developers and all authenticated users)
+// Returns only status information, no sensitive keys
+router.get('/payment-gateway/status', async (req: AuthRequest, res: Response) => {
+  try {
+    const { provider = 'paystack' } = req.query;
+
+    if (!['paystack', 'monicredit'].includes(provider as string)) {
+      return res.status(400).json({ error: 'Invalid provider. Supported: paystack, monicredit' });
+    }
+
+    const key = `payments.${provider}`;
+    const setting = await prisma.system_settings.findUnique({ where: { key } });
+
+    if (!setting) {
+      return res.json({
+        provider,
+        isEnabled: false,
+        testMode: false,
+      });
+    }
+
+    const value = setting.value as any;
+
+    // Return only status information, no sensitive keys
+    return res.json({
+      provider,
+      isEnabled: value?.isEnabled || false,
+      testMode: value?.testMode || false,
+    });
+  } catch (error: any) {
+    console.error('[Payment Gateway Status] Get error:', error);
+    return res.status(500).json({ error: 'Failed to fetch payment gateway status' });
   }
 });
 

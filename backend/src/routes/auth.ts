@@ -1269,6 +1269,7 @@ router.get(
                 description: teamMemberRole.description,
               }
             : null,
+          twoFactorEnabled: (user as any).twoFactorEnabled || false,
           // KYC fields for tenants
           ...userKycData,
         },

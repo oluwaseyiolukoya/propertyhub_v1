@@ -73,8 +73,35 @@ router.post(
         const currency: string | undefined = data?.currency;
         const paidAt: string | undefined = data?.paid_at;
         const fees: number | undefined = data?.fees; // may be undefined
+        const transactionStatus: string | undefined = data?.status; // Transaction status from Paystack
 
         if (reference) {
+          // IMPORTANT: Only update payment status if transaction status is actually "success"
+          // This prevents premature status updates when webhook fires before user completes payment
+          if (transactionStatus !== "success") {
+            console.log(`[Paystack Webhook] Ignoring charge.success event - transaction status is "${transactionStatus}", not "success"`);
+            return res.status(200).send("ok");
+          }
+
+          // For subscription payments, verify the payment hasn't already been processed
+          // to prevent duplicate processing
+          if (type === "subscription") {
+            const existingPayment = await prisma.payments.findFirst({
+              where: {
+                customerId,
+                provider: "paystack",
+                providerReference: reference,
+                type: "subscription",
+              },
+            });
+
+            // If payment exists and is already completed, skip update (idempotency)
+            if (existingPayment && (existingPayment.status === "completed" || existingPayment.status === "success")) {
+              console.log(`[Paystack Webhook] Subscription payment ${reference} already processed, skipping update`);
+              return res.status(200).send("ok");
+            }
+          }
+
           const updated = await prisma.payments.updateMany({
             where: {
               customerId,

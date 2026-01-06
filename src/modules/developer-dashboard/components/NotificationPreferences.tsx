@@ -122,8 +122,8 @@ export const NotificationPreferencesTab: React.FC = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading preferences...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#7C3AED] border-t-transparent mx-auto"></div>
+          <p className="mt-4 text-gray-600 font-medium">Loading preferences...</p>
         </div>
       </div>
     );
@@ -142,17 +142,26 @@ export const NotificationPreferencesTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header - Enhanced with Brand Colors */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Notification Preferences</h2>
-          <p className="text-gray-600 mt-1">Manage how you receive notifications</p>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="h-10 w-10 bg-gradient-to-br from-[#A855F7] to-[#7C3AED] rounded-lg flex items-center justify-center shadow-md">
+              <Bell className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] bg-clip-text text-transparent">
+                Notification Preferences
+              </h2>
+            </div>
+          </div>
+          <p className="text-gray-600 ml-14">Manage how you receive notifications</p>
         </div>
         <Button
           onClick={handleSendTest}
           disabled={sendingTest}
           variant="outline"
-          className="gap-2"
+          className="gap-2 border-purple-200 hover:bg-purple-50 hover:border-purple-300"
         >
           <TestTube className="w-4 h-4" />
           {sendingTest ? 'Sending...' : 'Send Test'}
@@ -160,31 +169,41 @@ export const NotificationPreferencesTab: React.FC = () => {
       </div>
 
       {/* Email Notifications */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Mail className="w-5 h-5 text-blue-600" />
-            <CardTitle>Email Notifications</CardTitle>
+      <Card className="border-0 shadow-xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-b border-blue-100">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center shadow-md">
+              <Mail className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-gray-900">Email Notifications</CardTitle>
+              <CardDescription className="text-gray-600">
+                Receive notifications via email
+              </CardDescription>
+            </div>
           </div>
-          <CardDescription>
-            Receive notifications via email
-          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Master Email Toggle */}
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-            <div className="flex-1">
-              <Label htmlFor="email_enabled" className="text-base font-semibold">
-                Enable Email Notifications
-              </Label>
-              <p className="text-sm text-gray-600 mt-1">
-                Master switch for all email notifications
-              </p>
+          <div className="flex items-center justify-between p-5 bg-gradient-to-br from-blue-50/50 via-indigo-50/50 to-purple-50/50 rounded-xl border-2 border-blue-200/50 hover:border-purple-300 transition-all">
+            <div className="flex items-center gap-4 flex-1">
+              <div className="h-12 w-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center shadow-md">
+                <Mail className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <Label htmlFor="email_enabled" className="text-base font-bold text-gray-900">
+                  Enable Email Notifications
+                </Label>
+                <p className="text-sm text-gray-600 mt-1">
+                  Master switch for all email notifications
+                </p>
+              </div>
             </div>
             <Switch
               id="email_enabled"
               checked={preferences.email_enabled}
               onCheckedChange={(checked) => updatePreference('email_enabled', checked)}
+              className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#7C3AED] data-[state=checked]:to-[#5B21B6]"
             />
           </div>
 
@@ -192,81 +211,99 @@ export const NotificationPreferencesTab: React.FC = () => {
 
           {/* Individual Email Preferences */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50/50 transition-colors">
               <div className="flex-1">
-                <Label htmlFor="email_invoice_approval">Invoice Approval Requests</Label>
-                <p className="text-sm text-gray-500">When an invoice needs your approval</p>
+                <Label htmlFor="email_invoice_approval" className="text-sm font-semibold text-gray-900">
+                  Invoice Approval Requests
+                </Label>
+                <p className="text-sm text-gray-600 mt-0.5">When an invoice needs your approval</p>
               </div>
               <Switch
                 id="email_invoice_approval"
                 checked={preferences.email_invoice_approval}
                 onCheckedChange={(checked) => updatePreference('email_invoice_approval', checked)}
                 disabled={!preferences.email_enabled}
+                className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#7C3AED] data-[state=checked]:to-[#5B21B6]"
               />
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50/50 transition-colors">
               <div className="flex-1">
-                <Label htmlFor="email_invoice_approved">Invoice Approved</Label>
-                <p className="text-sm text-gray-500">When your invoice is approved</p>
+                <Label htmlFor="email_invoice_approved" className="text-sm font-semibold text-gray-900">
+                  Invoice Approved
+                </Label>
+                <p className="text-sm text-gray-600 mt-0.5">When your invoice is approved</p>
               </div>
               <Switch
                 id="email_invoice_approved"
                 checked={preferences.email_invoice_approved}
                 onCheckedChange={(checked) => updatePreference('email_invoice_approved', checked)}
                 disabled={!preferences.email_enabled}
+                className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#7C3AED] data-[state=checked]:to-[#5B21B6]"
               />
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50/50 transition-colors">
               <div className="flex-1">
-                <Label htmlFor="email_invoice_rejected">Invoice Rejected</Label>
-                <p className="text-sm text-gray-500">When your invoice is rejected</p>
+                <Label htmlFor="email_invoice_rejected" className="text-sm font-semibold text-gray-900">
+                  Invoice Rejected
+                </Label>
+                <p className="text-sm text-gray-600 mt-0.5">When your invoice is rejected</p>
               </div>
               <Switch
                 id="email_invoice_rejected"
                 checked={preferences.email_invoice_rejected}
                 onCheckedChange={(checked) => updatePreference('email_invoice_rejected', checked)}
                 disabled={!preferences.email_enabled}
+                className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#7C3AED] data-[state=checked]:to-[#5B21B6]"
               />
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50/50 transition-colors">
               <div className="flex-1">
-                <Label htmlFor="email_invoice_paid">Invoice Paid</Label>
-                <p className="text-sm text-gray-500">When an invoice is marked as paid</p>
+                <Label htmlFor="email_invoice_paid" className="text-sm font-semibold text-gray-900">
+                  Invoice Paid
+                </Label>
+                <p className="text-sm text-gray-600 mt-0.5">When an invoice is marked as paid</p>
               </div>
               <Switch
                 id="email_invoice_paid"
                 checked={preferences.email_invoice_paid}
                 onCheckedChange={(checked) => updatePreference('email_invoice_paid', checked)}
                 disabled={!preferences.email_enabled}
+                className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#7C3AED] data-[state=checked]:to-[#5B21B6]"
               />
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50/50 transition-colors">
               <div className="flex-1">
-                <Label htmlFor="email_team_invitation">Team Invitations</Label>
-                <p className="text-sm text-gray-500">When you're invited to a team</p>
+                <Label htmlFor="email_team_invitation" className="text-sm font-semibold text-gray-900">
+                  Team Invitations
+                </Label>
+                <p className="text-sm text-gray-600 mt-0.5">When you're invited to a team</p>
               </div>
               <Switch
                 id="email_team_invitation"
                 checked={preferences.email_team_invitation}
                 onCheckedChange={(checked) => updatePreference('email_team_invitation', checked)}
                 disabled={!preferences.email_enabled}
+                className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#7C3AED] data-[state=checked]:to-[#5B21B6]"
               />
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50/50 transition-colors">
               <div className="flex-1">
-                <Label htmlFor="email_delegation">Approval Delegation</Label>
-                <p className="text-sm text-gray-500">When approval authority is delegated to you</p>
+                <Label htmlFor="email_delegation" className="text-sm font-semibold text-gray-900">
+                  Approval Delegation
+                </Label>
+                <p className="text-sm text-gray-600 mt-0.5">When approval authority is delegated to you</p>
               </div>
               <Switch
                 id="email_delegation"
                 checked={preferences.email_delegation}
                 onCheckedChange={(checked) => updatePreference('email_delegation', checked)}
                 disabled={!preferences.email_enabled}
+                className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#7C3AED] data-[state=checked]:to-[#5B21B6]"
               />
             </div>
           </div>
@@ -275,31 +312,40 @@ export const NotificationPreferencesTab: React.FC = () => {
 
           {/* Digest Options */}
           <div className="space-y-3">
-            <h4 className="font-semibold text-sm text-gray-700">Digest Options</h4>
+            <h4 className="font-bold text-sm text-gray-900 flex items-center gap-2">
+              <Mail className="w-4 h-4 text-purple-600" />
+              Digest Options
+            </h4>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50/50 transition-colors">
               <div className="flex-1">
-                <Label htmlFor="email_daily_digest">Daily Digest</Label>
-                <p className="text-sm text-gray-500">Summary of all notifications once per day</p>
+                <Label htmlFor="email_daily_digest" className="text-sm font-semibold text-gray-900">
+                  Daily Digest
+                </Label>
+                <p className="text-sm text-gray-600 mt-0.5">Summary of all notifications once per day</p>
               </div>
               <Switch
                 id="email_daily_digest"
                 checked={preferences.email_daily_digest}
                 onCheckedChange={(checked) => updatePreference('email_daily_digest', checked)}
                 disabled={!preferences.email_enabled}
+                className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#7C3AED] data-[state=checked]:to-[#5B21B6]"
               />
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50/50 transition-colors">
               <div className="flex-1">
-                <Label htmlFor="email_weekly_summary">Weekly Summary</Label>
-                <p className="text-sm text-gray-500">Summary of all notifications once per week</p>
+                <Label htmlFor="email_weekly_summary" className="text-sm font-semibold text-gray-900">
+                  Weekly Summary
+                </Label>
+                <p className="text-sm text-gray-600 mt-0.5">Summary of all notifications once per week</p>
               </div>
               <Switch
                 id="email_weekly_summary"
                 checked={preferences.email_weekly_summary}
                 onCheckedChange={(checked) => updatePreference('email_weekly_summary', checked)}
                 disabled={!preferences.email_enabled}
+                className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#7C3AED] data-[state=checked]:to-[#5B21B6]"
               />
             </div>
           </div>
@@ -307,31 +353,41 @@ export const NotificationPreferencesTab: React.FC = () => {
       </Card>
 
       {/* In-App Notifications */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Bell className="w-5 h-5 text-blue-600" />
-            <CardTitle>In-App Notifications</CardTitle>
+      <Card className="border-0 shadow-xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border-b border-purple-100">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 bg-gradient-to-br from-[#A855F7] to-[#7C3AED] rounded-lg flex items-center justify-center shadow-md">
+              <Bell className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-gray-900">In-App Notifications</CardTitle>
+              <CardDescription className="text-gray-600">
+                Receive notifications in the application
+              </CardDescription>
+            </div>
           </div>
-          <CardDescription>
-            Receive notifications in the application
-          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Master In-App Toggle */}
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-            <div className="flex-1">
-              <Label htmlFor="inapp_enabled" className="text-base font-semibold">
-                Enable In-App Notifications
-              </Label>
-              <p className="text-sm text-gray-600 mt-1">
-                Master switch for all in-app notifications
-              </p>
+          <div className="flex items-center justify-between p-5 bg-gradient-to-br from-purple-50/50 via-indigo-50/50 to-purple-50/50 rounded-xl border-2 border-purple-200/50 hover:border-purple-300 transition-all">
+            <div className="flex items-center gap-4 flex-1">
+              <div className="h-12 w-12 bg-gradient-to-br from-[#A855F7] to-[#7C3AED] rounded-lg flex items-center justify-center shadow-md">
+                <Bell className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <Label htmlFor="inapp_enabled" className="text-base font-bold text-gray-900">
+                  Enable In-App Notifications
+                </Label>
+                <p className="text-sm text-gray-600 mt-1">
+                  Master switch for all in-app notifications
+                </p>
+              </div>
             </div>
             <Switch
               id="inapp_enabled"
               checked={preferences.inapp_enabled}
               onCheckedChange={(checked) => updatePreference('inapp_enabled', checked)}
+              className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#7C3AED] data-[state=checked]:to-[#5B21B6]"
             />
           </div>
 
@@ -339,81 +395,99 @@ export const NotificationPreferencesTab: React.FC = () => {
 
           {/* Individual In-App Preferences */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50/50 transition-colors">
               <div className="flex-1">
-                <Label htmlFor="inapp_invoice_approval">Invoice Approval Requests</Label>
-                <p className="text-sm text-gray-500">When an invoice needs your approval</p>
+                <Label htmlFor="inapp_invoice_approval" className="text-sm font-semibold text-gray-900">
+                  Invoice Approval Requests
+                </Label>
+                <p className="text-sm text-gray-600 mt-0.5">When an invoice needs your approval</p>
               </div>
               <Switch
                 id="inapp_invoice_approval"
                 checked={preferences.inapp_invoice_approval}
                 onCheckedChange={(checked) => updatePreference('inapp_invoice_approval', checked)}
                 disabled={!preferences.inapp_enabled}
+                className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#7C3AED] data-[state=checked]:to-[#5B21B6]"
               />
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50/50 transition-colors">
               <div className="flex-1">
-                <Label htmlFor="inapp_invoice_approved">Invoice Approved</Label>
-                <p className="text-sm text-gray-500">When your invoice is approved</p>
+                <Label htmlFor="inapp_invoice_approved" className="text-sm font-semibold text-gray-900">
+                  Invoice Approved
+                </Label>
+                <p className="text-sm text-gray-600 mt-0.5">When your invoice is approved</p>
               </div>
               <Switch
                 id="inapp_invoice_approved"
                 checked={preferences.inapp_invoice_approved}
                 onCheckedChange={(checked) => updatePreference('inapp_invoice_approved', checked)}
                 disabled={!preferences.inapp_enabled}
+                className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#7C3AED] data-[state=checked]:to-[#5B21B6]"
               />
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50/50 transition-colors">
               <div className="flex-1">
-                <Label htmlFor="inapp_invoice_rejected">Invoice Rejected</Label>
-                <p className="text-sm text-gray-500">When your invoice is rejected</p>
+                <Label htmlFor="inapp_invoice_rejected" className="text-sm font-semibold text-gray-900">
+                  Invoice Rejected
+                </Label>
+                <p className="text-sm text-gray-600 mt-0.5">When your invoice is rejected</p>
               </div>
               <Switch
                 id="inapp_invoice_rejected"
                 checked={preferences.inapp_invoice_rejected}
                 onCheckedChange={(checked) => updatePreference('inapp_invoice_rejected', checked)}
                 disabled={!preferences.inapp_enabled}
+                className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#7C3AED] data-[state=checked]:to-[#5B21B6]"
               />
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50/50 transition-colors">
               <div className="flex-1">
-                <Label htmlFor="inapp_invoice_paid">Invoice Paid</Label>
-                <p className="text-sm text-gray-500">When an invoice is marked as paid</p>
+                <Label htmlFor="inapp_invoice_paid" className="text-sm font-semibold text-gray-900">
+                  Invoice Paid
+                </Label>
+                <p className="text-sm text-gray-600 mt-0.5">When an invoice is marked as paid</p>
               </div>
               <Switch
                 id="inapp_invoice_paid"
                 checked={preferences.inapp_invoice_paid}
                 onCheckedChange={(checked) => updatePreference('inapp_invoice_paid', checked)}
                 disabled={!preferences.inapp_enabled}
+                className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#7C3AED] data-[state=checked]:to-[#5B21B6]"
               />
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50/50 transition-colors">
               <div className="flex-1">
-                <Label htmlFor="inapp_team_invitation">Team Invitations</Label>
-                <p className="text-sm text-gray-500">When you're invited to a team</p>
+                <Label htmlFor="inapp_team_invitation" className="text-sm font-semibold text-gray-900">
+                  Team Invitations
+                </Label>
+                <p className="text-sm text-gray-600 mt-0.5">When you're invited to a team</p>
               </div>
               <Switch
                 id="inapp_team_invitation"
                 checked={preferences.inapp_team_invitation}
                 onCheckedChange={(checked) => updatePreference('inapp_team_invitation', checked)}
                 disabled={!preferences.inapp_enabled}
+                className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#7C3AED] data-[state=checked]:to-[#5B21B6]"
               />
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50/50 transition-colors">
               <div className="flex-1">
-                <Label htmlFor="inapp_delegation">Approval Delegation</Label>
-                <p className="text-sm text-gray-500">When approval authority is delegated to you</p>
+                <Label htmlFor="inapp_delegation" className="text-sm font-semibold text-gray-900">
+                  Approval Delegation
+                </Label>
+                <p className="text-sm text-gray-600 mt-0.5">When approval authority is delegated to you</p>
               </div>
               <Switch
                 id="inapp_delegation"
                 checked={preferences.inapp_delegation}
                 onCheckedChange={(checked) => updatePreference('inapp_delegation', checked)}
                 disabled={!preferences.inapp_enabled}
+                className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#7C3AED] data-[state=checked]:to-[#5B21B6]"
               />
             </div>
           </div>
@@ -421,30 +495,40 @@ export const NotificationPreferencesTab: React.FC = () => {
       </Card>
 
       {/* Quiet Hours */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Clock className="w-5 h-5 text-blue-600" />
-            <CardTitle>Quiet Hours</CardTitle>
+      <Card className="border-0 shadow-xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-amber-50 via-orange-50 to-yellow-50 border-b border-amber-100">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 bg-gradient-to-br from-amber-500 to-orange-500 rounded-lg flex items-center justify-center shadow-md">
+              <Clock className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-gray-900">Quiet Hours</CardTitle>
+              <CardDescription className="text-gray-600">
+                Set times when you don't want to receive notifications
+              </CardDescription>
+            </div>
           </div>
-          <CardDescription>
-            Set times when you don't want to receive notifications
-          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-            <div className="flex-1">
-              <Label htmlFor="quiet_hours_enabled" className="text-base font-semibold">
-                Enable Quiet Hours
-              </Label>
-              <p className="text-sm text-gray-600 mt-1">
-                Pause notifications during specific hours
-              </p>
+          <div className="flex items-center justify-between p-5 bg-gradient-to-br from-amber-50/50 via-orange-50/50 to-yellow-50/50 rounded-xl border-2 border-amber-200/50 hover:border-amber-300 transition-all">
+            <div className="flex items-center gap-4 flex-1">
+              <div className="h-12 w-12 bg-gradient-to-br from-amber-500 to-orange-500 rounded-lg flex items-center justify-center shadow-md">
+                <Clock className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <Label htmlFor="quiet_hours_enabled" className="text-base font-bold text-gray-900">
+                  Enable Quiet Hours
+                </Label>
+                <p className="text-sm text-gray-600 mt-1">
+                  Pause notifications during specific hours
+                </p>
+              </div>
             </div>
             <Switch
               id="quiet_hours_enabled"
               checked={preferences.quiet_hours_enabled}
               onCheckedChange={(checked) => updatePreference('quiet_hours_enabled', checked)}
+              className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#7C3AED] data-[state=checked]:to-[#5B21B6]"
             />
           </div>
 
@@ -453,12 +537,14 @@ export const NotificationPreferencesTab: React.FC = () => {
               <Separator />
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="quiet_hours_start">Start Time</Label>
+                  <Label htmlFor="quiet_hours_start" className="text-sm font-semibold text-gray-700">
+                    Start Time
+                  </Label>
                   <Select
                     value={preferences.quiet_hours_start || '22:00'}
                     onValueChange={(value) => updatePreference('quiet_hours_start', value)}
                   >
-                    <SelectTrigger id="quiet_hours_start">
+                    <SelectTrigger id="quiet_hours_start" className="focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                       <SelectValue placeholder="Select start time" />
                     </SelectTrigger>
                     <SelectContent>
@@ -475,12 +561,14 @@ export const NotificationPreferencesTab: React.FC = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="quiet_hours_end">End Time</Label>
+                  <Label htmlFor="quiet_hours_end" className="text-sm font-semibold text-gray-700">
+                    End Time
+                  </Label>
                   <Select
                     value={preferences.quiet_hours_end || '08:00'}
                     onValueChange={(value) => updatePreference('quiet_hours_end', value)}
                   >
-                    <SelectTrigger id="quiet_hours_end">
+                    <SelectTrigger id="quiet_hours_end" className="focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                       <SelectValue placeholder="Select end time" />
                     </SelectTrigger>
                     <SelectContent>
@@ -498,12 +586,14 @@ export const NotificationPreferencesTab: React.FC = () => {
               </div>
 
               <div>
-                <Label htmlFor="quiet_hours_timezone">Timezone</Label>
+                <Label htmlFor="quiet_hours_timezone" className="text-sm font-semibold text-gray-700">
+                  Timezone
+                </Label>
                 <Select
                   value={preferences.quiet_hours_timezone}
                   onValueChange={(value) => updatePreference('quiet_hours_timezone', value)}
                 >
-                  <SelectTrigger id="quiet_hours_timezone">
+                  <SelectTrigger id="quiet_hours_timezone" className="focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                     <SelectValue placeholder="Select timezone" />
                   </SelectTrigger>
                   <SelectContent>
@@ -523,13 +613,16 @@ export const NotificationPreferencesTab: React.FC = () => {
 
       {/* Save/Cancel Buttons */}
       {hasChanges && (
-        <div className="flex items-center justify-end gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-700 mr-auto">You have unsaved changes</p>
+        <div className="flex items-center justify-end gap-3 p-5 bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border-2 border-purple-200 rounded-xl shadow-lg">
+          <p className="text-sm font-semibold text-purple-700 mr-auto flex items-center gap-2">
+            <Bell className="w-4 h-4" />
+            You have unsaved changes
+          </p>
           <Button
             variant="outline"
             onClick={handleCancel}
             disabled={saving}
-            className="gap-2"
+            className="gap-2 border-gray-300 hover:bg-gray-50"
           >
             <X className="w-4 h-4" />
             Cancel
@@ -537,7 +630,7 @@ export const NotificationPreferencesTab: React.FC = () => {
           <Button
             onClick={handleSave}
             disabled={saving}
-            className="gap-2"
+            className="gap-2 bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25"
           >
             <Save className="w-4 h-4" />
             {saving ? 'Saving...' : 'Save Changes'}

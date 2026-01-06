@@ -406,13 +406,13 @@ export const TeamManagementTab: React.FC = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
-        return <Badge className="bg-green-500"><CheckCircle className="w-3 h-3 mr-1" />Active</Badge>;
+        return <Badge className="bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-md"><CheckCircle className="w-3 h-3 mr-1" />Active</Badge>;
       case 'inactive':
-        return <Badge className="bg-gray-500"><UserX className="w-3 h-3 mr-1" />Inactive</Badge>;
+        return <Badge className="bg-gradient-to-r from-gray-500 to-gray-600 text-white shadow-md"><UserX className="w-3 h-3 mr-1" />Inactive</Badge>;
       case 'invited':
-        return <Badge className="bg-blue-500"><Clock className="w-3 h-3 mr-1" />Invited</Badge>;
+        return <Badge className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md"><Clock className="w-3 h-3 mr-1" />Invited</Badge>;
       case 'suspended':
-        return <Badge className="bg-red-500"><XCircle className="w-3 h-3 mr-1" />Suspended</Badge>;
+        return <Badge className="bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-md"><XCircle className="w-3 h-3 mr-1" />Suspended</Badge>;
       default:
         return <Badge>{status}</Badge>;
     }
@@ -435,8 +435,8 @@ export const TeamManagementTab: React.FC = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading team data...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#7C3AED] border-t-transparent mx-auto"></div>
+          <p className="mt-4 text-gray-600 font-medium">Loading team data...</p>
         </div>
       </div>
     );
@@ -444,77 +444,123 @@ export const TeamManagementTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header - Enhanced with Brand Colors */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Team Management</h2>
-          <p className="text-gray-600 mt-1">Manage your team members, roles, and permissions</p>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="h-10 w-10 bg-gradient-to-br from-[#A855F7] to-[#7C3AED] rounded-lg flex items-center justify-center shadow-md">
+              <Users className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] bg-clip-text text-transparent">
+                Team Management
+              </h2>
+            </div>
+          </div>
+          <p className="text-gray-600 ml-14">Manage your team members, roles, and permissions</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowAddRoleModal(true)}>
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setShowAddRoleModal(true)}
+            className="border-purple-200 hover:bg-purple-50 hover:border-purple-300"
+          >
             <Shield className="w-4 h-4 mr-2" />
             Add Role
           </Button>
-          <Button onClick={() => setShowAddMemberModal(true)}>
+          <Button
+            onClick={() => setShowAddMemberModal(true)}
+            className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25"
+          >
             <UserPlus className="w-4 h-4 mr-2" />
             Add Member
           </Button>
         </div>
       </div>
 
-      {/* Statistics Cards */}
+      {/* Statistics Cards - Enhanced */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Members</CardTitle>
+        <Card className="border-0 shadow-xl overflow-hidden">
+          <CardHeader className="pb-3 bg-gradient-to-r from-gray-50 to-slate-50 border-b">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 bg-gradient-to-br from-gray-400 to-gray-500 rounded-lg flex items-center justify-center">
+                <Users className="w-4 h-4 text-white" />
+              </div>
+              <CardTitle className="text-sm font-semibold text-gray-700">Total Members</CardTitle>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
+          <CardContent className="pt-4">
+            <div className="text-3xl font-bold bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] bg-clip-text text-transparent">
+              {stats.total}
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Active</CardTitle>
+        <Card className="border-0 shadow-xl overflow-hidden">
+          <CardHeader className="pb-3 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-100">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg flex items-center justify-center">
+                <UserCheck className="w-4 h-4 text-white" />
+              </div>
+              <CardTitle className="text-sm font-semibold text-gray-700">Active</CardTitle>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.active}</div>
+          <CardContent className="pt-4">
+            <div className="text-3xl font-bold text-green-700">{stats.active}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Invited</CardTitle>
+        <Card className="border-0 shadow-xl overflow-hidden">
+          <CardHeader className="pb-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
+                <Clock className="w-4 h-4 text-white" />
+              </div>
+              <CardTitle className="text-sm font-semibold text-gray-700">Invited</CardTitle>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats.invited}</div>
+          <CardContent className="pt-4">
+            <div className="text-3xl font-bold text-blue-700">{stats.invited}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Approvers</CardTitle>
+        <Card className="border-0 shadow-xl overflow-hidden">
+          <CardHeader className="pb-3 bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border-b border-purple-100">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 bg-gradient-to-br from-[#A855F7] to-[#7C3AED] rounded-lg flex items-center justify-center">
+                <Shield className="w-4 h-4 text-white" />
+              </div>
+              <CardTitle className="text-sm font-semibold text-gray-700">Approvers</CardTitle>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">{stats.approvers}</div>
+          <CardContent className="pt-4">
+            <div className="text-3xl font-bold bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] bg-clip-text text-transparent">
+              {stats.approvers}
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
-      <Card>
+      {/* Filters - Enhanced */}
+      <Card className="border-0 shadow-xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-gray-50 to-slate-50 border-b">
+          <div className="flex items-center gap-2">
+            <Filter className="w-5 h-5 text-[#7C3AED]" />
+            <CardTitle className="text-sm font-semibold text-gray-900">Filters</CardTitle>
+          </div>
+        </CardHeader>
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#7C3AED] w-4 h-4" />
                 <Input
                   placeholder="Search members..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                 />
               </div>
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full md:w-[180px]">
+              <SelectTrigger className="w-full md:w-[180px] focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -526,7 +572,7 @@ export const TeamManagementTab: React.FC = () => {
               </SelectContent>
             </Select>
             <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-full md:w-[180px]">
+              <SelectTrigger className="w-full md:w-[180px] focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                 <SelectValue placeholder="Role" />
               </SelectTrigger>
               <SelectContent>
@@ -540,18 +586,31 @@ export const TeamManagementTab: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Team Members List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Team Members ({filteredMembers.length})</CardTitle>
-          <CardDescription>Manage your team members and their permissions</CardDescription>
+      {/* Team Members List - Enhanced */}
+      <Card className="border-0 shadow-xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border-b border-purple-100">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 bg-gradient-to-br from-[#A855F7] to-[#7C3AED] rounded-lg flex items-center justify-center shadow-md">
+              <Users className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-gray-900">Team Members ({filteredMembers.length})</CardTitle>
+              <CardDescription className="text-gray-600">Manage your team members and their permissions</CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           {filteredMembers.length === 0 ? (
             <div className="text-center py-12">
-              <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No team members found</p>
-              <Button onClick={() => setShowAddMemberModal(true)} className="mt-4">
+              <div className="h-16 w-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="w-8 h-8 text-gray-400" />
+              </div>
+              <p className="text-gray-600 font-medium mb-2">No team members found</p>
+              <p className="text-sm text-gray-500 mb-4">Start building your team by adding your first member</p>
+              <Button
+                onClick={() => setShowAddMemberModal(true)}
+                className="mt-4 bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25"
+              >
                 <UserPlus className="w-4 h-4 mr-2" />
                 Add Your First Member
               </Button>
@@ -587,8 +646,8 @@ export const TeamManagementTab: React.FC = () => {
                       {/* Member */}
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                            <span className="text-blue-600 font-semibold text-sm">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#A855F7] to-[#7C3AED] flex items-center justify-center flex-shrink-0 shadow-md">
+                            <span className="text-white font-semibold text-sm">
                               {member.firstName[0]}{member.lastName[0]}
                             </span>
                           </div>
@@ -682,30 +741,44 @@ export const TeamManagementTab: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Roles Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Roles ({roles.length})</CardTitle>
-          <CardDescription>Predefined roles with specific permissions</CardDescription>
+      {/* Roles Section - Enhanced */}
+      <Card className="border-0 shadow-xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-b border-blue-100">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center shadow-md">
+              <Shield className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-gray-900">Roles ({roles.length})</CardTitle>
+              <CardDescription className="text-gray-600">Predefined roles with specific permissions</CardDescription>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {roles.map(role => (
-              <div key={role.id} className="border rounded-lg p-4">
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <h4 className="font-semibold text-gray-900">{role.name}</h4>
-                    {role.isSystemRole && (
-                      <Badge variant="outline" className="mt-1">System Role</Badge>
-                    )}
+              <div key={role.id} className="border-2 border-gray-200 rounded-xl p-5 bg-gradient-to-br from-gray-50 to-slate-50 hover:border-purple-300 transition-all">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 bg-gradient-to-br from-[#A855F7] to-[#7C3AED] rounded-lg flex items-center justify-center shadow-md">
+                      <Shield className="w-4 h-4 text-white" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-900">{role.name}</h4>
+                      {role.isSystemRole && (
+                        <Badge className="mt-1 bg-gradient-to-r from-gray-600 to-gray-700 text-white text-xs">System Role</Badge>
+                      )}
+                    </div>
                   </div>
-                  <Badge variant="secondary">{role.memberCount || 0} members</Badge>
+                  <Badge className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white shadow-md">
+                    {role.memberCount || 0} members
+                  </Badge>
                 </div>
                 {role.description && (
-                  <p className="text-sm text-gray-600 mb-2">{role.description}</p>
+                  <p className="text-sm text-gray-700 mb-3">{role.description}</p>
                 )}
                 {role.canApproveInvoices && (
-                  <div className="text-xs text-purple-600 flex items-center gap-1 mt-2">
+                  <div className="text-xs font-semibold bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700 rounded-lg p-2 flex items-center gap-1">
                     <UserCheck className="w-3 h-3" />
                     Can approve up to {formatCurrency(role.approvalLimit)}
                   </div>
@@ -716,79 +789,92 @@ export const TeamManagementTab: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Add Member Modal */}
+      {/* Add Member Modal - Enhanced */}
       <Dialog open={showAddMemberModal} onOpenChange={setShowAddMemberModal}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Invite Team Member</DialogTitle>
-            <DialogDescription>
-              Add a new member to your team. They will receive an invitation email.
-            </DialogDescription>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto border-0 shadow-2xl p-0">
+          <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-lg">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 bg-white/20 rounded-lg flex items-center justify-center">
+                <UserPlus className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-white text-xl">Invite Team Member</DialogTitle>
+                <DialogDescription className="text-purple-100">
+                  Add a new member to your team. They will receive an invitation email.
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 p-6">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="firstName">First Name *</Label>
+                <Label htmlFor="firstName" className="text-sm font-semibold text-gray-700">First Name *</Label>
                 <Input
                   id="firstName"
                   value={memberForm.firstName}
                   onChange={(e) => setMemberForm({ ...memberForm, firstName: e.target.value })}
                   placeholder="John"
+                  className="focus:border-[#7C3AED] focus:ring-[#7C3AED] mt-1"
                 />
               </div>
               <div>
-                <Label htmlFor="lastName">Last Name *</Label>
+                <Label htmlFor="lastName" className="text-sm font-semibold text-gray-700">Last Name *</Label>
                 <Input
                   id="lastName"
                   value={memberForm.lastName}
                   onChange={(e) => setMemberForm({ ...memberForm, lastName: e.target.value })}
                   placeholder="Doe"
+                  className="focus:border-[#7C3AED] focus:ring-[#7C3AED] mt-1"
                 />
               </div>
             </div>
             <div>
-              <Label htmlFor="email">Email *</Label>
+              <Label htmlFor="email" className="text-sm font-semibold text-gray-700">Email *</Label>
               <Input
                 id="email"
                 type="email"
                 value={memberForm.email}
                 onChange={(e) => setMemberForm({ ...memberForm, email: e.target.value })}
                 placeholder="john@company.com"
+                className="focus:border-[#7C3AED] focus:ring-[#7C3AED] mt-1"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="phone">Phone</Label>
+                <Label htmlFor="phone" className="text-sm font-semibold text-gray-700">Phone</Label>
                 <Input
                   id="phone"
                   value={memberForm.phone}
                   onChange={(e) => setMemberForm({ ...memberForm, phone: e.target.value })}
                   placeholder="+234 123 456 7890"
+                  className="focus:border-[#7C3AED] focus:ring-[#7C3AED] mt-1"
                 />
               </div>
               <div>
-                <Label htmlFor="jobTitle">Job Title</Label>
+                <Label htmlFor="jobTitle" className="text-sm font-semibold text-gray-700">Job Title</Label>
                 <Input
                   id="jobTitle"
                   value={memberForm.jobTitle}
                   onChange={(e) => setMemberForm({ ...memberForm, jobTitle: e.target.value })}
                   placeholder="Finance Manager"
+                  className="focus:border-[#7C3AED] focus:ring-[#7C3AED] mt-1"
                 />
               </div>
             </div>
             <div>
-              <Label htmlFor="department">Department</Label>
+              <Label htmlFor="department" className="text-sm font-semibold text-gray-700">Department</Label>
               <Input
                 id="department"
                 value={memberForm.department}
                 onChange={(e) => setMemberForm({ ...memberForm, department: e.target.value })}
                 placeholder="Finance"
+                className="focus:border-[#7C3AED] focus:ring-[#7C3AED] mt-1"
               />
             </div>
             <div>
-              <Label htmlFor="role">Role *</Label>
+              <Label htmlFor="role" className="text-sm font-semibold text-gray-700">Role *</Label>
               <Select value={memberForm.roleId} onValueChange={(value) => setMemberForm({ ...memberForm, roleId: value })}>
-                <SelectTrigger>
+                <SelectTrigger className="focus:border-[#7C3AED] focus:ring-[#7C3AED] mt-1">
                   <SelectValue placeholder={roles.length > 0 ? "Select a role" : "No roles available"} />
                 </SelectTrigger>
                 <SelectContent>
@@ -833,6 +919,7 @@ export const TeamManagementTab: React.FC = () => {
                       value={memberForm.approvalLimit || ''}
                       onChange={(e) => setMemberForm({ ...memberForm, approvalLimit: e.target.value ? Number(e.target.value) : undefined })}
                       placeholder="Leave empty for unlimited"
+                      className="focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                     />
                   </div>
                 )}
@@ -866,25 +953,46 @@ export const TeamManagementTab: React.FC = () => {
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowAddMemberModal(false); resetMemberForm(); }} disabled={submitting}>
+          <DialogFooter className="p-6 border-t border-gray-200 bg-gray-50">
+            <Button
+              variant="outline"
+              onClick={() => { setShowAddMemberModal(false); resetMemberForm(); }}
+              disabled={submitting}
+              className="border-gray-300 hover:bg-gray-50"
+            >
               Cancel
             </Button>
-            <Button onClick={handleAddMember} disabled={submitting}>
-              {submitting ? 'Inviting...' : 'Send Invitation'}
+            <Button
+              onClick={handleAddMember}
+              disabled={submitting}
+              className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25"
+            >
+              {submitting ? 'Inviting...' : (
+                <>
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Send Invitation
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Edit Member Modal */}
+      {/* Edit Member Modal - Enhanced */}
       <Dialog open={showEditMemberModal} onOpenChange={setShowEditMemberModal}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Team Member</DialogTitle>
-            <DialogDescription>
-              Update team member details and permissions
-            </DialogDescription>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto border-0 shadow-2xl p-0">
+          <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-lg">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 bg-white/20 rounded-lg flex items-center justify-center">
+                <Edit className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-white text-xl">Edit Team Member</DialogTitle>
+                <DialogDescription className="text-purple-100">
+                  Update team member details and permissions
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
           <div className="space-y-4 py-4">
             {/* Same form fields as Add Member Modal */}
@@ -943,9 +1051,9 @@ export const TeamManagementTab: React.FC = () => {
               />
             </div>
             <div>
-              <Label htmlFor="editRole">Role *</Label>
+              <Label htmlFor="editRole" className="text-sm font-semibold text-gray-700">Role *</Label>
               <Select value={memberForm.roleId} onValueChange={(value) => setMemberForm({ ...memberForm, roleId: value })}>
-                <SelectTrigger>
+                <SelectTrigger className="focus:border-[#7C3AED] focus:ring-[#7C3AED] mt-1">
                   <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1011,7 +1119,7 @@ export const TeamManagementTab: React.FC = () => {
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="p-6 border-t border-gray-200 bg-gray-50">
             <Button
               variant="outline"
               onClick={() => {
@@ -1020,42 +1128,61 @@ export const TeamManagementTab: React.FC = () => {
                 resetMemberForm();
               }}
               disabled={submitting}
+              className="border-gray-300 hover:bg-gray-50"
             >
               Cancel
             </Button>
-            <Button onClick={handleEditMember} disabled={submitting}>
-              {submitting ? 'Updating...' : 'Update Member'}
+            <Button
+              onClick={handleEditMember}
+              disabled={submitting}
+              className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25"
+            >
+              {submitting ? 'Updating...' : (
+                <>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Update Member
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Add Role Modal */}
+      {/* Add Role Modal - Enhanced */}
       <Dialog open={showAddRoleModal} onOpenChange={setShowAddRoleModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create Custom Role</DialogTitle>
-            <DialogDescription>
-              Create a new role with specific permissions for your team
-            </DialogDescription>
+        <DialogContent className="border-0 shadow-2xl p-0">
+          <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-lg">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 bg-white/20 rounded-lg flex items-center justify-center">
+                <Shield className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-white text-xl">Create Custom Role</DialogTitle>
+                <DialogDescription className="text-purple-100">
+                  Create a new role with specific permissions for your team
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 p-6">
             <div>
-              <Label htmlFor="roleName">Role Name *</Label>
+              <Label htmlFor="roleName" className="text-sm font-semibold text-gray-700">Role Name *</Label>
               <Input
                 id="roleName"
                 value={roleForm.name}
                 onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value })}
                 placeholder="Senior Project Manager"
+                className="focus:border-[#7C3AED] focus:ring-[#7C3AED] mt-1"
               />
             </div>
             <div>
-              <Label htmlFor="roleDescription">Description</Label>
+              <Label htmlFor="roleDescription" className="text-sm font-semibold text-gray-700">Description</Label>
               <Input
                 id="roleDescription"
                 value={roleForm.description}
                 onChange={(e) => setRoleForm({ ...roleForm, description: e.target.value })}
                 placeholder="Manages multiple projects and approves small invoices"
+                className="focus:border-[#7C3AED] focus:ring-[#7C3AED] mt-1"
               />
             </div>
             <div className="space-y-2">
@@ -1077,31 +1204,53 @@ export const TeamManagementTab: React.FC = () => {
                     value={roleForm.approvalLimit || ''}
                     onChange={(e) => setRoleForm({ ...roleForm, approvalLimit: e.target.value ? Number(e.target.value) : undefined })}
                     placeholder="Leave empty for unlimited"
+                    className="focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                 </div>
               )}
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowAddRoleModal(false); resetRoleForm(); }} disabled={submitting}>
+          <DialogFooter className="p-6 border-t border-gray-200 bg-gray-50">
+            <Button
+              variant="outline"
+              onClick={() => { setShowAddRoleModal(false); resetRoleForm(); }}
+              disabled={submitting}
+              className="border-gray-300 hover:bg-gray-50"
+            >
               Cancel
             </Button>
-            <Button onClick={handleAddRole} disabled={submitting}>
-              {submitting ? 'Creating...' : 'Create Role'}
+            <Button
+              onClick={handleAddRole}
+              disabled={submitting}
+              className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25"
+            >
+              {submitting ? 'Creating...' : (
+                <>
+                  <Shield className="w-4 h-4 mr-2" />
+                  Create Role
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Password Reset Modal */}
+      {/* Password Reset Modal - Enhanced */}
       <Dialog open={!!passwordResetInfo} onOpenChange={(open) => !open && setPasswordResetInfo(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Temporary Password Generated</DialogTitle>
-            <DialogDescription>
-              Share this password securely with {passwordResetInfo?.name}. They will be prompted to set a
-              new password on next login.
-            </DialogDescription>
+        <DialogContent className="max-w-lg border-0 shadow-2xl p-0">
+          <DialogHeader className="bg-gradient-to-r from-amber-50 via-orange-50 to-yellow-50 p-6 rounded-t-lg border-b border-amber-100">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 bg-gradient-to-br from-amber-500 to-orange-500 rounded-lg flex items-center justify-center shadow-md">
+                <RefreshCw className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-gray-900 text-xl">Temporary Password Generated</DialogTitle>
+                <DialogDescription className="text-gray-600">
+                  Share this password securely with {passwordResetInfo?.name}. They will be prompted to set a
+                  new password on next login.
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
           {passwordResetInfo && (
             <div className="space-y-4 py-2">
@@ -1125,8 +1274,13 @@ export const TeamManagementTab: React.FC = () => {
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button onClick={() => setPasswordResetInfo(null)}>Close</Button>
+          <DialogFooter className="p-6 border-t border-gray-200 bg-gray-50">
+            <Button
+              onClick={() => setPasswordResetInfo(null)}
+              className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25"
+            >
+              Close
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

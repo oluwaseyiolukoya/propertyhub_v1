@@ -44,6 +44,14 @@ import {
   TrendingUp,
   HardDrive,
   AlertCircle,
+  Lock,
+  Key,
+  Settings,
+  Loader2,
+  Receipt,
+  Plug,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { Badge } from "../../../components/ui/badge";
 import { toast } from "sonner";
@@ -51,6 +59,9 @@ import {
   getAccountInfo,
   changePassword,
   type ChangePasswordRequest,
+  initializeTwoFactor,
+  verifyTwoFactorSetup,
+  disableTwoFactor,
 } from "../../../lib/api/auth";
 import { getSubscriptionStatus } from "../../../lib/api/subscription";
 import { formatCurrency as formatCurrencyUtil } from "../../../lib/currency";
@@ -68,6 +79,16 @@ import {
 } from "../../../lib/api/subscriptions";
 import { updateProfile, updateOrganization } from "../../../lib/api/settings";
 import PaymentMethodsManager from "../../../components/PaymentMethodsManager";
+import { getPaymentGatewayStatus } from "../../../lib/api/system";
+import QRCode from "qrcode";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../../components/ui/dialog";
 
 interface DeveloperSettingsProps {
   user?: any;
@@ -111,9 +132,33 @@ export function DeveloperSettings({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
+  // Two-Factor Authentication state
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [twoFactorDialogOpen, setTwoFactorDialogOpen] = useState(false);
+  const [twoFactorDisableDialogOpen, setTwoFactorDisableDialogOpen] = useState(false);
+  const [twoFactorSetup, setTwoFactorSetup] = useState<{
+    secret: string;
+    otpauthUrl: string;
+    qrCode: string;
+  }>({
+    secret: "",
+    otpauthUrl: "",
+    qrCode: "",
+  });
+  const [twoFactorCodeInput, setTwoFactorCodeInput] = useState("");
+  const [twoFactorDisablePassword, setTwoFactorDisablePassword] = useState("");
+  const [initializingTwoFactor, setInitializingTwoFactor] = useState(false);
+  const [twoFactorDialogLoading, setTwoFactorDialogLoading] = useState(false);
+  const [disableTwoFactorLoading, setDisableTwoFactorLoading] = useState(false);
+
   // Storage quota state
   const [storageQuota, setStorageQuota] = useState<any>(null);
   const [loadingQuota, setLoadingQuota] = useState(true);
+
+  // Payment gateway status state
+  const [paystackConfig, setPaystackConfig] = useState<{ isEnabled: boolean; testMode: boolean } | null>(null);
+  const [monicreditConfig, setMonicreditConfig] = useState<{ isEnabled: boolean; testMode: boolean } | null>(null);
+  const [loadingGateways, setLoadingGateways] = useState(true);
 
   // Profile form state
   const [profileData, setProfileData] = useState({
@@ -144,6 +189,7 @@ export function DeveloperSettings({
     fetchPlans();
     fetchBillingHistory();
     fetchStorageQuota();
+    fetchPaymentGateways();
   }, []);
 
   // Set up periodic refresh for storage quota when storage tab is active
@@ -245,20 +291,45 @@ export function DeveloperSettings({
       handlePaymentCallback(reference);
     }
 
-    // Handle browser back/forward navigation
-    const handlePopState = () => {
+    // Handle browser back/forward navigation and programmatic URL changes
+    const handleUrlChange = () => {
       const urlParams = new URLSearchParams(window.location.search);
       const tab = urlParams.get("tab") || "organization";
-      console.log(
-        "[DeveloperSettings] Browser navigation detected, switching to tab:",
-        tab
-      );
-      setActiveTab(tab);
+      if (tab !== activeTab) {
+        console.log(
+          "[DeveloperSettings] URL tab changed, switching to tab:",
+          tab
+        );
+        setActiveTab(tab);
+      }
     };
 
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
+    // Listen for popstate events (browser back/forward)
+    window.addEventListener("popstate", handleUrlChange);
+
+    // Also listen for pushstate/replacestate (custom navigation)
+    const originalPushState = window.history.pushState;
+    const originalReplaceState = window.history.replaceState;
+
+    window.history.pushState = function (...args) {
+      originalPushState.apply(window.history, args);
+      setTimeout(handleUrlChange, 0);
+    };
+
+    window.history.replaceState = function (...args) {
+      originalReplaceState.apply(window.history, args);
+      setTimeout(handleUrlChange, 0);
+    };
+
+    // Check initial URL on mount
+    handleUrlChange();
+
+    return () => {
+      window.removeEventListener("popstate", handleUrlChange);
+      window.history.pushState = originalPushState;
+      window.history.replaceState = originalReplaceState;
+    };
+  }, [activeTab]);
 
   const handlePaymentCallback = async (reference: string) => {
     try {
@@ -344,6 +415,14 @@ export function DeveloperSettings({
           userLimit: acctResponse.data.customer?.plan?.userLimit,
         });
         setAccountInfo(acctResponse.data);
+
+        // Set 2FA status
+        const twoFactorStatus = acctResponse.data.user?.twoFactorEnabled ?? false;
+        console.log("[DeveloperSettings] 2FA status from API:", {
+          twoFactorEnabled: twoFactorStatus,
+          userData: acctResponse.data.user,
+        });
+        setTwoFactorEnabled(twoFactorStatus);
 
         // Initialize profile form data
         const fullName = acctResponse.data.user?.name || user?.name || "";
@@ -451,6 +530,37 @@ export function DeveloperSettings({
       setStorageQuota(null);
     } finally {
       setLoadingQuota(false);
+    }
+  };
+
+  const fetchPaymentGateways = async () => {
+    try {
+      setLoadingGateways(true);
+
+      // Fetch Paystack status (read-only, no sensitive keys)
+      const paystackResponse = await getPaymentGatewayStatus('paystack');
+      if (paystackResponse.data) {
+        setPaystackConfig(paystackResponse.data);
+      } else if (paystackResponse.error) {
+        console.error("[DeveloperSettings] Failed to fetch Paystack status:", paystackResponse.error);
+        setPaystackConfig({ isEnabled: false, testMode: false });
+      }
+
+      // Fetch Monicredit status (read-only, no sensitive keys)
+      const monicreditResponse = await getPaymentGatewayStatus('monicredit');
+      if (monicreditResponse.data) {
+        setMonicreditConfig(monicreditResponse.data);
+      } else if (monicreditResponse.error) {
+        console.error("[DeveloperSettings] Failed to fetch Monicredit status:", monicreditResponse.error);
+        setMonicreditConfig({ isEnabled: false, testMode: false });
+      }
+    } catch (error) {
+      console.error("[DeveloperSettings] Failed to fetch payment gateways:", error);
+      // Set defaults on error
+      setPaystackConfig({ isEnabled: false, testMode: false });
+      setMonicreditConfig({ isEnabled: false, testMode: false });
+    } finally {
+      setLoadingGateways(false);
     }
   };
 
@@ -694,6 +804,88 @@ export function DeveloperSettings({
     }
   };
 
+  // 2FA handlers
+  const startTwoFactorSetup = async () => {
+    try {
+      setInitializingTwoFactor(true);
+      const response = await initializeTwoFactor();
+      if ((response as any).error) {
+        toast.error((response as any).error?.error || "Failed to start 2FA setup");
+        return;
+      }
+
+      const secret = (response as any).data?.secret;
+      const otpauthUrl = (response as any).data?.otpauthUrl;
+      if (!secret || !otpauthUrl) {
+        toast.error("Invalid response from server");
+        return;
+      }
+
+      const qrCode = await QRCode.toDataURL(otpauthUrl);
+      setTwoFactorSetup({ secret, otpauthUrl, qrCode });
+      setTwoFactorCodeInput("");
+      setTwoFactorDialogOpen(true);
+    } catch (error: any) {
+      console.error("2FA init error", error);
+      toast.error(error?.message || "Failed to start 2FA setup");
+    } finally {
+      setInitializingTwoFactor(false);
+    }
+  };
+
+  const confirmTwoFactorSetup = async () => {
+    if (!twoFactorCodeInput) {
+      toast.error("Enter the 6-digit code from your authenticator app");
+      return;
+    }
+    try {
+      setTwoFactorDialogLoading(true);
+      const response = await verifyTwoFactorSetup(twoFactorCodeInput);
+      if ((response as any).error) {
+        toast.error((response as any).error?.error || "Invalid code, try again");
+        return;
+      }
+      toast.success("Two-factor authentication enabled");
+      setTwoFactorEnabled(true);
+      setTwoFactorDialogOpen(false);
+      setTwoFactorCodeInput("");
+      setTwoFactorSetup({ secret: "", otpauthUrl: "", qrCode: "" });
+      // Refresh account data
+      await fetchAccountData();
+    } catch (error: any) {
+      console.error("2FA verify error", error);
+      toast.error(error?.message || "Failed to enable 2FA");
+    } finally {
+      setTwoFactorDialogLoading(false);
+    }
+  };
+
+  const handleDisableTwoFactor = async () => {
+    if (!twoFactorDisablePassword) {
+      toast.error("Please enter your password to disable 2FA");
+      return;
+    }
+    try {
+      setDisableTwoFactorLoading(true);
+      const response = await disableTwoFactor(twoFactorDisablePassword);
+      if ((response as any).error) {
+        toast.error((response as any).error?.error || "Failed to disable 2FA");
+        return;
+      }
+      toast.success("Two-factor authentication disabled");
+      setTwoFactorEnabled(false); // Update UI immediately
+      setTwoFactorDisableDialogOpen(false);
+      setTwoFactorDisablePassword("");
+      // Refresh account data to sync with backend
+      await fetchAccountData();
+    } catch (error: any) {
+      console.error("Disable 2FA error", error);
+      toast.error(error?.message || "Failed to disable 2FA");
+    } finally {
+      setDisableTwoFactorLoading(false);
+    }
+  };
+
   const getInitials = (name?: string) => {
     if (!name) return "PD";
     return name
@@ -744,35 +936,52 @@ export function DeveloperSettings({
   if (showOnlyProfile) {
     return (
       <div className="space-y-6">
-        {/* Header */}
+        {/* Header - Enhanced with Brand Colors */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Profile Settings
-            </h1>
-            <p className="text-gray-600">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-12 w-12 bg-gradient-to-br from-[#A855F7] to-[#7C3AED] rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/25">
+                <User className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] bg-clip-text text-transparent">
+                  Profile Settings
+                </h1>
+              </div>
+            </div>
+            <p className="text-gray-600 ml-16">
               Manage your personal information and preferences
             </p>
           </div>
         </div>
 
         {/* Profile Content Only */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Profile Information</CardTitle>
-            <CardDescription>
-              Update your personal information and profile picture
-            </CardDescription>
+        <Card className="border-0 shadow-xl overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border-b border-purple-100">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 bg-gradient-to-br from-[#A855F7] to-[#7C3AED] rounded-lg flex items-center justify-center shadow-md">
+                <User className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-gray-900">Profile Information</CardTitle>
+                <CardDescription className="text-gray-600">
+                  Update your personal information and profile picture
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex items-center gap-6">
-              <Avatar className="w-20 h-20">
-                <AvatarFallback className="bg-blue-600 text-white text-2xl">
+              <Avatar className="w-20 h-20 ring-4 ring-purple-100">
+                <AvatarFallback className="bg-gradient-to-br from-[#A855F7] to-[#7C3AED] text-white text-2xl shadow-lg">
                   {getInitials(user?.name || accountInfo?.user?.name)}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1">
-                <Button variant="outline" className="gap-2">
+                <Button
+                  variant="outline"
+                  className="gap-2 border-purple-200 hover:bg-purple-50 hover:border-purple-300"
+                >
                   <Upload className="w-4 h-4" />
                   Upload Photo
                 </Button>
@@ -892,11 +1101,20 @@ export function DeveloperSettings({
   // Otherwise, render full Settings with all tabs
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header - Enhanced with Brand Colors */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Settings</h1>
-          <p className="text-gray-600">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="h-12 w-12 bg-gradient-to-br from-[#A855F7] to-[#7C3AED] rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/25">
+              <Settings className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] bg-clip-text text-transparent">
+                Settings
+              </h1>
+            </div>
+          </div>
+          <p className="text-gray-600 ml-16">
             Manage your account and project preferences
           </p>
         </div>
@@ -908,26 +1126,55 @@ export function DeveloperSettings({
         className="w-full"
       >
         <TabsList
-          className={`grid w-full ${isOwner ? "grid-cols-5" : "grid-cols-4"}`}
+          className={`grid w-full bg-gray-100/50 p-1 rounded-xl ${isOwner ? "grid-cols-7" : "grid-cols-6"}`}
         >
-          <TabsTrigger value="organization" className="gap-2">
+          <TabsTrigger
+            value="organization"
+            className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#7C3AED] data-[state=active]:to-[#5B21B6] data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25 transition-all"
+          >
             <Building2 className="w-4 h-4" />
             Organization
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="gap-2">
+          <TabsTrigger
+            value="security"
+            className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#7C3AED] data-[state=active]:to-[#5B21B6] data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25 transition-all"
+          >
+            <Shield className="w-4 h-4" />
+            Security
+          </TabsTrigger>
+          <TabsTrigger
+            value="notifications"
+            className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#7C3AED] data-[state=active]:to-[#5B21B6] data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25 transition-all"
+          >
             <Bell className="w-4 h-4" />
             Notifications
           </TabsTrigger>
-          <TabsTrigger value="billing" className="gap-2">
+          <TabsTrigger
+            value="billing"
+            className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#7C3AED] data-[state=active]:to-[#5B21B6] data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25 transition-all"
+          >
             <CreditCard className="w-4 h-4" />
             Billing
           </TabsTrigger>
-          <TabsTrigger value="storage" className="gap-2">
+          <TabsTrigger
+            value="integrations"
+            className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#7C3AED] data-[state=active]:to-[#5B21B6] data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25 transition-all"
+          >
+            <Plug className="w-4 h-4" />
+            Integrations
+          </TabsTrigger>
+          <TabsTrigger
+            value="storage"
+            className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#7C3AED] data-[state=active]:to-[#5B21B6] data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25 transition-all"
+          >
             <HardDrive className="w-4 h-4" />
             Storage Space
           </TabsTrigger>
           {isOwner && (
-            <TabsTrigger value="team" className="gap-2">
+            <TabsTrigger
+              value="team"
+              className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#7C3AED] data-[state=active]:to-[#5B21B6] data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25 transition-all"
+            >
               <Users className="w-4 h-4" />
               Team
             </TabsTrigger>
@@ -936,12 +1183,19 @@ export function DeveloperSettings({
 
         {/* Organization Settings */}
         <TabsContent value="organization" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Organization Details</CardTitle>
-              <CardDescription>
-                Manage your organization information and preferences
-              </CardDescription>
+          <Card className="border-0 shadow-xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border-b border-purple-100">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-gradient-to-br from-[#A855F7] to-[#7C3AED] rounded-lg flex items-center justify-center shadow-md">
+                  <Building2 className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-gray-900">Organization Details</CardTitle>
+                  <CardDescription className="text-gray-600">
+                    Manage your organization information and preferences
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
@@ -956,6 +1210,7 @@ export function DeveloperSettings({
                     })
                   }
                   placeholder="Your Company Name"
+                  className="focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                 />
               </div>
 
@@ -970,7 +1225,7 @@ export function DeveloperSettings({
                     })
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="focus:border-[#7C3AED] focus:ring-[#7C3AED]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1003,6 +1258,7 @@ export function DeveloperSettings({
                       })
                     }
                     placeholder="XX-XXXXXXX"
+                  className="focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1017,6 +1273,7 @@ export function DeveloperSettings({
                       })
                     }
                     placeholder="LIC-2025-XXXX"
+                    className="focus:border-[#7C3AED] focus:ring-[#7C3AED]"
                   />
                 </div>
               </div>
@@ -1032,52 +1289,56 @@ export function DeveloperSettings({
                       street: e.target.value,
                     })
                   }
-                  placeholder="123 Main Street"
-                />
-              </div>
+                    placeholder="123 Main Street"
+                    className="focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                  />
+                </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="city">City</Label>
-                  <Input
-                    id="city"
-                    value={organizationData.city}
-                    onChange={(e) =>
-                      setOrganizationData({
-                        ...organizationData,
-                        city: e.target.value,
-                      })
-                    }
-                    placeholder="Lagos"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="state">State</Label>
-                  <Input
-                    id="state"
-                    value={organizationData.state}
-                    onChange={(e) =>
-                      setOrganizationData({
-                        ...organizationData,
-                        state: e.target.value,
-                      })
-                    }
-                    placeholder="Lagos State"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="zip">ZIP Code</Label>
-                  <Input
-                    id="zip"
-                    value={organizationData.postalCode}
-                    onChange={(e) =>
-                      setOrganizationData({
-                        ...organizationData,
-                        postalCode: e.target.value,
-                      })
-                    }
-                    placeholder="100001"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="city">City</Label>
+                    <Input
+                      id="city"
+                      value={organizationData.city}
+                      onChange={(e) =>
+                        setOrganizationData({
+                          ...organizationData,
+                          city: e.target.value,
+                        })
+                      }
+                      placeholder="Lagos"
+                      className="focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="state">State</Label>
+                    <Input
+                      id="state"
+                      value={organizationData.state}
+                      onChange={(e) =>
+                        setOrganizationData({
+                          ...organizationData,
+                          state: e.target.value,
+                        })
+                      }
+                      placeholder="Lagos State"
+                      className="focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="zip">ZIP Code</Label>
+                    <Input
+                      id="zip"
+                      value={organizationData.postalCode}
+                      onChange={(e) =>
+                        setOrganizationData({
+                          ...organizationData,
+                          postalCode: e.target.value,
+                        })
+                      }
+                      placeholder="100001"
+                      className="focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                    />
                 </div>
               </div>
 
@@ -1101,7 +1362,7 @@ export function DeveloperSettings({
 
               <div className="flex gap-2">
                 <Button
-                  className="gap-2"
+                  className="gap-2 bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25"
                   onClick={handleSaveOrganization}
                   disabled={isSavingOrganization}
                 >
@@ -1112,8 +1373,157 @@ export function DeveloperSettings({
                   variant="outline"
                   onClick={() => fetchAccountData()}
                   disabled={isSavingOrganization}
+                  className="border-gray-300 hover:bg-gray-50"
                 >
                   Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Security Tab */}
+        <TabsContent value="security" className="space-y-6">
+          {/* Two-Factor Authentication Card */}
+          <Card className="border-0 shadow-xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border-b border-purple-100">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-gradient-to-br from-[#A855F7] to-[#7C3AED] rounded-lg flex items-center justify-center shadow-md">
+                  <Shield className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-gray-900">Two-Factor Authentication</CardTitle>
+                  <CardDescription className="text-gray-600">
+                    Add an extra layer of security to protect your account
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between p-6 bg-gradient-to-br from-purple-50/50 via-indigo-50/50 to-purple-50/50 rounded-xl border-2 border-purple-200/50 hover:border-purple-300 transition-all duration-200">
+                <div className="flex items-center space-x-4">
+                  <div className="h-14 w-14 bg-gradient-to-br from-[#A855F7] to-[#7C3AED] rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/25">
+                    <Shield className="h-7 w-7 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-gray-900 text-lg">Enable 2FA</p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Protect your account with two-factor authentication
+                    </p>
+                    {twoFactorEnabled && (
+                      <Badge className="mt-2 bg-green-100 text-green-700 border-green-200">
+                        <Shield className="w-3 h-3 mr-1" />
+                        Active
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                <Switch
+                  checked={twoFactorEnabled}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      startTwoFactorSetup();
+                    } else {
+                      setTwoFactorDisableDialogOpen(true);
+                    }
+                  }}
+                  disabled={initializingTwoFactor || twoFactorDialogLoading || disableTwoFactorLoading}
+                  className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-[#7C3AED] data-[state=checked]:to-[#5B21B6]"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Password Change Card */}
+          <Card className="border-0 shadow-xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border-b border-purple-100">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-gradient-to-br from-[#A855F7] to-[#7C3AED] rounded-lg flex items-center justify-center shadow-md">
+                  <Lock className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-gray-900">Change Password</CardTitle>
+                  <CardDescription className="text-gray-600">
+                    Update your password to keep your account secure
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6 space-y-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="current-password" className="text-sm font-semibold text-gray-700">
+                    Current Password
+                  </Label>
+                  <Input
+                    id="current-password"
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder="Enter your current password"
+                    className="focus:border-[#7C3AED] focus:ring-[#7C3AED] h-11"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="new-password" className="text-sm font-semibold text-gray-700">
+                    New Password
+                  </Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password (min. 6 characters)"
+                    className="focus:border-[#7C3AED] focus:ring-[#7C3AED] h-11"
+                  />
+                  <p className="text-xs text-gray-500 flex items-center gap-1">
+                    <Key className="w-3 h-3" />
+                    Password must be at least 6 characters long
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password" className="text-sm font-semibold text-gray-700">
+                    Confirm New Password
+                  </Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm your new password"
+                    className="focus:border-[#7C3AED] focus:ring-[#7C3AED] h-11"
+                  />
+                  {confirmPassword && newPassword !== confirmPassword && (
+                    <p className="text-xs text-red-500 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      Passwords do not match
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="pt-4 border-t border-gray-200">
+                <Button
+                  onClick={handleChangePassword}
+                  disabled={
+                    isChangingPassword ||
+                    !currentPassword ||
+                    !newPassword ||
+                    !confirmPassword ||
+                    newPassword !== confirmPassword
+                  }
+                  className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25 h-11 px-6"
+                >
+                  {isChangingPassword ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Changing...
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="w-4 h-4 mr-2" />
+                      Change Password
+                    </>
+                  )}
                 </Button>
               </div>
             </CardContent>
@@ -1127,53 +1537,76 @@ export function DeveloperSettings({
 
         {/* Storage Space Tab */}
         <TabsContent value="storage" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <HardDrive className="w-5 h-5" />
-                Storage Space
-              </CardTitle>
-              <CardDescription>
-                Monitor your file storage usage and available space
-              </CardDescription>
+          <Card className="border-0 shadow-xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-b border-blue-100">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center shadow-md">
+                  <HardDrive className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-gray-900">Storage Space</CardTitle>
+                  <CardDescription className="text-gray-600">
+                    Monitor your file storage usage and available space
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="p-6 space-y-6">
               {loadingQuota ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">Loading storage quota...</p>
+                <div className="text-center py-12">
+                  <Loader2 className="h-10 w-10 mx-auto mb-4 text-[#7C3AED] animate-spin" />
+                  <p className="text-gray-600 font-medium">Loading storage quota...</p>
                 </div>
               ) : storageQuota ? (
                 <>
-                  <div className="space-y-3">
-                    {/* Usage Stats */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-700">
-                          Storage Used
-                        </p>
-                        <p className="text-2xl font-bold text-gray-900">
+                  <div className="space-y-6">
+                    {/* Usage Stats - Enhanced */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="p-5 bg-gradient-to-br from-purple-50 via-indigo-50 to-purple-50 rounded-xl border-2 border-purple-200/50">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="h-10 w-10 bg-gradient-to-br from-[#A855F7] to-[#7C3AED] rounded-lg flex items-center justify-center shadow-md">
+                            <HardDrive className="w-5 h-5 text-white" />
+                          </div>
+                          <p className="text-sm font-semibold text-gray-700">
+                            Storage Used
+                          </p>
+                        </div>
+                        <p className="text-3xl font-bold bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] bg-clip-text text-transparent">
                           {storageQuota.usedFormatted}
-                          <span className="text-sm font-normal text-gray-500">
-                            {" "}
-                            / {storageQuota.limitFormatted}
-                          </span>
+                        </p>
+                        <p className="text-sm font-medium text-gray-600 mt-1">
+                          of {storageQuota.limitFormatted} total
                         </p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium text-gray-700">
-                          Available
-                        </p>
-                        <p className="text-lg font-semibold text-green-600">
+                      <div className="p-5 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 rounded-xl border-2 border-green-200/50">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="h-10 w-10 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg flex items-center justify-center shadow-md">
+                            <TrendingUp className="w-5 h-5 text-white" />
+                          </div>
+                          <p className="text-sm font-semibold text-gray-700">
+                            Available
+                          </p>
+                        </div>
+                        <p className="text-3xl font-bold text-green-700">
                           {storageQuota.availableFormatted}
+                        </p>
+                        <p className="text-sm font-medium text-gray-600 mt-1">
+                          remaining storage
                         </p>
                       </div>
                     </div>
 
-                    {/* Progress Bar */}
-                    <div className="space-y-2">
+                    {/* Progress Bar - Enhanced */}
+                    <div className="space-y-3 p-5 bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl border-2 border-gray-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-bold text-gray-900">Storage Usage</p>
+                        <p className="text-sm font-bold bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] bg-clip-text text-transparent">
+                          {storageQuota.percentage.toFixed(1)}% used
+                        </p>
+                      </div>
                       <Progress
                         value={storageQuota.percentage}
-                        className={`h-3 ${
+                        className={`h-4 rounded-full ${
                           storageQuota.percentage > 90
                             ? "bg-red-100"
                             : storageQuota.percentage > 75
@@ -1181,36 +1614,46 @@ export function DeveloperSettings({
                             : "bg-green-100"
                         }`}
                       />
-                      <div className="flex items-center justify-between text-xs text-gray-500">
-                        <span>{storageQuota.percentage.toFixed(1)}% used</span>
+                      <div className="flex items-center justify-between text-xs font-medium">
+                        <span className="text-gray-600">
+                          {storageQuota.usedFormatted} used
+                        </span>
                         <span>
                           {storageQuota.percentage > 90 && (
-                            <span className="flex items-center gap-1 text-red-600 font-medium">
-                              <AlertCircle className="w-3 h-3" />
+                            <span className="flex items-center gap-1 text-red-600 font-semibold">
+                              <AlertCircle className="w-4 h-4" />
                               Almost full
                             </span>
                           )}
                           {storageQuota.percentage > 75 &&
                             storageQuota.percentage <= 90 && (
-                              <span className="flex items-center gap-1 text-yellow-600 font-medium">
-                                <AlertCircle className="w-3 h-3" />
+                              <span className="flex items-center gap-1 text-yellow-600 font-semibold">
+                                <AlertCircle className="w-4 h-4" />
                                 Running low
                               </span>
                             )}
+                          {storageQuota.percentage <= 75 && (
+                            <span className="flex items-center gap-1 text-green-600 font-semibold">
+                              <TrendingUp className="w-4 h-4" />
+                              Healthy
+                            </span>
+                          )}
                         </span>
                       </div>
                     </div>
 
-                    {/* Warning Message */}
+                    {/* Warning Message - Enhanced */}
                     {storageQuota.percentage > 90 && (
-                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <div className="flex items-start gap-2">
-                          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-red-900">
+                      <div className="p-5 bg-gradient-to-br from-red-50 via-orange-50 to-amber-50 border-2 border-red-200 rounded-xl shadow-md">
+                        <div className="flex items-start gap-3">
+                          <div className="h-10 w-10 bg-gradient-to-br from-red-500 to-orange-500 rounded-lg flex items-center justify-center shadow-md flex-shrink-0">
+                            <AlertCircle className="w-5 h-5 text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-red-900 mb-1">
                               Storage almost full
                             </p>
-                            <p className="text-xs text-red-700 mt-1">
+                            <p className="text-sm text-red-700">
                               You're running out of storage space. Consider
                               upgrading your plan or deleting unused files.
                             </p>
@@ -1218,35 +1661,68 @@ export function DeveloperSettings({
                         </div>
                       </div>
                     )}
+                    {storageQuota.percentage > 75 && storageQuota.percentage <= 90 && (
+                      <div className="p-5 bg-gradient-to-br from-yellow-50 via-amber-50 to-orange-50 border-2 border-yellow-200 rounded-xl shadow-md">
+                        <div className="flex items-start gap-3">
+                          <div className="h-10 w-10 bg-gradient-to-br from-yellow-500 to-amber-500 rounded-lg flex items-center justify-center shadow-md flex-shrink-0">
+                            <AlertCircle className="w-5 h-5 text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-yellow-900 mb-1">
+                              Storage running low
+                            </p>
+                            <p className="text-sm text-yellow-700">
+                              You're using {storageQuota.percentage.toFixed(1)}% of your storage. Consider cleaning up unused files.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
-                    {/* Info Box */}
-                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-sm font-medium text-blue-900 mb-2">
-                        What counts towards storage?
-                      </p>
-                      <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
-                        <li>Uploaded documents and files</li>
-                        <li>Invoice attachments and receipts</li>
-                        <li>Property images and media</li>
-                        <li>Project documents and architecture plans</li>
+                    {/* Info Box - Enhanced */}
+                    <div className="p-5 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 border-2 border-blue-200 rounded-xl shadow-sm">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="h-8 w-8 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center shadow-md">
+                          <HardDrive className="w-4 h-4 text-white" />
+                        </div>
+                        <p className="text-sm font-bold text-gray-900">
+                          What counts towards storage?
+                        </p>
+                      </div>
+                      <ul className="text-sm text-gray-700 space-y-2 ml-11">
+                        <li className="flex items-center gap-2">
+                          <div className="h-1.5 w-1.5 bg-[#7C3AED] rounded-full"></div>
+                          Uploaded documents and files
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <div className="h-1.5 w-1.5 bg-[#7C3AED] rounded-full"></div>
+                          Invoice attachments and receipts
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <div className="h-1.5 w-1.5 bg-[#7C3AED] rounded-full"></div>
+                          Property images and media
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <div className="h-1.5 w-1.5 bg-[#7C3AED] rounded-full"></div>
+                          Project documents and architecture plans
+                        </li>
                       </ul>
                     </div>
                   </div>
 
-                  {/* Action Buttons */}
-                  <div className="flex gap-2 pt-4">
+                  {/* Action Buttons - Enhanced */}
+                  <div className="flex gap-3 pt-4 border-t border-gray-200">
                     {storageQuota.percentage > 75 && (
                       <Button
-                        size="sm"
-                        className="bg-blue-600 hover:bg-blue-700"
                         onClick={() => setActiveTab("billing")}
+                        className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25"
                       >
+                        <TrendingUp className="w-4 h-4 mr-2" />
                         Upgrade Plan
                       </Button>
                     )}
                     <Button
                       variant="outline"
-                      size="sm"
                       onClick={async () => {
                         try {
                           setLoadingQuota(true);
@@ -1263,30 +1739,47 @@ export function DeveloperSettings({
                         }
                       }}
                       disabled={loadingQuota}
+                      className="border-purple-200 hover:bg-purple-50 hover:border-purple-300"
                     >
-                      {loadingQuota ? "Recalculating..." : "Recalculate"}
+                      {loadingQuota ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Recalculating...
+                        </>
+                      ) : (
+                        <>
+                          <HardDrive className="w-4 h-4 mr-2" />
+                          Recalculate
+                        </>
+                      )}
                     </Button>
                     <Button
                       variant="outline"
-                      size="sm"
                       onClick={fetchStorageQuota}
                       disabled={loadingQuota}
+                      className="border-gray-300 hover:bg-gray-50"
                     >
                       Refresh
                     </Button>
                   </div>
                 </>
               ) : (
-                <div className="text-center py-8">
-                  <AlertCircle className="h-8 w-8 mx-auto mb-4 text-gray-400" />
-                  <p className="text-gray-500 mb-4">
+                <div className="text-center py-12">
+                  <div className="h-16 w-16 bg-gradient-to-br from-red-100 to-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <AlertCircle className="h-8 w-8 text-red-500" />
+                  </div>
+                  <p className="text-gray-600 font-medium mb-2">
                     Failed to load storage quota
+                  </p>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Please try again or contact support if the issue persists
                   </p>
                   <Button
                     variant="outline"
-                    size="sm"
                     onClick={fetchStorageQuota}
+                    className="border-purple-200 hover:bg-purple-50 hover:border-purple-300"
                   >
+                    <HardDrive className="w-4 h-4 mr-2" />
                     Retry
                   </Button>
                 </div>
@@ -1297,36 +1790,49 @@ export function DeveloperSettings({
 
         {/* Billing Settings */}
         <TabsContent value="billing" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Subscription Plan</CardTitle>
-              <CardDescription>
-                Manage your subscription and billing information
-              </CardDescription>
+          <Card className="border-0 shadow-xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border-b border-purple-100">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-gradient-to-br from-[#A855F7] to-[#7C3AED] rounded-lg flex items-center justify-center shadow-md">
+                  <CreditCard className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-gray-900">Subscription Plan</CardTitle>
+                  <CardDescription className="text-gray-600">
+                    Manage your subscription and billing information
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="space-y-6">
               {loading ? (
                 <div className="text-center py-8">
-                  <p className="text-gray-500">
+                  <Loader2 className="h-8 w-8 mx-auto mb-4 text-[#7C3AED] animate-spin" />
+                  <p className="text-gray-600 font-medium">
                     Loading subscription details...
                   </p>
                 </div>
               ) : (
                 <>
-                  <div className="p-6 border-2 border-green-200 bg-green-50 rounded-lg">
+                  <div className="p-6 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 border-2 border-green-200 rounded-xl shadow-md">
                     <div className="flex items-center justify-between mb-4">
                       <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="text-xl font-semibold text-gray-900">
-                            {subscription?.plan?.name ||
-                              accountInfo?.customer?.plan?.name ||
-                              "Free Plan"}
-                          </h3>
-                          <Badge className="bg-green-600 text-white">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="h-12 w-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg flex items-center justify-center shadow-md">
+                            <Crown className="w-6 h-6 text-white" />
+                          </div>
+                          <div>
+                            <h3 className="text-2xl font-bold text-gray-900">
+                              {subscription?.plan?.name ||
+                                accountInfo?.customer?.plan?.name ||
+                                "Free Plan"}
+                            </h3>
+                          </div>
+                          <Badge className="bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-md">
                             Active
                           </Badge>
                         </div>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-gray-700 font-medium">
                           {accountInfo?.customer?.projectLimit ||
                             subscription?.projectLimit ||
                             3}{" "}
@@ -1338,68 +1844,118 @@ export function DeveloperSettings({
                         </p>
                         {/* Next Payment Cycle */}
                         {nextPaymentDate && (
-                          <p className="text-sm text-gray-700 mt-2 font-medium">
-                            Next payment:{" "}
-                            <span className="text-gray-900">
-                              {nextPaymentDate.toLocaleDateString("en-US", {
-                                year: "numeric",
-                                month: "long",
-                                day: "numeric",
-                              })}
-                            </span>
-                          </p>
+                          <div className="mt-3 p-3 bg-white/60 rounded-lg border border-green-200">
+                            <p className="text-sm font-semibold text-gray-900">
+                              Next payment:{" "}
+                              <span className="text-green-700">
+                                {nextPaymentDate.toLocaleDateString("en-US", {
+                                  year: "numeric",
+                                  month: "long",
+                                  day: "numeric",
+                                })}
+                              </span>
+                            </p>
+                          </div>
                         )}
                       </div>
                       <div className="text-right">
-                        <p className="text-xl font-semibold text-gray-900">
-                          {formatCurrencyUtil(
-                            accountInfo?.customer?.plan?.monthlyPrice ||
-                              subscription?.plan?.monthlyPrice ||
-                              0,
-                            accountInfo?.customer?.plan?.currency ||
-                              subscription?.plan?.currency ||
-                              "NGN"
-                          )}
-                          /month
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          Billed {subscription?.billingCycle || "monthly"}
-                        </p>
+                        <div className="p-4 bg-white/60 rounded-lg border border-green-200">
+                          <p className="text-2xl font-bold bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] bg-clip-text text-transparent">
+                            {formatCurrencyUtil(
+                              accountInfo?.customer?.plan?.monthlyPrice ||
+                                subscription?.plan?.monthlyPrice ||
+                                0,
+                              accountInfo?.customer?.plan?.currency ||
+                                subscription?.plan?.currency ||
+                                "NGN"
+                            )}
+                          </p>
+                          <p className="text-sm text-gray-600 font-medium mt-1">
+                            /month • Billed {subscription?.billingCycle || "monthly"}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-3 pt-4 border-t border-green-200">
                       <Button
-                        variant="outline"
-                        onClick={() => setShowChangePlanDialog(true)}
+                        onClick={() => {
+                          // Check if payment gateway is configured
+                          if (!paystackConfig?.isEnabled && !monicreditConfig?.isEnabled) {
+                            toast.error("No payment gateway configured. Please contact your administrator to enable a payment gateway in Platform Settings → Integrations.");
+                            setActiveTab("integrations");
+                            return;
+                          }
+                          setShowChangePlanDialog(true);
+                        }}
+                        className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25"
                       >
+                        <TrendingUp className="w-4 h-4 mr-2" />
                         Upgrade Plan
                       </Button>
                       <Button
                         variant="outline"
                         onClick={() => setShowCancelDialog(true)}
+                        className="border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
                       >
                         Cancel Subscription
                       </Button>
                     </div>
+
+                    {/* Payment Gateway Warning */}
+                    {(!paystackConfig?.isEnabled && !monicreditConfig?.isEnabled) && (
+                      <div className="mt-4 p-4 bg-gradient-to-br from-yellow-50 via-amber-50 to-orange-50 border-2 border-yellow-200 rounded-xl shadow-md">
+                        <div className="flex items-start gap-3">
+                          <div className="h-8 w-8 bg-gradient-to-br from-yellow-500 to-amber-500 rounded-lg flex items-center justify-center shadow-md flex-shrink-0">
+                            <AlertCircle className="w-4 h-4 text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-yellow-900 mb-1">
+                              Payment Gateway Not Configured
+                            </p>
+                            <p className="text-sm text-yellow-700 mb-2">
+                              No payment gateway is currently enabled. You won't be able to upgrade your plan until a payment gateway is configured.
+                            </p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setActiveTab("integrations")}
+                              className="border-yellow-300 text-yellow-700 hover:bg-yellow-100 hover:border-yellow-400"
+                            >
+                              <Plug className="w-3 h-3 mr-2" />
+                              View Integrations
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  <Separator />
+                  <Separator className="my-6" />
 
-                  <div>
-                    <p className="font-semibold text-gray-900 mb-4">
-                      Billing Information
-                    </p>
-                    <div className="space-y-2">
-                      <p className="text-sm text-gray-600">
-                        Next billing date:{" "}
-                        {nextPaymentDate
-                          ? nextPaymentDate.toLocaleDateString("en-US", {
-                              year: "numeric",
-                              month: "long",
-                              day: "numeric",
-                            })
-                          : "N/A"}
+                  <div className="p-4 bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl border border-gray-200">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="h-8 w-8 bg-gradient-to-br from-[#A855F7] to-[#7C3AED] rounded-lg flex items-center justify-center">
+                        <CreditCard className="w-4 h-4 text-white" />
+                      </div>
+                      <p className="font-bold text-gray-900">
+                        Billing Information
                       </p>
+                    </div>
+                    <div className="space-y-2 pl-11">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-gray-700">
+                          Next billing date:
+                        </p>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {nextPaymentDate
+                            ? nextPaymentDate.toLocaleDateString("en-US", {
+                                year: "numeric",
+                                month: "long",
+                                day: "numeric",
+                              })
+                            : "N/A"}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </>
@@ -1408,12 +1964,19 @@ export function DeveloperSettings({
           </Card>
 
           {/* Payment Methods Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Payment Methods</CardTitle>
-              <CardDescription>
-                Manage your payment methods for automatic billing
-              </CardDescription>
+          <Card className="border-0 shadow-xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-b border-blue-100">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center shadow-md">
+                  <CreditCard className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-gray-900">Payment Methods</CardTitle>
+                  <CardDescription className="text-gray-600">
+                    Manage your payment methods for automatic billing
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <PaymentMethodsManager />
@@ -1421,22 +1984,33 @@ export function DeveloperSettings({
           </Card>
 
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Billing History</CardTitle>
-              <CardDescription>
-                View and download your billing history
-              </CardDescription>
+          <Card className="border-0 shadow-xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border-b border-purple-100">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-gradient-to-br from-[#A855F7] to-[#7C3AED] rounded-lg flex items-center justify-center shadow-md">
+                  <Receipt className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-gray-900">Billing History</CardTitle>
+                  <CardDescription className="text-gray-600">
+                    View and download your billing history
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               {loadingHistory ? (
                 <div className="text-center py-8">
-                  <p className="text-gray-500">Loading billing history...</p>
+                  <Loader2 className="h-8 w-8 mx-auto mb-4 text-[#7C3AED] animate-spin" />
+                  <p className="text-gray-600 font-medium">Loading billing history...</p>
                 </div>
               ) : billingHistory.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">No billing history yet</p>
-                  <p className="text-sm text-gray-400 mt-2">
+                <div className="text-center py-12">
+                  <div className="h-16 w-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Receipt className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <p className="text-gray-600 font-medium">No billing history yet</p>
+                  <p className="text-sm text-gray-500 mt-2">
                     Your invoices will appear here once you have billing
                     activity
                   </p>
@@ -1454,46 +2028,52 @@ export function DeveloperSettings({
                       return currentItems.map((invoice) => (
                         <div
                           key={invoice.id}
-                          className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+                          className="flex items-center justify-between p-4 bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl border-2 border-gray-200 hover:border-purple-300 transition-all"
                         >
-                          <div>
-                            <p className="font-medium text-gray-900">
-                              {new Date(
-                                invoice.paidAt || invoice.createdAt
-                              ).toLocaleDateString("en-US", {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                              })}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              {formatCurrencyUtil(invoice.amount, invoice.currency)}
-                            </p>
-                            {invoice.description && (
-                              <p className="text-xs text-gray-400 mt-1">
-                                {invoice.description}
+                          <div className="flex items-center gap-3 flex-1">
+                            <div className="h-10 w-10 bg-gradient-to-br from-[#A855F7] to-[#7C3AED] rounded-lg flex items-center justify-center shadow-md">
+                              <Receipt className="w-5 h-5 text-white" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-bold text-gray-900">
+                                {new Date(
+                                  invoice.paidAt || invoice.createdAt
+                                ).toLocaleDateString("en-US", {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                })}
                               </p>
-                            )}
+                              <p className="text-sm font-semibold text-gray-700 mt-1">
+                                {formatCurrencyUtil(invoice.amount, invoice.currency)}
+                              </p>
+                              {invoice.description && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {invoice.description}
+                                </p>
+                              )}
+                            </div>
                           </div>
                           <div className="flex items-center gap-3">
                             <Badge
                               className={
                                 invoice.status === "paid"
-                                  ? "bg-green-500"
+                                  ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-md"
                                   : invoice.status === "pending"
-                                  ? "bg-yellow-500"
-                                  : "bg-red-500"
+                                  ? "bg-gradient-to-r from-yellow-500 to-amber-500 text-white shadow-md"
+                                  : "bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-md"
                               }
                             >
                               {invoice.status.charAt(0).toUpperCase() +
                                 invoice.status.slice(1)}
                             </Badge>
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
                               onClick={() =>
                                 toast.info("Invoice download coming soon!")
                               }
+                              className="border-purple-200 hover:bg-purple-50 hover:border-purple-300"
                             >
                               Download
                             </Button>
@@ -1505,8 +2085,8 @@ export function DeveloperSettings({
 
                   {/* Pagination Controls */}
                   {billingHistory.length > itemsPerPage && (
-                    <div className="flex items-center justify-between mt-6 pt-4 border-t">
-                      <div className="text-sm text-gray-600">
+                    <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
+                      <div className="text-sm font-medium text-gray-700">
                         Showing {((currentPage - 1) * itemsPerPage) + 1} to{" "}
                         {Math.min(currentPage * itemsPerPage, billingHistory.length)} of{" "}
                         {billingHistory.length} invoices
@@ -1517,6 +2097,7 @@ export function DeveloperSettings({
                           size="sm"
                           onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                           disabled={currentPage === 1}
+                          className="border-gray-300 hover:bg-gray-50"
                         >
                           Previous
                         </Button>
@@ -1530,7 +2111,11 @@ export function DeveloperSettings({
                               variant={currentPage === page ? "default" : "outline"}
                               size="sm"
                               onClick={() => setCurrentPage(page)}
-                              className="w-10"
+                              className={`w-10 ${
+                                currentPage === page
+                                  ? "bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25"
+                                  : "border-gray-300 hover:bg-gray-50"
+                              }`}
                             >
                               {page}
                             </Button>
@@ -1550,6 +2135,7 @@ export function DeveloperSettings({
                           disabled={
                             currentPage === Math.ceil(billingHistory.length / itemsPerPage)
                           }
+                          className="border-gray-300 hover:bg-gray-50"
                         >
                           Next
                         </Button>
@@ -1560,16 +2146,227 @@ export function DeveloperSettings({
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Integrations Tab */}
+        <TabsContent value="integrations" className="space-y-6">
+          <Card className="border-0 shadow-xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-b border-blue-100">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center shadow-md">
+                  <Plug className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-gray-900">Payment Gateway Integrations</CardTitle>
+                  <CardDescription className="text-gray-600">
+                    View payment gateway connection status for subscription payments
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6 space-y-6">
+              {loadingGateways ? (
+                <div className="text-center py-8">
+                  <Loader2 className="h-8 w-8 mx-auto mb-4 text-[#7C3AED] animate-spin" />
+                  <p className="text-gray-600 font-medium">Loading payment gateway status...</p>
+                </div>
+              ) : (
+                <>
+                  {/* Paystack Gateway Status */}
+                  <div className="p-5 bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl border-2 border-gray-200">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`h-12 w-12 rounded-lg flex items-center justify-center shadow-md ${
+                          paystackConfig?.isEnabled
+                            ? "bg-gradient-to-br from-green-500 to-emerald-500"
+                            : "bg-gradient-to-br from-gray-400 to-gray-500"
+                        }`}>
+                          <CreditCard className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-900">Paystack Payment Gateway</h3>
+                          <p className="text-sm text-gray-600">Platform subscription payments</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {paystackConfig?.isEnabled ? (
+                          <>
+                            <CheckCircle2 className="w-5 h-5 text-green-600" />
+                            <Badge className="bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-md">
+                              Connected
+                            </Badge>
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="w-5 h-5 text-gray-400" />
+                            <Badge className="bg-gray-400 text-white">
+                              Not Connected
+                            </Badge>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-2 pl-16">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-gray-700">Status:</p>
+                        <p className={`text-sm font-semibold ${
+                          paystackConfig?.isEnabled ? "text-green-700" : "text-gray-500"
+                        }`}>
+                          {paystackConfig?.isEnabled ? "Enabled" : "Disabled"}
+                        </p>
+                      </div>
+                      {paystackConfig?.testMode && (
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-yellow-500 text-white text-xs">
+                            Test Mode
+                          </Badge>
+                        </div>
+                      )}
+                      {!paystackConfig?.isEnabled && (
+                        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <p className="text-sm text-yellow-800">
+                            <AlertCircle className="w-4 h-4 inline mr-1" />
+                            Paystack is not configured. Please contact your administrator to enable it in Platform Settings → Integrations.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Monicredit Gateway Status */}
+                  <div className="p-5 bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl border-2 border-gray-200">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`h-12 w-12 rounded-lg flex items-center justify-center shadow-md ${
+                          monicreditConfig?.isEnabled
+                            ? "bg-gradient-to-br from-green-500 to-emerald-500"
+                            : "bg-gradient-to-br from-gray-400 to-gray-500"
+                        }`}>
+                          <CreditCard className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-900">Monicredit Payment Gateway</h3>
+                          <p className="text-sm text-gray-600">Platform subscription payments</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {monicreditConfig?.isEnabled ? (
+                          <>
+                            <CheckCircle2 className="w-5 h-5 text-green-600" />
+                            <Badge className="bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-md">
+                              Connected
+                            </Badge>
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="w-5 h-5 text-gray-400" />
+                            <Badge className="bg-gray-400 text-white">
+                              Not Connected
+                            </Badge>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-2 pl-16">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-gray-700">Status:</p>
+                        <p className={`text-sm font-semibold ${
+                          monicreditConfig?.isEnabled ? "text-green-700" : "text-gray-500"
+                        }`}>
+                          {monicreditConfig?.isEnabled ? "Enabled" : "Disabled"}
+                        </p>
+                      </div>
+                      {monicreditConfig?.testMode && (
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-yellow-500 text-white text-xs">
+                            Test Mode
+                          </Badge>
+                        </div>
+                      )}
+                      {!monicreditConfig?.isEnabled && (
+                        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <p className="text-sm text-yellow-800">
+                            <AlertCircle className="w-4 h-4 inline mr-1" />
+                            Monicredit is not configured. Please contact your administrator to enable it in Platform Settings → Integrations.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Warning if no gateway is enabled */}
+                  {(!paystackConfig?.isEnabled && !monicreditConfig?.isEnabled) && (
+                    <div className="p-5 bg-gradient-to-br from-red-50 via-orange-50 to-amber-50 border-2 border-red-200 rounded-xl shadow-md">
+                      <div className="flex items-start gap-3">
+                        <div className="h-10 w-10 bg-gradient-to-br from-red-500 to-orange-500 rounded-lg flex items-center justify-center shadow-md flex-shrink-0">
+                          <AlertCircle className="w-5 h-5 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-red-900 mb-1">
+                            No Payment Gateway Configured
+                          </p>
+                          <p className="text-sm text-red-700 mb-3">
+                            No payment gateway is currently enabled for subscription payments. You will not be able to upgrade your plan until a payment gateway is configured.
+                          </p>
+                          <p className="text-sm text-red-600">
+                            Please contact your administrator to configure Paystack or Monicredit in Platform Settings → Integrations.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Info about subscription payments */}
+                  <div className="p-5 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 border-2 border-blue-200 rounded-xl shadow-sm">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="h-8 w-8 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center shadow-md">
+                        <Settings className="w-4 h-4 text-white" />
+                      </div>
+                      <p className="text-sm font-bold text-gray-900">
+                        About Payment Gateways
+                      </p>
+                    </div>
+                    <ul className="text-sm text-gray-700 space-y-2 ml-11">
+                      <li className="flex items-center gap-2">
+                        <div className="h-1.5 w-1.5 bg-[#7C3AED] rounded-full"></div>
+                        Payment gateways are configured by administrators in Platform Settings
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <div className="h-1.5 w-1.5 bg-[#7C3AED] rounded-full"></div>
+                        Subscription payments use the enabled payment gateway automatically
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <div className="h-1.5 w-1.5 bg-[#7C3AED] rounded-full"></div>
+                        If multiple gateways are enabled, Paystack is preferred over Monicredit
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <div className="h-1.5 w-1.5 bg-[#7C3AED] rounded-full"></div>
+                        Payment gateway status is read-only for developers
+                      </li>
+                    </ul>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
           {/* Change Plan Dialog */}
           {showChangePlanDialog && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-              <Card className="w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-                <CardHeader>
-                  <CardTitle>Upgrade Subscription Plan</CardTitle>
-                  <CardDescription>
-                    Select a higher plan to upgrade your account
-                  </CardDescription>
+              <Card className="w-full max-w-2xl max-h-[80vh] overflow-y-auto border-0 shadow-2xl">
+                <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 bg-white/20 rounded-lg flex items-center justify-center">
+                      <TrendingUp className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-white text-xl">Upgrade Subscription Plan</CardTitle>
+                      <CardDescription className="text-purple-100">
+                        Select a higher plan to upgrade your account
+                      </CardDescription>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {loadingPlans ? (
@@ -1618,31 +2415,36 @@ export function DeveloperSettings({
                         <div className="space-y-3">
                           {/* Show current plan (highlighted as active) */}
                           {currentPlan && (
-                            <div className="p-4 border-2 border-green-500 rounded-lg bg-green-50">
+                            <div className="p-5 border-2 border-green-500 rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 shadow-md">
                               <div className="flex items-center justify-between">
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <h4 className="font-semibold text-gray-900">
-                                      {currentPlan.name}
-                                    </h4>
-                                    <Badge className="bg-green-600 text-white text-xs">
-                                      Active Plan
-                                    </Badge>
+                                <div className="flex items-center gap-3">
+                                  <div className="h-12 w-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg flex items-center justify-center shadow-md">
+                                    <Crown className="w-6 h-6 text-white" />
                                   </div>
-                                  <p className="text-sm text-gray-700 mt-1">
-                                    {currentPlan.projectLimit || currentPlan.propertyLimit} {currentPlan.projectLimit ? 'projects' : 'properties'} •{" "}
-                                    {currentPlan.userLimit} users •{" "}
-                                    {currentPlan.storageLimit}MB storage
-                                  </p>
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <h4 className="font-bold text-lg text-gray-900">
+                                        {currentPlan.name}
+                                      </h4>
+                                      <Badge className="bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs shadow-md">
+                                        Active Plan
+                                      </Badge>
+                                    </div>
+                                    <p className="text-sm font-medium text-gray-700 mt-1">
+                                      {currentPlan.projectLimit || currentPlan.propertyLimit} {currentPlan.projectLimit ? 'projects' : 'properties'} •{" "}
+                                      {currentPlan.userLimit} users •{" "}
+                                      {currentPlan.storageLimit}MB storage
+                                    </p>
+                                  </div>
                                 </div>
                                 <div className="text-right">
-                                  <p className="text-lg font-semibold text-gray-900">
+                                  <p className="text-xl font-bold bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] bg-clip-text text-transparent">
                                     {formatCurrencyUtil(
                                       currentPlan.monthlyPrice,
                                       currentPlan.currency
                                     )}
                                   </p>
-                                  <p className="text-sm text-gray-600">
+                                  <p className="text-sm font-medium text-gray-600">
                                     /month
                                   </p>
                                 </div>
@@ -1673,39 +2475,52 @@ export function DeveloperSettings({
                                 return (
                                   <div
                                     key={plan.id}
-                                    className={`p-4 border-2 rounded-lg transition-all cursor-pointer ${
+                                    className={`p-5 border-2 rounded-xl transition-all cursor-pointer ${
                                       isSelected
-                                        ? "border-blue-500 bg-blue-50"
-                                        : "border-gray-200 hover:border-blue-300 hover:bg-blue-50/50"
+                                        ? "border-[#7C3AED] bg-gradient-to-br from-purple-50 to-indigo-50 shadow-lg"
+                                        : "border-gray-200 hover:border-purple-300 hover:bg-purple-50/50"
                                     }`}
                                     onClick={() => setSelectedPlan(plan.id)}
                                   >
                                     <div className="flex items-center justify-between">
-                                      <div>
-                                        <div className="flex items-center gap-2">
-                                          <h4 className="font-semibold text-gray-900">
-                                            {plan.name}
-                                          </h4>
-                                          {plan.isPopular && (
-                                            <Badge className="bg-blue-600 text-white text-xs">
-                                              Popular
-                                            </Badge>
-                                          )}
+                                      <div className="flex items-center gap-3 flex-1">
+                                        <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${
+                                          isSelected
+                                            ? "bg-gradient-to-br from-[#A855F7] to-[#7C3AED] shadow-md"
+                                            : "bg-gray-200"
+                                        }`}>
+                                          <TrendingUp className={`w-5 h-5 ${isSelected ? "text-white" : "text-gray-500"}`} />
                                         </div>
-                                        <p className="text-sm text-gray-600 mt-1">
-                                          {plan.projectLimit || plan.propertyLimit} {plan.projectLimit ? 'projects' : 'properties'} •{" "}
-                                          {plan.userLimit} users •{" "}
-                                          {plan.storageLimit}MB storage
-                                        </p>
+                                        <div>
+                                          <div className="flex items-center gap-2">
+                                            <h4 className="font-bold text-gray-900">
+                                              {plan.name}
+                                            </h4>
+                                            {plan.isPopular && (
+                                              <Badge className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white text-xs shadow-md">
+                                                Popular
+                                              </Badge>
+                                            )}
+                                          </div>
+                                          <p className="text-sm font-medium text-gray-700 mt-1">
+                                            {plan.projectLimit || plan.propertyLimit} {plan.projectLimit ? 'projects' : 'properties'} •{" "}
+                                            {plan.userLimit} users •{" "}
+                                            {plan.storageLimit}MB storage
+                                          </p>
+                                        </div>
                                       </div>
                                       <div className="text-right">
-                                        <p className="text-lg font-semibold text-gray-900">
+                                        <p className={`text-xl font-bold ${
+                                          isSelected
+                                            ? "bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] bg-clip-text text-transparent"
+                                            : "text-gray-900"
+                                        }`}>
                                           {formatCurrencyUtil(
                                             plan.monthlyPrice,
                                             plan.currency
                                           )}
                                         </p>
-                                        <p className="text-sm text-gray-500">
+                                        <p className="text-sm font-medium text-gray-600">
                                           /month
                                         </p>
                                       </div>
@@ -1721,7 +2536,7 @@ export function DeveloperSettings({
                     })()
                   )}
                 </CardContent>
-                <div className="p-6 border-t flex gap-2 justify-end">
+                <div className="p-6 border-t border-gray-200 bg-gray-50 flex gap-3 justify-end">
                   <Button
                     variant="outline"
                     onClick={() => {
@@ -1729,14 +2544,26 @@ export function DeveloperSettings({
                       setSelectedPlan("");
                     }}
                     disabled={isProcessing}
+                    className="border-gray-300 hover:bg-gray-50"
                   >
                     Cancel
                   </Button>
                   <Button
                     onClick={handleChangePlan}
                     disabled={isProcessing || !selectedPlan}
+                    className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25"
                   >
-                    {isProcessing ? "Processing..." : "Upgrade Plan"}
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <TrendingUp className="w-4 h-4 mr-2" />
+                        Upgrade Plan
+                      </>
+                    )}
                   </Button>
                 </div>
               </Card>
@@ -1810,7 +2637,6 @@ export function DeveloperSettings({
               </Card>
             </div>
           )}
-        </TabsContent>
 
         {/* Team Settings - Only for Owner */}
         {isOwner && (
@@ -1819,6 +2645,188 @@ export function DeveloperSettings({
           </TabsContent>
         )}
       </Tabs>
+
+      {/* Two-Factor Setup Dialog */}
+      <Dialog
+        open={twoFactorDialogOpen}
+        onOpenChange={(open) => {
+          setTwoFactorDialogOpen(open);
+          if (!open) {
+            setTwoFactorCodeInput("");
+            setTwoFactorSetup({ secret: "", otpauthUrl: "", qrCode: "" });
+          }
+        }}
+      >
+        <DialogContent className="max-w-md border-0 shadow-2xl p-0">
+          <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] p-6 rounded-t-lg">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 bg-white/20 rounded-lg flex items-center justify-center">
+                <Shield className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-white text-xl">Enable Two-Factor Authentication</DialogTitle>
+                <DialogDescription className="text-purple-100">
+                  Scan the QR code below with Google Authenticator, Authy, or any compatible app.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-6 p-6">
+            {twoFactorSetup.qrCode && (
+              <div className="flex flex-col items-center space-y-3">
+                <div className="p-4 bg-white border-2 border-purple-200 rounded-xl shadow-sm">
+                  <img
+                    src={twoFactorSetup.qrCode}
+                    alt="QR Code"
+                    className="w-48 h-48"
+                  />
+                </div>
+                <p className="text-sm text-gray-600 text-center font-medium">
+                  Scan this QR code with your authenticator app
+                </p>
+              </div>
+            )}
+
+            {twoFactorSetup.secret && (
+              <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-xl p-4">
+                <Label className="text-sm font-semibold text-gray-700 mb-2 block">
+                  Can't scan? Enter this key manually:
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={twoFactorSetup.secret}
+                    readOnly
+                    className="font-mono text-sm bg-white border-purple-200 focus:border-purple-300"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(twoFactorSetup.secret);
+                      toast.success("Secret copied to clipboard");
+                    }}
+                    className="border-purple-200 hover:bg-purple-50"
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold text-gray-700">
+                Enter 6-digit code from your app
+              </Label>
+              <Input
+                value={twoFactorCodeInput}
+                onChange={(e) => setTwoFactorCodeInput(e.target.value)}
+                placeholder="000000"
+                maxLength={6}
+                className="text-center text-lg tracking-widest font-mono focus:border-[#7C3AED] focus:ring-[#7C3AED] h-12"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="p-6 border-t border-gray-200 bg-gray-50">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setTwoFactorDialogOpen(false);
+                setTwoFactorCodeInput("");
+                setTwoFactorSetup({ secret: "", otpauthUrl: "", qrCode: "" });
+              }}
+              className="border-gray-300 hover:bg-gray-50"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmTwoFactorSetup}
+              disabled={!twoFactorCodeInput || twoFactorCodeInput.length !== 6 || twoFactorDialogLoading}
+              className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] text-white shadow-lg shadow-purple-500/25"
+            >
+              {twoFactorDialogLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                "Verify & Enable"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Disable Two-Factor Dialog */}
+      <Dialog
+        open={twoFactorDisableDialogOpen}
+        onOpenChange={(open) => {
+          setTwoFactorDisableDialogOpen(open);
+          if (!open) {
+            setTwoFactorDisablePassword("");
+          }
+        }}
+      >
+        <DialogContent className="border-0 shadow-2xl p-0">
+          <DialogHeader className="bg-gradient-to-r from-red-50 via-orange-50 to-amber-50 p-6 rounded-t-lg border-b border-red-100">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 bg-gradient-to-br from-red-500 to-orange-500 rounded-lg flex items-center justify-center shadow-md">
+                <Shield className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-gray-900 text-xl">Disable Two-Factor Authentication</DialogTitle>
+                <DialogDescription className="text-gray-600">
+                  Enter your password to disable two-factor authentication.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-4 p-6">
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold text-gray-700">Password</Label>
+              <Input
+                type="password"
+                value={twoFactorDisablePassword}
+                onChange={(e) => setTwoFactorDisablePassword(e.target.value)}
+                placeholder="Enter your password"
+                className="focus:border-[#7C3AED] focus:ring-[#7C3AED] h-11"
+              />
+              <p className="text-xs text-gray-500">
+                This action will remove the extra security layer from your account
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="p-6 border-t border-gray-200 bg-gray-50">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setTwoFactorDisableDialogOpen(false);
+                setTwoFactorDisablePassword("");
+              }}
+              className="border-gray-300 hover:bg-gray-50"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDisableTwoFactor}
+              disabled={!twoFactorDisablePassword || disableTwoFactorLoading}
+              className="bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white shadow-lg"
+            >
+              {disableTwoFactorLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Disabling...
+                </>
+              ) : (
+                "Disable 2FA"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

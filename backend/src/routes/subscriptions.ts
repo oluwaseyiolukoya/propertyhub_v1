@@ -1053,13 +1053,16 @@ router.post(
       const provider = payment.provider || "paystack"; // Default to Paystack for backward compatibility
       console.log("[Upgrade] Payment provider:", provider);
 
-      // Check if payment is already completed (idempotency check)
+      // Check if payment is already completed AND upgrade has been processed (idempotency check)
+      // IMPORTANT: Only skip verification if BOTH payment is completed AND customer plan has been updated
+      // This prevents premature email sending when webhook updates payment status before user completes payment
       if (payment.status === "completed" || payment.status === "success") {
-        console.log(
-          "[Upgrade] Payment already completed, returning success without re-verification"
-        );
+        // Verify that the upgrade was actually completed by checking if customer plan was updated
+        const customer = await prisma.customers.findUnique({
+          where: { id: customerId },
+          include: { plans: true },
+        });
 
-        // Get metadata to return plan info
         let paymentMetadata: any = {};
         if (payment.metadata) {
           if (typeof payment.metadata === "string") {
@@ -1077,7 +1080,12 @@ router.post(
         }
 
         const planId = paymentMetadata?.planId;
-        if (planId) {
+
+        // If customer plan matches the upgrade plan, upgrade was already completed
+        if (planId && customer?.planId === planId) {
+          console.log(
+            "[Upgrade] Payment and upgrade already completed, returning success without re-verification"
+          );
           const plan = await prisma.plans.findUnique({ where: { id: planId } });
           return res.json({
             success: true,
@@ -1087,11 +1095,10 @@ router.post(
           });
         }
 
-        return res.json({
-          success: true,
-          message: "Payment already processed",
-          verificationSource: "database",
-        });
+        // Payment status is "success" but upgrade not completed yet - verify with provider
+        console.log(
+          "[Upgrade] Payment status is 'success' but upgrade not completed. Verifying with provider to ensure payment is actually completed..."
+        );
       }
 
       // Verify based on provider
@@ -2220,21 +2227,7 @@ router.get(
         amount: payment.amount,
       });
 
-      // Check if payment is already completed (idempotency)
-      if (payment.status === "completed" || payment.status === "success") {
-        console.log("[Upgrade GET] Payment already completed");
-        return res.json({
-          success: true,
-          status: "success",
-          reference,
-          provider,
-          verified: true,
-          verificationSource: "database",
-          message: "Payment already processed",
-        });
-      }
-
-      // Parse payment metadata
+      // Parse payment metadata early - needed for idempotency check
       let paymentMetadata: any = {};
       if (payment.metadata) {
         if (typeof payment.metadata === "string") {
@@ -2248,17 +2241,75 @@ router.get(
         }
       }
 
+      // Check if payment is already completed AND upgrade is done (idempotency)
+      // IMPORTANT: Only return early if BOTH payment and upgrade are completed
+      // This prevents issues where webhook updates payment status before user completes payment
+      if (payment.status === "completed" || payment.status === "success") {
+        const planId = paymentMetadata?.planId;
+        const customer = await prisma.customers.findUnique({
+          where: { id: customerId },
+          include: { plans: true },
+        });
+
+        // If customer's plan matches the upgrade plan, upgrade was already completed
+        if (planId && customer?.planId === planId) {
+          console.log("[Upgrade GET] Payment and upgrade already completed, returning success");
+          return res.json({
+            success: true,
+            status: "success",
+            reference,
+            provider,
+            verified: true,
+            verificationSource: "database",
+            message: "Payment already processed",
+            plan: customer.plans?.name,
+            customer: {
+              id: customer.id,
+              plan: customer.plans?.name,
+              limits: {
+                projects: customer.projectLimit,
+                properties: customer.propertyLimit,
+                users: customer.userLimit,
+                storage: customer.storageLimit,
+              },
+            },
+          });
+        }
+
+        // Payment status is "success" but upgrade not completed
+        // This can happen if webhook fired before user returned from payment page
+        console.log("[Upgrade GET] Payment status is 'success' but upgrade not completed. Continuing to complete upgrade...");
+      }
+
       // For Monicredit: Use trust redirect mode (same as tenant payments)
+      // Since we use redirect flow, when user returns from Monicredit, they've completed the payment flow
       if (provider === "monicredit") {
-        const trustRedirect = process.env.MONICREDIT_TRUST_REDIRECT === "true";
+        const trustRedirectEnv = process.env.MONICREDIT_TRUST_REDIRECT === "true";
         const hasValidTransactionId =
           reference.startsWith("ACX") ||
           !!paymentMetadata?.monicreditTransactionId;
 
-        // If payment is pending and trust redirect is enabled, complete the upgrade
+        // For redirect flow, trust that user returning from Monicredit means payment was attempted
+        // This is consistent with tenant payment flow which also trusts redirects
+        // Only skip if explicitly disabled via MONICREDIT_TRUST_REDIRECT=false
+        const shouldTrustRedirect =
+          process.env.MONICREDIT_TRUST_REDIRECT !== "false" || // Default to true unless explicitly false
+          trustRedirectEnv ||
+          hasValidTransactionId;
+
+        console.log("[Upgrade GET] Monicredit verification:", {
+          trustRedirectEnv,
+          hasValidTransactionId,
+          shouldTrustRedirect,
+          paymentStatus: payment.status,
+          reference,
+        });
+
+        // If payment is pending/success and we should trust redirect, complete the upgrade
+        // Also handle case where webhook updated status to "success" before user returned
         if (
-          payment.status === "pending" &&
-          (trustRedirect || hasValidTransactionId)
+          (payment.status === "pending" || payment.status === "success") &&
+          shouldTrustRedirect
         ) {
           console.log("[Upgrade GET] Using trust redirect mode for Monicredit");
 
@@ -2365,6 +2416,49 @@ router.get(
             plan: newPlan.name,
           });
 
+          // Send upgrade confirmation email
+          try {
+            const { sendPlanUpgradeEmail } = require("../lib/email");
+            const oldPlanName = customer.plans?.name || "Free Plan";
+            const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+            const dashboardUrl = `${frontendUrl}/developer/settings?tab=billing`;
+            const effectiveDate = new Date().toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            });
+
+            const newFeatures: any = {
+              users: newPlan.userLimit,
+              storage: newPlan.storageLimit,
+            };
+            if (newPlan.category === "development" && newPlan.projectLimit) {
+              newFeatures.projects = newPlan.projectLimit;
+            } else if (newPlan.category === "property_management") {
+              if (newPlan.propertyLimit) newFeatures.properties = newPlan.propertyLimit;
+              if (newPlan.unitLimit) newFeatures.units = newPlan.unitLimit;
+            }
+
+            console.log("[Upgrade GET] Sending upgrade confirmation email (Monicredit)");
+            await sendPlanUpgradeEmail({
+              customerName: customer.company || customer.owner || "Customer",
+              customerEmail: customer.email,
+              companyName: customer.company || "Your Company",
+              oldPlanName,
+              newPlanName: newPlan.name,
+              newPlanPrice: billingCycle === "annual" ? newPlan.annualPrice : newPlan.monthlyPrice,
+              currency: newPlan.currency,
+              billingCycle,
+              effectiveDate,
+              newFeatures,
+              dashboardUrl,
+            });
+            console.log("[Upgrade GET] ✅ Email sent successfully (Monicredit)");
+          } catch (emailError: any) {
+            console.error("[Upgrade GET] ⚠️ Failed to send email (Monicredit):", emailError?.message);
+            // Don't fail the request if email fails - upgrade was successful
+          }
+
           console.log(
             "[Upgrade GET] Subscription upgraded successfully via trust redirect"
           );
@@ -2378,6 +2472,16 @@ router.get(
             verificationSource: "trusted_redirect",
             message: "Subscription upgraded successfully",
             plan: newPlan.name,
+            customer: {
+              id: customerId,
+              plan: newPlan.name,
+              limits: {
+                projects: updateData.projectLimit,
+                properties: updateData.propertyLimit,
+                users: updateData.userLimit,
+                storage: updateData.storageLimit,
+              },
+            },
           });
         }
 
@@ -2559,6 +2663,49 @@ router.get(
         plan: newPlan.name,
       });
 
+      // Send upgrade confirmation email
+      try {
+        const { sendPlanUpgradeEmail } = require("../lib/email");
+        const oldPlanName = customer.plans?.name || "Free Plan";
+        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+        const dashboardUrl = `${frontendUrl}/developer/settings?tab=billing`;
+        const effectiveDate = new Date().toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+
+        const newFeatures: any = {
+          users: newPlan.userLimit,
+          storage: newPlan.storageLimit,
+        };
+        if (newPlan.category === "development" && newPlan.projectLimit) {
+          newFeatures.projects = newPlan.projectLimit;
+        } else if (newPlan.category === "property_management") {
+          if (newPlan.propertyLimit) newFeatures.properties = newPlan.propertyLimit;
+          if (newPlan.unitLimit) newFeatures.units = newPlan.unitLimit;
+        }
+
+        console.log("[Upgrade GET] Sending upgrade confirmation email (Paystack)");
+        await sendPlanUpgradeEmail({
+          customerName: customer.company || customer.owner || "Customer",
+          customerEmail: customer.email,
+          companyName: customer.company || "Your Company",
+          oldPlanName,
+          newPlanName: newPlan.name,
+          newPlanPrice: billingCycle === "annual" ? newPlan.annualPrice : newPlan.monthlyPrice,
+          currency: newPlan.currency,
+          billingCycle,
+          effectiveDate,
+          newFeatures,
+          dashboardUrl,
+        });
+        console.log("[Upgrade GET] ✅ Email sent successfully (Paystack)");
+      } catch (emailError: any) {
+        console.error("[Upgrade GET] ⚠️ Failed to send email (Paystack):", emailError?.message);
+        // Don't fail the request if email fails - upgrade was successful
+      }
+
       console.log(
         "[Upgrade GET] Subscription upgraded successfully via Paystack"
       );
@@ -2572,6 +2719,16 @@ router.get(
         verificationSource: "paystack_api",
         message: "Subscription upgraded successfully",
         plan: newPlan.name,
+        customer: {
+          id: customerId,
+          plan: newPlan.name,
+          limits: {
+            projects: updateData.projectLimit,
+            properties: updateData.propertyLimit,
+            users: updateData.userLimit,
+            storage: updateData.storageLimit,
+          },
+        },
       });
     } catch (error: any) {
       console.error("[Upgrade GET] Error:", error);

@@ -107,10 +107,18 @@ export interface AdminPaymentGatewayConfig {
 }
 
 /**
- * Get platform payment gateway configuration
+ * Get platform payment gateway configuration (admin only)
  */
 export const getAdminPaymentGateway = async (provider: 'paystack' | 'monicredit' = 'monicredit'): Promise<{ data?: AdminPaymentGatewayConfig; error?: any }> => {
   return apiClient.get<AdminPaymentGatewayConfig>(`/api/system/admin/payment-gateway?provider=${provider}`);
+};
+
+/**
+ * Get platform payment gateway status (read-only, for developers and all authenticated users)
+ * Returns only status information, no sensitive keys
+ */
+export const getPaymentGatewayStatus = async (provider: 'paystack' | 'monicredit' = 'paystack'): Promise<{ data?: { provider: string; isEnabled: boolean; testMode: boolean }; error?: any }> => {
+  return apiClient.get<{ provider: string; isEnabled: boolean; testMode: boolean }>(`/api/system/payment-gateway/status?provider=${provider}`);
 };
 
 /**

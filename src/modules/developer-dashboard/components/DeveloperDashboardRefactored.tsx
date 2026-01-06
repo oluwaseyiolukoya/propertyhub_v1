@@ -16,6 +16,7 @@ import {
   DollarSign,
   Shield,
   FileText,
+  User,
 } from "lucide-react";
 
 // Exact Contrezz logo from Figma Brand Guidelines
@@ -728,21 +729,77 @@ export const DeveloperDashboardRefactored: React.FC<
                 </Badge>
               )}
 
-              <div className="flex items-center space-x-3">
-                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#A855F7] to-[#7C3AED] flex items-center justify-center ring-2 ring-white/20">
-                  <span className="text-white text-sm font-semibold">
-                    {getInitials(user?.name || "Developer")}
-                  </span>
-                </div>
-                <div className="hidden sm:block">
-                  <div className="text-sm font-medium text-white">
-                    {user?.name || "Developer"}
-                  </div>
-                  <div className="text-xs text-white/60">
-                    Property Developer
-                  </div>
-                </div>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="flex items-center gap-2 hover:bg-white/10 text-white p-0 h-auto"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#A855F7] to-[#7C3AED] flex items-center justify-center ring-2 ring-white/20">
+                        <span className="text-white text-sm font-semibold">
+                          {getInitials(user?.name || "Developer")}
+                        </span>
+                      </div>
+                      <div className="hidden sm:block">
+                        <div className="text-sm font-medium text-white">
+                          {user?.name || "Developer"}
+                        </div>
+                        <div className="text-xs text-white/60">
+                          Property Developer
+                        </div>
+                      </div>
+                      <ChevronDown className="h-4 w-4 text-white/70 hidden sm:block" />
+                    </div>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col space-y-1">
+                      <p className="font-medium">{user?.name || "Developer"}</p>
+                      <p className="text-xs text-gray-500 font-normal">
+                        {user?.email || ""}
+                      </p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer"
+                    onClick={() => setCurrentPage("profile")}
+                  >
+                    <User className="w-4 h-4" />
+                    <span>Profile</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer"
+                    onClick={() => {
+                      if (isOwner) {
+                        handleOpenSettings("security");
+                      } else {
+                        toast.warning("Only account owners can access Security settings.");
+                      }
+                    }}
+                  >
+                    <Shield className="w-4 h-4" />
+                    <span>Security</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer"
+                    onClick={() => setShowChangePasswordModal(true)}
+                  >
+                    <Shield className="w-4 h-4" />
+                    <span>Change Password</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                    onClick={onLogout}
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Logout</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
