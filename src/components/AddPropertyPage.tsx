@@ -2968,9 +2968,9 @@ export function AddPropertyPage({
         open={showCreateManagerDialog}
         onOpenChange={setShowCreateManagerDialog}
       >
-        <DialogContent className="max-w-lg border-0 shadow-2xl p-0 overflow-hidden">
+        <DialogContent className="max-w-lg border-0 shadow-2xl p-0 max-h-[90vh] flex flex-col">
           {/* Gradient Header */}
-          <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] px-6 py-5">
+          <div className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] px-6 py-5 flex-shrink-0">
             <div className="flex items-center gap-4">
               <div className="h-12 w-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
                 <UserPlus className="h-6 w-6 text-white" />
@@ -2986,7 +2986,7 @@ export function AddPropertyPage({
             </div>
           </div>
 
-          <div className="p-6 space-y-6">
+          <div className="p-6 space-y-6 overflow-y-auto flex-1">
             {/* Personal Information Section */}
             <div>
               <div className="flex items-center gap-2 mb-4">
@@ -3192,7 +3192,7 @@ export function AddPropertyPage({
           </div>
 
           {/* Footer with Actions */}
-          <div className="bg-gray-50 px-6 py-4 flex items-center justify-end gap-3 border-t border-gray-100">
+          <div className="bg-gray-50 px-6 py-4 flex items-center justify-end gap-3 border-t border-gray-100 flex-shrink-0">
             <Button
               type="button"
               variant="outline"
