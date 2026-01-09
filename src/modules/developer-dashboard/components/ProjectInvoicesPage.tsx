@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from "react";
 import {
   Receipt,
   Plus,
@@ -16,11 +16,16 @@ import {
   FileText,
   Loader2,
   DollarSign,
-} from 'lucide-react';
-import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
-import { Badge } from '../../../components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+} from "lucide-react";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Badge } from "../../../components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../../../components/ui/card";
 import {
   Table,
   TableBody,
@@ -28,34 +33,34 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '../../../components/ui/table';
+} from "../../../components/ui/table";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../../components/ui/select';
+} from "../../../components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '../../../components/ui/dropdown-menu';
-import { toast } from 'sonner';
-import { useProjectInvoices } from '../hooks/useDeveloperDashboardData';
-import type { ProjectInvoice, InvoiceStatus } from '../types';
-import InvoiceDetailModal from './InvoiceDetailModal';
-import CreateInvoiceModal from './CreateInvoiceModal';
-import MarkAsPaidModal, { type PaymentDetails } from './MarkAsPaidModal';
+} from "../../../components/ui/dropdown-menu";
+import { toast } from "sonner";
+import { useProjectInvoices } from "../hooks/useDeveloperDashboardData";
+import type { ProjectInvoice, InvoiceStatus } from "../types";
+import InvoiceDetailModal from "./InvoiceDetailModal";
+import CreateInvoiceModal from "./CreateInvoiceModal";
+import MarkAsPaidModal, { type PaymentDetails } from "./MarkAsPaidModal";
 import {
   deleteProjectInvoice,
   approveProjectInvoice,
   rejectProjectInvoice,
-  markInvoiceAsPaid
-} from '../../../lib/api/invoices';
-import { getProjectById } from '../services/developerDashboard.api';
-import { getCurrencySymbol as getCurrencySymbolFromLib } from '../../../lib/currency';
+  markInvoiceAsPaid,
+} from "../../../lib/api/invoices";
+import { getProjectById } from "../services/developerDashboard.api";
+import { getCurrencySymbol as getCurrencySymbolFromLib } from "../../../lib/currency";
 
 interface ProjectInvoicesPageProps {
   projectId: string;
@@ -64,10 +69,30 @@ interface ProjectInvoicesPageProps {
 
 const statusToBadge = (status: InvoiceStatus) => {
   const variants = {
-    pending: { variant: 'default' as const, icon: Clock, label: 'Pending', className: 'bg-amber-500 hover:bg-amber-600 text-white' },
-    approved: { variant: 'outline' as const, icon: CheckCircle, label: 'Approved', className: '' },
-    paid: { variant: 'default' as const, icon: CheckCircle, label: 'Paid', className: 'bg-green-600 hover:bg-green-700 text-white' },
-    rejected: { variant: 'destructive' as const, icon: XCircle, label: 'Rejected', className: '' },
+    pending: {
+      variant: "default" as const,
+      icon: Clock,
+      label: "Pending",
+      className: "bg-amber-500 hover:bg-amber-600 text-white",
+    },
+    approved: {
+      variant: "outline" as const,
+      icon: CheckCircle,
+      label: "Approved",
+      className: "",
+    },
+    paid: {
+      variant: "default" as const,
+      icon: CheckCircle,
+      label: "Paid",
+      className: "bg-green-600 hover:bg-green-700 text-white",
+    },
+    rejected: {
+      variant: "destructive" as const,
+      icon: XCircle,
+      label: "Rejected",
+      className: "",
+    },
   };
   const cfg = variants[status];
   const Icon = cfg.icon;
@@ -79,10 +104,10 @@ const statusToBadge = (status: InvoiceStatus) => {
   );
 };
 
-const formatCurrency = (amount: number, currency: string = 'NGN') => {
+const formatCurrency = (amount: number, currency: string = "NGN") => {
   // Use centralized currency symbol to avoid "F CFA" issue with Intl.NumberFormat
   const symbol = getCurrencySymbolFromLib(currency);
-  const formatted = amount.toLocaleString('en-US', {
+  const formatted = amount.toLocaleString("en-US", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   });
@@ -90,27 +115,35 @@ const formatCurrency = (amount: number, currency: string = 'NGN') => {
 };
 
 const formatDateShort = (dateString?: string) => {
-  if (!dateString) return 'N/A';
-  return new Date(dateString).toLocaleDateString('en-NG', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
+  if (!dateString) return "N/A";
+  return new Date(dateString).toLocaleDateString("en-NG", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
   });
 };
 
-export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projectId, canApproveInvoices = true }) => {
+export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({
+  projectId,
+  canApproveInvoices = true,
+}) => {
   const { data, loading, error, refetch } = useProjectInvoices(projectId);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [invoiceToEdit, setInvoiceToEdit] = useState<ProjectInvoice | null>(null);
-  const [selectedInvoice, setSelectedInvoice] = useState<ProjectInvoice | null>(null);
+  const [invoiceToEdit, setInvoiceToEdit] = useState<ProjectInvoice | null>(
+    null
+  );
+  const [selectedInvoice, setSelectedInvoice] = useState<ProjectInvoice | null>(
+    null
+  );
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showMarkAsPaidModal, setShowMarkAsPaidModal] = useState(false);
-  const [invoiceToMarkAsPaid, setInvoiceToMarkAsPaid] = useState<ProjectInvoice | null>(null);
-  const [projectCurrency, setProjectCurrency] = useState<string>('NGN');
+  const [invoiceToMarkAsPaid, setInvoiceToMarkAsPaid] =
+    useState<ProjectInvoice | null>(null);
+  const [projectCurrency, setProjectCurrency] = useState<string>("NGN");
 
   const invoices = data || [];
 
@@ -120,10 +153,10 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
       try {
         const response = await getProjectById(projectId);
         if (response.success && response.data) {
-          setProjectCurrency(response.data.currency || 'NGN');
+          setProjectCurrency(response.data.currency || "NGN");
         }
       } catch (error) {
-        console.error('Failed to fetch project currency:', error);
+        console.error("Failed to fetch project currency:", error);
         // Keep default 'NGN' if fetch fails
       }
     };
@@ -137,18 +170,30 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
     return invoices.filter((invoice) => {
       const matchesSearch =
         !searchTerm ||
-        invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (invoice.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (invoice.vendor?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = statusFilter === 'all' || invoice.status === (statusFilter as InvoiceStatus);
-      const matchesCategory = categoryFilter === 'all' || invoice.category === categoryFilter;
+        invoice.invoiceNumber
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        (invoice.description || "")
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        (invoice.vendor?.name || "")
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase());
+      const matchesStatus =
+        statusFilter === "all" ||
+        invoice.status === (statusFilter as InvoiceStatus);
+      const matchesCategory =
+        categoryFilter === "all" || invoice.category === categoryFilter;
       return matchesSearch && matchesStatus && matchesCategory;
     });
   }, [invoices, searchTerm, statusFilter, categoryFilter]);
 
-  const totalAmount = filteredInvoices.reduce((sum, inv) => sum + (inv.amount || 0), 0);
+  const totalAmount = filteredInvoices.reduce(
+    (sum, inv) => sum + (inv.amount || 0),
+    0
+  );
   const paidAmount = filteredInvoices
-    .filter((inv) => inv.status === 'paid')
+    .filter((inv) => inv.status === "paid")
     .reduce((sum, inv) => sum + (inv.amount || 0), 0);
 
   const handleViewInvoice = (invoice: ProjectInvoice) => {
@@ -162,18 +207,20 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
   };
 
   const handleDeleteInvoice = async (invoice: ProjectInvoice) => {
-    if (invoice.status === 'paid' || invoice.status === 'Paid') {
-      toast.error('Paid invoices cannot be deleted');
+    if (invoice.status === "paid" || invoice.status === "Paid") {
+      toast.error("Paid invoices cannot be deleted");
       return;
     }
-    const confirmed = window.confirm(`Delete invoice ${invoice.invoiceNumber}? This action cannot be undone.`);
+    const confirmed = window.confirm(
+      `Delete invoice ${invoice.invoiceNumber}? This action cannot be undone.`
+    );
     if (!confirmed) return;
     const resp = await deleteProjectInvoice(invoice.projectId, invoice.id);
     if (resp.error) {
-      toast.error(resp.error.message || 'Failed to delete invoice');
+      toast.error(resp.error.message || "Failed to delete invoice");
       return;
     }
-    toast.success('Invoice deleted');
+    toast.success("Invoice deleted");
     refetch();
   };
 
@@ -182,34 +229,38 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
 
     const resp = await approveProjectInvoice(projectId, invoiceId);
     if (resp.error) {
-      toast.error(resp.error.message || 'Failed to approve invoice');
+      toast.error(resp.error.message || "Failed to approve invoice");
       return;
     }
 
-    toast.success('Invoice approved successfully');
+    toast.success("Invoice approved successfully");
     refetch();
   };
 
   const handleRejectInvoice = async (invoiceId: string) => {
     if (!selectedInvoice) return;
 
-    const reason = window.prompt('Enter rejection reason (optional):');
+    const reason = window.prompt("Enter rejection reason (optional):");
 
-    const resp = await rejectProjectInvoice(projectId, invoiceId, reason || undefined);
+    const resp = await rejectProjectInvoice(
+      projectId,
+      invoiceId,
+      reason || undefined
+    );
     if (resp.error) {
-      toast.error(resp.error.message || 'Failed to reject invoice');
+      toast.error(resp.error.message || "Failed to reject invoice");
       return;
     }
 
-    toast.error('Invoice rejected');
+    toast.error("Invoice rejected");
     refetch();
   };
 
   const handleMarkAsPaid = async (invoiceId: string) => {
     // Find the invoice to mark as paid
-    const invoice = invoices.find(inv => inv.id === invoiceId);
+    const invoice = invoices.find((inv) => inv.id === invoiceId);
     if (!invoice) {
-      toast.error('Invoice not found');
+      toast.error("Invoice not found");
       return;
     }
 
@@ -221,13 +272,17 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
   const handleMarkAsPaidSubmit = async (paymentDetails: PaymentDetails) => {
     if (!invoiceToMarkAsPaid) return;
 
-    const resp = await markInvoiceAsPaid(projectId, invoiceToMarkAsPaid.id, paymentDetails);
+    const resp = await markInvoiceAsPaid(
+      projectId,
+      invoiceToMarkAsPaid.id,
+      paymentDetails
+    );
     if (resp.error) {
-      toast.error(resp.error.message || 'Failed to mark invoice as paid');
+      toast.error(resp.error.message || "Failed to mark invoice as paid");
       throw new Error(resp.error.message);
     }
 
-    toast.success('Invoice marked as paid and expense created automatically');
+    toast.success("Invoice marked as paid and expense created automatically");
     setShowMarkAsPaidModal(false);
     setInvoiceToMarkAsPaid(null);
     refetch();
@@ -246,7 +301,9 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
               <Receipt className="h-8 w-8 text-white" />
               Invoices
             </h1>
-            <p className="text-white/80 font-medium">Manage and track invoices for this project</p>
+            <p className="text-white/80 font-medium">
+              Manage and track invoices for this project
+            </p>
           </div>
           <Button
             onClick={() => setShowCreateModal(true)}
@@ -260,10 +317,15 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl transition-all duration-300" style={{ animationDelay: '0ms' }}>
+        <Card
+          className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl transition-all duration-300"
+          style={{ animationDelay: "0ms" }}
+        >
           <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-white/90">Total Invoices</CardTitle>
+              <CardTitle className="text-sm font-medium text-white/90">
+                Total Invoices
+              </CardTitle>
               <Receipt className="h-5 w-5 text-white/80" />
             </div>
           </CardHeader>
@@ -276,10 +338,15 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl transition-all duration-300" style={{ animationDelay: '50ms' }}>
+        <Card
+          className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl transition-all duration-300"
+          style={{ animationDelay: "50ms" }}
+        >
           <CardHeader className="bg-gradient-to-r from-blue-500 to-cyan-600 text-white pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-white/90">Total Amount</CardTitle>
+              <CardTitle className="text-sm font-medium text-white/90">
+                Total Amount
+              </CardTitle>
               <DollarSign className="h-5 w-5 text-white/80" />
             </div>
           </CardHeader>
@@ -292,10 +359,15 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl transition-all duration-300" style={{ animationDelay: '100ms' }}>
+        <Card
+          className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl transition-all duration-300"
+          style={{ animationDelay: "100ms" }}
+        >
           <CardHeader className="bg-gradient-to-r from-green-500 to-emerald-600 text-white pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-white/90">Paid Amount</CardTitle>
+              <CardTitle className="text-sm font-medium text-white/90">
+                Paid Amount
+              </CardTitle>
               <CheckCircle className="h-5 w-5 text-white/80" />
             </div>
           </CardHeader>
@@ -308,10 +380,15 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl transition-all duration-300" style={{ animationDelay: '150ms' }}>
+        <Card
+          className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-2xl transition-all duration-300"
+          style={{ animationDelay: "150ms" }}
+        >
           <CardHeader className="bg-gradient-to-r from-yellow-500 to-amber-600 text-white pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-white/90">Pending</CardTitle>
+              <CardTitle className="text-sm font-medium text-white/90">
+                Pending
+              </CardTitle>
               <Clock className="h-5 w-5 text-white/80" />
             </div>
           </CardHeader>
@@ -326,7 +403,10 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
       </div>
 
       {/* Filters */}
-      <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '200ms' }}>
+      <Card
+        className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700"
+        style={{ animationDelay: "200ms" }}
+      >
         <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white">
           <CardTitle className="text-white font-bold">Filters</CardTitle>
         </CardHeader>
@@ -365,7 +445,9 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
                 <SelectItem value="labor">Labor</SelectItem>
                 <SelectItem value="materials">Materials</SelectItem>
                 <SelectItem value="equipment">Equipment</SelectItem>
-                <SelectItem value="professional-fees">Professional Fees</SelectItem>
+                <SelectItem value="professional-fees">
+                  Professional Fees
+                </SelectItem>
                 <SelectItem value="permits">Permits</SelectItem>
                 <SelectItem value="utilities">Utilities</SelectItem>
                 <SelectItem value="insurance">Insurance</SelectItem>
@@ -383,7 +465,10 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
           <CardContent className="p-12">
             <div className="space-y-4">
               {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="h-16 bg-gray-200 animate-pulse rounded" />
+                <div
+                  key={i}
+                  className="h-16 bg-gray-200 animate-pulse rounded"
+                />
               ))}
             </div>
           </CardContent>
@@ -394,27 +479,36 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
             <div className="bg-gray-100 rounded-full p-4 w-20 h-20 mx-auto mb-6 flex items-center justify-center">
               <Receipt className="h-10 w-10 text-gray-400" />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No invoices found</h3>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              No invoices found
+            </h3>
             <p className="text-gray-600 mb-6 max-w-md mx-auto">
               {searchTerm || statusFilter !== "all" || categoryFilter !== "all"
                 ? "Try adjusting your filters to see more results"
                 : "Create your first invoice to get started"}
             </p>
-            {!searchTerm && statusFilter === "all" && categoryFilter === "all" && (
-              <Button
-                onClick={() => setShowCreateModal(true)}
-                className="gap-2 bg-[#7C3AED] hover:bg-[#6D28D9] text-white"
-              >
-                <Plus className="h-4 w-4" />
-                Create Invoice
-              </Button>
-            )}
+            {!searchTerm &&
+              statusFilter === "all" &&
+              categoryFilter === "all" && (
+                <Button
+                  onClick={() => setShowCreateModal(true)}
+                  className="gap-2 bg-[#7C3AED] hover:bg-[#6D28D9] text-white"
+                >
+                  <Plus className="h-4 w-4" />
+                  Create Invoice
+                </Button>
+              )}
           </CardContent>
         </Card>
       ) : (
-        <Card className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '250ms' }}>
+        <Card
+          className="border-0 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700"
+          style={{ animationDelay: "250ms" }}
+        >
           <CardHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] text-white">
-            <CardTitle className="text-white font-bold">Project Invoices ({filteredInvoices.length})</CardTitle>
+            <CardTitle className="text-white font-bold">
+              Project Invoices ({filteredInvoices.length})
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
@@ -441,20 +535,30 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <FileText className="w-4 h-4 text-gray-400" />
-                        <span className="font-medium text-gray-900">{invoice.invoiceNumber}</span>
+                        <span className="font-medium text-gray-900">
+                          {invoice.invoiceNumber}
+                        </span>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div>
-                        <p className="font-medium text-gray-900">{invoice.vendor?.name || 'N/A'}</p>
-                        <p className="text-sm text-gray-500 capitalize">{invoice.vendor?.vendorType}</p>
+                        <p className="font-medium text-gray-900">
+                          {invoice.vendor?.name || "N/A"}
+                        </p>
+                        <p className="text-sm text-gray-500 capitalize">
+                          {invoice.vendor?.vendorType}
+                        </p>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <p className="text-gray-900 max-w-xs truncate">{invoice.description}</p>
+                      <p className="text-gray-900 max-w-xs truncate">
+                        {invoice.description}
+                      </p>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="capitalize">{invoice.category.replace('-', ' ')}</Badge>
+                      <Badge variant="outline" className="capitalize">
+                        {invoice.category.replace("-", " ")}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-right font-semibold text-gray-900">
                       {formatCurrency(invoice.amount, invoice.currency)}
@@ -478,11 +582,15 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleViewInvoice(invoice)}>
+                          <DropdownMenuItem
+                            onClick={() => handleViewInvoice(invoice)}
+                          >
                             <Eye className="w-4 h-4 mr-2" />
                             View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleEditInvoice(invoice)}>
+                          <DropdownMenuItem
+                            onClick={() => handleEditInvoice(invoice)}
+                          >
                             <Edit className="w-4 h-4 mr-2" />
                             Edit
                           </DropdownMenuItem>
@@ -511,7 +619,7 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
           onClose={() => setShowCreateModal(false)}
           onSuccess={() => {
             setShowCreateModal(false);
-            toast.success('Invoice created successfully');
+            toast.success("Invoice created successfully");
             refetch();
           }}
           projectId={projectId}
@@ -528,7 +636,7 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
           onSuccess={() => {
             setShowEditModal(false);
             setInvoiceToEdit(null);
-            toast.success('Invoice updated successfully');
+            toast.success("Invoice updated successfully");
             refetch();
           }}
           projectId={projectId}
@@ -569,5 +677,3 @@ export const ProjectInvoicesPage: React.FC<ProjectInvoicesPageProps> = ({ projec
 };
 
 export default ProjectInvoicesPage;
-
-

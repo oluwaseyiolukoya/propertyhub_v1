@@ -2253,7 +2253,9 @@ router.get(
 
         // If customer's plan matches the upgrade plan, upgrade was already completed
         if (planId && customer?.planId === planId) {
-          console.log("[Upgrade GET] Payment and upgrade already completed, returning success");
+          console.log(
+            "[Upgrade GET] Payment and upgrade already completed, returning success"
+          );
           return res.json({
             success: true,
             status: "success",
@@ -2278,13 +2280,16 @@ router.get(
 
         // Payment status is "success" but upgrade not completed
         // This can happen if webhook fired before user returned from payment page
-        console.log("[Upgrade GET] Payment status is 'success' but upgrade not completed. Continuing to complete upgrade...");
+        console.log(
+          "[Upgrade GET] Payment status is 'success' but upgrade not completed. Continuing to complete upgrade..."
+        );
       }
 
       // For Monicredit: Use trust redirect mode (same as tenant payments)
       // Since we use redirect flow, when user returns from Monicredit, they've completed the payment flow
       if (provider === "monicredit") {
-        const trustRedirectEnv = process.env.MONICREDIT_TRUST_REDIRECT === "true";
+        const trustRedirectEnv =
+          process.env.MONICREDIT_TRUST_REDIRECT === "true";
         const hasValidTransactionId =
           reference.startsWith("ACX") ||
           !!paymentMetadata?.monicreditTransactionId;
@@ -2420,7 +2425,8 @@ router.get(
           try {
             const { sendPlanUpgradeEmail } = require("../lib/email");
             const oldPlanName = customer.plans?.name || "Free Plan";
-            const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+            const frontendUrl =
+              process.env.FRONTEND_URL || "http://localhost:5173";
             const dashboardUrl = `${frontendUrl}/developer/settings?tab=billing`;
             const effectiveDate = new Date().toLocaleDateString("en-US", {
               year: "numeric",
@@ -2435,27 +2441,38 @@ router.get(
             if (newPlan.category === "development" && newPlan.projectLimit) {
               newFeatures.projects = newPlan.projectLimit;
             } else if (newPlan.category === "property_management") {
-              if (newPlan.propertyLimit) newFeatures.properties = newPlan.propertyLimit;
+              if (newPlan.propertyLimit)
+                newFeatures.properties = newPlan.propertyLimit;
               if (newPlan.unitLimit) newFeatures.units = newPlan.unitLimit;
             }
 
-            console.log("[Upgrade GET] Sending upgrade confirmation email (Monicredit)");
+            console.log(
+              "[Upgrade GET] Sending upgrade confirmation email (Monicredit)"
+            );
             await sendPlanUpgradeEmail({
               customerName: customer.company || customer.owner || "Customer",
               customerEmail: customer.email,
               companyName: customer.company || "Your Company",
               oldPlanName,
               newPlanName: newPlan.name,
-              newPlanPrice: billingCycle === "annual" ? newPlan.annualPrice : newPlan.monthlyPrice,
+              newPlanPrice:
+                billingCycle === "annual"
+                  ? newPlan.annualPrice
+                  : newPlan.monthlyPrice,
               currency: newPlan.currency,
               billingCycle,
               effectiveDate,
               newFeatures,
               dashboardUrl,
             });
-            console.log("[Upgrade GET] ✅ Email sent successfully (Monicredit)");
+            console.log(
+              "[Upgrade GET] ✅ Email sent successfully (Monicredit)"
+            );
           } catch (emailError: any) {
-            console.error("[Upgrade GET] ⚠️ Failed to send email (Monicredit):", emailError?.message);
+            console.error(
+              "[Upgrade GET] ⚠️ Failed to send email (Monicredit):",
+              emailError?.message
+            );
             // Don't fail the request if email fails - upgrade was successful
           }
 
@@ -2682,18 +2699,24 @@ router.get(
         if (newPlan.category === "development" && newPlan.projectLimit) {
           newFeatures.projects = newPlan.projectLimit;
         } else if (newPlan.category === "property_management") {
-          if (newPlan.propertyLimit) newFeatures.properties = newPlan.propertyLimit;
+          if (newPlan.propertyLimit)
+            newFeatures.properties = newPlan.propertyLimit;
           if (newPlan.unitLimit) newFeatures.units = newPlan.unitLimit;
         }
 
-        console.log("[Upgrade GET] Sending upgrade confirmation email (Paystack)");
+        console.log(
+          "[Upgrade GET] Sending upgrade confirmation email (Paystack)"
+        );
         await sendPlanUpgradeEmail({
           customerName: customer.company || customer.owner || "Customer",
           customerEmail: customer.email,
           companyName: customer.company || "Your Company",
           oldPlanName,
           newPlanName: newPlan.name,
-          newPlanPrice: billingCycle === "annual" ? newPlan.annualPrice : newPlan.monthlyPrice,
+          newPlanPrice:
+            billingCycle === "annual"
+              ? newPlan.annualPrice
+              : newPlan.monthlyPrice,
           currency: newPlan.currency,
           billingCycle,
           effectiveDate,
@@ -2702,7 +2725,10 @@ router.get(
         });
         console.log("[Upgrade GET] ✅ Email sent successfully (Paystack)");
       } catch (emailError: any) {
-        console.error("[Upgrade GET] ⚠️ Failed to send email (Paystack):", emailError?.message);
+        console.error(
+          "[Upgrade GET] ⚠️ Failed to send email (Paystack):",
+          emailError?.message
+        );
         // Don't fail the request if email fails - upgrade was successful
       }
 
