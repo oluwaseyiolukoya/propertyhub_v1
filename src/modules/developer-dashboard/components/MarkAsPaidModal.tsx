@@ -80,8 +80,8 @@ export const MarkAsPaidModal: React.FC<MarkAsPaidModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4">
           <DialogTitle className="flex items-center gap-2">
             <CheckCircle className="w-5 h-5 text-green-600" />
             Mark Invoice as Paid
@@ -91,8 +91,9 @@ export const MarkAsPaidModal: React.FC<MarkAsPaidModalProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4 py-4">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto px-6 pb-4">
+            <div className="space-y-4 py-4">
             {/* Invoice Amount Display */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-center justify-between">
@@ -188,9 +189,10 @@ export const MarkAsPaidModal: React.FC<MarkAsPaidModalProps> = ({
                 <li>Record all payment details for audit trail</li>
               </ul>
             </div>
+            </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
             <Button
               type="button"
               variant="outline"

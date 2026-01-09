@@ -2732,15 +2732,15 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
 
       {/* Invoice Detail Dialog */}
       <Dialog open={isInvoiceDetailOpen} onOpenChange={setIsInvoiceDetailOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader className="flex-shrink-0">
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4">
             <DialogTitle>Invoice Details</DialogTitle>
             <DialogDescription>
               {selectedInvoiceForDetail?.invoiceNumber} - {selectedInvoiceForDetail?.vendor}
             </DialogDescription>
           </DialogHeader>
           {selectedInvoiceForDetail && (
-            <ScrollArea className="max-h-[60vh] flex-1 pr-4">
+            <div className="flex-1 overflow-y-auto px-6 pb-6">
               <div className="space-y-6 py-4">
               {/* Invoice Information */}
               <div className="grid grid-cols-2 gap-4">
@@ -2935,9 +2935,9 @@ export const PurchaseOrdersPage: React.FC<{ projectId: string; canApproveInvoice
                 </>
               )}
               </div>
-            </ScrollArea>
+            </div>
           )}
-          <DialogFooter className="flex-shrink-0 mt-4 pt-4 border-t">
+          <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
             <div className="flex justify-between w-full">
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setIsInvoiceDetailOpen(false)}>
