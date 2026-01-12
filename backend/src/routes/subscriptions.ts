@@ -590,6 +590,7 @@ router.post(
             privateKey: monicreditConf.privateKey,
             merchantId: monicreditConf.merchantId,
             verifyToken: monicreditConf.verifyToken,
+            revenueHeadCode: monicreditConf.revenueHeadCode,
             isEnabled: true,
             testMode: monicreditConf.testMode || false,
           };
@@ -598,6 +599,7 @@ router.post(
             hasKeys: !!(
               monicreditConfig.publicKey && monicreditConfig.privateKey
             ),
+            hasRevenueHeadCode: !!monicreditConfig.revenueHeadCode,
           });
         }
       } catch (err) {
@@ -721,10 +723,41 @@ router.post(
         console.log("[Upgrade] Paystack initialized successfully:", reference);
         authorizationUrl = paystackData.data?.authorization_url;
       } else if (provider === "monicredit") {
+        // Validate Monicredit config
+        if (
+          !monicreditConfig ||
+          !monicreditConfig.publicKey ||
+          !monicreditConfig.privateKey
+        ) {
+          console.error("[Upgrade Monicredit] Missing configuration:", {
+            hasConfig: !!monicreditConfig,
+            hasPublicKey: !!monicreditConfig?.publicKey,
+            hasPrivateKey: !!monicreditConfig?.privateKey,
+          });
+          return res.status(400).json({
+            error: "Monicredit configuration is incomplete",
+            details:
+              "Public key and private key are required. Please configure Monicredit in Platform Settings → Integrations.",
+          });
+        }
+
         // Initialize Monicredit payment
+        // Auto-detect base URL based on key type (LIVE vs TEST/DEMO)
+        const isLiveKey =
+          monicreditConfig.publicKey?.includes("LIVE") ||
+          monicreditConfig.privateKey?.includes("LIVE");
         const monicreditBaseUrl =
           process.env.MONICREDIT_BASE_URL ||
-          "https://demo.backend.monicredit.com";
+          (isLiveKey
+            ? "https://live.backend.monicredit.com"
+            : "https://demo.backend.monicredit.com");
+
+        console.log(
+          "[Upgrade Monicredit] Using base URL:",
+          monicreditBaseUrl,
+          "isLiveKey:",
+          isLiveKey
+        );
         const possibleEndpoints = [
           process.env.MONICREDIT_TRANSACTION_ENDPOINT,
           "/v1/payment/transactions/init-transaction",
@@ -748,7 +781,9 @@ router.post(
           }
         );
 
-        let monicreditResp: globalThis.Response | null = null;
+        let monicreditRaw: string | null = null;
+        let monicreditStatus: number = 0;
+        let monicreditStatusText: string = "";
         let monicreditUrl: string | null = null;
         let lastError: any = null;
 
@@ -765,6 +800,54 @@ router.post(
           console.log(`[Upgrade Monicredit] Trying endpoint: ${testUrl}`);
 
           try {
+            // Get revenue_head_code from settings or env
+            const revenueHeadCode =
+              monicreditConfig.revenueHeadCode ||
+              process.env.MONICREDIT_REVENUE_HEAD_CODE ||
+              "";
+
+            // Format phone number (remove leading 0 if Nigerian format)
+            const formattedPhone = (customer.phone || "00000000000").replace(
+              /^0/,
+              "234"
+            );
+
+            const requestBody = {
+              order_id: reference,
+              public_key: monicreditConfig.publicKey,
+              customer: {
+                first_name: user.name?.split(" ")[0] || "Customer",
+                last_name: user.name?.split(" ").slice(1).join(" ") || "User",
+                email: customer.email,
+                phone: formattedPhone,
+              },
+              items: [
+                {
+                  item: `Subscription: ${newPlan.name} - ${billingCycle}`,
+                  revenue_head_code: revenueHeadCode,
+                  unit_cost: Number(amount), // Monicredit expects number, not string
+                },
+              ],
+              currency: currency || "NGN",
+              paytype: "standard",
+              redirect_url: callbackUrl,
+              return_url: callbackUrl,
+              callback_url: callbackUrl,
+              meta_data: {
+                customerId: customer.id,
+                invoiceId: invoice.id,
+                planId: newPlan.id,
+                billingCycle,
+                type: "subscription",
+                userId: user.id,
+              },
+            };
+
+            console.log(
+              "[Upgrade Monicredit] Request body:",
+              JSON.stringify(requestBody, null, 2)
+            );
+
             const testResp = await fetch(testUrl, {
               method: "POST",
               headers: {
@@ -774,38 +857,11 @@ router.post(
                   ? { Authorization: `Basic ${base64Credentials}` }
                   : {}),
               },
-              body: JSON.stringify({
-                order_id: reference,
-                public_key: monicreditConfig.publicKey,
-                customer: {
-                  first_name: user.name?.split(" ")[0] || "Customer",
-                  last_name: user.name?.split(" ").slice(1).join(" ") || "User",
-                  email: customer.email,
-                  phone: customer.phone || "00000000000",
-                },
-                items: [
-                  {
-                    item: `Subscription: ${newPlan.name} - ${billingCycle}`,
-                    revenue_head_code:
-                      process.env.MONICREDIT_REVENUE_HEAD_CODE || "",
-                    unit_cost: amount.toString(),
-                  },
-                ],
-                currency: currency || "NGN",
-                paytype: "standard",
-                redirect_url: callbackUrl,
-                return_url: callbackUrl,
-                callback_url: callbackUrl,
-                meta_data: {
-                  customerId: customer.id,
-                  invoiceId: invoice.id,
-                  planId: newPlan.id,
-                  billingCycle,
-                  type: "subscription",
-                  userId: user.id,
-                },
-              }),
+              body: JSON.stringify(requestBody),
             } as any);
+
+            // Read the response body immediately (can only be read once)
+            const testRaw = await testResp.text();
 
             // If we get a non-404/400 response, this might be the right endpoint
             // 401/403 = auth issue (endpoint exists), 404/400 = route not found
@@ -813,13 +869,14 @@ router.post(
               console.log(
                 `[Upgrade Monicredit] Endpoint ${endpoint} returned status ${testResp.status} - using this endpoint`
               );
-              monicreditResp = testResp;
+              monicreditRaw = testRaw;
+              monicreditStatus = testResp.status;
+              monicreditStatusText = testResp.statusText;
               monicreditUrl = testUrl;
               break;
             }
 
-            // If 404/400, try next endpoint
-            const testRaw = await testResp.text();
+            // If 404/400, check if it's a route error
             let testJson: any = {};
             try {
               testJson = JSON.parse(testRaw);
@@ -835,7 +892,9 @@ router.post(
               continue;
             } else {
               // Not a "route not found" error, use this response
-              monicreditResp = testResp;
+              monicreditRaw = testRaw;
+              monicreditStatus = testResp.status;
+              monicreditStatusText = testResp.statusText;
               monicreditUrl = testUrl;
               break;
             }
@@ -849,7 +908,7 @@ router.post(
           }
         }
 
-        if (!monicreditResp) {
+        if (!monicreditRaw) {
           console.error("[Upgrade Monicredit] All endpoints failed:", {
             endpoints: possibleEndpoints,
             lastError: lastError?.message,
@@ -861,19 +920,18 @@ router.post(
           });
         }
 
-        const monicreditRaw = await monicreditResp.text();
         let monicreditData: any = {};
         try {
           monicreditData = JSON.parse(monicreditRaw);
         } catch (parseErr) {
           console.error("[Upgrade Monicredit] Failed to parse response:", {
-            status: monicreditResp.status,
-            statusText: monicreditResp.statusText,
+            status: monicreditStatus,
+            statusText: monicreditStatusText,
             rawResponse: monicreditRaw.substring(0, 500),
           });
           return res.status(400).json({
             error: "Failed to initialize Monicredit payment",
-            details: `Invalid response from Monicredit API. Status: ${monicreditResp.status}`,
+            details: `Invalid response from Monicredit API. Status: ${monicreditStatus}`,
           });
         }
 
@@ -886,10 +944,11 @@ router.post(
           monicreditData?.data?.redirect_url ||
           monicreditData?.redirect_url;
 
-        if (!monicreditResp.ok || !authorizationUrlFromResponse) {
+        const monicreditOk = monicreditStatus >= 200 && monicreditStatus < 300;
+        if (!monicreditOk || !authorizationUrlFromResponse) {
           console.error("[Upgrade Monicredit] Initialization failed:", {
-            status: monicreditResp.status,
-            statusText: monicreditResp.statusText,
+            status: monicreditStatus,
+            statusText: monicreditStatusText,
             response: monicreditData,
             url: monicreditUrl,
           });
@@ -902,7 +961,7 @@ router.post(
               monicreditData?.errors ||
               monicreditData?.details ||
               monicreditData?.data?.message ||
-              `Status: ${monicreditResp.status}. Check Monicredit configuration.`,
+              `Status: ${monicreditStatus}. Check Monicredit configuration.`,
           });
         }
 
@@ -974,8 +1033,18 @@ router.post(
         invoiceId: invoice.id,
       });
     } catch (error: any) {
-      console.error("[Upgrade] Initialize payment error:", error);
-      res.status(500).json({ error: "Failed to initialize upgrade payment" });
+      console.error("[Upgrade] Initialize payment error:", {
+        message: error?.message,
+        stack: error?.stack,
+        name: error?.name,
+        error: error,
+      });
+      res.status(500).json({
+        error: "Failed to initialize upgrade payment",
+        details:
+          error?.message ||
+          "An unexpected error occurred. Please check server logs for details.",
+      });
     }
   }
 );
@@ -1056,10 +1125,14 @@ router.post(
       // Check if payment is already completed AND upgrade has been processed (idempotency check)
       // IMPORTANT: Only skip verification if BOTH payment is completed AND customer plan has been updated
       // This prevents premature email sending when webhook updates payment status before user completes payment
-      if (payment.status === "completed" || payment.status === "success") {
+      if (
+        payment.status === "completed" ||
+        payment.status === "paid" ||
+        payment.status === "success"
+      ) {
         // Verify that the upgrade was actually completed by checking if customer plan was updated
-        const customer = await prisma.customers.findUnique({
-          where: { id: customerId },
+        const customerCheck = await prisma.customers.findUnique({
+          where: { id: customer.id },
           include: { plans: true },
         });
 
@@ -1298,22 +1371,31 @@ router.post(
           };
         };
 
-        // If trust redirect is enabled and we have a transaction ID, mark as success
-        if (trustRedirect && hasValidTransactionId) {
-          console.log(
-            "[Upgrade Monicredit] Using trust redirect mode - marking as success"
-          );
-          try {
-            const result = await completeUpgrade("trusted_redirect");
-            return res.json(result);
-          } catch (error: any) {
-            console.error(
-              "[Upgrade Monicredit] Trust redirect completion failed:",
-              error
+        // IMPORTANT: For live payments, we MUST verify with Monicredit API first
+        // Trust redirect should only be used as fallback when API is unavailable
+        // This prevents marking cancelled payments as successful
+
+        // Check if we have system settings to verify with API
+        if (!monicreditSystemSettings || !monicreditConf?.isEnabled) {
+          // No system settings - only use trust redirect if explicitly enabled via env
+          if (trustRedirectEnv && hasValidTransactionId) {
+            console.log(
+              "[Upgrade Monicredit] No system settings, using trust redirect (env enabled)"
             );
-            return res.status(400).json({
-              error: error.message || "Failed to complete upgrade",
-            });
+            try {
+              const result = await completeUpgrade(
+                "trusted_redirect_no_config"
+              );
+              return res.json(result);
+            } catch (error: any) {
+              console.error(
+                "[Upgrade Monicredit] Trust redirect completion failed:",
+                error
+              );
+              return res.status(400).json({
+                error: error.message || "Failed to complete upgrade",
+              });
+            }
           }
         }
 
@@ -1327,9 +1409,13 @@ router.post(
         }
 
         // Now attempt actual Monicredit API verification (same as tenant payments)
+        // Detect if using live keys to use correct URL
+        const isLiveKeyForVerify = monicreditConf?.publicKey?.includes("LIVE");
         const monicreditBaseUrl =
           process.env.MONICREDIT_BASE_URL ||
-          "https://demo.backend.monicredit.com";
+          (isLiveKeyForVerify
+            ? "https://live.backend.monicredit.com"
+            : "https://demo.backend.monicredit.com");
         const monicreditApiBase = `${monicreditBaseUrl}/api/v1`;
 
         // Determine transaction ID to use for verification
@@ -1378,17 +1464,26 @@ router.post(
               "[Upgrade Monicredit] Failed to parse API response:",
               err
             );
-            // Fallback to trust redirect if API response is invalid
-            if (trustRedirect && hasValidTransactionId) {
+            // Only use trust redirect for demo environments
+            const isLiveKeyForParse =
+              monicreditConf?.publicKey?.includes("LIVE");
+            if (
+              trustRedirectEnv &&
+              hasValidTransactionId &&
+              !isLiveKeyForParse
+            ) {
               console.log(
-                "[Upgrade Monicredit] Invalid API response, using trust redirect"
+                "[Upgrade Monicredit] Invalid API response, using trust redirect (demo mode only)"
               );
-              const result = await completeUpgrade("trusted_redirect_fallback");
+              const result = await completeUpgrade(
+                "trusted_redirect_demo_fallback"
+              );
               return res.json(result);
             }
             return res.status(400).json({
               error: "Monicredit verification failed",
-              details: "Invalid response from payment gateway",
+              details:
+                "Invalid response from payment gateway. Please try again or contact support.",
             });
           }
 
@@ -1486,16 +1581,19 @@ router.post(
                           );
                           return res.json(result);
                         } else {
-                          // Status not successful, fallback to trust redirect
-                          if (trustRedirect && hasValidTransactionId) {
-                            console.log(
-                              "[Upgrade Monicredit] Retry found transaction but status unclear, using trust redirect"
-                            );
-                            const result = await completeUpgrade(
-                              "trusted_redirect_fallback"
-                            );
-                            return res.json(result);
-                          }
+                          // Status not successful - DO NOT use trust redirect
+                          // Return the actual status to the user
+                          console.log(
+                            "[Upgrade Monicredit] Payment status not successful:",
+                            monicreditStatus
+                          );
+                          return res.status(400).json({
+                            error: "Payment not completed",
+                            details: `Payment status: ${
+                              monicreditStatus || "unknown"
+                            }. Please complete the payment or try again.`,
+                            status: monicreditStatus || "unknown",
+                          });
                         }
                       }
                     }
@@ -1576,12 +1674,16 @@ router.post(
               }
             }
 
-            // All API attempts failed - fallback to trust redirect if enabled
-            if (trustRedirect && hasValidTransactionId) {
+            // All API attempts failed - DO NOT auto-complete
+            // Only use trust redirect if explicitly enabled via env AND it's a demo environment
+            const isLiveKey = monicreditConf?.publicKey?.includes("LIVE");
+            if (trustRedirectEnv && hasValidTransactionId && !isLiveKey) {
               console.log(
-                "[Upgrade Monicredit] All API attempts failed, using trust redirect fallback"
+                "[Upgrade Monicredit] All API attempts failed, using trust redirect (demo mode only)"
               );
-              const result = await completeUpgrade("trusted_redirect_fallback");
+              const result = await completeUpgrade(
+                "trusted_redirect_demo_fallback"
+              );
               return res.json(result);
             }
 
@@ -1652,19 +1754,17 @@ router.post(
               details: `Payment status: ${monicreditStatus}`,
             });
           } else {
-            // Status unclear - fallback to trust redirect if enabled
-            if (trustRedirect && hasValidTransactionId) {
-              console.log(
-                "[Upgrade Monicredit] Unclear status, using trust redirect"
-              );
-              const result = await completeUpgrade("trusted_redirect_fallback");
-              return res.json(result);
-            }
-            return res.status(400).json({
-              error: "Payment status unclear",
-              details: `Payment verification returned status: ${
+            // Status unclear - return pending status, DO NOT auto-complete
+            console.log(
+              "[Upgrade Monicredit] Payment status unclear:",
+              monicreditStatus
+            );
+            return res.json({
+              success: false,
+              status: "pending",
+              message: `Payment is being processed. Status: ${
                 monicreditStatus || "unknown"
-              }`,
+              }. Please wait or try again.`,
             });
           }
         } catch (apiError: any) {
@@ -1672,13 +1772,16 @@ router.post(
             "[Upgrade Monicredit] API verification error:",
             apiError
           );
-          // Fallback to trust redirect if API call fails
-          if (trustRedirect && hasValidTransactionId) {
+          // Only use trust redirect as fallback for demo environments
+          const isLiveKeyForError = monicreditConf?.publicKey?.includes("LIVE");
+          if (trustRedirectEnv && hasValidTransactionId && !isLiveKeyForError) {
             console.log(
-              "[Upgrade Monicredit] API error, using trust redirect fallback"
+              "[Upgrade Monicredit] API error, using trust redirect (demo mode only)"
             );
             try {
-              const result = await completeUpgrade("trusted_redirect_fallback");
+              const result = await completeUpgrade(
+                "trusted_redirect_demo_fallback"
+              );
               return res.json(result);
             } catch (completeError: any) {
               return res.status(400).json({
@@ -1687,10 +1790,12 @@ router.post(
               });
             }
           }
+          // For live payments, return error - do not auto-complete
           return res.status(500).json({
             error: "Payment verification failed",
             details:
-              apiError.message || "Network error while verifying payment",
+              apiError.message ||
+              "Could not verify payment with Monicredit. Please try again or contact support.",
           });
         }
       }
@@ -2244,7 +2349,11 @@ router.get(
       // Check if payment is already completed AND upgrade is done (idempotency)
       // IMPORTANT: Only return early if BOTH payment and upgrade are completed
       // This prevents issues where webhook updates payment status before user completes payment
-      if (payment.status === "completed" || payment.status === "success") {
+      if (
+        payment.status === "completed" ||
+        payment.status === "paid" ||
+        payment.status === "success"
+      ) {
         const planId = paymentMetadata?.planId;
         const customer = await prisma.customers.findUnique({
           where: { id: customerId },
@@ -2258,7 +2367,7 @@ router.get(
           );
           return res.json({
             success: true,
-            status: "success",
+            status: "paid",
             reference,
             provider,
             verified: true,
@@ -2399,7 +2508,7 @@ router.get(
           await prisma.payments.update({
             where: { id: payment.id },
             data: {
-              status: "success",
+              status: "paid",
               paidAt: new Date(),
               metadata: {
                 ...paymentMetadata,
@@ -2482,7 +2591,7 @@ router.get(
 
           return res.json({
             success: true,
-            status: "success",
+            status: "paid",
             reference,
             provider,
             verified: true,
@@ -2663,7 +2772,7 @@ router.get(
       await prisma.payments.update({
         where: { id: payment.id },
         data: {
-          status: "success",
+          status: "paid",
           paidAt: new Date(),
           updatedAt: new Date(),
         },
@@ -2738,7 +2847,7 @@ router.get(
 
       return res.json({
         success: true,
-        status: "success",
+        status: "paid",
         reference,
         provider,
         verified: true,

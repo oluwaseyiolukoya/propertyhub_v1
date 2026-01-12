@@ -144,7 +144,7 @@ router.get("/", async (req: AuthRequest, res: Response) => {
       amount: pay.amount,
       currency: pay.currency,
       status:
-        pay.status === "completed" || pay.status === "success"
+        pay.status === "completed" || pay.status === "paid" || pay.status === "success"
           ? "completed"
           : pay.status === "failed"
           ? "failed"

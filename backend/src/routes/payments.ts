@@ -248,7 +248,7 @@ router.post("/record", async (req: AuthRequest, res: Response) => {
         tenantId: lease.tenantId,
         amount: parseFloat(amount),
         currency: lease.currency || "NGN",
-        status: "success",
+        status: "paid",
         type: type || "rent",
         paymentMethod: paymentMethod.toLowerCase(),
         provider: "manual",
@@ -795,10 +795,14 @@ router.post("/initialize", async (req: AuthRequest, res: Response) => {
       // Based on Monicredit API documentation:
       // 1. First authenticate to get Bearer token
       // 2. Use Bearer token for transaction initiation
-      // Base URL structure: https://demo.backend.monicredit.com/api/v1/...
+      // Detect if using live keys to use correct URL
+      // Live: live.backend.monicredit.com, Demo: demo.backend.monicredit.com
+      const isLiveKey = settings.publicKey?.includes("LIVE");
       const monicreditBaseUrl =
         process.env.MONICREDIT_BASE_URL ||
-        "https://demo.backend.monicredit.com";
+        (isLiveKey
+          ? "https://live.backend.monicredit.com"
+          : "https://demo.backend.monicredit.com");
       // Monicredit API base - try both /api/v1 and direct /v1 patterns
       // The init-transaction endpoint uses /v1/payment/transactions/init-transaction
       const monicreditApiBase = `${monicreditBaseUrl}/api/v1`;
@@ -914,7 +918,8 @@ router.post("/initialize", async (req: AuthRequest, res: Response) => {
                   last_name:
                     tenant.name?.split(" ").slice(1).join(" ") || "User",
                   email: tenant.email || `${tenant.id}@tenant.local`,
-                  phone: tenant.phone || "00000000000",
+                  // Format phone number (add 234 prefix for Nigerian numbers starting with 0)
+                  phone: (tenant.phone || "00000000000").replace(/^0/, "234"),
                   // bvn or nin required by new policies
                   // bvn: "", // Add if available
                   // nin: "", // Add if available
@@ -922,10 +927,13 @@ router.post("/initialize", async (req: AuthRequest, res: Response) => {
                 items: [
                   {
                     item: "Rent Payment",
-                    // revenue_head_code might be required - if Monicredit rejects, owner needs to create revenue head
+                    // revenue_head_code from owner settings (required for live payments)
+                    // Falls back to environment variable if not set
                     revenue_head_code:
-                      process.env.MONICREDIT_REVENUE_HEAD_CODE || "",
-                    unit_cost: payAmount.toString(),
+                      (settings.metadata as any)?.revenueHeadCode ||
+                      process.env.MONICREDIT_REVENUE_HEAD_CODE ||
+                      "",
+                    unit_cost: Number(payAmount), // Monicredit expects number, not string
                     // split_details: [] // Optional
                   },
                 ],
@@ -1532,7 +1540,7 @@ router.get("/verify/:reference", async (req: AuthRequest, res: Response) => {
       // CRITICAL FIX: First check if payment is already finalized in DB
       // This handles cases where webhook already processed the payment
       // or payment was manually verified
-      if (payment.status === "success" || payment.status === "failed") {
+      if (payment.status === "paid" || payment.status === "success" || payment.status === "failed") {
         console.log("[Monicredit Verify] Payment already finalized in DB:", {
           reference,
           status: payment.status,
@@ -1551,8 +1559,8 @@ router.get("/verify/:reference", async (req: AuthRequest, res: Response) => {
       // Optional: allow disabling external Monicredit verification (fallback to DB status)
       if (process.env.MONICREDIT_DISABLE_VERIFY === "true") {
         const currentStatus =
-          payment.status === "success" || payment.status === "failed"
-            ? (payment.status as "success" | "failed")
+          payment.status === "paid" || payment.status === "success" || payment.status === "failed"
+            ? (payment.status as "paid" | "success" | "failed")
             : "pending";
 
         return res.json({
@@ -1564,28 +1572,33 @@ router.get("/verify/:reference", async (req: AuthRequest, res: Response) => {
         });
       }
 
-      // Check for trust redirect mode - useful for demo/sandbox environments
-      // where API verification doesn't work but webhooks or redirects confirm payment
-      const trustRedirect = process.env.MONICREDIT_TRUST_REDIRECT === "true";
+      // Check for trust redirect mode - ONLY for demo/sandbox environments
+      // For LIVE payments, we MUST verify with Monicredit API
+      const trustRedirectEnv = process.env.MONICREDIT_TRUST_REDIRECT === "true";
       const hasValidTransactionId =
         reference.startsWith("ACX") ||
         !!(payment.metadata as any)?.monicreditTransactionId;
 
-      // Monicredit verification (unreachable until a stable API endpoint is confirmed)
+      // Monicredit verification
       const settings = await prisma.payment_settings.findFirst({
         where: { customerId, provider: "monicredit" },
       });
+
+      // Check if using live keys - trust redirect should NOT work for live payments
+      const isLiveKey = settings?.publicKey?.includes("LIVE");
+      const trustRedirect = trustRedirectEnv && !isLiveKey; // Only trust redirect for demo
+
       if (!settings?.publicKey || !settings?.secretKey) {
-        // If no settings but trust redirect is enabled and we have valid transId
+        // If no settings but trust redirect is enabled (demo only) and we have valid transId
         if (trustRedirect && hasValidTransactionId) {
           console.log(
-            "[Monicredit Verify] No settings, but trust redirect enabled with valid transId"
+            "[Monicredit Verify] No settings, but trust redirect enabled (demo mode) with valid transId"
           );
           // Update payment to success
           const updated = await prisma.payments.update({
             where: { id: payment.id },
             data: {
-              status: "success",
+              status: "paid",
               paidAt: new Date(),
               metadata: {
                 ...((payment.metadata as any) || {}),
@@ -1595,11 +1608,11 @@ router.get("/verify/:reference", async (req: AuthRequest, res: Response) => {
             },
           });
           return res.json({
-            status: "success",
+            status: "paid",
             reference,
             provider,
             verified: true,
-            verificationSource: "trusted_redirect",
+            verificationSource: "trusted_redirect_demo",
             payment: updated,
           });
         }
@@ -1615,9 +1628,13 @@ router.get("/verify/:reference", async (req: AuthRequest, res: Response) => {
 
       // Monicredit verification endpoint: GET /api/v1/payment/transactions/verify-transaction/{reference}
       // Or use: GET /api/v1/payment/transactions/init-transaction-info/{reference}
+      // Detect if using live keys to use correct URL
+      const isLiveKeyVerify = settings.publicKey?.includes("LIVE");
       const monicreditBaseUrl =
         process.env.MONICREDIT_BASE_URL ||
-        "https://demo.backend.monicredit.com";
+        (isLiveKeyVerify
+          ? "https://live.backend.monicredit.com"
+          : "https://demo.backend.monicredit.com");
       const monicreditApiBase = `${monicreditBaseUrl}/api/v1`;
 
       // For Monicredit, the reference might be our order_id or Monicredit's transaction_id
@@ -1646,13 +1663,17 @@ router.get("/verify/:reference", async (req: AuthRequest, res: Response) => {
         }
       }
 
-      // Try verify-transaction endpoint with Monicredit's transaction_id
-      const verifyUrl = `${monicreditApiBase}/payment/transactions/verify-transaction/${monicreditTransactionId}`;
+      // For LIVE payments, use init-transaction-info endpoint (verify-transaction doesn't exist on live)
+      // For DEMO payments, try verify-transaction first, fall back to init-transaction-info
+      const verifyUrl = isLiveKey
+        ? `${monicreditApiBase}/payment/transactions/init-transaction-info/${monicreditTransactionId}`
+        : `${monicreditApiBase}/payment/transactions/verify-transaction/${monicreditTransactionId}`;
 
       console.log("[Monicredit Verify] Verifying payment:", {
         ourReference: reference,
         monicreditTransactionId,
         isMonicreditTransactionId,
+        isLiveKey,
         hasTransactionIdInMetadata: !!(payment.metadata as any)
           ?.monicreditTransactionId,
         verifyUrl,
@@ -1700,16 +1721,16 @@ router.get("/verify/:reference", async (req: AuthRequest, res: Response) => {
             ourReference: reference,
           });
 
-          // CRITICAL: Check trust redirect mode FIRST before attempting any fallbacks
-          // This handles demo/sandbox environments where API doesn't work
-          if (trustRedirect && hasValidTransactionId) {
+          // Check trust redirect mode - ONLY for demo mode, NOT for live payments
+          // For live payments, we need proper API verification
+          if (trustRedirect && hasValidTransactionId && !isLiveKey) {
             console.log(
-              "[Monicredit Verify] API failed, using trust redirect mode to mark as success"
+              "[Monicredit Verify] API failed, using trust redirect mode (demo only) to mark as success"
             );
             const updated = await prisma.payments.update({
               where: { id: payment.id },
               data: {
-                status: "success",
+                status: "paid",
                 paidAt: new Date(),
                 metadata: {
                   ...((payment.metadata as any) || {}),
@@ -1721,13 +1742,28 @@ router.get("/verify/:reference", async (req: AuthRequest, res: Response) => {
               },
             });
             return res.json({
-              status: "success",
+              status: "paid",
               reference,
               provider,
               verified: true,
-              verificationSource: "trusted_redirect",
+              verificationSource: "trusted_redirect_demo",
               payment: updated,
-              note: "Payment marked success via trusted redirect (API verification unavailable in demo environment)",
+              note: "Payment marked success via trusted redirect (demo environment only)",
+            });
+          }
+
+          // For live payments where API verification fails, keep payment as pending
+          if (isLiveKey) {
+            console.log(
+              "[Monicredit Verify] Live payment API verification failed - keeping as pending"
+            );
+            return res.json({
+              status: "pending",
+              reference,
+              provider,
+              verified: false,
+              payment,
+              error: "Payment verification failed - please try again or contact support",
             });
           }
 
@@ -2053,7 +2089,7 @@ router.get("/verify/:reference", async (req: AuthRequest, res: Response) => {
           monicreditStatus === "PAID" ||
           monicreditStatus === "COMPLETED"
         ) {
-          mappedStatus = "success";
+          mappedStatus = "paid";
         } else if (
           monicreditStatus === "FAILED" ||
           monicreditStatus === "DECLINED" ||
@@ -2062,17 +2098,16 @@ router.get("/verify/:reference", async (req: AuthRequest, res: Response) => {
         ) {
           mappedStatus = "failed";
         } else {
-          // API didn't return a valid status - check for trust redirect mode
-          // This handles demo environments where API verification doesn't work
-          // but Monicredit redirects users with valid transaction IDs after payment
-          if (trustRedirect && hasValidTransactionId) {
+          // API didn't return a valid status
+          // For demo environments ONLY, use trust redirect mode
+          if (trustRedirect && hasValidTransactionId && !isLiveKey) {
             console.log(
-              "[Monicredit Verify] API verification inconclusive, using trust redirect mode"
+              "[Monicredit Verify] API verification inconclusive, using trust redirect mode (demo only)"
             );
             const updated = await prisma.payments.update({
               where: { id: payment.id },
               data: {
-                status: "success",
+                status: "paid",
                 paidAt: new Date(),
                 metadata: {
                   ...((payment.metadata as any) || {}),
@@ -2085,16 +2120,26 @@ router.get("/verify/:reference", async (req: AuthRequest, res: Response) => {
               },
             });
             return res.json({
-              status: "success",
+              status: "paid",
               reference,
               provider,
               verified: true,
-              verificationSource: "trusted_redirect",
+              verificationSource: "trusted_redirect_demo",
               payment: updated,
-              note: "Payment marked success via trusted redirect (API verification unavailable)",
+              note: "Payment marked success via trusted redirect (demo environment only)",
             });
           }
-          mappedStatus = "pending";
+
+          // For live payments with unclear status, mark as pending
+          if (isLiveKey) {
+            console.log(
+              "[Monicredit Verify] Live payment status unclear:",
+              monicreditStatusRaw
+            );
+            mappedStatus = "pending";
+          } else {
+            mappedStatus = "pending";
+          }
         }
       } catch (err: any) {
         console.error("[Monicredit Verify] Network error:", err);
@@ -2106,15 +2151,15 @@ router.get("/verify/:reference", async (req: AuthRequest, res: Response) => {
           ourReference: reference,
         });
 
-        // Even on network error, check for trust redirect mode
-        if (trustRedirect && hasValidTransactionId) {
+        // For demo environments ONLY, use trust redirect mode on network error
+        if (trustRedirect && hasValidTransactionId && !isLiveKey) {
           console.log(
-            "[Monicredit Verify] Network error, using trust redirect mode"
+            "[Monicredit Verify] Network error, using trust redirect mode (demo only)"
           );
           const updated = await prisma.payments.update({
             where: { id: payment.id },
             data: {
-              status: "success",
+              status: "paid",
               paidAt: new Date(),
               metadata: {
                 ...((payment.metadata as any) || {}),
@@ -2124,23 +2169,26 @@ router.get("/verify/:reference", async (req: AuthRequest, res: Response) => {
             },
           });
           return res.json({
-            status: "success",
+            status: "paid",
             reference,
             provider,
             verified: true,
-            verificationSource: "trusted_redirect",
+            verificationSource: "trusted_redirect_demo",
             payment: updated,
-            note: "Payment marked success via trusted redirect (network error during API verification)",
+            note: "Payment marked success via trusted redirect (demo environment only)",
           });
         }
 
+        // For live payments, network errors mean payment status is unknown - keep as pending
         return res.json({
           status: "pending",
           reference,
           provider,
           verified: false,
           payment,
-          error: "Monicredit verification failed: Network error",
+          error: isLiveKey
+            ? "Payment verification failed - please try again or contact support"
+            : "Monicredit verification failed: Network error",
           details: err?.message || String(err),
         });
       }
@@ -2182,7 +2230,7 @@ router.get("/verify/:reference", async (req: AuthRequest, res: Response) => {
       verifiedData = json.data || {};
       // Map Paystack status
       // success | failed | abandoned | reversed (map abandoned/reversed to failed/pending decisions)
-      if (verifiedData.status === "success") mappedStatus = "success";
+      if (verifiedData.status === "success") mappedStatus = "paid";
       else if (
         verifiedData.status === "failed" ||
         verifiedData.status === "reversed" ||
@@ -2197,12 +2245,12 @@ router.get("/verify/:reference", async (req: AuthRequest, res: Response) => {
       provider === "monicredit"
         ? verifiedData.date_paid
           ? new Date(verifiedData.date_paid)
-          : mappedStatus === "success"
+          : mappedStatus === "paid"
           ? new Date()
           : payment.paidAt || undefined
         : verifiedData.paid_at
         ? new Date(verifiedData.paid_at)
-        : mappedStatus === "success"
+        : mappedStatus === "paid"
         ? new Date()
         : payment.paidAt || undefined;
 
@@ -2258,84 +2306,8 @@ router.get("/verify/:reference", async (req: AuthRequest, res: Response) => {
       console.error("[Payment Verify] Socket emit error:", err);
     }
 
-    // If payment successful and it's a rent payment, update lease and create next scheduled payment
-    if (
-      mappedStatus === "success" &&
-      payment.type === "rent" &&
-      payment.leaseId
-    ) {
-      try {
-        // Get lease details to determine rent frequency
-        const lease = await prisma.leases.findUnique({
-          where: { id: payment.leaseId },
-          include: {
-            units: { select: { features: true } },
-          },
-        });
-
-        if (lease) {
-          // Determine rent frequency from unit features
-          const unitFeatures = lease.units?.features as any;
-          const rentFrequency =
-            unitFeatures?.nigeria?.rentFrequency ||
-            unitFeatures?.rentFrequency ||
-            "monthly";
-          const isAnnualRent = rentFrequency === "annual";
-
-          // Calculate next payment due date
-          const paymentDate = paidAt || new Date();
-          let nextPaymentDue: Date;
-
-          if (isAnnualRent) {
-            // For annual rent, next payment is 1 year from now
-            nextPaymentDue = new Date(paymentDate);
-            nextPaymentDue.setFullYear(nextPaymentDue.getFullYear() + 1);
-          } else {
-            // For monthly rent, next payment is 1 month from now
-            nextPaymentDue = new Date(paymentDate);
-            nextPaymentDue.setMonth(nextPaymentDue.getMonth() + 1);
-          }
-
-          // Create a scheduled payment record for the next payment
-          const scheduledReference = `SCH-${Date.now()}-${Math.random()
-            .toString(36)
-            .slice(2, 8)}`;
-          await prisma.payments.create({
-            data: {
-              id: randomUUID(),
-              customerId,
-              propertyId: payment.propertyId,
-              unitId: payment.unitId,
-              leaseId: payment.leaseId,
-              tenantId: payment.tenantId,
-              amount: lease.monthlyRent,
-              currency: payment.currency || "NGN",
-              status: "scheduled",
-              type: "rent",
-              provider: "paystack",
-              providerReference: scheduledReference,
-              metadata: {
-                leaseNumber: lease.leaseNumber,
-                rentFrequency,
-                previousPaymentRef: reference,
-                scheduledDate: nextPaymentDue.toISOString(),
-              } as any,
-              updatedAt: new Date(),
-            },
-          });
-
-          console.log(
-            `[Payments] Created scheduled payment for ${nextPaymentDue.toISOString()}, frequency: ${rentFrequency}`
-          );
-        }
-      } catch (scheduleError: any) {
-        console.error(
-          "[Payments] Failed to create scheduled payment:",
-          scheduleError?.message || scheduleError
-        );
-        // Don't fail the verification if scheduled payment creation fails
-      }
-    }
+    // Note: Scheduled payments are disabled - tenants make payments manually
+    // The next payment due date is calculated dynamically based on last payment
 
     return res.json({
       status: mappedStatus,
@@ -2553,7 +2525,7 @@ router.get("/stats/overview", async (req: AuthRequest, res: Response) => {
       await Promise.all([
         prisma.payments.aggregate({
           _sum: { amount: true },
-          where: { ...baseWhere, status: "success" },
+          where: { ...baseWhere, status: "paid" },
         }),
         prisma.payments.aggregate({
           _sum: { amount: true },
@@ -2561,18 +2533,18 @@ router.get("/stats/overview", async (req: AuthRequest, res: Response) => {
         }),
         prisma.payments.groupBy({
           by: ["paymentMethod"],
-          where: { ...baseWhere, status: "success" },
+          where: { ...baseWhere, status: "paid" },
           _sum: { amount: true },
           _count: true,
         }),
         prisma.payments.groupBy({
           by: ["type"],
-          where: { ...baseWhere, status: "success" },
+          where: { ...baseWhere, status: "paid" },
           _sum: { amount: true },
           _count: true,
         }),
         prisma.payments.findMany({
-          where: { ...baseWhere, status: "success" },
+          where: { ...baseWhere, status: "paid" },
           include: {
             leases: {
               select: {

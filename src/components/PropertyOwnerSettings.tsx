@@ -4987,6 +4987,7 @@ function PaymentGatewaySection() {
               privateKeyConfigured: !!(monicreditResp.data as any)
                 ?.privateKeyConfigured,
               merchantId: (monicreditResp.data as any)?.merchantId || "",
+              revenueHeadCode: (monicreditResp.data as any)?.revenueHeadCode || "",
               verifyToken: (monicreditResp.data as any)?.verifyToken || "",
               testMode: !!monicreditResp.data?.testMode,
               webhookUrl: `${API_BASE_URL}/api/monicredit/webhook`,
@@ -5060,6 +5061,9 @@ function PaymentGatewaySection() {
           : {}),
         ...(gatewayConfig.merchantId
           ? { merchantId: gatewayConfig.merchantId }
+          : {}),
+        ...(gatewayConfig.revenueHeadCode
+          ? { revenueHeadCode: gatewayConfig.revenueHeadCode }
           : {}),
         testMode: !!gatewayConfig.testMode,
         isEnabled: !!gatewayConfig.enabled,
@@ -5734,6 +5738,31 @@ function PaymentGatewaySection() {
                   <p className="text-xs text-gray-500">
                     Your Monicredit merchant ID from the dashboard. This may be
                     required for authentication.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="monicreditRevenueHeadCode"
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    Revenue Head Code
+                  </Label>
+                  <Input
+                    id="monicreditRevenueHeadCode"
+                    value={gatewayConfig.revenueHeadCode || ""}
+                    onChange={(e) =>
+                      setGatewayConfig({
+                        ...gatewayConfig,
+                        revenueHeadCode: e.target.value,
+                      })
+                    }
+                    placeholder="REV..."
+                    className="border-gray-300 focus:border-[#7C3AED] focus:ring-[#7C3AED]"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Your Monicredit revenue head code from the dashboard. This is
+                    <strong> required for live payments</strong>. Get this from
+                    your Monicredit account settings.
                   </p>
                 </div>
 

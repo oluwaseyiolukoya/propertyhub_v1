@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -31,15 +31,39 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Alert, AlertDescription } from './ui/alert';
 import { toast } from 'sonner';
 
-const TenantSettings: React.FC = () => {
+interface TenantSettingsProps {
+  dashboardData?: any;
+}
+
+const TenantSettings: React.FC<TenantSettingsProps> = ({ dashboardData }) => {
+  // Extract user data from dashboardData
+  const user = dashboardData?.user;
+  const nameParts = (user?.name || '').split(' ');
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.slice(1).join(' ') || '';
+
   const [profileData, setProfileData] = useState({
-    firstName: 'Sarah',
-    lastName: 'Johnson',
-    email: 'sarah.johnson@email.com',
-    phone: '(555) 123-4567',
-    emergencyContact: 'John Johnson',
-    emergencyPhone: '(555) 987-6543'
+    firstName: firstName,
+    lastName: lastName,
+    email: user?.email || '',
+    phone: user?.phone || '',
+    emergencyContact: '',
+    emergencyPhone: ''
   });
+
+  // Update profile data when dashboardData changes
+  useEffect(() => {
+    if (user) {
+      const nameParts = (user.name || '').split(' ');
+      setProfileData(prev => ({
+        ...prev,
+        firstName: nameParts[0] || '',
+        lastName: nameParts.slice(1).join(' ') || '',
+        email: user.email || '',
+        phone: user.phone || ''
+      }));
+    }
+  }, [user]);
 
   const [notifications, setNotifications] = useState({
     emailNotifications: true,
@@ -297,42 +321,55 @@ const TenantSettings: React.FC = () => {
                     <Home className="h-4 w-4 text-blue-600" />
                     <p className="text-xs text-blue-600 font-semibold">Property</p>
                   </div>
-                  <p className="font-bold text-gray-900">Sunset Apartments</p>
+                  <p className="font-bold text-gray-900">{dashboardData?.property?.name || 'N/A'}</p>
                 </div>
                 <div className="p-4 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl border border-purple-100">
                   <div className="flex items-center gap-2 mb-2">
                     <Home className="h-4 w-4 text-purple-600" />
                     <p className="text-xs text-purple-600 font-semibold">Unit</p>
                   </div>
-                  <p className="font-bold text-gray-900">Unit 204</p>
+                  <p className="font-bold text-gray-900">Unit {dashboardData?.unit?.unitNumber || 'N/A'}</p>
                 </div>
                 <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-100">
                   <div className="flex items-center gap-2 mb-2">
                     <DollarSign className="h-4 w-4 text-green-600" />
                     <p className="text-xs text-green-600 font-semibold">Monthly Rent</p>
                   </div>
-                  <p className="font-bold text-gray-900">₦2,500</p>
+                  <p className="font-bold text-gray-900">
+                    {dashboardData?.lease?.currency || '₦'}
+                    {dashboardData?.lease?.monthlyRent?.toLocaleString() || 'N/A'}
+                  </p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
                   <div className="flex items-center gap-2 mb-2">
                     <Calendar className="h-4 w-4 text-gray-600" />
                     <p className="text-xs text-gray-600 font-semibold">Lease Start</p>
                   </div>
-                  <p className="font-bold text-gray-900">January 1, 2024</p>
+                  <p className="font-bold text-gray-900">
+                    {dashboardData?.lease?.startDate
+                      ? new Date(dashboardData.lease.startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                      : 'N/A'}
+                  </p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
                   <div className="flex items-center gap-2 mb-2">
                     <Calendar className="h-4 w-4 text-gray-600" />
                     <p className="text-xs text-gray-600 font-semibold">Lease End</p>
                   </div>
-                  <p className="font-bold text-gray-900">December 31, 2024</p>
+                  <p className="font-bold text-gray-900">
+                    {dashboardData?.lease?.endDate
+                      ? new Date(dashboardData.lease.endDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                      : dashboardData?.lease?.specialClauses?.isIndefinite
+                        ? 'Indefinite'
+                        : 'N/A'}
+                  </p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
                   <div className="flex items-center gap-2 mb-2">
                     <User className="h-4 w-4 text-gray-600" />
                     <p className="text-xs text-gray-600 font-semibold">Property Manager</p>
                   </div>
-                  <p className="font-bold text-gray-900">Jennifer Smith</p>
+                  <p className="font-bold text-gray-900">{dashboardData?.propertyManager?.name || 'Contact Owner'}</p>
                 </div>
               </div>
             </CardContent>

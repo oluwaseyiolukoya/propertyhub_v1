@@ -221,6 +221,7 @@ export function PlatformSettings() {
         publicKey: config.publicKey || undefined,
         privateKey: config.privateKey || undefined,
         merchantId: config.merchantId || undefined,
+        revenueHeadCode: (config as any).revenueHeadCode || undefined,
         testMode: config.testMode,
         isEnabled: config.isEnabled,
       });
@@ -2601,6 +2602,7 @@ export function PlatformSettings() {
                                   publicKey: null,
                                   privateKey: null,
                                   merchantId: null,
+                                  revenueHeadCode: null,
                                   verifyToken: null,
                                 }),
                                 merchantId: e.target.value,
@@ -2608,6 +2610,40 @@ export function PlatformSettings() {
                             }
                             className="mt-2"
                           />
+                        </div>
+
+                        <div>
+                          <Label
+                            htmlFor="revenue-head-code"
+                            className="text-sm font-semibold"
+                          >
+                            Revenue Head Code
+                          </Label>
+                          <Input
+                            id="revenue-head-code"
+                            type="text"
+                            placeholder="Enter revenue head code from Monicredit dashboard"
+                            value={(monicreditConfig as any)?.revenueHeadCode || ""}
+                            onChange={(e) =>
+                              setMonicreditConfig({
+                                ...(monicreditConfig || {
+                                  provider: "monicredit",
+                                  isEnabled: true,
+                                  testMode: false,
+                                  publicKey: null,
+                                  privateKey: null,
+                                  merchantId: null,
+                                  revenueHeadCode: null,
+                                  verifyToken: null,
+                                }),
+                                revenueHeadCode: e.target.value,
+                              } as any)
+                            }
+                            className="mt-2"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Get this from your Monicredit merchant dashboard. Required for live payments.
+                          </p>
                         </div>
 
                         {monicreditConfig?.verifyToken && (

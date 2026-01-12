@@ -529,6 +529,7 @@ router.get(
           secretKey: null,
           privateKey: null,
           merchantId: null,
+          revenueHeadCode: null,
           verifyToken: null,
         });
       }
@@ -543,6 +544,7 @@ router.get(
         secretKey: value?.isEnabled ? value?.secretKey || null : null,
         privateKey: value?.isEnabled ? value?.privateKey || null : null,
         merchantId: value?.merchantId || null,
+        revenueHeadCode: value?.revenueHeadCode || null,
         verifyToken: value?.verifyToken || null,
         metadata: value?.metadata || {},
       };
@@ -569,6 +571,7 @@ router.post(
         secretKey,
         privateKey,
         merchantId,
+        revenueHeadCode,
         testMode,
         isEnabled,
       } = req.body;
@@ -621,6 +624,7 @@ router.post(
       if (provider === "monicredit") {
         value.privateKey = privateKey || null;
         value.merchantId = merchantId || null;
+        value.revenueHeadCode = revenueHeadCode || null;
         value.verifyToken = verifyToken;
       } else if (provider === "paystack") {
         value.secretKey = secretKey || null;

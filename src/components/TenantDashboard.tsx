@@ -102,23 +102,36 @@ const TenantDashboard: React.FC = () => {
   }, []);
 
   // Fetch tenant dashboard data
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const response = await getTenantDashboardOverview();
-        if (response.error) {
-          toast.error(response.error.error || "Failed to load dashboard");
-        } else if (response.data) {
-          setDashboardData(response.data);
-        }
-      } catch (error) {
-        toast.error("Failed to load dashboard data");
-      } finally {
-        setLoading(false);
+  const fetchDashboardData = async () => {
+    try {
+      const response = await getTenantDashboardOverview();
+      if (response.error) {
+        toast.error(response.error.error || "Failed to load dashboard");
+      } else if (response.data) {
+        setDashboardData(response.data);
       }
+    } catch (error) {
+      toast.error("Failed to load dashboard data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  // Listen for payment success event to refresh dashboard data
+  useEffect(() => {
+    const handlePaymentSuccess = () => {
+      console.log("[TenantDashboard] Payment success - refreshing data...");
+      fetchDashboardData();
     };
 
-    fetchDashboardData();
+    window.addEventListener("payment:success", handlePaymentSuccess);
+    return () => {
+      window.removeEventListener("payment:success", handlePaymentSuccess);
+    };
   }, []);
 
   const tenantInfo = {
@@ -171,7 +184,7 @@ const TenantDashboard: React.FC = () => {
       case "documents":
         return <TenantDocuments />;
       case "settings":
-        return <TenantSettings />;
+        return <TenantSettings dashboardData={dashboardData} />;
       default:
         return (
           <TenantOverview

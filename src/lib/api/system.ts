@@ -118,6 +118,7 @@ export interface AdminPaymentGatewayConfig {
   secretKey?: string | null;
   privateKey?: string | null;
   merchantId?: string | null;
+  revenueHeadCode?: string | null;
   verifyToken?: string | null;
   metadata?: any;
 }

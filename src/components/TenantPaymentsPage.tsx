@@ -384,9 +384,9 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({
         try {
           const response = await verifyPayment(reference);
           if (!response.error && response.data) {
-            if (response.data.status === "success") {
+            if (response.data.status === "paid" || response.data.status === "success") {
               toast.success(
-                "Payment successful! Your next payment has been scheduled."
+                "Payment successful! Thank you for your payment."
               );
               // Wait a moment for backend to fully update database
               await new Promise((resolve) => setTimeout(resolve, 500));

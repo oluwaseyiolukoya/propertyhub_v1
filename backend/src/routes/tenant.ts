@@ -284,9 +284,8 @@ router.get("/dashboard/overview", async (req: AuthRequest, res: Response) => {
       "monthly";
     const isAnnualRent = rentFrequency === "annual";
 
-    // Get the last successful payment and scheduled payment for this lease
+    // Get the last successful payment for this lease
     let lastPayment: any = null;
-    let scheduledPayment: any = null;
     let recentPayments: any[] = [];
     let totalPaidThisYear = { _sum: { amount: 0 } };
 
@@ -296,19 +295,9 @@ router.get("/dashboard/overview", async (req: AuthRequest, res: Response) => {
         where: {
           leaseId: activeLease.id,
           type: "rent",
-          status: "success",
+          status: { in: ["paid", "success"] },
         },
         orderBy: { paidAt: "desc" },
-      });
-
-      // Get scheduled payment (next payment due)
-      scheduledPayment = await prisma.payments.findFirst({
-        where: {
-          leaseId: activeLease.id,
-          type: "rent",
-          status: "scheduled",
-        },
-        orderBy: { createdAt: "desc" },
       });
 
       // Get recent payments
@@ -343,37 +332,13 @@ router.get("/dashboard/overview", async (req: AuthRequest, res: Response) => {
       console.error("Error fetching payment data:", paymentError);
     }
 
-    // Calculate next payment due date
-    let nextPaymentDue: Date;
-
-    // Check if there's a scheduled payment
-    if (scheduledPayment?.metadata) {
-      const metadata = scheduledPayment.metadata as any;
-      if (metadata.scheduledDate) {
-        nextPaymentDue = new Date(metadata.scheduledDate);
-      } else {
-        // Fallback calculation
-        nextPaymentDue = calculateNextPaymentDue(
-          lastPayment?.paidAt,
-          activeLease.startDate,
-          isAnnualRent
-        );
-      }
-    } else if (lastPayment?.paidAt) {
-      // Calculate from last payment
-      nextPaymentDue = calculateNextPaymentDue(
-        lastPayment.paidAt,
-        activeLease.startDate,
-        isAnnualRent
-      );
-    } else {
-      // No payments yet - due from lease start or 1st of next month
-      nextPaymentDue = calculateNextPaymentDue(
-        null,
-        activeLease.startDate,
-        isAnnualRent
-      );
-    }
+    // Calculate next payment due date based on last payment or lease start
+    // (Scheduled payments are disabled - tenants make payments manually)
+    const nextPaymentDue = calculateNextPaymentDue(
+      lastPayment?.paidAt || null,
+      activeLease.startDate,
+      isAnnualRent
+    );
 
     const daysUntilDue = Math.ceil(
       (nextPaymentDue.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
@@ -1399,70 +1364,8 @@ router.post("/autopay/settings", async (req: AuthRequest, res: Response) => {
       },
     });
 
-    // If enabling and no scheduled payment exists, create one
-    if (enabled && paymentMethodId) {
-      // Check if there's already a scheduled payment
-      const existingScheduled = await prisma.payments.findFirst({
-        where: {
-          leaseId: lease.id,
-          status: "scheduled",
-          type: "rent",
-        },
-      });
-
-      if (!existingScheduled) {
-        // Calculate next payment date
-        const today = new Date();
-        let nextPaymentDate = new Date(
-          today.getFullYear(),
-          today.getMonth(),
-          day
-        );
-
-        // If the day has passed this month, schedule for next month
-        if (nextPaymentDate <= today) {
-          nextPaymentDate.setMonth(nextPaymentDate.getMonth() + 1);
-        }
-
-        // Get rent frequency
-        const leaseWithUnit = await prisma.leases.findUnique({
-          where: { id: lease.id },
-          include: { units: { select: { features: true } } },
-        });
-        const unitFeatures = leaseWithUnit?.units?.features as any;
-        const rentFrequency =
-          unitFeatures?.nigeria?.rentFrequency ||
-          unitFeatures?.rentFrequency ||
-          "monthly";
-
-        // Create scheduled payment
-        await prisma.payments.create({
-          data: {
-            id: randomUUID(),
-            customerId: customerId!,
-            propertyId: lease.propertyId,
-            unitId: lease.unitId,
-            leaseId: lease.id,
-            tenantId: userId,
-            amount: lease.monthlyRent,
-            currency: lease.currency || "NGN",
-            status: "scheduled",
-            type: "rent",
-            provider: "paystack",
-            providerReference: `SCH-AUTO-${Date.now()}-${Math.random()
-              .toString(36)
-              .slice(2, 8)}`,
-            paymentMethodId,
-            metadata: {
-              scheduledDate: nextPaymentDate.toISOString(),
-              rentFrequency,
-              autopay: true,
-            } as any,
-            updatedAt: new Date(),
-          },
-        });
-      }
-    }
+    // Note: Scheduled payments are disabled - tenants make payments manually
+    // Auto-pay settings are stored but no scheduled payments are created
 
     return res.json({
       success: true,
@@ -1618,7 +1521,7 @@ router.post("/autopay/process", async (req: AuthRequest, res: Response) => {
     await prisma.payments.update({
       where: { id: scheduledPayment.id },
       data: {
-        status: "success",
+        status: "paid",
         providerReference: chargeData.data.reference,
         paidAt: new Date(),
         metadata: {
@@ -1630,50 +1533,7 @@ router.post("/autopay/process", async (req: AuthRequest, res: Response) => {
       },
     });
 
-    // Create next scheduled payment
-    const rentFrequency = metadata?.rentFrequency || "monthly";
-    const isAnnual = rentFrequency === "annual";
-
-    let nextPaymentDate = new Date();
-    if (isAnnual) {
-      nextPaymentDate.setFullYear(nextPaymentDate.getFullYear() + 1);
-    } else {
-      nextPaymentDate.setMonth(nextPaymentDate.getMonth() + 1);
-    }
-
-    // Get autopay day from lease
-    const lease = await prisma.leases.findUnique({
-      where: { id: scheduledPayment.leaseId! },
-    });
-    const clauses = (lease?.specialClauses as any) || {};
-    const autopayDay = clauses.autopay?.dayOfMonth || 1;
-    nextPaymentDate.setDate(autopayDay);
-
-    await prisma.payments.create({
-      data: {
-        id: randomUUID(),
-        customerId: scheduledPayment.customerId,
-        propertyId: scheduledPayment.propertyId,
-        unitId: scheduledPayment.unitId,
-        leaseId: scheduledPayment.leaseId,
-        tenantId: scheduledPayment.tenantId,
-        amount: scheduledPayment.amount,
-        currency: scheduledPayment.currency,
-        status: "scheduled",
-        type: "rent",
-        provider: "paystack",
-        providerReference: `SCH-AUTO-${Date.now()}-${Math.random()
-          .toString(36)
-          .slice(2, 8)}`,
-        paymentMethodId: scheduledPayment.paymentMethodId,
-        metadata: {
-          scheduledDate: nextPaymentDate.toISOString(),
-          rentFrequency,
-          autopay: true,
-        } as any,
-        updatedAt: new Date(),
-      },
-    });
+    // Note: No scheduled payment created - tenants make payments manually
 
     return res.json({
       success: true,
@@ -1682,7 +1542,6 @@ router.post("/autopay/process", async (req: AuthRequest, res: Response) => {
         amount: scheduledPayment.amount,
         currency: scheduledPayment.currency,
         reference: chargeData.data.reference,
-        nextPaymentDate: nextPaymentDate.toISOString(),
       },
     });
   } catch (error: any) {

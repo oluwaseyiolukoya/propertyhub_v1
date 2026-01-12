@@ -101,6 +101,7 @@ router.post(
             if (
               existingPayment &&
               (existingPayment.status === "completed" ||
+                existingPayment.status === "paid" ||
                 existingPayment.status === "success")
             ) {
               console.log(

@@ -395,7 +395,7 @@ router.get("/payment-gateway", async (req: AuthRequest, res: Response) => {
           provider.toLowerCase() === "monicredit" ? !!secretKey : undefined,
       };
 
-      // Include verify token and merchantId in metadata for Monicredit (safe to expose)
+      // Include verify token, merchantId, and revenueHeadCode in metadata for Monicredit (safe to expose)
       if (provider.toLowerCase() === "monicredit" && safe.metadata) {
         const metadata = safe.metadata as any;
         if (metadata.verifyToken) {
@@ -403,6 +403,9 @@ router.get("/payment-gateway", async (req: AuthRequest, res: Response) => {
         }
         if (metadata.merchantId) {
           response.merchantId = metadata.merchantId;
+        }
+        if (metadata.revenueHeadCode) {
+          response.revenueHeadCode = metadata.revenueHeadCode;
         }
       }
 
@@ -548,6 +551,7 @@ router.put("/payment-gateway", async (req: AuthRequest, res: Response) => {
       secretKey,
       privateKey,
       merchantId,
+      revenueHeadCode,
       testMode,
       isEnabled,
       bankTransferTemplate,
@@ -595,6 +599,11 @@ router.put("/payment-gateway", async (req: AuthRequest, res: Response) => {
       // Store merchantId in metadata if provided
       if (merchantId !== undefined) {
         metadata.merchantId = merchantId;
+      }
+
+      // Store revenueHeadCode in metadata if provided (required for live payments)
+      if (revenueHeadCode !== undefined) {
+        metadata.revenueHeadCode = revenueHeadCode;
       }
     }
 
