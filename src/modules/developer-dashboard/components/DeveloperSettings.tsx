@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -402,7 +402,14 @@ export function DeveloperSettings({
           await fetchBillingHistory();
         }, 2000);
       } else {
-        throw new Error("Payment verification failed");
+        // Check if payment is pending
+        if (response.data?.status === "pending") {
+          toast.info("Payment is being processed. Please wait...");
+          // Set up polling to check payment status
+          startPaymentStatusPolling(reference);
+        } else {
+          throw new Error("Payment verification failed");
+        }
       }
     } catch (error: any) {
       console.error("[DeveloperSettings] Payment verification error:", error);
@@ -420,8 +427,119 @@ export function DeveloperSettings({
 
       // Switch to billing tab to show error
       setActiveTab("billing");
+
+      // Refresh billing history to show current status
+      fetchBillingHistory();
+      fetchAccountData();
     }
   };
+
+  // Payment status polling for pending payments
+  const paymentPollingRefs = useRef<Map<string, NodeJS.Timeout>>(new Map());
+
+  const startPaymentStatusPolling = (reference: string) => {
+    // Clear any existing polling for this reference
+    const existingInterval = paymentPollingRefs.current.get(reference);
+    if (existingInterval) {
+      clearInterval(existingInterval);
+    }
+
+    console.log(
+      "[DeveloperSettings] Starting payment status polling for:",
+      reference
+    );
+
+    let pollCount = 0;
+    const maxPolls = 20; // Poll for up to 2 minutes (20 * 6 seconds)
+
+    const pollInterval = setInterval(async () => {
+      pollCount++;
+      console.log(
+        `[DeveloperSettings] Polling payment status (${pollCount}/${maxPolls}):`,
+        reference
+      );
+
+      try {
+        const resp = await verifyUpgrade(reference);
+        const data = resp.data;
+
+        if (data?.success || data?.status === "success" || data?.status === "paid") {
+          // Payment succeeded - stop polling and refresh
+          clearInterval(pollInterval);
+          paymentPollingRefs.current.delete(reference);
+          console.log(
+            "[DeveloperSettings] Payment succeeded, stopping polling"
+          );
+
+          toast.success("Payment completed successfully!");
+
+          // Refresh all data
+          await fetchAccountData();
+          await fetchPlans();
+          await fetchBillingHistory();
+        } else if (
+          data?.status === "failed" ||
+          data?.status === "cancelled" ||
+          data?.status === "canceled" ||
+          data?.status === "declined"
+        ) {
+          // Payment failed - stop polling and refresh
+          clearInterval(pollInterval);
+          paymentPollingRefs.current.delete(reference);
+          console.log(
+            "[DeveloperSettings] Payment failed, stopping polling"
+          );
+
+          toast.error(
+            data.message ||
+              data.error ||
+              "Payment failed. Please try again."
+          );
+
+          // Refresh billing history to show updated status
+          await fetchBillingHistory();
+          await fetchAccountData();
+        } else if (pollCount >= maxPolls) {
+          // Max polls reached - stop polling
+          clearInterval(pollInterval);
+          paymentPollingRefs.current.delete(reference);
+          console.log(
+            "[DeveloperSettings] Max polling attempts reached, stopping"
+          );
+
+          toast.info(
+            "Payment is still being processed. Please check back later or contact support."
+          );
+
+          // Refresh billing history one last time
+          await fetchBillingHistory();
+        }
+        // If still pending, continue polling
+      } catch (error: any) {
+        console.error(
+          "[DeveloperSettings] Error polling payment status:",
+          error
+        );
+        // Continue polling on error (might be temporary network issue)
+        if (pollCount >= maxPolls) {
+          clearInterval(pollInterval);
+          paymentPollingRefs.current.delete(reference);
+        }
+      }
+    }, 6000); // Poll every 6 seconds
+
+    paymentPollingRefs.current.set(reference, pollInterval);
+  };
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      paymentPollingRefs.current.forEach((interval) => {
+        clearInterval(interval);
+      });
+      paymentPollingRefs.current.clear();
+    };
+  }, []);
 
   const fetchAccountData = async () => {
     try {

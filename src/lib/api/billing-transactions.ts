@@ -26,6 +26,12 @@ export interface BillingTransaction {
 
 export interface BillingTransactionsResponse {
   transactions: BillingTransaction[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
   summary: {
     total: number;
     totalAmount: number;
@@ -40,7 +46,9 @@ export interface GetBillingTransactionsParams {
   search?: string;
   startDate?: string;
   endDate?: string;
-  limit?: number;
+  limit?: number; // Deprecated, use page and pageSize instead
+  page?: number;
+  pageSize?: number;
 }
 
 /**
@@ -53,7 +61,10 @@ export const getBillingTransactions = async (params?: GetBillingTransactionsPara
   if (params?.search) queryParams.append('search', params.search);
   if (params?.startDate) queryParams.append('startDate', params.startDate);
   if (params?.endDate) queryParams.append('endDate', params.endDate);
-  if (params?.limit) queryParams.append('limit', params.limit.toString());
+  if (params?.page) queryParams.append('page', params.page.toString());
+  if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
+  // Support legacy limit parameter for backward compatibility
+  if (params?.limit && !params?.pageSize) queryParams.append('limit', params.limit.toString());
 
   const url = `/api/billing-transactions${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
 

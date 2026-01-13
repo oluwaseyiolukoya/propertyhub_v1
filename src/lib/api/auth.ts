@@ -130,7 +130,18 @@ export const getAccountInfo = async () => {
       actualUnitsCount?: number;
       actualManagersCount?: number;
       subscriptionStartDate: string | null;
+      nextPaymentDate: string | null;
+      trialStartsAt: string | null;
       trialEndsAt: string | null;
+      gracePeriodEndsAt: string | null;
+      suspendedAt: string | null;
+      suspensionReason: string | null;
+      mrr: number;
+      hasPaymentMethod: boolean;
+      canUpgrade: boolean;
+      daysRemaining: number;
+      inGracePeriod: boolean;
+      graceDaysRemaining: number;
       // KYC fields
       requiresKyc?: boolean;
       kycStatus?: string;

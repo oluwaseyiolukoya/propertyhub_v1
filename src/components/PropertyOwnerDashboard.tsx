@@ -427,6 +427,52 @@ export function PropertyOwnerDashboard({
     return monthlyIncome;
   };
 
+  // Derive subscription data from accountInfo (already cached via React Query)
+  useEffect(() => {
+    if (accountInfo?.customer) {
+      const customer = accountInfo.customer;
+      const plan = customer.plan;
+
+      // Calculate next billing date if not provided
+      let nextBillingDate = customer.nextPaymentDate;
+      if (!nextBillingDate && customer.subscriptionStartDate && customer.status === "active") {
+        const startDate = new Date(customer.subscriptionStartDate);
+        const calculated = new Date(startDate);
+        if (customer.billingCycle === "annual") {
+          calculated.setFullYear(calculated.getFullYear() + 1);
+        } else {
+          calculated.setMonth(calculated.getMonth() + 1);
+        }
+        nextBillingDate = calculated.toISOString();
+      }
+
+      setSubscription({
+        status: customer.status,
+        plan: plan
+          ? {
+              id: plan.id || "",
+              name: plan.name,
+              monthlyPrice: plan.monthlyPrice,
+              annualPrice: plan.annualPrice,
+            }
+          : null,
+        billingCycle: customer.billingCycle,
+        nextBillingDate: nextBillingDate,
+        mrr: customer.mrr || 0,
+        trialStartsAt: customer.trialStartsAt,
+        trialEndsAt: customer.trialEndsAt,
+        daysRemaining: customer.daysRemaining || 0,
+        inGracePeriod: customer.inGracePeriod || false,
+        gracePeriodEndsAt: customer.gracePeriodEndsAt,
+        graceDaysRemaining: customer.graceDaysRemaining || 0,
+        suspendedAt: customer.suspendedAt,
+        suspensionReason: customer.suspensionReason,
+        hasPaymentMethod: customer.hasPaymentMethod || false,
+        canUpgrade: customer.canUpgrade || false,
+      });
+    }
+  }, [accountInfo]);
+
   // Refetch all data - React Query makes this instant with cache
   const fetchData = async (silent = false) => {
     try {
@@ -438,15 +484,7 @@ export function PropertyOwnerDashboard({
         refetchAccount(),
       ]);
 
-      // Fetch subscription status (not cached via React Query yet)
-      try {
-        const subStatus = await getSubscriptionStatus();
-        if (subStatus) {
-          setSubscription(subStatus);
-        }
-      } catch (error) {
-        console.error("Failed to fetch subscription:", error);
-      }
+      // Subscription data is now derived from accountInfo, no separate call needed
 
       if (!silent) {
         toast.success("Data refreshed");
@@ -470,6 +508,30 @@ export function PropertyOwnerDashboard({
         params.get("reference") ||
         params.get("trxref") ||
         sessionStorage.getItem("upgrade_reference");
+
+      // Cleanup: If there's a stale upgrade_reference but no callback, user likely closed the window
+      // This handles cases where Monicredit payment window is closed without completing payment
+      const staleReference = sessionStorage.getItem("upgrade_reference");
+      if (staleReference && !paymentCallback && !reference) {
+        console.log(
+          "[PropertyOwnerDashboard] Detected stale payment reference without callback - user may have closed payment window"
+        );
+        // Check if we're returning from a payment page (no callback means payment was likely cancelled/abandoned)
+        // Clean up stale references after a short delay to avoid race conditions with Monicredit's redirect
+        const cleanupTimer = setTimeout(() => {
+          // Only clean up if still no callback (user didn't complete payment)
+          const currentParams = new URLSearchParams(window.location.search);
+          const currentCallback = currentParams.get("payment_callback");
+          if (!currentCallback) {
+            sessionStorage.removeItem("upgrade_reference");
+            sessionStorage.removeItem("upgrade_plan_id");
+            console.log(
+              "[PropertyOwnerDashboard] Cleaned up stale payment references - payment was abandoned"
+            );
+          }
+        }, 3000); // 3 second delay to allow Monicredit redirect to complete
+        return () => clearTimeout(cleanupTimer);
+      }
 
       // Handle payment_method callback - navigate to settings billing tab
       if (paymentCallback === "payment_method") {
@@ -501,63 +563,160 @@ export function PropertyOwnerDashboard({
 
           // Check for API error first
           if (resp.error) {
-            throw new Error(
+            // Clean up URL params on error
+            sessionStorage.removeItem("upgrade_reference");
+            sessionStorage.removeItem("upgrade_plan_id");
+            params.delete("reference");
+            params.delete("trxref");
+            params.delete("payment_callback");
+            url.search = params.toString();
+            window.history.replaceState({}, document.title, url.toString());
+
+            const errorMessage =
               resp.error.message ||
-                resp.error.error ||
-                resp.error.details ||
-                "Upgrade verification failed"
-            );
+              resp.error.error ||
+              resp.error.details ||
+              "Upgrade verification failed";
+            throw new Error(errorMessage);
           }
 
           // Handle response similar to tenant payments (check status field)
           if (!resp.error && resp.data) {
             const data = resp.data;
 
-            // Clean URL params immediately
-          sessionStorage.removeItem("upgrade_reference");
-          sessionStorage.removeItem("upgrade_plan_id");
-          params.delete("reference");
-            params.delete("trxref");
-          params.delete("payment_callback");
-          url.search = params.toString();
-          window.history.replaceState({}, document.title, url.toString());
+            // CRITICAL: Check for explicit failure/cancelled status FIRST
+            // This prevents showing success message for cancelled payments
+            if (
+              data.success === false ||
+              data.status === "failed" ||
+              data.status === "cancelled" ||
+              data.status === "canceled" ||
+              data.status === "declined"
+            ) {
+              // Clean URL params
+              sessionStorage.removeItem("upgrade_reference");
+              sessionStorage.removeItem("upgrade_plan_id");
+              params.delete("reference");
+              params.delete("trxref");
+              params.delete("payment_callback");
+              url.search = params.toString();
+              window.history.replaceState({}, document.title, url.toString());
 
-            if (data.status === "success" || data.success) {
-          toast.success(
+              toast.error(
                 data.message ||
-            "Plan upgraded successfully! Refreshing your dashboard..."
-          );
-          // Reload the page to refresh all data and remove trial banner
-          setTimeout(() => {
-            window.location.reload();
-              }, 1500);
-            } else if (data.status === "failed") {
-              toast.error(data.message || "Payment failed. Please try again.");
+                  data.error ||
+                  data.details ||
+                  "Payment was cancelled or failed. Please try again."
+              );
+
+              // Refresh billing history to show updated status
+              loadBillingHistory();
+              fetchData(true); // Silent refresh
+              return;
+            }
+
+            // Only show success if explicitly successful
+            if (data.status === "success" || data.status === "paid" || data.success === true) {
+              // Clean URL params on success
+              sessionStorage.removeItem("upgrade_reference");
+              sessionStorage.removeItem("upgrade_plan_id");
+              params.delete("reference");
+              params.delete("trxref");
+              params.delete("payment_callback");
+              url.search = params.toString();
+              window.history.replaceState({}, document.title, url.toString());
+
+              toast.success(
+                data.message || "Plan upgraded successfully!"
+              );
+
+              // Update subscription state immediately if customer data is provided
+              if (data.customer) {
+                setSubscription((prev: any) => ({
+                  ...prev,
+                  status: data.customer.status,
+                  plan: {
+                    name: data.customer.planName,
+                  },
+                  billingCycle: data.customer.billingCycle,
+                  nextBillingDate: data.customer.nextPaymentDate,
+                  mrr: data.customer.mrr,
+                }));
+              }
+
+              // Refresh all data including billing history
+              fetchData(true); // Silent refresh
+              loadBillingHistory(); // Refresh payment history
             } else if (data.status === "pending") {
+              // Clean URL params but stay on page for pending
+              sessionStorage.removeItem("upgrade_reference");
+              sessionStorage.removeItem("upgrade_plan_id");
+              params.delete("reference");
+              params.delete("trxref");
+              params.delete("payment_callback");
+              url.search = params.toString();
+              window.history.replaceState({}, document.title, url.toString());
+
               toast.info(
                 data.message || "Payment is being processed. Please wait..."
               );
+
+              // Set up polling to check payment status periodically
+              startPaymentStatusPolling(reference);
             } else {
-              // Unknown status - show message or generic info
-              toast.info(data.message || "Payment status: " + data.status);
+              // Unknown status - clean up and show info
+              sessionStorage.removeItem("upgrade_reference");
+              sessionStorage.removeItem("upgrade_plan_id");
+              params.delete("reference");
+              params.delete("trxref");
+              params.delete("payment_callback");
+              url.search = params.toString();
+              window.history.replaceState({}, document.title, url.toString());
+
+              toast.info(
+                data.message || `Payment status: ${data.status || "unknown"}`
+              );
             }
           } else {
-            throw new Error("Upgrade verification failed");
+            // No data in response - treat as error
+            sessionStorage.removeItem("upgrade_reference");
+            sessionStorage.removeItem("upgrade_plan_id");
+            params.delete("reference");
+            params.delete("trxref");
+            params.delete("payment_callback");
+            url.search = params.toString();
+            window.history.replaceState({}, document.title, url.toString());
+
+            throw new Error("Upgrade verification failed - no response data");
           }
         } catch (error: any) {
           console.error(
             "[PropertyOwnerDashboard] Subscription upgrade verification error:",
             error
           );
+          // Clean up on error
+          sessionStorage.removeItem("upgrade_reference");
+          sessionStorage.removeItem("upgrade_plan_id");
+          params.delete("reference");
+          params.delete("trxref");
+          params.delete("payment_callback");
+          url.search = params.toString();
+          window.history.replaceState({}, document.title, url.toString());
+
           // api-client returns errors in format: { error: { error: string, message?: string, details?: string } }
           const message =
             error?.error?.message ||
             error?.error?.error ||
             error?.error?.details ||
             error?.response?.data?.error ||
+            error?.response?.data?.details ||
             error?.message ||
-            "Failed to verify subscription upgrade";
+            "Payment verification failed. The payment may have been cancelled.";
           toast.error(message);
+
+          // Refresh billing history even on error to show current status
+          loadBillingHistory();
+          fetchData(true); // Silent refresh
         }
       };
 
@@ -575,44 +734,175 @@ export function PropertyOwnerDashboard({
   // Initial data fetch - React Query handles this automatically
   // Data loads on mount with caching and automatic refetching
 
-  // Load recent billing history (subscriptions only)
-  useEffect(() => {
-    (async () => {
-      try {
-        setLoadingBills(true);
+  // Function to load billing history (can be called manually)
+  const loadBillingHistory = async () => {
+    try {
+      setLoadingBills(true);
+      console.log(
+        "[PropertyOwnerDashboard] Fetching subscription payments..."
+      );
+      const res = await apiClient.get<any>("/api/payments", {
+        page: 1,
+        pageSize: 5,
+        type: "subscription",
+      });
+      console.log("[PropertyOwnerDashboard] Payments API response:", res);
+      if (!(res as any).error) {
+        const items = (res as any).data?.items || [];
         console.log(
-          "[PropertyOwnerDashboard] Fetching subscription payments..."
+          "[PropertyOwnerDashboard] Subscription payments received:",
+          items
         );
-        const res = await apiClient.get<any>("/api/payments", {
-          page: 1,
-          pageSize: 5,
-          type: "subscription",
-        });
-        console.log("[PropertyOwnerDashboard] Payments API response:", res);
-        if (!(res as any).error) {
-          const items = (res as any).data?.items || [];
-          console.log(
-            "[PropertyOwnerDashboard] Subscription payments received:",
-            items
-          );
-          setRecentBills(items);
-          // Reset to page 1 when bills data changes
-          setBillingCurrentPage(1);
-        } else {
-          console.error(
-            "[PropertyOwnerDashboard] Error fetching payments:",
-            (res as any).error
-          );
-        }
-      } catch (e) {
+        setRecentBills(items);
+        // Reset to page 1 when bills data changes
+        setBillingCurrentPage(1);
+      } else {
         console.error(
-          "[PropertyOwnerDashboard] Exception fetching payments:",
-          e
+          "[PropertyOwnerDashboard] Error fetching payments:",
+          (res as any).error
         );
-      } finally {
-        setLoadingBills(false);
       }
-    })();
+    } catch (e) {
+      console.error(
+        "[PropertyOwnerDashboard] Error fetching subscription payments:",
+        e
+      );
+    } finally {
+      setLoadingBills(false);
+    }
+  };
+
+  // Payment status polling for pending payments
+  const paymentPollingRefs = useRef<Map<string, NodeJS.Timeout>>(new Map());
+
+  const startPaymentStatusPolling = (reference: string) => {
+    // Clear any existing polling for this reference
+    const existingInterval = paymentPollingRefs.current.get(reference);
+    if (existingInterval) {
+      clearInterval(existingInterval);
+    }
+
+    console.log(
+      "[PropertyOwnerDashboard] Starting payment status polling for:",
+      reference
+    );
+
+    let pollCount = 0;
+    const maxPolls = 20; // Poll for up to 2 minutes (20 * 6 seconds)
+
+    const pollInterval = setInterval(async () => {
+      pollCount++;
+      console.log(
+        `[PropertyOwnerDashboard] Polling payment status (${pollCount}/${maxPolls}):`,
+        reference
+      );
+
+      try {
+        const resp = await verifyUpgrade(reference);
+        const data = resp.data;
+
+        if (data?.success || data?.status === "success" || data?.status === "paid") {
+          // Payment succeeded - stop polling and refresh
+          clearInterval(pollInterval);
+          paymentPollingRefs.current.delete(reference);
+          console.log(
+            "[PropertyOwnerDashboard] Payment succeeded, stopping polling"
+          );
+
+          toast.success("Payment completed successfully!");
+
+          // Refresh all data
+          fetchData(true);
+          loadBillingHistory();
+
+          // Update subscription state if customer data provided
+          if (data.customer) {
+            setSubscription((prev: any) => ({
+              ...prev,
+              status: data.customer.status,
+              plan: {
+                name: data.customer.planName,
+              },
+              billingCycle: data.customer.billingCycle,
+              nextBillingDate: data.customer.nextPaymentDate,
+              mrr: data.customer.mrr,
+            }));
+          }
+        } else if (
+          data?.status === "failed" ||
+          data?.status === "cancelled" ||
+          data?.status === "canceled" ||
+          data?.status === "declined"
+        ) {
+          // Payment failed - stop polling and refresh
+          clearInterval(pollInterval);
+          paymentPollingRefs.current.delete(reference);
+          console.log(
+            "[PropertyOwnerDashboard] Payment failed, stopping polling"
+          );
+
+          toast.error(
+            data.message ||
+              data.error ||
+              "Payment failed. Please try again."
+          );
+
+          // Refresh billing history to show updated status
+          loadBillingHistory();
+          fetchData(true);
+        } else if (pollCount >= maxPolls) {
+          // Max polls reached - stop polling
+          clearInterval(pollInterval);
+          paymentPollingRefs.current.delete(reference);
+          console.log(
+            "[PropertyOwnerDashboard] Max polling attempts reached, stopping"
+          );
+
+          toast.info(
+            "Payment is still being processed. Please check back later or contact support."
+          );
+
+          // Refresh billing history one last time
+          loadBillingHistory();
+        }
+        // If still pending, continue polling
+      } catch (error: any) {
+        console.error(
+          "[PropertyOwnerDashboard] Error polling payment status:",
+          error
+        );
+        // Continue polling on error (might be temporary network issue)
+        if (pollCount >= maxPolls) {
+          clearInterval(pollInterval);
+          paymentPollingRefs.current.delete(reference);
+        }
+      }
+    }, 6000); // Poll every 6 seconds
+
+    paymentPollingRefs.current.set(reference, pollInterval);
+
+    // Cleanup on unmount
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        paymentPollingRefs.current.delete(reference);
+      }
+    };
+  };
+
+  // Load recent billing history (subscriptions only) on mount
+  useEffect(() => {
+    loadBillingHistory();
+  }, []);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      paymentPollingRefs.current.forEach((interval) => {
+        clearInterval(interval);
+      });
+      paymentPollingRefs.current.clear();
+    };
   }, []);
 
   // Set up periodic refresh (every 30 seconds)

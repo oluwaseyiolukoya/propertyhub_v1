@@ -151,6 +151,27 @@ function UpgradeModalComponent({ open, onClose, onSuccess }: UpgradeModalProps) 
       const response = await initializeUpgrade(selectedPlan, billingCycle);
       console.log('[UpgradeModal] Response:', response);
 
+      // Handle existing pending payment case
+      if (response.data?.existingPayment) {
+        console.log('[UpgradeModal] Existing payment found:', response.data.reference);
+        toast.info(response.data.message || 'Payment already in progress');
+
+        // Store reference and redirect to verify the existing payment
+        sessionStorage.setItem('upgrade_reference', response.data.reference);
+        sessionStorage.setItem('upgrade_plan_id', selectedPlan);
+
+        // Redirect to payment gateway to check status or continue payment
+        // If we have a reference, we can verify it directly
+        if (response.data.reference) {
+          toast.info('Checking payment status...');
+          // The payment callback handler will verify this payment
+          window.location.href = `${window.location.origin}/?payment_callback=upgrade&reference=${response.data.reference}&tab=billing`;
+        } else {
+          throw new Error('Payment in progress but no reference found');
+        }
+        return;
+      }
+
       if (response.data?.authorizationUrl) {
         // Store reference for verification on callback
         sessionStorage.setItem('upgrade_reference', response.data.reference);
@@ -158,16 +179,27 @@ function UpgradeModalComponent({ open, onClose, onSuccess }: UpgradeModalProps) 
 
         toast.info('Redirecting to payment gateway...');
 
-        // Redirect to Paystack payment page
+        // Redirect to payment gateway
         setTimeout(() => {
           window.location.href = response.data.authorizationUrl;
         }, 1000);
       } else {
         console.error('[UpgradeModal] No authorization URL in response:', response);
+
+        // Check if there's a detailed error message
+        const errorDetails = response.data?.details || response.error?.details;
         const errorMessage =
           response.data?.error ||
           response.error?.error ||
+          errorDetails ||
           'Failed to initialize payment';
+
+        console.error('[UpgradeModal] Error details:', {
+          error: errorMessage,
+          details: errorDetails,
+          fullResponse: response,
+        });
+
         throw new Error(errorMessage);
       }
     } catch (error: any) {
@@ -427,8 +459,8 @@ function UpgradeModalComponent({ open, onClose, onSuccess }: UpgradeModalProps) 
 
       {/* Action Buttons - Brand Styled */}
       <div className="flex justify-between items-center pt-6 border-t border-gray-200">
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           onClick={onClose}
           size="lg"
           className="border-2 border-gray-300 hover:border-purple-600 hover:text-purple-700 font-semibold"

@@ -61,9 +61,14 @@ router.get("/status", async (req: Request, res: Response) => {
       }
     }
 
-    // Calculate next billing date
+    // Use nextPaymentDate from database if available, otherwise calculate it
+    // This ensures we show the correct date immediately after payment
     let nextBillingDate = null;
-    if (customer.status === "active" && customer.subscriptionStartDate) {
+    if (customer.nextPaymentDate) {
+      // Use the stored nextPaymentDate (updated after payment)
+      nextBillingDate = new Date(customer.nextPaymentDate);
+    } else if (customer.status === "active" && customer.subscriptionStartDate) {
+      // Fallback: calculate if nextPaymentDate not set yet
       const startDate = new Date(customer.subscriptionStartDate);
       nextBillingDate = new Date(startDate);
 

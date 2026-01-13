@@ -1,12 +1,12 @@
 /**
  * Error Boundary Component
- * 
+ *
  * React Error Boundary that catches errors in the component tree
  * and prevents the entire app from crashing.
- * 
+ *
  * This is particularly useful for isolating third-party widgets
  * and components that might throw unexpected errors.
- * 
+ *
  * @see https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary
  */
 

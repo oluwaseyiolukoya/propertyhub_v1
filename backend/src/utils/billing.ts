@@ -4,11 +4,20 @@
 
 /**
  * Calculate the next payment date based on subscription start date and billing cycle
+ *
+ * For new subscriptions: next payment is exactly 1 month/1 year from start date
+ * For renewals: next payment is 1 month/1 year from the current payment date
+ *
+ * @param subscriptionStartDate - The date when subscription started (or last payment date for renewals)
+ * @param billingCycle - 'monthly' or 'annual'/'yearly'
+ * @param currentNextPaymentDate - Optional existing next payment date (ignored if in the past)
+ * @param isNewSubscription - If true, calculates from start date. If false, calculates from now (renewal)
  */
 export function calculateNextPaymentDate(
   subscriptionStartDate: Date | null | undefined,
   billingCycle: string,
-  currentNextPaymentDate?: Date | null
+  currentNextPaymentDate?: Date | null,
+  isNewSubscription: boolean = false
 ): Date | null {
   if (!subscriptionStartDate) {
     return null;
@@ -17,30 +26,32 @@ export function calculateNextPaymentDate(
   const now = new Date();
   const startDate = new Date(subscriptionStartDate);
 
-  // If there's already a next payment date and it's in the future, return it
-  if (currentNextPaymentDate) {
-    const nextDate = new Date(currentNextPaymentDate);
-    if (nextDate > now) {
-      return nextDate;
-    }
-  }
-
-  // Calculate next payment date based on billing cycle
+  // For new subscriptions, always calculate from the start date
+  // For renewals, calculate from the start date (which should be updated to payment date)
   let nextPayment = new Date(startDate);
 
   if (billingCycle === 'monthly') {
-    // Add months until we're in the future
-    while (nextPayment <= now) {
+    // Add exactly 1 month from the start date
+    nextPayment.setMonth(nextPayment.getMonth() + 1);
+
+    // If the calculated date is in the past (shouldn't happen for new subscriptions),
+    // keep adding months until it's in the future
+    while (nextPayment <= now && !isNewSubscription) {
       nextPayment.setMonth(nextPayment.getMonth() + 1);
     }
   } else if (billingCycle === 'annual' || billingCycle === 'yearly') {
-    // Add years until we're in the future
-    while (nextPayment <= now) {
+    // Add exactly 1 year from the start date
+    nextPayment.setFullYear(nextPayment.getFullYear() + 1);
+
+    // If the calculated date is in the past (shouldn't happen for new subscriptions),
+    // keep adding years until it's in the future
+    while (nextPayment <= now && !isNewSubscription) {
       nextPayment.setFullYear(nextPayment.getFullYear() + 1);
     }
   } else {
     // Default to monthly if cycle is unknown
-    while (nextPayment <= now) {
+    nextPayment.setMonth(nextPayment.getMonth() + 1);
+    while (nextPayment <= now && !isNewSubscription) {
       nextPayment.setMonth(nextPayment.getMonth() + 1);
     }
   }

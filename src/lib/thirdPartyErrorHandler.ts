@@ -1,15 +1,15 @@
 /**
  * Third-Party Error Handler
- * 
+ *
  * Industry-standard approach for handling errors from external widgets and SDKs
  * that we don't control (e.g., payment gateways, analytics, chat widgets).
- * 
+ *
  * Pattern: Defense in Depth
  * - Layer 1: Global error interception
  * - Layer 2: Promise rejection handling
  * - Layer 3: Missing global shims
  * - Layer 4: Console error suppression
- * 
+ *
  * @see https://developer.mozilla.org/en-US/docs/Web/API/GlobalEventHandlers/onerror
  * @see https://developer.mozilla.org/en-US/docs/Web/API/WindowEventHandlers/onunhandledrejection
  */
@@ -249,11 +249,11 @@ export const createPaymentGatewayErrorHandler = () => {
       "4aa5b64a",
       "a03afd9",
       "cancel-transaction",
-      
+
       // Common payment gateway identifiers
       "paystack",
       "flutterwave",
-      
+
       // Common error patterns in payment widgets
       "next is not defined",
       "__esModule",

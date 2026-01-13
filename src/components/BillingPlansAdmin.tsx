@@ -134,6 +134,11 @@ export function BillingPlansAdmin() {
     BillingTransaction[]
   >([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
+  // Pagination state for transactions
+  const [txCurrentPage, setTxCurrentPage] = useState(1);
+  const [txPageSize] = useState(10); // Fixed at 10 per page
+  const [txTotalPages, setTxTotalPages] = useState(1);
+  const [txTotalTransactions, setTxTotalTransactions] = useState(0);
 
   // Transactions tab filters & controls
   const [txShowFilters, setTxShowFilters] = useState(false);
@@ -180,6 +185,7 @@ export function BillingPlansAdmin() {
     setTxMaxAmount("");
     setTxStartDate("");
     setTxEndDate("");
+    setTxCurrentPage(1); // Reset to first page when clearing filters
   };
 
   // Current currency details (forced to NGN for admin)
@@ -323,16 +329,30 @@ export function BillingPlansAdmin() {
     }
   };
 
-  const fetchTransactions = async () => {
+  const fetchTransactions = async (page: number = txCurrentPage) => {
     setTransactionsLoading(true);
     try {
-      const response = await getBillingTransactions({ limit: 100 });
+      const response = await getBillingTransactions({
+        page,
+        pageSize: txPageSize,
+        status: txStatusFilter !== "all" ? txStatusFilter : undefined,
+        search: searchTerm || undefined,
+        startDate: txStartDate || undefined,
+        endDate: txEndDate || undefined,
+      });
       if (response.data) {
         setRealTransactions(response.data.transactions);
+        setTxTotalPages(response.data.pagination?.totalPages || 1);
+        setTxTotalTransactions(response.data.pagination?.total || 0);
+        setTxCurrentPage(page); // Update current page
         console.log(
           "✅ Fetched",
           response.data.transactions.length,
-          "transactions from database"
+          "transactions from database (page",
+          page,
+          "of",
+          response.data.pagination?.totalPages || 1,
+          ")"
         );
       }
     } catch (error) {
@@ -341,6 +361,13 @@ export function BillingPlansAdmin() {
       setTransactionsLoading(false);
     }
   };
+
+  // Refetch transactions when filters change (reset to page 1)
+  useEffect(() => {
+    setTxCurrentPage(1);
+    fetchTransactions(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [txStatusFilter, searchTerm, txStartDate, txEndDate]);
 
   // Transform API plans to match component format
   // Ensure plans is always an array to prevent .map() errors
@@ -2743,8 +2770,8 @@ export function BillingPlansAdmin() {
                   Transactions
                 </CardTitle>
                 <CardDescription className="mt-1">
-                  Showing {filteredTransactions.length} of {transactions.length}{" "}
-                  transactions
+                  Showing {filteredTransactions.length} of {txTotalTransactions} transactions
+                  {txTotalPages > 1 && ` • Page ${txCurrentPage} of ${txTotalPages}`}
                 </CardDescription>
               </div>
               <div className="overflow-x-auto">
@@ -2965,6 +2992,48 @@ export function BillingPlansAdmin() {
                   </TableBody>
                 </Table>
               </div>
+              {/* Pagination Controls */}
+              {txTotalPages > 1 && (
+                <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
+                  <div className="text-sm text-gray-600">
+                    Page {txCurrentPage} of {txTotalPages} • {txTotalTransactions} total transactions
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (txCurrentPage > 1) {
+                          const newPage = txCurrentPage - 1;
+                          setTxCurrentPage(newPage);
+                          fetchTransactions(newPage);
+                        }
+                      }}
+                      disabled={txCurrentPage === 1 || transactionsLoading}
+                      className="border-purple-200 text-purple-700 hover:bg-purple-50"
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (txCurrentPage < txTotalPages) {
+                          const newPage = txCurrentPage + 1;
+                          setTxCurrentPage(newPage);
+                          fetchTransactions(newPage);
+                        }
+                      }}
+                      disabled={txCurrentPage >= txTotalPages || transactionsLoading}
+                      className="border-purple-200 text-purple-700 hover:bg-purple-50"
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </Card>
 
             {/* Refund Dialog */}

@@ -17,11 +17,27 @@ router.use(adminOnly);
 // GET /api/billing-transactions - Get all transactions (invoices + payments) for admin
 router.get("/", async (req: AuthRequest, res: Response) => {
   try {
-    const { status, search, startDate, endDate, limit } = req.query;
-    const limitNum = limit ? Math.min(parseInt(limit as string), 100) : 50;
+    const { status, search, startDate, endDate, limit, page, pageSize } = req.query;
+    // Support both old limit parameter and new pagination parameters
+    const pageNum = page ? Math.max(1, parseInt(page as string)) : 1;
+    const pageSizeNum = pageSize
+      ? Math.min(parseInt(pageSize as string), 100)
+      : limit
+        ? Math.min(parseInt(limit as string), 100)
+        : 10; // Default to 10 per page
+    const skip = (pageNum - 1) * pageSizeNum;
 
     // Build where clause for invoices
-    const invoiceWhere: any = {};
+    // Only include invoices from PropertyOwner (role: 'owner') and PropertyDeveloper (role: 'developer')
+    const invoiceWhere: any = {
+      customers: {
+        users: {
+          some: {
+            role: { in: ["owner", "property_owner", "property owner", "developer", "property_developer", "property-developer"] },
+          },
+        },
+      },
+    };
     if (status && status !== "all") {
       if (status === "completed") {
         invoiceWhere.status = "paid";
@@ -39,7 +55,16 @@ router.get("/", async (req: AuthRequest, res: Response) => {
     }
 
     // Build where clause for payments
-    const paymentWhere: any = {};
+    // Only include payments from PropertyOwner (role: 'owner') and PropertyDeveloper (role: 'developer')
+    const paymentWhere: any = {
+      customers: {
+        users: {
+          some: {
+            role: { in: ["owner", "property_owner", "property owner", "developer", "property_developer", "property-developer"] },
+          },
+        },
+      },
+    };
     if (status && status !== "all") {
       if (status === "completed") {
         paymentWhere.status = { in: ["completed", "success"] };
@@ -57,6 +82,8 @@ router.get("/", async (req: AuthRequest, res: Response) => {
     }
 
     // Fetch invoices and payments in parallel
+    // Fetch a reasonable amount (1000) to allow for filtering and pagination
+    const maxFetchLimit = 1000;
     const [invoices, payments] = await Promise.all([
       prisma.invoices.findMany({
         where: invoiceWhere,
@@ -75,7 +102,7 @@ router.get("/", async (req: AuthRequest, res: Response) => {
           },
         },
         orderBy: { createdAt: "desc" },
-        take: limitNum,
+        take: maxFetchLimit,
       }),
       prisma.payments.findMany({
         where: paymentWhere,
@@ -106,7 +133,7 @@ router.get("/", async (req: AuthRequest, res: Response) => {
           },
         },
         orderBy: { createdAt: "desc" },
-        take: limitNum,
+        take: maxFetchLimit,
       }),
     ]);
 
@@ -203,28 +230,37 @@ router.get("/", async (req: AuthRequest, res: Response) => {
       );
     }
 
-    // Limit results
-    const limitedTransactions = filteredTransactions.slice(0, limitNum);
+    // Get total count before pagination
+    const totalCount = filteredTransactions.length;
 
-    // Calculate summary stats
-    const totalAmount = limitedTransactions.reduce(
+    // Apply pagination
+    const paginatedTransactions = filteredTransactions.slice(skip, skip + pageSizeNum);
+
+    // Calculate summary stats for all filtered transactions (not just current page)
+    const totalAmount = filteredTransactions.reduce(
       (sum, tx) => sum + tx.amount,
       0
     );
-    const completedCount = limitedTransactions.filter(
+    const completedCount = filteredTransactions.filter(
       (tx) => tx.status === "completed"
     ).length;
-    const pendingCount = limitedTransactions.filter(
+    const pendingCount = filteredTransactions.filter(
       (tx) => tx.status === "pending"
     ).length;
-    const failedCount = limitedTransactions.filter(
+    const failedCount = filteredTransactions.filter(
       (tx) => tx.status === "failed"
     ).length;
 
     res.json({
-      transactions: limitedTransactions,
+      transactions: paginatedTransactions,
+      pagination: {
+        page: pageNum,
+        pageSize: pageSizeNum,
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / pageSizeNum),
+      },
       summary: {
-        total: limitedTransactions.length,
+        total: totalCount,
         totalAmount,
         completed: completedCount,
         pending: pendingCount,

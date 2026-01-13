@@ -415,6 +415,8 @@ export function PropertyOwnerSettings({
           toast.info("Your account information was updated");
           // Update account info immediately
           setAccountInfo(data.customer);
+          // Refresh account data to get updated nextPaymentDate and other fields
+          fetchAccountData(true); // Silent refresh
         },
       });
     }

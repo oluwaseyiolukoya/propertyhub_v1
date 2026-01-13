@@ -960,6 +960,10 @@ router.get(
           customers: {
             include: {
               plans: true,
+              payment_methods: {
+                where: { isActive: true },
+                select: { id: true, isDefault: true },
+              },
             },
           },
         },
@@ -1320,7 +1324,43 @@ router.get(
               actualUnitsCount: actualUnitsCount,
               actualManagersCount: actualManagersCount,
               subscriptionStartDate: customer.subscriptionStartDate,
+              nextPaymentDate: customer.nextPaymentDate,
+              trialStartsAt: customer.trialStartsAt,
               trialEndsAt: customer.trialEndsAt,
+              gracePeriodEndsAt: customer.gracePeriodEndsAt,
+              suspendedAt: customer.suspendedAt,
+              suspensionReason: customer.suspensionReason,
+              mrr: customer.mrr,
+              // Subscription status fields
+              hasPaymentMethod: customer.payment_methods.length > 0,
+              canUpgrade: customer.status === "trial" || customer.status === "suspended",
+              // Calculate days remaining for trial
+              daysRemaining: customer.trialEndsAt
+                ? Math.max(
+                    0,
+                    Math.floor(
+                      (new Date(customer.trialEndsAt).getTime() - new Date().getTime()) /
+                        (1000 * 60 * 60 * 24)
+                    )
+                  )
+                : 0,
+              // Calculate grace period
+              inGracePeriod:
+                customer.trialEndsAt &&
+                new Date(customer.trialEndsAt) < new Date() &&
+                customer.gracePeriodEndsAt
+                  ? new Date(customer.gracePeriodEndsAt) > new Date()
+                  : false,
+              graceDaysRemaining: customer.gracePeriodEndsAt
+                ? Math.max(
+                    0,
+                    Math.floor(
+                      (new Date(customer.gracePeriodEndsAt).getTime() -
+                        new Date().getTime()) /
+                        (1000 * 60 * 60 * 24)
+                    )
+                  )
+                : 0,
               // KYC fields
               requiresKyc: (customer as any).requiresKyc,
               kycStatus: (customer as any).kycStatus,
