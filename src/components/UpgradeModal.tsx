@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { withErrorBoundary } from './ErrorBoundary';
 import {
   Dialog,
   DialogContent,
@@ -42,7 +43,7 @@ interface UpgradeModalProps {
   onSuccess: () => void;
 }
 
-export function UpgradeModal({ open, onClose, onSuccess }: UpgradeModalProps) {
+function UpgradeModalComponent({ open, onClose, onSuccess }: UpgradeModalProps) {
   const [step, setStep] = useState<'select-plan' | 'payment' | 'save-card'>('select-plan');
   const [loading, setLoading] = useState(false);
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -612,3 +613,25 @@ export function UpgradeModal({ open, onClose, onSuccess }: UpgradeModalProps) {
     </Dialog>
   );
 }
+
+// Wrap with error boundary to isolate payment widget errors
+export const UpgradeModal = withErrorBoundary(UpgradeModalComponent, {
+  componentName: "UpgradeModal",
+  fallback: (
+    <Dialog open={true} onOpenChange={() => {}}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Unable to Load Upgrade Options</DialogTitle>
+          <DialogDescription>
+            There was an issue loading the upgrade interface. Please refresh the page to try again.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-6 text-center">
+          <Button onClick={() => window.location.reload()}>
+            Refresh Page
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  ),
+});

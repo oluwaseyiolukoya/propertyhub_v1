@@ -114,14 +114,15 @@ export function LandingPage({
         );
 
         const timestamp = new Date().getTime();
-        // Use same pattern as other API clients
+        // Use same pattern as other API clients - use API_BASE_URL for consistency
         const apiUrl =
           import.meta.env.VITE_PUBLIC_API_URL ||
           (import.meta.env.DEV
-            ? "http://localhost:5001/api"
+            ? "" // Use Vite proxy in dev (goes to /api)
             : "https://api.contrezz.com/api");
+        const apiBase = apiUrl || "/api";
         const response = await fetch(
-          `${apiUrl}/landing-pages/slug/home?_t=${timestamp}`,
+          `${apiBase}/landing-pages/slug/home?_t=${timestamp}`,
           {
             cache: "no-cache",
             headers: {

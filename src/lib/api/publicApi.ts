@@ -5,10 +5,12 @@
  */
 
 // Public API Base URL
+// In dev, use empty string to leverage Vite proxy (goes to /api)
+// In production, use explicit URL
 const PUBLIC_API_URL =
   import.meta.env.VITE_PUBLIC_API_URL ||
   (import.meta.env.DEV
-    ? "http://localhost:5001/api"
+    ? "" // Use Vite proxy in dev
     : "https://api.contrezz.com/api");
 
 export interface PublicApiResponse<T> {
@@ -40,7 +42,9 @@ async function publicRequest<T>(
   const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
   try {
-    const response = await fetch(`${PUBLIC_API_URL}${endpoint}`, {
+    // If PUBLIC_API_URL is empty (dev mode), use /api (Vite proxy)
+    const baseUrl = PUBLIC_API_URL || "/api";
+    const response = await fetch(`${baseUrl}${endpoint}`, {
       ...config,
       signal: controller.signal,
     });

@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { withErrorBoundary } from "./ErrorBoundary";
 import {
   Card,
   CardContent,
@@ -627,6 +628,15 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({
   React.useEffect(() => {
     loadAutopaySettings();
   }, []);
+
+  // Note: Third-party payment widget error handling is now centralized in main.tsx
+  // via initializeThirdPartyErrorHandling() which runs before React mounts.
+  // This provides comprehensive coverage for all Monicredit widget errors including:
+  // - "next is not defined" (routing errors)
+  // - "__esModule" (module loading errors)
+  // - "Cannot read properties" (null/undefined errors)
+  // - cancel-transaction API failures
+  // No component-level error handling needed here.
 
   const handleToggleAutoPay = async () => {
     const newStatus = !autopaySettings?.enabled;
@@ -1578,7 +1588,22 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({
       </Tabs>
 
       {/* Make Payment Dialog */}
-      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+      <Dialog
+        open={showPaymentDialog}
+        onOpenChange={(open) => {
+          // Safely handle dialog close - don't try to cancel transactions
+          // If user closes dialog, just close it without any API calls
+          if (!open) {
+            setShowPaymentDialog(false);
+            // Reset form state if needed
+            if (!isSubmitting) {
+              setPaymentAmount(selectedPaymentType === "full" ? currentRent.amount.toString() : "");
+            }
+          } else {
+            setShowPaymentDialog(true);
+          }
+        }}
+      >
         <DialogContent className="max-w-md border-0 shadow-2xl">
           <DialogHeader className="bg-gradient-to-r from-[#7C3AED] to-[#5B21B6] -m-6 mb-0 p-6 rounded-t-lg">
             <DialogTitle className="text-2xl font-bold text-white">
@@ -1832,4 +1857,22 @@ const TenantPaymentsPage: React.FC<TenantPaymentsPageProps> = ({
   );
 };
 
-export default TenantPaymentsPage;
+// Wrap with error boundary to isolate payment widget errors
+export default withErrorBoundary(TenantPaymentsPage, {
+  componentName: "TenantPaymentsPage",
+  fallback: (
+    <div className="min-h-[400px] flex items-center justify-center p-6">
+      <div className="text-center">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          Unable to Load Payment Page
+        </h3>
+        <p className="text-sm text-gray-600 mb-4">
+          There was an issue loading the payment interface. Please refresh the page to try again.
+        </p>
+        <Button onClick={() => window.location.reload()}>
+          Refresh Page
+        </Button>
+      </div>
+    </div>
+  ),
+});

@@ -168,6 +168,9 @@ function App() {
     }
   }, [shouldShowAdmin]);
 
+  // Note: Third-party error handling is now centralized in main.tsx
+  // via initializeThirdPartyErrorHandling() for better coverage
+
   // Listen for pathname changes (for client-side navigation)
   useEffect(() => {
     const handleLocationChange = () => {
@@ -842,10 +845,48 @@ function App() {
   };
 
   const handleLogout = () => {
+    // Clear session data
     sessionManager.clearSessionManually();
+
+    // Reset all user-related state
     setCurrentUser(null);
     setUserType("");
     setCustomerData(null);
+    setSignupData(null);
+
+    // Reset all UI state flags
+    setShowLanding(false);
+    setShowGetStarted(false);
+    setShowAccountReview(false);
+    setShowApplicationStatus(false);
+    setShowAPIDocumentation(false);
+    setShowIntegrations(false);
+    setShowAbout(false);
+    setShowContact(false);
+    setShowScheduleDemo(false);
+    setShowBlog(false);
+    setShowCareers(false);
+    setShowHelpCenter(false);
+    setShowCommunity(false);
+    setShowNewDiscussion(false);
+    setShowStatus(false);
+    setShowSecurity(false);
+    setShowStorageTest(false);
+    setShowCheckAuth(false);
+    setShowKYCVerification(false);
+
+    // Reset managers and assignments
+    setManagers([]);
+    setPropertyAssignments([]);
+
+    // Navigate to login page to ensure clean state
+    // Use window.location for a full page reload to clear any React Router state
+    if (isAppDomain) {
+      window.location.href = "/login";
+    } else {
+      // For public domain, navigate to home
+      navigateToPage("/");
+    }
   };
 
   const handleBackToHome = () => {

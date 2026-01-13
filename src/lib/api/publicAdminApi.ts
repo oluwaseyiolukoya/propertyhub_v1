@@ -8,7 +8,7 @@
 const PUBLIC_ADMIN_API_URL =
   import.meta.env.VITE_PUBLIC_ADMIN_API_URL ||
   (import.meta.env.DEV
-    ? "http://localhost:5001/api/admin"
+    ? "/api/admin" // Use Vite proxy in dev
     : "https://api.contrezz.com/api/admin");
 
 // Token storage keys

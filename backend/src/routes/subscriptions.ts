@@ -2394,24 +2394,31 @@ router.get(
         );
       }
 
-      // For Monicredit: Use trust redirect mode (same as tenant payments)
-      // Since we use redirect flow, when user returns from Monicredit, they've completed the payment flow
+      // For Monicredit: Always verify with API first, especially for live payments
+      // Trust redirect should ONLY be used for demo/test keys as a fallback
       if (provider === "monicredit") {
+        // Get Monicredit config to check if using live keys
+        const systemSettings = await prisma.system_settings.findUnique({
+          where: { key: "payments.monicredit" },
+        });
+        const monicreditConf = (systemSettings?.value as any) || {};
+        const isLiveKey = monicreditConf?.publicKey?.includes("LIVE");
+
         const trustRedirectEnv =
           process.env.MONICREDIT_TRUST_REDIRECT === "true";
         const hasValidTransactionId =
           reference.startsWith("ACX") ||
           !!paymentMetadata?.monicreditTransactionId;
 
-        // For redirect flow, trust that user returning from Monicredit means payment was attempted
-        // This is consistent with tenant payment flow which also trusts redirects
-        // Only skip if explicitly disabled via MONICREDIT_TRUST_REDIRECT=false
+        // CRITICAL: For LIVE payments, NEVER use trust redirect - always verify with API
+        // Trust redirect should ONLY be used for demo/test keys
         const shouldTrustRedirect =
-          process.env.MONICREDIT_TRUST_REDIRECT !== "false" || // Default to true unless explicitly false
-          trustRedirectEnv ||
-          hasValidTransactionId;
+          !isLiveKey && // NEVER trust redirect for live payments
+          trustRedirectEnv && // Must be explicitly enabled
+          hasValidTransactionId; // Must have valid transaction ID
 
         console.log("[Upgrade GET] Monicredit verification:", {
+          isLiveKey,
           trustRedirectEnv,
           hasValidTransactionId,
           shouldTrustRedirect,
@@ -2419,50 +2426,57 @@ router.get(
           reference,
         });
 
-        // If payment is pending/success and we should trust redirect, complete the upgrade
-        // Also handle case where webhook updated status to "success" before user returned
-        if (
-          (payment.status === "pending" || payment.status === "success") &&
-          shouldTrustRedirect
-        ) {
-          console.log("[Upgrade GET] Using trust redirect mode for Monicredit");
+        // IMPORTANT: Do NOT auto-complete based on redirect alone
+        // Always verify with Monicredit API first (see verification code below)
+        // This prevents cancelled payments from being marked as paid
+        // Only use trust redirect as a last resort for demo environments when API fails
+        // Continue to API verification below - do NOT auto-complete here
+      }
 
+      // Continue with Monicredit API verification
+      if (provider === "monicredit") {
+        // Get customer for completeUpgrade function
+        const customer = await prisma.customers.findUnique({
+          where: { id: customerId },
+          include: { plans: true },
+        });
+
+        if (!customer) {
+          return res.status(404).json({
+            success: false,
+            error: "Customer not found",
+          });
+        }
+
+        // Get Monicredit config
+        const systemSettings = await prisma.system_settings.findUnique({
+          where: { key: "payments.monicredit" },
+        });
+        const monicreditConf = (systemSettings?.value as any) || {};
+
+        // Define completeUpgrade function (same as POST /verify)
+        const completeUpgrade = async (verificationSource: string) => {
           const planId = paymentMetadata?.planId;
           const invoiceId = paymentMetadata?.invoiceId;
-          const billingCycle = paymentMetadata?.billingCycle || "monthly";
+          const billingCycle =
+            paymentMetadata?.billingCycle || customer.billingCycle || "monthly";
 
           if (!planId) {
-            return res.status(400).json({
-              success: false,
-              error: "Invalid payment metadata",
-              details: "Plan ID not found",
-            });
+            throw new Error("Plan ID not found in payment metadata");
           }
-
-          // Get customer and plan
-          const customer = await prisma.customers.findUnique({
-            where: { id: customerId },
-            include: { plans: true },
-          });
 
           const newPlan = await prisma.plans.findUnique({
             where: { id: planId },
           });
-
-          if (!customer || !newPlan) {
-            return res.status(404).json({
-              success: false,
-              error: "Customer or plan not found",
-            });
+          if (!newPlan) {
+            throw new Error("Plan not found");
           }
 
-          // Calculate new MRR
           const newMRR =
             billingCycle === "annual"
               ? newPlan.annualPrice / 12
               : newPlan.monthlyPrice;
 
-          // Update customer with new plan
           const updateData: any = {
             planId: newPlan.id,
             planCategory: newPlan.category,
@@ -2488,11 +2502,10 @@ router.get(
           }
 
           await prisma.customers.update({
-            where: { id: customerId },
+            where: { id: customer.id },
             data: updateData,
           });
 
-          // Update invoice
           if (invoiceId) {
             await prisma.invoices.update({
               where: { id: invoiceId },
@@ -2504,114 +2517,61 @@ router.get(
             });
           }
 
-          // Update payment
-          await prisma.payments.update({
-            where: { id: payment.id },
+          await prisma.payments.updateMany({
+            where: { providerReference: reference, customerId: customer.id },
             data: {
               status: "paid",
               paidAt: new Date(),
               metadata: {
                 ...paymentMetadata,
-                trustedRedirect: true,
+                verificationSource,
                 verifiedAt: new Date().toISOString(),
               } as any,
               updatedAt: new Date(),
             },
           });
 
-          // Emit events
           emitToAdmins("subscription:plan-upgraded", {
-            customerId,
+            customerId: customer.id,
+            customerName: customer.company,
+            oldPlan: customer.plans?.name,
             newPlan: newPlan.name,
             amount: payment.amount,
+            currency: payment.currency,
           });
 
-          emitToCustomer(customerId, "subscription:upgraded", {
+          emitToCustomer(customer.id, "subscription:upgraded", {
             plan: newPlan.name,
+            amount: payment.amount,
+            currency: payment.currency,
           });
 
-          // Send upgrade confirmation email
-          try {
-            const { sendPlanUpgradeEmail } = require("../lib/email");
-            const oldPlanName = customer.plans?.name || "Free Plan";
-            const frontendUrl =
-              process.env.FRONTEND_URL || "http://localhost:5173";
-            const dashboardUrl = `${frontendUrl}/developer/settings?tab=billing`;
-            const effectiveDate = new Date().toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            });
-
-            const newFeatures: any = {
-              users: newPlan.userLimit,
-              storage: newPlan.storageLimit,
-            };
-            if (newPlan.category === "development" && newPlan.projectLimit) {
-              newFeatures.projects = newPlan.projectLimit;
-            } else if (newPlan.category === "property_management") {
-              if (newPlan.propertyLimit)
-                newFeatures.properties = newPlan.propertyLimit;
-              if (newPlan.unitLimit) newFeatures.units = newPlan.unitLimit;
-            }
-
-            console.log(
-              "[Upgrade GET] Sending upgrade confirmation email (Monicredit)"
-            );
-            await sendPlanUpgradeEmail({
-              customerName: customer.company || customer.owner || "Customer",
-              customerEmail: customer.email,
-              companyName: customer.company || "Your Company",
-              oldPlanName,
-              newPlanName: newPlan.name,
-              newPlanPrice:
-                billingCycle === "annual"
-                  ? newPlan.annualPrice
-                  : newPlan.monthlyPrice,
-              currency: newPlan.currency,
-              billingCycle,
-              effectiveDate,
-              newFeatures,
-              dashboardUrl,
-            });
-            console.log(
-              "[Upgrade GET] ✅ Email sent successfully (Monicredit)"
-            );
-          } catch (emailError: any) {
-            console.error(
-              "[Upgrade GET] ⚠️ Failed to send email (Monicredit):",
-              emailError?.message
-            );
-            // Don't fail the request if email fails - upgrade was successful
-          }
-
-          console.log(
-            "[Upgrade GET] Subscription upgraded successfully via trust redirect"
-          );
-
-          return res.json({
+          return {
             success: true,
             status: "paid",
-            reference,
-            provider,
-            verified: true,
-            verificationSource: "trusted_redirect",
             message: "Subscription upgraded successfully",
+            verificationSource,
             plan: newPlan.name,
-            customer: {
-              id: customerId,
-              plan: newPlan.name,
-              limits: {
-                projects: updateData.projectLimit,
-                properties: updateData.propertyLimit,
-                users: updateData.userLimit,
-                storage: updateData.storageLimit,
-              },
-            },
-          });
+          };
+        };
+
+        // If already paid/failed, return current status
+        if (payment.status === "paid" || payment.status === "success") {
+          // Check if upgrade was already completed
+          const planId = paymentMetadata?.planId;
+          if (planId && customer?.planId === planId) {
+            return res.json({
+              success: true,
+              status: "paid",
+              reference,
+              provider,
+              verified: true,
+              verificationSource: "database",
+              message: "Payment already processed",
+            });
+          }
         }
 
-        // If already failed
         if (payment.status === "failed") {
           return res.json({
             success: false,
@@ -2624,15 +2584,150 @@ router.get(
           });
         }
 
-        // Still pending - return pending status
-        return res.json({
-          success: false,
-          status: "pending",
-          reference,
-          provider,
-          verified: false,
-          message: "Payment is still pending. Please wait or try again.",
-        });
+        // Payment is pending - verify with Monicredit API
+        // Get transaction ID from metadata or reference
+        const transactionId =
+          paymentMetadata?.monicreditTransactionId ||
+          (reference.startsWith("ACX") ? reference : null);
+
+        if (!transactionId) {
+          return res.json({
+            success: false,
+            status: "pending",
+            reference,
+            provider,
+            verified: false,
+            message: "Payment verification pending. Transaction ID not found.",
+          });
+        }
+
+        // Verify with Monicredit API
+        const isLiveKey = monicreditConf?.publicKey?.includes("LIVE");
+        const monicreditBaseUrl =
+          process.env.MONICREDIT_BASE_URL ||
+          (isLiveKey
+            ? "https://live.backend.monicredit.com"
+            : "https://demo.backend.monicredit.com");
+        const monicreditApiBase = `${monicreditBaseUrl}/api/v1`;
+
+        // Use init-transaction-info for live (verify-transaction doesn't exist on live)
+        const verifyUrl = isLiveKey
+          ? `${monicreditApiBase}/payment/transactions/init-transaction-info/${transactionId}`
+          : `${monicreditApiBase}/payment/transactions/verify-transaction/${transactionId}`;
+
+        const credentials = `${monicreditConf.publicKey}:${monicreditConf.privateKey}`;
+        const base64Credentials = Buffer.from(credentials).toString("base64");
+
+        try {
+          const verifyResp = await fetch(verifyUrl, {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+              Authorization: `Basic ${base64Credentials}`,
+            },
+          });
+
+          const verifyRaw = await verifyResp.text();
+          let verifyJson: any = {};
+          try {
+            verifyJson = JSON.parse(verifyRaw);
+          } catch (err) {
+            console.error(
+              "[Upgrade GET] Failed to parse Monicredit response:",
+              err
+            );
+            return res.json({
+              success: false,
+              status: "pending",
+              reference,
+              provider,
+              verified: false,
+              message: "Payment verification failed. Please try again.",
+            });
+          }
+
+          if (!verifyResp.ok || !verifyJson?.status) {
+            console.error("[Upgrade GET] Monicredit API error:", {
+              status: verifyResp.status,
+              response: verifyJson,
+            });
+            return res.json({
+              success: false,
+              status: "pending",
+              reference,
+              provider,
+              verified: false,
+              message: "Payment verification failed. Please try again.",
+            });
+          }
+
+          // Extract status from response
+          const verifiedData = verifyJson.data || verifyJson;
+          const monicreditStatusRaw =
+            verifiedData?.status ??
+            verifiedData?.payment_status ??
+            verifiedData?.transaction_status;
+          const monicreditStatus = monicreditStatusRaw
+            ? String(monicreditStatusRaw).toUpperCase()
+            : null;
+
+          // Handle payment status
+          if (
+            monicreditStatus === "APPROVED" ||
+            monicreditStatus === "SUCCESS" ||
+            monicreditStatus === "PAID" ||
+            monicreditStatus === "COMPLETED"
+          ) {
+            // Payment successful - complete upgrade
+            const result = await completeUpgrade("monicredit_api");
+            return res.json(result);
+          } else if (
+            monicreditStatus === "FAILED" ||
+            monicreditStatus === "DECLINED" ||
+            monicreditStatus === "CANCELLED" ||
+            monicreditStatus === "CANCELED"
+          ) {
+            // Payment failed/cancelled - mark as failed
+            await prisma.payments.updateMany({
+              where: { providerReference: reference, customerId: customerId },
+              data: {
+                status: "failed",
+                updatedAt: new Date(),
+              },
+            });
+            return res.status(400).json({
+              success: false,
+              error: "Payment was not successful",
+              details: `Payment status: ${monicreditStatus}`,
+            });
+          } else {
+            // Status unclear - return pending
+            return res.json({
+              success: false,
+              status: "pending",
+              reference,
+              provider,
+              verified: false,
+              message: `Payment is being processed. Status: ${
+                monicreditStatus || "unknown"
+              }. Please wait or try again.`,
+            });
+          }
+        } catch (apiError: any) {
+          console.error(
+            "[Upgrade GET] Monicredit API verification error:",
+            apiError
+          );
+          return res.json({
+            success: false,
+            status: "pending",
+            reference,
+            provider,
+            verified: false,
+            message:
+              "Payment verification failed. Please try again or contact support.",
+          });
+        }
       }
 
       // For Paystack: Verify with API

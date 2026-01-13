@@ -138,11 +138,12 @@ export function JobDetailDialog({
       const PUBLIC_API_URL =
         import.meta.env.VITE_PUBLIC_API_URL ||
         (import.meta.env.DEV
-          ? "http://localhost:5001/api"
+          ? "" // Use Vite proxy in dev
           : "https://api.contrezz.com/api");
+      const apiBase = PUBLIC_API_URL || "/api";
 
       const response = await fetch(
-        `${PUBLIC_API_URL}/careers/${job.id}/apply`,
+        `${apiBase}/careers/${job.id}/apply`,
         {
           method: "POST",
           body: formDataToSend,
