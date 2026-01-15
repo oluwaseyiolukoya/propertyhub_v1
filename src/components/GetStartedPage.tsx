@@ -29,6 +29,49 @@ import {
   Users
 } from 'lucide-react';
 
+// ContrezztLogo component (brand guideline compliant)
+const ContrezztLogo = ({ className = "w-8 h-8" }: { className?: string }) => (
+  <svg
+    viewBox="0 0 40 40"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+  >
+    <rect
+      x="4"
+      y="16"
+      width="12"
+      height="20"
+      rx="2"
+      fill="currentColor"
+      fillOpacity="0.9"
+    />
+    <rect
+      x="20"
+      y="8"
+      width="12"
+      height="28"
+      rx="2"
+      fill="currentColor"
+      fillOpacity="1"
+    />
+    <rect
+      x="12"
+      y="4"
+      width="8"
+      height="14"
+      rx="1.5"
+      fill="currentColor"
+      fillOpacity="0.7"
+    />
+    <circle cx="10" cy="22" r="1.5" fill="white" fillOpacity="0.6" />
+    <circle cx="10" cy="28" r="1.5" fill="white" fillOpacity="0.6" />
+    <circle cx="26" cy="14" r="1.5" fill="white" fillOpacity="0.6" />
+    <circle cx="26" cy="20" r="1.5" fill="white" fillOpacity="0.6" />
+    <circle cx="26" cy="26" r="1.5" fill="white" fillOpacity="0.6" />
+  </svg>
+);
+
 interface GetStartedPageProps {
   onBackToHome: () => void;
   onNavigateToLogin: () => void;
@@ -1876,7 +1919,9 @@ export function GetStartedPage({ onBackToHome, onNavigateToLogin, onSignupComple
               onClick={onBackToHome}
               className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
             >
-              <Building className="h-8 w-8 text-blue-600" />
+              <div className="bg-gradient-to-br from-purple-600 to-violet-600 p-1.5 rounded-lg">
+                <ContrezztLogo className="h-6 w-6 text-white" />
+              </div>
               <h1 className="text-xl font-bold text-gray-900">Contrezz</h1>
               <Badge variant="secondary" className="ml-2">SaaS</Badge>
             </button>

@@ -108,24 +108,51 @@ const createSession = async (userId: string, token: string, req: Request) => {
   const ipAddress = req.ip || req.socket.remoteAddress || "Unknown";
 
   try {
-    await prisma.sessions.create({
-      data: {
-        userId,
-        token,
-        device,
-        browser,
-        os,
-        ipAddress,
-        userAgent,
-        location: "Unknown", // In production, use IP geolocation service
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-      },
+    // Check if a session with this token already exists
+    const existingSession = await prisma.sessions.findUnique({
+      where: { token },
     });
-    console.log(
-      `✅ Session created for user ${userId} from ${device} (${browser} on ${os})`
-    );
+
+    if (existingSession) {
+      // Update existing session instead of creating a duplicate
+      await prisma.sessions.update({
+        where: { token },
+        data: {
+          isActive: true,
+          lastActive: new Date(),
+          device,
+          browser,
+          os,
+          ipAddress,
+          userAgent,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+          updatedAt: new Date(),
+        },
+      });
+      console.log(
+        `✅ Session updated for user ${userId} from ${device} (${browser} on ${os})`
+      );
+    } else {
+      // Create new session
+      await prisma.sessions.create({
+        data: {
+          userId,
+          token,
+          device,
+          browser,
+          os,
+          ipAddress,
+          userAgent,
+          location: "Unknown", // In production, use IP geolocation service
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+        },
+      });
+      console.log(
+        `✅ Session created for user ${userId} from ${device} (${browser} on ${os})`
+      );
+    }
   } catch (error) {
-    console.error("Failed to create session:", error);
+    console.error("Failed to create/update session:", error);
     // Don't fail login if session creation fails
   }
 };
@@ -2113,31 +2140,40 @@ router.post(
 router.post("/logout", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
-    const token = req.headers.authorization?.replace("Bearer ", "");
+    const token = req.headers.authorization?.replace("Bearer ", "").trim();
 
     if (!userId || !token) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    // Revoke the current session token
-    await prisma.sessions.updateMany({
-      where: {
-        userId,
-        token,
-        isActive: true,
-      },
-      data: {
-        isActive: false,
-        updatedAt: new Date(),
-      },
+    console.log(`🔒 Attempting to revoke session for user ${userId}`);
+
+    // First, try to find the session by token
+    const session = await prisma.sessions.findUnique({
+      where: { token },
     });
 
-    console.log(`🔒 Session revoked for user ${userId} on logout`);
+    if (session) {
+      // Session found, mark it as inactive
+      await prisma.sessions.update({
+        where: { token },
+        data: {
+          isActive: false,
+          updatedAt: new Date(),
+        },
+      });
+      console.log(`🔒 Session revoked: ${session.id} for user ${userId}`);
+    } else {
+      // Session not found, but still log out successfully
+      // This can happen if session was already revoked or expired
+      console.log(`⚠️ No session found for token, but allowing logout for user ${userId}`);
+    }
 
     return res.json({ message: "Logged out successfully" });
   } catch (error: any) {
     console.error("Logout error:", error);
-    return res.status(500).json({ error: "Failed to logout" });
+    // Even if there's an error, we should allow logout
+    return res.json({ message: "Logged out successfully" });
   }
 });
 

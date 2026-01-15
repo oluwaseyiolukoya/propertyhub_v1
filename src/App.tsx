@@ -872,7 +872,16 @@ function App() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      // Call backend to revoke session first
+      const { logout } = await import('./lib/api/auth');
+      await logout();
+    } catch (error) {
+      console.error('Failed to revoke session on backend:', error);
+      // Continue with logout even if backend call fails
+    }
+
     // Clear session data
     sessionManager.clearSessionManually();
 
