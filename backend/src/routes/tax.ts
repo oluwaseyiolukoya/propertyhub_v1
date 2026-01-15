@@ -223,7 +223,7 @@ router.get('/auto-fetch', async (req: AuthRequest, res: Response) => {
         propertyId: propertyId as string,
         customerId: { in: paymentCustomerIds }, // Include payments for both customerIds if different
         type: 'rent', // Only rent payments (exclude subscriptions)
-        status: { in: ['completed', 'success'] }, // Only successful payments
+        status: { in: ['completed', 'success', 'paid'] }, // Only successful/paid payments
         paidAt: {
           gte: yearStart, // Payment date within tax year
           lte: yearEnd,
@@ -286,7 +286,7 @@ router.get('/auto-fetch', async (req: AuthRequest, res: Response) => {
       console.log('  - propertyId:', propertyId);
       console.log('  - customerId filter:', paymentCustomerIds.length > 1 ? paymentCustomerIds : paymentCustomerIds[0]);
       console.log('  - type: rent');
-      console.log('  - status: [completed, success]');
+      console.log('  - status: [completed, success, paid]');
       console.log('  - paidAt range:', yearStart.toISOString(), 'to', yearEnd.toISOString());
       console.log('[Tax Auto-Fetch] Checking if property has units/leases for reference...');
       console.log('[Tax Auto-Fetch] Total units:', (property.units || []).length);
