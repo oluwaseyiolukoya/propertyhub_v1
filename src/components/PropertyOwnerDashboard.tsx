@@ -2559,12 +2559,14 @@ export function PropertyOwnerDashboard({
                       </div>
                       <p className="text-sm text-gray-500 mt-1">
                         Collected{" "}
-                        {formatCurrency(
-                          dashboardData?.collection?.collected || 0
+                        {formatCurrencyUtil(
+                          dashboardData?.collection?.collected || 0,
+                          smartBaseCurrency
                         )}{" "}
                         of{" "}
-                        {formatCurrency(
-                          dashboardData?.collection?.expected || 0
+                        {formatCurrencyUtil(
+                          dashboardData?.collection?.expected || 0,
+                          smartBaseCurrency
                         )}{" "}
                         this month
                       </p>

@@ -75,6 +75,7 @@ import {
   recordManualPayment,
 } from "../lib/api/payments";
 import { getLeases } from "../lib/api/leases";
+import { getCurrencySymbol } from "../lib/currency";
 import {
   initializeSocket,
   isConnected,
@@ -1702,7 +1703,9 @@ export const PaymentOverview: React.FC = () => {
                   </Label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 font-semibold">
-                      ₦
+                      {selectedLease?.properties?.currency
+                        ? getCurrencySymbol(selectedLease.properties.currency)
+                        : "₦"}
                     </span>
                     <Input
                       id="amount"
@@ -1889,7 +1892,10 @@ export const PaymentOverview: React.FC = () => {
                       Amount to post
                     </p>
                     <p className="text-3xl font-bold text-green-600">
-                      ₦{Number(recordForm.amount || 0).toLocaleString()}
+                      {selectedLease?.properties?.currency
+                        ? getCurrencySymbol(selectedLease.properties.currency)
+                        : "₦"}
+                      {Number(recordForm.amount || 0).toLocaleString()}
                     </p>
                   </div>
                   <Badge

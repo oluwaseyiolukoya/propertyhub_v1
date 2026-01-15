@@ -200,7 +200,7 @@ router.post("/record", async (req: AuthRequest, res: Response) => {
     const lease = await prisma.leases.findUnique({
       where: { id: leaseId },
       include: {
-        properties: { select: { id: true, name: true, ownerId: true } },
+        properties: { select: { id: true, name: true, ownerId: true, currency: true } },
         units: { select: { id: true, unitNumber: true } },
         users: { select: { id: true, name: true, email: true } },
       },
@@ -247,7 +247,7 @@ router.post("/record", async (req: AuthRequest, res: Response) => {
         leaseId: lease.id,
         tenantId: lease.tenantId,
         amount: parseFloat(amount),
-        currency: lease.currency || "NGN",
+        currency: lease.properties.currency || "NGN", // Use property currency, not lease currency
         status: "paid",
         type: type || "rent",
         paymentMethod: paymentMethod.toLowerCase(),
