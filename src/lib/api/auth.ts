@@ -164,13 +164,20 @@ export const getAccountInfo = async () => {
 };
 
 /**
- * Logout user (client-side only)
+ * Logout user (revokes session on backend and clears client storage)
  */
-export const logout = () => {
-  // Clear all auth data from localStorage
-  localStorage.clear();
-  // Redirect to login
-  window.location.href = '/';
+export const logout = async () => {
+  try {
+    // Call backend to revoke session
+    await apiClient.post(API_ENDPOINTS.AUTH.LOGOUT, {});
+  } catch (error) {
+    // Log error but continue with logout even if backend call fails
+    console.error('Failed to revoke session on backend:', error);
+  } finally {
+    // Always clear local storage and redirect, even if backend call fails
+    localStorage.clear();
+    window.location.href = '/';
+  }
 };
 
 /**

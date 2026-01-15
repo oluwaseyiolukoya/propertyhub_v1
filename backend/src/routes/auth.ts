@@ -2106,4 +2106,39 @@ router.post(
   }
 );
 
+/**
+ * POST /api/auth/logout
+ * Logout and revoke current session
+ */
+router.post("/logout", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const token = req.headers.authorization?.replace("Bearer ", "");
+
+    if (!userId || !token) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    // Revoke the current session token
+    await prisma.sessions.updateMany({
+      where: {
+        userId,
+        token,
+        isActive: true,
+      },
+      data: {
+        isActive: false,
+        updatedAt: new Date(),
+      },
+    });
+
+    console.log(`🔒 Session revoked for user ${userId} on logout`);
+
+    return res.json({ message: "Logged out successfully" });
+  } catch (error: any) {
+    console.error("Logout error:", error);
+    return res.status(500).json({ error: "Failed to logout" });
+  }
+});
+
 export default router;
