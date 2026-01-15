@@ -46,7 +46,7 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   const [currency, setCurrency] = useState<string>(() =>
-    getPreferredCurrency("USD")
+    getPreferredCurrency("NGN")
   );
 
   useEffect(() => {
