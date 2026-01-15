@@ -11,6 +11,7 @@ import { initializeSocket, cleanupSocket } from "./lib/socket";
 import paystackWebhookRoutes from "./routes/paystack";
 import monicreditRoutes from "./routes/monicredit";
 import prisma from "./lib/db";
+import { getMaintenanceStatus } from "./lib/maintenance";
 
 // Handle BigInt serialization for JSON.stringify
 // This prevents "TypeError: Do not know how to serialize a BigInt"
@@ -99,6 +100,8 @@ import invoiceRoutes from "./routes/invoices";
 import supportTicketRoutes from "./routes/support-tickets";
 import analyticsRoutes from "./routes/analytics";
 import systemRoutes from "./routes/system";
+import careersRoutes from "./routes/careers";
+import { maintenanceModeMiddleware } from "./middleware/maintenance";
 // Property Owner routes
 import propertyRoutes from "./routes/properties";
 import unitRoutes from "./routes/units";
@@ -351,6 +354,25 @@ app.get("/api/public/branding", async (req: Request, res: Response) => {
   }
 });
 
+// Public maintenance status endpoint (no auth)
+app.get("/api/public/maintenance", async (req: Request, res: Response) => {
+  try {
+    const maintenance = await getMaintenanceStatus();
+    res.json(maintenance);
+  } catch (e: any) {
+    res.status(500).json({
+      enabled: false,
+      message: "Maintenance status unavailable",
+      scheduleStart: null,
+      scheduleEnd: null,
+      showBanner: true,
+      blockLogins: true,
+      apiLock: true,
+      inWindow: false,
+    });
+  }
+});
+
 // Deep health check that validates database connectivity and key tables
 app.get("/api/_diag/db", async (req: Request, res: Response) => {
   try {
@@ -389,13 +411,17 @@ app.get("/api/_diag/db", async (req: Request, res: Response) => {
   }
 });
 
+// Maintenance mode gate (blocks non-admin traffic when enabled)
+app.use(maintenanceModeMiddleware);
+
 // API Routes
 app.use("/api/auth", authRoutes);
 // Onboarding routes (public)
 app.use("/api/onboarding", onboardingRoutes);
 // Landing page forms (public submission + admin management)
 app.use("/api/landing-forms", require("./routes/landing-forms").default);
-// Career postings: Public endpoints handled by public-backend (api.contrezz.com/api/careers)
+// Career postings: Public endpoints for careers page
+app.use("/api/careers", careersRoutes);
 // Admin endpoints: Use separate admin-only router (no catch-all /:id route to avoid conflicts)
 const adminCareersRoutes = require("./routes/admin-careers").default;
 app.use("/api/admin", adminCareersRoutes);

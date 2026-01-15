@@ -5,8 +5,50 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Contrezz - Property Management SaaS Platform</title>
-    <!-- Paystack Inline JS -->
-    <script src="https://js.paystack.co/v1/inline.js"></script>
+    <!-- Content Security Policy - Allow necessary third-party scripts and services -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' 'unsafe-eval'
+        https://js.paystack.co
+        https://*.paystack.co
+        https://paystack.com
+        https://cdn.monnify.com
+        https://*.monicredit.co
+        https://*.datadoghq.com
+        https://www.datadoghq-browser-agent.com;
+      style-src 'self' 'unsafe-inline'
+        https://paystack.com
+        https://*.paystack.co
+        https://js.paystack.co;
+      img-src 'self' data: https: blob:;
+      font-src 'self' data:;
+      connect-src 'self'
+        https://api.paystack.co
+        https://*.paystack.co
+        https://paystack.com
+        https://checkout.paystack.com
+        https://api.monnify.com
+        https://*.monicredit.co
+        https://*.datadoghq.com
+        ws://localhost:*
+        http://localhost:*;
+      frame-src 'self'
+        https://js.paystack.co
+        https://*.paystack.co
+        https://paystack.com
+        https://checkout.paystack.com
+        https://sdk.monnify.com
+        https://*.monicredit.co;
+      child-src 'self' blob:;
+      object-src 'none';
+      base-uri 'self';
+      form-action 'self' https:;
+    ">
+    <!--
+      Payment scripts are lazy-loaded only when needed (on payment pages)
+      This prevents unnecessary third-party scripts on landing/public pages
+      See: src/lib/loadPaymentScripts.ts
+    -->
   </head>
   <body>
     <div id="root"></div>

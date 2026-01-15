@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -1152,8 +1152,12 @@ export function BillingPlansAdmin() {
     }
   };
 
-  const PlanForm = () => (
-    <form id="planForm" onSubmit={handleSubmitPlan} className="space-y-4">
+  const PlanForm = useMemo(() => (
+    <form
+      id="planForm"
+      onSubmit={handleSubmitPlan}
+      className="space-y-4"
+    >
       <div>
         <Label htmlFor="planName">Plan Name *</Label>
         <Input
@@ -1319,7 +1323,7 @@ export function BillingPlansAdmin() {
               type="number"
               placeholder="10"
               defaultValue={
-                selectedPlan?.maxUnits || selectedPlan?.userLimit || ""
+                selectedPlan?.maxUsers || selectedPlan?.userLimit || ""
               }
               required
             />
@@ -1357,7 +1361,7 @@ export function BillingPlansAdmin() {
               type="number"
               placeholder="10"
               defaultValue={
-                selectedPlan?.maxUnits || selectedPlan?.userLimit || ""
+                selectedPlan?.maxUsers || selectedPlan?.userLimit || ""
               }
               required
             />
@@ -1429,7 +1433,7 @@ export function BillingPlansAdmin() {
         </div>
       </div>
     </form>
-  );
+  ), [selectedPlan, planCategory, selectedCurrency, currentCurrency]);
 
   return (
     <div className="space-y-6">
@@ -3384,7 +3388,10 @@ export function BillingPlansAdmin() {
 
       {/* Create/Edit Plan Dialog */}
       <Dialog open={isCreatePlanOpen} onOpenChange={setIsCreatePlanOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
+        <DialogContent
+          key={selectedPlan?.id || 'new-plan'}
+          className="max-w-2xl max-h-[90vh] flex flex-col p-0"
+        >
           <DialogHeader className="px-6 pt-6 pb-4 flex-shrink-0 border-b">
             <DialogTitle>
               {selectedPlan ? "Edit Plan" : "Create New Plan"}
@@ -3396,7 +3403,7 @@ export function BillingPlansAdmin() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto px-6 py-4">
-            <PlanForm />
+            {PlanForm}
           </div>
           <div className="flex justify-end space-x-2 pt-4 pb-6 px-6 flex-shrink-0 border-t bg-gray-50">
             <Button

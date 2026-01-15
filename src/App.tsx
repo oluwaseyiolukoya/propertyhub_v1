@@ -39,6 +39,10 @@ import { sessionManager } from "./lib/sessionManager";
 import { initializeSocket } from "./lib/socket";
 import { safeStorage } from "./lib/safeStorage";
 import {
+  getPublicMaintenanceStatus,
+  MaintenanceStatus,
+} from "./lib/api/system";
+import {
   getManagers as apiGetManagers,
   createManager as apiCreateManager,
   assignManagerToProperty as apiAssignManagerToProperty,
@@ -54,6 +58,7 @@ import { KYCVerificationPage } from "./components/KYCVerificationPage";
 import { PublicAdminLogin } from "./components/public-admin/PublicAdminLogin";
 import { PublicAdminLayout } from "./components/public-admin/PublicAdminLayout";
 import { isAdminAuthenticated } from "./lib/api/publicAdminApi";
+import { MaintenanceNotice } from "./components/MaintenanceNotice";
 
 function App() {
   // Load platform branding (logo and favicon)
@@ -152,6 +157,8 @@ function App() {
   const [customerData, setCustomerData] = useState<any>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [showLanding, setShowLanding] = useState(!isAppDomain); // Don't show landing on app domain
+  const [maintenanceStatus, setMaintenanceStatus] =
+    useState<MaintenanceStatus | null>(null);
 
   // Public Admin State
   const [publicAdminAuthenticated, setPublicAdminAuthenticated] =
@@ -166,6 +173,27 @@ function App() {
     if (shouldShowAdmin) {
       setPublicAdminAuthenticated(isAdminAuthenticated());
     }
+  }, [shouldShowAdmin]);
+
+  // Load maintenance status for non-admin experiences
+  useEffect(() => {
+    if (shouldShowAdmin) return;
+    let isMounted = true;
+
+    const loadMaintenanceStatus = async () => {
+      const response = await getPublicMaintenanceStatus();
+      if (isMounted && response.data) {
+        setMaintenanceStatus(response.data);
+      }
+    };
+
+    loadMaintenanceStatus();
+    const intervalId = window.setInterval(loadMaintenanceStatus, 30000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+    };
   }, [shouldShowAdmin]);
 
   // Note: Third-party error handling is now centralized in main.tsx
@@ -1447,6 +1475,12 @@ function App() {
     await loadManagers();
   };
 
+  const isInternalAdmin = !!currentUser && !currentUser.customerId;
+  const maintenanceNotice =
+    !shouldShowAdmin && !isInternalAdmin ? (
+      <MaintenanceNotice status={maintenanceStatus} isAdmin={false} />
+    ) : null;
+
   // Debug: Log current state
   console.log(
     "Current State - UserType:",
@@ -1506,53 +1540,61 @@ function App() {
   // Show loading while checking auth
   if (isAuthChecking) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+      <>
+        {maintenanceNotice}
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading...</p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   // App domain (localhost without ?public) - show login or authenticated dashboards
   if (isAppDomain && !currentUser) {
     return (
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <>
-              <LoginPage
-                onLogin={handleLogin}
-                onBackToHome={() => {
-                  // Navigate to public landing page
-                  if (isLocalDev) {
-                    // On localhost, add ?public=true to show landing page
-                    const url = new URL(window.location.href);
-                    url.searchParams.set("public", "true");
-                    window.location.href = url.toString();
-                  } else {
-                    // On production, navigate to public domain
-                    window.location.href = "https://contrezz.com";
-                  }
-                }}
-                onNavigateToScheduleDemo={() => window.open("https://contrezz.com/schedule-demo", "_blank")}
-                onNavigateToContact={() => window.open("https://contrezz.com/contact", "_blank")}
-              />
-              <Toaster />
-            </>
-          }
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <>
+        {maintenanceNotice}
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <>
+                <LoginPage
+                  onLogin={handleLogin}
+                  onBackToHome={() => {
+                    // Navigate to public landing page
+                    if (isLocalDev) {
+                      // On localhost, add ?public=true to show landing page
+                      const url = new URL(window.location.href);
+                      url.searchParams.set("public", "true");
+                      window.location.href = url.toString();
+                    } else {
+                      // On production, navigate to public domain
+                      window.location.href = "https://contrezz.com";
+                    }
+                  }}
+                  onNavigateToScheduleDemo={() => window.open("https://contrezz.com/schedule-demo", "_blank")}
+                  onNavigateToContact={() => window.open("https://contrezz.com/contact", "_blank")}
+                />
+                <Toaster />
+              </>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </>
     );
   }
 
   // Public routes wrapper - only show on public domain when not authenticated
   if (!currentUser && !isAppDomain) {
     return (
-      <Routes>
+      <>
+        {maintenanceNotice}
+        <Routes>
         {/* Landing page */}
         <Route
           path="/"
@@ -1904,7 +1946,8 @@ function App() {
           path="*"
           element={<Navigate to="/" replace />}
         />
-      </Routes>
+        </Routes>
+      </>
     );
   }
 
@@ -1912,6 +1955,7 @@ function App() {
   if (showStorageTest) {
     return (
       <>
+        {maintenanceNotice}
         <div className="min-h-screen bg-gray-50 pt-4">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <button
@@ -1932,6 +1976,7 @@ function App() {
   if (showCheckAuth) {
     return (
       <>
+        {maintenanceNotice}
         <div className="min-h-screen bg-gray-50 pt-4">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <button
@@ -1958,6 +2003,7 @@ function App() {
   ) {
     return (
       <>
+        {maintenanceNotice}
         <KYCVerificationPage
           onVerificationComplete={async () => {
             console.log(
@@ -1985,6 +2031,7 @@ function App() {
   if (userType === "owner" || userType === "property-owner") {
     return (
       <>
+        {maintenanceNotice}
         <PropertyOwnerDashboard
           user={currentUser}
           onLogout={handleLogout}
@@ -2006,6 +2053,7 @@ function App() {
   if (userType === "admin" || userType === "super-admin") {
     return (
       <>
+        {maintenanceNotice}
         <SuperAdminDashboard user={currentUser} onLogout={handleLogout} />
         <Toaster />
       </>
@@ -2016,6 +2064,7 @@ function App() {
   if (userType === "manager" || userType === "property-manager") {
     return (
       <>
+        {maintenanceNotice}
         <PropertyManagerDashboard
           user={currentUser}
           onLogout={handleLogout}
@@ -2030,6 +2079,7 @@ function App() {
   if (userType === "tenant") {
     return (
       <>
+        {maintenanceNotice}
         <TenantDashboard />
         <Toaster />
       </>
@@ -2041,6 +2091,7 @@ function App() {
   if (userType === "developer" || userType === "property-developer") {
     return (
       <>
+        {maintenanceNotice}
         <DeveloperDashboardRefactored
           user={currentUser}
           onLogout={handleLogout}
@@ -2053,6 +2104,7 @@ function App() {
   // For other user types, show coming soon
   return (
     <>
+      {maintenanceNotice}
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">

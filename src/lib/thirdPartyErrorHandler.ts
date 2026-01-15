@@ -26,12 +26,14 @@ export interface ThirdPartyErrorConfig {
 class ThirdPartyErrorHandler {
   private config: ThirdPartyErrorConfig;
   private originalConsoleError: typeof console.error;
+  private originalConsoleWarn: typeof console.warn;
   private errorListenerAdded = false;
   private rejectionListenerAdded = false;
 
   constructor(config: ThirdPartyErrorConfig) {
     this.config = config;
     this.originalConsoleError = console.error;
+    this.originalConsoleWarn = console.warn;
   }
 
   /**
@@ -42,6 +44,7 @@ class ThirdPartyErrorHandler {
     this.setupPromiseRejectionHandler();
     this.setupMissingGlobalShims();
     this.setupConsoleErrorInterceptor();
+    this.setupConsoleWarnInterceptor();
 
     // Return cleanup function
     return () => this.cleanup();
@@ -167,7 +170,7 @@ class ThirdPartyErrorHandler {
 
       // Check if error is from third-party code
       const isThirdParty = this.config.identifiers.some((id) =>
-        message.includes(id)
+        message.toLowerCase().includes(id.toLowerCase())
       );
 
       if (isThirdParty) {
@@ -177,6 +180,28 @@ class ThirdPartyErrorHandler {
 
       // Pass through legitimate errors
       this.originalConsoleError.apply(console, args);
+    };
+  }
+
+  /**
+   * Layer 5: Intercept console.warn to suppress third-party warnings
+   */
+  private setupConsoleWarnInterceptor() {
+    console.warn = (...args: any[]) => {
+      const message = args.join(" ");
+
+      // Check if warning is from third-party code
+      const isThirdParty = this.config.identifiers.some((id) =>
+        message.toLowerCase().includes(id.toLowerCase())
+      );
+
+      if (isThirdParty) {
+        this.logDebug("Console warning suppressed", { message });
+        return;
+      }
+
+      // Pass through legitimate warnings
+      this.originalConsoleWarn.apply(console, args);
     };
   }
 
@@ -230,8 +255,9 @@ class ThirdPartyErrorHandler {
    * Cleanup handlers
    */
   private cleanup() {
-    // Restore original console.error
+    // Restore original console methods
     console.error = this.originalConsoleError;
+    console.warn = this.originalConsoleWarn;
 
     // Note: We don't remove event listeners as they may still be needed
     // for other third-party widgets loaded later
@@ -239,20 +265,38 @@ class ThirdPartyErrorHandler {
 }
 
 /**
- * Pre-configured handler for payment gateway widgets
+ * Pre-configured handler for payment gateway widgets and third-party SDKs
  */
 export const createPaymentGatewayErrorHandler = () => {
   return new ThirdPartyErrorHandler({
     identifiers: [
-      // Monicredit
+      // Monicredit & Fraud Detection
       "monicredit",
       "4aa5b64a",
       "a03afd9",
       "cancel-transaction",
+      "fingerprint",
+      "MerchantId",
+      "0b2f1160-7e90-4206-82b3-202cabd3cddf",
+      "/v2.22/fingerprint",
 
       // Common payment gateway identifiers
       "paystack",
       "flutterwave",
+
+      // Datadog Browser SDK
+      "Datadog Browser SDK",
+      "No storage available for session",
+      "datadoghq",
+      "datadog-browser-agent",
+      "we will not send any data",
+
+      // CSP-related third-party warnings
+      "Content Security Policy directive",
+      "script-src-elem",
+      "The query component",
+      "will be ignored",
+      "contains a source with an invalid path",
 
       // Common error patterns in payment widgets
       "next is not defined",

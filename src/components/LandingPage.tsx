@@ -18,9 +18,9 @@ import {
   TrendingUp,
   Hammer,
   Sparkles,
+  Calculator,
 } from "lucide-react";
 import {
-  ADD_ONS,
   formatCurrency,
   type UserType,
   type PricingPlan,
@@ -107,11 +107,18 @@ export function LandingPage({
   // Fetch dynamic landing page content from database
   useEffect(() => {
     async function loadLandingPageContent() {
+      // Skip fetching dynamic content if feature is disabled or endpoint doesn't exist
+      // This prevents unnecessary 404 errors in console
+      const enableDynamicContent = import.meta.env.VITE_ENABLE_DYNAMIC_LANDING_CONTENT === 'true';
+
+      if (!enableDynamicContent) {
+        setDynamicContent(null);
+        setContentLoading(false);
+        return;
+      }
+
       try {
         setContentLoading(true);
-        console.log(
-          "[LandingPage] Fetching dynamic content from /api/landing-pages/slug/home"
-        );
 
         const timestamp = new Date().getTime();
         // Use same pattern as other API clients - use API_BASE_URL for consistency
@@ -121,6 +128,7 @@ export function LandingPage({
             ? "" // Use Vite proxy in dev (goes to /api)
             : "https://api.contrezz.com/api");
         const apiBase = apiUrl || "/api";
+
         const response = await fetch(
           `${apiBase}/landing-pages/slug/home?_t=${timestamp}`,
           {
@@ -134,9 +142,7 @@ export function LandingPage({
 
         if (!response.ok) {
           if (response.status === 404) {
-            console.log(
-              "[LandingPage] No dynamic content found, using default"
-            );
+            // 404 means feature not configured yet - use default content
             setDynamicContent(null);
             return;
           }
@@ -146,23 +152,13 @@ export function LandingPage({
         const result = await response.json();
 
         if (result.success && result.page?.content) {
-          console.log("[LandingPage] Loaded dynamic content:", {
-            hasHero: !!result.page.content.hero,
-            hasStats: !!result.page.content.stats,
-            hasFeatures: !!result.page.content.features,
-            hasTestimonials: !!result.page.content.testimonials,
-            hasCTA: !!result.page.content.cta,
-          });
+          console.log("[LandingPage] ✓ Loaded dynamic content from database");
           setDynamicContent(result.page.content);
         } else {
-          console.log(
-            "[LandingPage] No valid content in response, using default"
-          );
           setDynamicContent(null);
         }
       } catch (error: any) {
-        console.error("[LandingPage] Failed to load dynamic content:", error);
-        // Use default content on error
+        // Network errors or other issues - silently use default content
         setDynamicContent(null);
       } finally {
         setContentLoading(false);
@@ -349,10 +345,10 @@ export function LandingPage({
       color: "purple",
     },
     {
-      icon: Key,
-      title: "Smart Access Control",
+      icon: Calculator,
+      title: "Tax Calculator",
       description:
-        "Revolutionary keycard system that automatically grants or revokes access based on payment status. No more changing locks, lost keys, or unauthorized access. Your properties stay secure, automatically.",
+        "Simplify your tax calculations with our built-in tax calculator. Automatically compute property taxes, VAT, and other relevant taxes based on Nigerian tax laws. Stay compliant and avoid penalties with accurate, up-to-date calculations.",
       color: "orange",
     },
     {
@@ -711,10 +707,6 @@ export function LandingPage({
                     <p className="text-gray-600 leading-relaxed">
                       {feature.description}
                     </p>
-                    <div className="mt-4 flex items-center text-purple-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <span className="text-sm font-semibold">Learn more</span>
-                      <ArrowRight className="h-4 w-4 ml-1 transform group-hover:translate-x-1 transition-transform" />
-                    </div>
                   </CardContent>
                 </Card>
               );
@@ -1069,43 +1061,6 @@ export function LandingPage({
               )}
             </TabsContent>
           </Tabs>
-
-          {/* Add-ons Section */}
-          <div className="mt-24">
-            <div className="text-center mb-12">
-              <h3 className="text-3xl font-bold text-gray-900 mb-4">
-                Add-Ons & Extras
-              </h3>
-              <p className="text-lg text-gray-600">
-                Customize your plan with additional features
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {ADD_ONS.filter((addon) =>
-                addon.userTypes.includes(selectedUserType)
-              ).map((addon) => (
-                <Card
-                  key={addon.id}
-                  className="hover:shadow-lg transition-shadow"
-                >
-                  <CardHeader>
-                    <CardTitle className="text-lg">{addon.name}</CardTitle>
-                    <p className="text-gray-600 text-sm">{addon.description}</p>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-bold text-gray-900">
-                        {formatCurrency(addon.price)}
-                      </span>
-                      <span className="text-sm text-gray-600">
-                        {addon.unit}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
 
           {/* FAQ Section */}
           <div className="mt-20 max-w-3xl mx-auto">

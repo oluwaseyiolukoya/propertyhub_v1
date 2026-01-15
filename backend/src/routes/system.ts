@@ -1,4 +1,7 @@
 import express, { Response } from "express";
+import fs from "fs";
+import path from "path";
+import { v4 as uuidv4 } from "uuid";
 import { authMiddleware, adminOnly, AuthRequest } from "../middleware/auth";
 import prisma from "../lib/db";
 import multer from "multer";
@@ -8,6 +11,7 @@ import {
   getPublicUrl,
   deleteFile,
 } from "../lib/storage";
+import { clearMaintenanceCache } from "../lib/maintenance";
 
 const router = express.Router();
 
@@ -118,20 +122,27 @@ router.post("/settings", adminOnly, async (req: AuthRequest, res: Response) => {
   try {
     const { key, value, category, description } = req.body;
 
-    if (!key || !value) {
+    if (!key || value === undefined) {
       return res.status(400).json({ error: "Key and value are required" });
     }
 
     const setting = await prisma.system_settings.upsert({
       where: { key },
-      update: { value, category, description },
+      update: { value, category, description, updatedAt: new Date() },
       create: {
+        id: uuidv4(),
         key,
         value,
         category: category || "system",
         description,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
     });
+
+    if (key === "maintenance_mode") {
+      clearMaintenanceCache();
+    }
 
     return res.json(setting);
   } catch (error: any) {

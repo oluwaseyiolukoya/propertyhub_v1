@@ -176,6 +176,10 @@ export function LoginPage({
         } else if (code === 403) {
           message =
             "Your account has been deactivated. Please contact your administrator.";
+        } else if (code === 503 || errorCode === "MAINTENANCE_MODE") {
+          message =
+            response.error.error ||
+            "Maintenance mode is active. Please try again later.";
         } else if (code === 400) {
           message = "Please select your role and fill all fields.";
         } else if (code && code >= 500) {

@@ -96,7 +96,79 @@ import {
   getAdminPaymentGateway,
   saveAdminPaymentGateway,
   AdminPaymentGatewayConfig,
+  getSystemSetting,
+  saveSystemSetting,
 } from "../lib/api/system";
+
+interface MaintenanceConfig {
+  enabled: boolean;
+  message: string;
+  scheduleStart: string;
+  scheduleEnd: string;
+  showBanner: boolean;
+  blockLogins: boolean;
+  apiLock: boolean;
+}
+
+const DEFAULT_MAINTENANCE_CONFIG: MaintenanceConfig = {
+  enabled: false,
+  message: "We are currently undergoing scheduled maintenance.",
+  scheduleStart: "",
+  scheduleEnd: "",
+  showBanner: true,
+  blockLogins: true,
+  apiLock: true,
+};
+
+const toInputValue = (value?: string | null) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const offsetMs = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+};
+
+const toIsoOrNull = (value: string) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+};
+
+const normalizeMaintenanceConfig = (value: any): MaintenanceConfig => {
+  if (typeof value === "boolean") {
+    return {
+      ...DEFAULT_MAINTENANCE_CONFIG,
+      enabled: value,
+    };
+  }
+
+  if (!value || typeof value !== "object") {
+    return { ...DEFAULT_MAINTENANCE_CONFIG };
+  }
+
+  return {
+    enabled: Boolean(value.enabled),
+    message:
+      typeof value.message === "string" && value.message.trim()
+        ? value.message.trim()
+        : DEFAULT_MAINTENANCE_CONFIG.message,
+    scheduleStart: toInputValue(value.scheduleStart),
+    scheduleEnd: toInputValue(value.scheduleEnd),
+    showBanner:
+      typeof value.showBanner === "boolean"
+        ? value.showBanner
+        : DEFAULT_MAINTENANCE_CONFIG.showBanner,
+    blockLogins:
+      typeof value.blockLogins === "boolean"
+        ? value.blockLogins
+        : DEFAULT_MAINTENANCE_CONFIG.blockLogins,
+    apiLock:
+      typeof value.apiLock === "boolean"
+        ? value.apiLock
+        : DEFAULT_MAINTENANCE_CONFIG.apiLock,
+  };
+};
 
 export function PlatformSettings() {
   const [activeTab, setActiveTab] = useState("general");
@@ -167,6 +239,10 @@ export function PlatformSettings() {
       prorationEnabled: true,
     },
   });
+  const [maintenanceConfig, setMaintenanceConfig] =
+    useState<MaintenanceConfig>(DEFAULT_MAINTENANCE_CONFIG);
+  const [maintenanceLoading, setMaintenanceLoading] = useState(false);
+  const [maintenanceSaving, setMaintenanceSaving] = useState(false);
 
   const [monicreditConfig, setMonicreditConfig] =
     useState<AdminPaymentGatewayConfig | null>(null);
@@ -783,7 +859,67 @@ export function PlatformSettings() {
     document.head.appendChild(link);
   };
 
-  const handleSaveSettings = (category: string) => {
+  const loadMaintenanceConfig = async () => {
+    try {
+      setMaintenanceLoading(true);
+      const response = await getSystemSetting("maintenance_mode");
+      if (response.data && "value" in response.data) {
+        setMaintenanceConfig(normalizeMaintenanceConfig(response.data.value));
+      }
+    } catch (error) {
+      console.error("Failed to load maintenance settings:", error);
+    } finally {
+      setMaintenanceLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMaintenanceConfig();
+  }, []);
+
+  const saveMaintenanceConfig = async () => {
+    try {
+      setMaintenanceSaving(true);
+      const payload = {
+        enabled: maintenanceConfig.enabled,
+        message: maintenanceConfig.message.trim()
+          ? maintenanceConfig.message.trim()
+          : DEFAULT_MAINTENANCE_CONFIG.message,
+        scheduleStart: toIsoOrNull(maintenanceConfig.scheduleStart),
+        scheduleEnd: toIsoOrNull(maintenanceConfig.scheduleEnd),
+        showBanner: maintenanceConfig.showBanner,
+        blockLogins: maintenanceConfig.blockLogins,
+        apiLock: maintenanceConfig.apiLock,
+      };
+
+      const response = await saveSystemSetting(
+        "maintenance_mode",
+        payload,
+        "system",
+        "Maintenance mode configuration"
+      );
+
+      if (response.error) {
+        toast.error(response.error.error || "Failed to save maintenance mode");
+        return false;
+      }
+
+      toast.success("Maintenance settings saved successfully");
+      return true;
+    } catch (error) {
+      console.error("Failed to save maintenance settings:", error);
+      toast.error("Failed to save maintenance mode");
+      return false;
+    } finally {
+      setMaintenanceSaving(false);
+    }
+  };
+
+  const handleSaveSettings = async (category: string) => {
+    if (category === "General") {
+      await saveMaintenanceConfig();
+      return;
+    }
     toast.success(`${category} settings saved successfully`);
   };
 
@@ -1333,18 +1469,141 @@ export function PlatformSettings() {
                       </div>
                       <Switch
                         id="maintenance-mode"
-                        checked={settings.general.maintenanceMode}
+                        checked={maintenanceConfig.enabled}
                         onCheckedChange={(checked) =>
-                          setSettings((prev) => ({
+                          setMaintenanceConfig((prev) => ({
                             ...prev,
-                            general: {
-                              ...prev.general,
-                              maintenanceMode: checked,
-                            },
+                            enabled: checked,
                           }))
                         }
                       />
                     </div>
+                    {maintenanceConfig.enabled && (
+                      <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label
+                              htmlFor="maintenance-start"
+                              className="text-gray-700 font-medium"
+                            >
+                              Schedule Start
+                            </Label>
+                            <Input
+                              id="maintenance-start"
+                              type="datetime-local"
+                              value={maintenanceConfig.scheduleStart}
+                              onChange={(e) =>
+                                setMaintenanceConfig((prev) => ({
+                                  ...prev,
+                                  scheduleStart: e.target.value,
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label
+                              htmlFor="maintenance-end"
+                              className="text-gray-700 font-medium"
+                            >
+                              Schedule End
+                            </Label>
+                            <Input
+                              id="maintenance-end"
+                              type="datetime-local"
+                              value={maintenanceConfig.scheduleEnd}
+                              onChange={(e) =>
+                                setMaintenanceConfig((prev) => ({
+                                  ...prev,
+                                  scheduleEnd: e.target.value,
+                                }))
+                              }
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label
+                            htmlFor="maintenance-message"
+                            className="text-gray-700 font-medium"
+                          >
+                            Banner Message
+                          </Label>
+                          <Textarea
+                            id="maintenance-message"
+                            rows={3}
+                            value={maintenanceConfig.message}
+                            onChange={(e) =>
+                              setMaintenanceConfig((prev) => ({
+                                ...prev,
+                                message: e.target.value,
+                              }))
+                            }
+                            placeholder="Describe the maintenance window..."
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div className="flex items-center justify-between rounded-md border border-gray-200 bg-white px-3 py-2">
+                            <div>
+                              <Label
+                                htmlFor="maintenance-banner"
+                                className="text-gray-700 text-sm"
+                              >
+                                Show Banner
+                              </Label>
+                            </div>
+                            <Switch
+                              id="maintenance-banner"
+                              checked={maintenanceConfig.showBanner}
+                              onCheckedChange={(checked) =>
+                                setMaintenanceConfig((prev) => ({
+                                  ...prev,
+                                  showBanner: checked,
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className="flex items-center justify-between rounded-md border border-gray-200 bg-white px-3 py-2">
+                            <div>
+                              <Label
+                                htmlFor="maintenance-block-logins"
+                                className="text-gray-700 text-sm"
+                              >
+                                Block Logins
+                              </Label>
+                            </div>
+                            <Switch
+                              id="maintenance-block-logins"
+                              checked={maintenanceConfig.blockLogins}
+                              onCheckedChange={(checked) =>
+                                setMaintenanceConfig((prev) => ({
+                                  ...prev,
+                                  blockLogins: checked,
+                                }))
+                              }
+                            />
+                          </div>
+                          <div className="flex items-center justify-between rounded-md border border-gray-200 bg-white px-3 py-2">
+                            <div>
+                              <Label
+                                htmlFor="maintenance-api-lock"
+                                className="text-gray-700 text-sm"
+                              >
+                                API Lock
+                              </Label>
+                            </div>
+                            <Switch
+                              id="maintenance-api-lock"
+                              checked={maintenanceConfig.apiLock}
+                              onCheckedChange={(checked) =>
+                                setMaintenanceConfig((prev) => ({
+                                  ...prev,
+                                  apiLock: checked,
+                                }))
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-white">
                       <div>
@@ -1405,6 +1664,7 @@ export function PlatformSettings() {
                 <div className="flex justify-end pt-4">
                   <Button
                     onClick={() => handleSaveSettings("General")}
+                    disabled={maintenanceSaving || maintenanceLoading}
                     className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg"
                   >
                     <Save className="h-4 w-4 mr-2" />

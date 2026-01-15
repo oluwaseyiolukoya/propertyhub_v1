@@ -77,6 +77,46 @@ export const saveSystemSetting = async (
   });
 };
 
+export interface MaintenanceStatus {
+  enabled: boolean;
+  message: string;
+  scheduleStart: string | null;
+  scheduleEnd: string | null;
+  showBanner: boolean;
+  blockLogins: boolean;
+  apiLock: boolean;
+  inWindow: boolean;
+}
+
+export const getPublicMaintenanceStatus = async (): Promise<{
+  data?: MaintenanceStatus;
+  error?: { error: string; statusCode?: number };
+}> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/public/maintenance`, {
+      cache: "no-store",
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      return {
+        error: {
+          error: data?.error || "Failed to load maintenance status",
+          statusCode: response.status,
+        },
+      };
+    }
+
+    return { data };
+  } catch (error: any) {
+    return {
+      error: {
+        error: error?.message || "Failed to load maintenance status",
+      },
+    };
+  }
+};
+
 export const uploadPlatformLogo = async (file: File) => {
   const form = new FormData();
   form.append("logo", file);

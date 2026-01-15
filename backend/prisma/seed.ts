@@ -912,7 +912,15 @@ async function main() {
     create: {
       id: "setting-maintenance-mode",
       key: "maintenance_mode",
-      value: false,
+      value: {
+        enabled: false,
+        message: "We are currently undergoing scheduled maintenance.",
+        scheduleStart: null,
+        scheduleEnd: null,
+        showBanner: true,
+        blockLogins: true,
+        apiLock: true,
+      },
       category: "system",
       description: "Enable/disable maintenance mode",
       updatedAt: new Date(),
