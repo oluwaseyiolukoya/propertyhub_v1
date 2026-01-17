@@ -162,6 +162,46 @@ async function request<T>(
 
     // Handle 401 Unauthorized - check for permissions update or session revoked (unless suppressed)
     if (response.status === 401 && !extra?.suppressAuthRedirect) {
+      const isNavigatingToPublic = (window as any).__navigatingToPublic === true;
+      const isOnLoginPage =
+        window.location.pathname === "/" || window.location.pathname === "/login";
+      const hasToken = !!getAuthToken();
+      const isAppHost = window.location.hostname === "app.contrezz.com";
+
+      // If the user is on the login page without a token, avoid forced redirects
+      // (prevents background 401s from overriding external navigation)
+      if (!hasToken && isOnLoginPage && isAppHost) {
+        return {
+          error: {
+            error: (data as any)?.error || "Unauthorized",
+            message: (data as any)?.message || (data as any)?.details,
+            statusCode: response.status,
+            ...(typeof (data as any)?.details !== "undefined"
+              ? { details: (data as any).details }
+              : {}),
+            ...(typeof (data as any)?.code !== "undefined"
+              ? { code: (data as any).code }
+              : {}),
+          },
+        };
+      }
+
+      // If we're navigating to the public site, don't override the navigation
+      if (isNavigatingToPublic) {
+        return {
+          error: {
+            error: (data as any)?.error || "Unauthorized",
+            message: (data as any)?.message || (data as any)?.details,
+            statusCode: response.status,
+            ...(typeof (data as any)?.details !== "undefined"
+              ? { details: (data as any).details }
+              : {}),
+            ...(typeof (data as any)?.code !== "undefined"
+              ? { code: (data as any).code }
+              : {}),
+          },
+        };
+      }
       if ((data as any)?.code === "PERMISSIONS_UPDATED") {
         // Show a toast notification before redirecting
         const event = new CustomEvent("permissionsUpdated", {

@@ -97,7 +97,17 @@ export function LoginPage({
   }) => {
     if (backToHomeUrl) {
       return (
-        <a href={backToHomeUrl} className={className}>
+        <a
+          href={backToHomeUrl}
+          className={className}
+          onClick={() => {
+            (window as any).__navigatingToPublic = true;
+            // Clear the flag after a short delay to avoid sticky state
+            window.setTimeout(() => {
+              (window as any).__navigatingToPublic = false;
+            }, 2000);
+          }}
+        >
           {children}
         </a>
       );
