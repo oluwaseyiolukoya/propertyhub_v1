@@ -46,6 +46,10 @@ export const authMiddleware = async (
     console.log('✅ Auth success:', decoded.role, decoded.email, 'accessing', req.method, req.path);
 
     // Check if session is revoked
+    // By default, we now require sessions to exist and be active (more secure)
+    // Set ALLOW_LEGACY_TOKENS=true to allow old tokens without sessions (backward compatibility)
+    const allowLegacyTokens = process.env.ALLOW_LEGACY_TOKENS === 'true';
+
     try {
       const session = await prisma.sessions.findFirst({
         where: {
@@ -53,6 +57,7 @@ export const authMiddleware = async (
           userId: decoded.id
         },
         select: {
+          id: true,
           isActive: true,
           expiresAt: true
         }
@@ -61,7 +66,7 @@ export const authMiddleware = async (
       if (session) {
         // Session exists in database - check if it's active
         if (!session.isActive) {
-          console.log('❌ Session revoked for user:', decoded.email);
+          console.log('❌ Session revoked for user:', decoded.email, '- Session ID:', session.id);
           return res.status(401).json({
             error: 'Your session has been revoked. Please log in again.',
             code: 'SESSION_REVOKED'
@@ -70,23 +75,42 @@ export const authMiddleware = async (
 
         // Check if session expired
         if (session.expiresAt && session.expiresAt < new Date()) {
-          console.log('❌ Session expired for user:', decoded.email);
+          console.log('❌ Session expired for user:', decoded.email, '- Session ID:', session.id);
           return res.status(401).json({
             error: 'Your session has expired. Please log in again.',
             code: 'SESSION_EXPIRED'
           });
         }
 
-        // Update last active time
-        await prisma.sessions.update({
+        // Update last active time (fire and forget)
+        prisma.sessions.update({
           where: { token },
           data: { lastActive: new Date() }
         }).catch(err => console.warn('Failed to update session lastActive:', err));
+
+        console.log('✅ Session valid for user:', decoded.email, '- Session ID:', session.id);
+      } else {
+        // Session doesn't exist in database
+        if (allowLegacyTokens) {
+          console.log('⚠️ No session found for user:', decoded.email, '- Allowing due to ALLOW_LEGACY_TOKENS=true');
+        } else {
+          console.log('❌ No session found for user:', decoded.email, '- Rejecting (session required)');
+          return res.status(401).json({
+            error: 'Session not found. Please log in again.',
+            code: 'SESSION_NOT_FOUND'
+          });
+        }
       }
-      // If session doesn't exist, allow (for backward compatibility with old tokens)
     } catch (sessionError) {
       console.warn('⚠️ Session check failed:', sessionError);
-      // Don't block request if session check fails
+      if (!allowLegacyTokens) {
+        // In strict mode, session check failure blocks the request
+        return res.status(500).json({
+          error: 'Session validation failed. Please try again.',
+          code: 'SESSION_CHECK_FAILED'
+        });
+      }
+      // In legacy mode, allow request even if session check fails
     }
 
     // Optional: feature-flagged permissions change invalidation (disabled by default)

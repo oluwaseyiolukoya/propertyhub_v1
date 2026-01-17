@@ -271,19 +271,31 @@ export function CareerManagement() {
   };
 
   const handleSubmit = async () => {
+    console.log("[Career Submit] handleSubmit called");
+    console.log("[Career Submit] formData:", {
+      title: formData.title,
+      department: formData.department,
+      location: formData.location,
+      descriptionLength: formData.description?.length,
+    });
+
     // Validation
     if (!formData.title || !formData.department || !formData.location) {
+      console.log("[Career Submit] Validation failed: missing required fields");
       toast.error("Please fill in all required fields");
       return;
     }
 
     // Check description length (strip HTML tags for length check)
     const descriptionText = formData.description.replace(/<[^>]*>/g, "").trim();
+    console.log("[Career Submit] Description text length:", descriptionText.length);
     if (!descriptionText || descriptionText.length < 50) {
+      console.log("[Career Submit] Validation failed: description too short");
       toast.error("Description must be at least 50 characters");
       return;
     }
 
+    console.log("[Career Submit] Validation passed, starting submission...");
     setIsSubmitting(true);
     try {
       const payload: any = {
@@ -307,15 +319,20 @@ export function CareerManagement() {
         payload.expiresAt = new Date(formData.expiresAt);
       }
 
+      console.log("[Career Submit] Payload:", payload);
+
       if (editingPosting) {
+        console.log("[Career Submit] Updating existing posting:", editingPosting.id);
         const response = await publicAdminApi.careers.update(
           editingPosting.id,
           payload
         );
-        console.log("Update response:", response);
+        console.log("[Career Submit] Update response:", response);
         toast.success("Career posting updated successfully");
       } else {
-        await publicAdminApi.careers.create(payload);
+        console.log("[Career Submit] Creating new posting...");
+        const response = await publicAdminApi.careers.create(payload);
+        console.log("[Career Submit] Create response:", response);
         toast.success("Career posting created successfully");
       }
 
@@ -328,6 +345,7 @@ export function CareerManagement() {
         loadStats();
       }, 500);
     } catch (error: any) {
+      console.error("[Career Submit] Error:", error);
       toast.error(
         error.error || error.message || "Failed to save career posting"
       );

@@ -159,11 +159,28 @@ router.post(
   requireEditor,
   async (req: AdminAuthRequest, res: Response): Promise<Response | void> => {
     try {
+      console.log("[Career Creation] Received request:", {
+        title: req.body.title,
+        department: req.body.department,
+        hasBenefits: !!req.body.benefits,
+        benefitsLength: req.body.benefits?.length,
+        allFields: Object.keys(req.body),
+      });
+
+      // Ensure benefits is never null or undefined (required by schema)
+      const data = {
+        ...req.body,
+        benefits: req.body.benefits || "", // Default to empty string if not provided
+        postedBy: req.admin?.id,
+      };
+
       const posting = await prisma.career_postings.create({
-        data: {
-          ...req.body,
-          postedBy: req.admin?.id,
-        },
+        data,
+      });
+
+      console.log("[Career Creation] Success:", {
+        id: posting.id,
+        title: posting.title,
       });
 
       // Log activity
@@ -184,9 +201,15 @@ router.post(
         posting,
       });
     } catch (error: any) {
-      console.error("Create career error:", error);
+      console.error("[Career Creation] Error:", error);
+      console.error("[Career Creation] Error details:", {
+        message: error.message,
+        code: error.code,
+        meta: error.meta,
+      });
       return res.status(500).json({
         error: error.message || "Failed to create career posting",
+        details: process.env.NODE_ENV === "development" ? error.stack : undefined,
       });
     }
   }

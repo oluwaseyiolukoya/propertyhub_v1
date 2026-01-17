@@ -258,8 +258,14 @@ export function HomePageEditor() {
           pageId: response.page?.id,
           hasContent: !!response.page?.content,
         });
+
+        // Update state immediately from response to reflect changes
+        if (response.page?.content && typeof response.page.content === "object") {
+          setContent(response.page.content as LandingPageContent);
+        }
+
         toast.success("Home page updated successfully");
-        // Reload the page to get the latest data
+        // Reload the page to ensure we have the latest data
         await loadHomePage();
         return;
       }
@@ -287,8 +293,14 @@ export function HomePageEditor() {
             pageId: response.page?.id,
             hasContent: !!response.page?.content,
           });
+
+          // Update state immediately from response to reflect changes
+          if (response.page?.content && typeof response.page.content === "object") {
+            setContent(response.page.content as LandingPageContent);
+          }
+
           toast.success("Home page updated successfully");
-          // Reload the page to get the latest data
+          // Reload the page to ensure we have the latest data
           await loadHomePage();
         } else {
           // Create new page
@@ -299,8 +311,14 @@ export function HomePageEditor() {
             hasContent: !!response.page?.content,
           });
           setPageId(response.page.id);
+
+          // Update state immediately from response to reflect changes
+          if (response.page?.content && typeof response.page.content === "object") {
+            setContent(response.page.content as LandingPageContent);
+          }
+
           toast.success("Home page created successfully");
-          // Reload the page to get the latest data
+          // Reload the page to ensure we have the latest data
           await loadHomePage();
         }
       } catch (createError: any) {
@@ -325,8 +343,14 @@ export function HomePageEditor() {
               pageId: response.page?.id,
               hasContent: !!response.page?.content,
             });
+
+            // Update state immediately from response to reflect changes
+            if (response.page?.content && typeof response.page.content === "object") {
+              setContent(response.page.content as LandingPageContent);
+            }
+
             toast.success("Home page updated successfully");
-            // Reload the page to get the latest data
+            // Reload the page to ensure we have the latest data
             await loadHomePage();
           } else {
             throw createError;

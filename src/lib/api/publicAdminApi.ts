@@ -11,6 +11,13 @@ const PUBLIC_ADMIN_API_URL =
     ? "/api/admin" // Use Vite proxy in dev
     : "https://api.contrezz.com/api/admin");
 
+// Debug log on module load
+console.log("[PublicAdminApi] Config:", {
+  VITE_PUBLIC_ADMIN_API_URL: import.meta.env.VITE_PUBLIC_ADMIN_API_URL,
+  DEV: import.meta.env.DEV,
+  RESOLVED_URL: PUBLIC_ADMIN_API_URL,
+});
+
 // Token storage keys
 const TOKEN_KEY = "public_admin_token";
 const ADMIN_KEY = "public_admin_data";
@@ -125,6 +132,7 @@ const apiRequest = async <T>(
   }
 
   const url = `${PUBLIC_ADMIN_API_URL}${endpoint}`;
+  console.log("[PublicAdminApi] Request:", { method: options.method || "GET", url });
 
   // Create a unique key for this request (only for GET requests to avoid caching mutations)
   const isGetRequest = !options.method || options.method === "GET";
