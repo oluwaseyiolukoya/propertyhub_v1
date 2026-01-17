@@ -102,13 +102,15 @@ const parseUserAgent = (userAgent: string) => {
 };
 
 // Helper function to create session
+// CRITICAL: Revokes all existing active sessions before creating a new one
+// This prevents the "dual session" bug where multiple logins create multiple active sessions
 const createSession = async (userId: string, token: string, req: Request) => {
   const userAgent = req.headers["user-agent"] || "";
   const { browser, os, device } = parseUserAgent(userAgent);
   const ipAddress = req.ip || req.socket.remoteAddress || "Unknown";
 
   try {
-    // Check if a session with this token already exists
+    // Check if a session with this exact token already exists
     const existingSession = await prisma.sessions.findUnique({
       where: { token },
     });
@@ -131,25 +133,50 @@ const createSession = async (userId: string, token: string, req: Request) => {
       console.log(
         `✅ Session updated for user ${userId} from ${device} (${browser} on ${os})`
       );
-    } else {
-      // Create new session
-      await prisma.sessions.create({
-        data: {
+      return;
+    }
+
+    // CRITICAL FIX: Before creating a new session, revoke ALL other active sessions for this user
+    // This prevents the dual-session bug where multiple logins create multiple active sessions
+    const activeSessionsCount = await prisma.sessions.count({
+      where: {
+        userId,
+        isActive: true,
+      },
+    });
+
+    if (activeSessionsCount > 0) {
+      console.log(
+        `🔒 Revoking ${activeSessionsCount} existing active session(s) for user ${userId} before creating new session`
+      );
+      await prisma.sessions.updateMany({
+        where: {
           userId,
-          token,
-          device,
-          browser,
-          os,
-          ipAddress,
-          userAgent,
-          location: "Unknown", // In production, use IP geolocation service
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+          isActive: true,
+        },
+        data: {
+          isActive: false,
         },
       });
-      console.log(
-        `✅ Session created for user ${userId} from ${device} (${browser} on ${os})`
-      );
     }
+
+    // Create new session (now guaranteed to be the only active session for this user)
+    await prisma.sessions.create({
+      data: {
+        userId,
+        token,
+        device,
+        browser,
+        os,
+        ipAddress,
+        userAgent,
+        location: "Unknown", // In production, use IP geolocation service
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+      },
+    });
+    console.log(
+      `✅ Session created for user ${userId} from ${device} (${browser} on ${os}) - Previous ${activeSessionsCount} session(s) revoked`
+    );
   } catch (error) {
     console.error("Failed to create/update session:", error);
     // Don't fail login if session creation fails

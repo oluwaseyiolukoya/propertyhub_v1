@@ -124,6 +124,7 @@ export function LoginPage({
     twoFactorCode: "",
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false); // Guard to prevent duplicate login calls
   const [showPassword, setShowPassword] = useState(false);
   const [invitationData, setInvitationData] = useState<any>(null);
   const [showPasswordSetup, setShowPasswordSetup] = useState(false);
@@ -167,10 +168,19 @@ export function LoginPage({
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // CRITICAL: Prevent duplicate login calls (race condition guard)
+    if (isLoggingIn || isLoading) {
+      console.log("⚠️ Login already in progress, ignoring duplicate call");
+      return;
+    }
+
     setIsLoading(true);
+    setIsLoggingIn(true);
     setError("");
 
     try {
+      console.log("🔐 Login initiated for:", loginForm.email);
       // No need to send userType - backend will automatically detect from database
       const response = await login({
         email: loginForm.email,
@@ -220,10 +230,12 @@ export function LoginPage({
         setError(message);
         toast.error(message);
         setIsLoading(false);
+        setIsLoggingIn(false);
         return;
       }
 
       if (response.data) {
+        console.log("✅ Login successful, calling onLogin callback");
         toast.success("Login successful!");
         // Backend auto-detects userType from database - no need for frontend mapping
         const resolvedUserType = response.data.user.userType || "owner";
@@ -240,6 +252,7 @@ export function LoginPage({
           user: response.data.user,
         });
 
+        // Call onLogin callback (this will trigger App.tsx handleLogin)
         onLogin(resolvedUserType, response.data.user);
         setTwoFactorRequired(false);
         setLoginForm((prev) => ({
@@ -256,6 +269,7 @@ export function LoginPage({
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);
+      setIsLoggingIn(false);
     }
   };
 
