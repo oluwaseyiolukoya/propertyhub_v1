@@ -78,6 +78,7 @@ import { UserManagement } from "./users/UserManagement";
 
 interface PublicAdminLayoutProps {
   children?: React.ReactNode;
+  onLogout?: () => void;
 }
 
 interface MenuItem {
@@ -91,9 +92,10 @@ interface MenuItem {
   }>;
 }
 
-export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
+export function PublicAdminLayout({ children, onLogout }: PublicAdminLayoutProps) {
   const [admin, setAdmin] = useState(getAdminData());
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -101,25 +103,44 @@ export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
   const { pageId, subPageId } = parseRoute(location.pathname);
 
   useEffect(() => {
+    // Don't do anything if logout is in progress
+    if (isLoggingOut) {
+      console.log("[PublicAdminLayout] Skipping session verification - logout in progress");
+      return;
+    }
+    
+    // Track if component is still mounted
+    let isMounted = true;
+    
     // Verify admin session on mount
     const verifySession = async () => {
       // Small delay to ensure token is stored after login
       await new Promise((resolve) => setTimeout(resolve, 100));
 
+      // Check if component is still mounted
+      if (!isMounted) return;
+
       // Check if token exists before making request
       const token = getAdminToken();
       if (!token) {
-        // No token, redirect to login
-        console.warn("No token found, redirecting to login");
-        removeAdminToken();
-        navigate("/admin/login", { replace: true });
+        // No token, redirect to login (but only if still mounted)
+        console.warn("[PublicAdminLayout] No token found, redirecting to login");
+        if (isMounted && !isLoggingOut) {
+          removeAdminToken();
+          // Use window.location to avoid React Router redirect loops
+          window.location.href = "/admin/login";
+        }
         return;
       }
 
       try {
         const response = await publicAdminApi.getMe();
-        setAdmin(response.admin);
+        if (isMounted) {
+          setAdmin(response.admin);
+        }
       } catch (error: any) {
+        if (!isMounted || isLoggingOut) return;
+        
         // Only logout on 401 (unauthorized) - other errors might be temporary
         if (
           error.error === "Session expired. Please log in again." ||
@@ -130,23 +151,25 @@ export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
           // For network errors, check if we have cached admin data
           // If we do, keep using it (server might be temporarily down)
           if (error.code === "NETWORK_ERROR" && admin) {
-            console.warn("Network error during session verification, using cached admin data");
+            console.warn("[PublicAdminLayout] Network error during session verification, using cached admin data");
             return; // Keep using cached data
           }
 
           // Session invalid or no cached data, redirect to login
-          console.warn("Session expired or invalid, redirecting to login");
+          console.warn("[PublicAdminLayout] Session expired or invalid, redirecting to login");
           removeAdminToken();
-          navigate("/admin/login", { replace: true });
+          if (onLogout) onLogout();
+          window.location.href = "/admin/login";
         } else {
           // For other errors (server errors, etc.), log but don't logout
           // The user might still have a valid session, just can't verify right now
-          console.error("Failed to verify session (non-auth error):", error);
+          console.error("[PublicAdminLayout] Failed to verify session (non-auth error):", error);
           // Keep using cached admin data if available
           if (!admin) {
             // If no cached admin data and verification fails, redirect to login
             removeAdminToken();
-            navigate("/admin/login", { replace: true });
+            if (onLogout) onLogout();
+            window.location.href = "/admin/login";
           }
         }
       }
@@ -156,23 +179,49 @@ export function PublicAdminLayout({ children }: PublicAdminLayoutProps) {
     const token = getAdminToken();
     if (admin || token) {
       verifySession();
-    } else {
+    } else if (!isLoggingOut) {
       // No admin data and no token, redirect to login
-      navigate("/admin/login", { replace: true });
+      console.log("[PublicAdminLayout] No admin data and no token, redirecting to login");
+      window.location.href = "/admin/login";
     }
+    
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty deps - only run on mount
+  }, [isLoggingOut]); // Re-run when logout state changes
 
   const handleLogout = async () => {
+    console.log("[PublicAdminLayout] handleLogout called");
+    
+    // Set flag to prevent useEffect from redirecting
+    setIsLoggingOut(true);
+    
     try {
       await publicAdminApi.logout();
-      toast.success("Logged out successfully");
-      navigate("/admin/login", { replace: true });
+      console.log("[PublicAdminLayout] API logout successful");
     } catch (error: any) {
+      console.error("[PublicAdminLayout] API logout failed:", error);
       // Even if API call fails, remove token locally
       removeAdminToken();
-      navigate("/admin/login", { replace: true });
     }
+    
+    // IMPORTANT: Update parent state to prevent redirect loop
+    console.log("[PublicAdminLayout] Calling onLogout callback");
+    if (onLogout) {
+      onLogout();
+    }
+    
+    // Use full page reload to ensure clean state and avoid redirect loops
+    // This clears all React state and navigates to the login page
+    console.log("[PublicAdminLayout] Performing full page redirect to login");
+    toast.success("Logged out successfully");
+    
+    // Give toast time to show, then do full page redirect
+    setTimeout(() => {
+      window.location.href = "/admin/login";
+    }, 500);
   };
 
   // Check if user has access to a page

@@ -873,19 +873,26 @@ function App() {
   };
 
   const handleLogout = async () => {
+    console.log('[App] handleLogout initiated...');
+    
     try {
       // Call backend to revoke session first
+      console.log('[App] Importing logout function...');
       const { logout } = await import('./lib/api/auth');
-      await logout();
+      console.log('[App] Calling logout...');
+      const result = await logout();
+      console.log('[App] Logout result:', result);
     } catch (error) {
-      console.error('Failed to revoke session on backend:', error);
+      console.error('[App] Failed to revoke session on backend:', error);
       // Continue with logout even if backend call fails
     }
 
-    // Clear session data
+    // Clear session data (redundant since logout() already clears, but just to be safe)
+    console.log('[App] Clearing session manually...');
     sessionManager.clearSessionManually();
 
     // Reset all user-related state
+    console.log('[App] Resetting user state...');
     setCurrentUser(null);
     setUserType("");
     setCustomerData(null);
@@ -916,13 +923,16 @@ function App() {
     setManagers([]);
     setPropertyAssignments([]);
 
+    console.log('[App] Logout complete, redirecting...');
+    
     // Navigate to login page to ensure clean state
     // Use window.location for a full page reload to clear any React Router state
     if (isAppDomain) {
-      window.location.href = "/login";
+      // Stay on the login page (this will refresh the page with a clean state)
+      window.location.href = "/";
     } else {
       // For public domain, navigate to home
-      navigateToPage("/");
+      window.location.href = "/";
     }
   };
 
@@ -1518,7 +1528,7 @@ function App() {
           path="/admin/*"
           element={
             publicAdminAuthenticated ? (
-              <PublicAdminLayout />
+              <PublicAdminLayout onLogout={() => setPublicAdminAuthenticated(false)} />
             ) : (
               <Navigate to="/admin/login" replace />
             )

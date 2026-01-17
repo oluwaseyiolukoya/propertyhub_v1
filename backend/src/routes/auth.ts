@@ -2138,15 +2138,22 @@ router.post(
  * Logout and revoke current session
  */
 router.post("/logout", authMiddleware, async (req: AuthRequest, res: Response) => {
+  console.log("========================================");
+  console.log("🔒 LOGOUT ENDPOINT HIT");
+  console.log("========================================");
+  
   try {
     const userId = req.user?.id;
+    const userEmail = req.user?.email;
     const token = req.headers.authorization?.replace("Bearer ", "").trim();
 
     if (!userId || !token) {
+      console.log("❌ Logout failed: No userId or token");
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    console.log(`🔒 Attempting to revoke session for user ${userId}`);
+    console.log(`🔒 Attempting to revoke session for user: ${userEmail} (${userId})`);
+    console.log(`🔒 Token (first 20 chars): ${token.substring(0, 20)}...`);
 
     // First, try to find the session by token
     const session = await prisma.sessions.findUnique({
@@ -2154,26 +2161,44 @@ router.post("/logout", authMiddleware, async (req: AuthRequest, res: Response) =
     });
 
     if (session) {
+      console.log(`🔒 Session found: ${session.id}, isActive: ${session.isActive}`);
+      
       // Session found, mark it as inactive
-      await prisma.sessions.update({
+      const updatedSession = await prisma.sessions.update({
         where: { token },
         data: {
           isActive: false,
           updatedAt: new Date(),
         },
       });
-      console.log(`🔒 Session revoked: ${session.id} for user ${userId}`);
+      
+      console.log(`✅ Session revoked successfully!`);
+      console.log(`   Session ID: ${updatedSession.id}`);
+      console.log(`   isActive: ${updatedSession.isActive}`);
+      console.log(`   User: ${userEmail}`);
     } else {
       // Session not found, but still log out successfully
       // This can happen if session was already revoked or expired
-      console.log(`⚠️ No session found for token, but allowing logout for user ${userId}`);
+      console.log(`⚠️ No session found for token, but allowing logout for user ${userEmail}`);
     }
 
-    return res.json({ message: "Logged out successfully" });
+    console.log("========================================");
+    console.log("🔒 LOGOUT COMPLETE - Session should now be invalid");
+    console.log("========================================");
+    
+    return res.json({ 
+      message: "Logged out successfully",
+      sessionRevoked: !!session 
+    });
   } catch (error: any) {
-    console.error("Logout error:", error);
-    // Even if there's an error, we should allow logout
-    return res.json({ message: "Logged out successfully" });
+    console.error("========================================");
+    console.error("❌ LOGOUT ERROR:", error);
+    console.error("========================================");
+    // Even if there's an error, we should allow logout on the client side
+    return res.status(500).json({ 
+      error: "Failed to revoke session", 
+      message: error.message 
+    });
   }
 });
 

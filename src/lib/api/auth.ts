@@ -165,18 +165,32 @@ export const getAccountInfo = async () => {
 
 /**
  * Logout user (revokes session on backend and clears client storage)
+ * Note: This function does NOT redirect - the caller should handle navigation
  */
-export const logout = async () => {
+export const logout = async (): Promise<{ success: boolean; error?: string }> => {
+  console.log('[Auth] Logout initiated...');
+  
   try {
     // Call backend to revoke session
-    await apiClient.post(API_ENDPOINTS.AUTH.LOGOUT, {});
-  } catch (error) {
-    // Log error but continue with logout even if backend call fails
-    console.error('Failed to revoke session on backend:', error);
-  } finally {
-    // Always clear local storage and redirect, even if backend call fails
+    console.log('[Auth] Calling backend logout endpoint...');
+    const response = await apiClient.post(API_ENDPOINTS.AUTH.LOGOUT, {});
+    console.log('[Auth] Backend logout response:', response);
+    
+    // Clear local storage after successful backend call
+    console.log('[Auth] Clearing local storage...');
     localStorage.clear();
-    window.location.href = '/';
+    
+    console.log('[Auth] Logout successful');
+    return { success: true };
+  } catch (error: any) {
+    // Log error but still clear local storage
+    console.error('[Auth] Failed to revoke session on backend:', error);
+    
+    // Clear local storage anyway - user wants to logout
+    console.log('[Auth] Clearing local storage despite backend error...');
+    localStorage.clear();
+    
+    return { success: false, error: error?.message || 'Failed to revoke session' };
   }
 };
 

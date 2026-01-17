@@ -15,6 +15,7 @@ The production website (`https://contrezz.com`) fetches from the **production** 
 ### Option 1: Use Production Public Admin (Recommended)
 
 1. **Go to Production Public Admin**:
+
    ```
    https://admin.contrezz.com/
    ```
@@ -50,11 +51,11 @@ async function exportContent() {
   const page = await prisma.landing_pages.findUnique({
     where: { slug: 'home' }
   });
-  
+
   if (page) {
     console.log(JSON.stringify(page.content, null, 2));
   }
-  
+
   await prisma.\$disconnect();
 }
 
@@ -75,8 +76,8 @@ exportContent();
 SELECT id, slug, title, published FROM landing_pages WHERE slug = 'home';
 
 -- Update the content (replace with your JSON)
-UPDATE landing_pages 
-SET 
+UPDATE landing_pages
+SET
   content = '{ YOUR_JSON_CONTENT_HERE }',
   "updatedAt" = NOW(),
   published = true,
@@ -90,39 +91,41 @@ Create a script to update production:
 
 ```typescript
 // public-backend/scripts/update-production-content.ts
-import { PrismaClient } from '@prisma/client';
-import * as fs from 'fs';
+import { PrismaClient } from "@prisma/client";
+import * as fs from "fs";
 
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: process.env.PUBLIC_DATABASE_URL // Production DB
-    }
-  }
+      url: process.env.PUBLIC_DATABASE_URL, // Production DB
+    },
+  },
 });
 
 async function updateProduction() {
   try {
     // Read the exported content
-    const content = JSON.parse(fs.readFileSync('home-page-content.json', 'utf-8'));
-    
+    const content = JSON.parse(
+      fs.readFileSync("home-page-content.json", "utf-8")
+    );
+
     // Update production database
     const updated = await prisma.landing_pages.update({
-      where: { slug: 'home' },
+      where: { slug: "home" },
       data: {
         content: content,
         published: true,
         publishedAt: new Date(),
         updatedAt: new Date(),
-      }
+      },
     });
-    
-    console.log('✅ Production content updated successfully!');
-    console.log('   Page ID:', updated.id);
-    console.log('   Published:', updated.published);
-    console.log('   Updated At:', updated.updatedAt);
+
+    console.log("✅ Production content updated successfully!");
+    console.log("   Page ID:", updated.id);
+    console.log("   Published:", updated.published);
+    console.log("   Updated At:", updated.updatedAt);
   } catch (error) {
-    console.error('❌ Error updating production:', error);
+    console.error("❌ Error updating production:", error);
   } finally {
     await prisma.$disconnect();
   }
@@ -199,6 +202,7 @@ doctl apps logs <APP_ID> --follow
 3. Check if your changes appear
 
 If not appearing:
+
 - **Clear browser cache completely**
 - **Try incognito/private mode**
 - **Check if Cloudflare is caching** (if using Cloudflare, purge cache)
@@ -210,6 +214,7 @@ If not appearing:
 **Cause**: Page is not published in production database
 
 **Solution**:
+
 ```bash
 # Run verification script against production
 PUBLIC_DATABASE_URL="your-prod-db-url" npx tsx scripts/verify-home-page.ts
@@ -220,6 +225,7 @@ PUBLIC_DATABASE_URL="your-prod-db-url" npx tsx scripts/verify-home-page.ts
 **Cause**: Not authenticated or token expired
 
 **Solution**:
+
 1. Login again through `https://admin.contrezz.com/`
 2. Check if your admin account exists in production database
 3. Verify `ALLOWED_ORIGINS` includes `https://admin.contrezz.com`
@@ -229,6 +235,7 @@ PUBLIC_DATABASE_URL="your-prod-db-url" npx tsx scripts/verify-home-page.ts
 **Cause**: Could be multiple issues
 
 **Check**:
+
 1. **Database connection**: Is production database accessible?
 2. **Migrations**: Are all migrations applied to production?
 3. **API logs**: What error is shown in production logs?
@@ -246,6 +253,7 @@ PUBLIC_DATABASE_URL="your-prod-db" psql -c "\dt career*"
 **Cause**: Caching (browser, CDN, or server)
 
 **Solution**:
+
 1. **Clear browser cache**
 2. **Purge CDN cache** (Cloudflare, etc.)
 3. **Check cache headers** in the API response:
@@ -280,6 +288,7 @@ Always use `https://admin.contrezz.com/` for production content updates.
 ### 4. Document Production Credentials
 
 Keep your production admin credentials secure:
+
 - Use a password manager
 - Don't share credentials in code or git
 - Rotate passwords regularly
@@ -302,27 +311,32 @@ When updating production content:
 If content is still not updating after all troubleshooting:
 
 1. **Check if production backend is running**:
+
    ```bash
    curl https://api.contrezz.com/health
    ```
 
 2. **Check database connection**:
+
    ```bash
    PUBLIC_DATABASE_URL="your-prod-db" psql -c "SELECT NOW();"
    ```
 
 3. **Verify home page exists and is published**:
+
    ```bash
    PUBLIC_DATABASE_URL="your-prod-db" \
    npx tsx scripts/verify-home-page.ts
    ```
 
 4. **Check production logs for errors**:
+
    ```bash
    doctl apps logs <APP_ID> --tail 200
    ```
 
 5. **Restart production backend**:
+
    ```bash
    doctl apps create-deployment <APP_ID>
    ```
@@ -333,4 +347,3 @@ If content is still not updating after all troubleshooting:
 
 **Last Updated**: January 17, 2026  
 **Status**: ✅ Critical - Read before updating production content
-
