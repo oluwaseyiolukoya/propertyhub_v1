@@ -232,6 +232,15 @@ function App() {
     // Skip redirects on admin domain or admin path
     if (isAdminDomain || isOnAdminPath) return;
 
+    // CRITICAL: Don't redirect if user just logged in (prevent race condition)
+    // Give login flow time to complete before redirecting
+    const justLoggedIn = sessionStorage.getItem('__just_logged_in');
+    if (justLoggedIn) {
+      console.log('[App] Just logged in, skipping redirect logic');
+      sessionStorage.removeItem('__just_logged_in');
+      return;
+    }
+
     // If on app domain but trying to access public routes, redirect to public domain
     if (isAppDomain && !currentUser) {
       const publicRoutes = [
@@ -299,6 +308,14 @@ function App() {
   // Check for existing auth on mount
   useEffect(() => {
     const checkAuth = async () => {
+      // CRITICAL: If currentUser is already set (from handleLogin), skip checkAuth
+      // This prevents race condition where checkAuth clears state after successful login
+      if (currentUser && userType) {
+        console.log("[App] User already authenticated, skipping checkAuth");
+        setIsAuthChecking(false);
+        return;
+      }
+
       const storedUser = getUserData();
       const storedUserType = getUserType();
 
@@ -428,7 +445,7 @@ function App() {
     };
 
     checkAuth();
-  }, []);
+  }, []); // Only run on mount - don't re-run when currentUser changes
 
   // Check for special test routes
   useEffect(() => {
@@ -794,6 +811,9 @@ function App() {
     console.log("📋 User Role:", userData?.role);
     console.log("🏢 Customer ID:", userData?.customerId);
     console.log("🎯 UserType from backend:", userData?.userType);
+
+    // CRITICAL: Set flag to prevent redirect logic from interfering
+    sessionStorage.setItem('__just_logged_in', 'true');
 
     setCurrentUser(userData);
     const derivedType = deriveUserTypeFromUser(userData);
