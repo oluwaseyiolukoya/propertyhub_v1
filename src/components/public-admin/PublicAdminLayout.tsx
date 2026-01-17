@@ -108,10 +108,10 @@ export function PublicAdminLayout({ children, onLogout }: PublicAdminLayoutProps
       console.log("[PublicAdminLayout] Skipping session verification - logout in progress");
       return;
     }
-    
+
     // Track if component is still mounted
     let isMounted = true;
-    
+
     // Verify admin session on mount
     const verifySession = async () => {
       // Small delay to ensure token is stored after login
@@ -140,7 +140,7 @@ export function PublicAdminLayout({ children, onLogout }: PublicAdminLayoutProps
         }
       } catch (error: any) {
         if (!isMounted || isLoggingOut) return;
-        
+
         // Only logout on 401 (unauthorized) - other errors might be temporary
         if (
           error.error === "Session expired. Please log in again." ||
@@ -184,7 +184,7 @@ export function PublicAdminLayout({ children, onLogout }: PublicAdminLayoutProps
       console.log("[PublicAdminLayout] No admin data and no token, redirecting to login");
       window.location.href = "/admin/login";
     }
-    
+
     // Cleanup function
     return () => {
       isMounted = false;
@@ -194,10 +194,10 @@ export function PublicAdminLayout({ children, onLogout }: PublicAdminLayoutProps
 
   const handleLogout = async () => {
     console.log("[PublicAdminLayout] handleLogout called");
-    
+
     // Set flag to prevent useEffect from redirecting
     setIsLoggingOut(true);
-    
+
     try {
       await publicAdminApi.logout();
       console.log("[PublicAdminLayout] API logout successful");
@@ -206,18 +206,18 @@ export function PublicAdminLayout({ children, onLogout }: PublicAdminLayoutProps
       // Even if API call fails, remove token locally
       removeAdminToken();
     }
-    
+
     // IMPORTANT: Update parent state to prevent redirect loop
     console.log("[PublicAdminLayout] Calling onLogout callback");
     if (onLogout) {
       onLogout();
     }
-    
+
     // Use full page reload to ensure clean state and avoid redirect loops
     // This clears all React state and navigates to the login page
     console.log("[PublicAdminLayout] Performing full page redirect to login");
     toast.success("Logged out successfully");
-    
+
     // Give toast time to show, then do full page redirect
     setTimeout(() => {
       window.location.href = "/admin/login";

@@ -145,7 +145,16 @@ function App() {
     !forcePublic &&
     (hostname === "app.contrezz.com" ||
       hostname === "app.contrezz.local" ||
+      hostname.endsWith(".ondigitalocean.app") || // DigitalOcean App Platform domains
       (hostname === "localhost" && !urlParams.get("public")));
+  
+  // Debug logging for domain detection
+  console.log("[App] Domain detection:", {
+    hostname,
+    isLocalDev,
+    isAppDomain,
+    forcePublic,
+  });
   const isPublicDomain =
     forcePublic ||
     hostname === "contrezz.com" ||
@@ -874,7 +883,7 @@ function App() {
 
   const handleLogout = async () => {
     console.log('[App] handleLogout initiated...');
-    
+
     try {
       // Call backend to revoke session first
       console.log('[App] Importing logout function...');
@@ -924,7 +933,7 @@ function App() {
     setPropertyAssignments([]);
 
     console.log('[App] Logout complete, redirecting...');
-    
+
     // Navigate to login page to ensure clean state
     // Use window.location for a full page reload to clear any React Router state
     if (isAppDomain) {
@@ -1584,14 +1593,20 @@ function App() {
                 <LoginPage
                   onLogin={handleLogin}
                   onBackToHome={() => {
+                    console.log("[App] Back to Home clicked");
+                    console.log("[App] isLocalDev:", isLocalDev);
+                    console.log("[App] hostname:", window.location.hostname);
+                    
                     // Navigate to public landing page
                     if (isLocalDev) {
                       // On localhost, add ?public=true to show landing page
                       const url = new URL(window.location.href);
                       url.searchParams.set("public", "true");
+                      console.log("[App] Redirecting to:", url.toString());
                       window.location.href = url.toString();
                     } else {
                       // On production, navigate to public domain
+                      console.log("[App] Redirecting to: https://contrezz.com");
                       window.location.href = "https://contrezz.com";
                     }
                   }}

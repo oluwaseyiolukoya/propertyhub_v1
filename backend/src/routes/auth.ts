@@ -2141,7 +2141,7 @@ router.post("/logout", authMiddleware, async (req: AuthRequest, res: Response) =
   console.log("========================================");
   console.log("🔒 LOGOUT ENDPOINT HIT");
   console.log("========================================");
-  
+
   try {
     const userId = req.user?.id;
     const userEmail = req.user?.email;
@@ -2162,7 +2162,7 @@ router.post("/logout", authMiddleware, async (req: AuthRequest, res: Response) =
 
     if (session) {
       console.log(`🔒 Session found: ${session.id}, isActive: ${session.isActive}`);
-      
+
       // Session found, mark it as inactive
       const updatedSession = await prisma.sessions.update({
         where: { token },
@@ -2171,7 +2171,7 @@ router.post("/logout", authMiddleware, async (req: AuthRequest, res: Response) =
           updatedAt: new Date(),
         },
       });
-      
+
       console.log(`✅ Session revoked successfully!`);
       console.log(`   Session ID: ${updatedSession.id}`);
       console.log(`   isActive: ${updatedSession.isActive}`);
@@ -2185,19 +2185,19 @@ router.post("/logout", authMiddleware, async (req: AuthRequest, res: Response) =
     console.log("========================================");
     console.log("🔒 LOGOUT COMPLETE - Session should now be invalid");
     console.log("========================================");
-    
-    return res.json({ 
+
+    return res.json({
       message: "Logged out successfully",
-      sessionRevoked: !!session 
+      sessionRevoked: !!session
     });
   } catch (error: any) {
     console.error("========================================");
     console.error("❌ LOGOUT ERROR:", error);
     console.error("========================================");
     // Even if there's an error, we should allow logout on the client side
-    return res.status(500).json({ 
-      error: "Failed to revoke session", 
-      message: error.message 
+    return res.status(500).json({
+      error: "Failed to revoke session",
+      message: error.message
     });
   }
 });
