@@ -126,7 +126,6 @@ const createSession = async (userId: string, token: string, req: Request) => {
           ipAddress,
           userAgent,
           expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-          updatedAt: new Date(),
         },
       });
       console.log(
@@ -2168,7 +2167,6 @@ router.post("/logout", authMiddleware, async (req: AuthRequest, res: Response) =
         where: { token },
         data: {
           isActive: false,
-          updatedAt: new Date(),
         },
       });
 
