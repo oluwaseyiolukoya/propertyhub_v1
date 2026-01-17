@@ -162,32 +162,17 @@ async function request<T>(
 
     // Handle 401 Unauthorized - check for permissions update or session revoked (unless suppressed)
     if (response.status === 401 && !extra?.suppressAuthRedirect) {
-      const isNavigatingToPublic = (window as any).__navigatingToPublic === true;
       const isOnLoginPage =
         window.location.pathname === "/" || window.location.pathname === "/login";
-      const hasToken = !!getAuthToken();
       const isAppHost = window.location.hostname === "app.contrezz.com";
-
-      // If the user is on the login page without a token, avoid forced redirects
-      // (prevents background 401s from overriding external navigation)
-      if (!hasToken && isOnLoginPage && isAppHost) {
-        return {
-          error: {
-            error: (data as any)?.error || "Unauthorized",
-            message: (data as any)?.message || (data as any)?.details,
-            statusCode: response.status,
-            ...(typeof (data as any)?.details !== "undefined"
-              ? { details: (data as any).details }
-              : {}),
-            ...(typeof (data as any)?.code !== "undefined"
-              ? { code: (data as any).code }
-              : {}),
-          },
-        };
-      }
-
-      // If we're navigating to the public site, don't override the navigation
-      if (isNavigatingToPublic) {
+      
+      // CRITICAL: If user is on the login page on app domain, NEVER redirect
+      // This prevents background 401s from interfering with external navigation
+      // to the public site (contrezz.com). Users on login page are either:
+      // 1. Already logged out and trying to navigate away
+      // 2. About to login (no need to redirect to login)
+      if (isOnLoginPage && isAppHost) {
+        console.log('[api-client] 401 on login page - suppressing redirect');
         return {
           error: {
             error: (data as any)?.error || "Unauthorized",

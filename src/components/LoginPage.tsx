@@ -88,17 +88,9 @@ export function LoginPage({
   onNavigateToScheduleDemo,
   onNavigateToContact,
 }: LoginPageProps) {
-  const handleBackToHomeNavigation = () => {
-    if (!backToHomeUrl) return;
-    (window as any).__navigatingToPublic = true;
-    // Clear the flag after a short delay to avoid sticky state
-    window.setTimeout(() => {
-      (window as any).__navigatingToPublic = false;
-    }, 2000);
-    // Force cross-domain navigation (most reliable in production)
-    window.location.assign(backToHomeUrl);
-  };
-
+  // For cross-domain navigation, we use native <a> tags without JavaScript interception
+  // This follows the progressive enhancement principle - navigation works even if JS fails
+  
   const BackToHomeLink = ({
     className,
     children,
@@ -107,20 +99,19 @@ export function LoginPage({
     children: React.ReactNode;
   }) => {
     if (backToHomeUrl) {
+      // Production: Use native anchor - most reliable for cross-domain navigation
+      // DO NOT use preventDefault() - let the browser handle navigation natively
       return (
         <a
           href={backToHomeUrl}
           className={className}
-          onClick={(e) => {
-            // Prevent any SPA code from interfering with navigation
-            e.preventDefault();
-            handleBackToHomeNavigation();
-          }}
+          // No onClick handler - native navigation is more reliable
         >
           {children}
         </a>
       );
     }
+    // Local dev: Use button with callback
     return (
       <button type="button" onClick={onBackToHome} className={className}>
         {children}
@@ -425,60 +416,50 @@ export function LoginPage({
               </div>
               <span className="text-xl font-bold text-white">Contrezz</span>
             </BackToHomeLink>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={backToHomeUrl ? undefined : onBackToHome}
-              asChild={!!backToHomeUrl}
-              className="text-white hover:bg-white/10"
-            >
-              {backToHomeUrl ? (
-                <a
-                  href={backToHomeUrl}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleBackToHomeNavigation();
-                  }}
-                >
-                  <ArrowLeft className="h-4 w-4 mr-1" />
-                  Home
-                </a>
-              ) : (
-                <>
-                  <ArrowLeft className="h-4 w-4 mr-1" />
-                  Home
-                </>
-              )}
-            </Button>
+            {backToHomeUrl ? (
+              // Production: Use native anchor for reliable cross-domain navigation
+              <a
+                href={backToHomeUrl}
+                className="inline-flex items-center px-3 py-2 text-sm font-medium text-white hover:bg-white/10 rounded-md transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4 mr-1" />
+                Home
+              </a>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onBackToHome}
+                className="text-white hover:bg-white/10"
+              >
+                <ArrowLeft className="h-4 w-4 mr-1" />
+                Home
+              </Button>
+            )}
           </div>
         </header>
 
         {/* Desktop Back Button */}
         <div className="hidden lg:block p-6">
-          <Button
-            variant="ghost"
-            onClick={backToHomeUrl ? undefined : onBackToHome}
-            asChild={!!backToHomeUrl}
-            className="text-gray-600 hover:text-[#7C3AED] hover:bg-[#7C3AED]/10"
-          >
-            {backToHomeUrl ? (
-              <a
-                href={backToHomeUrl}
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleBackToHomeNavigation();
-                }}
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Home
-              </a>
-            ) : (
-              <>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Home
-              </>
-            )}
-          </Button>
+          {backToHomeUrl ? (
+            // Production: Use native anchor for reliable cross-domain navigation
+            <a
+              href={backToHomeUrl}
+              className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-600 hover:text-[#7C3AED] hover:bg-[#7C3AED]/10 rounded-md transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Home
+            </a>
+          ) : (
+            <Button
+              variant="ghost"
+              onClick={onBackToHome}
+              className="text-gray-600 hover:text-[#7C3AED] hover:bg-[#7C3AED]/10"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Home
+            </Button>
+          )}
         </div>
 
         {/* Login Form */}
