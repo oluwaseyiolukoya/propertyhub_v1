@@ -967,9 +967,13 @@ function App() {
     // Navigate to login page with a full page reload to ensure completely clean state
     // This clears React state, any in-memory caches, and prevents any stale data
     if (isAppDomain) {
-      window.location.href = "/";
+      // On app domain, stay on app domain and show login page
+      console.log('[App] Redirecting to login page on app domain');
+      window.location.href = getAppUrl() + "/";
     } else {
-      window.location.href = "/";
+      // On public domain, redirect to app domain for login
+      console.log('[App] Redirecting to login page on app domain');
+      window.location.href = getAppUrl() + "/";
     }
   };
 
