@@ -88,6 +88,17 @@ export function LoginPage({
   onNavigateToScheduleDemo,
   onNavigateToContact,
 }: LoginPageProps) {
+  const handleBackToHomeNavigation = () => {
+    if (!backToHomeUrl) return;
+    (window as any).__navigatingToPublic = true;
+    // Clear the flag after a short delay to avoid sticky state
+    window.setTimeout(() => {
+      (window as any).__navigatingToPublic = false;
+    }, 2000);
+    // Force cross-domain navigation (most reliable in production)
+    window.location.assign(backToHomeUrl);
+  };
+
   const BackToHomeLink = ({
     className,
     children,
@@ -100,12 +111,10 @@ export function LoginPage({
         <a
           href={backToHomeUrl}
           className={className}
-          onClick={() => {
-            (window as any).__navigatingToPublic = true;
-            // Clear the flag after a short delay to avoid sticky state
-            window.setTimeout(() => {
-              (window as any).__navigatingToPublic = false;
-            }, 2000);
+          onClick={(e) => {
+            // Prevent any SPA code from interfering with navigation
+            e.preventDefault();
+            handleBackToHomeNavigation();
           }}
         >
           {children}
@@ -424,7 +433,13 @@ export function LoginPage({
               className="text-white hover:bg-white/10"
             >
               {backToHomeUrl ? (
-                <a href={backToHomeUrl}>
+                <a
+                  href={backToHomeUrl}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleBackToHomeNavigation();
+                  }}
+                >
                   <ArrowLeft className="h-4 w-4 mr-1" />
                   Home
                 </a>
@@ -447,7 +462,13 @@ export function LoginPage({
             className="text-gray-600 hover:text-[#7C3AED] hover:bg-[#7C3AED]/10"
           >
             {backToHomeUrl ? (
-              <a href={backToHomeUrl}>
+              <a
+                href={backToHomeUrl}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleBackToHomeNavigation();
+                }}
+              >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Home
               </a>
