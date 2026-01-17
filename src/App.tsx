@@ -83,9 +83,7 @@ function App() {
                          "/integrations", "/get-started", "/login"];
 
     if (isAppDomain && publicPages.includes(path)) {
-      const url = new URL(window.location.origin + path);
-      url.searchParams.set("public", "true");
-      window.location.href = url.toString();
+      window.location.href = getPublicUrl(path);
       return;
     }
 
