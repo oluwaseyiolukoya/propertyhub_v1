@@ -8,6 +8,50 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { ArrowLeft, Calendar, Clock, Building2, User, Mail, Phone, MessageSquare } from 'lucide-react';
 import { submitLandingForm } from '../lib/api/landing-forms';
 import { toast } from 'sonner';
+import { Badge } from './ui/badge';
+
+// ContrezztLogo component (brand guideline compliant)
+const ContrezztLogo = ({ className = "w-8 h-8" }: { className?: string }) => (
+  <svg
+    viewBox="0 0 40 40"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+  >
+    <rect
+      x="4"
+      y="16"
+      width="12"
+      height="20"
+      rx="2"
+      fill="currentColor"
+      fillOpacity="0.9"
+    />
+    <rect
+      x="20"
+      y="8"
+      width="12"
+      height="28"
+      rx="2"
+      fill="currentColor"
+      fillOpacity="1"
+    />
+    <rect
+      x="12"
+      y="4"
+      width="8"
+      height="14"
+      rx="1.5"
+      fill="currentColor"
+      fillOpacity="0.7"
+    />
+    <circle cx="10" cy="22" r="1.5" fill="white" fillOpacity="0.6" />
+    <circle cx="10" cy="28" r="1.5" fill="white" fillOpacity="0.6" />
+    <circle cx="26" cy="14" r="1.5" fill="white" fillOpacity="0.6" />
+    <circle cx="26" cy="20" r="1.5" fill="white" fillOpacity="0.6" />
+    <circle cx="26" cy="26" r="1.5" fill="white" fillOpacity="0.6" />
+  </svg>
+);
 
 interface ScheduleDemoPageProps {
   onBackToHome: () => void;
@@ -136,15 +180,20 @@ export const ScheduleDemoPage: React.FC<ScheduleDemoPageProps> = ({ onBackToHome
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-xl">C</span>
+            <button
+              onClick={onBackToHome}
+              className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+            >
+              <div className="bg-gradient-to-br from-purple-600 to-violet-600 p-1.5 rounded-lg">
+                <ContrezztLogo className="h-6 w-6 text-white" />
               </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Contrezz</h1>
-                <p className="text-sm text-gray-600">Property Management Platform</p>
+              <div className="flex items-center">
+                <h1 className="text-xl font-bold text-gray-900">Contrezz</h1>
+                <Badge variant="secondary" className="ml-2 hidden sm:inline-flex">
+                  SaaS
+                </Badge>
               </div>
-            </div>
+            </button>
             <Button variant="ghost" onClick={onBackToHome}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Home
