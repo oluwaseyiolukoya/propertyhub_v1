@@ -275,6 +275,7 @@ router.put(
       console.log(`[Landing Pages] Updating page ${id} with data:`, {
         fieldsToUpdate: Object.keys(updateData),
         hasContent: !!updateData.content,
+        published: updateData.published,
       });
 
       const page = await prisma.landing_pages.update({
@@ -285,12 +286,15 @@ router.put(
       console.log(`[Landing Pages] Page ${id} updated successfully:`, {
         pageId: page.id,
         slug: page.slug,
+        published: page.published,
+        publishedAt: page.publishedAt,
         hasContent: !!page.content,
         contentType: typeof page.content,
         contentKeys:
           page.content && typeof page.content === "object"
             ? Object.keys(page.content)
             : null,
+        updatedAt: page.updatedAt,
       });
 
       // Log activity
