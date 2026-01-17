@@ -2,7 +2,8 @@
  * Authentication API
  */
 
-import { apiClient, setAuthToken, setUserData, setUserType } from '../api-client';
+import { apiClient, removeAuthToken, setAuthToken, setUserData, setUserType } from '../api-client';
+import { safeStorage } from '../safeStorage';
 import { API_ENDPOINTS } from '../api-config';
 
 export interface LoginRequest {
@@ -176,9 +177,10 @@ export const logout = async (): Promise<{ success: boolean; error?: string }> =>
     const response = await apiClient.post(API_ENDPOINTS.AUTH.LOGOUT, {});
     console.log('[Auth] Backend logout response:', response);
 
-    // Clear local storage after successful backend call
-    console.log('[Auth] Clearing local storage...');
-    localStorage.clear();
+    // Clear auth tokens and storage after successful backend call
+    console.log('[Auth] Clearing auth storage...');
+    removeAuthToken();
+    safeStorage.clear();
 
     console.log('[Auth] Logout successful');
     return { success: true };
@@ -186,9 +188,10 @@ export const logout = async (): Promise<{ success: boolean; error?: string }> =>
     // Log error but still clear local storage
     console.error('[Auth] Failed to revoke session on backend:', error);
 
-    // Clear local storage anyway - user wants to logout
-    console.log('[Auth] Clearing local storage despite backend error...');
-    localStorage.clear();
+    // Clear auth storage anyway - user wants to logout
+    console.log('[Auth] Clearing auth storage despite backend error...');
+    removeAuthToken();
+    safeStorage.clear();
 
     return { success: false, error: error?.message || 'Failed to revoke session' };
   }
