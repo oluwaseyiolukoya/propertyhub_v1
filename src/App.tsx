@@ -1599,6 +1599,7 @@ function App() {
               <>
                 <LoginPage
                   onLogin={handleLogin}
+                  backToHomeUrl={isLocalDev ? undefined : "https://contrezz.com"}
                   onBackToHome={() => {
                     console.log("[App] Back to Home clicked");
                     console.log("[App] isLocalDev:", isLocalDev);

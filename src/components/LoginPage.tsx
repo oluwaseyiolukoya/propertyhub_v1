@@ -76,6 +76,7 @@ function ContrezztLogo({ className = "w-8 h-8" }: { className?: string }) {
 interface LoginPageProps {
   onLogin: (userType: string, userData: any) => void;
   onBackToHome: () => void;
+  backToHomeUrl?: string;
   onNavigateToScheduleDemo?: () => void;
   onNavigateToContact?: () => void;
 }
@@ -83,9 +84,30 @@ interface LoginPageProps {
 export function LoginPage({
   onLogin,
   onBackToHome,
+  backToHomeUrl,
   onNavigateToScheduleDemo,
   onNavigateToContact,
 }: LoginPageProps) {
+  const BackToHomeLink = ({
+    className,
+    children,
+  }: {
+    className: string;
+    children: React.ReactNode;
+  }) => {
+    if (backToHomeUrl) {
+      return (
+        <a href={backToHomeUrl} className={className}>
+          {children}
+        </a>
+      );
+    }
+    return (
+      <button type="button" onClick={onBackToHome} className={className}>
+        {children}
+      </button>
+    );
+  };
   const [loginForm, setLoginForm] = useState({
     email: "",
     password: "",
@@ -308,17 +330,14 @@ export function LoginPage({
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
           {/* Logo & Brand */}
           <div>
-            <button
-              onClick={onBackToHome}
-              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-            >
+            <BackToHomeLink className="flex items-center gap-3 hover:opacity-80 transition-opacity">
               <div className="bg-gradient-to-br from-[#A855F7] to-[#7C3AED] p-3 rounded-xl">
                 <ContrezztLogo className="w-8 h-8 text-[#111827]" />
               </div>
               <span className="text-3xl font-bold text-white tracking-tight">
                 Contrezz
               </span>
-            </button>
+            </BackToHomeLink>
           </div>
 
           {/* Main Content */}
@@ -381,23 +400,30 @@ export function LoginPage({
         {/* Mobile Header - Inverted Brand Color */}
         <header className="lg:hidden bg-[#111827] border-b border-white/10 px-4 py-4">
           <div className="flex justify-between items-center">
-            <button
-              onClick={onBackToHome}
-              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-            >
+            <BackToHomeLink className="flex items-center gap-2 hover:opacity-80 transition-opacity">
               <div className="bg-gradient-to-br from-[#A855F7] to-[#7C3AED] p-2 rounded-lg">
                 <ContrezztLogo className="w-6 h-6 text-[#111827]" />
               </div>
               <span className="text-xl font-bold text-white">Contrezz</span>
-            </button>
+            </BackToHomeLink>
             <Button
               variant="ghost"
               size="sm"
-              onClick={onBackToHome}
+              onClick={backToHomeUrl ? undefined : onBackToHome}
+              asChild={!!backToHomeUrl}
               className="text-white hover:bg-white/10"
             >
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              Home
+              {backToHomeUrl ? (
+                <a href={backToHomeUrl}>
+                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  Home
+                </a>
+              ) : (
+                <>
+                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  Home
+                </>
+              )}
             </Button>
           </div>
         </header>
@@ -406,11 +432,21 @@ export function LoginPage({
         <div className="hidden lg:block p-6">
           <Button
             variant="ghost"
-            onClick={onBackToHome}
+            onClick={backToHomeUrl ? undefined : onBackToHome}
+            asChild={!!backToHomeUrl}
             className="text-gray-600 hover:text-[#7C3AED] hover:bg-[#7C3AED]/10"
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Home
+            {backToHomeUrl ? (
+              <a href={backToHomeUrl}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Home
+              </a>
+            ) : (
+              <>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Home
+              </>
+            )}
           </Button>
         </div>
 
