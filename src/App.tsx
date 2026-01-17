@@ -147,7 +147,7 @@ function App() {
       hostname === "app.contrezz.local" ||
       hostname.endsWith(".ondigitalocean.app") || // DigitalOcean App Platform domains
       (hostname === "localhost" && !urlParams.get("public")));
-  
+
   // Debug logging for domain detection
   console.log("[App] Domain detection:", {
     hostname,
@@ -414,8 +414,17 @@ function App() {
           }
         } else {
           // Token invalid, clear auth
+          console.log("[App] Token invalid, clearing auth state");
           removeAuthToken();
+          setCurrentUser(null);
+          setUserType("");
+          setCustomerData(null);
         }
+      } else {
+        // No stored user/token, ensure clean state
+        console.log("[App] No stored auth found");
+        setCurrentUser(null);
+        setUserType("");
       }
       setIsAuthChecking(false);
     };
@@ -1596,7 +1605,7 @@ function App() {
                     console.log("[App] Back to Home clicked");
                     console.log("[App] isLocalDev:", isLocalDev);
                     console.log("[App] hostname:", window.location.hostname);
-                    
+
                     // Navigate to public landing page
                     if (isLocalDev) {
                       // On localhost, add ?public=true to show landing page
