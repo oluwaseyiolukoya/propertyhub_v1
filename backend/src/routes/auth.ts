@@ -2134,7 +2134,8 @@ router.post(
 
 /**
  * POST /api/auth/logout
- * Logout and revoke current session
+ * Logout and revoke ALL sessions for the user (not just current one)
+ * This ensures complete logout even if multiple sessions exist
  */
 router.post("/logout", authMiddleware, async (req: AuthRequest, res: Response) => {
   console.log("========================================");
@@ -2151,42 +2152,50 @@ router.post("/logout", authMiddleware, async (req: AuthRequest, res: Response) =
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    console.log(`🔒 Attempting to revoke session for user: ${userEmail} (${userId})`);
-    console.log(`🔒 Token (first 20 chars): ${token.substring(0, 20)}...`);
+    console.log(`🔒 Attempting to revoke ALL sessions for user: ${userEmail} (${userId})`);
+    console.log(`🔒 Current token (first 20 chars): ${token.substring(0, 20)}...`);
 
-    // First, try to find the session by token
-    const session = await prisma.sessions.findUnique({
-      where: { token },
+    // Count active sessions before revocation
+    const activeSessionsBefore = await prisma.sessions.count({
+      where: {
+        userId,
+        isActive: true,
+      },
+    });
+    console.log(`🔒 Active sessions before logout: ${activeSessionsBefore}`);
+
+    // CRITICAL: Revoke ALL sessions for this user, not just the current one
+    // This prevents the "ghost session" problem where old sessions keep user logged in
+    const result = await prisma.sessions.updateMany({
+      where: {
+        userId,
+        isActive: true,
+      },
+      data: {
+        isActive: false,
+      },
     });
 
-    if (session) {
-      console.log(`🔒 Session found: ${session.id}, isActive: ${session.isActive}`);
+    console.log(`✅ ALL sessions revoked successfully!`);
+    console.log(`   Sessions revoked: ${result.count}`);
+    console.log(`   User: ${userEmail}`);
 
-      // Session found, mark it as inactive
-      const updatedSession = await prisma.sessions.update({
-        where: { token },
-        data: {
-          isActive: false,
-        },
-      });
-
-      console.log(`✅ Session revoked successfully!`);
-      console.log(`   Session ID: ${updatedSession.id}`);
-      console.log(`   isActive: ${updatedSession.isActive}`);
-      console.log(`   User: ${userEmail}`);
-    } else {
-      // Session not found, but still log out successfully
-      // This can happen if session was already revoked or expired
-      console.log(`⚠️ No session found for token, but allowing logout for user ${userEmail}`);
-    }
+    // Verify all sessions are now inactive
+    const activeSessionsAfter = await prisma.sessions.count({
+      where: {
+        userId,
+        isActive: true,
+      },
+    });
+    console.log(`🔒 Active sessions after logout: ${activeSessionsAfter}`);
 
     console.log("========================================");
-    console.log("🔒 LOGOUT COMPLETE - Session should now be invalid");
+    console.log("🔒 LOGOUT COMPLETE - ALL sessions now invalid");
     console.log("========================================");
 
     return res.json({
       message: "Logged out successfully",
-      sessionRevoked: !!session
+      sessionsRevoked: result.count
     });
   } catch (error: any) {
     console.error("========================================");

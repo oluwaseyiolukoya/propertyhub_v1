@@ -891,30 +891,25 @@ function App() {
   const handleLogout = async () => {
     console.log('[App] handleLogout initiated...');
 
+    // CRITICAL: Clear storage FIRST before any async operations
+    // This prevents any race condition where auth check might run with stale token
+    console.log('[App] Clearing ALL storage immediately...');
     try {
-      // Call backend to revoke session first
-      console.log('[App] Importing logout function...');
-      const { logout } = await import('./lib/api/auth');
-      console.log('[App] Calling logout...');
-      const result = await logout();
-      console.log('[App] Logout result:', result);
-    } catch (error) {
-      console.error('[App] Failed to revoke session on backend:', error);
-      // Continue with logout even if backend call fails
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch (e) {
+      console.error('[App] Error clearing storage:', e);
     }
-
-    // Clear session data (redundant since logout() already clears, but just to be safe)
-    console.log('[App] Clearing session manually...');
     sessionManager.clearSessionManually();
 
-    // Reset all user-related state
-    console.log('[App] Resetting user state...');
+    // Reset all state immediately (before backend call)
+    console.log('[App] Resetting user state immediately...');
     setCurrentUser(null);
     setUserType("");
     setCustomerData(null);
     setSignupData(null);
-
-    // Reset all UI state flags
+    setManagers([]);
+    setPropertyAssignments([]);
     setShowLanding(false);
     setShowGetStarted(false);
     setShowAccountReview(false);
@@ -935,19 +930,25 @@ function App() {
     setShowCheckAuth(false);
     setShowKYCVerification(false);
 
-    // Reset managers and assignments
-    setManagers([]);
-    setPropertyAssignments([]);
+    try {
+      // Call backend to revoke ALL sessions (the backend now revokes ALL user sessions)
+      console.log('[App] Importing logout function...');
+      const { logout } = await import('./lib/api/auth');
+      console.log('[App] Calling logout to revoke ALL sessions...');
+      const result = await logout();
+      console.log('[App] Logout result:', result);
+    } catch (error) {
+      console.error('[App] Failed to revoke sessions on backend:', error);
+      // Continue with logout even if backend call fails
+    }
 
     console.log('[App] Logout complete, redirecting...');
 
-    // Navigate to login page to ensure clean state
-    // Use window.location for a full page reload to clear any React Router state
+    // Navigate to login page with a full page reload to ensure completely clean state
+    // This clears React state, any in-memory caches, and prevents any stale data
     if (isAppDomain) {
-      // Stay on the login page (this will refresh the page with a clean state)
       window.location.href = "/";
     } else {
-      // For public domain, navigate to home
       window.location.href = "/";
     }
   };

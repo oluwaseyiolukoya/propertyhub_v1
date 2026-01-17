@@ -90,7 +90,7 @@ export function LoginPage({
 }: LoginPageProps) {
   // For cross-domain navigation, we use native <a> tags without JavaScript interception
   // This follows the progressive enhancement principle - navigation works even if JS fails
-  
+
   const BackToHomeLink = ({
     className,
     children,

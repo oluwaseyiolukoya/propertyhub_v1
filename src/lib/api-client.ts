@@ -165,7 +165,7 @@ async function request<T>(
       const isOnLoginPage =
         window.location.pathname === "/" || window.location.pathname === "/login";
       const isAppHost = window.location.hostname === "app.contrezz.com";
-      
+
       // CRITICAL: If user is on the login page on app domain, NEVER redirect
       // This prevents background 401s from interfering with external navigation
       // to the public site (contrezz.com). Users on login page are either:
